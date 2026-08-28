@@ -267,8 +267,7 @@ public sealed partial class TubeSection {
                 shearCentreZMm: 0.0,
                 monosymmetryFactor: 0.0,
                 centroidMm: new Vector3(centroid.X, centroid.Y, 0.0),
-                form: Some(form),
-                key: Key)
+                form: Some(form))
         select (properties, form);
 
     private static double EqualAreaAxis(Seq<(double Area, double Ordinate)> rows, double area) {

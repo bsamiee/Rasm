@@ -489,7 +489,7 @@ public static class ReinforcementSeed {
     public static readonly SeedLaw<ReinforcementRow> Law = SeedLaw<ReinforcementRow>.Of(
         family: ComponentFamily.Reinforcement,
         designation: static row => row.Designation,
-        coherence: static (row, key) => row.Coherence(),
+        coherence: static (row, key) => row.Coherence(key),
         profile: ProfileOf,
         substance: static row => row.Grade.Substance,
         source: static _ => Tabulated,

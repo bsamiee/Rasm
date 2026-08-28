@@ -142,15 +142,15 @@ public abstract partial record RevertDelta {
 
     public Validation<Error, RevertDelta> Admit() => Switch(
         set: static delta => Defined(delta, delta.Before, "before").Apply(
-            Defined(delta, delta.After, "after"), static (_, _) => (RevertDelta)delta).As(),
+            Defined(delta, delta.After, "after"), static _ => (RevertDelta)delta).As(),
         insert: static delta => Positioned(delta, delta.At).Apply(
-            Defined(delta, delta.Item, "item"), static (_, _) => (RevertDelta)delta).As(),
+            Defined(delta, delta.Item, "item"), static _ => (RevertDelta)delta).As(),
         remove: static delta => Positioned(delta, delta.At).Apply(
-            Defined(delta, delta.Item, "item"), static (_, _) => (RevertDelta)delta).As(),
+            Defined(delta, delta.Item, "item"), static _ => (RevertDelta)delta).As(),
         move: static delta => Positioned(delta, delta.From).Apply(
             Positioned(delta, delta.To),
             Distinct(delta),
-            static (_, _, _) => (RevertDelta)delta).As(),
+            static () => (RevertDelta)delta).As(),
         composite: static delta => delta.Children.IsEmpty
             ? Fail<Error, RevertDelta>(new HistoryFault.ApplyRejected("composite/empty"))
             : delta.Children.Traverse(static child => child.Admit()).As().Map(_ => (RevertDelta)delta));
@@ -512,7 +512,7 @@ public sealed record EditHistory(
             return Scope.Log.Push(op, cursor);
         })
         .Map(settled => Fire(
-            op.Target, new EditOutcome.Committed(),
+            op.Target, new EditOutcome.Committed(op.Kind.Key),
             settled is Transition<Seq<RevertibleOp>>.Committed ? RevertCursor.Start : cursor,
             hooks));
 

@@ -189,7 +189,7 @@ public static class CdcIngress {
             Option<Error> refused = None;
             Option<IngressOutcome> settled = None;
             ConsumeResult<string, byte[]>? offered = await consumer.ConsumeAndProcessMessageAsync(async (result, _, processingToken) => {
-                (await Settle(result.Message, source, ports, key, processingToken).ConfigureAwait(false)).Match(
+                (await Settle(result.Message, source, ports, processingToken).ConfigureAwait(false)).Match(
                     Succ: outcome => {
                         processingToken.ThrowIfCancellationRequested();
                         settled = Some(outcome);

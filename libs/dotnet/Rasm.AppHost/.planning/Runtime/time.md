@@ -89,7 +89,7 @@ public sealed partial class DeadlineOutcome {
 public static class DeadlineOps {
     extension(ClockPolicy clocks) {
         public Fin<(Fin<T> Value, GaugedSpan<DeadlineClass> Span)> Gauged<T>(DeadlineClass row, Func<Fin<T>> body) =>
-            clocks.Line.Gauged<T, DeadlineClass>(lane: row, work: work, body: body, key: work);
+            clocks.Line.Gauged<T, DeadlineClass>(lane: row, work: work, body: body);
     }
 }
 ```

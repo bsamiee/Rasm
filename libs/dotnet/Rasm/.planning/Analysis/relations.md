@@ -255,10 +255,10 @@ internal abstract partial record IntersectionResult {
         hits: static (o, _) => HitProjection.For(output: o).IsSome);
     internal Fin<Seq<TOut>> Project<TOut>() => Switch(
         lines: Uniform<TOut>, points: Uniform<TOut>, intervals: Uniform<TOut>,
-        polylines: static (k, p) => typeof(TOut) == typeof(IntersectionKind)
-            ? OutputBinding.Of<IntersectionKind>().Admit<TOut>(values: p.Values.Map(static row => (object)row.Kind), key: k)
-            : Uniform<TOut>(key: k, shape: p),
-        hits: static (k, h) => IntersectionHit.Project<TOut>(hits: h.Values, key: k));
+        polylines: static p => typeof(TOut) == typeof(IntersectionKind)
+            ? OutputBinding.Of<IntersectionKind>().Admit<TOut>(values: p.Values.Map(static row => (object)row.Kind))
+            : Uniform<TOut>(shape: p),
+        hits: static h => IntersectionHit.Project<TOut>(hits: h.Values));
     private static bool Serves(Type output, IntersectionResult shape) => shape.Native.Declared == output;
     private static Fin<Seq<TOut>> Uniform<TOut>(IntersectionResult shape) =>
         shape.Native.Admit<TOut>(values: shape.Elements);

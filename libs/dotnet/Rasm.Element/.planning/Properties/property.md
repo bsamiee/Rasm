@@ -153,21 +153,21 @@ public abstract partial record PropertyValue {
   text: v => w.Ordinal(0).String(v.Value),
   measure: v => w.Ordinal(1).Measure(v.Value),
   boolean: v => w.Ordinal(2).Bool(v.Value),
-  logical: v => w.Ordinal(3).Optional(v.Value, static (b, run) => run.Bool(b)),
+  logical: v => w.Ordinal(3).Optional(v.Value, static run => run.Bool()),
   enumerated: v => w.Ordinal(4)
-   .Rows(v.Selected, static (member, run) => member.CanonicalBytes(run))
-   .Rows(v.Allowed, static (member, run) => member.CanonicalBytes(run)),
-  reference: v => w.Ordinal(5).Optional(v.UsageName, static (u, run) => run.String(u)).String(v.Target.ToValue()),
+   .Rows(v.Selected, static run => member.CanonicalBytes(run))
+   .Rows(v.Allowed, static run => member.CanonicalBytes(run)),
+  reference: v => w.Ordinal(5).Optional(v.UsageName, static run => run.String()).String(v.Target.ToValue()),
   bounded: v => w.Ordinal(6)
-   .Optional(v.Lower, static (m, run) => run.Measure(m))
-   .Optional(v.Upper, static (m, run) => run.Measure(m))
-   .Optional(v.SetPoint, static (m, run) => run.Measure(m)),
-  list: v => w.Ordinal(7).Rows(v.Values, static (inner, run) => inner.CanonicalBytes(run)),
+   .Optional(v.Lower, static run => run.Measure())
+   .Optional(v.Upper, static run => run.Measure())
+   .Optional(v.SetPoint, static run => run.Measure()),
+  list: v => w.Ordinal(7).Rows(v.Values, static run => inner.CanonicalBytes(run)),
   table: v => w.Ordinal(8).String(v.Interp.Key)
-   .Rows(v.Rows, static (row, run) => { row.Defining.CanonicalBytes(run); row.Defined.CanonicalBytes(run); }),
+   .Rows(v.Rows, static run => { row.Defining.CanonicalBytes(run); row.Defined.CanonicalBytes(run); }),
   complex: v => w.Ordinal(9).String(v.UsageName)
    .Sorted(toSeq(v.Properties), static e => e.Key.ToValue(), StringComparer.Ordinal,
-    static (e, run) => { run.String(e.Key.ToValue()); e.Value.CanonicalBytes(run); }),
+    static run => { run.String(e.Key.ToValue()); e.Value.CanonicalBytes(run); }),
   temporal: v => w.Ordinal(10).Ordinal(v.Value.CaseOrdinal).String(v.Value.Iso()),
   integer: v => WriteBytes(w.Ordinal(11), v.Value.ToByteArray(isUnsigned: false, isBigEndian: true)),
   number: v => w.Ordinal(12).Double(v.Value),
@@ -186,7 +186,7 @@ public abstract partial record PropertyValue {
   bounded: static p => p,
   list: p => new List(p.Values.Map(v => v.Remap(map))),
   table: p => new Table(p.Rows.Map(r => (Defining: r.Defining.Remap(map), Defined: r.Defined.Remap(map))), p.Interp),
-  complex: p => new Complex(p.UsageName, p.Properties.Map((_, v) => v.Remap(map))),
+  complex: p => new Complex(p.UsageName, p.Properties.Map(v => v.Remap(map))),
   temporal: static p => p);
 
  public Seq<NodeId> References() => Switch(

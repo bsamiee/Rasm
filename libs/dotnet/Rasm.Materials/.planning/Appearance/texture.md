@@ -861,13 +861,13 @@ public static class PeriodProof {
 
     public static Fin<Unit> Prove(PeriodOracle row) =>
         row.Switch(
-            admitted: static (k, a) => a.Mint(k).Bind(source => Shifted(source, a, k)),
-            refused:  static (k, r) => r.Mint(k).Match(
-                Succ: _ => Fin.Fail<Unit>(new MaterialFault.Parameter(k, $"<period-oracle-admitted-refusable:{r.Name}:{r.Reason}>")),
+            admitted: static a => a.Mint().Bind(source => Shifted(source, a)),
+            refused:  static r => r.Mint().Match(
+                Succ: _ => Fin.Fail<Unit>(new MaterialFault.Parameter($"<period-oracle-admitted-refusable:{r.Name}:{r.Reason}>")),
                 Fail: error => error is MaterialFault.Parameter parameter
                     && parameter.Detail.StartsWith(r.Reason[..^1], StringComparison.Ordinal)
                     ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(new MaterialFault.Parameter(k, $"<period-oracle-wrong-refusal:{r.Name}:{error.Code}>"))));
+                    : Fin.Fail<Unit>(new MaterialFault.Parameter($"<period-oracle-wrong-refusal:{r.Name}:{error.Code}>"))));
 
     static Fin<Unit> Shifted(TextureSource.Noise source, PeriodOracle.Admitted row) =>
         from seam in Tolerance.Of(ToleranceLane.Residual, row.Tolerance)

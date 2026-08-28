@@ -384,10 +384,10 @@ public sealed class GumballRig : IDisposable {
 
     internal Fin<Unit> Grip(GumballGrip next) =>
         Cell.Step(grip, held => held is GumballGrip.Released ? None : Some(next), new KernelFault.InvalidContext()).Switch(
-            committed: static (_, _) => Fin.Succ(unit),
-            ceded: static (_, _) => Fin.Succ(unit),
-            refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-            contended: static (_) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
+            committed: static _ => Fin.Succ(unit),
+            ceded: static _ => Fin.Succ(unit),
+            refused: static row => Fin.Fail<Unit>(row.Cause),
+            contended: static () => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
     internal Fin<Option<HostRow<GumballMode>>> Pick(PickContext context, GetPoint point) {
         return guard(context is not null && point is not null, new KernelFault.InvalidInput()).ToFin()
@@ -442,7 +442,7 @@ public static class Gumballs {
                                 pipe.Enabled = true;
                                 return unit;
                             }).Run().Bind(static inner => inner)
-                            select rig).Rollback(release: () => rig.Release());
+                            select rig).Rollback(release: () => rig.Release(op));
                 })));
     }
 }
@@ -655,8 +655,7 @@ internal sealed record WidgetSink(
             new Canvas.Pipeline(ConduitFrame.Of(args.Display, args.Viewport, ConduitPhase.WidgetOverlay)),
             Program.Value,
             Key).Map(static _ => unit),
-        refused: static () => Fin.Succ(unit),
-        key: Key));
+        refused: static () => Fin.Succ(unit)));
 
     internal Unit Retarget(Seq<Mark> marks) => ignore(Program.Swap(_ => marks));
 
@@ -672,8 +671,7 @@ internal sealed record WidgetSink(
             _ = HostEdge.SideWhen(!Writer.TryWrite(project()), () => ignore(Rejected.Swap(static count => count + 1)));
             return Fin.Succ(unit);
         },
-        refused: static () => Fin.Succ(unit),
-        key: Key));
+        refused: static () => Fin.Succ(unit)));
 
     private Unit Observe(Fin<Unit> outcome) => outcome.Match(
         Succ: static _ => unit,

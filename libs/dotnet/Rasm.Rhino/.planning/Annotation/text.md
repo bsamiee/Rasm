@@ -465,7 +465,7 @@ public sealed record FieldProgram {
         literal: static segment => segment.Value.Value,
         field: static segment => segment.Expr.Token() switch {
             (var name, { IsEmpty: true }) => $"%<{name}()>%",
-            var (name, args) => $"%<{name}({string.Join(",", args.Map(static arg => $"\"{Quote(arg)}\""))})>%",
+            var args => $"%<{name}({string.Join(",", args.Map(static arg => $"\"{Quote(arg)}\""))})>%",
         })));
 
     internal Fin<string> Evaluate(RhinoDoc document) => Try.lift(() =>
@@ -1200,11 +1200,11 @@ public abstract partial record TextAnswer : IDetachedDocumentResult {
 
     public Fin<Unit> Release() => Switch(
         state: static (_, _) => Fin.Succ(unit),
-        leaderState: static (answer) => answer.Facts.Release(),
+        leaderState: static (answer) => answer.Facts.Release(op),
         mapped: static (_, _) => Fin.Succ(unit),
         resolved: static (_, _) => Fin.Succ(unit),
         split: static (_, _) => Fin.Succ(unit),
-        outlined: static (answer) => answer.Product.Release(),
+        outlined: static (answer) => answer.Product.Release(op),
         pieces: static (answer) => Custody.Dispose(held: answer.Products),
         scaled: static (_, _) => Fin.Succ(unit));
 }

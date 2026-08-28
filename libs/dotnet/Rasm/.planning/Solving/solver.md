@@ -961,7 +961,7 @@ public sealed record ConstraintSystem(
             (int rows, double[] r, Option<Matrix> jacobian, int dofs) = LinearizeIsland(system, island, system.SeedVector.Value);
             return rows == 0
                 ? new IslandVerdict(ordinal, dofs > 0 ? Determinacy.Under : Determinacy.Well, dofs, 0, 0, RankMethod.Count)
-                : jacobian.ToFin(new KernelFault.InvalidResult()).Bind(j => j.DecomposeSvd()).Match(
+                : jacobian.ToFin(new KernelFault.InvalidResult()).Bind(j => j.DecomposeSvd(key)).Match(
                     Succ: svd => rows <= svd.Rank
                         ? new IslandVerdict(ordinal, dofs - svd.Rank > 0 ? Determinacy.Under : Determinacy.Well,
                             dofs - svd.Rank, 0, svd.Rank, RankMethod.Witness)

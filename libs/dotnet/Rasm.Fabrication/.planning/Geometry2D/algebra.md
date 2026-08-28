@@ -92,8 +92,8 @@ public abstract partial record HygieneRule {
     internal Fin<Unit> Admit() => Switch(
         simplify: static (rule) => Admit.Positive(rule.Epsilon).Map(static _ => unit),
         ramerDouglasPeucker: static (rule) => Admit.Positive(rule.Epsilon).Map(static _ => unit),
-        collinear: static (_, _) => Fin.Succ(unit),
-        duplicates: static (_, _) => Fin.Succ(unit));
+        collinear: static _ => Fin.Succ(unit),
+        duplicates: static _ => Fin.Succ(unit));
 }
 
 [ComplexValueObject]
@@ -673,16 +673,14 @@ public static class PolygonAlgebra {
             .ToFin();
 
     private static Fin<Seq<Chain>> ChainsOf(OffsetResult result) => result.Switch(
-        state: op,
-        graph: static (_) => Fin.Fail<Seq<Chain>>(new KernelFault.InvalidResult(Detail: Some("offset:non-curve-result"))),
-        curves: static (_, loops) => Fin.Succ(loops),
-        probe: static (_) => Fin.Fail<Seq<Chain>>(new KernelFault.InvalidResult(Detail: Some("offset:non-curve-result"))));
+        graph: static () => Fin.Fail<Seq<Chain>>(new KernelFault.InvalidResult(Detail: Some("offset:non-curve-result"))),
+        curves: static loops => Fin.Succ(loops),
+        probe: static () => Fin.Fail<Seq<Chain>>(new KernelFault.InvalidResult(Detail: Some("offset:non-curve-result"))));
 
     private static Fin<Seq<Chain>> OverlayChainsOf(ArrangementResult result) => result.Switch(
-        state: op,
-        boolean: static (_) => Fin.Fail<Seq<Chain>>(new KernelFault.InvalidResult(Detail: Some("boolean:non-overlay-result"))),
-        overlay: static (_, admitted) => Fin.Succ(admitted.Loops),
-        complex: static (_) => Fin.Fail<Seq<Chain>>(new KernelFault.InvalidResult(Detail: Some("boolean:non-overlay-result"))));
+        boolean: static () => Fin.Fail<Seq<Chain>>(new KernelFault.InvalidResult(Detail: Some("boolean:non-overlay-result"))),
+        overlay: static admitted => Fin.Succ(admitted.Loops),
+        complex: static () => Fin.Fail<Seq<Chain>>(new KernelFault.InvalidResult(Detail: Some("boolean:non-overlay-result"))));
 
     internal static Polyline ToPolyline(Loop path) =>
         new(path.Closed ? path.Vertices.Add(path.Vertices[0]) : path.Vertices);

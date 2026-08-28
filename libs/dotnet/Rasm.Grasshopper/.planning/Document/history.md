@@ -84,7 +84,7 @@ public static partial class HistoryLedger {
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default) {
         return Optional().ToFin(new KernelFault.InvalidInput())
             .Bind(valid => DocumentGate.Run(
-                graph: graph, key: active,
+                graph: graph,
                 body: document => valid.Switch(
                         state: (Key: active, Graph: document, Hooks: hooks),
                         sealCase: static (frame, c) =>

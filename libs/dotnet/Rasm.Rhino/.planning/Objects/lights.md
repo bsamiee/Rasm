@@ -97,8 +97,7 @@ public abstract partial record LightAttenuation {
 
     internal Fin<LightAttenuation> Admit() =>
         Switch(
-            context: op,
-            named: static (_, law) => Fin.Succ<LightAttenuation>(law),
+            named: static law => Fin.Succ<LightAttenuation>(law),
             free: static (law) => Acceptance.Input(value: law.Coefficients).Map(_ => (LightAttenuation)law));
 
     internal Unit Apply(Light working) {
@@ -257,8 +256,8 @@ public sealed partial class Radiance {
         ref ValidationError? validationError, ref RadianceUnit unit, ref double magnitude) {
         double value = magnitude;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (unit is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Unit) }))),
-                (!double.IsFinite(value) || value <= 0d, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Magnitude), value, "positive and finite" })))));
+                (unit is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Unit) }))),
+                (!double.IsFinite(value) || value <= 0d, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Magnitude), value, "positive and finite" })))));
     }
 
     public static Fin<Radiance> Of(RadianceUnit unit, double magnitude) =>
@@ -289,7 +288,6 @@ public abstract partial record LightSeed {
 
     internal Fin<LightSeed> Admit() =>
         Switch(
-            context: op,
             point: static (seed) =>
                 from location in Acceptance.Input(value: seed.Location)
                 select (LightSeed)new Point(Location: location),
@@ -377,7 +375,6 @@ public abstract partial record LightEdit {
 
     internal Fin<LightEdit> Admit() =>
         Switch(
-            context: op,
             rename: static (edit) => Acceptance.Text(value: edit.Name).Map(name => (LightEdit)new Rename(Name: name)),
             toggle: static (edit) => Admit.Need(edit.Signal).Map(_ => (LightEdit)edit),
             power: static (edit) => Admit.Need(edit.Value).Map(_ => (LightEdit)edit),
@@ -538,7 +535,6 @@ public abstract partial record LightOp {
 
     internal Fin<LightOp> Admit() =>
         Switch(
-            context: op,
             mint: static (work) =>
                 from seed in Admit.Need(work.Seed).Bind(value => value.Admit())
                 from name in work.Name.Traverse(value => Acceptance.Text(value: value)).As()

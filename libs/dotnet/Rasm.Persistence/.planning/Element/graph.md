@@ -184,7 +184,7 @@ public sealed partial class StoreActor {
 
 public sealed record ProjectionContext(MonotonicTimeline Timeline, Func<Instant> Now, Hlc Clock, CorrelationId Correlation, TenantContext Tenant, InstrumentSet Instruments) {
     public Fin<Duration> Since(MonotonicStamp start) =>
-        Error.New(key.Message).Bind(now => Timeline.Elapsed(start, now)).Map(Duration.FromTimeSpan);
+        Timeline.Capture(key).Bind(now => Timeline.Elapsed(start, now)).Map(Duration.FromTimeSpan);
 }
 
 public sealed record GraphWriteStamp(StoreActor Actor, Guid Origin, Option<ProjectId> Project, IdentityWriter Identity);

@@ -835,7 +835,7 @@ public sealed record SyncWire(
         Dial(peer, string.Create(CultureInfo.InvariantCulture, $"transfer-set:{ContentHash.Hex(root)}.{held.Count}"),
             (client, options) => client.TransferSetAsync(new TransferSetRequest {
                 Root = ContentHash.Wire(root),
-                Held = { held.Map(static key => ContentHash.Wire()) },
+                Held = { held.Map(static key => ContentHash.Wire(key)) },
             }, options).ResponseAsync,
             static reply => SyncWireMap.Keys(reply.Missing));
 
@@ -944,14 +944,14 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
                     .Apply(static (root, held) => (root, held)).As().ToFin()))
             .Bind(stated => stated.Match(
                 Succ: asked => runtime.Fetch(asked.Root).Map(fetched => fetched.Map(entry => new TransferSetResponse {
-                    Missing = { OpLog.TransferSet(entry, asked.Held.Contains).Map(static key => ContentHash.Wire()) },
+                    Missing = { OpLog.TransferSet(entry, asked.Held.Contains).Map(static key => ContentHash.Wire(key)) },
                 })),
                 Fail: static error => IO.pure(Fin.Fail<TransferSetResponse>(error))));
 
     private IO<Fin<Seq<ReadOnlyMemory<byte>>>> Subtree(CheckoutRequest request) =>
         IO.lift<Fin<UInt128>>(() => Admitted(request).Bind(stated => ContentHash.Admit(stated.Root.Span)))
             .Bind(root => root.Match(
-                Succ: key => runtime.Fetch().Bind(fetched => fetched.Match(
+                Succ: key => runtime.Fetch(key).Bind(fetched => fetched.Match(
                     Succ: entry => entry.Closure.Traverse(runtime.Fetch).As().Map(rows =>
                         rows.Traverse(static row => row.ToValidation()).As().ToFin()
                             .Bind(descendants => OpLogWire.Encode(Seq(entry) + descendants))),

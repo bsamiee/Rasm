@@ -994,7 +994,7 @@ public abstract partial record SectionCapacity {
             elastic: e =>
                 (e.Section.EffectiveDepthMm(SectionFace.Bottom).ToValidation((Error)new ComponentFault.EffectiveDepthUnavailable(e.Subject)),
                  e.Section.FaceSteelAreaMm2(SectionFace.Bottom).ToValidation((Error)new ComponentFault.TensionChordUnavailable(e.Subject)))
-                    .Apply(static (depth, steel) => (Depth: depth, Steel: steel)).As().ToFin()
+                    .Apply(static steel => (Depth: depth, Steel: steel)).As().ToFin()
                     .Bind(chord => Try.lift(() => {
                         double fck = EnConcreteFactory.CreateLinearElastic(e.Section.Concrete.Grade).Strength.Megapascals;
                         return Fin.Succ<SectionCapacity>(new RcElastic(

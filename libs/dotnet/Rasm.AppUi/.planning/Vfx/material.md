@@ -172,8 +172,7 @@ public sealed partial record TreatmentOperation(
                     Count: (uint)Treatment.Stack.Count,
                     Measure: new EffectMeasure.Coordinate(Treatment.Scope.Switch(
                         boundsLocal: static _ => "bounds_local",
-                        driven: static _ => "driven"))),
-                key: Key)
+                        driven: static _ => "driven"))))
             .Map(static _ => unit));
     }
 

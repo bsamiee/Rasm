@@ -250,31 +250,29 @@ public static class Painters {
 public static class Chrome {
     public static Fin<ChromeOutcome> Apply(ChromeIntent intent) {
         return Admit.Need(intent).Bind(valid => UiThread.Run(new UiDispatch<ChromeOutcome>.Blocking(() => valid.Switch(
-            state: active,
-            barCase: static (k, c) => Admit.Need(c.Target).Bind(bar => {
+            barCase: static c => Admit.Need(c.Target).Bind(bar => {
                 var (fails, done) = c.Items.Map(item => Try.lift(() =>
                     Append(bar: bar, item: item)).Run().Bind(static inner => inner)).Partition();
                 return fails.IsEmpty
                     ? Fin.Succ((ChromeOutcome)new ChromeOutcome.BuiltCase(Count: done.Count))
                     : Fin.Fail<ChromeOutcome>(Error.Many([.. fails]));
             }),
-            barPassCase: static (k, c) => Admit.Need(c.Target)
+            barPassCase: static c => Admit.Need(c.Target)
                 .Bind(bar => c.Pass.Switch(
                     state: (Bar: bar, Key: k),
-                    layoutCase: static (s, _) => Passed(verb: s.Key, action: s.Bar.Layout),
-                    renderCase: static (s, p) => Passed(verb: s.Key, action: () => s.Bar.Render(context: p.Surface)),
-                    tooltipCase: static (s, p) => Ruled(verb: s.Key, name: p.At.ToString(),
+                    layoutCase: static _ => Passed(verb: s.Key, action: s.Bar.Layout),
+                    renderCase: static p => Passed(verb: s.Key, action: () => s.Bar.Render(context: p.Surface)),
+                    tooltipCase: static p => Ruled(verb: s.Key, name: p.At.ToString(),
                         rule: () => s.Bar.ShowTooltipAt(location: p.At)),
-                    invalidateCase: static (s, _) => Passed(verb: s.Key, action: s.Bar.Invalidate),
-                    tuneCase: static (s, p) => Passed(verb: s.Key, action: () => {
+                    invalidateCase: static _ => Passed(verb: s.Key, action: s.Bar.Invalidate),
+                    tuneCase: static p => Passed(verb: s.Key, action: () => {
                         p.Enabled.Iter(value => s.Bar.Enabled = value);
                         p.RowHeight.Iter(value => s.Bar.ElementHeight = value);
                         p.Style.Iter(value => s.Bar.Style = value);
                     }),
-                    findCase: static (s, p) => Try.lift(() => Fin.Succ(Optional(s.Bar[(string)p.Name]))).Run().Bind(static inner => inner)
+                    findCase: static p => Try.lift(() => Fin.Succ(Optional(s.Bar[(string)p.Name]))).Run().Bind(static inner => inner)
                         .Map(static item => (ChromeOutcome)new ChromeOutcome.FoundItemCase(Value: item)))),
-            barMutateCase: static (k, c) => c.Change.Switch(
-                state: k,
+            barMutateCase: static c => c.Change.Switch(
                 radioSwing: static (m) => Try.lift(() => m.Target.Match(
                     Some: value => m.Item.SetState(state: value),
                     None: () => m.Item.Toggle())).Run().Bind(static inner => inner),
@@ -287,19 +285,18 @@ public static class Chrome {
                 fieldDress: static (m) => Try.lift(() =>
                     m.Placeholder.Iter(value => m.Item.Placeholder = value)).Run().Bind(static inner => inner)
                 .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: k)),
-            colourBarsCase: static (k, c) => Try.lift(() => {
+            colourBarsCase: static c => Try.lift(() => {
                 Bar.CreateStandardColourBars(c.Label, c.Seed, c.Changed, out Bar life, out Bar cool, out Bar warm);
                 return Fin.Succ((ChromeOutcome)new ChromeOutcome.ColourCase(Bars: new ColourBars(Life: life, Cool: cool, Warm: warm)));
             }).Run().Bind(static inner => inner),
-            panelCase: static (k, c) => Admit.Need(c.Target).Bind(panel => Settle(panel: panel, verb: c.Verb, key: k)),
-            tipCase: static (k, c) => c.Tip.Switch(
-                state: k,
+            panelCase: static c => Admit.Need(c.Target).Bind(panel => Settle(panel: panel, verb: c.Verb)),
+            tipCase: static c => c.Tip.Switch(
                 showCase: static (t) => Passed(verb: op, action: () => Present(content: t.Content)),
                 hideCase: static (_) => Passed(verb: op, action: Frame.Hide),
                 invalidateCase: static (_) => Passed(verb: op, action: Frame.Invalidate),
                 captureCase: static (t) => Passed(verb: op, action: () =>
                     Frame.ScreencapFolder = HostEdge.Slot(t.Folder))),
-            floatCase: static (k, c) => Admit.Need(c.Target).Bind(floats => Settle(floats: floats, verb: c.Verb, key: k)))),
+            floatCase: static c => Admit.Need(c.Target).Bind(floats => Settle(floats: floats, verb: c.Verb)))),
             DispatchLane.Interactive, active));
     }
 
@@ -318,10 +315,10 @@ public static class Chrome {
         itemCase: c => HostEdge.Side(action: () => bar.Add(c.Element)),
         coloursCase: c => c.Range.Switch(
             state: (Bar: bar, Row: c),
-            lifeCase: static (s, _) => HostEdge.Side(action: () => s.Bar.AddLifeColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
-            coolCase: static (s, _) => HostEdge.Side(action: () => s.Bar.AddCoolColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
-            warmCase: static (s, _) => HostEdge.Side(action: () => s.Bar.AddWarmColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
-            spectrumCase: static (s, r) => HostEdge.Side(action: () => s.Bar.AddColours(s.Row.Label, [.. r.Spectrum], s.Row.Seed, s.Row.Changed))));
+            lifeCase: static _ => HostEdge.Side(action: () => s.Bar.AddLifeColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
+            coolCase: static _ => HostEdge.Side(action: () => s.Bar.AddCoolColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
+            warmCase: static _ => HostEdge.Side(action: () => s.Bar.AddWarmColours(s.Row.Label, s.Row.Seed, s.Row.Changed)),
+            spectrumCase: static r => HostEdge.Side(action: () => s.Bar.AddColours(s.Row.Label, [.. r.Spectrum], s.Row.Seed, s.Row.Changed))));
 
     private static Unit Present(TooltipContent content) {
         bool warnings = content.Emphasis.Admits(TipEmphasis.Warnings);

@@ -484,11 +484,10 @@ public static class RenderShell {
                 step: state => state is ShellGate.Idle ? Some<ShellGate>(new ShellGate.Armed(Program: program)) : None,
                 declined: new KernelFault.InvalidValue(nameof(RenderShell), "an unarmed shell gate"))
             .Switch(
-                state: op,
-                committed: static (_, _) => Fin.Succ(value: unit),
-                ceded: static (_) => Fin.Fail<Unit>(error: new RenderFault.SeatTaken(Engine: Guid.Empty)),
-                refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
-                contended: static (_) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()));
+                committed: static _ => Fin.Succ(value: unit),
+                ceded: static () => Fin.Fail<Unit>(error: new RenderFault.SeatTaken(Engine: Guid.Empty)),
+                refused: static row => Fin.Fail<Unit>(error: row.Cause),
+                contended: static () => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()));
 
     public static Fin<ShellSeated> Drain(ShellRegistrar registrar) {
         return from claimed in Claim(surface: registrar.Surface)
@@ -527,11 +526,10 @@ public static class RenderShell {
                 },
                 declined: new RenderFault.SeatTaken(Engine: Guid.Empty))
             .Switch(
-                state: op,
                 committed: static (row) => row.State.Declared.ToFin(Fail: new KernelFault.MissingContext()),
-                ceded: static (_) => Fin.Fail<RenderShellProgram>(error: new RenderFault.SeatTaken(Engine: Guid.Empty)),
-                refused: static (_, row) => Fin.Fail<RenderShellProgram>(error: row.Cause),
-                contended: static (_) => Fin.Fail<RenderShellProgram>(error: new KernelFault.InvalidResult()));
+                ceded: static () => Fin.Fail<RenderShellProgram>(error: new RenderFault.SeatTaken(Engine: Guid.Empty)),
+                refused: static row => Fin.Fail<RenderShellProgram>(error: row.Cause),
+                contended: static () => Fin.Fail<RenderShellProgram>(error: new KernelFault.InvalidResult()));
 
     private static Option<Guid> SidePaneUi(object tab) =>
         Optional(RenderTabs.SidePaneUiIdFromTab(tab: tab)).Filter(static id => id != Guid.Empty);
@@ -577,7 +575,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
                 from read in program.Read.ToFin(Fail: new RenderFault.Unbound(Member: nameof(Read)))
                 from transfer in Try.lift(() => read(path)).Run().Bind(static inner => inner)
                 from active in Optional(transfer).ToFin(Fail: new KernelFault.InvalidResult())
-                from content in active.Take()
+                from content in active.Take(op)
                 select content).Match(
                     Succ: static content => content,
                     Fail: fault => Reject<RenderContent>(SerializerStage.Read, pathToFile, fault));
@@ -616,7 +614,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
     }
 
     internal Fin<Unit> Register(PluginKey plugin) {
-        return (from _ in plugin.Admit()
+        return (from _ in plugin.Admit(op)
                 from result in Try.lift(() => Admit.Confirm(success: RegisterSerializer(id: plugin.ToValue()))).Run().Bind(static inner => inner)
                 select result)
             .MapFail(fault => (HostEdge.Side(() => Retain(stage: SerializerStage.Register, path: string.Empty, fault: fault)), fault).Item2);
@@ -1376,18 +1374,17 @@ public static class Registry {
     public static Fin<RegistryResult> Run(RegistryCommand command) {
         return from active in Admit.Need(command)
                from result in active.Switch(
-                   context: op,
-                   registerContent: static (state, request) => Register(request.Assembly, request.PlugIn, state)
+                   registerContent: static request => Register(request.Assembly, request.PlugIn)
                        .Map(static types => (RegistryResult)new RegistryResult.Registered(types)),
-                   registerSerializer: static (state, request) =>
+                   registerSerializer: static request =>
                        from serializer in Admit.Need(request.Serializer)
                        from registered in serializer.Register(request.PlugIn)
                        select (RegistryResult)new RegistryResult.SerializerRegistered(),
-                   armShell: static (state, request) =>
+                   armShell: static request =>
                        from program in Admit.Need(request.Program)
                        from _ in RenderShell.Arm(program: program, op: state)
                        select (RegistryResult)new RegistryResult.ShellArmed(Rows: program.Rows.Count),
-                   change: static (state, request) => Commit(request.Session, request.Transaction, state)
+                   change: static request => Commit(request.Session, request.Transaction)
                        .Map(static _ => (RegistryResult)new RegistryResult.Changed()))
                select result;
     }
@@ -1810,11 +1807,10 @@ public sealed class ContentStream : IDisposable {
         internal Fin<Unit> Attach(Subscription attached) =>
             gate.Within(
                 body: () => Cell.Seat(cell: subscription, mint: () => attached).Switch(
-                    state: op,
-                    committed: static (_, _) => Fin.Succ(value: unit),
-                    ceded: static (key, _) => Fin.Fail<Unit>(error: new RenderFault.SeatTaken(Engine: Guid.Empty)),
-                    refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
-                    contended: static (key, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult())),
+                    committed: static _ => Fin.Succ(value: unit),
+                    ceded: static (key) => Fin.Fail<Unit>(error: new RenderFault.SeatTaken(Engine: Guid.Empty)),
+                    refused: static row => Fin.Fail<Unit>(error: row.Cause),
+                    contended: static (key) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult())),
                 refused: () => Fin.Fail<Unit>(error: new KernelFault.InvalidContext())
                     .Rollback(release: () => Release(fact: attached)));
 

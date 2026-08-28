@@ -311,10 +311,10 @@ public static class Nurbs {
         input.Switch(
             curve:      static c => AdmitCurve(c),
             surface:    static s => AdmitSurface(s),
-            curveFit:   static (k, f) => FitCurve(f.Samples, f.Policy, k),
-            surfaceFit: static (k, f) => FitSurface(f.CountU, f.Samples, f.Policy, k),
-            ruled:      static (k, r) => AdmitRuled(r.Edge, r.Opposite, k),
-            revolved:   static (k, r) => AdmitRevolved(r.Profile, r.Axis, r.AngleRadians, k));
+            curveFit:   static f => FitCurve(f.Samples, f.Policy),
+            surfaceFit: static f => FitSurface(f.CountU, f.Samples, f.Policy),
+            ruled:      static r => AdmitRuled(r.Edge, r.Opposite),
+            revolved:   static r => AdmitRevolved(r.Profile, r.Axis, r.AngleRadians));
 
     static Fin<NurbsForm> AdmitCurve(NurbsInput.Curve input) =>
         (KnotVector.Of(input.Degree.Value, [.. input.Knots]).ToValidation(),

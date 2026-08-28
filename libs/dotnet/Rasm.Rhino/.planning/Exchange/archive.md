@@ -39,10 +39,10 @@ public abstract partial record ArchiveSource {
     public sealed record PathCase(DocumentPath Path) : ArchiveSource;
     public sealed record BytesCase(ArchiveBytes Bytes) : ArchiveSource;
 
-    internal Fin<ArchiveSource> Admit() => Switch(pathCase: static (key, source) => guard(
+    internal Fin<ArchiveSource> Admit() => Switch(pathCase: static source => guard(
             source.Path != default,
-            new KernelFault.InvalidValue(nameof(PathCase.Path), string.Join(" | ", new object?[] { key, "an archive path" }))).ToFin().Map(_ => (ArchiveSource)source),
-        bytesCase: static (key, source) => Admit.Need(source.Bytes).Map(_ => (ArchiveSource)source));
+            new KernelFault.InvalidValue(nameof(PathCase.Path), string.Join(" | ", new object?[] { "an archive path" }))).ToFin().Map(_ => (ArchiveSource)source),
+        bytesCase: static source => Admit.Need(source.Bytes).Map(_ => (ArchiveSource)source));
 }
 
 [ComplexValueObject]
@@ -167,9 +167,9 @@ public sealed partial class MeshWrite {
         (MeshTarget? row, CapabilitySet<MeshChannel> requested) = (target, channels);
         validationError = FactoryValidation.Of(
                 FactoryValidation.Violated(
-                    (row is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Target) }))),
+                    (row is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Target) }))),
                     (row is not null && !row.Channels.AdmitsAll(requested),
-                        () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Channels), $"channels within <{row!.Channels.Wire}>; unadmitted <{row.Channels.Missing(requested).Wire}>" }))));
+                        () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Channels), $"channels within <{row!.Channels.Wire}>; unadmitted <{row.Channels.Missing(requested).Wire}>" }))));
     }
 }
 
@@ -200,10 +200,10 @@ public sealed partial class ArchiveWritePolicy {
         validationError = FactoryValidation.Of(
                 FactoryValidation.Violated(
                     (!WriteContent.ArchiveAxes.AdmitsAll(held),
-                        () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Content), $"channels within <{WriteContent.ArchiveAxes.Wire}>; unadmitted <{WriteContent.ArchiveAxes.Missing(held).Wire}>" }))),
+                        () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Content), $"channels within <{WriteContent.ArchiveAxes.Wire}>; unadmitted <{WriteContent.ArchiveAxes.Missing(held).Wire}>" }))),
                     (rows.Exists(static row => row is null)
                      || rows.Map(static row => row.Target).Distinct().Count != MeshTarget.Items.Count,
-                        () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Meshes), "exactly one channel row per mesh target" })))));
+                        () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Meshes), "exactly one channel row per mesh target" })))));
     }
 
     public static Fin<ArchiveWritePolicy> Of(
@@ -557,7 +557,7 @@ public abstract partial record ArchivePatch {
 
     private static Fin<ViewInfo> Named(File3dm archive, string name) =>
         Try.lift(() => Optional(archive.AllNamedViews.FindName(name: name))
-            .ToFin(Fail: new KernelFault.InvalidValue(name, string.Join(" | ", new object?[] { op, "a named archive entry" })))).Run().Bind(static inner => inner);
+            .ToFin(Fail: new KernelFault.InvalidValue(name, string.Join(" | ", new object?[] { "a named archive entry" })))).Run().Bind(static inner => inner);
 
     private static Fin<ExchangeEvidence> Units(
         File3dm archive,
@@ -616,35 +616,35 @@ public abstract partial record ArchiveOp {
         return ((ArchiveOp)new BatchCase(Program: toSeq(program.ToArray()))).Admit();
     }
 
-    internal Fin<ArchiveOp> Admit() => Switch(snapshotCase: static (key, request) => Admit.Need(request.Slice).Map(_ => (ArchiveOp)request),
-        inspectCase: static (_, request) => Fin.Succ<ArchiveOp>(value: request),
+    internal Fin<ArchiveOp> Admit() => Switch(snapshotCase: static request => Admit.Need(request.Slice).Map(_ => (ArchiveOp)request),
+        inspectCase: static request => Fin.Succ<ArchiveOp>(value: request),
         extractCase: static (request) => FactoryValidation.Admit(FactoryValidation.Violated(
-            (request.Folder == default, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(ExtractCase.Folder) }))),
-            (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(ExtractCase.Output) })))))
+            (request.Folder == default, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ExtractCase.Folder) }))),
+            (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ExtractCase.Output) })))))
             .Map(_ => (ArchiveOp)request),
         amendCase: static (request) => FactoryValidation.Admit(FactoryValidation.Violated(
             (request.Patches.IsEmpty || request.Patches.Exists(static patch => patch is null),
-                () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(AmendCase.Patches) }))),
-            (request.Target == default, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(AmendCase.Target) }))),
-            (request.Policy is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(AmendCase.Policy) }))),
-            (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(AmendCase.Output) })))))
+                () => new ValidationClause(string.Join(" | ", new object?[] { nameof(AmendCase.Patches) }))),
+            (request.Target == default, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(AmendCase.Target) }))),
+            (request.Policy is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(AmendCase.Policy) }))),
+            (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(AmendCase.Output) })))))
             .Map(_ => (ArchiveOp)request),
-        serializeCase: static (key, request) => Admit.Need(request.Policy).Map(_ => (ArchiveOp)request),
+        serializeCase: static request => Admit.Need(request.Policy).Map(_ => (ArchiveOp)request),
         persistCase: static (request) => FactoryValidation.Admit(FactoryValidation.Violated(
-            (request.Target == default, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(PersistCase.Target) }))),
-            (request.Policy is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(PersistCase.Policy) }))),
-            (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(PersistCase.Output) })))))
+            (request.Target == default, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(PersistCase.Target) }))),
+            (request.Policy is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(PersistCase.Policy) }))),
+            (request.Output is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(PersistCase.Output) })))))
             .Map(_ => (ArchiveOp)request),
-        verifyCase: static (_, request) => Fin.Succ<ArchiveOp>(value: request),
-        diffCase: static (key, request) => Admit.Need(request.Other)
+        verifyCase: static request => Fin.Succ<ArchiveOp>(value: request),
+        diffCase: static request => Admit.Need(request.Other)
             .Bind(source => source.Admit())
             .Map(_ => (ArchiveOp)request),
         batchCase: static (request) =>
             from _shape in FactoryValidation.Admit(FactoryValidation.Violated(
                 (request.Program.IsEmpty || request.Program.Exists(static item => item is null),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(BatchCase.Program) }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(BatchCase.Program) }))),
                 (request.Program.Exists(static item => item is BatchCase),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(BatchCase), "a flat program; a nested batch is refused" })))))
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(BatchCase), "a flat program; a nested batch is refused" })))))
             from _admitted in request.Program.TraverseM(item => item.Admit()).As()
             select (ArchiveOp)request);
 }
@@ -1006,9 +1006,9 @@ public static class Archives {
             .Map(static file => (File: file, Name: System.IO.Path.GetFileName(file.Filename)));
         return from _names in FactoryValidation.Admit(FactoryValidation.Violated(
                    (files.Exists(static row => string.IsNullOrWhiteSpace(value: row.Name)),
-                       () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(File3dmEmbeddedFile.Filename) }))),
+                       () => new ValidationClause(string.Join(" | ", new object?[] { nameof(File3dmEmbeddedFile.Filename) }))),
                    (files.Map(static row => row.Name.ToUpperInvariant()).Distinct().Count != files.Count,
-                       () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ArchiveOp.ExtractCase), "case-insensitively distinct embedded basenames" })))))
+                       () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ArchiveOp.ExtractCase), "case-insensitively distinct embedded basenames" })))))
                from landed in files.TraverseM(row => ExtractOne(
                        file: row.File,
                        name: row.Name,

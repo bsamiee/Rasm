@@ -127,11 +127,10 @@ public sealed record MacAnchor(
         return from _ in MacGate.Demand()
                from valid in Admit.Need(source)
                from anchor in UiThread.Run(new UiDispatch<MacAnchor>.Blocking(() => valid.Switch(
-                   state: op,
-                   canvasCase: static (active, row) =>
+                   canvasCase: static row =>
                        from view in Optional(row.Surface.GetContainerView()).ToFin(new KernelFault.MissingContext())
                        select (View: view, Handler: Optional(row.Surface.GetMacViewHandler())),
-                   controlCase: static (active, row) =>
+                   controlCase: static row =>
                        from role in Admit.Need(row.Role)
                        from handler in Optional(row.Surface.GetMacControl()).ToFin(new KernelFault.MissingContext())
                        from view in Try.lift(() => Optional(role.Select(handler: handler)).ToFin(new KernelFault.MissingContext())).Run().Bind(static inner => inner)

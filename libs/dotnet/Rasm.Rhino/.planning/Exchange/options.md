@@ -323,7 +323,7 @@ internal sealed class HostAxis<TRow, THost>(string axis, Func<TRow, Action<THost
     internal Option<ValidationClause> Refusal(Option<CapabilitySet<TRow>> requested) =>
         requested.Bind(demanded => Legal.AdmitsAll(demanded)
             ? Option<ValidationClause>.None
-            : Some(new ValidationClause(string.Join(" | ", new object?[] { key, axis, $"axis rows {typeof(THost).Name} writes <{Legal.Wire}>; unwritable <{Legal.Missing(demanded).Wire}>" }))));
+            : Some(new ValidationClause(string.Join(" | ", new object?[] { Seat.Dial.Key, axis, $"axis rows {typeof(THost).Name} writes <{Legal.Wire}>; unwritable <{Legal.Missing(demanded).Wire}>" }))));
 
     internal Unit Seat(THost host, Option<CapabilitySet<TRow>> requested, CapabilitySet<TRow> baseline) {
         CapabilitySet<TRow> held = requested.IfNone(baseline);
@@ -395,7 +395,7 @@ public abstract partial record FormatDial {
     internal Fin<Unit> Admit(FileCodec codec, CodecPhase phase) =>
         FactoryValidation.Admit(
             FactoryValidation.Violated(
-                (Seat.Codec != codec || Seat.Phase != phase, () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(CodecTune.Dial), $"a dial seated at '{codec.Key}' in the '{phase.Key}' phase;"
+                (Seat.Codec != codec || Seat.Phase != phase, () => new ValidationClause(string.Join(" | ", new object?[] { Seat.Dial.Key, nameof(CodecTune.Dial), $"a dial seated at '{codec.Key}' in the '{phase.Key}' phase;"
                         + $" got '{Seat.Codec.Key}' in '{Seat.Phase.Key}'" }))))
             + RefusalsFor());
 

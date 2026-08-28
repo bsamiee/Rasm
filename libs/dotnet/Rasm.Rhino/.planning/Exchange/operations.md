@@ -109,7 +109,7 @@ public sealed partial class CollisionRule {
         key: 0,
         settle: static (path, _, op) => guard(
             !System.IO.File.Exists(path: path.Value),
-            new KernelFault.InvalidValue(path.Value, string.Join(" | ", new object?[] { op, "a destination no file occupies" }))).ToFin().Map(_ => path),
+            new KernelFault.InvalidValue(path.Value, string.Join(" | ", new object?[] { "a destination no file occupies" }))).ToFin().Map(_ => path),
         land: static (temporary, path, _, op) => Move(temporary, path, overwrite: false));
     public static readonly CollisionRule Replace = new(
         key: 1,
@@ -152,7 +152,7 @@ public sealed partial class CollisionRule {
 [SmartEnum<int>]
 public sealed partial class DirectoryRule {
     public static readonly DirectoryRule Existing = new(key: 0, ensure: static (folder, op) =>
-        guard(System.IO.Directory.Exists(folder), new KernelFault.InvalidValue(folder, string.Join(" | ", new object?[] { op, "an existing destination directory" }))).ToFin());
+        guard(System.IO.Directory.Exists(folder), new KernelFault.InvalidValue(folder, string.Join(" | ", new object?[] { "an existing destination directory" }))).ToFin());
     public static readonly DirectoryRule Create = new(key: 1, ensure: static (folder, op) =>
         Try.lift(() => {
             _ = System.IO.Directory.CreateDirectory(folder);
@@ -177,8 +177,8 @@ public readonly partial struct ExchangeBudget : IDisallowDefaultValue {
         ref System.Threading.Tasks.TaskScheduler scheduler) {
         (Rasm.Numerics.Dimension degree, System.Threading.Tasks.TaskScheduler? lane) = (ioDegree, scheduler);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (degree.Value <= 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(IoDegree), degree.Value, "a positive I/O degree" }))),
-                (lane is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Scheduler) })))));
+                (degree.Value <= 0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(IoDegree), degree.Value, "a positive I/O degree" }))),
+                (lane is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Scheduler) })))));
     }
 
     public static Fin<ExchangeBudget> Of(
@@ -229,9 +229,9 @@ public sealed partial record OutputPolicy {
         ref Rasm.Numerics.Dimension ordinalBound) {
         (CollisionRule? rule, DirectoryRule? folder, Rasm.Numerics.Dimension bound) = (collision, directory, ordinalBound);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (rule is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Collision) }))),
-                (folder is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Directory) }))),
-                (bound.Value <= 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(OrdinalBound), bound.Value, "a positive ordinal bound" })))));
+                (rule is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Collision) }))),
+                (folder is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Directory) }))),
+                (bound.Value <= 0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(OrdinalBound), bound.Value, "a positive ordinal bound" })))));
     }
 
     public static Fin<OutputPolicy> Of(
@@ -461,9 +461,9 @@ public readonly partial struct GeoPoint : IDisallowDefaultValue {
         ref double elevation) {
         (double lat, double lon, double height) = (latitude, longitude, elevation);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (!double.IsFinite(lat) || lat is < -90d or > 90d, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Latitude), lat, "a finite value in [-90, 90]" }))),
-                (!double.IsFinite(lon) || lon is < -180d or > 180d, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Longitude), lon, "a finite value in [-180, 180]" }))),
-                (!double.IsFinite(height), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Elevation), height, "a finite elevation" })))));
+                (!double.IsFinite(lat) || lat is < -90d or > 90d, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Latitude), lat, "a finite value in [-90, 90]" }))),
+                (!double.IsFinite(lon) || lon is < -180d or > 180d, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Longitude), lon, "a finite value in [-180, 180]" }))),
+                (!double.IsFinite(height), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Elevation), height, "a finite elevation" })))));
     }
 
     public static Fin<GeoPoint> Of(double latitude, double longitude, double elevation) {
@@ -498,12 +498,12 @@ public sealed partial record EarthAnchor {
         (Option<Point3d> origin, Option<Vector3d> north, Option<Vector3d> east) = (modelBasePoint, modelNorth, modelEast);
         int supplied = (origin.IsSome ? 1 : 0) + (north.IsSome ? 1 : 0) + (east.IsSome ? 1 : 0);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (supplied is not (0 or 3), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ModelBasePoint), "model basepoint, north, and east supplied together or all absent" }))),
-                (!origin.ForAll(static point => ValidityClaim.Finite(point).Holds), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ModelBasePoint), "a finite model basepoint" }))),
-                (!north.ForAll(static vector => ValidityClaim.Direction(vector).Holds), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ModelNorth), "a finite non-zero north axis" }))),
-                (!east.ForAll(static vector => ValidityClaim.Direction(vector).Holds), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ModelEast), "a finite non-zero east axis" }))),
+                (supplied is not (0 or 3), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ModelBasePoint), "model basepoint, north, and east supplied together or all absent" }))),
+                (!origin.ForAll(static point => ValidityClaim.Finite(point).Holds), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ModelBasePoint), "a finite model basepoint" }))),
+                (!north.ForAll(static vector => ValidityClaim.Direction(vector).Holds), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ModelNorth), "a finite non-zero north axis" }))),
+                (!east.ForAll(static vector => ValidityClaim.Direction(vector).Holds), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ModelEast), "a finite non-zero east axis" }))),
                 (!north.Bind(axis => east.Map(other => Vector3d.CrossProduct(axis, other).Length > 0d)).IfNone(true),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ModelNorth), "non-collinear north and east axes" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ModelNorth), "non-collinear north and east axes" })))));
     }
 
     public static Fin<EarthAnchor> Of(
@@ -653,10 +653,10 @@ public abstract partial record AnchorOp {
         Try.lift(() => {
             using EarthAnchorPoint? anchor = document.EarthAnchorPoint;
             return Optional(anchor)
-                .ToFin(Fail: new KernelFault.InvalidValue(nameof(RhinoDoc.EarthAnchorPoint), string.Join(" | ", new object?[] { op, "an earth anchor" })))
+                .ToFin(Fail: new KernelFault.InvalidValue(nameof(RhinoDoc.EarthAnchorPoint), string.Join(" | ", new object?[] { "an earth anchor" })))
                 .Bind(live => demand.Accepts(anchor: live)
                     ? use(arg1: live, arg2: document, arg3: op)
-                    : Fin.Fail<AnchorYield>(error: new KernelFault.InvalidValue(nameof(AnchorDemand), string.Join(" | ", new object?[] { op, $"an anchor whose location is '{demand.Key}'" }))));
+                    : Fin.Fail<AnchorYield>(error: new KernelFault.InvalidValue(nameof(AnchorDemand), string.Join(" | ", new object?[] { $"an anchor whose location is '{demand.Key}'" }))));
         }).Run().Bind(static inner => inner);
 }
 
@@ -790,11 +790,11 @@ public abstract partial record DocumentWritePolicy {
         (CapabilitySet<WriteContent> held, CapabilitySet<WriteContent> axes) = (Content, Axes);
         return from _axes in axes.Require(
                    demanded: held,
-                   refuse: missing => new KernelFault.InvalidValue(nameof(WriteContent), string.Join(" | ", new object?[] { op, $"channels within <{axes.Wire}>; unadmitted <{missing.Wire}>" })))
+                   refuse: missing => new KernelFault.InvalidValue(nameof(WriteContent), string.Join(" | ", new object?[] { $"channels within <{axes.Wire}>; unadmitted <{missing.Wire}>" })))
                from _backup in guard(
                    !held.Admits(capability: WriteContent.AuxiliaryBackup)
                    || held.Admits(capability: WriteContent.PrimaryBackup),
-                   new KernelFault.InvalidValue(nameof(WriteContent.AuxiliaryBackup), string.Join(" | ", new object?[] { op, "auxiliary backups only beside primary backups" })))
+                   new KernelFault.InvalidValue(nameof(WriteContent.AuxiliaryBackup), string.Join(" | ", new object?[] { "auxiliary backups only beside primary backups" })))
                from admitted in WriteContent.Law.Admit(held: held)
                select admitted;
     }
@@ -922,9 +922,9 @@ public sealed partial record ConversionPolicy {
         ref IoLane lane) {
         (BatchPolicy policy, IoLane? admitted) = (batch, lane);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (admitted is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Lane) }))),
+                (admitted is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Lane) }))),
                 (admitted is IoLane.ParallelCase && policy.Posture == BatchPosture.Halting,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Lane), "a collecting posture beside a parallel lane" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Lane), "a collecting posture beside a parallel lane" })))));
     }
 
     public static Fin<ConversionPolicy> Of(BatchPolicy batch, IoLane lane) {

@@ -535,7 +535,7 @@ public static class EstimatorKernels {
                     int rank = Math.Min(ctx.Rank <= 0 ? n : ctx.Rank, n);
                     int[] order = [.. Enumerable.Range(0, n).OrderByDescending(i => values[i]).Take(rank)];
                     Vector<double> eigen = Vector<double>.Build.DenseOfArray([.. order.Select(i => values[i])]);
-                    Matrix<double> alphas = Matrix<double>.Build.Dense(n, rank, (i, c) => f.Decomposition.EigenVectors[i, order[c]] / Math.Sqrt(Math.Max(1e-12, eigen[c])));
+                    Matrix<double> alphas = Matrix<double>.Build.Dense(n, rank, c => f.Decomposition.EigenVectors[i, order[c]] / Math.Sqrt(Math.Max(1e-12, eigen[c])));
                     EstimatorModel.KernelBasis carrier = new(x, alphas, eigen, policy.Kernel, policy.Parameters, rowMean, grandMean);
                     double captured = eigen.Sum() / Math.Max(1e-12, values.Map(Math.Abs).Sum());
                     return Fin.Succ(new FittedModel(ctx.Estimator, carrier, captured, 1.0 - captured, None, 1, new Convergence.Converged(1.0 - captured), ctx.Clock.GetCurrentInstant()));

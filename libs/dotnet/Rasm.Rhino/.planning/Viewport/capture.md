@@ -586,7 +586,7 @@ public sealed partial class CaptureSurface {
     internal Fin<CapabilitySet<CaptureFeature>> Admit(Option<CapabilitySet<CaptureFeature>> held) {
         CapabilitySet<CaptureFeature> requested = held.IfNone(Default);
         return Roster
-            .Require(demanded: requested, refuse: missing => new KernelFault.InvalidValue(nameof(CaptureSurface), string.Join(" | ", new object?[] { key, $"capture features this surface projects; unprojected <{missing.Wire}>" })))
+            .Require(demanded: requested, refuse: missing => new KernelFault.InvalidValue(nameof(CaptureSurface), string.Join(" | ", new object?[] { $"capture features this surface projects; unprojected <{missing.Wire}>" })))
             .Map(_ => requested);
     }
 }

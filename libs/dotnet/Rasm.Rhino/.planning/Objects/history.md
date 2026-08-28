@@ -81,40 +81,40 @@ public abstract partial record SlotValue {
     public sealed record Texts(Seq<string> Values) : SlotValue;
 
     internal Fin<SlotValue> Admit() =>
-        Switch(toggle: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            count: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            scalar: static (key, slot) => guard(double.IsFinite(slot.Value), new KernelFault.InvalidInput()).ToFin()
+        Switch(toggle: static slot => Fin.Succ<SlotValue>(slot),
+            count: static slot => Fin.Succ<SlotValue>(slot),
+            scalar: static slot => guard(double.IsFinite(slot.Value), new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            point: static (key, slot) => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
-            direction: static (key, slot) => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
-            motion: static (key, slot) => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
-            paint: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            id: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            text: static (key, slot) => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
-            curveSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
+            point: static slot => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
+            direction: static slot => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
+            motion: static slot => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
+            paint: static slot => Fin.Succ<SlotValue>(slot),
+            id: static slot => Fin.Succ<SlotValue>(slot),
+            text: static slot => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
+            curveSlot: static slot => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            surfaceSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
+            surfaceSlot: static slot => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            brepSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
+            brepSlot: static slot => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            meshSlot: static (key, slot) => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
+            meshSlot: static slot => guard(slot.Value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            source: static (key, slot) => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
+            source: static slot => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
             pointOnSource: static (slot) =>
                 from source in Admit.Need(slot.Value)
                 from point in Acceptance.Input(value: slot.At)
                 select (SlotValue)new PointOnSource(Value: source, At: point),
-            toggles: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            counts: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            scalars: static (key, slot) => guard(slot.Values.ForAll(double.IsFinite), new KernelFault.InvalidInput()).ToFin()
+            toggles: static slot => Fin.Succ<SlotValue>(slot),
+            counts: static slot => Fin.Succ<SlotValue>(slot),
+            scalars: static slot => guard(slot.Values.ForAll(double.IsFinite), new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            points: static (key, slot) => slot.Values.TraverseM(value => Acceptance.Input(value)).As()
+            points: static slot => slot.Values.TraverseM(value => Acceptance.Input(value)).As()
                 .Map(values => (SlotValue)new Points(Values: values)),
-            directions: static (key, slot) => slot.Values.TraverseM(value => Acceptance.Input(value)).As()
+            directions: static slot => slot.Values.TraverseM(value => Acceptance.Input(value)).As()
                 .Map(values => (SlotValue)new Directions(Values: values)),
-            paints: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            ids: static (_, slot) => Fin.Succ<SlotValue>(slot),
-            texts: static (key, slot) => slot.Values.TraverseM(value => Admit.Need(value)).As()
+            paints: static slot => Fin.Succ<SlotValue>(slot),
+            ids: static slot => Fin.Succ<SlotValue>(slot),
+            texts: static slot => slot.Values.TraverseM(value => Admit.Need(value)).As()
                 .Map(values => (SlotValue)new Texts(Values: values)));
 
     internal Fin<Unit> Write(RhinoDoc document, HistoryRecord record, SlotKey key) =>
@@ -367,31 +367,31 @@ public abstract partial record Regrown {
     public sealed record Instance(InstanceReferenceGeometry Value) : Regrown;
 
     public Fin<Regrown> Admit() {
-        return Switch(point: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
-            dot: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            line: static (gate, value) =>
+        return Switch(point: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            dot: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            line: static value =>
                 from start in Acceptance.Input(value.Value.From)
                 from end in Acceptance.Input(value.Value.To)
                 from _ in guard(start != end, new KernelFault.InvalidInput())
                 select (Regrown)new Line(new LineGrowth(start, end)),
-            polyline: static (gate, value) => guard(value.Values.Count >= 2, new KernelFault.InvalidInput()).ToFin()
-                .Bind(_ => AdmitPoints(value.Values, gate))
+            polyline: static value => guard(value.Values.Count >= 2, new KernelFault.InvalidInput()).ToFin()
+                .Bind(_ => AdmitPoints(value.Values))
                 .Map(points => (Regrown)new Polyline(points)),
-            arc: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
-            circle: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
-            ellipse: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
-            sphere: static (gate, value) => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
-            curve: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            surface: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            extrusion: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            mesh: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            subD: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            brep: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            pointCloud: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            pointCloudPoints: static (gate, value) => guard(!value.Values.IsEmpty, new KernelFault.InvalidInput()).ToFin()
-                .Bind(_ => AdmitPoints(value.Values, gate))
+            arc: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            circle: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            ellipse: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            sphere: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            curve: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            surface: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            extrusion: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            mesh: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            subD: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            brep: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            pointCloud: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            pointCloudPoints: static value => guard(!value.Values.IsEmpty, new KernelFault.InvalidInput()).ToFin()
+                .Bind(_ => AdmitPoints(value.Values))
                 .Map(points => (Regrown)new PointCloudPoints(points)),
-            clippingPlane: static (gate, value) =>
+            clippingPlane: static value =>
                 from frame in Acceptance.Input(value.Value.Frame)
                 from _ in guard(
                     double.IsFinite(value.Value.U) && value.Value.U > 0.0
@@ -402,13 +402,13 @@ public abstract partial record Regrown {
                     ? Fin.Succ(id)
                     : Fin.Fail<Guid>(new KernelFault.InvalidInput())).As()
                 select (Regrown)new ClippingPlane(value.Value with { Frame = frame, Viewports = ids.Distinct() }),
-            linearDimension: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            radialDimension: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            angularDimension: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            leader: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            hatch: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            text: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
-            rawText: static (gate, value) =>
+            linearDimension: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            radialDimension: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            angularDimension: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            leader: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            hatch: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            text: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
+            rawText: static value =>
                 from text in Acceptance.Text(value.Value.Text)
                 from frame in Acceptance.Input(value.Value.Frame)
                 from height in Admit.Positive(value.Value.Height)
@@ -417,7 +417,7 @@ public abstract partial record Regrown {
                 select (Regrown)new RawText(value.Value with {
                     Text = text, Frame = frame, Height = height, Font = font, Emphasis = emphasis,
                 }),
-            instance: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value));
+            instance: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value));
     }
 
     internal Fin<Unit> Apply(ReplayHistoryResult result, Option<ObjectAttributes> attributes) {
@@ -494,8 +494,8 @@ public abstract partial record ReplayRoster {
     public sealed record Append(int Count) : ReplayRoster;
     public sealed record Retain(Seq<int> Indices) : ReplayRoster;
 
-    internal Fin<ReplayRoster> Admit() => Switch(preserve: static (_, value) => Fin.Succ<ReplayRoster>(value),
-        append: static (key, value) => guard(value.Count > 0, new KernelFault.InvalidInput()).ToFin().Map(_ => (ReplayRoster)value),
+    internal Fin<ReplayRoster> Admit() => Switch(preserve: static value => Fin.Succ<ReplayRoster>(value),
+        append: static value => guard(value.Count > 0, new KernelFault.InvalidInput()).ToFin().Map(_ => (ReplayRoster)value),
         retain: static (value) => guard(
             !value.Indices.IsEmpty && value.Indices.ForAll(static index => index >= 0),
             new KernelFault.InvalidInput()).ToFin().Map(_ => (ReplayRoster)new Retain(value.Indices.Distinct())));
@@ -638,9 +638,9 @@ public abstract partial record BondOp {
     public sealed record Survival(ReplaceSurvival Posture) : BondOp;
 
     internal Fin<BondOp> Admit() =>
-        Switch(attach: static (key, bond) => Admit.Need(bond.Script).Map(_ => (BondOp)bond),
-            detach: static (_, bond) => Fin.Succ<BondOp>(bond),
-            survival: static (key, bond) => Admit.Need(bond.Posture).Map(_ => (BondOp)bond));
+        Switch(attach: static bond => Admit.Need(bond.Script).Map(_ => (BondOp)bond),
+            detach: static bond => Fin.Succ<BondOp>(bond),
+            survival: static bond => Admit.Need(bond.Posture).Map(_ => (BondOp)bond));
 
     internal Fin<Unit> Apply(RhinoDoc document, RhinoObject native) =>
         Switch(
@@ -665,8 +665,8 @@ public sealed partial class WebBudget {
         int nodes = maxNodes;
         long edges = maxEdges;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (nodes <= 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(MaxNodes), nodes, "positive" }))),
-                (edges <= 0L, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(MaxEdges), edges, "positive" })))));
+                (nodes <= 0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(MaxNodes), nodes, "positive" }))),
+                (edges <= 0L, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(MaxEdges), edges, "positive" })))));
     }
 
     public static Fin<WebBudget> Of(int maxNodes, long maxEdges) =>
@@ -767,7 +767,7 @@ public static class Chronicle {
                    session: session,
                    name: nameof(Chronicle),
                    redraw: RedrawPolicy.None,
-                   run: (document, gate) => Objects.Resolve(document: document, target: target, key: gate)
+                   run: (document, gate) => Objects.Resolve(document: document, target: target)
                        .Bind(natives => natives.TraverseM(native => active.Apply(
                            document: document, native: native, op: gate)).As()
                            .Map(static _ => unit)))
@@ -794,7 +794,7 @@ public static class Chronicle {
     public static Fin<ObjectSignal> Conduct(HistoryConduct row, Option<ObjectSignal> set = default) {
         return from active in Admit.Need(row)
                from _ in set.Traverse(signal => active.Write(value: signal)).As()
-               from value in active.Read()
+               from value in active.Read(op)
                select value;
     }
 

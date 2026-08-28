@@ -319,7 +319,7 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                         contentFilter: minted, config: streamConfig).ConfigureAwait(false)));
                 Fin<CaptureStill> still = sampled.Bind(buffer => {
                     Fin<CaptureStill> projected =
-                        from stamp in Error.New(key: op.Message)
+                        from stamp in clock.Capture()
                         from pane in Geometry(buffer: buffer, retention: CaptureRetention.Raster)
                         from bearing in pane.ToFin(new KernelFault.InvalidResult())
                         from _ in bearing.Raster.ToFin(new KernelFault.InvalidResult())
@@ -342,12 +342,11 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
         try {
             Fin<Unit> outcome = Try.lift(() =>
                 from valid in guard(buffer.IsValid, new KernelFault.InvalidInput()).ToFin()
-                from stamp in Error.New(key: operation.Message, key: operation)
-                from pane in Geometry(buffer: buffer, retention: plan.Retention, key: operation)
+                from stamp in Error.New(key: operation.Message)
+                from pane in Geometry(buffer: buffer, retention: plan.Retention)
                 from published in drain.Publish(
                     source: CaptureSource.Row,
-                    fact: () => Fin.Succ(new CaptureFrame(Stamp: stamp, Pane: pane)),
-                    key: operation)
+                    fact: () => Fin.Succ(new CaptureFrame(Stamp: stamp, Pane: pane)))
                 select unit).Run().Bind(static inner => inner);
             outcome.IfFail(error => ignore(Park(error: error,
                 emit: static (logger, detail) => CaptureLog.FrameFault(logger: logger, detail: detail))));
@@ -383,21 +382,20 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                 step: static held => Some((false, held.Deliveries)),
                 declined: new KernelFault.InvalidResult(Detail: Some(nameof(ReleaseCore)))).Current is (_, 0L))
             ignore(deliveriesDrained.TrySetResult(result: unit));
-        Fin<Unit> stopped = await Complete(begin: stream.StopCapture, key: operation);
+        Fin<Unit> stopped = await Complete(begin: stream.StopCapture);
         await deliveriesDrained.Task;
-        Fin<Unit> removed = RemoveOutput(stream: stream, sink: sink, key: operation);
-        Fin<Unit> completed = drain.Complete(key: operation);
+        Fin<Unit> removed = RemoveOutput(stream: stream, sink: sink);
+        Fin<Unit> completed = drain.Complete();
         Fin<Unit> disposed = ReleaseAll(
-            key: operation,
             stream.Dispose,
             sink.Dispose,
             stop.Dispose,
             configuration.Dispose,
             filter.Dispose);
         Fin<Unit> released = stopped
-            .Settled(release: () => removed, key: operation)
-            .Settled(release: () => completed, key: operation)
-            .Settled(release: () => disposed, key: operation);
+            .Settled(release: () => removed)
+            .Settled(release: () => completed)
+            .Settled(release: () => disposed);
         released.IfFail(error => ignore(Park(error: error,
             emit: static (logger, detail) => CaptureLog.ReleaseFault(logger: logger, detail: detail))));
         return released;

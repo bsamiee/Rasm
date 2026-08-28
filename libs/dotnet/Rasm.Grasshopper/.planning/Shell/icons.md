@@ -137,7 +137,7 @@ public sealed class IconCatalog {
                select new IconCatalog(rows: toHashMap(minted.Map(static row => (row.Key, row.Handle))));
     }
 
-    public Option<IconHandle> Find(IconTag key) => rows.Find();
+    public Option<IconHandle> Find(IconTag key) => rows.Find(key);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

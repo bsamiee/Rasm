@@ -231,15 +231,15 @@ public sealed record CommandFlow<TState> {
         search.Compute(root: entry);
         return (
                 guard(table.Map(static row => row.Key).Distinct().Count == table.Count,
-                    (Error)new KernelFault.InvalidValue(nameof(Rows), string.Join(" | ", new object?[] { op, "distinct stage keys" }))).ToValidation(),
+                    (Error)new KernelFault.InvalidValue(nameof(Rows), string.Join(" | ", new object?[] { "distinct stage keys" }))).ToValidation(),
                 guard(keys.Contains(entry),
-                    (Error)new KernelFault.InvalidValue(nameof(Entry), string.Join(" | ", new object?[] { op, "an entry stage" }))).ToValidation(),
+                    (Error)new KernelFault.InvalidValue(nameof(Entry), string.Join(" | ", new object?[] { "an entry stage" }))).ToValidation(),
                 guard(table.Bind(static row => row.Stage.Successors).ForAll(keys.Contains),
-                    (Error)new KernelFault.InvalidValue(nameof(Stage<TState>.Successors), string.Join(" | ", new object?[] { op, "every successor resolves to a row" }))).ToValidation(),
+                    (Error)new KernelFault.InvalidValue(nameof(Stage<TState>.Successors), string.Join(" | ", new object?[] { "every successor resolves to a row" }))).ToValidation(),
                 guard(table.Exists(static row => row.Stage is Stage<TState>.Halt),
-                    (Error)new KernelFault.InvalidValue(nameof(Stage<TState>.Halt), string.Join(" | ", new object?[] { op, "at least one halt stage" }))).ToValidation(),
+                    (Error)new KernelFault.InvalidValue(nameof(Stage<TState>.Halt), string.Join(" | ", new object?[] { "at least one halt stage" }))).ToValidation(),
                 guard(table.ForAll(row => reached.Contains(row.Key)),
-                    (Error)new KernelFault.InvalidValue(nameof(Rows), string.Join(" | ", new object?[] { op, "every stage reachable from the entry" }))).ToValidation())
+                    (Error)new KernelFault.InvalidValue(nameof(Rows), string.Join(" | ", new object?[] { "every stage reachable from the entry" }))).ToValidation())
             .Apply(static (_, _, _, _, _) => unit)
             .As()
             .ToFin();
@@ -368,9 +368,9 @@ public sealed partial class CommandActivity : ICapability<CommandActivity> {
 }
 
 public sealed record CommandQuery<TAnswer> {
-    internal CommandQuery(Func< Fin<CommandQuery<TAnswer>>> admit, Func<Fin<TAnswer>> read) => (Admit, Read) = (admit, read);
+    internal CommandQuery(Func<Fin<CommandQuery<TAnswer>>> admit, Func<Fin<TAnswer>> read) => (Admit, Read) = (admit, read);
 
-    internal Func< Fin<CommandQuery<TAnswer>>> Admit { get; }
+    internal Func<Fin<CommandQuery<TAnswer>>> Admit { get; }
     internal Func<Fin<TAnswer>> Read { get; }
 }
 

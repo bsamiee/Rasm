@@ -599,7 +599,7 @@ public static class Synthesis {
                 span.From.Map(static at => at.ToDateTimeUnspecified()).ToNullable(),
                 span.To.Map(static at => at.ToDateTimeUnspecified()).ToNullable(),
                 span.Units.ToNullable())));
-            resource.Calendar.Iter(key => row.Calendar = file.GetCalendarByUniqueID());
+            resource.Calendar.Iter(key => row.Calendar = file.GetCalendarByUniqueID(key));
             resource.Cost.Iter(cost => row.Cost = cost);
             resource.ActualCost.Iter(cost => row.ActualCost = cost);
             resource.OvertimeCost.Iter(cost => row.OvertimeCost = cost);

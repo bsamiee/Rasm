@@ -151,11 +151,11 @@ public abstract partial record SampleKind {
 
     internal Fin<SampleKind> Admit() => Switch(
         explicitCase: static (c) => c.Points.IsEmpty ? Fin.Fail<SampleKind>(new KernelFault.InvalidInput()) : Fin.Succ<SampleKind>(c),
-        poissonDiskCase: static (_, c) => Fin.Succ<SampleKind>(c),
-        farthestCase: static (_, c) => Fin.Succ<SampleKind>(c),
-        optimizeCase: static (_, c) => Fin.Succ<SampleKind>(c),
-        lloydCase: static (_, c) => Fin.Succ<SampleKind>(c),
-        capacityCase: static (_, c) => Fin.Succ<SampleKind>(c),
+        poissonDiskCase: static c => Fin.Succ<SampleKind>(c),
+        farthestCase: static c => Fin.Succ<SampleKind>(c),
+        optimizeCase: static c => Fin.Succ<SampleKind>(c),
+        lloydCase: static c => Fin.Succ<SampleKind>(c),
+        capacityCase: static c => Fin.Succ<SampleKind>(c),
         weightedCase: static (c) => c.Points.IsEmpty
             ? Fin.Fail<SampleKind>(new KernelFault.InvalidInput())
             : CloudKernel.MassOf(mass: new Arr<double>([.. c.Points.AsIterable().Select(static item => item.Mass)]), count: c.Points.Count).Map(_ => (SampleKind)c),

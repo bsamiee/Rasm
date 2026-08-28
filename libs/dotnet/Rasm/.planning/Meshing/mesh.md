@@ -225,14 +225,14 @@ namespace Rasm.Meshing;
 [SmartEnum<int>]
 public sealed partial class MeshLaplacian {
     public static readonly MeshLaplacian Cotangent = new(key: 0, requiresQualityGate: true,
-        select: static (cache, key) => cache.Cotangent(),
-        snapshot: static (cache, key) => cache.InputIntrinsicSnapshot());
+        select: static (cache, key) => cache.Cotangent(key),
+        snapshot: static (cache, key) => cache.InputIntrinsicSnapshot(key));
     public static readonly MeshLaplacian IntrinsicDelaunay = new(key: 1, requiresQualityGate: false,
-        select: static (cache, key) => cache.IntrinsicDelaunay(),
-        snapshot: static (cache, key) => cache.IntrinsicMeshSnapshot());
+        select: static (cache, key) => cache.IntrinsicDelaunay(key),
+        snapshot: static (cache, key) => cache.IntrinsicMeshSnapshot(key));
     public static readonly MeshLaplacian TuftedIntrinsic = new(key: 2, requiresQualityGate: false,
         select: static (cache, key) => cache.TuftedIntrinsic(policy: TuftedCoverPolicy.Default),
-        snapshot: static (cache, key) => cache.TuftedIntrinsicMeshSnapshot());
+        snapshot: static (cache, key) => cache.TuftedIntrinsicMeshSnapshot(key));
     internal bool RequiresQualityGate { get; }
     [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache);
     [UseDelegateFromConstructor] internal partial Fin<MeshKernel.IntrinsicMesh> Snapshot(LaplacianCache cache);

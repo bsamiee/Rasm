@@ -875,7 +875,7 @@ public static class Turning {
     }
 
     private static Fin<Seq<Move>> Spline(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
-        from fit in FitPolicy.Of(context: profile.Tolerance, key: Key)
+        from fit in FitPolicy.Of(context: profile.Tolerance)
         let chord = profile.Tolerance.For(ToleranceLane.Chord).Value
         from admittedChord in FactoryBridge.Accept<PositiveMagnitude>(candidate: chord)
         from fitted in CurveAlgebra.Apply(new CurveOp.Admit(

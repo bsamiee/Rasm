@@ -41,9 +41,9 @@ public readonly partial struct SnapshotName : IDisallowDefaultValue {
         value = value?.Trim() ?? string.Empty;
         string candidate = value;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (candidate.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(SnapshotName) }))),
+                (candidate.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(SnapshotName) }))),
                 (candidate.IndexOfAny(['\r', '\n', '"']) >= 0,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(SnapshotName), "a name carrying no quote or line break" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(SnapshotName), "a name carrying no quote or line break" })))));
     }
 }
 
@@ -339,9 +339,9 @@ public sealed class ParticipantSpec {
         Option<IAnimationSnapshotLane> animation = default) {
         return from admitted in (
                    guard(plugInId != Guid.Empty,
-                       (Error)new KernelFault.InvalidValue(nameof(plugInId), string.Join(" | ", new object?[] { op, "a non-empty plug-in identity" }))).ToFin().ToValidation(),
+                       (Error)new KernelFault.InvalidValue(nameof(plugInId), string.Join(" | ", new object?[] { "a non-empty plug-in identity" }))).ToFin().ToValidation(),
                    guard(clientId != Guid.Empty,
-                       (Error)new KernelFault.InvalidValue(nameof(clientId), string.Join(" | ", new object?[] { op, "a non-empty client identity" }))).ToFin().ToValidation(),
+                       (Error)new KernelFault.InvalidValue(nameof(clientId), string.Join(" | ", new object?[] { "a non-empty client identity" }))).ToFin().ToValidation(),
                    FactoryBridge.Accept<ParticipantName>(candidate: name).ToValidation(),
                    Admit.Need(value: category).ToValidation(),
                    Admit.Need(value: codec).ToValidation(),
@@ -352,7 +352,7 @@ public sealed class ParticipantSpec {
                    .ToFin()
                from _lanes in guard(
                    document.IsSome || objects.IsSome || animation.IsSome,
-                   (Error)new KernelFault.InvalidValue("SnapshotLane", string.Join(" | ", new object?[] { op, "at least one snapshot lane" })))
+                   (Error)new KernelFault.InvalidValue("SnapshotLane", string.Join(" | ", new object?[] { "at least one snapshot lane" })))
                select new ParticipantSpec(
                    plugInId: plugInId,
                    clientId: clientId,
@@ -574,7 +574,7 @@ public sealed class SnapshotParticipant : SnapShotsClient {
 
     private static Fin<TLane> Lane<TLane>(Option<TLane> held, string label)
         where TLane : class =>
-        held.ToFin(Fail: new KernelFault.InvalidValue(label, string.Join(" | ", new object?[] { key, "a present snapshot value" })));
+        held.ToFin(Fail: new KernelFault.InvalidValue(label, string.Join(" | ", new object?[] { "a present snapshot value" })));
 
     private Fin<Transform> Motion(
         Func<IAnimationSnapshotLane, (ArchiveMap Start, ArchiveMap Stop), Fin<Transform>> use,

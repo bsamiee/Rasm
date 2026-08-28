@@ -407,11 +407,10 @@ public abstract partial class RasmPlugIn : PlugIn {
 
     private Fin<Unit> Release() => Record(outcome:
         from held in Cell.Take(cell: mounts).Switch(
-            state: op,
-            committed: static (_, row) => Fin.Succ(value: row.State),
-            ceded: static (_, row) => Fin.Succ(value: row.State),
-            refused: static (_, row) => Fin.Fail<Seq<MountedPages>>(error: row.Cause),
-            contended: static (_) => Fin.Fail<Seq<MountedPages>>(
+            committed: static row => Fin.Succ(value: row.State),
+            ceded: static row => Fin.Succ(value: row.State),
+            refused: static row => Fin.Fail<Seq<MountedPages>>(error: row.Cause),
+            contended: static () => Fin.Fail<Seq<MountedPages>>(
                 error: new PluginFault.HostRefused(Member: nameof(Release), Detail: nameof(Cell.Take))))
         from settled in Custody.Release(
             releases: held.Rev()

@@ -312,7 +312,7 @@ public sealed record ClipboardRow(
 
     public static readonly ClipboardRow Asset = RoundTrip(
         "application/x-rasm-asset-key",
-        copy: static payload => payload is DragPayload.AssetKey { Key.Length: > 0 } key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes()) : None,
+        copy: static payload => payload is DragPayload.AssetKey { Key.Length: > 0 } key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(key.Key)) : None,
         paste: static bytes => Encoding.UTF8.GetString(bytes.Span) is { Length: > 0 } key
             ? (Validation<Error, DragPayload>)new DragPayload.AssetKey(key)
             : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("empty asset key"));

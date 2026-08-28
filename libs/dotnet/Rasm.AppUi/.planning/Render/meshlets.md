@@ -436,7 +436,7 @@ public sealed record ResidencyBudget(
         let prefetch = Prefetchable(sorted.Reachable, kept, budget - admitted.Bytes)
         select new ResidencyPlan(
             Resident: admitted.Kept,
-            Evict: prior.Resident.Map(static tile => tile.ContentKey).Filter(key => !kept.Contains()),
+            Evict: prior.Resident.Map(static tile => tile.ContentKey).Filter(key => !kept.Contains(key)),
             Instances: Instanced(kept),
             Prefetch: prefetch,
             Frame: frame);

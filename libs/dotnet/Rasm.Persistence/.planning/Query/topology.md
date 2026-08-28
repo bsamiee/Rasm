@@ -98,7 +98,7 @@ public sealed class ProjectView {
 
     public Fin<Seq<SetKey>> Expand(Seq<SetKey> frontier) {
         BidirectionalGraph<SetKey, ProjectEdge> all = View(EdgeFilter.All, EdgeOrientation.Forward);
-        return Fin.Succ(toSeq(frontier.Filter(all.ContainsVertex).Bind(key => toSeq(all.OutEdges().Select(static e => e.Target)))).Distinct());
+        return Fin.Succ(toSeq(frontier.Filter(all.ContainsVertex).Bind(key => toSeq(all.OutEdges(key).Select(static e => e.Target)))).Distinct());
     }
 }
 ```

@@ -288,45 +288,44 @@ public interface ILicenseProgram {
 
 public abstract partial class RasmPlugIn {
     public Fin<EntitleOutcome> Entitlement(Entitle ask) {
-        return Admit.Need(ask).Bind(request => request.Switch(byCapability: (held, row) => Admit.Need(row.Program).Bind(program => Try.lift(() => GetLicense(
+        return Admit.Need(ask).Bind(request => request.Switch(byCapability: row => Admit.Need(row.Program).Bind(program => Try.lift(() => GetLicense(
                     licenseCapabilities: (LicenseCapabilities)row.Grants.Mask(bit: LicenseGrant.Bit),
                     textMask: HostEdge.Slot(row.TextMask)!,
-                    validateProductKeyDelegate: Validator(program, held),
-                    leaseChanged: LeaseWatcher(program, held))
+                    validateProductKeyDelegate: Validator(program),
+                    leaseChanged: LeaseWatcher(program))
                 ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Capability))
                 : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
                     Key: held, Member: nameof(GetLicense)))).Run().Bind(static inner => inner)),
-            byBuild: (held, row) => Admit.Need(row.Program).Bind(program => Try.lift(() => GetLicense(
+            byBuild: row => Admit.Need(row.Program).Bind(program => Try.lift(() => GetLicense(
                     productBuildType: row.Build.Key,
-                    validateProductKeyDelegate: Validator(program, held),
-                    leaseChangedDelegate: LeaseWatcher(program, held))
+                    validateProductKeyDelegate: Validator(program),
+                    leaseChangedDelegate: LeaseWatcher(program))
                 ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Build))
                 : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
                     Key: held, Member: nameof(GetLicense)))).Run().Bind(static inner => inner)),
-            byPrompt: (held, row) => Admit.Need(row.Program).Bind(program => UiThread.Run(
+            byPrompt: row => Admit.Need(row.Program).Bind(program => UiThread.Run(
                 new UiDispatch<EntitleOutcome>.Blocking(() => Try.lift(() => AskUserForLicense(
                         productBuildType: row.Build.Key,
                         standAlone: row.Node,
                         textMask: HostEdge.Slot(row.TextMask)!,
                         parentWindow: HostEdge.Slot(row.Parent),
-                        validateProductKeyDelegate: Validator(program, held),
-                        onLeaseChangedDelegate: LeaseWatcher(program, held))
+                        validateProductKeyDelegate: Validator(program),
+                        onLeaseChangedDelegate: LeaseWatcher(program))
                     ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Prompt))
                     : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
                         Key: held, Member: nameof(AskUserForLicense)))).Run().Bind(static inner => inner)),
-                DispatchLane.Modal,
-                held)),
-            release: (held, _) => Try.lift(() => ReturnLicense()
+                DispatchLane.Modal)),
+            release: _ => Try.lift(() => ReturnLicense()
                 ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Released())
                 : Fin.Fail<EntitleOutcome>(error: new PluginFault.HostRefused(
                     Key: held, Member: nameof(ReturnLicense), Detail: nameof(EntitleOutcome.Released)))).Run().Bind(static inner => inner),
-            declare: (held, row) => row.License.Admit(held)
+            declare: row => row.License.Admit()
                 .Bind(_ => Try.lift(() => SetLicenseCapabilities(
                     textMask: HostEdge.Slot(row.TextMask)!,
                     capabilities: (LicenseCapabilities)row.Grants.Mask(bit: LicenseGrant.Bit),
                     licenseId: row.License.ToValue())).Run().Bind(static inner => inner))
                 .Map<EntitleOutcome>(_ => new EntitleOutcome.Declared(Grants: row.Grants)),
-            owner: (held, _) => Try.lift(() => Admit.Probe(() => {
+            owner: _ => Try.lift(() => Admit.Probe(() => {
                     bool answered = GetLicenseOwner(
                         registeredOwner: out string owner, registeredOrganization: out string organization);
                     return (Ok: answered, Value: new OwnerEvidence(
@@ -342,13 +341,13 @@ public abstract partial class RasmPlugIn {
             Fin<(ValidateResult Verdict, LicenseData Data)> settled = Record(outcome:
                 from key in Acceptance.Text(value: productKey)
                 from reply in Try.lift(() => program.Validate(productKey: key)).Run().Bind(static inner => inner)
-                from projected in reply.Switch(accepted: static (held, row) => row.Evidence.Mint(held)
+                from projected in reply.Switch(accepted: static row => row.Evidence.Mint()
                         .Map(static data => (Verdict: ValidateResult.Success, Data: data)),
-                    refusedLoudly: static (held, row) => Acceptance.Text(value: row.Message)
+                    refusedLoudly: static row => Acceptance.Text(value: row.Message)
                         .Map(static message => (
                             Verdict: ValidateResult.ErrorShowMessage,
                             Data: new LicenseData { ErrorMessage = message })),
-                    refusedQuietly: static (_, _) => Fin.Succ((
+                    refusedQuietly: static _ => Fin.Succ((
                         Verdict: ValidateResult.ErrorHideMessage,
                         Data: new LicenseData())))
                 select projected);
@@ -372,10 +371,10 @@ public abstract partial class RasmPlugIn {
             icon = HostEdge.Slot(badge)!;
         };
 
-    private static Fin<GdiIcon> Badge(AssetRaster raster) => raster.Switch(toolkit: static (held, _) => Fin.Fail<GdiIcon>(error: new KernelFault.InvalidValue(nameof(OnLeaseChangedDelegate), "a GDI raster the host icon slot accepts")),
-        gdi: static (held, row) => Try.lift(() =>
+    private static Fin<GdiIcon> Badge(AssetRaster raster) => raster.Switch(toolkit: static _ => Fin.Fail<GdiIcon>(error: new KernelFault.InvalidValue(nameof(OnLeaseChangedDelegate), "a GDI raster the host icon slot accepts")),
+        gdi: static row => Try.lift(() =>
             Fin.Succ(value: row.Bitmap.Use(static bitmap => GdiIcon.FromHandle(handle: bitmap.GetHicon())))).Run().Bind(static inner => inner),
-        pixels: static (held, _) => Fin.Fail<GdiIcon>(error: new KernelFault.InvalidValue(nameof(OnLeaseChangedDelegate), "a GDI raster the host icon slot accepts")));
+        pixels: static _ => Fin.Fail<GdiIcon>(error: new KernelFault.InvalidValue(nameof(OnLeaseChangedDelegate), "a GDI raster the host icon slot accepts")));
 }
 ```
 
@@ -451,40 +450,38 @@ public abstract partial record LicenseVerdict {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Licenses {
     public static Fin<LicenseVerdict> Ask(LicenseAsk ask) {
-        return Admit.Need(ask).Bind(request => request.Switch(census: static (held, _) => Try.lift(() => toSeq(LicenseUtils.GetLicenseStatus())
-                .Traverse(status => State(status, held))
+        return Admit.Need(ask).Bind(request => request.Switch(census: static _ => Try.lift(() => toSeq(LicenseUtils.GetLicenseStatus())
+                .Traverse(status => State(status))
                 .As()
                 .Map<LicenseVerdict>(static rows => new LicenseVerdict.Rows(States: rows.Strict()))).Run().Bind(static inner => inner),
-            one: static (held, row) => row.Product.Admit(held).Bind(_ => Try.lift(() =>
+            one: static row => row.Product.Admit().Bind(_ => Try.lift(() =>
                 Optional(LicenseUtils.GetOneLicenseStatus(productid: row.Product.ToValue()))
-                    .TraverseM(status => State(status, held))
+                    .TraverseM(status => State(status))
                     .As()
                     .Map<LicenseVerdict>(state => new LicenseVerdict.Row(state))).Run().Bind(static inner => inner)),
-            act: static (held, row) => row.Product.Admit(held)
+            act: static row => row.Product.Admit()
                 .Bind(_ => Admit.Need(row.Verb))
                 .Bind(verb => Try.lift(() => Fin.Succ<LicenseVerdict>(value: new LicenseVerdict.Acted(
                     Verb: verb, Accepted: verb.Run(product: row.Product.ToValue())))).Run().Bind(static inner => inner)),
-            checkOutEnabled: static (held, _) => Try.lift(() => Fin.Succ<LicenseVerdict>(
+            checkOutEnabled: static _ => Try.lift(() => Fin.Succ<LicenseVerdict>(
                 value: new LicenseVerdict.CheckOut(Enabled: LicenseUtils.IsCheckOutEnabled()))).Run().Bind(static inner => inner),
-            session: static (held, row) => Admit.Need(row.Verb).Bind(verb => Try.lift(() => verb.Run()
+            session: static row => Admit.Need(row.Verb).Bind(verb => Try.lift(() => verb.Run()
                 ? Fin.Succ<LicenseVerdict>(value: new LicenseVerdict.SessionSettled(Verb: verb))
                 : Fin.Fail<LicenseVerdict>(error: new PluginFault.Unreachable(
                     Key: held, Member: verb.Key))).Run().Bind(static inner => inner)),
-            account: static (held, _) => Try.lift(() => Fin.Succ<LicenseVerdict>(
+            account: static _ => Try.lift(() => Fin.Succ<LicenseVerdict>(
                 value: new LicenseVerdict.Signed(Account:
                     (RhinoApp.UserIsLoggedIn ? HostEdge.Text(RhinoApp.LoggedInUserName) : None).Match(
                         Some: static user => (LicenseAccount)new LicenseAccount.SignedIn(User: user),
                         None: static () => new LicenseAccount.SignedOut())))).Run().Bind(static inner => inner),
-            buyUi: static (held, row) => row.Product.Admit(held).Bind(_ => UiThread.Run(
+            buyUi: static row => row.Product.Admit().Bind(_ => UiThread.Run(
                 new UiDispatch<LicenseVerdict>.Blocking(() => Try.lift(() => LicenseUtils.ShowBuyLicenseUi(productId: row.Product.ToValue())).Run().Bind(static inner => inner)
                     .Map<LicenseVerdict>(_ => new LicenseVerdict.BuyOffered(Product: row.Product))),
-                DispatchLane.Modal,
-                held)),
-            validateUi: static (held, row) => Acceptance.Text(value: row.CdKey).Bind(cdkey => UiThread.Run(
+                DispatchLane.Modal)),
+            validateUi: static row => Acceptance.Text(value: row.CdKey).Bind(cdkey => UiThread.Run(
                 new UiDispatch<LicenseVerdict>.Blocking(() => Try.lift(() => Fin.Succ<LicenseVerdict>(
                     value: new LicenseVerdict.Validated(Accepted: LicenseUtils.ShowLicenseValidationUi(cdkey: cdkey)))).Run().Bind(static inner => inner)),
-                DispatchLane.Modal,
-                held))));
+                DispatchLane.Modal))));
     }
 
     private static Fin<LicenseState> State(LicenseStatus status) =>

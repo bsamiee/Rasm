@@ -516,7 +516,7 @@ public static class LayoutLedger {
         ContentHash.Of(content, static (held, writer) => {
             ignore(writer.String(held.Payload));
             ignore(writer.Ordinal(held.RouteStack.Count));
-            held.RouteStack.Iter(key => ignore(writer.String()));
+            held.RouteStack.Iter(key => ignore(writer.String(key)));
         });
 
     public static IO<Option<LayoutCheckpoint>> Flush(IClock clock, LayoutPersistence port, Atom<Option<UInt128>> last) =>

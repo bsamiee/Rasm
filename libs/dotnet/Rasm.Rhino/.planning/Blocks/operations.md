@@ -534,7 +534,7 @@ public abstract partial record BlockAnswer : IDetachedDocumentResult {
         token: static _ => Fin.Succ(unit),
         minted: static _ => Fin.Succ(unit),
         pieces: static (answer) => Custody.Release(
-            held: answer.Products, release: piece => piece.Release()));
+            held: answer.Products, release: piece => piece.Release(op)));
 }
 
 [SmartEnum<int>]

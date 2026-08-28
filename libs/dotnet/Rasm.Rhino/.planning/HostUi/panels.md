@@ -101,8 +101,8 @@ public abstract partial record PanelAudience {
     public sealed record Plugin(PluginKey Key) : PanelAudience;
     public sealed record Registry : PanelAudience;
 
-    internal Fin<Unit> Admit() => Switch(plugin: static (held, row) => row.Key.Admit(held),
-        registry: static (_, _) => Fin.Succ(value: unit));
+    internal Fin<Unit> Admit() => Switch(plugin: static row => row.Key.Admit(),
+        registry: static _ => Fin.Succ(value: unit));
 
     internal bool Admits(Option<PluginKey> owner) => Switch(
         owner,
@@ -268,8 +268,8 @@ public abstract partial record PanelInstanceScope {
     public sealed record Document(DocumentSession Session) : PanelInstanceScope;
     public sealed record Serial(DocKey Document) : PanelInstanceScope;
 
-    internal Fin<Unit> Admit() => Switch(document: static (held, row) => Admit.Need(row.Session).Map(static _ => unit),
-        serial: static (held, row) => FactoryBridge.Accept<DocKey>(
+    internal Fin<Unit> Admit() => Switch(document: static row => Admit.Need(row.Session).Map(static _ => unit),
+        serial: static row => FactoryBridge.Accept<DocKey>(
                 fault: DocKey.Validate(value: row.Document.ToValue(), provider: null, out DocKey? admitted),
                 admitted: admitted)
             .Map(static _ => unit));
@@ -283,10 +283,10 @@ public abstract partial record PanelPlacement {
     public sealed record Beside(PanelKey Sibling, PanelFocus Focus) : PanelPlacement;
     public sealed record Floating(PanelFloat Mode) : PanelPlacement;
 
-    internal Fin<Unit> Admit() => Switch(docked: static (_, _) => Fin.Succ(value: unit),
-        atBar: static (held, row) => DockBarKey.Of(value: row.DockBar.ToValue(), key: held).Map(static _ => unit),
-        beside: static (held, row) => PanelKey.Of(value: row.Sibling.ToValue(), key: held).Map(static _ => unit),
-        floating: static (_, _) => Fin.Succ(value: unit));
+    internal Fin<Unit> Admit() => Switch(docked: static _ => Fin.Succ(value: unit),
+        atBar: static row => DockBarKey.Of(value: row.DockBar.ToValue()).Map(static _ => unit),
+        beside: static row => PanelKey.Of(value: row.Sibling.ToValue()).Map(static _ => unit),
+        floating: static _ => Fin.Succ(value: unit));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -296,7 +296,6 @@ internal abstract partial record PanelBadge {
     internal sealed record Owned(Lease<DrawingIcon> Icon) : PanelBadge;
 
     internal static Fin<PanelBadge> Of(AssetOrigin origin) => origin.Switch(
-        state: op,
         resource: static (row) => Fin.Succ<PanelBadge>(new Named(Anchor: row.Anchor)),
         file: static (row) => Lease<DrawingIcon>
             .Acquire(mint: () => new DrawingIcon(fileName: row.Location.Value))
@@ -556,8 +555,8 @@ public abstract partial record PanelObserve {
     public sealed record Owned(PanelAudience Audience) : PanelObserve;
     public sealed record Hosted : PanelObserve;
 
-    internal Fin<Unit> Admit() => Switch(owned: static (held, row) => Admit.Need(row.Audience).Bind(audience => audience.Admit(held)),
-        hosted: static (_, _) => Fin.Succ(value: unit));
+    internal Fin<Unit> Admit() => Switch(owned: static row => Admit.Need(row.Audience).Bind(audience => audience.Admit()),
+        hosted: static _ => Fin.Succ(value: unit));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -690,20 +689,20 @@ public abstract partial record RuiFileRef {
     public sealed record ByPath(string Path) : RuiFileRef;
     public sealed record ByName(string Name, NameMatch Match) : RuiFileRef;
 
-    internal Fin<RuiFileRef> Admit() => Switch(byId: static (held, address) => address.Id != Guid.Empty
+    internal Fin<RuiFileRef> Admit() => Switch(byId: static address => address.Id != Guid.Empty
             ? Fin.Succ<RuiFileRef>(value: address)
             : Fin.Fail<RuiFileRef>(error: new KernelFault.InvalidInput()),
-        byPath: static (held, address) => PathOf(candidate: address.Path, op: held)
+        byPath: static address => PathOf(candidate: address.Path)
             .Map<RuiFileRef>(path => address with { Path = path }),
-        byName: static (held, address) => Acceptance.Text(value: address.Name)
+        byName: static address => Acceptance.Text(value: address.Name)
             .Map<RuiFileRef>(name => address with { Name = name }));
 
-    internal Fin<ToolbarFile> ResolveAdmitted() => Switch(byId: static (held, address) => toSeq(RhinoApp.ToolbarFiles).Choose(Optional)
+    internal Fin<ToolbarFile> ResolveAdmitted() => Switch(byId: static address => toSeq(RhinoApp.ToolbarFiles).Choose(Optional)
             .Find(candidate => candidate.Id == address.Id)
             .ToFin(Fail: new KernelFault.MissingContext()),
-        byPath: static (held, address) => Optional(RhinoApp.ToolbarFiles.FindByPath(path: address.Path))
+        byPath: static address => Optional(RhinoApp.ToolbarFiles.FindByPath(path: address.Path))
             .ToFin(Fail: new KernelFault.MissingContext()),
-        byName: static (held, address) => Optional(RhinoApp.ToolbarFiles.FindByName(name: address.Name, ignoreCase: address.Match.Key))
+        byName: static address => Optional(RhinoApp.ToolbarFiles.FindByName(name: address.Name, ignoreCase: address.Match.Key))
             .ToFin(Fail: new KernelFault.MissingContext()));
 
     internal static Fin<string> PathOf(string candidate) =>
@@ -736,24 +735,24 @@ public abstract partial record RuiCommand {
     public sealed record Sidebar(RuiSidebar Target, RuiVisibility Visibility) : RuiCommand;
     public sealed record BarSize(RuiBarSize Size) : RuiCommand;
 
-    internal Fin<RuiCommand> Admit() => Switch(openFile: static (held, row) => RuiFileRef.PathOf(candidate: row.Path, op: held)
+    internal Fin<RuiCommand> Admit() => Switch(openFile: static row => RuiFileRef.PathOf(candidate: row.Path)
             .Map<RuiCommand>(path => row with { Path = path }),
-        closeFile: static (held, row) => Admit.Need(row.File)
-            .Bind(value => value.Admit(held))
+        closeFile: static row => Admit.Need(row.File)
+            .Bind(value => value.Admit())
             .Map<RuiCommand>(file => row with { File = file }),
-        saveFile: static (held, row) => Admit.Need(row.File)
-            .Bind(value => value.Admit(held))
+        saveFile: static row => Admit.Need(row.File)
+            .Bind(value => value.Admit())
             .Map<RuiCommand>(file => row with { File = file }),
-        saveFileAs: static (held, row) =>
-            from file in Admit.Need(row.File).Bind(value => value.Admit(held))
-            from target in RuiFileRef.PathOf(candidate: row.Target, op: held)
+        saveFileAs: static row =>
+            from file in Admit.Need(row.File).Bind(value => value.Admit())
+            from target in RuiFileRef.PathOf(candidate: row.Target)
             select (RuiCommand)(row with { File = file, Target = target }),
-        group: static (held, row) =>
-            from file in Admit.Need(row.File).Bind(value => value.Admit(held))
+        group: static row =>
+            from file in Admit.Need(row.File).Bind(value => value.Admit())
             from _ in guard(flag: row.GroupId != Guid.Empty, False: new KernelFault.InvalidInput())
             select (RuiCommand)(row with { File = file }),
-        sidebar: static (_, row) => Fin.Succ<RuiCommand>(value: row),
-        barSize: static (held, row) => Admit.Need(row.Size).Map<RuiCommand>(_ => row));
+        sidebar: static row => Fin.Succ<RuiCommand>(value: row),
+        barSize: static row => Admit.Need(row.Size).Map<RuiCommand>(_ => row));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -804,23 +803,23 @@ public static class Rui {
                 Snapshot: snapshot, Applied: Rasm.Numerics.Dimension.Create(value: state.Applied))));
     }
 
-    private static Fin<Unit> Apply(RuiCommand command) => command.Switch(openFile: static (held, work) =>
+    private static Fin<Unit> Apply(RuiCommand command) => command.Switch(openFile: static work =>
             from file in Try.lift(() => Optional(RhinoApp.ToolbarFiles.Open(path: work.Path))
                 .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(work.Path)))).Run().Bind(static inner => inner)
             from _ in work.Save.Key ? Admit.Confirm(success: file.Save()) : Fin.Succ(value: unit)
             select unit,
-        closeFile: static (held, work) => work.File.ResolveAdmitted(op: held)
+        closeFile: static work => work.File.ResolveAdmitted(op: held)
             .Bind(file => Admit.Confirm(success: file.Close(prompt: work.Close.Key))),
-        saveFile: static (held, work) => work.File.ResolveAdmitted(op: held).Bind(file => Admit.Confirm(success: file.Save())),
-        saveFileAs: static (held, work) => work.File.ResolveAdmitted(op: held)
+        saveFile: static work => work.File.ResolveAdmitted(op: held).Bind(file => Admit.Confirm(success: file.Save())),
+        saveFileAs: static work => work.File.ResolveAdmitted(op: held)
             .Bind(file => Admit.Confirm(success: file.SaveAs(path: work.Target))),
-        group: static (held, work) =>
+        group: static work =>
             from file in work.File.ResolveAdmitted(op: held)
-            from groups in Indexed(count: file.GroupCount, read: file.GetGroup, op: held)
+            from groups in Indexed(count: file.GroupCount, read: file.GetGroup)
             from group in groups.Find(candidate => candidate.Id == work.GroupId).ToFin(Fail: new KernelFault.MissingContext())
             select HostEdge.Side(() => group.Visible = work.Visibility.Key),
-        sidebar: static (_, work) => Fin.Succ(value: work.Target.Apply(visible: work.Visibility)),
-        barSize: static (held, work) => toSeq(work.Size.Values)
+        sidebar: static work => Fin.Succ(value: work.Target.Apply(visible: work.Visibility)),
+        barSize: static work => toSeq(work.Size.Values)
             .TraverseM(size => Try.lift(() => Fin.Succ(value: size.Key.Apply(size.Value))).Run().Bind(static inner => inner))
             .As()
             .Map(static _ => unit));
@@ -1269,9 +1268,9 @@ public abstract partial record UnitFormat {
     public sealed record Model(UnitSystem Units, DistanceDisplayMode Display) : UnitFormat;
     public sealed record Length(LengthUnit Units, DistanceDisplayMode Display) : UnitFormat;
 
-    internal Fin<Unit> Admit() => Switch(model: static (held, row) => guard(
+    internal Fin<Unit> Admit() => Switch(model: static row => guard(
             flag: Enum.IsDefined(row.Units) && Enum.IsDefined(row.Display), False: new KernelFault.InvalidInput()).ToFin(),
-        length: static (held, row) => guard(
+        length: static row => guard(
             flag: Enum.IsDefined(row.Units) && Enum.IsDefined(row.Display), False: new KernelFault.InvalidInput()).ToFin());
 
     internal Unit Apply(NumericUpDownWithUnitParsing control) => Switch(
@@ -1332,35 +1331,35 @@ public abstract partial record HostControl {
             .Map<ControlSpec>(_ => new ControlSpec.Custom(Spec: spec, Mint: () => control.Mint(runtime: runtime)));
     }
 
-    internal Fin<Unit> Admit() => Switch(unitEntry: static (held, row) =>
+    internal Fin<Unit> Admit() => Switch(unitEntry: static row =>
             from _ in UnitPulse.Law.Admit(held: row.Pulses)
-            from __ in row.Format.Admit(held)
+            from __ in row.Format.Admit()
             select unit,
-        richAlternate: static (held, row) => EditTrait.Law.Admit(held: row.Traits).Map(static _ => unit),
-        command: static (held, row) => row.Row.Admit(held),
-        addRemove: static (held, row) =>
+        richAlternate: static row => EditTrait.Law.Admit(held: row.Traits).Map(static _ => unit),
+        command: static row => row.Row.Admit(),
+        addRemove: static row =>
             from add in FactoryBridge.Accept<IntentKey>(candidate: row.Add.Value)
             from remove in FactoryBridge.Accept<IntentKey>(candidate: row.Remove.Value)
             from _ in guard(flag: add != remove, False: new KernelFault.InvalidInput())
             select unit,
-        actionRow: static (held, row) =>
+        actionRow: static row =>
             from _ in guard(flag: !row.Rows.IsEmpty, False: new KernelFault.InvalidInput()).ToFin()
-            from __ in row.Rows.TraverseM(action => Admit.Need(action).Bind(value => value.Admit(held))).As()
+            from __ in row.Rows.TraverseM(action => Admit.Need(action).Bind(value => value.Admit())).As()
             select unit,
-        gridWrap: static (held, row) =>
+        gridWrap: static row =>
             from _ in guard(
                     flag: !row.Items.IsEmpty && Enum.IsDefined(row.Direction)
                         && row.ItemSize.Width > 0 && row.ItemSize.Height > 0,
                     False: new KernelFault.InvalidInput())
                 .ToFin()
-            from __ in row.Items.TraverseM(item => Admit.Need(item).Bind(value => value.Admit(held))).As()
+            from __ in row.Items.TraverseM(item => Admit.Need(item).Bind(value => value.Admit())).As()
             select unit,
-        labelRow: static (held, row) => Admit.Need(row.Field).Bind(field => field.Admit(held)),
-        dividerLine: static (_, _) => Fin.Succ(value: unit),
-        captionRule: static (_, _) => Fin.Succ(value: unit),
-        pinnedLabel: static (held, row) => guard(flag: Enum.IsDefined(row.Alignment), False: new KernelFault.InvalidInput()).ToFin(),
-        outputColour: static (held, row) => guard(flag: Enum.IsDefined(row.Mode), False: new KernelFault.InvalidInput()).ToFin(),
-        viewportView: static (_, _) => Fin.Succ(value: unit));
+        labelRow: static row => Admit.Need(row.Field).Bind(field => field.Admit()),
+        dividerLine: static _ => Fin.Succ(value: unit),
+        captionRule: static _ => Fin.Succ(value: unit),
+        pinnedLabel: static row => guard(flag: Enum.IsDefined(row.Alignment), False: new KernelFault.InvalidInput()).ToFin(),
+        outputColour: static row => guard(flag: Enum.IsDefined(row.Mode), False: new KernelFault.InvalidInput()).ToFin(),
+        viewportView: static _ => Fin.Succ(value: unit));
 
     internal Fin<ControlMint> Mint(ElementRuntime runtime) => Switch(
         runtime,

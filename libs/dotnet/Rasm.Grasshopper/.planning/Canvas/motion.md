@@ -244,7 +244,7 @@ public sealed class CanvasPacer : IDisposable {
                select mounted;
     }
 
-    public void Dispose() => _ = Release(key: operation);
+    public void Dispose() => _ = Release();
 
     private Fin<Lease<CanvasPacer>> Seat(Lease<UiClock> owned) =>
         Cell.Seat(cell: clock, mint: () => owned).Switch(
@@ -260,7 +260,7 @@ public sealed class CanvasPacer : IDisposable {
         Seq<(MotionScript Script, Action<MotionSample> Apply)> active = live.Value;
         if (active.IsEmpty) { return Stop(); }
         (Seq<Error> faulted, Seq<((MotionScript Script, Action<MotionSample> Apply) Row, bool Continues)> stepped) = active
-            .Map(row => MotionDrive.Step(script: row.Script, beat: beat.Evidence, accessibility: accessibility, key: operation)
+            .Map(row => MotionDrive.Step(script: row.Script, beat: beat.Evidence, accessibility: accessibility)
                 .Bind(step => Try.lift(() => row.Apply(step.Sample)).Run().Bind(static inner => inner)
                     .Map(_ => (Row: row, step.Continues))))
             .Partition();
@@ -279,7 +279,7 @@ public sealed class CanvasPacer : IDisposable {
     }
 
     private Fin<Unit> Stop() => clock.Value.ToFin(new KernelFault.InvalidResult())
-        .Bind(owned => owned.Resource.Stop(key: operation));
+        .Bind(owned => owned.Resource.Stop());
 
     private static Fin<Unit> Tick(WeakReference<CanvasPacer> owner, PulseBeat beat) =>
         owner.TryGetTarget(out CanvasPacer? active)

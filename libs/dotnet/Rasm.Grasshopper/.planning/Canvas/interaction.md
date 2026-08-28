@@ -145,10 +145,10 @@ internal sealed class SpecResponder : Responses, IResponsive {
 
     private Response Answer(PointerPhase phase, ResponseMouseArgs e, Func<Response> inherited) => Settle(
         Try.lift(() => responder.Spec.Pointer.Find(phase).Match(
-            Some: handle => InputMap.Fact(args: e, source: surface, key: operation)
+            Some: handle => InputMap.Fact(args: e, source: surface)
                 .Map(handle)
                 .Bind(verdict => Governed(verdict: verdict)),
-            None: () => VerdictPort.Of(response: inherited(), key: operation))).Run().Bind(static inner => inner));
+            None: () => VerdictPort.Of(response: inherited()))).Run().Bind(static inner => inner));
 
     private Response Keyed(KeyPhase phase, KeyEventArgs e, Func<Response> inherited);
     private Response Slotted<TEvent>(Option<Func<TEvent, InputVerdict>> slot, TEvent e, Func<Response> inherited) where TEvent : class;
@@ -157,8 +157,7 @@ internal sealed class SpecResponder : Responses, IResponsive {
     private Fin<InputVerdict> Governed(InputVerdict verdict) => hooks
         .TraverseM(live => live.Fire(
                 at: GrasshopperPoint.InteractionVerdict,
-                fact: new HookSignal.IntentCase(Operation: operation, DocumentId: None),
-                key: operation))
+                fact: new HookSignal.IntentCase(Operation: operation, DocumentId: None)))
         .As()
         .Map(_ => verdict)
         .BindFail(_ => Fin.Succ(InputVerdict.Ignored));

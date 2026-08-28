@@ -224,13 +224,13 @@ public static class Coordination {
     }
 
     static Fin<CoordinationRule> Validate(CoordinationRule rule) => rule.Switch(
-        require:     static (_, r) => Fin.Succ<CoordinationRule>(r),
-        prohibit:    static (_, r) => Fin.Succ<CoordinationRule>(r),
-        cardinality: static (k, r) => r.Min < 0 || r.Max.Match(Some: hi => hi < r.Min, None: static () => false)
-                         ? new BimFault.Refused(k, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "coordination-rule", "cardinality-bound", r.Min.ToString(CultureInfo.InvariantCulture), r.Max.Match(Some: h => h.ToString(CultureInfo.InvariantCulture), None: static () => "*") }))
+        require:     static r => Fin.Succ<CoordinationRule>(r),
+        prohibit:    static r => Fin.Succ<CoordinationRule>(r),
+        cardinality: static r => r.Min < 0 || r.Max.Match(Some: hi => hi < r.Min, None: static () => false)
+                         ? new BimFault.Refused(BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "coordination-rule", "cardinality-bound", r.Min.ToString(CultureInfo.InvariantCulture), r.Max.Match(Some: h => h.ToString(CultureInfo.InvariantCulture), None: static () => "*") }))
                          : Fin.Succ<CoordinationRule>(r),
-        unique:      static (_, r) => Fin.Succ<CoordinationRule>(r),
-        reachable:   static (_, r) => Fin.Succ<CoordinationRule>(r));
+        unique:      static r => Fin.Succ<CoordinationRule>(r),
+        reachable:   static r => Fin.Succ<CoordinationRule>(r));
 
     static RuleVerdict Verdict(ElementGraph graph, Seq<(DistributionSystem View, LanguageExt.HashSet<NodeId> Members)> systems, CoordinationRule rule) =>
         rule.Switch(

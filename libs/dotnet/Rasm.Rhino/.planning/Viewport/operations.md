@@ -110,8 +110,8 @@ public abstract partial record GestureRequest {
     public sealed record Keyed(KeyGesture Verb, GestureAxis Axis, double Amount) : GestureRequest;
     public sealed record Dragged(DragGesture Verb, ScreenDrag Drag) : GestureRequest;
 
-    internal Fin<GestureRequest> Admit() => Switch(keyed: static (key, gesture) => Admit.Finite(value: gesture.Amount).Map(_ => (GestureRequest)gesture),
-        dragged: static (_, gesture) => Fin.Succ((GestureRequest)gesture));
+    internal Fin<GestureRequest> Admit() => Switch(keyed: static gesture => Admit.Finite(value: gesture.Amount).Map(_ => (GestureRequest)gesture),
+        dragged: static gesture => Fin.Succ((GestureRequest)gesture));
 
     internal Fin<Unit> Apply(RhinoViewport viewport) => Switch(
         viewport,
@@ -188,14 +188,14 @@ public abstract partial record ProjectionChange {
         twoPoint: () => new TwoPointCase(TargetDistance: Option<double>.None, LensLength: lens),
         parallelReflected: static () => new ReflectedCase());
 
-    internal Fin<ProjectionChange> Admit() => Switch(parallelCase: static (_, row) => Fin.Succ((ProjectionChange)row),
-        perspectiveCase: static (key, row) => Lens(lens: row.LensLength, distance: row.TargetDistance).Map(_ => (ProjectionChange)row),
-        twoPointCase: static (key, row) => Lens(lens: row.LensLength, distance: row.TargetDistance).Map(_ => (ProjectionChange)row),
-        reflectedCase: static (_, row) => Fin.Succ((ProjectionChange)row),
-        lensCase: static (key, row) => FactoryBridge.Accept<LensAngle>(candidate: (double)row.Angle).Map(_ => (ProjectionChange)row),
-        lockCase: static (_, row) => Fin.Succ((ProjectionChange)row),
-        definedCase: static (key, row) => Acceptance.Text(value: row.ViewName).Map(_ => (ProjectionChange)row),
-        isometricCase: static (key, row) => Acceptance.Text(value: row.ViewName).Map(_ => (ProjectionChange)row));
+    internal Fin<ProjectionChange> Admit() => Switch(parallelCase: static row => Fin.Succ((ProjectionChange)row),
+        perspectiveCase: static row => Lens(lens: row.LensLength, distance: row.TargetDistance).Map(_ => (ProjectionChange)row),
+        twoPointCase: static row => Lens(lens: row.LensLength, distance: row.TargetDistance).Map(_ => (ProjectionChange)row),
+        reflectedCase: static row => Fin.Succ((ProjectionChange)row),
+        lensCase: static row => FactoryBridge.Accept<LensAngle>(candidate: (double)row.Angle).Map(_ => (ProjectionChange)row),
+        lockCase: static row => Fin.Succ((ProjectionChange)row),
+        definedCase: static row => Acceptance.Text(value: row.ViewName).Map(_ => (ProjectionChange)row),
+        isometricCase: static row => Acceptance.Text(value: row.ViewName).Map(_ => (ProjectionChange)row));
 
     private static Fin<Unit> Lens(double lens, Option<double> distance) =>
         from _lens in Admit.Positive(value: lens)
@@ -238,13 +238,13 @@ public abstract partial record StackVerb {
     public sealed record CPlanePop : StackVerb;
     public sealed record SetCPlane(Plane Plane) : StackVerb;
 
-    internal Fin<StackVerb> Admit() => Switch(viewPush: static (_, row) => Fin.Succ((StackVerb)row),
-        viewPop: static (_, row) => Fin.Succ((StackVerb)row),
-        viewNext: static (_, row) => Fin.Succ((StackVerb)row),
-        viewPrevious: static (_, row) => Fin.Succ((StackVerb)row),
-        cPlanePush: static (key, row) => guard(row.Plane.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (StackVerb)row),
-        cPlanePop: static (_, row) => Fin.Succ((StackVerb)row),
-        setCPlane: static (key, row) => guard(row.Plane.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (StackVerb)row));
+    internal Fin<StackVerb> Admit() => Switch(viewPush: static row => Fin.Succ((StackVerb)row),
+        viewPop: static row => Fin.Succ((StackVerb)row),
+        viewNext: static row => Fin.Succ((StackVerb)row),
+        viewPrevious: static row => Fin.Succ((StackVerb)row),
+        cPlanePush: static row => guard(row.Plane.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (StackVerb)row),
+        cPlanePop: static row => Fin.Succ((StackVerb)row),
+        setCPlane: static row => guard(row.Plane.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (StackVerb)row));
 
     internal Fin<StackMove> Apply(RhinoViewport viewport) =>
         Switch(
@@ -370,10 +370,10 @@ public abstract partial record NamedViewOp {
     public sealed record RenameCase(ResourceName Name, ResourceName NewName) : NamedViewOp;
     public sealed record DeleteCase(ResourceName Name) : NamedViewOp;
 
-    internal Fin<NamedViewOp> Admit() => Switch(restoreCase: static (key, row) => Admit.Need(value: row.Pace).Map(_ => (NamedViewOp)row),
-        addCase: static (_, row) => Fin.Succ((NamedViewOp)row),
-        renameCase: static (_, row) => Fin.Succ((NamedViewOp)row),
-        deleteCase: static (_, row) => Fin.Succ((NamedViewOp)row));
+    internal Fin<NamedViewOp> Admit() => Switch(restoreCase: static row => Admit.Need(value: row.Pace).Map(_ => (NamedViewOp)row),
+        addCase: static row => Fin.Succ((NamedViewOp)row),
+        renameCase: static row => Fin.Succ((NamedViewOp)row),
+        deleteCase: static row => Fin.Succ((NamedViewOp)row));
 
     internal Fin<Unit> Apply(RhinoDoc document, RhinoViewport viewport) =>
         Switch(

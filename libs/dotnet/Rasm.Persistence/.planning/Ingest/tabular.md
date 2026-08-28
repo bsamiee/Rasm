@@ -288,7 +288,7 @@ public static class TabularSource {
         transcode: static t => Transcoded(t.Spec, t.To, t.Target),
         adorn:     static a => Gated(a.Spec, TabularCapability.Adornment, () => IO.lift(() => Capture(() => a.Adornment.Switch(
                        a.Spec,
-                       mergeCells: static (s, m) => s.Source.Read(
+                       mergeCells: static m => s.Source.Read(
                            path:   p => { MiniExcel.MergeSameCells(m.Target, p); return (TabularYield)new TabularYield.Done(); },
                            stream: source => {
                                using MemoryStream buffered = new();
@@ -297,7 +297,7 @@ public static class TabularSource {
                                merged.MergeSameCells(buffered.ToArray());
                                return new TabularYield.Done();
                            }),
-                       pictures: static (s, images) => s.Source.Read(
+                       pictures: static images => s.Source.Read(
                            path:   p => { MiniExcel.AddPicture(p, [.. images.Images]); return (TabularYield)new TabularYield.Done(); },
                            stream: source => { MiniExcel.AddPicture(source, [.. images.Images]); return new TabularYield.Done(); }))))));
 

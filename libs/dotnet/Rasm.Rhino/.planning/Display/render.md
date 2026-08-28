@@ -1431,7 +1431,7 @@ public abstract class LightAuthorityHost : LightManagerSupport {
     public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) {
         LightArray target = light_array;
         _ = LightAuthorities.Answer(Engine, doc,
-            (program, key) => program.Roster().Map(rows => rows.Fold(unit, (_, row) => {
+            (program, key) => program.Roster(key).Map(rows => rows.Fold(unit, (_, row) => {
                 target.Append(row);
                 return unit;
             })),
@@ -1702,7 +1702,7 @@ public abstract partial record PostEffectOp : IValidityEvidence {
         selectCase: static (ctx, row) => Try.lift(() =>
             ctx.SetSelectedPostEffect(type: row.Stage.Key, id: row.Effect.Value)).Run().Bind(static inner => inner),
         tuneCase: static (ctx, row) => from data in Data(ctx, row.Effect)
-                                       from native in row.Value.Native()
+                                       from native in row.Value.Native(ctx.Op)
                                        from written in Try.lift(() => Admit.Confirm(
                                            success: data.SetParameter(param_name: row.Field.Value, param_value: native))).Run().Bind(static inner => inner)
                                        select written);
@@ -2013,7 +2013,7 @@ public abstract class EffectHost : PostEffects.PostEffect {
             from field in FactoryBridge.Accept<EffectField>(candidate: param)
             from held in Try.lift(() => program.Param(field)).Run().Bind(static inner => inner)
             from value in held.ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(param)))
-            from native in value.Native()
+            from native in value.Native(key)
             select native;
         _ = resolved.IfFail(cause => ignore(faults.Park(item: cause)));
         return HostEdge.Settle(slot: ref v, outcome: resolved);
@@ -2558,7 +2558,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                from _ in Live()
                from measured in timeline.Gauged<Rasm.Numerics.Dimension, DispatchLane>(
                    lane: DispatchLane.Deferred,
-                   work: op,
                    body: () => self.Apply(self.Taken(), body, env))
                from applied in (HostEdge.SideWhen(measured.Span.Breached, () => ignore(self.faults.Park(
                        item: new RenderFault.HostRefused(Member: nameof(Drain), Detail: measured.Span.Overrun.ToString())))),
@@ -2669,7 +2668,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     // --- [NOTIFY_BRACKET]
     protected override void NotifyBeginUpdates() {
         base.NotifyBeginUpdates();
-        _ = opened.Swap(_ => Error.New(key: key.Message).ToOption());
+        _ = opened.Swap(_ => timeline.Capture().ToOption());
     }
 
     protected override void NotifyEndUpdates() {
@@ -2727,14 +2726,14 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             },
             dropped => {
                 _ = dropped.Release();
-                _ = losses.Park(item: new QueueLoss(At: Error.New(key: key.Message).ToOption(), Deltas: dropped.Count));
+                _ = losses.Park(item: new QueueLoss(At: timeline.Capture().ToOption(), Deltas: dropped.Count));
             });
 
     private Unit Publish(Seq<SceneDelta> cut) {
         SceneBatch batch = new(
             deltas: cut,
             opened: opened.Value,
-            sealedAt: Error.New(key: key.Message).ToOption(),
+            sealedAt: timeline.Capture().ToOption(),
             units: units);
         _ = HostEdge.SideWhen(!lane.Writer.TryWrite(batch), () => {
             _ = batch.Release();
@@ -2756,7 +2755,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             },
             new KernelFault.InvalidContext());
         return staged is Transition<QueueCell>.Refused
-            ? (ignore(Observe(delta.Release())), staged).Item2
+            ? (ignore(Observe(delta.Release(key))), staged).Item2
             : staged;
     }
 
@@ -2777,10 +2776,10 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     private Fin<Rasm.Numerics.Dimension> Apply(Seq<SceneBatch> batches, Func<SceneBatch, Fin<Unit>> take, Option<Env> env) {
         (Seq<Error> refused, Seq<Rasm.Numerics.Dimension> applied) = batches
             .Map(batch => env.Map(static held => held.Cancellation.IsCancellationRequested).IfNone(false)
-                ? batch.Release().Bind(_ => Fin.Fail<Rasm.Numerics.Dimension>(Errors.Cancelled))
+                ? batch.Release(key).Bind(_ => Fin.Fail<Rasm.Numerics.Dimension>(Errors.Cancelled))
                 : Try.lift(() => take(batch)).Run().Bind(static inner => inner).Match(
                     Succ: _ => Fin.Succ(batch.Count),
-                    Fail: cause => batch.Release().Match(
+                    Fail: cause => batch.Release(key).Match(
                         Succ: _ => Fin.Fail<Rasm.Numerics.Dimension>(cause),
                         Fail: cleanup => Fin.Fail<Rasm.Numerics.Dimension>(cause + cleanup))))
             .Partition();
@@ -2800,14 +2799,14 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     private Fin<Unit> Sweep() {
         Seq<SceneBatch> residue = Taken();
         return Custody.Release(residue, batch => (
-            losses.Park(item: new QueueLoss(At: Error.New(key: op.Message).ToOption(), Deltas: batch.Count)),
-            batch.Release()).Item2);
+            losses.Park(item: new QueueLoss(At: timeline.Capture().ToOption(), Deltas: batch.Count)),
+            batch.Release(key)).Item2);
     }
 
     private Fin<Unit> Stranded(Seq<SceneDelta> rows) => rows.IsEmpty
         ? Fin.Succ(unit)
-        : (losses.Park(item: new QueueLoss(At: Error.New(key: op.Message).ToOption(), Deltas: Rasm.Numerics.Dimension.Create(value: rows.Count))),
-           Custody.Release(rows, delta => delta.Release())).Item2;
+        : (losses.Park(item: new QueueLoss(At: timeline.Capture().ToOption(), Deltas: Rasm.Numerics.Dimension.Create(value: rows.Count))),
+           Custody.Release(rows, delta => delta.Release(op))).Item2;
 
     private MaterialTouch Touch(uint material, uint instance) => new(
         Material: material,

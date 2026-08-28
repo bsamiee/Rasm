@@ -418,7 +418,7 @@ public static class SparseOps {
                     Seq(new ArchiveAttributes("A", Seq(
                         ("shape", (ArchiveAttribute)new ArchiveAttribute.WholeVector(new long[] { op.A.RowCount, op.A.ColumnCount })),
                         ("format", new ArchiveAttribute.Text("csc")),
-                        ("kind", new ArchiveAttribute.Text()),
+                        ("kind", new ArchiveAttribute.Text(op.Kind.Key)),
                         ("ordering", new ArchiveAttribute.Whole((int)op.Ordering)),
                         ("fill", new ArchiveAttribute.Whole(op.Fill)),
                         ("frobenius", new ArchiveAttribute.Real(op.FrobeniusNorm)),

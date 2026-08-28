@@ -883,11 +883,11 @@ public static class VisualExport {
         select published;
 
     static Fin<PageGeometry> Frame(PlotPolicy plot) =>
-        from unit in ModelUnit.Of(value: UnitSystem.PrinterPoints, key: ExportOp)
+        from unit in ModelUnit.Of(value: UnitSystem.PrinterPoints)
         let laid = plot.Orientation.Extent(size: plot.Size)
-        from surface in SheetSize.Of(width: laid.Width, height: laid.Height, standard: plot.Size.Standard, key: ExportOp)
-        from extent in surface.In(unit: unit, key: ExportOp)
-        from margin in plot.Frame.Margin(size: plot.Size, key: ExportOp).Bind(row => row.In(unit: unit, key: ExportOp))
+        from surface in SheetSize.Of(width: laid.Width, height: laid.Height, standard: plot.Size.Standard)
+        from extent in surface.In(unit: unit)
+        from margin in plot.Frame.Margin(size: plot.Size).Bind(row => row.In(unit: unit))
         from geometry in margin.Left + margin.Right < extent.Width && margin.Top + margin.Bottom < extent.Height
             ? Fin.Succ(new PageGeometry(
                 Page: new SKSize((float)extent.Width, (float)extent.Height),
@@ -915,9 +915,7 @@ public static class VisualExport {
                             .Map(_ => { scoped.EndPage(); return unit; })))
                         .Match(
                             Succ: _ => { scoped.Close(); return Fin.Succ(sink.ToArray()); },
-                            Fail: error => { scoped.Abort(); return Fin.Fail<byte[]>(error); }),
-                    key: ExportOp)),
-            key: ExportOp)
+                            Fail: error => { scoped.Abort(); return Fin.Fail<byte[]>(error); }))))
         select payload;
 }
 ```

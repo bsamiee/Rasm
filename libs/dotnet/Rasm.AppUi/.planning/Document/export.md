@@ -132,8 +132,7 @@ public static class ExportDelivery {
         string pending = Path.Combine(seat.Directory, $".{Path.GetFileName(seat.Target)}.{Guid.NewGuid():N}.pending");
         return Custody.Bracket(
                 acquire: () => File.OpenHandle(pending, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileOptions.WriteThrough),
-                project: handle => Try.lift(() => { RandomAccess.Write(handle, payload.Span, fileOffset: 0L); return Fin.Succ(unit); }).Run().Bind(static inner => inner),
-                key: Write)
+                project: handle => Try.lift(() => { RandomAccess.Write(handle, payload.Span, fileOffset: 0L); return Fin.Succ(unit); }).Run().Bind(static inner => inner))
             .Bind(_ => LinkFreeChain(seat.Root, seat.Directory))
             .Bind(_ => Try.lift(() => { File.Move(pending, seat.Target, overwrite: true); return Fin.Succ(seat.Target); }).Run().Bind(static inner => inner))
             .Rollback(() => Try.lift(() => { if (File.Exists(pending)) { File.Delete(pending); } return Fin.Succ(unit); }).Run().Bind(static inner => inner));
@@ -346,7 +345,7 @@ public static class BlockLines {
     public static Seq<BlockLine> Of(ReportBlock block) => block.Switch(
         heading: static h => Seq(BlockLine.Head(h.Level, h.Text)),
         body: static b => Seq<BlockLine>(new BlockLine.Text(b.Text, LineRole.Body, 0)),
-        list: static l => l.Items.Map((item, index) => (BlockLine)new BlockLine.Text($"{l.Style.Marker(index)} {item}", LineRole.Body, 0)),
+        list: static l => l.Items.Map(index => (BlockLine)new BlockLine.Text($"{l.Style.Marker(index)} {item}", LineRole.Body, 0)),
         callout: static c => BlockLine.Titled(c.HeadingLevel, c.Title) + c.Blocks.Bind(Of),
         code: static c => Seq<BlockLine>(new BlockLine.Text(c.Source, LineRole.Code, 0)),
         table: static t => Seq<BlockLine>(new BlockLine.Grid(t.Body)),

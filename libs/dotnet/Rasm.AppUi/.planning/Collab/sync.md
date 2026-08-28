@@ -743,7 +743,7 @@ public static class GraphRegister {
         return (Required(meta, CollabColumn.Identity, static leaf => leaf.Text),
                 Required(meta, CollabColumn.Template, static leaf => leaf.Text)).Apply((key, template) =>
             new GraphNodeRow(template,
-                meta.Read(CollabColumn.Title, static leaf => leaf.Text).IfNone(),
+                meta.Read(CollabColumn.Title, static leaf => leaf.Text).IfNone(key),
                 meta.Read(CollabColumn.Parent, static leaf => leaf.Text),
                 meta.Read(CollabColumn.X, static leaf => leaf.Real).IfNone(0d),
                 meta.Read(CollabColumn.Y, static leaf => leaf.Real).IfNone(0d),
@@ -777,7 +777,7 @@ public static class GraphRegister {
             .Map(node => new GraphEndpoint(node, leaf.Field(CollabColumn.Pin, static held => held.Text)));
 
     static Option<GraphPinRow> Slot(LoroMap cell) =>
-        cell.Read(CollabColumn.Identity, static leaf => leaf.Text).Map(key => new GraphPinRow(cell.Read(CollabColumn.Name, static leaf => leaf.Text).IfNone(),
+        cell.Read(CollabColumn.Identity, static leaf => leaf.Text).Map(key => new GraphPinRow(cell.Read(CollabColumn.Name, static leaf => leaf.Text).IfNone(key),
             cell.Read(CollabColumn.Alignment, static leaf => leaf.Case<PinAlignment>()).IfNone(PinAlignment.None),
             cell.Read(CollabColumn.Direction, static leaf => leaf.Case<PinDirection>()).IfNone(PinDirection.Bidirectional),
             (int)cell.Read(CollabColumn.Bus, static leaf => leaf.Whole).IfNone(1L)));

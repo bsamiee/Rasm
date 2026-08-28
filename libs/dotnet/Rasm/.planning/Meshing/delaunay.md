@@ -239,17 +239,17 @@ public sealed partial class Tessellation : IValidityEvidence {
     public static Fin<Tessellation> Build(TessellationOp op) =>
         op.Switch(
             points: static p => Admit(p).Bind(static admitted => InsertionOrder(admitted.Vertices)
-                .FoldM(Seeded(admitted), (t, v) => t.InsertRow(v).Map(_ => t)).As()
-                .Bind(filled => admitted.Conforms.Map(static (c, i) => (Index: i, Row: c))
-                    .FoldM(filled, (t, c) => t.RecoverOne(c.Row, c.Index)).As())
+                .FoldM(Seeded(admitted), v => t.InsertRow(v).Map(_ => t)).As()
+                .Bind(filled => admitted.Conforms.Map(static i => (Index: i, Row: c))
+                    .FoldM(filled, c => t.RecoverOne(c.Row, c.Index)).As())
                 .Bind(static done => done.Policy.Mode.Settle(done))
                 .Bind(static done => done.Stripped())),
             insert: static i => i.Into.AdmitRow(i.Vertex)
                 .Bind(row => i.Into.InsertRow(i.Into.Store.AddVertex(in row)))
                 .Map(_ => i.Into),
             recover: static r => r.Into.AdmitIds(r.Conforms)
-                .Bind(admitted => r.Conforms.Map(static (c, i) => (Index: i, Row: c))
-                    .FoldM(admitted, (t, c) => t.RecoverOne(c.Row, c.Index)).As()));
+                .Bind(admitted => r.Conforms.Map(static i => (Index: i, Row: c))
+                    .FoldM(admitted, c => t.RecoverOne(c.Row, c.Index)).As()));
 
     static Seq<int> InsertionOrder(Arr<Implicit> rows) {
         Option<Point3d>[] sites = [.. rows.AsIterable().Map(static r => r.Round())];
@@ -462,7 +462,7 @@ public sealed partial class Tessellation : IValidityEvidence {
         conform.Switch(
             edge:     e => RecoverEnds(e.A, e.B, e, index),
             facet:    f => Range(0, f.Boundary.Count)
-                .FoldM(this, (t, i) => t.RecoverOne(
+                .FoldM(this, i => t.RecoverOne(
                     new Conform.Edge(f.Boundary[i], f.Boundary[(i + 1) % f.Boundary.Count]), index)).As()
                 .Bind(t => t.FacetConform(f, index)),
             crossing: c => RecoverEnds(c.A, c.B, c, index));

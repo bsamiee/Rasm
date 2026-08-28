@@ -690,9 +690,9 @@ internal static class SectionGeometry {
 }
 
 public static class SectionSolver {
-    public static Fin<ComputedSection> Solve(SectionProfile profile) => SectionGeometry.Of(profile).Section();
+    public static Fin<ComputedSection> Solve(SectionProfile profile) => SectionGeometry.Of(profile).Section(key);
 
-    public static Fin<IProfile> ProfileOf(SectionProfile profile) => SectionGeometry.Of(profile).Outline();
+    public static Fin<IProfile> ProfileOf(SectionProfile profile) => SectionGeometry.Of(profile).Outline(key);
 
     internal static Fin<ComputedSection> Compose(SectionProfile.BuiltUp b) =>
         b.Parts.Traverse(p => Solve(p.Part).Map(cs => (S: cs, p.DyMm, p.DzMm))).As().Bind(members => {

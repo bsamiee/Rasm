@@ -886,16 +886,16 @@ public static class Quadrature {
                        ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(
                            Label: nameof(QuadratureDomain.Line),
                            Requirement: "a NaN-free ascending interval"))
-                       : Counted(run: guard => Admit(outcome: l.Route.Evaluate(x => guard.Finite(l.F(x)), l.Bounds.Lower, l.Bounds.Upper, ctl), skipped: guard.Skipped, ctl: ctl)),
+                       : Counted(run: guard => Admit(outcome: l.Route.Evaluate(x => guard.Finite(l.F()), l.Bounds.Lower, l.Bounds.Upper, ctl), skipped: guard.Skipped, ctl: ctl)),
                    rectangle: r => !FiniteOrdered(bounds: r.X) || !FiniteOrdered(bounds: r.Y) || r.Order <= 0
                        ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Rectangle), Requirement: FiniteOrderedRequirement))
-                       : Counted(run: guard => Admit(outcome: (Value: Integrate.OnRectangle((x, y) => guard.Finite(r.F(x, y)), r.X.Lower, r.X.Upper, r.Y.Lower, r.Y.Upper, r.Order), Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl)),
+                       : Counted(run: guard => Admit(outcome: (Value: Integrate.OnRectangle(y => guard.Finite(r.F()), r.X.Lower, r.X.Upper, r.Y.Lower, r.Y.Upper, r.Order), Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl)),
                    cuboid: c => !FiniteOrdered(bounds: c.X) || !FiniteOrdered(bounds: c.Y) || !FiniteOrdered(bounds: c.Z) || c.Order <= 0
                        ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Cuboid), Requirement: FiniteOrderedRequirement))
-                       : Counted(run: guard => Admit(outcome: (Value: Integrate.OnCuboid((x, y, z) => guard.Finite(c.F(x, y, z)), c.X.Lower, c.X.Upper, c.Y.Lower, c.Y.Upper, c.Z.Lower, c.Z.Upper, c.Order), Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl)),
+                       : Counted(run: guard => Admit(outcome: (Value: Integrate.OnCuboid(z => guard.Finite(c.F(z)), c.X.Lower, c.X.Upper, c.Y.Lower, c.Y.Upper, c.Z.Lower, c.Z.Upper, c.Order), Error: Option<double>.None, L1Norm: Option<double>.None), skipped: guard.Skipped, ctl: ctl)),
                    sparseGrid: s => s.Bounds.Count is < 2 or > 20 || s.Level <= 0 || s.Level > ctl.MaxSparseLevel || s.Bounds.Exists(static b => !FiniteOrdered(bounds: b))
                        ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.SparseGrid), Requirement: "2-20 finite dimensions inside the level budget"))
-                       : Counted(run: guard => Admit(outcome: Smolyak.Integrate(f: x => guard.Finite(s.F(x)), bounds: s.Bounds, level: s.Level), skipped: guard.Skipped, ctl: ctl)),
+                       : Counted(run: guard => Admit(outcome: Smolyak.Integrate(f: x => guard.Finite(s.F()), bounds: s.Bounds, level: s.Level), skipped: guard.Skipped, ctl: ctl)),
                    reference: x => x.Order <= 0
                        ? Fin.Fail<QuadratureEvidence>(new KernelFault.InvalidValue(Label: nameof(QuadratureDomain.Reference), Requirement: "a positive rule order"))
                        : x.Element.Rule(order: x.Order).Bind(rule =>

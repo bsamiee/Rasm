@@ -208,10 +208,10 @@ public static class Reconciliation {
             .Map(static form => (ReconcileAnswer)new ReconcileAnswer.Digest(Digest(form)))
             .Bind(answer => Acceptance.Value(answer)),
         reconcile: static r => (Acceptance.Input(r.Prior), Acceptance.Input(r.Rebuilt))
-            .Apply(static (prior, rebuilt) => (Prior: prior, Rebuilt: rebuilt)).As()
+            .Apply(static rebuilt => (Prior: prior, Rebuilt: rebuilt)).As()
             .Bind(admitted => {
                 Set<GeometryHash> live = admitted.Rebuilt.Entities.Fold(Set<GeometryHash>(),
-                    static (set, entity) => set.TryAdd(Content(entity.Kind, entity.Canonical)));
+                    static entity => set.TryAdd(Content(entity.Kind, entity.Canonical)));
                 return toSeq(admitted.Prior.Entries.Values).Traverse(entry => {
                     GeometryHash digest = Content(entry.Kind, entry.Canonical);
                     return live.Contains(digest)
@@ -222,7 +222,7 @@ public static class Reconciliation {
                 }).As().Map(rows => (ReconcileAnswer)new ReconcileAnswer.Reconciled(new NamingHash(
                     Digest(new EncodeForm.Mesh(admitted.Rebuilt)),
                     rows.Fold(HashMap<TopoName, (EntityKind Kind, GeometryHash ContentHash)>(),
-                        static (map, row) => map.AddOrUpdate(row.Name, (row.Kind, row.ContentHash)))))).ToFin();
+                        static row => map.AddOrUpdate(row.Name, (row.Kind, row.ContentHash)))))).ToFin();
             })
             .Bind(answer => Acceptance.Value(answer)));
 
@@ -246,7 +246,7 @@ public static class Reconciliation {
                     clusterCase: static cluster => cluster.Mass.Match(
                         Some: mass => {
                             Seq<(Point3d Point, double Mass)> rows = toSeq(cluster.Vertices
-                                .Map((point, index) => (Point: point, Mass: mass[index]))
+                                .Map(index => (Point: point, Mass: mass[index]))
                                 .OrderBy(static row => row.Point.X).ThenBy(static row => row.Point.Y)
                                 .ThenBy(static row => row.Point.Z).ThenBy(static row => row.Mass));
                             return (0, rows.Map(static row => row.Point), rows.Map(static row => row.Mass));

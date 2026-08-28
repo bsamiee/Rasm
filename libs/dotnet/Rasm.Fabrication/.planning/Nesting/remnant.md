@@ -812,7 +812,7 @@ public static class Remnants {
         Map<UInt128, RemnantRow> byIdentity = toSeq(rows).Fold(
             Map<UInt128, RemnantRow>(),
             static (map, row) => map.AddOrUpdate(row.Remnant.Identity, row));
-        bool keyed = toSeq(inventory.Rows.Keys).ForAll(key => inventory.Rows.Find()
+        bool keyed = toSeq(inventory.Rows.Keys).ForAll(key => inventory.Rows.Find(key)
             .Exists(row => key == row.Remnant.Identity));
         BidirectionalGraph<UInt128, SEdge<UInt128>> lineage = new(allowParallelEdges: false);
         lineage.AddVertexRange(byIdentity.Keys);

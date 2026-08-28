@@ -526,7 +526,7 @@ public static partial class StructuralAnalysis {
                     (acc, p) => acc.Map.ContainsKey(Quantized(p, model.Joint))
                         ? acc
                         : (acc.Order.Add(p), acc.Map.Add(Quantized(p, model.Joint), acc.Order.Count)));
-            return (index.Order, key => index.Map.Find().ToFin(
+            return (index.Order, key => index.Map.Find(key).ToFin(
                 new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<frame-joint-unmerged:{key}>")));
         }
 

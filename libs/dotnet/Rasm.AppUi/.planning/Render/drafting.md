@@ -694,8 +694,8 @@ public static class DraftEmit {
 
     private static IO<VisualArtifact> Paged(
         VisualRuntime runtime, SheetSet set, Seq<Seq<SheetEntity>> pages, DraftPorts ports, VisualDestination destination) =>
-        from points in IO.lift(() => ModelUnit.Of(value: UnitSystem.PrinterPoints, key: Write))
-        from extent in IO.lift(() => set.Size.In(unit: points, key: Write))
+        from points in IO.lift(() => ModelUnit.Of(value: UnitSystem.PrinterPoints))
+        from extent in IO.lift(() => set.Size.In(unit: points))
         let scale = (float)(extent.Width / set.Size.Width.Millimeters)
         from artifact in VisualExport.Export(runtime, new VisualExportSpec(
             PrintFormat.Pdf, (float)extent.Width, (float)extent.Height,
@@ -710,7 +710,7 @@ public static class DraftEmit {
         DraftPolicy policy, VisualDestination destination, DraftFormat format, CadWriter writer) =>
         from gauged in IO.lift(() => ports.Line.Gauged<byte[], DraftLane>(
             lane: DraftLane.CadWrite, work: Write,
-            body: () => writer.Emit(set.Size, pages, policy.CadVersion), key: Write))
+            body: () => writer.Emit(set.Size, pages, policy.CadVersion)))
         from bytes in IO.lift(gauged.Value)
         from artifact in ExportDelivery.Deliver(runtime, destination, bytes)
         let artifact = new VisualArtifact(
@@ -747,8 +747,8 @@ public static class DraftEmit {
         SheetFrame frame = SheetFrame.For(sheet.Size.Standard);
         TitleBlockLayout layout = TitleBlockLayout.For(sheet.Size.Standard);
         (double w, double h) = (sheet.Size.Width.Millimeters, sheet.Size.Height.Millimeters);
-        return from margin in frame.Margin(size: sheet.Size, key: Write)
-               from zones in frame.Zones(size: sheet.Size, orientation: policy.Plot.Orientation, key: Write)
+        return from margin in frame.Margin(size: sheet.Size)
+               from zones in frame.Zones(size: sheet.Size, orientation: policy.Plot.Orientation)
                let inset = (Left: margin.Left.Millimeters, Top: margin.Top.Millimeters,
                    Right: margin.Right.Millimeters, Bottom: margin.Bottom.Millimeters)
                let block = (X: w - inset.Right - frame.Block.Width.Millimeters,
@@ -776,7 +776,7 @@ public static class DraftEmit {
         double span = sheet.Width - inset.Left - inset.Right;
         double rise = sheet.Height - inset.Top - inset.Bottom;
         return from columns in toSeq(Range(1, zones.Columns))
-                   .Traverse(column => zones.At(column: column, row: 1, key: Write).Map(seat => {
+                   .Traverse(column => zones.At(column: column, row: 1).Map(seat => {
                        double x = inset.Left + ((column - 0.5d) * span / zones.Columns);
                        return Seq<SheetEntity>(
                            new SheetEntity.Stroke(EdgeStyle.Marking, (x, inset.Top), (x, inset.Top + tick)),
@@ -786,7 +786,7 @@ public static class DraftEmit {
                                (x, inset.Top + (tick * 0.5d)), mark.Letter, TypographyRole.Numeric));
                    })).As()
                from rows in toSeq(Range(1, zones.Rows))
-                   .Traverse(row => zones.At(column: 1, row: row, key: Write).Map(seat => {
+                   .Traverse(row => zones.At(column: 1, row: row).Map(seat => {
                        double y = inset.Top + ((row - 0.5d) * rise / zones.Rows);
                        return Seq<SheetEntity>(
                            new SheetEntity.Stroke(EdgeStyle.Marking, (inset.Left, y), (inset.Left + tick, y)),

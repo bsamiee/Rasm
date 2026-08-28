@@ -99,12 +99,12 @@ public abstract partial record RasterPolicy {
 
     internal Seq<(Encoder Key, long Value)> Parameters() => Row.Rows;
 
-    internal Fin<RasterPolicy> Admit() => Switch(pngCase: static (_, policy) => Fin.Succ<RasterPolicy>(value: policy),
-        transparentPngCase: static (_, policy) => Fin.Succ<RasterPolicy>(value: policy),
-        jpegCase: static (key, policy) => guard(policy.Quality != default, new KernelFault.InvalidInput()).ToFin().Map(_ => (RasterPolicy)policy),
-        tiffCase: static (key, policy) => Admit.Need(policy.Compression).Map(_ => (RasterPolicy)policy),
-        transparentTiffCase: static (key, policy) => Admit.Need(policy.Compression).Map(_ => (RasterPolicy)policy),
-        bmpCase: static (_, policy) => Fin.Succ<RasterPolicy>(value: policy));
+    internal Fin<RasterPolicy> Admit() => Switch(pngCase: static policy => Fin.Succ<RasterPolicy>(value: policy),
+        transparentPngCase: static policy => Fin.Succ<RasterPolicy>(value: policy),
+        jpegCase: static policy => guard(policy.Quality != default, new KernelFault.InvalidInput()).ToFin().Map(_ => (RasterPolicy)policy),
+        tiffCase: static policy => Admit.Need(policy.Compression).Map(_ => (RasterPolicy)policy),
+        transparentTiffCase: static policy => Admit.Need(policy.Compression).Map(_ => (RasterPolicy)policy),
+        bmpCase: static policy => Fin.Succ<RasterPolicy>(value: policy));
 
     private (RasterCodec Codec, bool Transparent, Seq<(Encoder Key, long Value)> Rows) Row => Switch(
         pngCase: static _ => (RasterCodec.Png, false, Seq<(Encoder, long)>()),
@@ -534,7 +534,7 @@ public abstract partial record PageSource {
     public sealed record ViewportCase(ViewportTarget Target) : PageSource;
     public sealed record BlankCase(SheetSize Size, SheetOrientation Orientation, Rasm.Numerics.Dimension Count) : PageSource;
 
-    internal Fin<PageSource> Admit() => Switch(sheetsCase: static (key, source) => Optional(source.Sheets)
+    internal Fin<PageSource> Admit() => Switch(sheetsCase: static source => Optional(source.Sheets)
             .ToFin(Fail: new KernelFault.InvalidInput())
             .Map(_ => (PageSource)source),
         detailsCase: static (source) =>
@@ -672,7 +672,7 @@ public abstract partial record PublishTarget {
     public sealed record RasterCase(DocumentPath Target, RasterPolicy Policy, OutputPolicy Output) : PublishTarget;
     public sealed record SvgCase(DocumentPath Target, OutputPolicy Output) : PublishTarget;
 
-    internal Fin<PublishTarget> Admit() => Switch(pdfCase: static (key, target) =>
+    internal Fin<PublishTarget> Admit() => Switch(pdfCase: static target =>
             from _shape in guard(target.Target != default && target.Output is not null, new KernelFault.InvalidInput()).ToFin()
             from _policy in Admit.Need(target.Policy).Bind(policy => policy.Admit())
             select (PublishTarget)target,

@@ -123,7 +123,7 @@ public sealed partial class DesignCode {
         StringComparer.Ordinal);
 
     public static Fin<Unit> Probe() {
-        Seq<string> unbased = toSeq(Items).Map(static code => code.Key).Filter(static key => !BasisKeys.Contains());
+        Seq<string> unbased = toSeq(Items).Map(static code => code.Key).Filter(static key => !BasisKeys.Contains(key));
         Seq<string> unrouted = toSeq(BasisKeys).Filter(static key => !TryGet(out _));
         return unbased.IsEmpty && unrouted.IsEmpty
             ? Fin.Succ(unit)

@@ -214,10 +214,10 @@ public abstract partial record FrameAsk {
     public sealed record Drag : FrameAsk;
 
     internal Fin<FrameAsk> Admit() =>
-        Switch(anchor: static (key, ask) => Admit.Need(ask.Scale).Map(_ => (FrameAsk)ask),
-            gumball: static (key, ask) => Admit.Need(ask.Alignment)
+        Switch(anchor: static ask => Admit.Need(ask.Scale).Map(_ => (FrameAsk)ask),
+            gumball: static ask => Admit.Need(ask.Alignment)
                 .Map(alignment => (FrameAsk)new Gumball(Alignment: alignment)),
-            drag: static (_, ask) => Fin.Succ<FrameAsk>(ask));
+            drag: static ask => Fin.Succ<FrameAsk>(ask));
 
     internal Option<FramePose> Read(RhinoObject native) =>
         Switch(
@@ -276,11 +276,11 @@ public abstract partial record Reach {
         everyPart: static _ => Seq<ComponentIndex>());
 
     internal Fin<Reach> Admit() =>
-        Switch(whole: static (_, reach) => Fin.Succ<Reach>(reach),
-            part: static (_, reach) => Fin.Succ<Reach>(reach),
-            parts: static (key, reach) => guard(!reach.Components.IsEmpty, new KernelFault.InvalidInput()).ToFin()
+        Switch(whole: static reach => Fin.Succ<Reach>(reach),
+            part: static reach => Fin.Succ<Reach>(reach),
+            parts: static reach => guard(!reach.Components.IsEmpty, new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (Reach)new Parts(Components: reach.Components.Distinct())),
-            everyPart: static (_, reach) => Fin.Succ<Reach>(reach));
+            everyPart: static reach => Fin.Succ<Reach>(reach));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -542,7 +542,7 @@ public sealed class ObjectPiece {
         Custody(
             rows: rows,
             mint: row => Detach(geometry: row.Shape, attributes: row.Attributes),
-            release: piece => piece.Release());
+            release: piece => piece.Release(key));
 
     internal static Fin<Seq<(Guid Id, Seq<ObjectPiece> Products)>> Acquire(
         Seq<RhinoObject> natives,
@@ -552,7 +552,7 @@ public sealed class ObjectPiece {
             mint: native => detach(arg: native).Map(products => (native.Id, products)),
             release: row => Custody.Release(
                 held: row.Products,
-                release: piece => piece.Release()));
+                release: piece => piece.Release(key)));
 
     internal static Fin<Unit> Release(GeometryBase[]? geometry, ObjectAttributes[]? attributes) =>
         Custody.Release(
@@ -565,7 +565,7 @@ public sealed class ObjectPiece {
                     release: shape => Try.lift(() => Fin.Succ(value: HostEdge.Side(shape.Dispose))).Run().Bind(static inner => inner))));
 
     internal static Fin<Unit> Release(Seq<ObjectPiece> pieces) =>
-        Custody.Release(held: pieces, release: piece => piece.Release());
+        Custody.Release(held: pieces, release: piece => piece.Release(key));
 
     internal static Fin<Unit> Release(Seq<(Guid Id, Seq<ObjectPiece> Products)> rows) =>
         Release(pieces: rows.Bind(static row => row.Products));
@@ -614,19 +614,19 @@ public abstract partial record StateAsk {
     public sealed record Cut(SectionCut Section) : StateAsk;
 
     internal Fin<StateAsk> Admit() =>
-        Switch(snapshot: static (_, ask) => Fin.Succ<StateAsk>(ask),
-            frames: static (key, ask) => Admit.Need(ask.Frame)
+        Switch(snapshot: static ask => Fin.Succ<StateAsk>(ask),
+            frames: static ask => Admit.Need(ask.Frame)
                 .Bind(frame => frame.Admit())
                 .Map(frame => (StateAsk)new Frames(Frame: frame)),
-            selectedParts: static (_, ask) => Fin.Succ<StateAsk>(ask),
-            highlightedParts: static (_, ask) => Fin.Succ<StateAsk>(ask),
-            components: static (key, ask) => Admit.Need(ask.Scope)
+            selectedParts: static ask => Fin.Succ<StateAsk>(ask),
+            highlightedParts: static ask => Fin.Succ<StateAsk>(ask),
+            components: static ask => Admit.Need(ask.Scope)
                 .Bind(scope => scope.Admit())
                 .Bind(scope => guard(scope is Reach.Part or Reach.Parts, new KernelFault.InvalidInput()).ToFin().Map(_ => (StateAsk)new Components(scope))),
-            extent: static (key, ask) => ask.Frame.Traverse(frame => Acceptance.Input(value: frame)).As()
+            extent: static ask => ask.Frame.Traverse(frame => Acceptance.Input(value: frame)).As()
                 .Map(frame => (StateAsk)new Extent(Frame: frame)),
-            members: static (_, ask) => Fin.Succ<StateAsk>(ask),
-            cut: static (key, ask) => Admit.Need(ask.Section).Map(_ => (StateAsk)ask));
+            members: static ask => Fin.Succ<StateAsk>(ask),
+            cut: static ask => Admit.Need(ask.Section).Map(_ => (StateAsk)ask));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -641,13 +641,13 @@ public abstract partial record StateAnswer : IDetachedDocumentResult {
     public sealed record Sections(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : StateAnswer;
 
     public Fin<Unit> Release() =>
-        Switch(states: static (_, _) => Fin.Succ(unit),
-            posed: static (_, _) => Fin.Succ(unit),
-            partRoster: static (_, _) => Fin.Succ(unit),
-            partStates: static (_, _) => Fin.Succ(unit),
-            extent: static (_, _) => Fin.Succ(unit),
-            members: static (key, answer) => ObjectPiece.Release(answer.Rows),
-            sections: static (key, answer) => ObjectPiece.Release(answer.Rows));
+        Switch(states: static _ => Fin.Succ(unit),
+            posed: static _ => Fin.Succ(unit),
+            partRoster: static _ => Fin.Succ(unit),
+            partStates: static _ => Fin.Succ(unit),
+            extent: static _ => Fin.Succ(unit),
+            members: static answer => ObjectPiece.Release(answer.Rows),
+            sections: static answer => ObjectPiece.Release(answer.Rows));
 }
 
 [ComplexValueObject]
@@ -670,7 +670,7 @@ public sealed partial class PartState {
         ref bool highlighted) {
         Guid owner = id;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (owner == Guid.Empty, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Id) })))));
+                (owner == Guid.Empty, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Id) })))));
     }
 
     internal static Fin<PartState> Of(
@@ -701,8 +701,8 @@ public sealed partial class ArchiveExtent {
         ref long bytes) {
         (DocumentPath Path, long Bytes) extent = (path, bytes);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (extent.Path == default, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Path) }))),
-                (extent.Bytes < 0L, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Bytes), extent.Bytes, "a non-negative byte count" })))));
+                (extent.Path == default, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Path) }))),
+                (extent.Bytes < 0L, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Bytes), extent.Bytes, "a non-negative byte count" })))));
     }
 }
 

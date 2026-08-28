@@ -74,7 +74,7 @@ public static partial class BoundaryConverters {
  [UserMapping] public static ByteString ToWire(NodeId id) =>
   ContentHash.Wire(UInt128.Parse(id.ToValue(), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
  [UserMapping] public static string ToWire(MaterialId id) => id.ToValue();
- [UserMapping] public static ByteString ToWire(UInt128 key) => ContentHash.Wire();
+ [UserMapping] public static ByteString ToWire(UInt128 key) => ContentHash.Wire(key);
 
  public static Fin<UInt128> ToKey(ByteString wire) => ContentHash.Admit(wire.Span);
 

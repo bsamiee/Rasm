@@ -450,7 +450,7 @@ public static class QuantityDerivation {
             layerSet: s => ElementVolume(measures).Match(
                 None: static () => Fin.Succ(Seq<(MaterialId, MeasureValue)>()),
                 Some: fin => fin.Bind(volume => {
-                    double total = s.Layers.Fold(0.0, static (acc, layer) => acc + layer.Thickness.Si);
+                    double total = s.Layers.Fold(0.0, static layer => acc + layer.Thickness.Si);
                     return s.Layers.TraverseM(layer =>
                         volume.Scale(layer.Thickness.Si / total).Map(share => (layer.Material, share))).As();
                 })),

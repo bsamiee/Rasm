@@ -180,34 +180,34 @@ public abstract partial record AssessmentRequest {
                 .Double(r.Spec.Policy.Sds).Double(r.Spec.Policy.Sd1).Double(r.Spec.Policy.T1).Double(r.Spec.Policy.TLong);
         },
         thermal:  r => w.Double(r.Climate.InteriorTempC).Double(r.Climate.InteriorRh).Double(r.Climate.ExteriorTempC).Double(r.Climate.ExteriorRh).Double(r.Climate.TargetUValueWM2K),
-        acoustic: r => w.Double(r.RequiredRw).Optional(r.TargetReverberationS, static (target, k) => k.Double(target)),
+        acoustic: r => w.Double(r.RequiredRw).Optional(r.TargetReverberationS, static k => k.Double()),
         fire:     r => w.String(r.Exposure.Key).Double(r.RequiredMinutes).Double(r.Utilization),
         energy:   r => r.Policy.Route.Switch(
                         subprocess: _ => w.String("local"),
                         cloud:      c => w.String("cloud").String(c.Owner).String(c.Project).String(c.Platform).String(c.JobDescriptor))
                         .String(r.Weather.EpwPath).String(r.Weather.Station)
-                        .Optional(r.Policy.TargetEui, static (m, k) => k.Double(m)).Double(r.Policy.HeatingSetpointC).Double(r.Policy.CoolingSetpointC).Double(r.Policy.LightingPowerWM2).Double(r.Policy.EquipmentPowerWM2),
+                        .Optional(r.Policy.TargetEui, static k => k.Double()).Double(r.Policy.HeatingSetpointC).Double(r.Policy.CoolingSetpointC).Double(r.Policy.LightingPowerWM2).Double(r.Policy.EquipmentPowerWM2),
         carbon:   r => {
-            w.String(r.Query.Omf).String(r.Query.Method.Key).Optional(r.Query.TargetKgCo2e, static (m, k) => k.Double(m)).Double(r.Query.ReferencePeriodYears).Ordinal(r.Query.OmfByMaterial.Count);
+            w.String(r.Query.Omf).String(r.Query.Method.Key).Optional(r.Query.TargetKgCo2e, static k => k.Double()).Double(r.Query.ReferencePeriodYears).Ordinal(r.Query.OmfByMaterial.Count);
             foreach ((string material, string omf) in r.Query.OmfByMaterial.OrderBy(static p => p.Key, StringComparer.Ordinal)) { w.String(material).String(omf); }
             return w;
         },
         cost:     r => w.String(r.Currency)
-                        .Optional(r.BudgetTotal, static (total, k) => k.String(total.ToString(CultureInfo.InvariantCulture)))
-                        .Optional(r.BudgetPerArea, static (rate, k) => k.String(rate.ToString(CultureInfo.InvariantCulture))),
+                        .Optional(r.BudgetTotal, static k => k.String(total.ToString(CultureInfo.InvariantCulture)))
+                        .Optional(r.BudgetPerArea, static k => k.String(rate.ToString(CultureInfo.InvariantCulture))),
         circulation: r => {
             w.Double(r.Policy.AllowableTravelM).Double(r.Policy.AllowableDeadEndM).Double(r.Policy.AllowableCommonPathM)
                 .Double(r.Policy.MinimumClearWidthM).Double(r.Policy.CapacityPerMetreWidth)
-                .Double(r.Policy.UnimpededSpeedMPerS).Double(r.Policy.SpecificFlowPersonsPerMS).Optional(r.Policy.AllowableRsetMinutes, static (m, k) => k.Double(m))
+                .Double(r.Policy.UnimpededSpeedMPerS).Double(r.Policy.SpecificFlowPersonsPerMS).Optional(r.Policy.AllowableRsetMinutes, static k => k.Double())
                 .Ordinal(r.Occupancies.Count);
             foreach ((NodeId space, OccupancyClass occupancy) in r.Occupancies.OrderBy(static p => p.Key.ToValue(), StringComparer.Ordinal)) { w.String(space.ToValue()).String(occupancy.Key); }
             return w;
         },
         daylight: r => {
-            w.Optional(r.Weather, static (source, k) => source.Switch(
+            w.Optional(r.Weather, static k => source.Switch(
                     epw: row => k.String(row.Weather.EpwPath).String(row.Weather.Station),
                     gridded: row => k.String($"{row.CorpusKey:x32}").Ordinal(row.LatIndex).Ordinal(row.LonIndex).Ordinal(row.Years)))
-                .Optional(r.Site, static (site, k) => k.Double(site.LatitudeDeg).Double(site.LongitudeDeg).Double(site.OffsetHours).Double(site.ElevationM))
+                .Optional(r.Site, static k => k.Double(site.LatitudeDeg).Double(site.LongitudeDeg).Double(site.OffsetHours).Double(site.ElevationM))
                 .Ordinal(r.Policy.SunSamplesPerDay).Double(r.Policy.SunStepHours).Ordinal(r.Policy.HemisphereAzimuths)
                 .Ordinal(r.Policy.HemisphereAltitudes).Ordinal(r.Policy.OcclusionCadenceHours)
                 .Double(r.RequiredSunHours).String($"{r.Scene.Key:x32}").Ordinal(r.DesignDays.Count);

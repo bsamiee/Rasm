@@ -632,8 +632,8 @@ public static class StockNest {
         strategy.Switch(
             maxRects: row => Drive(strategy, parts, frames, eligibility,
                 static frame => new MaxRectsBinPack(frame.Width, frame.Height, allowRotations: false),
-                (packer, part) => packer.Insert(part.Width, part.Height, row.Choice.Native),
-                static (packer, frame) => new ProviderSheet(
+                part => packer.Insert(part.Width, part.Height, row.Choice.Native),
+                static frame => new ProviderSheet(
                     frame.Index,
                     Some(packer.FreeRectangles.ToSeq()),
                     packer.BinWidth == frame.Width && packer.BinHeight == frame.Height
@@ -641,18 +641,18 @@ public static class StockNest {
                         : None)),
             skyline: row => Drive(strategy, parts, frames, eligibility,
                 frame => new SkylineBinPack(frame.Width, frame.Height, row.Waste.Native),
-                (packer, part) => packer.Insert(part.Width, part.Height, row.Level.Native),
+                part => packer.Insert(part.Width, part.Height, row.Level.Native),
                 Opaque<SkylineBinPack>()),
             guillotine: row => Drive(strategy, parts, frames, eligibility,
                 static frame => new GuillotineBinPack(frame.Width, frame.Height),
-                (packer, part) => packer.Insert(part.Width, part.Height, row.Merge.Native, row.Choice.Native, row.Split.Native),
-                static (packer, frame) => {
+                part => packer.Insert(part.Width, part.Height, row.Merge.Native, row.Choice.Native, row.Split.Native),
+                static frame => {
                     packer.MergeFreeRectangles();
                     return new ProviderSheet(frame.Index, Some(packer.FreeRectangles.ToSeq()), Some(packer.UsedRectangles.ToSeq()));
                 }),
             shelf: row => Drive(strategy, parts, frames, eligibility,
                 frame => new ShelfBinPack(frame.Width, frame.Height, row.Waste.Native),
-                (packer, part) => packer.Insert(part.Width, part.Height, row.Choice.Native),
+                part => packer.Insert(part.Width, part.Height, row.Choice.Native),
                 Opaque<ShelfBinPack>()),
             massCut: _ => MassCut(parts, frames, eligibility),
             sweep: static _ => Fin.Fail<Option<ProviderRun>>(

@@ -232,7 +232,7 @@ public static class ContractComposition {
             .GroupBy(key, StringComparer.Ordinal)
             .Where(group => group.Skip(1).Any(row => !same(group.First(), row)))
             .Select(static group => group.Key));
-        return keys.Traverse(key => (Validation<Error, Unit>)new ContractFault.ContributionCollision())
+        return keys.Traverse(key => (Validation<Error, Unit>)new ContractFault.ContributionCollision(key))
             .As().Map(static _ => unit);
     }
 
@@ -392,10 +392,10 @@ public static class BackendAdmission {
         Seq<string> requiredCapabilities = toSeq(expected.Document.Capabilities
             .Where(static row => row.FailureRank == Parity.FailureRank.Required)
             .Select(static row => row.Key)
-            .Where(key => !observed.HeldCapabilities.Admits()));
+            .Where(key => !observed.HeldCapabilities.Admits(key)));
         Seq<string> requiredArtifacts = toSeq(expected.Document.Artifacts
             .Select(static row => row.Key)
-            .Where(key => !observed.HeldArtifacts.Contains()));
+            .Where(key => !observed.HeldArtifacts.Contains(key)));
         Seq<RecoveryReading> breaches = observed.Window.Exceeding(objective);
         Seq<string> undescribable = toSeq(observed.HeldArtifacts)
             .Filter(key => !expected.Document.Artifacts.Any(row => row.Key == key));

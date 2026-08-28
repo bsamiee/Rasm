@@ -348,7 +348,7 @@ public static class QualityReport {
             records: static _ => Fin.Succ(Option<Attested<DigitalProductPassport>>.None),
             passport: value => Attest(
                     new DigitalProductPassport(value.Evidence, report.Key),
-                    static (sink, body) => sink.Passport(body.Evidence).Key(body.QualityRecord),
+                    static body => sink.Passport(body.Evidence).Key(body.QualityRecord),
                     EgressKind.DigitalProductPassport,
                     admitted.Signers,
                     admitted.Trust,
@@ -457,8 +457,8 @@ public static class QualityReport {
                 repairability: static (inner, value) => inner.Amount(value.Value),
                 durability: static (inner, value) => inner.I64(value.Value.BclCompatibleTicks))
                 .Reference(measure.Provenance.Source).Window(measure.Provenance.Period))
-            .Rows(evidence.ServiceHistory, static (row, key) => row.Key())
-            .Rows(evidence.RepairHistory, static (row, key) => row.Key())
+            .Rows(evidence.ServiceHistory, static (row, key) => row.Key(key))
+            .Rows(evidence.RepairHistory, static (row, key) => row.Key(key))
             .Moment(evidence.ManufacturedAt)
             .Maybe(evidence.RetiredAt, static (row, at) => row.Moment(at));
     }

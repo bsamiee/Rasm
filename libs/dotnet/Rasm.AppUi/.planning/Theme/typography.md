@@ -564,7 +564,7 @@ public sealed class FaceCabinet(SKFontManager manager) : IDisposable {
             var key => instances.Value.Find().Match(
                 Some: Fin.Succ,
                 None: () => FaceInstance.Open(typeface, request).Bind(opened =>
-                    Cell.Step(instances, map => map.ContainsKey() ? None : Some(map.Add(opened)), new KernelFault.InvalidResult()) switch {
+                    Cell.Step(instances, map => map.ContainsKey(key) ? None : Some(map.Add(opened)), new KernelFault.InvalidResult()) switch {
                         Transition<HashMap<FaceKey, FaceInstance>>.Committed => Fin.Succ(opened),
                         Transition<HashMap<FaceKey, FaceInstance>> settled => (fun(opened.Dispose)(), settled.Current.Find(key)).Item2
                             .ToFin(Fail: new KernelFault.InvalidResult()),

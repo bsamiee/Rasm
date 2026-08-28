@@ -334,16 +334,16 @@ public abstract partial record PathPrimitive {
             row.RadiusY).ToNurbsCurve());
 
     internal static Fin<Seq<PathPrimitive>> Lower(PathSpec spec) => spec.Switch(
-        lineCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Line(P(row.From), P(row.To)))),
-        polylineCase: static (_, row) => Fin.Succ(Chained(row.Points, closed: false)),
-        polygonCase: static (_, row) => Fin.Succ(Chained(row.Points, closed: true)),
-        rectCase: static (_, row) => Fin.Succ(Edges(row.Frame)),
+        lineCase: static row => Fin.Succ(Seq<PathPrimitive>(new Line(P(row.From), P(row.To)))),
+        polylineCase: static row => Fin.Succ(Chained(row.Points, closed: false)),
+        polygonCase: static row => Fin.Succ(Chained(row.Points, closed: true)),
+        rectCase: static row => Fin.Succ(Edges(row.Frame)),
         roundRectCase: static (row) => Outlined(new ParametricOp.RoundedRectangle(
             Frame: Plane.WorldXY,
             X: new Interval(row.Frame.X, row.Frame.X + row.Frame.Width),
             Y: new Interval(row.Frame.Y, row.Frame.Y + row.Frame.Height),
             NW: row.NW, NE: row.NE, SE: row.SE, SW: row.SW)),
-        ellipseCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Ellipse(
+        ellipseCase: static row => Fin.Succ(Seq<PathPrimitive>(new Ellipse(
             new Point2d(row.Frame.X + (row.Frame.Width / 2.0), row.Frame.Y + (row.Frame.Height / 2.0)),
             row.Frame.Width / 2.0,
             row.Frame.Height / 2.0))),
@@ -354,7 +354,7 @@ public abstract partial record PathPrimitive {
                 row.Start,
                 row.Sweep)))
             : Fin.Fail<Seq<PathPrimitive>>(new KernelFault.Unsupported(typeof(PathSpec.ArcCase), typeof(DisplayPipeline))),
-        bezierCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Bezier(P(row.From), P(row.ControlA), P(row.ControlB), P(row.To)))),
+        bezierCase: static row => Fin.Succ(Seq<PathPrimitive>(new Bezier(P(row.From), P(row.ControlA), P(row.ControlB), P(row.To)))),
         curveCase: static (row) => Outlined(new ParametricOp.CardinalSpline(
             Frame: Plane.WorldXY,
             Points: new Arr<Point2d>([.. toSeq(row.Points).Map(P)]),
@@ -478,8 +478,8 @@ public abstract partial record SpriteSource {
         bytes: static row => !row.Value.IsEmpty,
         file: static row => row.Files is not null && !string.IsNullOrWhiteSpace(row.Asset));
 
-    internal Fin<ReadOnlyMemory<byte>> Read() => Switch(bytes: static (_, row) => Fin.Succ(row.Value),
-        file: static (op, row) => Try.lift(() => row.Files.Read(row.Asset)).Run().Bind(static inner => inner));
+    internal Fin<ReadOnlyMemory<byte>> Read() => Switch(bytes: static row => Fin.Succ(row.Value),
+        file: static row => Try.lift(() => row.Files.Read(row.Asset)).Run().Bind(static inner => inner));
 }
 
 public sealed record SpriteRef {

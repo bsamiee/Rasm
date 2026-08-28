@@ -612,7 +612,7 @@ public static class Derivation {
         Seq<MachineMatch> matches,
         Map<UInt128, Instant> predecessorCompletion) =>
         from completed in lot.Predecessors
-            .TraverseM(key => predecessorCompletion.Find()
+            .TraverseM(key => predecessorCompletion.Find(key)
                 .ToFin(Reject(new DeriveWitness.PredecessorLotMissing(key), DerivationStage.Operations)))
             .As()
         let available = completed.Map(predecessor => predecessor + lot.TransferBuffer)

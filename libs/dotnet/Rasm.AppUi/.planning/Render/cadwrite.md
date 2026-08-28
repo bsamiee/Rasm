@@ -27,7 +27,7 @@ public static class CadDraw {
     public static Fin<CadDocument> Build(SheetSize size, Seq<Seq<SheetEntity>> pages) {
         CadDocument doc = new();
         ACadSharp.Tables.LineType solid = doc.LineTypes.Continuous;
-        Fin<SheetMargin> margin = SheetFrame.For(size.Standard).Margin(size: size, key: seat);
+        Fin<SheetMargin> margin = SheetFrame.For(size.Standard).Margin(size: size);
         Fin<HashMap<(EdgeStyle Style, Option<int> Part), Layer>> registered = Seats(pages)
             .Traverse(row => Minted(doc, solid, size, row, seat)).As()
             .Map(static rows => rows.Fold(

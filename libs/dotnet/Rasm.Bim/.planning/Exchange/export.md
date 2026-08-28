@@ -366,7 +366,7 @@ public sealed record ElementScene {
 
     public Seq<KhrExtension> Obliges => Instances.Bind(static instance => instance.Finish.Obliges).Distinct();
 
-    public Fin<ImportedGeometry> Soup() => Pooled().Bind(pooled => pooled.Bake());
+    public Fin<ImportedGeometry> Soup() => Pooled().Bind(pooled => pooled.Bake(key));
 
     public Fin<ImportedGeometry> Pooled() {
         var lead = Pool.Values.ToSeq()[0];
@@ -406,7 +406,7 @@ public abstract partial record ExportPayload {
 
     public Fin<ImportedGeometry> Flat() => Switch(
         soup:  static s => Fin.Succ(s.Geometry),
-        scene: static (k, s) => s.Elements.Soup(k));
+        scene: static s => s.Elements.Soup());
 }
 
 public sealed record GlbScene(
@@ -455,7 +455,7 @@ public static partial class BimExport {
         });
 
     internal static Fin<(ImportedGeometry Geometry, MeshLanes Lanes)> Admitted(ExportPayload payload) =>
-        payload.Flat().Bind(flat => MeshLanes.Of(flat).Map(lanes => (flat, lanes)));
+        payload.Flat(key).Bind(flat => MeshLanes.Of(flat).Map(lanes => (flat, lanes)));
 
     static GlbScene Staged(ElementScene scene, InterchangePolicy policy) {
         var rows = scene.Instances.Select(static (instance, row) => (instance.GlobalId, row)).ToMap();

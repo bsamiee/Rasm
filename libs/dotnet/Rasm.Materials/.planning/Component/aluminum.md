@@ -155,7 +155,7 @@ public static class AluminumSeed {
         family: ComponentFamily.Aluminum,
         designation: static die => die.Designation,
         coherence: Coherence,
-        profile: static (die, key) => die.Build(),
+        profile: static (die, key) => die.Build(key),
         substance: static die => die.Grade.Substance,
         source: static _ => EvidenceGrade.User,
         standard: static die => new ComponentStandard(die.Grade.Authority.Region, StandardJointThicknessMm: 0.0, die.Grade.Authority),

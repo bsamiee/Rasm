@@ -152,7 +152,7 @@ public abstract partial record PagePlan {
         Func<SelectionEvidence, Fin<bool>> Display,
         Func<PageSignal, Fin<Unit>> Answer) : PagePlan;
 
-    internal Fin<PagePlan> Admit() => Switch(stacked: static (held, page) => (
+    internal Fin<PagePlan> Admit() => Switch(stacked: static page => (
                 Admit.Need(page.Seat).ToValidation(),
                 Admit.Need(page.Reveal).ToValidation(),
                 Admit.Need(page.Identity).ToValidation(),
@@ -162,7 +162,7 @@ public abstract partial record PagePlan {
                 Seat: seat, Reveal: reveal, Identity: identity, Content: content, Answer: answer))
             .As()
             .ToFin(),
-        properties: static (held, page) => (
+        properties: static page => (
                 Admit.Need(page.Identity).ToValidation(),
                 Admit.Need(page.Scope).ToValidation(),
                 Admit.Need(page.Content).ToValidation(),

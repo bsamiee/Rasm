@@ -178,8 +178,8 @@ public static class TimeTravel {
         HashMap<UInt128, Relationship> fromEdges = toHashMap(a.Edges.Select(e => (ContentAddress.Of(e, a.Header.Tolerance).ToValue(), e)));
         HashMap<UInt128, Relationship> toEdges = toHashMap(b.Edges.Select(e => (ContentAddress.Of(e, b.Header.Tolerance).ToValue(), e)));
         Seq<(Relationship Edge, ChangeKind Kind, Option<UInt128> Key)> changed =
-            toSeq(toEdges.Filter((key, _) => !fromEdges.ContainsKey()).Map(static (key, e) => (e, ChangeKind.Added)).Values)
-            + toSeq(fromEdges.Filter((key, _) => !toEdges.ContainsKey()).Map(static (key, e) => (e, ChangeKind.Removed)).Values);
+            toSeq(toEdges.Filter((key, _) => !fromEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Added)).Values)
+            + toSeq(fromEdges.Filter((key, _) => !toEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Removed)).Values);
         return changed.Bind(row => row.Edge.Members.Filter(query.Selects)
             .Map(node => new KeyDelta(node, nameof(ElementGraph.Edges), BlameAxis.Edge, row.Kind,
                 row.Kind == ChangeKind.Removed ? row.Key : None, row.Kind == ChangeKind.Added ? row.Key : None)));

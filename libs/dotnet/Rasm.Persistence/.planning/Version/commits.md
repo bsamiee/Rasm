@@ -130,7 +130,7 @@ public static class CommitGraph {
 
     internal static void Fields(CommitNode node, CanonicalWriter w) {
         w.Rows(node.Parents, static (parent, x) => { x.U128(parent); })
-         .Rows(node.OpKeys, static (key, x) => { x.U128(); })
+         .Rows(node.OpKeys, static (key, x) => { x.U128(key); })
          .String(node.Branch);
         node.Vector.CanonicalBytes(w);
         w.String(node.Actor);
@@ -166,7 +166,7 @@ public static class CommitGraph {
             cherryPick: c => Transplanted(ports, c.Pick, onto, head, branch, origin, actor, static (s, node, target) => s.Transplant(node, target), static node => node.Message).Map(Seq),
             rebase: rb => rb.Chain.FoldM(
                 (Onto: rb.NewBase, Vector: head, Minted: Seq<CommitNode>()),
-                (acc, key) => Transplanted(ports, acc.Onto, acc.Vector, branch, origin, actor, static (s, node, target) => s.Transplant(node, target), static node => node.Message)
+                key => Transplanted(ports, acc.Onto, acc.Vector, branch, origin, actor, static (s, node, target) => s.Transplant(node, target), static node => node.Message)
                     .Map(minted => (minted.ContentKey, minted.Vector, acc.Minted.Add(minted))))
                 .Map(static final => final.Minted).As());
 
@@ -188,7 +188,7 @@ public static class CommitGraph {
     }
 
     public static MerkleRange Of(Seq<UInt128> sortedKeys) {
-        UInt128 address = ContentHash.Of(sortedKeys, static (keys, writer) => writer.Rows(keys, static (key, framed) => framed.U128()));
+        UInt128 address = ContentHash.Of(sortedKeys, static (keys, writer) => writer.Rows(keys, static (key, framed) => framed.U128(key)));
         return sortedKeys.IsEmpty
             ? new MerkleRange.Empty(address)
             : new MerkleRange.Bounded(sortedKeys[0], sortedKeys[sortedKeys.Count - 1], address, sortedKeys.Count);
@@ -661,7 +661,7 @@ public static class CrdtWire {
     public static UInt128 ContentKey(ReadOnlyMemory<byte> payload) => ContentHash.Of(payload.Span);
 
     public static Fin<ReadOnlyMemory<byte>> Encode(CrdtOp op) =>
-        Try.lift(() => CrdtOpMapper.Wire()).Run().Bind(static inner => inner)
+        Try.lift(() => CrdtOpMapper.Wire(op)).Run().Bind(static inner => inner)
             .MapFail(static error => new CommitFault.EncodeDrift(error))
             .Bind(static wire => Lawful(wire)
                 ? Fin.Succ(wire)
@@ -679,7 +679,7 @@ public static class CrdtWire {
                     ? (Error)new CommitFault.DecodeDrift(error)
                     : error)
                 .Bind(Admit)
-                .Bind();
+                .Bind(CrdtOpMapper.Op);
 
     static Fin<CrdtOpWire> Admit(CrdtOpWire wire) =>
         Lawful(wire)

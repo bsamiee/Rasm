@@ -191,32 +191,30 @@ public abstract partial record ParticipationAnswer {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Participation {
     public static Fin<ParticipationAnswer> Cross(ParticipationAsk ask) {
-        return Admit.Need(ask).Bind(request => request.Switch(declared: static (held, row) =>
+        return Admit.Need(ask).Bind(request => request.Switch(declared: static row =>
                 from participant in Admit.Need(row.Participant)
-                from intent in WriteIntent.Detach(row.Options, held)
-                from writes in Try.lift(() => participant.Declares(intent: intent, key: held)).Run().Bind(static inner => inner)
+                from intent in WriteIntent.Detach(row.Options)
+                from writes in Try.lift(() => participant.Declares(intent: intent)).Run().Bind(static inner => inner)
                 select (ParticipationAnswer)new ParticipationAnswer.DeclaredCase(Writes: writes),
-            writeCase: static (held, row) =>
+            writeCase: static row =>
                 from participant in Admit.Need(row.Participant)
-                from document in DocKey.Of(document: row.Document, key: held)
-                from intent in WriteIntent.Detach(row.Options, held)
-                from payload in Try.lift(() => participant.Compose(document: document, intent: intent, key: held)).Run().Bind(static inner => inner)
+                from document in DocKey.Of(document: row.Document)
+                from intent in WriteIntent.Detach(row.Options)
+                from payload in Try.lift(() => participant.Compose(document: document, intent: intent)).Run().Bind(static inner => inner)
                 from integrity in ArchiveIo.Cross(
                     archive: row.Writer,
                     schema: participant.Schema,
-                    payload: payload,
-                    key: held)
+                    payload: payload)
                 select (ParticipationAnswer)new ParticipationAnswer.WrittenCase(Integrity: integrity),
-            readCase: static (held, row) =>
+            readCase: static row =>
                 from participant in Admit.Need(row.Participant)
-                from document in DocKey.Of(document: row.Document, key: held)
-                from intent in ReadIntent.Detach(row.Options, held)
+                from document in DocKey.Of(document: row.Document)
+                from intent in ReadIntent.Detach(row.Options)
                 from envelope in ArchiveIo.Cross(
                     archive: row.Reader,
-                    schema: participant.Schema,
-                    key: held)
+                    schema: participant.Schema)
                 from _ in Try.lift(() => participant.Adopt(
-                    document: document, intent: intent, envelope: envelope, key: held)).Run().Bind(static inner => inner)
+                    document: document, intent: intent, envelope: envelope)).Run().Bind(static inner => inner)
                 select (ParticipationAnswer)new ParticipationAnswer.ReadCase(Integrity: envelope.Integrity)));
     }
 }
@@ -273,10 +271,10 @@ public abstract partial record SettingsBridgeAnswer {
     public sealed record WatchCase(Subscription Watch) : SettingsBridgeAnswer;
     public sealed record DrainedCase(SettingsQueue Queue) : SettingsBridgeAnswer;
 
-    public Fin<SettingPath> Path() => Switch(pathCase: static (_, row) => Fin.Succ(value: row.Path),
-        persistedCase: static (_, _) => Elsewhere(),
-        watchCase: static (_, _) => Elsewhere(),
-        drainedCase: static (_, _) => Elsewhere());
+    public Fin<SettingPath> Path() => Switch(pathCase: static row => Fin.Succ(value: row.Path),
+        persistedCase: static _ => Elsewhere(),
+        watchCase: static _ => Elsewhere(),
+        drainedCase: static _ => Elsewhere());
 
     private static Fin<SettingPath> Elsewhere() => Fin.Fail<SettingPath>(
         error: new KernelFault.InvalidValue(nameof(SettingPath), "a root request"));
@@ -285,8 +283,8 @@ public abstract partial record SettingsBridgeAnswer {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginSettings {
     public static Fin<SettingsBridgeAnswer> Commit(SettingsBridge bridge) {
-        return Admit.Need(bridge).Bind(request => request.Switch(root: static (held, row) =>
-                from _ in row.Plugin.Admit(held)
+        return Admit.Need(bridge).Bind(request => request.Switch(root: static row =>
+                from _ in row.Plugin.Admit()
                 from load in Admit.Need(row.Load)
                 from __ in Try.lift(() => Optional(PlugIn.GetPluginSettings(
                         plugInId: row.Plugin.ToValue(), load: load))
@@ -294,26 +292,24 @@ public static class PluginSettings {
                 select (SettingsBridgeAnswer)new SettingsBridgeAnswer.PathCase(Path: new SettingPath(
                     Root: new SettingsRoot.PlugInCase(Plugin: row.Plugin),
                     Children: row.Children.Strict())),
-            persist: static (held, row) =>
-                from _ in row.Plugin.Admit(held)
+            persist: static row =>
+                from _ in row.Plugin.Admit()
                 from answer in PluginCensus.Ask(
-                    query: new PluginQuery.Keyed(Read: PluginRead.Presence, Plugin: row.Plugin), key: held)
-                from presence in answer.Presence(key: held)
-                from __ in presence.Switch(
-                    held,
-                    absent: static (_) => Fin.Fail<Unit>(
+                    query: new PluginQuery.Keyed(Read: PluginRead.Presence, Plugin: row.Plugin))
+                from presence in answer.Presence()
+                from __ in presence.Switch(absent: static (_) => Fin.Fail<Unit>(
                         error: new PluginFault.Unbound(Member: nameof(PlugIn.SavePluginSettings))),
                     present: static (found) => found.States.Admits(PluginState.Loaded)
                         ? Fin.Succ(value: unit)
                         : Fin.Fail<Unit>(error: new KernelFault.InvalidValue(nameof(PlugIn.SavePluginSettings), "a loaded plug-in")))
                 from ___ in Try.lift(() => PlugIn.SavePluginSettings(plugInId: row.Plugin.ToValue())).Run().Bind(static inner => inner)
                 select (SettingsBridgeAnswer)new SettingsBridgeAnswer.PersistedCase(Plugin: row.Plugin),
-            persistOwner: static (held, row) =>
+            persistOwner: static row =>
                 from owner in Admit.Need(row.Owner)
                 from plugin in FactoryBridge.Accept<PluginKey>(owner.Id)
                 from _ in Try.lift(owner.SaveSettings).Run().Bind(static inner => inner)
                 select (SettingsBridgeAnswer)new SettingsBridgeAnswer.PersistedCase(Plugin: plugin),
-            watch: static (held, row) => (
+            watch: static row => (
                     Admit.Need(row.Owner).ToValidation(),
                     Admit.Need(row.Source).ToValidation(),
                     Admit.Need(row.Path).ToValidation(),
@@ -325,10 +321,9 @@ public static class PluginSettings {
                     plugIn: admitted.Owner,
                     source: admitted.Source,
                     path: admitted.Path,
-                    sink: admitted.Sink,
-                    key: held))
+                    sink: admitted.Sink))
                 .Map<SettingsBridgeAnswer>(static subscription => new SettingsBridgeAnswer.WatchCase(Watch: subscription)),
-            drain: static (held, row) => Admit.Need(row.Queue)
+            drain: static row => Admit.Need(row.Queue)
                 .Bind(queue => Try.lift(queue.Drain).Run().Bind(static inner => inner).Map(_ => queue))
                 .Map<SettingsBridgeAnswer>(static queue => new SettingsBridgeAnswer.DrainedCase(Queue: queue))));
     }

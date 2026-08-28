@@ -656,7 +656,6 @@ public abstract partial record HostAsset {
         palette: static _ => Option<DocumentSession>.None);
 
     internal Fin<HostAsset> Admit() => Switch(
-        state: op,
         vector: static (ask) => Acceptance.Rows<object>(ask.Origin, ask.Extent, ask.Polarity).Map(static _ => unit),
         meshPreview: static (ask) =>
             from _ in Acceptance.Rows<object>(ask.Session, ask.Ink, ask.Extent)
@@ -665,7 +664,7 @@ public abstract partial record HostAsset {
             from ___ in ask.Ink.Admit(meshes: meshes)
             select unit,
         strokes: static (ask) => Acceptance.Rows<object>(ask.Curve, ask.Linetype, ask.Extent).Map(static _ => unit),
-        palette: static (_, _) => Fin.Succ(value: unit))
+        palette: static _ => Fin.Succ(value: unit))
         .Map(_ => this);
 }
 
@@ -739,7 +738,6 @@ public static class HostAssets {
                 .Map(static entries => (HostProduct)new HostProduct.Palette(Entries: entries.Strict())));
 
     private static Fin<string> Source(AssetOrigin origin) => origin.Switch(
-        state: op,
         resource: static (_) => Refused(nameof(AssetOrigin.Resource)),
         file: static (_) => Refused(nameof(AssetOrigin.File)),
         stream: static (_) => Refused(nameof(AssetOrigin.Stream)),

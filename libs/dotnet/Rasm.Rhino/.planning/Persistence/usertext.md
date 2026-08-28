@@ -38,9 +38,9 @@ public readonly partial struct TextKey : IDisallowDefaultValue {
         value = value?.Trim() ?? string.Empty;
         string candidate = value;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (candidate.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(TextKey) }))),
+                (candidate.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(TextKey) }))),
                 (candidate.Contains('\\', StringComparison.Ordinal),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(TextKey), "a flat key carrying no section discriminant; use TextSection" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(TextKey), "a flat key carrying no section discriminant; use TextSection" })))));
     }
 }
 
@@ -64,8 +64,8 @@ public sealed partial record TextSection(string Section, string Entry) {
         entry = entry?.Trim() ?? string.Empty;
         (string group, string row) = (section, entry);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (group.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Section) }))),
-                (row.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Entry) })))));
+                (group.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Section) }))),
+                (row.Length == 0, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Entry) })))));
     }
 
     public static Fin<TextSection> Of(string section, string entry) =>
@@ -101,7 +101,7 @@ public sealed partial record TextSearchPolicy(
         ref TextComparison comparison) {
         TextComparison? posture = comparison;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (posture is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Comparison) })))));
+                (posture is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Comparison) })))));
     }
 
     public static Fin<TextSearchPolicy> Of(CapabilitySet<ObjectTextStore> stores, TextComparison comparison) {
@@ -206,7 +206,7 @@ public abstract partial record TextMutationBatch {
                    .As()
                    .ToFin()
                from _nonempty in guard(!admitted.IsEmpty,
-                   (Error)new KernelFault.InvalidValue(nameof(mutations), string.Join(" | ", new object?[] { op, "at least one text mutation" })))
+                   (Error)new KernelFault.InvalidValue(nameof(mutations), string.Join(" | ", new object?[] { "at least one text mutation" })))
                from _side in FactoryValidation.Admit(admitted
                    .Filter(value => value.Address.IsObject != objects)
                    .Map(value => new ValidationClause(string.Join(" | ", new object?[] {
@@ -231,7 +231,7 @@ public abstract partial record TextQuery {
                    .As()
                    .ToFin()
                from _nonempty in guard(!admitted.IsEmpty,
-                   (Error)new KernelFault.InvalidValue(nameof(objectIds), string.Join(" | ", new object?[] { op, "at least one object identity" })))
+                   (Error)new KernelFault.InvalidValue(nameof(objectIds), string.Join(" | ", new object?[] { "at least one object identity" })))
                select (TextQuery)new ReadObjectsCase(ObjectIds: admitted);
     }
 
@@ -548,9 +548,9 @@ public static class UserTexts {
     private static Fin<TextAddress.ObjectCase> Addressed(TextAddress address) =>
         address.Switch< Fin<TextAddress.ObjectCase>>(
             documentKeyCase: static (value) => Fin.Fail<TextAddress.ObjectCase>(
-                error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { op, $"an object address; got '{value.Key.Value}'" }))),
+                error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { $"an object address; got '{value.Key.Value}'" }))),
             documentSectionCase: static (value) => Fin.Fail<TextAddress.ObjectCase>(
-                error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { op, $"an object address; got '{value.Address.Wire}'" }))),
+                error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { $"an object address; got '{value.Address.Wire}'" }))),
             objectCase: static value => Fin.Succ(value: value));
 
     private static Fin<DocumentTextSnapshot> ReadDocument(RhinoDoc document) =>
@@ -563,7 +563,6 @@ public static class UserTexts {
             (state, row) => state.Bind(held => row.Address.Switch<
                     (HashMap<TextKey, UserTextValue> Flat, HashMap<TextSection, UserTextValue> Sections),
                     Fin<(HashMap<TextKey, UserTextValue> Flat, HashMap<TextSection, UserTextValue> Sections)>>(
-                state: held,
                 documentKeyCase: (maps, address) => maps.Flat.ContainsKey(address.Key)
                     ? Fin.Fail<(HashMap<TextKey, UserTextValue>, HashMap<TextSection, UserTextValue>)>(
                         Collision(label: nameof(TextKey), raw: row.Raw, canonical: address.Key.Value))
@@ -573,7 +572,7 @@ public static class UserTexts {
                         Collision(label: nameof(TextSection), raw: row.Raw, canonical: address.Address.Wire))
                     : Fin.Succ(value: (maps.Flat, maps.Sections.Add(address.Address, row.Value))),
                 objectCase: (_, _) => Fin.Fail<(HashMap<TextKey, UserTextValue>, HashMap<TextSection, UserTextValue>)>(
-                    error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { key, "a document address off the string table" }))))))
+                    error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { "a document address off the string table" }))))))
         from counts in Try.lift(() => Fin.Succ(value: (Flat: document.Strings.DocumentUserTextCount, Sections: document.Strings.DocumentDataCount))).Run().Bind(static inner => inner)
         from _proof in Proved(
             subject: nameof(DocumentTextSnapshot),

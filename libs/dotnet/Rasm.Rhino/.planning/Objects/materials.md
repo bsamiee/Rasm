@@ -106,9 +106,9 @@ public abstract partial record MaterialScope {
     public sealed record PartUnder(ComponentIndex Component, Guid PlugIn, AttributeProgram Program) : MaterialScope;
 
     internal Fin<MaterialScope> Admit() =>
-        Switch(face: static (op, scope) => Admit.Need(scope.Side).Map(_ => (MaterialScope)scope),
-            part: static (_, scope) => Fin.Succ<MaterialScope>(scope),
-            partFor: static (op, scope) => guard(scope.PlugIn != Guid.Empty, new KernelFault.InvalidInput()).ToFin().Map(_ => (MaterialScope)scope),
+        Switch(face: static scope => Admit.Need(scope.Side).Map(_ => (MaterialScope)scope),
+            part: static scope => Fin.Succ<MaterialScope>(scope),
+            partFor: static scope => guard(scope.PlugIn != Guid.Empty, new KernelFault.InvalidInput()).ToFin().Map(_ => (MaterialScope)scope),
             partUnder: static (scope) =>
                 from _ in guard(scope.PlugIn != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
                 from __ in Admit.Need(scope.Program)
@@ -186,13 +186,13 @@ public abstract partial record ProviderValue : IDetachedDocumentResult {
         text: static value => value.Value);
 
     internal Fin<ProviderValue> Admit() =>
-        Switch(flag: static (_, value) => Fin.Succ<ProviderValue>(value),
-            signed: static (_, value) => Fin.Succ<ProviderValue>(value),
-            unsigned: static (_, value) => Fin.Succ<ProviderValue>(value),
-            real: static (op, value) => guard(double.IsFinite(value.Value), new KernelFault.InvalidInput()).ToFin()
+        Switch(flag: static value => Fin.Succ<ProviderValue>(value),
+            signed: static value => Fin.Succ<ProviderValue>(value),
+            unsigned: static value => Fin.Succ<ProviderValue>(value),
+            real: static value => guard(double.IsFinite(value.Value), new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (ProviderValue)value),
-            precise: static (_, value) => Fin.Succ<ProviderValue>(value),
-            text: static (op, value) => Acceptance.Text(value: value.Value)
+            precise: static value => Fin.Succ<ProviderValue>(value),
+            text: static value => Acceptance.Text(value: value.Value)
                 .Map(text => (ProviderValue)new Text(Value: text)));
 
     internal static Fin<ProviderValue> Of(IConvertible native) => (native switch {
@@ -214,7 +214,7 @@ public abstract partial record MeshBatch : IDetachedDocumentResult {
     public sealed record Styled(RenderMeshPolicy Policy, MeshUiStyle Style, Transform Motion) : MeshBatch;
 
     internal Fin<MeshBatch> Admit() =>
-        Switch(worker: static (key, batch) =>
+        Switch(worker: static batch =>
                 from policy in Admit.Need(batch.Policy)
                 from thread in Admit.Need(batch.Thread)
                 select (MeshBatch)new Worker(Policy: policy, Thread: thread),
@@ -430,7 +430,7 @@ public static class MaterialAsk {
                     .Map(rows => new MeshHarvest(Rows: rows, Settled: run.Settled))
                 : Fin.Fail<MeshHarvest>(error: new KernelFault.InvalidResult(Detail: Some(run.Verdict.Key.ToString(
                         System.Globalization.CultureInfo.InvariantCulture))))
-                    .Rollback(release: () => run.Release())));
+                    .Rollback(release: () => run.Release(op))));
 
     public static MaterialAsk<Seq<(Guid Id, Option<ProviderValue> Value)>> Knob(Guid provider, string name) => new(
         admit: op =>
@@ -506,7 +506,7 @@ public abstract partial record MaterialEdit {
         setKnob: CapabilitySet<CommitDemand>.Of(CommitDemand.Solo));
 
     internal Fin<MaterialEdit> Admit() =>
-        Switch(setMapping: static (key, edit) =>
+        Switch(setMapping: static edit =>
                 from channel in Admit.Need(edit.Channel)
                 from spec in Admit.Need(edit.Spec)
                 from profile in Admit.Need(edit.Profile)
@@ -518,8 +518,8 @@ public abstract partial record MaterialEdit {
                 from policy in Admit.Need(edit.Policy)
                 from ignore in Admit.Need(edit.IgnoreCustom)
                 select (MaterialEdit)new BuildCache(Kind: kind, Policy: policy, IgnoreCustom: ignore),
-            dropCache: static (key, edit) => Admit.Need(edit.Kind).Map(_ => (MaterialEdit)edit),
-            setCachePolicy: static (key, edit) => Admit.Need(edit.Policy)
+            dropCache: static edit => Admit.Need(edit.Kind).Map(_ => (MaterialEdit)edit),
+            setCachePolicy: static edit => Admit.Need(edit.Policy)
                 .Map(policy => (MaterialEdit)new SetCachePolicy(Policy: policy)),
             setKnob: static (edit) =>
                 from _ in guard(edit.Provider != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
@@ -564,7 +564,7 @@ public sealed partial class MaterialProgram {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Seq<MaterialEdit> edits, ref CapabilitySet<CommitDemand> demands) {
         if (edits.IsEmpty) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { op, nameof(Edits) }));
+            validationError = new ValidationError(string.Join(" | ", new object?[] { nameof(Edits) }));
             return;
         }
 
@@ -572,9 +572,9 @@ public sealed partial class MaterialProgram {
         CapabilitySet<CommitDemand> shared = demands;
         Seq<MaterialEdit> roster = edits;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (!roster.ForAll(edit => edit.Demands == shared), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Edits), "one demand set across the roster" }))),
+                (!roster.ForAll(edit => edit.Demands == shared), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Edits), "one demand set across the roster" }))),
                 (shared.Admits(capability: CommitDemand.Solo) && roster.Count is not 1,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Edits), "a solo effect runs alone" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Edits), "a solo effect runs alone" })))));
     }
 
     public static Fin<MaterialProgram> Of(params ReadOnlySpan<MaterialEdit> edits) {
@@ -611,7 +611,7 @@ public static class Materials {
                    session: session,
                    name: nameof(Materials),
                    redraw: policy,
-                   run: (document, gate) => Objects.Resolve(document: document, target: target, key: gate)
+                   run: (document, gate) => Objects.Resolve(document: document, target: target)
                        .Bind(natives => natives.TraverseM(native => plan.Edits
                            .TraverseM(edit => edit.Apply(native: native, op: gate)).As()).As()
                            .Map(static _ => unit)),

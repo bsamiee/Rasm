@@ -97,16 +97,16 @@ public abstract partial record Termination {
     private Termination() { }
 
     internal Fin<Termination> Admit() => Switch(
-        stepCountCase: static (_, termination) => Fin.Succ<Termination>(termination),
-        arcLengthCase: static (_, termination) => Fin.Succ<Termination>(termination),
-        magnitudeFloorCase: static (_, termination) => Fin.Succ<Termination>(termination),
+        stepCountCase: static termination => Fin.Succ<Termination>(termination),
+        arcLengthCase: static termination => Fin.Succ<Termination>(termination),
+        magnitudeFloorCase: static termination => Fin.Succ<Termination>(termination),
         crossSurfaceCase: static (termination) =>
             Admit.Need(termination.Surface).Map(static _ => (Termination)termination),
         regionThresholdCase: static (termination) =>
             from region in Admit.Need(termination.Region)
             from threshold in Admit.Finite(termination.Threshold)
             select (Termination)termination,
-        loopDetectedCase: static (_, termination) => Fin.Succ<Termination>(termination),
+        loopDetectedCase: static termination => Fin.Succ<Termination>(termination),
         criticalCaptureCase: static (termination) =>
             !termination.Sites.IsEmpty && termination.Sites.ForAll(static site => site.IsValid)
                 ? Fin.Succ<Termination>(termination)

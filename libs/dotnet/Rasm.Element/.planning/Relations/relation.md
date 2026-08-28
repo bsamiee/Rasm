@@ -158,11 +158,11 @@ public abstract partial class MaterialUsage {
  public void CanonicalBytes(CanonicalWriter w) => Switch(
   unbound: _ => w.Ordinal(0),
   layerSet: u => w.Ordinal(1).String(u.Direction.Key).String(u.Sense.Key)
-   .Optional(u.OffsetFromReferenceLine, static (value, writer) => writer.Measure(value))
-   .Optional(u.ReferenceExtent, static (value, writer) => writer.Measure(value)),
+   .Optional(u.OffsetFromReferenceLine, static writer => writer.Measure())
+   .Optional(u.ReferenceExtent, static writer => writer.Measure()),
   profileSet: u => w.Ordinal(2)
-   .Optional(u.CardinalPoint, static (point, writer) => writer.Ordinal(point.Key))
-   .Optional(u.ReferenceExtent, static (value, writer) => writer.Measure(value)));
+   .Optional(u.CardinalPoint, static writer => writer.Ordinal(point.Key))
+   .Optional(u.ReferenceExtent, static writer => writer.Measure()));
 
  private static Validation<Error, Unit> Length(Option<MeasureValue> measure, string slot) =>
   Gate(measure.ForAll(static value => value.Dimension == Dimension.LengthDim), $"<material-usage-measure-not-length:{slot}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d));
@@ -245,18 +245,18 @@ public abstract partial class Relationship {
 
  public void CanonicalBytes(CanonicalWriter w) => Switch(
  compose: r => w.Ordinal(0).String(r.Whole.ToValue()).String(r.Part.ToValue()).String(r.SubKind.Key)
-  .Optional(r.Ordinal, static (ordinal, run) => run.Ordinal(ordinal)),
+  .Optional(r.Ordinal, static run => run.Ordinal()),
  assign: r => w.Ordinal(1).String(r.Subject.ToValue()).String(r.Definition.ToValue()).String(r.SubKind.Key),
  associate: r => { w.Ordinal(2).String(r.Subject.ToValue()).String(r.Resource.ToValue()); r.Usage.CanonicalBytes(w); return w; },
  connect: r => w.Ordinal(3).String(r.From.ToValue()).String(r.To.ToValue()).String(r.SubKind.Key)
-  .Optional(r.Realizing, static (node, run) => run.String(node.ToValue()))
-  .Optional(r.Interface, static (blob, run) => run.U128(blob)),
+  .Optional(r.Realizing, static run => run.String(node.ToValue()))
+  .Optional(r.Interface, static run => run.U128()),
  @void: r => w.Ordinal(4).String(r.Host.ToValue()).String(r.Feature.ToValue()).String(r.SubKind.Key),
  generic: r => w.Ordinal(5).String(r.WireName.ToValue()).String(r.Source.ToValue()).String(r.Target.ToValue())
   .Sorted(r.Attributes.ToSeq(), static pair => pair.Key.ToValue(), StringComparer.Ordinal,
-   static (pair, run) => { run.String(pair.Key.ToValue()); pair.Value.CanonicalBytes(run); })
-  .Rows(r.Participants, static (participant, run) => run.String(participant.Node.ToValue()).String(participant.Role.ToValue())
-   .Optional(participant.Ordinal, static (ordinal, inner) => inner.Ordinal(ordinal))));
+   static run => { run.String(pair.Key.ToValue()); pair.Value.CanonicalBytes(run); })
+  .Rows(r.Participants, static run => run.String(participant.Node.ToValue()).String(participant.Role.ToValue())
+   .Optional(participant.Ordinal, static inner => inner.Ordinal())));
 
  public Relationship Remap(Func<NodeId, NodeId> map) => Switch<Relationship>(
   compose: r => new Compose(map(r.Whole), map(r.Part), r.SubKind, r.Ordinal),
@@ -264,7 +264,7 @@ public abstract partial class Relationship {
   associate: r => new Associate(map(r.Subject), map(r.Resource), r.Usage),
   connect: r => new Connect(map(r.From), map(r.To), r.SubKind, r.Realizing.Map(map), r.Interface),
   @void: r => new Void(map(r.Host), map(r.Feature), r.SubKind),
-  generic: r => new Generic(r.WireName, map(r.Source), map(r.Target), r.Attributes.Map((_, v) => v.Remap(map)), r.Participants.Map(participant => participant with { Node = map(participant.Node) })));
+  generic: r => new Generic(r.WireName, map(r.Source), map(r.Target), r.Attributes.Map(v => v.Remap(map)), r.Participants.Map(participant => participant with { Node = map(participant.Node) })));
 }
 ```
 

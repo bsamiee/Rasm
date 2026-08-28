@@ -557,7 +557,7 @@ public sealed class RenderGraph {
         public static readonly PassFold Empty = new(
             Seq<(string, Duration)>(), Seq<string>(), Duration.Zero, 0L, 0L, 0L, CullResult.Empty);
 
-        public PassFold Deferring(string key) => this with { Deferred = Deferred.Add() };
+        public PassFold Deferring(string key) => this with { Deferred = Deferred.Add(key) };
 
         public PassFold Ran(string key, Duration elapsed, PassAnswer answer) => this with {
             Passes = Passes.Add((key, elapsed)),

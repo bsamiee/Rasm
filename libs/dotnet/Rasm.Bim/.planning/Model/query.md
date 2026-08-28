@@ -367,7 +367,7 @@ public static class StoreLowering {
     static (Option<Fragment> Store, Option<BimTerm> Residue) Split(BimTerm term) => term.Switch(
         all: all => all.Operands.Map(Split).Fold(
             (Store: Option<Fragment>.None, Residue: Option<BimTerm>.None),
-            static (acc, part) => (
+            static part => (
                 Store: acc.Store.Match(
                     Some: held => part.Store.Map(next => new Fragment($"({held.Where}) AND ({next.Where})", held.Parameters + next.Parameters, held.Total && next.Total)).IfNone(held),
                     None: () => part.Store),
@@ -376,7 +376,7 @@ public static class StoreLowering {
                     None: () => part.Residue))),
         any: any => any.Operands.Map(Split) is var parts
             && parts.ForAll(static p => p.Store.IsSome && p.Residue.IsNone)
-                ? (parts.Choose(static p => p.Store).Fold(Option<Fragment>.None, static (acc, next) => acc.Match(
+                ? (parts.Choose(static p => p.Store).Fold(Option<Fragment>.None, static next => acc.Match(
                     Some: held => Some(new Fragment($"({held.Where}) OR ({next.Where})", held.Parameters + next.Parameters, held.Total && next.Total)),
                     None: () => Some(next))), Option<BimTerm>.None)
                 : (Option<Fragment>.None, Some(term)),

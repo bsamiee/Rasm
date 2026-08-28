@@ -46,7 +46,7 @@ public abstract partial record SemiSlot(string Slot) {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SemiExclusion {
     public static readonly SemiExclusion HueScale = new("hue-scale",
-        static key => key.StartsWith("Semi", StringComparison.Ordinal) && HueScalePattern().IsMatch(),
+        static key => key.StartsWith("Semi", StringComparison.Ordinal) && HueScalePattern().IsMatch(key),
         "the semantic brushes bind the scale through StaticResource at parse, so a scale write re-tints nothing");
     public static readonly SemiExclusion StepScale = new("step-scale",
         static key => key.StartsWith("SemiSpacing", StringComparison.Ordinal)
@@ -60,10 +60,10 @@ public sealed partial class SemiExclusion {
         static key => key is "SemiBlack" or "SemiWhite" or "SemiBlackColor" or "SemiWhiteColor" or "SemiColorBlack" or "SemiColorWhite",
         "fixed white and black are absolute anchors by definition and no ladder rung names them");
     public static readonly SemiExclusion Glyph = new("glyph",
-        static key => key.StartsWith("SemiIcon", StringComparison.Ordinal) || GeometryPattern().IsMatch(),
+        static key => key.StartsWith("SemiIcon", StringComparison.Ordinal) || GeometryPattern().IsMatch(key),
         "path geometries owned by Theme/assets as the shipped glyph source");
     public static readonly SemiExclusion ControlGeometry = new("control-geometry",
-        static key => ControlGeometryPattern().IsMatch(),
+        static key => ControlGeometryPattern().IsMatch(key),
         "shipped control-internal padding, margin, and size slots stay on the shipped scale beside the role-named extents");
     public static readonly SemiExclusion PillSentinel = new("pill-sentinel",
         static key => key is "SemiBorderRadiusFull",
@@ -307,7 +307,7 @@ public static partial class SemiCorrespondence {
          Band(Slots.Map(static slot => slot.Slot).Filter(slot => !roster.Tokens.Contains(slot) && !SemiRoster.Minted.Contains(slot)), "undefined"),
          Band(toSeq(roster.Tokens)
              .Filter(key => !Slots.Exists(slot => slot.Slot == key))
-             .Filter(key => !toSeq(SemiExclusion.Items).Exists(row => row.Matches())), "unclaimed"))
+             .Filter(key => !toSeq(SemiExclusion.Items).Exists(row => row.Matches(key))), "unclaimed"))
             .Apply(static (_, _, _) => unit)
             .As()
             .ToFin();

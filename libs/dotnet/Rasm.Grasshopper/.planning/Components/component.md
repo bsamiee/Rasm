@@ -339,7 +339,6 @@ public abstract class SpecComponent<TSelf> : ModularComponent
             Spec = spec,
             Units = units,
             Cancel = cancel,
-            Operation = key,
         });
 
     private Fin<Seq<ProcessScope>> Scopes(IDataAccess[] iterations, CancellationToken cancel) =>

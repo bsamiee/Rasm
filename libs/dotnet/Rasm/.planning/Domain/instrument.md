@@ -515,7 +515,7 @@ public sealed class InstrumentTally : IDisposable {
         bool seatable = held.Cells.Count < ceiling && held.Census.Find(at.Row).IfNone(0) < at.Row.Ceiling.IfNone(ceiling);
         (InstrumentSpec Row, UInt128 Key) key = standing || seatable ? at : (at.Row, OverflowKey);
         return ReadingCell.Advance(
-                prior: held.Cells.Find(), tags: standing || seatable ? tags : Overflow,
+                prior: held.Cells.Find(key), tags: standing || seatable ? tags : Overflow,
                 measurement: measurement, kind: key.Row.Kind, key: TallyOp)
             .Match(
                 Succ: cell => held with {

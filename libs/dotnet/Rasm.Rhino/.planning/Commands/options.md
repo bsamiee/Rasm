@@ -63,13 +63,13 @@ public sealed partial class OptionName {
         NameGrammar held = grammar;
         string candidate = english;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (held is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Grammar) }))),
+                (held is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Grammar) }))),
                 (string.IsNullOrWhiteSpace(candidate),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(English) }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(English) }))),
                 (held is not null && !string.IsNullOrWhiteSpace(candidate) && !held.Admits(candidate),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(NameGrammar.Admits), candidate }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(NameGrammar.Admits), candidate }))),
                 (local.Exists(string.IsNullOrWhiteSpace),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Local) })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Local) })))));
     }
 
     internal string Key => English.ToUpperInvariant();
@@ -121,9 +121,9 @@ public readonly partial struct NumericBand<T> where T : struct, INumber<T> {
         Option<T> high = upper;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (low.Exists(static bound => !T.IsFinite(bound)) || high.Exists(static bound => !T.IsFinite(bound)),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(NumericBand<T>), 0d, "finite bounds" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(NumericBand<T>), 0d, "finite bounds" }))),
                 ((low.Case, high.Case) is (T minimum, T maximum) && minimum > maximum,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(NumericBand<T>), 0d, "a lower bound at or below the upper" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(NumericBand<T>), 0d, "a lower bound at or below the upper" })))));
     }
 
     public bool Contains(T value) => T.IsFinite(value)
@@ -150,12 +150,12 @@ public sealed partial class OptionChoices {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<OptionName> values) {
         Seq<OptionName> rows = values;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (rows.IsEmpty, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Values) }))),
+                (rows.IsEmpty, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Values) }))),
                 (rows.Exists(static value => value is null),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(OptionChoices) }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(OptionChoices) }))),
                 (rows.ForAll(static value => value is not null)
                     && rows.Map(static value => value.Key).Distinct().Count != rows.Count,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Values), "distinct option value names" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Values), "distinct option value names" })))));
     }
 
     internal int Count => Values.Count;
@@ -191,31 +191,31 @@ public abstract partial record OptionValue {
     internal Seq<ValidationClause> Clauses() => Switch(
         verb: static _ => Seq<ValidationClause>(),
         toggle: static (row) => FactoryValidation.Violated(
-            (row.Off is null || row.On is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Toggle) }))),
+            (row.Off is null || row.On is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Toggle) }))),
             (row.Off is not null && row.On is not null && string.Equals(row.Off.Key, row.On.Key, StringComparison.Ordinal),
-                () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Toggle), "distinct off and on names" })))),
+                () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Toggle), "distinct off and on names" })))),
         number: static (row) => FactoryValidation.Violated(
-            (!row.Band.Contains(row.Current), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Number), row.Current, "a seed inside the band" }))),
+            (!row.Band.Contains(row.Current), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Number), row.Current, "a seed inside the band" }))),
             (row.Prompt.Exists(string.IsNullOrWhiteSpace),
-                () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Number.Prompt) })))),
+                () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Number.Prompt) })))),
         count: static (row) => FactoryValidation.Violated(
-            (!row.Band.Contains(row.Current), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Count), row.Current, "a seed inside the band" }))),
+            (!row.Band.Contains(row.Current), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Count), row.Current, "a seed inside the band" }))),
             (row.Prompt.Exists(string.IsNullOrWhiteSpace),
-                () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Count.Prompt) })))),
+                () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Count.Prompt) })))),
         text: static (row) => FactoryValidation.Violated(
-            (row.Current is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Text) }))),
+            (row.Current is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Text) }))),
             (row.Prompt.Exists(string.IsNullOrWhiteSpace),
-                () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Text.Prompt) })))),
+                () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Text.Prompt) })))),
         paint: static (row) => FactoryValidation.Violated(
-            (row.Current is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Paint) }))),
+            (row.Current is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Paint) }))),
             (row.Prompt.Exists(string.IsNullOrWhiteSpace),
-                () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Paint.Prompt) })))),
+                () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Paint.Prompt) })))),
         pick: static (row) => FactoryValidation.Violated(
-            (row.Values is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Pick) }))),
+            (row.Values is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Pick) }))),
             (row.Values is not null && (row.Current < 0 || row.Current >= row.Values.Count),
-                () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Pick), row.Current, "a seat inside the roster" })))),
+                () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Pick), row.Current, "a seat inside the roster" })))),
         enumChoice: static (row) => FactoryValidation.Violated(
-            (row.Binding is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(EnumChoice) })))));
+            (row.Binding is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(EnumChoice) })))));
 
     internal Fin<Unit> Admit() => FactoryValidation.Admit(Clauses());
 
@@ -485,15 +485,15 @@ public sealed record OptionRow(
     public string SlotKey => Name.Key;
 
     internal Fin<Unit> Admit() => Name is null || Value is null
-        ? Fin.Fail<Unit>(new KernelFault.InvalidValue(nameof(OptionRow), string.Join(" | ", new object?[] { key, "an option row" })))
+        ? Fin.Fail<Unit>(new KernelFault.InvalidValue(nameof(OptionRow), string.Join(" | ", new object?[] { SlotKey, "an option row" })))
         : FactoryValidation.Admit(Value.Clauses()
             + FactoryValidation.Violated(
                 (!Value.Admissible.AdmitsAll(Traits),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(Traits), $"traits this modality reads; unread <{Value.Admissible.Missing(Traits).Wire}>" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { SlotKey, nameof(Traits), $"traits this modality reads; unread <{Value.Admissible.Missing(Traits).Wire}>" }))),
                 (Value is OptionValue.Verb { Display.IsNone: true } && Traits.Admits(capability: OptionTrait.Hidden),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(OptionTrait.Hidden), "a display token beside a hidden verb" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { SlotKey, nameof(OptionTrait.Hidden), "a display token beside a hidden verb" }))),
                 (Value is OptionValue.Text { Current.Length: 0 } && !Traits.Admits(capability: OptionTrait.AllowsEmpty),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { key, nameof(OptionValue.Text), "empty text only under the empty-text trait" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { SlotKey, nameof(OptionValue.Text), "empty text only under the empty-text trait" })))));
 }
 
 public sealed record OptionMark(int NativeIndex, OptionKind Kind, string English, string Local);
@@ -541,7 +541,7 @@ public sealed partial record OptionSet {
             .Bind(_ => Plan.Apply(
                 target: getter,
                 apply: (row, target, k) =>
-                    row.Value.Bind(getter: target, name: row.Name, traits: row.Traits, lease: lease, key: k)
+                    row.Value.Bind(getter: target, name: row.Name, traits: row.Traits, lease: lease)
                         .Bind(bound => {
                             lease.Attach(row: row, bound: bound);
                             return Try.lift(() => {

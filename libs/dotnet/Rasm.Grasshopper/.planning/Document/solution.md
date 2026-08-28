@@ -67,10 +67,10 @@ public static partial class SolutionControl {
         Option<HostDocument> graph = default,
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default) {
         return Optional().ToFin(new KernelFault.InvalidInput()).Bind(valid => valid.Lane == MarshalLane.Worker
-            ? Blocked(command: (SolutionCommand.AwaitCase)valid, graph: graph, hooks: hooks, key: active)
+            ? Blocked(command: (SolutionCommand.AwaitCase)valid, graph: graph, hooks: hooks)
             : DocumentGate.Run(
-                graph: graph, key: active,
-                body: document => Heralded(hooks: hooks, subject: Some(document.Identity), key: active)
+                graph: graph,
+                body: document => Heralded(hooks: hooks, subject: Some(document.Identity))
                     .Bind(_ => valid.Switch(
                 state: (Key: active, Server: document.Solution),
                 launchCase: static (frame, c) => Settle(frame.Key, () =>
@@ -121,12 +121,11 @@ public static partial class SolutionControl {
     public static Fin<Lease<UiSubscription<GhFact>>> Watch(
         EvidenceDrain<GhFact> drain, Atomicity atomicity, Option<HostDocument> graph = default) {
         return Optional(drain).ToFin(new KernelFault.InvalidInput())
-            .Bind(sink => DocumentGate.Resolve(graph: graph, key: active, body: document =>
+            .Bind(sink => DocumentGate.Resolve(graph: graph, body: document =>
                 UiEvents.Observe(
                     anchor: EventAnchor.Ambient,
                     drain: sink,
                     atomicity: atomicity,
-                    key: active,
                     rows: [.. GhSource.Of(document.Solution)])));
     }
 }

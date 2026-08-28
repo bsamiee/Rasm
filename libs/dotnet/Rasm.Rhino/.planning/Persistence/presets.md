@@ -118,13 +118,13 @@ public sealed partial record CPlaneGrid(
         (double pitch, double quantum, int count, int frequency) = (spacing, snap, lineCount, thickFrequency);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (!ValidityClaim.Positive(value: pitch),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Spacing), pitch, "a finite positive grid pitch" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Spacing), pitch, "a finite positive grid pitch" }))),
                 (!ValidityClaim.Positive(value: quantum),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Snap), quantum, "a finite positive snap quantum" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Snap), quantum, "a finite positive snap quantum" }))),
                 (count < 1,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(LineCount), count, "at least one grid line" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(LineCount), count, "at least one grid line" }))),
                 (frequency < 1,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ThickFrequency), frequency, "a thick-line cadence of at least one" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ThickFrequency), frequency, "a thick-line cadence of at least one" })))));
     }
 
     public static Fin<CPlaneGrid> Of(
@@ -219,9 +219,9 @@ public sealed partial record CPlaneModel(
         (Plane frame, CPlaneGrid metrics, CPlanePalette inks) = (plane, grid, palette);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (!ValidityClaim.All(frame.IsValid),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Plane), "a valid construction-plane frame" }))),
-                (metrics is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Grid) }))),
-                (inks is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Palette) })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Plane), "a valid construction-plane frame" }))),
+                (metrics is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Grid) }))),
+                (inks is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Palette) })))));
     }
 
     public static Fin<CPlaneModel> Of(PresetName name, Plane plane, CPlaneGrid grid, CPlanePalette palette) =>
@@ -285,9 +285,9 @@ public readonly partial struct PresetName : IDisallowDefaultValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         string candidate = value ?? string.Empty;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (string.IsNullOrWhiteSpace(candidate), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(PresetName) }))),
+                (string.IsNullOrWhiteSpace(candidate), () => new ValidationClause(string.Join(" | ", new object?[] { nameof(PresetName) }))),
                 (candidate.Length != candidate.Trim().Length,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(PresetName), "a name carrying no surrounding whitespace" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(PresetName), "a name carrying no surrounding whitespace" })))));
     }
 }
 
@@ -327,7 +327,7 @@ public abstract partial record LayerRestore {
     public static Fin<LayerRestore> Selected(CapabilitySet<LayerFacet> facets) {
         return from admitted in LayerFacet.Law.Admit(held: facets)
                from _held in guard(!admitted.Held.IsEmpty,
-                   (Error)new KernelFault.InvalidValue(nameof(LayerRestore), string.Join(" | ", new object?[] { op, "at least one restored property group" })))
+                   (Error)new KernelFault.InvalidValue(nameof(LayerRestore), string.Join(" | ", new object?[] { "at least one restored property group" })))
                select (LayerRestore)new SelectedCase(Facets: admitted);
     }
 
@@ -503,7 +503,7 @@ public abstract partial record PresetOperation {
         return from admitted in DocumentPath.Of(value: path)
                from _archive in guard(
                    string.Equals(Path.GetExtension(admitted.Value), ".3dm", StringComparison.OrdinalIgnoreCase),
-                   (Error)new KernelFault.InvalidValue(nameof(ImportLayerStates), string.Join(" | ", new object?[] { op, "an absolute .3dm archive path" })))
+                   (Error)new KernelFault.InvalidValue(nameof(ImportLayerStates), string.Join(" | ", new object?[] { "an absolute .3dm archive path" })))
                select (PresetOperation)new ImportLayerStatesCase(Path: admitted);
     }
 
@@ -531,7 +531,7 @@ public abstract partial record PresetOperation {
             .ToFin()
         from _distinct in guard(
             !admitted.IsEmpty && admitted.Distinct().Count == admitted.Count,
-            (Error)new KernelFault.InvalidValue("ObjectIds", string.Join(" | ", new object?[] { key, "a non-empty roster of distinct object ids" })))
+            (Error)new KernelFault.InvalidValue("ObjectIds", string.Join(" | ", new object?[] { "a non-empty roster of distinct object ids" })))
         select admitted;
 
     private static Fin<Option<Guid>> Viewport(Option<Guid> viewport) =>
@@ -596,7 +596,7 @@ public static class Presets {
                    .As()
                    .ToFin()
                from _nonempty in guard(!program.IsEmpty,
-                   (Error)new KernelFault.InvalidValue(nameof(operations), string.Join(" | ", new object?[] { op, "at least one persistence operation" })))
+                   (Error)new KernelFault.InvalidValue(nameof(operations), string.Join(" | ", new object?[] { "at least one persistence operation" })))
                let posture = PresetExecution.Strongest(postures: program.Map(static value => value.Execution))
                from completed in Admit.Demand(
                    use: document => DocumentCommit.Sealed(

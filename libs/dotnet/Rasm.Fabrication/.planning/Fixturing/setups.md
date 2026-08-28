@@ -619,7 +619,7 @@ internal static partial class Setups {
 
     private static Error Broken(SetupChain chain, double toleranceMm) =>
         chain.Keyed(toleranceMm, Key).Match(
-            Succ: static key => (Error)new FabricationFault.DatumLineageBroken(new FaultSubject.Lineage()),
+            Succ: static key => (Error)new FabricationFault.DatumLineageBroken(new FaultSubject.Lineage(key)),
             Fail: static fault => fault);
 
 

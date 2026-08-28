@@ -399,18 +399,18 @@ public abstract partial record Bounds {
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         axisAlignedCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(AxisAlignedCase), ingress: static type => Capability.Bound.Admits(type: type), build: static key =>
             Analysis.Operation<TGeometry, BoundingBox>.Build(state: key,
-                evaluator: static (op, geometry) => geometry.BoundsOf().Bind(box => Acceptance.Rows(value: box)).ToEff()).As<TGeometry, TOut>()),
+                evaluator: static geometry => geometry.BoundsOf().Bind(box => Acceptance.Rows(value: box)).ToEff()).As<TGeometry, TOut>()),
         orientedCase: static p => Admit<TGeometry, TOut>(caseName: nameof(OrientedCase), ingress: static type => typeof(GeometryBase).IsAssignableFrom(c: type), build: key =>
             Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, Box, (Plane Plane)>(state: (p.Plane),
-                project: static (state, native) => Acceptance.Rows(value: new Box(state.Plane, native)).ToEff())),
+                project: static native => Acceptance.Rows(value: new Box(state.Plane, native)).ToEff())),
         transformedCase: static t => Admit<TGeometry, TOut>(caseName: nameof(TransformedCase), ingress: static type => typeof(GeometryBase).IsAssignableFrom(c: type), build: key =>
             Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, BoundingBox, (Transform Xform)>(state: (t.Xform),
-                project: static (state, native) => Acceptance.Rows(value: native.GetBoundingBox(xform: state.Xform)).ToEff())),
+                project: static native => Acceptance.Rows(value: native.GetBoundingBox(xform: state.Xform)).ToEff())),
         principalFrameCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(PrincipalFrameCase), ingress: static type => Capability.OrientedBound.Admits(type: type), build: static key =>
             Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, Box>(state: key, requirement: Some(Requirement.Basic),
-                project: static (state, native) =>
+                project: static native =>
                     from context in Env.Asks
-                    from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
+                    from frame in MassKind.PrincipalFrameOf(geometry: native, context: context).ToEff()
                     from box in Acceptance.Value(value: new Box(frame, native)).ToEff()
                     from result in Acceptance.Rows(value: box).ToEff()
                     select result)),
@@ -419,7 +419,7 @@ public abstract partial record Bounds {
                 evaluator: static (geometry) => geometry.BoundsOf().Bind(box => Acceptance.Rows(value: box.Center)).ToEff()).As<TGeometry, TOut>()),
         cornersCase: static c => Admit<TGeometry, TOut>(caseName: nameof(CornersCase), ingress: static type => Capability.Bound.Admits(type: type), build: key =>
             Analysis.Operation<TGeometry, Point3d>.Build(requiresContext: true, state: (c.Set),
-                evaluator: static (state, geometry) =>
+                evaluator: static geometry =>
                     from context in Env.Asks
                     from box in geometry.BoundsOf().ToEff()
                     from result in Acceptance.Rows(values: state.Set.Read(box: box, band: context.For(lane: ToleranceLane.Weld))).ToEff()
@@ -427,34 +427,34 @@ public abstract partial record Bounds {
         edgesCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(EdgesCase), ingress: static type => type == typeof(BoundingBox), build: static key =>
             Analysis.Operation<BoundingBox, Line>.Build(state: key,
                 evaluator: static (geometry) => Acceptance.Rows(values: geometry.GetEdges()).ToEff()).As<TGeometry, TOut>()),
-        areaCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(AreaCase), boundingBox: static (box, _) => box.Area, box: static (box, _) => box.Area),
-        volumeCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(VolumeCase), boundingBox: static (box, _) => box.Volume, box: static (box, _) => box.Volume),
-        diagonalCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(DiagonalCase), boundingBox: static (box, _) => box.Diagonal.Length, box: static (box, _) => box.BoundingBox.Diagonal.Length),
+        areaCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(AreaCase), boundingBox: static _ => box.Area, box: static _ => box.Area),
+        volumeCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(VolumeCase), boundingBox: static _ => box.Volume, box: static _ => box.Volume),
+        diagonalCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(DiagonalCase), boundingBox: static _ => box.Diagonal.Length, box: static _ => box.BoundingBox.Diagonal.Length),
         aspectRatioCase: static _ => Metric<TGeometry, TOut>(caseName: nameof(AspectRatioCase),
-            boundingBox: static (box, band) => AspectOf(extents: box.Diagonal, band: band),
-            box: static (box, band) => AspectOf(extents: new Vector3d(box.X.Length, box.Y.Length, box.Z.Length), band: band)),
+            boundingBox: static band => AspectOf(extents: box.Diagonal, band: band),
+            box: static band => AspectOf(extents: new Vector3d(box.X.Length, box.Y.Length, box.Z.Length), band: band)),
         tightnessCase: static _ => Admit<TGeometry, TOut>(caseName: nameof(TightnessCase), ingress: static type => Capability.OrientedBound.Admits(type: type) && typeof(GeometryBase).IsAssignableFrom(c: type), build: static key =>
             Analysis.Operation<TGeometry, TOut>.Native<GeometryBase, double>(state: key, requirement: Some(Requirement.Basic),
-                project: static (state, native) =>
+                project: static native =>
                     from context in Env.Asks
-                    from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
+                    from frame in MassKind.PrincipalFrameOf(geometry: native, context: context).ToEff()
                     from obb in Acceptance.Value(value: new Box(frame, native)).ToEff()
-                    from aabb in native.BoundsOf(key: state).ToEff()
+                    from aabb in native.BoundsOf().ToEff()
                     let floor = Math.Pow(x: context.For(lane: ToleranceLane.Length).Value, y: 3.0)
                     from result in (obb.Volume > floor ? Acceptance.Rows(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(new KernelFault.InvalidResult())).ToEff()
                     select result)),
         enclosingSphereCase: static s => Admit<TGeometry, TOut>(caseName: nameof(EnclosingSphereCase), ingress: static type => Capability.Bound.Admits(type: type), build: key =>
             Analysis.Operation<TGeometry, Sphere>.Build(requiresContext: true, state: (s.Count, s.Fallback),
-                evaluator: static (state, geometry) =>
+                evaluator: static geometry =>
                     from context in Env.Asks
                     from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context).ToEff()
                     from result in RitterFit(samples: sites,
-                        construct: (center, radius) => Acceptance.Value(value: new Sphere(center: center, radius: radius))).ToEff()
+                        construct: radius => Acceptance.Value(value: new Sphere(center: center, radius: radius))).ToEff()
                     from accepted in Acceptance.Rows(value: result).ToEff()
                     select accepted).As<TGeometry, TOut>()),
         enclosingCircleCase: static c => Admit<TGeometry, TOut>(caseName: nameof(EnclosingCircleCase), ingress: static type => Capability.Bound.Admits(type: type), build: key =>
             Analysis.Operation<TGeometry, Circle>.Build(requiresContext: true, state: (c.Plane, c.Count, c.Fallback),
-                evaluator: static (state, geometry) =>
+                evaluator: static geometry =>
                     from context in Env.Asks
                     from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context).ToEff()
                     from projected in Fin.Succ(sites.Choose(p => state.Plane.ClosestParameter(testPoint: p, s: out double s, t: out double t) ? Some(new Point2d(x: s, y: t)) : Option<Point2d>.None)).ToEff()
@@ -466,15 +466,15 @@ public abstract partial record Bounds {
                     select accepted).As<TGeometry, TOut>()),
         enclosingCylinderCase: static cy => Admit<TGeometry, TOut>(caseName: nameof(EnclosingCylinderCase), ingress: static type => Capability.Bound.Admits(type: type), build: key =>
             Analysis.Operation<TGeometry, Cylinder>.Build(requiresContext: true, state: (cy.Axis, cy.Count, cy.Fallback),
-                evaluator: static (state, geometry) =>
+                evaluator: static geometry =>
                     from context in Env.Asks
                     from axis in Rasm.Numerics.Direction.Of(value: state.Axis, context: context).Map(static direction => direction.Value).ToEff()
                     from sites in Enclosing(geometry: geometry, count: state.Count, fallback: state.Fallback, context: context).ToEff()
                     let plane = new Plane(origin: Point3d.Origin, normal: axis)
                     from projected in Fin.Succ(sites.Map(plane.ClosestPoint)).ToEff()
                     from disc in RitterFit(samples: projected,
-                        construct: static (center, radius) => Fin.Succ((Center: center, Radius: radius))).ToEff()
-                    let extent = sites.Fold(initialState: (Min: double.PositiveInfinity, Max: double.NegativeInfinity, Axis: axis), f: static (s, p) => ((p - Point3d.Origin) * s.Axis) switch {
+                        construct: static radius => Fin.Succ((Center: center, Radius: radius))).ToEff()
+                    let extent = sites.Fold(initialState: (Min: double.PositiveInfinity, Max: double.NegativeInfinity, Axis: axis), f: static p => ((p - Point3d.Origin) * s.Axis) switch {
                         double d => (Min: Math.Min(val1: s.Min, val2: d), Max: Math.Max(val1: s.Max, val2: d), s.Axis),
                     })
                     from result in Acceptance.Rows(value: new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min)).ToEff()

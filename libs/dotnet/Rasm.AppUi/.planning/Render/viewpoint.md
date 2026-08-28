@@ -164,7 +164,7 @@ public sealed record Viewpoint(
         Seq<string> selection,
         Seq<ViewMeasurement> measurements,
         Instant at) =>
-        (Col(!string.IsNullOrWhiteSpace(), "a non-blank key"),
+        (Col(!string.IsNullOrWhiteSpace(key), "a non-blank key"),
          Col(revision > 0, "a positive revision"),
          Col(Distinct(overrides.Map(static row => row.ElementId)), "distinct override element ids"),
          Col(Distinct(selection), "a duplicate-free selection"),
@@ -255,7 +255,7 @@ public abstract partial record DisplayPosture(string Key) {
         participation: static posture => OverrideRole.In(OverrideRole.Participation) switch {
             var family => LegendSpec.Admit(new LegendSpec(
                 posture.Key,
-                new LegendDomain.Categorized(family.Map(static (role, index) => (role.LabelKey, (double)index))),
+                new LegendDomain.Categorized(family.Map(static index => (role.LabelKey, (double)index))),
                 LegendDock.BottomRight, Seq<LegendColumn>(), None, family.Count, Some(posture.Key), None)),
         },
         wireframe: static posture => LegendSpec.Admit(LegendSpec.Swatches with { Key = posture.Key, Dock = LegendDock.Hidden }));
@@ -661,7 +661,7 @@ public sealed record ViewRegistry(HashMap<ViewKey, NamedView> Rows, ViewRing Rin
 
     public ViewRegistry Visit(ViewCamera camera, Option<SectionBox> section, Seq<VisibilityOverride> overrides, Instant at) =>
         ViewKey.Create($"{VisitedPrefix}{Ring.Keys.Count}") switch {
-            var key => Ring.Visit() switch {
+            var key => Ring.Visit(key) switch {
                 var ring => this with {
                     Ring = ring,
                     Rows = Rows

@@ -118,7 +118,7 @@ internal static class DocumentCommit {
         (Seq<TKey> Landed, Option<Error> Fault) outcome = source.Fold(
             (Landed: Seq<TKey>(), Fault: default(Option<Error>)),
             (state, value) => state.Fault.IsSome ? state : land(value).Match(
-                Succ: key => (state.Landed.Add(), default(Option<Error>)),
+                Succ: key => (state.Landed.Add(key), default(Option<Error>)),
                 Fail: error => (state.Landed, Some(error))));
         return outcome.Fault.Match(
             Some: cause => Unwound<TKey>(primary: cause, rollback(outcome.Landed), settle(source)),

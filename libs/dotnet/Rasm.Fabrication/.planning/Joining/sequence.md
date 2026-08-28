@@ -976,11 +976,10 @@ public static class Sequence {
         int consecutive = work.Fold(
             (Current: 0, Maximum: 0),
             static (held, row) => row.Switch(
-                state: held,
-                tack: static (state, _) => (0, state.Maximum),
-                preparation: static (state, _) => (0, state.Maximum),
-                inspection: static (state, _) => (0, state.Maximum),
-                deposit: static (state, _) => (state.Current + 1, Math.Max(state.Maximum, state.Current + 1)))).Maximum;
+                tack: static _ => (0, state.Maximum),
+                preparation: static _ => (0, state.Maximum),
+                inspection: static _ => (0, state.Maximum),
+                deposit: static _ => (state.Current + 1, Math.Max(state.Maximum, state.Current + 1)))).Maximum;
         Length linear = UnitMath.Max(field.Sweep, field.Camber);
         Angle angular = UnitMath.Max(field.Twist, field.Angular);
         return Seq<Option<CandidateRejection>>(
@@ -1026,7 +1025,7 @@ public static class Sequence {
             .AsEnumerable();
         return SparseMatrix
             .FromTriplets(Dimension.Create(degrees), Dimension.Create(degrees), diagonal.Concat(couplings), Key)
-            .Bind(stiffness => CholeskySparse.Of(stiffness, key: Key))
+            .Bind(stiffness => CholeskySparse.Of(stiffness))
             .Map(factor => new DistortionKernel(factor, index, degrees));
     }
 
@@ -1058,11 +1057,10 @@ public static class Sequence {
         Map<(int Joint, int Pass, int Segment), NodaTime.Duration> chronology = work.Fold(
             Map<(int, int, int), NodaTime.Duration>(),
             static (held, row) => row.Switch(
-                state: held,
-                tack: static (map, tack) => map.AddOrUpdate((tack.Pass.Joint, tack.Pass.Ordinal, tack.Segment), tack.At),
-                preparation: static (map, _) => map,
-                inspection: static (map, _) => map,
-                deposit: static (map, value) => map.AddOrUpdate(
+                tack: static tack => map.AddOrUpdate((tack.Pass.Joint, tack.Pass.Ordinal, tack.Segment), tack.At),
+                preparation: static _ => map,
+                inspection: static _ => map,
+                deposit: static value => map.AddOrUpdate(
                     (value.Pass.Joint, value.Pass.Ordinal, value.Segment), value.At + value.Wait + value.Reheat)));
         Seq<(int Slot, double Load, DistortionSource Source)> loads = segments.Bind(segment =>
             owners.Find(segment.Pass.Joint).Bind(kernel.MemberIndex.Find).Map(member => {

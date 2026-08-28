@@ -137,10 +137,10 @@ public sealed partial class Kind {
     public static Option<Kind> Of(Type type) {
         return type == typeof(RhinoPoint)
             ? Some(Point)
-            : Optional(ByType.Value.GetValueOrDefault(key: type)) | InheritsBase(type: type).Bind(static seat => Optional(ByType.Value.GetValueOrDefault(key: seat)));
+            : Optional(ByType.Value.GetValueOrDefault(key: type)) | InheritsBase(type: type).Bind(static seat => Optional(ByType.Value.GetValueOrDefault()));
     }
     private static Option<Type> InheritsBase(Type type) =>
-        Optional(type.BaseType).Bind(static seat => ByType.Value.ContainsKey(key: seat) ? Some(seat) : InheritsBase(type: seat));
+        Optional(type.BaseType).Bind(static seat => ByType.Value.ContainsKey() ? Some(seat) : InheritsBase(type: seat));
 }
 
 [SmartEnum<string>]

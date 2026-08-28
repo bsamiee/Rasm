@@ -299,7 +299,7 @@ public sealed partial class CuttingKey {
         ref MaterialCutSpec material, ref CutterFamily form, ref Operation operation) { }
 
     public static Fin<CuttingKey> Admit(MaterialCutSpec material, CutterFamily form, Operation operation) =>
-        Validate(material, form, operation, out CuttingKey key).Admitted();
+        Validate(material, form, operation, out CuttingKey key).Admitted(key);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -628,7 +628,7 @@ public sealed partial class CuttingData {
         OperationTrait operation, CuttingTable table, Option<CorrectionInputs> correction) =>
         CuttingKey.Admit(material, form.Family, operation.Operation)
             .ToOption()
-            .Bind(key => table.Exact.Find())
+            .Bind(key => table.Exact.Find(key))
             .Match(
                 Some: static row => Admit(CuttingDataMap.FromRow(row)),
                 None: () => Generate(material, operation, table, correction));

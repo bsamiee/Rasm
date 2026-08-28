@@ -200,9 +200,9 @@ public abstract partial record AcceptRule : ISlotted<AcceptSlot> {
 
     internal Fin<Unit> Admit() => Switch(
         allowed: static (rule) => guard(rule.Gate is not null, new KernelFault.InvalidInput()).ToFin(),
-        number: static (_, _) => Fin.Succ(unit),
-        zero: static (_, _) => Fin.Succ(unit),
-        transparent: static (_, _) => Fin.Succ(unit),
+        number: static _ => Fin.Succ(unit),
+        zero: static _ => Fin.Succ(unit),
+        transparent: static _ => Fin.Succ(unit),
         waitFor: static (rule) => guard(
             rule.Window > Duration.Zero && rule.Window.TotalMilliseconds <= int.MaxValue,
             new KernelFault.InvalidInput()).ToFin());
@@ -479,7 +479,7 @@ public abstract partial record PointRule : ISlotted<PointSlot> {
             new KernelFault.InvalidInput()).ToFin(),
         snapBar: static (rule) => guard(rule.Axis is not null && rule.Span is not null, new KernelFault.InvalidInput()).ToFin(),
         directionArrow: static (rule) => guard(rule.Sense is not null, new KernelFault.InvalidInput()).ToFin(),
-        onMouseUp: static (_, _) => Fin.Succ(unit));
+        onMouseUp: static _ => Fin.Succ(unit));
 
     internal Fin<Unit> Apply(GetPoint getter) => Switch(
         state: getter,
@@ -708,7 +708,7 @@ public abstract partial record ObjectRule : ISlotted<ObjectSlot> {
         filter: static _ => ObjectSlot.Filter);
 
     internal Fin<Unit> Admit() => Switch(
-        preSelect: static (_, _) => Fin.Succ(unit),
+        preSelect: static _ => Fin.Succ(unit),
         gates: static (rule) => guard(
             rule.Enabled.Held.All(row => !rule.Disabled.Admits(capability: row)),
             new KernelFault.InvalidInput()).ToFin(),
@@ -1249,7 +1249,7 @@ internal static class GetterDrive {
                              Some: options => options.Bind(getter),
                              None: static () => Fin.Succ(new OptionLease())))
                          .Bind(lease => Cycle(request, getter, dragging, receive, project, lease)
-                             .Settled(held: Seq(lease), release: held => held.Release())))
+                             .Settled(held: Seq(lease), release: held => held.Release(op))))
                  select outcome)
                 .Settled(
                     held: Seq(getter),

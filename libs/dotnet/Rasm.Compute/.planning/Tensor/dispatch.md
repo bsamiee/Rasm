@@ -1081,10 +1081,10 @@ public static class SensitivityLaw {
         MemoryOwner<float> flow = MemoryOwner<float>.Allocate(seed.Length);
         seed.CopyTo(flow.Span);
         return tape.Switch(
-            dense: t => Fold(Ordered(t.Steps, mode), flow, (step, carried) => Adjoint(step, mode, carried.Span)),
-            geometry: t => Fold(Ordered(t.Steps, mode), flow, (step, carried) => Directional.Operator(step, carried.Span, mode)),
+            dense: t => Fold(Ordered(t.Steps, mode), flow, carried => Adjoint(mode, carried.Span)),
+            geometry: t => Fold(Ordered(t.Steps, mode), flow, carried => Directional.Operator(carried.Span, mode)),
             spilled: t => Fold(Ordered(toSeq(Enumerable.Range(0, t.Cursor.Ops.Length)), mode), flow,
-                (ordinal, carried) => Replayed(t.Cursor, ordinal, carried.Span, mode)));
+                carried => Replayed(t.Cursor, carried.Span, mode)));
     }
 
     public static Fin<MemoryOwner<float>> Adjoint(TapeStep step, AdjointMode mode, ReadOnlySpan<float> seed) =>

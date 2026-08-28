@@ -285,7 +285,7 @@ public static class RunQueueSurface {
                 State = new StateLens(
                     static screen => screen.Blank() with { Expansion = screen.Read(Expansion, Set<string>()) },
                     static (screen, merged) => screen.Write(Expansion, merged.Expansion)),
-                Alive = screen => key => screen.Read(Live, Set<string>()).Contains(),
+                Alive = screen => key => screen.Read(Live, Set<string>()).Contains(key),
             };
 
     static Unit Seat(ProductScreen screen, ScreenComposition composition, Seq<RunCard> cards) {

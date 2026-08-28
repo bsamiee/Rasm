@@ -170,7 +170,7 @@ public abstract partial record BindSource<TValue> {
                 getValue: source.Get,
                 setValue: HostEdge.Slot(source.Put)))),
         child: static source => (source.Parent.Lower(), source.Member.Lower())
-            .Apply(static (parent, member) => parent.Child(binding: member))
+            .Apply(static member => parent.Child(binding: member))
             .As());
 }
 
@@ -207,11 +207,10 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
     }
 
     private Unit Park(Transition<TState> verdict) => verdict.Switch(
-        state: op,
-        committed: static (_, _) => unit,
-        ceded: static (_, _) => unit,
-        refused: (_, row) => ignore(faults.Park(point: Point, cause: row.Cause)),
-        contended: (key, _) => ignore(faults.Park(point: Point, cause: new KernelFault.InvalidResult())));
+        committed: static _ => unit,
+        ceded: static _ => unit,
+        refused: (row) => ignore(faults.Park(point: Point, cause: row.Cause)),
+        contended: (key) => ignore(faults.Park(point: Point, cause: new KernelFault.InvalidResult())));
 
     private Unit Park(Fin<Unit> crossing) => crossing.Match(
         Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Point, cause: cause)));
@@ -437,7 +436,7 @@ public sealed class BindLedger {
     public Seq<BindLedgerEntry> History => state.Value.History;
     public HashMap<BindingKey, UiFault> Current => state.Value.Current;
 
-    public Option<UiFault> Holds(BindingKey key) => state.Value.Current.Find();
+    public Option<UiFault> Holds(BindingKey key) => state.Value.Current.Find(key);
 
     public Transition<BindLedgerState> Reject(BindingKey key, UiFault fault) => Cell.Commit(
         state,

@@ -304,7 +304,7 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
     static Fin<Plan> Build(AnalyticsSchema schema, Identifier relation, Seq<(Identifier Column, string Value)> matches,
         Seq<Identifier> order, Seq<Identifier> names, Func<Relation, Relation> shape) =>
         from conditions in matches.TraverseM(match => Narrowed(schema, match)).As()
-        from sorts in order.TraverseM(key => names.IndexOf() is var slot && slot >= 0
+        from sorts in order.TraverseM(key => names.IndexOf(key) is var slot && slot >= 0
             ? Fin.Succ<Expression>(new DirectFieldReference { ReferenceSegment = new StructReferenceSegment { Field = slot } })
             : Fin.Fail<Expression>(new BackendFault.Unprovisioned($"<plan-order:{schema.Dataset}.{(string)key}>"))).As()
         select Rooted(relation, schema, conditions, sorts, names, shape);

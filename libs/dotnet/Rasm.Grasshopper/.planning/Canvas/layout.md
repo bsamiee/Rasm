@@ -279,7 +279,6 @@ public static class CanvasLayout {
         return from valid in Admit.Need(value: plan)
                from gauged in clock.Gauged<ArrangeFacts, CanvasLane>(
                    lane: CanvasLane.Arrange,
-                   work: op,
                    body: () => GhSession.Run(ScopeTarget.DocumentHost, scope =>
                        scope.Document.ToFin(new KernelFault.MissingContext()).Bind(graph =>
                            Deltas(graph: graph, plan: valid).Bind(moves =>

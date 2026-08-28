@@ -724,7 +724,7 @@ public static class IdsSchema {
 
     public static Seq<string> ClassRoster(IfcSchemaVersions schema) =>
         Classes.GetOrAdd(schema, static key =>
-            toSeq(SchemaInfo.GetSchemas()).Bind(static graph => toSeq(graph).Map(static c => c.Name)).Distinct());
+            toSeq(SchemaInfo.GetSchemas(key)).Bind(static graph => toSeq(graph).Map(static c => c.Name)).Distinct());
 
     public static Seq<string> PredefinedTokens(string className, IfcSchemaVersions schema) =>
         Predefined.GetOrAdd((className, schema), static key =>

@@ -201,7 +201,7 @@ public readonly record struct TilePlacement(string TileKey, BreakpointRow At, in
 
 public sealed record DashboardLayout(string Key, Seq<TilePlacement> Placements, Option<string> CanvasState) {
     public static Fin<DashboardLayout> Admit(string key, Seq<TilePlacement> placements, Option<string> canvasState = default) =>
-        (Gate(!string.IsNullOrWhiteSpace(), $"{key}: blank key"),
+        (Gate(!string.IsNullOrWhiteSpace(key), $"{key}: blank key"),
          Gate(placements.ForAll(static placement =>
                  !string.IsNullOrWhiteSpace(placement.TileKey)
                  && placement.Column >= 0 && placement.Row >= 0

@@ -143,7 +143,7 @@ public static class BoardLink {
     static HashMap<string, string> Parsed(string query) =>
         toHashMap(query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
             .Choose(field => field.Split('=', 2) switch {
-                [var key, var value] => Some((Uri.UnescapeDataString(), Uri.UnescapeDataString(value))),
+                [var key, var value] => Some((Uri.UnescapeDataString(key), Uri.UnescapeDataString(value))),
                 _ => None,
             }));
 

@@ -198,16 +198,16 @@ public sealed record Context {
     }
 
     public static Validation<Error, Context> Of(double absolute, double relative, double angle, UnitSystem units) =>
-        Build(absolute: absolute, relative: relative, angle: angle, unit: ModelUnit.Of(value: units, key: Key));
+        Build(absolute: absolute, relative: relative, angle: angle, unit: ModelUnit.Of(value: units));
 
     public static Validation<Error, Context> Of(double absolute, double relative, double angle, LengthUnit units) =>
-        Build(absolute: absolute, relative: relative, angle: angle, unit: ModelUnit.Of(value: units, key: Key));
+        Build(absolute: absolute, relative: relative, angle: angle, unit: ModelUnit.Of(value: units));
 
     public static Validation<Error, Context> Of(UnitSystem units) =>
-        Default(unit: ModelUnit.Of(value: units, key: Key));
+        Default(unit: ModelUnit.Of(value: units));
 
     public static Validation<Error, Context> Of(LengthUnit units) =>
-        Default(unit: ModelUnit.Of(value: units, key: Key));
+        Default(unit: ModelUnit.Of(value: units));
 
     public static Context Canonical => Whole.Value;
     private static readonly Lazy<Context> Whole = new(static () => Of(UnitSystem.Millimeters).ToFin().ThrowIfFail());
@@ -242,9 +242,9 @@ public sealed record Context {
     public double Fractional => For(lane: ToleranceLane.Fraction).Value;
 
     private static Validation<Error, Context> Build(double absolute, double relative, double angle, Fin<ModelUnit> unit) =>
-        (Tolerance.Of(lane: ToleranceLane.Distance, value: absolute, key: Key).ToValidation(),
-         Tolerance.Of(lane: ToleranceLane.Relative, value: relative, key: Key).ToValidation(),
-         Tolerance.Of(lane: ToleranceLane.Angle, value: angle, key: Key).ToValidation(),
+        (Tolerance.Of(lane: ToleranceLane.Distance, value: absolute).ToValidation(),
+         Tolerance.Of(lane: ToleranceLane.Relative, value: relative).ToValidation(),
+         Tolerance.Of(lane: ToleranceLane.Angle, value: angle).ToValidation(),
          unit.ToValidation())
 
             .Apply(static (a, r, n, u) => new Context(absolute: a, relative: r, angle: n, unit: u))
@@ -254,8 +254,8 @@ public sealed record Context {
 
     private static Validation<Error, Context> Default(Fin<ModelUnit> unit) =>
         (from target in unit
-         from millimeters in ModelUnit.Of(value: UnitSystem.Millimeters, key: Key)
-         from scale in millimeters.ScaleTo(target: target, key: Key)
+         from millimeters in ModelUnit.Of(value: UnitSystem.Millimeters)
+         from scale in millimeters.ScaleTo(target: target)
          select (Unit: target, Scale: scale))
             .ToValidation()
             .Bind(admitted => Build(

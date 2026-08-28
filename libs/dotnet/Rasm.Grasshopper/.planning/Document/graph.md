@@ -162,7 +162,7 @@ public abstract partial record GraphAnswer {
 public static partial class GraphScope {
     public static Fin<GraphAnswer> Ask(GraphProbe probe, Option<HostDocument> graph = default) {
         return Optional(probe).ToFin(new KernelFault.InvalidInput())
-            .Bind(valid => DocumentGate.Resolve(graph: graph, key: active, body: document => valid.Switch(
+            .Bind(valid => DocumentGate.Resolve(graph: graph, body: document => valid.Switch(
                 state: (Key: active, Objects: document.Objects),
                 objectCase: static (frame, c) => Try.lift(() =>
                     Fin.Succ<GraphAnswer>(new GraphAnswer.ObjectCase(Subject: Optional(frame.Objects.Find(c.Id))))).Run().Bind(static inner => inner),
@@ -276,8 +276,8 @@ public static partial class GraphScope {
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default) {
         return Optional().ToFin(new KernelFault.InvalidInput())
             .Bind(valid => DocumentGate.Run(
-                graph: graph, key: active,
-                body: document => Vetoed(hooks: hooks, document: document, key: active)
+                graph: graph,
+                body: document => Vetoed(hooks: hooks, document: document)
                     .Bind(_ => valid.Switch(
                 state: (Key: active, Graph: document, Label: label),
                 linkCase: static (frame, c) => Sealed(frame, actions =>

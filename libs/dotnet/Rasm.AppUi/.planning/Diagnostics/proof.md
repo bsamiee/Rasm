@@ -86,7 +86,7 @@ public sealed record CaptureRow {
     public FrameGrab Grab { get; }
 
     public static Fin<CaptureRow> Of(string key, double scale, VisualCodec.ColorPolicy gamut, RenderPosture posture, int ticks, FrameGrab grab) =>
-        (Slot(!string.IsNullOrWhiteSpace(), "key"),
+        (Slot(!string.IsNullOrWhiteSpace(key), "key"),
          Slot(scale > 0d, key, "scale", scale.ToString(CultureInfo.InvariantCulture)),
          Slot(ticks > 0, key, "ticks", ticks.ToString(CultureInfo.InvariantCulture)))
             .Apply((_, _, _) => new CaptureRow(key, scale, gamut, posture, ticks, grab))

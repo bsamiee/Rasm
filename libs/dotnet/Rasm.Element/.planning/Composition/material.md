@@ -336,19 +336,19 @@ public abstract partial class MaterialComposition {
 
  public void CanonicalBytes(CanonicalWriter w) => Switch(
   single: s => w.Ordinal(0).String(s.Material.ToValue()),
-  layerSet: s => w.Ordinal(1).Rows(s.Layers, static (l, run) => run
+  layerSet: s => w.Ordinal(1).Rows(s.Layers, static run => run
    .String(l.Material.ToValue()).Measure(l.Thickness).String(l.LayerName).String(l.Category)
-   .Optional(l.Priority, static (p, deep) => deep.Ordinal(p))
-   .Optional(l.Ventilated, static (v, deep) => deep.Bool(v))),
+   .Optional(l.Priority, static deep => deep.Ordinal())
+   .Optional(l.Ventilated, static deep => deep.Bool())),
   profileSet: s => w.Ordinal(2)
-   .Rows(s.Profiles, static (p, run) => run
+   .Rows(s.Profiles, static run => run
     .String(p.Material.ToValue()).String(p.Profile.Standard).String(p.Profile.Designation).U128(p.Profile.ContentKey)
     .String(p.Category)
-    .Optional(p.Priority, static (v, deep) => deep.Ordinal(v))
-    .Rows(p.Offsets, static (o, deep) => deep.Measure(o)))
-   .Optional(s.Composite, static (c, run) => run.String(c.Standard).String(c.Designation).U128(c.ContentKey))
-   .Optional(s.Section, static (x, run) => x.CanonicalBytes(run)),
-  constituentSet: s => w.Ordinal(3).Rows(s.Constituents, static (c, run) => run
+    .Optional(p.Priority, static deep => deep.Ordinal())
+    .Rows(p.Offsets, static deep => deep.Measure()))
+   .Optional(s.Composite, static run => run.String(c.Standard).String(c.Designation).U128(c.ContentKey))
+   .Optional(s.Section, static run => x.CanonicalBytes(run)),
+  constituentSet: s => w.Ordinal(3).Rows(s.Constituents, static run => run
    .String(c.Material.ToValue()).String(c.Category).String(c.PartName).Double(c.Fraction)));
 
  private const double FractionTolerance = 1e-3;
@@ -699,35 +699,35 @@ public abstract partial class MaterialPropertySet {
 
  public void CanonicalBytes(CanonicalWriter w) => Switch(
   mechanical:    m => CaseBytes(w, 0).Measure(m.Density).Measure(m.YoungsModulus).Measure(m.YieldStrength).Measure(m.UltimateStrength).Double(m.PoissonsRatio).Double(m.ThermalExpansionPerK)
-   .Optional(m.YoungsReduction, static (c, run) => c.CanonicalBytes(run)).Optional(m.YieldReduction, static (c, run) => c.CanonicalBytes(run)),
+   .Optional(m.YoungsReduction, static run => c.CanonicalBytes(run)).Optional(m.YieldReduction, static run => c.CanonicalBytes(run)),
   thermal:       t => CaseBytes(w, 1).Measure(t.Conductivity).Measure(t.SpecificHeat)
-   .Optional(t.UValue, static (u, run) => run.Measure(u)).Double(t.VapourResistanceFactor)
-   .Optional(t.ConductivityCurve, static (c, run) => c.CanonicalBytes(run)),
+   .Optional(t.UValue, static run => run.Measure()).Double(t.VapourResistanceFactor)
+   .Optional(t.ConductivityCurve, static run => c.CanonicalBytes(run)),
   acoustic:      a => { CaseBytes(w, 2); a.Spectrum.CanonicalBytes(w); return w; },
   fire:          f => CaseBytes(w, 3)
-   .Optional(f.Reaction, static (r, run) => run.String(r.Key))
+   .Optional(f.Reaction, static run => run.String(r.Key))
    .String(f.Suffix.Smoke).String(f.Suffix.Droplets)
-   .Optional(f.Resistance.LoadBearingMinutes, static (m, run) => run.Ordinal(m))
-   .Optional(f.Resistance.IntegrityMinutes, static (m, run) => run.Ordinal(m))
-   .Optional(f.Resistance.InsulationMinutes, static (m, run) => run.Ordinal(m)),
+   .Optional(f.Resistance.LoadBearingMinutes, static run => run.Ordinal())
+   .Optional(f.Resistance.IntegrityMinutes, static run => run.Ordinal())
+   .Optional(f.Resistance.InsulationMinutes, static run => run.Ordinal()),
   environmental: e => CaseBytes(w, 4).String(e.Basis.Key).Doubles(e.Impacts.AsSpan())
-   .Optional(e.RecycledContent, static (r, run) => run.Double(r))
-   .Optional(e.EndOfLifeRecovery, static (r, run) => run.Double(r)),
+   .Optional(e.RecycledContent, static run => run.Double())
+   .Optional(e.EndOfLifeRecovery, static run => run.Double()),
   cost:          c => CaseBytes(w, 5).String(c.Basis.Key).String(c.Currency.ToValue()).Double(c.SupplyPerUnit).Double(c.InstallPerUnit).Double(c.LifecyclePerUnit),
   orthotropic:   o => CaseBytes(w, 6).Measure(o.Density).Measure(o.E1Parallel).Measure(o.E2Perpendicular).Measure(o.ShearModulus).Measure(o.Strength1Parallel).Measure(o.Strength2Perpendicular).Double(o.ThermalExpansionPerK)
-   .Optional(o.ModulusReduction, static (c, run) => c.CanonicalBytes(run)).Optional(o.StrengthReduction, static (c, run) => c.CanonicalBytes(run)),
+   .Optional(o.ModulusReduction, static run => c.CanonicalBytes(run)).Optional(o.StrengthReduction, static run => c.CanonicalBytes(run)),
   damping:       d => CaseBytes(w, 7).Double(d.DampingRatio)
-   .Optional(d.Rayleigh, static (r, run) => run.Double(r.AlphaPerS).Double(r.BetaS)),
+   .Optional(d.Rayleigh, static run => run.Double(r.AlphaPerS).Double(r.BetaS)),
   hygrothermal:  h => CaseBytes(w, 8).Double(h.Porosity).Measure(h.WaterContent80Rh).Measure(h.FreeWaterSaturation)
-   .Optional(h.WaterAbsorptionKgPerM2SqrtS, static (v, run) => run.Double(v))
-   .Optional(h.SorptionIsotherm, static (c, run) => c.CanonicalBytes(run))
-   .Optional(h.LiquidTransport, static (c, run) => c.CanonicalBytes(run))
-   .Optional(h.MoistureConductivity, static (c, run) => c.CanonicalBytes(run)),
+   .Optional(h.WaterAbsorptionKgPerM2SqrtS, static run => run.Double())
+   .Optional(h.SorptionIsotherm, static run => c.CanonicalBytes(run))
+   .Optional(h.LiquidTransport, static run => c.CanonicalBytes(run))
+   .Optional(h.MoistureConductivity, static run => c.CanonicalBytes(run)),
   durability:    u => CaseBytes(w, 9).Double(u.CarbonationRateMmPerSqrtYear).Measure(u.ChlorideDiffusion).Double(u.AgeingExponent),
   optical:       o => CaseBytes(w, 10).Double(o.VisibleTransmittance).Double(o.VisibleReflectanceFront).Double(o.VisibleReflectanceBack).Double(o.SolarTransmittance).Double(o.SolarReflectanceFront).Double(o.SolarReflectanceBack).Double(o.ThermalIrTransmittance).Double(o.ThermalIrEmissivityFront).Double(o.ThermalIrEmissivityBack),
   electrical:    e => CaseBytes(w, 11).Measure(e.Resistivity).Double(e.RelativePermittivity)
-   .Optional(e.DielectricStrength, static (v, run) => run.Measure(v))
-   .Optional(e.MagneticPermeabilityRelative, static (v, run) => run.Double(v)));
+   .Optional(e.DielectricStrength, static run => run.Measure())
+   .Optional(e.MagneticPermeabilityRelative, static run => run.Double()));
 
  CanonicalWriter CaseBytes(CanonicalWriter w, int ordinal) =>
   w.Ordinal(ordinal).String(Evidence.Source)

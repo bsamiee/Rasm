@@ -301,11 +301,11 @@ public abstract partial record PluginQuery {
     public sealed record Folders : PluginQuery;
     public sealed record Tally : PluginQuery;
 
-    internal Fin<PluginQuery> Admit() => Switch(keyed: static (key, row) => Admit.Need(row.Read).Bind(_ => row.Plugin.Admit()).Map<PluginQuery>(_ => row),
-        text: static (key, row) => Admit.Need(row.Read)
+    internal Fin<PluginQuery> Admit() => Switch(keyed: static row => Admit.Need(row.Read).Bind(_ => row.Plugin.Admit()).Map<PluginQuery>(_ => row),
+        text: static row => Admit.Need(row.Read)
             .Bind(_ => Acceptance.Text(value: row.Value))
             .Map<PluginQuery>(value => new Text(Read: row.Read, Value: value)),
-        installed: static (key, row) => Admit.Need(row.Naming).Map<PluginQuery>(_ => row),
+        installed: static row => Admit.Need(row.Naming).Map<PluginQuery>(_ => row),
         installedNames: static (row) => (
                 Admit.Need(row.Roster).ToValidation(),
                 Admit.Need(row.Naming).ToValidation(),
@@ -314,8 +314,8 @@ public abstract partial record PluginQuery {
             .As()
             .ToFin()
             .Map<PluginQuery>(_ => row),
-        folders: static (_, row) => Fin.Succ<PluginQuery>(value: row),
-        tally: static (_, row) => Fin.Succ<PluginQuery>(value: row));
+        folders: static row => Fin.Succ<PluginQuery>(value: row),
+        tally: static row => Fin.Succ<PluginQuery>(value: row));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -330,14 +330,14 @@ public abstract partial record PluginAnswer {
     public sealed record Names(NameSource Source, Seq<string> Value) : PluginAnswer;
     public sealed record Tally(int Value) : PluginAnswer;
 
-    public Fin<PluginPresence> Presence() => Switch(identity: static (held, _) => Elsewhere(held),
-        text: static (held, _) => Elsewhere(held),
-        descriptor: static (_, row) => Fin.Succ(value: row.Value.Presence),
-        presence: static (_, row) => Fin.Succ(value: row.Value),
-        protection: static (held, _) => Elsewhere(held),
-        roll: static (held, _) => Elsewhere(held),
-        names: static (held, _) => Elsewhere(held),
-        tally: static (held, _) => Elsewhere(held));
+    public Fin<PluginPresence> Presence() => Switch(identity: static _ => Elsewhere(),
+        text: static _ => Elsewhere(),
+        descriptor: static row => Fin.Succ(value: row.Value.Presence),
+        presence: static row => Fin.Succ(value: row.Value),
+        protection: static _ => Elsewhere(),
+        roll: static _ => Elsewhere(),
+        names: static _ => Elsewhere(),
+        tally: static _ => Elsewhere());
 
     private static Fin<PluginPresence> Elsewhere() => Fin.Fail<PluginPresence>(
         error: new KernelFault.InvalidValue(nameof(PluginPresence), "a presence or descriptor read"));
@@ -359,9 +359,9 @@ public static class PluginCensus {
     public static Fin<PluginAnswer> Ask(PluginQuery query) {
         return Admit.Need(query)
             .Bind(request => request.Admit())
-            .Bind(request => request.Switch(keyed: static (held, row) => row.Read.Read(plugin: row.Plugin, op: held),
-                text: static (held, row) => row.Read.Read(value: row.Value, op: held),
-                installed: static (held, row) => Try.lift(() =>
+            .Bind(request => request.Switch(keyed: static row => row.Read.Read(plugin: row.Plugin),
+                text: static row => row.Read.Read(value: row.Value),
+                installed: static row => Try.lift(() =>
                     toSeq(PlugIn.GetInstalledPlugIns(localizedPlugInName: row.Naming))
                         .Traverse(entry => PluginKey.Maybe(entry.Key)
                             .ToFin(Fail: new PluginFault.HostRefused(
@@ -369,7 +369,7 @@ public static class PluginCensus {
                             .Map(plugin => new PluginRollRow(Plugin: plugin, Name: HostEdge.Text(entry.Value))))
                         .As()
                         .Map<PluginAnswer>(static rows => new PluginAnswer.Roll(Value: rows.Strict()))).Run().Bind(static inner => inner),
-                installedNames: static (held, row) => Try.lift(() => Fin.Succ<PluginAnswer>(
+                installedNames: static row => Try.lift(() => Fin.Succ<PluginAnswer>(
                     value: new PluginAnswer.Names(
                         Source: NameSource.Installed,
                         Value: toSeq(PlugIn.GetInstalledPlugInNames(
@@ -377,11 +377,11 @@ public static class PluginCensus {
                             loaded: row.Roster.IsLoaded,
                             unloaded: row.Roster.IsUnloaded,
                             localizedPlugInName: row.Naming)).Strict()))).Run().Bind(static inner => inner),
-                folders: static (held, _) => Try.lift(() => Fin.Succ<PluginAnswer>(
+                folders: static _ => Try.lift(() => Fin.Succ<PluginAnswer>(
                     value: new PluginAnswer.Names(
                         Source: NameSource.Folders,
                         Value: toSeq(PlugIn.GetInstalledPlugInFolders()).Strict()))).Run().Bind(static inner => inner),
-                tally: static (held, _) => Try.lift(() => Fin.Succ<PluginAnswer>(
+                tally: static _ => Try.lift(() => Fin.Succ<PluginAnswer>(
                     value: new PluginAnswer.Tally(Value: PlugIn.InstalledPlugInCount))).Run().Bind(static inner => inner)));
     }
 
@@ -423,12 +423,12 @@ public abstract partial record PluginAct {
     public sealed record LoadKey(PluginKey Plugin, LoadNotice Notice, LoadForce Force) : PluginAct;
     public sealed record Protect(PluginKey Plugin, LoadProtection Behavior) : PluginAct;
 
-    internal Fin<PluginAct> Admit() => Switch(loadPath: static (key, row) => Acceptance.Text(value: row.Path).Map<PluginAct>(path => new LoadPath(Path: path)),
-        loadKey: static (key, row) => row.Plugin.Admit()
+    internal Fin<PluginAct> Admit() => Switch(loadPath: static row => Acceptance.Text(value: row.Path).Map<PluginAct>(path => new LoadPath(Path: path)),
+        loadKey: static (row) => row.Plugin.Admit()
             .Bind(_ => Admit.Need(row.Notice))
             .Bind(_ => Admit.Need(row.Force))
             .Map<PluginAct>(_ => row),
-        protect: static (key, row) => row.Plugin.Admit()
+        protect: static (row) => row.Plugin.Admit()
             .Bind(_ => Admit.Need(row.Behavior))
             .Map<PluginAct>(_ => row));
 }
@@ -447,19 +447,19 @@ public static class PluginRegistry {
     public static Fin<PluginOutcome> Commit(PluginAct act) {
         return Admit.Need(act)
             .Bind(request => request.Admit())
-            .Bind(request => request.Switch(loadPath: static (held, row) => Try.lift(() => {
+            .Bind(request => request.Switch(loadPath: static row => Try.lift(() => {
                     LoadPlugInResult native = PlugIn.LoadPlugIn(path: row.Path, plugInId: out Guid loaded);
                     return FactoryBridge.Row<LoadPlugInResult, PathLoadVerdict>(native).Map<PluginOutcome>(verdict =>
                         new PluginOutcome.PathLoaded(Verdict: verdict, Plugin: PluginKey.Maybe(loaded)));
                 }).Run().Bind(static inner => inner),
-                loadKey: static (held, row) => Try.lift(() => PlugIn.LoadPlugIn(
+                loadKey: static row => Try.lift(() => PlugIn.LoadPlugIn(
                         pluginId: row.Plugin.ToValue(),
                         loadQuietly: row.Notice,
                         forceLoad: row.Force)
                     ? Fin.Succ<PluginOutcome>(value: new PluginOutcome.KeyLoaded(Plugin: row.Plugin))
                     : Fin.Fail<PluginOutcome>(error: new PluginFault.HostRefused(
                         Key: held, Member: nameof(PlugIn.LoadPlugIn), Detail: row.Plugin.ToValue().ToString()))).Run().Bind(static inner => inner),
-                protect: static (held, row) => Try.lift(() => PlugIn.SetLoadProtection(
+                protect: static row => Try.lift(() => PlugIn.SetLoadProtection(
                         pluginId: row.Plugin.ToValue(), loadSilently: row.Behavior)).Run().Bind(static inner => inner)
                     .Map<PluginOutcome>(_ => new PluginOutcome.Protected(
                         Plugin: row.Plugin, Behavior: row.Behavior))));

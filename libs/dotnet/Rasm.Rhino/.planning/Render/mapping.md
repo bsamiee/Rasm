@@ -553,7 +553,7 @@ public static class TextureCoordinates {
                    invalidate: static (context, command) =>
                        from scope in Admit.Need(command.Scope)
                        from state in Try.lift(() => {
-                           context.InvalidateCachedTextureCoordinates();
+                           context.InvalidateCachedTextureCoordinates(scope.Key);
                            return Fin.Succ<CoordinateResult>(new CoordinateResult.Invalidated(context.HasCachedTextureCoordinates));
                        }).Run().Bind(static inner => inner)
                        select state,

@@ -454,9 +454,9 @@ public static class ObjectIo {
     static ObjectLeg S3Leg(ObjectClient.S3 r) => new(
         Initiate: (store, tier, key, now, resume) => resume.Match(
             Some: IO.pure,
-            None: () => Bound(r, "s3", ObjectVerb.Write, () => r.Client.InitiateMultipartUploadAsync(store.Stamp(new InitiateMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, StorageClass = tier.S3Class, ChecksumAlgorithm = store.Claim().Supplied, ChecksumType = store.Claim().Supplied is null ? null : ChecksumType.FULL_OBJECT }, now))).Map(static x => x.UploadId)),
+            None: () => Bound(r, "s3", ObjectVerb.Write, () => r.Client.InitiateMultipartUploadAsync(store.Stamp(new InitiateMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, StorageClass = tier.S3Class, ChecksumAlgorithm = store.Claim(key).Supplied, ChecksumType = store.Claim(key).Supplied is null ? null : ChecksumType.FULL_OBJECT }, now))).Map(static x => x.UploadId)),
         Stage: (token, key, part, bytes) => Bound(r, "s3", ObjectVerb.Write, () => r.Client.UploadPartAsync(new UploadPartRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token, PartNumber = part.Number, PartSize = part.Length, InputStream = bytes.AsStream() })).Map(x => new CommittedPart(part.Number, x.ETag)),
-        Seal: (store, _, token, key, parts, _, _) => Bound(r, "s3", ObjectVerb.Write, () => r.Client.CompleteMultipartUploadAsync(new CompleteMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token, IfNoneMatch = "*", ChecksumXXHASH128 = store.Claim().Digest.ValueUnsafe(), PartETags = parts.Map(static p => new PartETag(p.Number, p.ETag)).ToList() })).Map(static _ => unit),
+        Seal: (store, _, token, key, parts, _, _) => Bound(r, "s3", ObjectVerb.Write, () => r.Client.CompleteMultipartUploadAsync(new CompleteMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token, IfNoneMatch = "*", ChecksumXXHASH128 = store.Claim(key).Digest.ValueUnsafe(), PartETags = parts.Map(static p => new PartETag(p.Number, p.ETag)).ToList() })).Map(static _ => unit),
         Abort: (token, key) => string.IsNullOrEmpty(token) ? IO.pure(unit) : Bound(r, "s3", ObjectVerb.Write, () => r.Client.AbortMultipartUploadAsync(new AbortMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token })).Map(static _ => unit),
         Committed: (token, key) => Bound(r, "s3", ObjectVerb.Write, () => r.Client.ListPartsAsync(new ListPartsRequest { BucketName = r.Bucket, Key = key.Name, UploadId = token })).Map(static x => toSeq(x.Parts).Map(static p => new CommittedPart(p.PartNumber, p.ETag))),
         Fetch: (store, key, range) => Bound(r, "s3", ObjectVerb.Read, () => r.Client.GetObjectAsync(store.Integrity.ApplyS3(new GetObjectRequest { BucketName = r.Bucket, Key = key.Name, ByteRange = range.Match(Some: static w => new ByteRange(w.Start, w.End), None: static () => null) }))).Map(static x => x.ResponseStream),
@@ -603,7 +603,7 @@ public static class ObjectIo {
                 signedUrl: url => r.Http.PutAsync(url.Url, new ReadOnlyMemoryContent(source))))).Map(static _ => unit),
         Abort: static (_, _) => IO.pure(unit),
         Committed: static (_, _) => IO.pure(Seq<CommittedPart>()),
-        Fetch: (_, key, range) => r.Minter(new GrantRequest.Read()).Bind(grant =>
+        Fetch: (_, key, range) => r.Minter(new GrantRequest.Read(key.Key)).Bind(grant =>
             Sent(r, ObjectVerb.Read, () => {
                 using HttpRequestMessage request = new(HttpMethod.Get, grant.Url);
                 _ = range.Map(w => request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(w.Start, w.End));

@@ -840,18 +840,18 @@ internal abstract partial record ModeOp {
     internal sealed record ExportCase(ModeId Mode, string Path) : ModeOp;
 
     internal Fin<Seq<DisplayModeDescription>> Apply() {
-        return Switch(censusCase: static (inner, _) => Try.lift(() => Fin.Succ(toSeq(DisplayModeDescription.GetDisplayModes()))).Run().Bind(static inner => inner),
-            findCase: static (inner, row) => Resolve(row.Mode, inner).Map(static mode => Seq(mode)),
-            namedCase: static (inner, row) => Try.lift(() =>
+        return Switch(censusCase: static _ => Try.lift(() => Fin.Succ(toSeq(DisplayModeDescription.GetDisplayModes()))).Run().Bind(static inner => inner),
+            findCase: static row => Resolve(row.Mode).Map(static mode => Seq(mode)),
+            namedCase: static row => Try.lift(() =>
                 Optional(DisplayModeDescription.FindByName(row.Name)).ToFin(new KernelFault.InvalidInput()).Map(static mode => Seq(mode))).Run().Bind(static inner => inner),
-            blankCase: static (inner, row) => Mint(() => DisplayModeDescription.AddDisplayMode(row.Name), inner),
-            updateCase: static (inner, row) => Try.lift(() =>
+            blankCase: static row => Mint(() => DisplayModeDescription.AddDisplayMode(row.Name)),
+            updateCase: static row => Try.lift(() =>
                 Admit.Confirm(DisplayModeDescription.UpdateDisplayMode(row.Mode)).Map(_ => Seq(row.Mode))).Run().Bind(static inner => inner),
-            copyCase: static (inner, row) => Mint(() => DisplayModeDescription.CopyDisplayMode(row.Source.Value, row.Name), inner),
-            deleteCase: static (inner, row) => Resolve(row.Mode, inner)
+            copyCase: static row => Mint(() => DisplayModeDescription.CopyDisplayMode(row.Source.Value, row.Name)),
+            deleteCase: static row => Resolve(row.Mode)
                 .Bind(mode => Try.lift(() => Admit.Confirm(DisplayModeDescription.DeleteDisplayMode(row.Mode.Value)).Map(_ => Seq(mode))).Run().Bind(static inner => inner)),
-            importCase: static (inner, row) => Mint(() => DisplayModeDescription.ImportFromFile(row.Path, !row.Interaction.IsQuiet), inner),
-            exportCase: static (inner, row) => Resolve(row.Mode, inner)
+            importCase: static row => Mint(() => DisplayModeDescription.ImportFromFile(row.Path, !row.Interaction.IsQuiet)),
+            exportCase: static row => Resolve(row.Mode)
                 .Bind(mode => Try.lift(() => Admit.Confirm(DisplayModeDescription.ExportToFile(mode, row.Path)).Map(_ => Seq(mode))).Run().Bind(static inner => inner)));
     }
 
@@ -1032,49 +1032,49 @@ public abstract partial record ModeOutcome : IDetachedDocumentResult {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Modes {
     public static Fin<ModeOutcome> Configure(ModeRequest request) {
-        return guard(request is not null && request.Valid, new KernelFault.InvalidInput()).ToFin().Bind(_ => request.Switch(apply: static (op, row) => row.Plan.Switch(
+        return guard(request is not null && request.Valid, new KernelFault.InvalidInput()).ToFin().Bind(_ => request.Switch(apply: static row => row.Plan.Switch(
                 (Policies: row.Policies, Concerns: row.Concerns),
-                existing: static (held, plan) => Resolve(plan.Id)
+                existing: static plan => Resolve(plan.Id)
                     .Bind(mode => Commit(mode, held.Policies, held.Concerns)),
-                derived: static (held, plan) => new ModeOp.CopyCase(plan.Source, plan.Name).Apply()
+                derived: static plan => new ModeOp.CopyCase(plan.Source, plan.Name).Apply()
                     .Bind(modes => modes.Head.ToFin(new KernelFault.InvalidResult()))
                     .Bind(mode => Commit(mode, held.Policies, held.Concerns)
                         .Rollback(
-                            release: () => new ModeOp.DeleteCase(ModeId.Create(mode.Id)).Apply().Map(static _ => unit))),
-            bind: static (op, row) => Resolve(row.Mode)
+                            release: () => new ModeOp.DeleteCase(ModeId.Create(mode.Id)).Apply(held.Op).Map(static _ => unit))),
+            bind: static row => Resolve(row.Mode)
                 .Bind(mode => ViewportLease.Of(row.Session, row.Target)
                     .Bind(lease => lease.Use(borrow => Try.lift(() => Fin.Succ((borrow.Viewport.DisplayMode = mode, unit).Item2)).Run().Bind(static inner => inner))))
                 .Map(_ => (ModeOutcome)new ModeOutcome.Bound(row.Mode)),
-            inspect: static (op, row) => ViewportLease.Of(row.Session, row.Target)
+            inspect: static row => ViewportLease.Of(row.Session, row.Target)
                 .Bind(lease => lease.Use(borrow => Try.lift(() => Optional(borrow.Viewport.DisplayMode).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
                     .Bind(mode => Appearance.Of(mode.DisplayAttributes).Map(concerns => (
                         Mode: ModeId.Create(mode.Id),
                         Concerns: concerns,
                         Traits: ModeTrait.Sweep(mode))))))
                 .Map(state => (ModeOutcome)new ModeOutcome.Inspected(state.Mode, state.Concerns, state.Traits)),
-            capture: static (op, row) => Resolve(row.Mode)
+            capture: static row => Resolve(row.Mode)
                 .Bind(mode => ViewportLease.Of(row.Session, row.Target)
                     .Bind(lease => lease.Use(borrow => Try.lift(() => Optional(row.Extent.Match(
                         Some: size => borrow.View.CaptureToBitmap(size.Native, mode),
                         None: () => borrow.View.CaptureToBitmap(mode))).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner))))
                 .Bind(bitmap => CaptureArtifact.Raster(bitmap))
                 .Map(artifact => (ModeOutcome)new ModeOutcome.Captured(artifact)),
-            analyze: static (op, row) => Analyze(row.Session, row.Edit),
-            census: static (op, _) => Summarize(new ModeOp.CensusCase()),
-            named: static (op, row) => Summarize(new ModeOp.NamedCase(row.Name)),
-            mint: static (op, row) => Summarize(new ModeOp.BlankCase(row.Name)),
-            retire: static (op, row) => new ModeOp.DeleteCase(row.Mode).Apply()
+            analyze: static row => Analyze(row.Session, row.Edit),
+            census: static _ => Summarize(new ModeOp.CensusCase()),
+            named: static row => Summarize(new ModeOp.NamedCase(row.Name)),
+            mint: static row => Summarize(new ModeOp.BlankCase(row.Name)),
+            retire: static row => new ModeOp.DeleteCase(row.Mode).Apply(held.Op)
                 .Map(_ => (ModeOutcome)new ModeOutcome.Retired(row.Mode)),
-            import: static (op, row) => Summarize(new ModeOp.ImportCase(row.Path, row.Interaction)),
-            export: static (op, row) => new ModeOp.ExportCase(row.Mode, row.Path).Apply()
+            import: static row => Summarize(new ModeOp.ImportCase(row.Path, row.Interaction)),
+            export: static (row) => new ModeOp.ExportCase(row.Mode, row.Path).Apply()
                 .Map(_ => (ModeOutcome)new ModeOutcome.Exported(row.Mode, row.Path))));
     }
 
     private static Fin<DisplayModeDescription> Resolve(ModeId id) =>
-        new ModeOp.FindCase(id).Apply().Bind(modes => modes.Head.ToFin(new KernelFault.InvalidResult()));
+        new ModeOp.FindCase(id).Apply(op).Bind(modes => modes.Head.ToFin(new KernelFault.InvalidResult()));
 
     private static Fin<ModeOutcome> Summarize(ModeOp op) =>
-        op.Apply().Bind(modes => Try.lift(() =>
+        op.Apply(key).Bind(modes => Try.lift(() =>
             Fin.Succ<ModeOutcome>(new ModeOutcome.Resolved(modes.Map(ModeMap.Summary).Strict()))).Run().Bind(static inner => inner));
 
     private static Fin<ModeOutcome> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns) =>
@@ -1112,7 +1112,7 @@ public static class Modes {
                     (ModeOutcome)new ModeOutcome.AnalysisInterface(AnalysisId.Create(mode.Id), row.Panel)).Item2)).Run().Bind(static inner => inner)),
             [SessionNeed.Dialog]),
         range: static (ctx, row) => Admit.Demand(
-            _ => Try.lift(() => Fin.Succ((row.Value.Apply(), (ModeOutcome)new ModeOutcome.AnalysisRange(row.Value)).Item2)).Run().Bind(static inner => inner),
+            _ => Try.lift(() => Fin.Succ((row.Value.Apply(key), (ModeOutcome)new ModeOutcome.AnalysisRange(row.Value)).Item2)).Run().Bind(static inner => inner),
             [SessionNeed.Dialog]),
         overlay: static (ctx, row) => AnalysisMode.Register<AnalysisOverlay>()
             .Bind(mode => ((AnalysisOverlay)mode).Bind(row.Law)

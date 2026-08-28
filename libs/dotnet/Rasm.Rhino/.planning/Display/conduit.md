@@ -527,7 +527,7 @@ public sealed class ConduitLease : IDisposable {
             gate,
             static held => held is LeaseGate.Live ? Some<LeaseGate>(new LeaseGate.Released()) : None,
             new KernelFault.InvalidContext());
-        _ = HostEdge.SideWhen(claimed is Transition<LeaseGate>.Committed, () => adapter.Release().IfFail(cause => {
+        _ = HostEdge.SideWhen(claimed is Transition<LeaseGate>.Committed, () => adapter.Release(key).IfFail(cause => {
             _ = Cell.Step(gate, static held => held is LeaseGate.Released ? Some<LeaseGate>(new LeaseGate.Live()) : None, Errors.None);
             _ = faults.Park(point: HookId.Create(value: "rasm.rhino.display.conduit"), cause: cause);
         }));
@@ -693,11 +693,10 @@ internal sealed class AnalysisOverlay : AnalysisMode {
     internal Fin<Unit> Bind(AnalysisLaw value) {
         return Optional(value).ToFin(new KernelFault.InvalidInput()).Bind(admitted =>
             Cell.Seat(law, () => admitted).Switch(
-                state: op,
-                committed: static (_, _) => Fin.Succ(unit),
-                ceded: static (o, _) => Fin.Fail<Unit>(new KernelFault.InvalidContext()),
-                refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-                contended: static (o, _) => Fin.Fail<Unit>(new KernelFault.InvalidResult())));
+                committed: static _ => Fin.Succ(unit),
+                ceded: static (o) => Fin.Fail<Unit>(new KernelFault.InvalidContext()),
+                refused: static row => Fin.Fail<Unit>(row.Cause),
+                contended: static (o) => Fin.Fail<Unit>(new KernelFault.InvalidResult())));
     }
 
     protected override AnalysisProgram Program => new(

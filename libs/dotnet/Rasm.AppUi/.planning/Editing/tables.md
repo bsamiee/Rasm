@@ -447,7 +447,7 @@ public sealed record TableViewState(
                         TableOps.View, "a column carries a non-finite or non-positive width"),
                     TableClause.Of(PageSize.ForAll(static size => size > 0), TableOps.View, "the page size is not positive"),
                     TableClause.Of(Expanded.Distinct().Count == Expanded.Count, TableOps.View, "the expansion set repeats a key"),
-                    TableClause.Of(Expanded.ForAll(static key => !string.IsNullOrWhiteSpace()),
+                    TableClause.Of(Expanded.ForAll(static key => !string.IsNullOrWhiteSpace(key)),
                         TableOps.View, "the expansion set carries a blank key"),
                     TableClause.Of(Window.ForAll(window => window.Admits(PageSize)),
                         TableOps.View, "the window bound disagrees with the snapshot"))
@@ -688,7 +688,6 @@ public sealed class ExpansionState<TKey> where TKey : notnull {
         Cell.Step(
             cell,
             held => verb.Switch(
-                state: held,
                 expand: static s => s.Contains(s.Key) ? Option<Set<TKey>>.None : Some(s.Add(s.Key)),
                 collapse: static s => s.Contains(s.Key) ? Some(s.Remove(s.Key)) : Option<Set<TKey>>.None,
                 toggle: static s => Some(s.Contains(s.Key) ? s.Remove(s.Key) : s.Add(s.Key))),
@@ -760,7 +759,7 @@ public static class ProjectionFold {
         where TRow : notnull where TKey : notnull =>
         expansion
             .Scan((Seen: Set<TKey>(), Fresh: Seq<TKey>()), static (state, expanded) => (
-                Seen: expanded.Fold(state.Seen, static (seen, key) => seen.TryAdd()),
+                Seen: expanded.Fold(state.Seen, static (seen, key) => seen.TryAdd(key)),
                 Fresh: toSeq(expanded.Filter(key => !state.Seen.Contains()))))
             .SelectMany(static state => state.Fresh)
             .Select(load)

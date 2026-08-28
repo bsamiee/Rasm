@@ -216,7 +216,7 @@ public sealed partial class PartitionStrategy {
         ref int attemptFactor,
         ref double mergeAreaRatio) {
         K<Validation<Error>, Unit> numeric = (
-            AdmissionSlots.Gate(Witness.Keyed(), FabConcern.Toolpath, "partition-strategy:key", FabricationFault.Inadmissible),
+            AdmissionSlots.Gate(Witness.Keyed(key), FabConcern.Toolpath, "partition-strategy:key", FabricationFault.Inadmissible),
             AdmissionSlots.Gate(ValidityClaim.Positive(siteDensityPerMm2),
                 FabConcern.Toolpath, "partition-strategy:site-density", FabricationFault.Inadmissible),
             AdmissionSlots.Gate(siteFloor >= 3 && siteCeiling >= siteFloor,

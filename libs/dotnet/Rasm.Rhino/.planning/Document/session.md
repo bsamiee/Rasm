@@ -247,16 +247,16 @@ public sealed partial class SessionSnapshot : IDetachedDocumentResult {
         ref Option<Guid> activeCommand) {
         CapabilitySet<SessionCondition> held = conditions;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (key == default, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Key) }))),
+                (key == default, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Key) }))),
                 (name.Exists(static value => string.IsNullOrWhiteSpace(value: value)),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Name) }))),
-                (phase is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Phase) }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Name) }))),
+                (phase is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Phase) }))),
                 (held.Admits(SessionCondition.UndoRecording) && !held.Admits(SessionCondition.UndoEnabled),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Conditions), "undo recording only under undo enabled" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Conditions), "undo recording only under undo enabled" }))),
                 (held.Admits(SessionCondition.Undoing) && held.Admits(SessionCondition.Redoing),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Conditions), "undoing excludes redoing" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Conditions), "undoing excludes redoing" }))),
                 (held.Admits(SessionCondition.Headless) && held.Admits(SessionCondition.Pointing),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Conditions), "a headless document acquires no point" }))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Conditions), "a headless document acquires no point" }))));
     }
 
     internal static Fin<SessionSnapshot> Of(RhinoDoc document) {
@@ -351,21 +351,21 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
         HashMap<uint, DocumentPath> map = resolved;
         validationError = FactoryValidation.Of(
             FactoryValidation.Violated(
-                (document == default, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Document) }))),
+                (document == default, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Document) }))),
                 (serial.Exists(static value => value is 0u),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Serial), 0d, "a positive worksession serial" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Serial), 0d, "a positive worksession serial" }))),
                 (name.Exists(static value => string.IsNullOrWhiteSpace(value: value)),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Name) }))),
-                (admittedModels.Count != models.Count, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Models) }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Name) }))),
+                (admittedModels.Count != models.Count, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Models) }))),
                 (admittedModels.DistinctBy(static model => model.Path).Count != admittedModels.Count,
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Models), "distinct model paths" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Models), "distinct model paths" }))),
                 (activeCount != (unsaved ? 0 : 1),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Models), "exactly one active model unless the active model is unsaved" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Models), "exactly one active model unless the active model is unsaved" }))),
                 (reportedCount <= 0 || difference is < 0 or > 1 || unsaved != (difference is 1),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ReportedCount), "a count matching the roster with at most one unsaved active" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ReportedCount), "a count matching the roster with at most one unsaved active" }))),
                 (map.Keys.Exists(static value => value is 0u) || map.Values.Distinct().Count != map.Count
                     || map.Values.Exists(path => !roster.Contains(key: path)),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Resolved), "distinct rostered resolutions under positive serials" }))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Resolved), "distinct rostered resolutions under positive serials" }))));
     }
 
     public bool Member(DocumentPath path) => Models.Exists(model => model.Path == path);
@@ -528,8 +528,7 @@ public static class SessionWorksession {
         public Fin<WorksessionSnapshot> Worksession(params ReadOnlySpan<uint> modelSerials) {
             Seq<uint> serials = toSeq(modelSerials.ToArray());
             return Admit.Need(session).Bind(scope => Admit.Demand(
-                use: document => WorksessionSnapshot.Of(document: document, key: op, modelSerials: serials),
-                key: op,
+                use: document => WorksessionSnapshot.Of(document: document, modelSerials: serials),
                 needs: [SessionNeed.Read]));
         }
 
@@ -721,7 +720,7 @@ public sealed partial class SessionNeed {
     }
 
     private ValidationClause Ground(string axis, Option<string> shortfall = default) =>
-        new(string.Join(" | ", new object?[] { op, Key, $"the '{Key}' need admitted on the '{axis}' axis"
+        new(string.Join(" | ", new object?[] { Key, $"the '{Key}' need admitted on the '{axis}' axis"
                 + shortfall.Match(Some: static wire => $"; missing <{wire}>", None: static () => string.Empty) }));
 
     internal bool AdmitsMode(SessionMode mode) => mode.Capabilities().AdmitsAll(required: Lane());
@@ -1001,11 +1000,10 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
             static held => held.Released || held.Closing ? Option<SessionGate>.None : Some(held with { Depth = held.Depth + 1 }),
             new KernelFault.MissingContext())
         .Switch(
-            state: op,
-            committed: static (_, _) => Fin.Succ(unit),
-            ceded: static (_) => Fin.Fail<Unit>(new KernelFault.MissingContext()),
-            refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
-            contended: static (_) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
+            committed: static _ => Fin.Succ(unit),
+            ceded: static () => Fin.Fail<Unit>(new KernelFault.MissingContext()),
+            refused: static row => Fin.Fail<Unit>(row.Cause),
+            contended: static () => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
     private Fin<Unit> Exit() =>
         Cell.Step(
@@ -1038,7 +1036,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         from modeAdmitted in distinct.AsIterable()
             .Traverse(need => need.AdmitsMode(mode: mode)
                 ? Validation<Error, SessionNeed>.Success(need)
-                : Validation<Error, SessionNeed>.Fail(new KernelFault.InvalidValue(nameof(SessionNeed), string.Join(" | ", new object?[] { op, need.Key, "a need the session mode's lane capabilities admit" }))))
+                : Validation<Error, SessionNeed>.Fail(new KernelFault.InvalidValue(nameof(SessionNeed), string.Join(" | ", new object?[] { need.Key, "a need the session mode's lane capabilities admit" }))))
             .As()
             .ToFin()
         select distinct;

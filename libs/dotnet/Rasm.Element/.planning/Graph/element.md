@@ -64,8 +64,8 @@ public sealed partial class NodeId {
 
     public static NodeId Of(NodeSeed seed) => seed.Switch<NodeId>(
     placement: static _ => Create(Guid.CreateVersion7().ToString("N")),
-    typeSeed: static s => Minted(ContentAddress.Of(s.Node, s.Tolerance, static (n, w) => Node.WriteIdentity(w, n))),
-    content: static s => Minted(ContentAddress.Of(s.Node, s.Tolerance, static (n, w) => n.CanonicalBytes(w))),
+    typeSeed: static s => Minted(ContentAddress.Of(s.Node, s.Tolerance, static w => Node.WriteIdentity(w))),
+    content: static s => Minted(ContentAddress.Of(s.Node, s.Tolerance, static w => n.CanonicalBytes(w))),
     precomputed: static s => Minted(s.Address));
 
     private static NodeId Minted(ContentAddress address) =>

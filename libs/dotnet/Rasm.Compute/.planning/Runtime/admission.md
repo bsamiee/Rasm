@@ -99,7 +99,7 @@ public sealed record AdmittedIntent {
         from allocation in Keyed<AllocationClass>(nameof(Spec.Allocation), spec.Allocation)
         from cache in Keyed<CachePolicy>(nameof(Spec.Cache), spec.Cache)
         from forced in spec.Forced.Match(
-            Some: static key => Substrate.Admit().Map(Some),
+            Some: static key => Substrate.Admit(key).Map(Some),
             None: static () => Fin.Succ(Option<Substrate>.None))
         select new AdmittedIntent(
             intent,
@@ -178,21 +178,21 @@ public sealed record AdmittedIntent {
 
     private static UInt128 Derived(ComputeIntent intent) =>
         intent.Switch(
-            tensorOp: static op => ContentHash.Of(static (o, w) => w.String(o.Family.Key).Raw(o.Operands.Span)),
-            modelInfer: static op => ContentHash.Of(static (o, w) => w.U128(o.Model).Raw(o.Input.Span)),
-            remoteCall: static op => ContentHash.Of(static (o, w) => w.String(o.Method).Raw(o.Payload.Span)),
-            unitProject: static op => ContentHash.Of(static (o, w) =>
+            tensorOp: static op => ContentHash.Of(static w => w.String(o.Family.Key).Raw(o.Operands.Span)),
+            modelInfer: static op => ContentHash.Of(static w => w.U128(o.Model).Raw(o.Input.Span)),
+            remoteCall: static op => ContentHash.Of(static w => w.String(o.Method).Raw(o.Payload.Span)),
+            unitProject: static op => ContentHash.Of(static w =>
                 w.String(o.Family.Key).String(o.Unit).String(o.TargetUnit).Bits(o.Value)),
-            symbolicProject: static op => ContentHash.Of(static (o, w) => w
+            symbolicProject: static op => ContentHash.Of(static w => w
                 .U128(o.Formula.ContentKey)
-                .Sorted(toSeq(o.Dimensions), static d => d.Key, StringComparer.Ordinal, static (d, x) => x.String(d.Key).String(d.Value))
+                .Sorted(toSeq(o.Dimensions), static d => d.Key, StringComparer.Ordinal, static x => x.String(d.Key).String(d.Value))
                 .String(o.TargetUnit)
-                .Sorted(toSeq(o.Bindings), static b => b.Key, StringComparer.Ordinal, static (b, x) => x.String(b.Key).Bits(b.Value))),
-            generate: static op => ContentHash.Of(static (o, w) => w.U128(o.Model).String(o.Prompt)),
-            sensorAdmit: static op => ContentHash.Of(op.Reading.Data, static (d, w) => w
+                .Sorted(toSeq(o.Bindings), static b => b.Key, StringComparer.Ordinal, static x => x.String(b.Key).Bits(b.Value))),
+            generate: static op => ContentHash.Of(static w => w.U128(o.Model).String(o.Prompt)),
+            sensorAdmit: static op => ContentHash.Of(op.Reading.Data, static w => w
                 .String(d.SignalId).I64(d.At.ToUnixTimeTicks()).Doubles(d.OperatingPoint.AsSpan()).Bits(d.Measured)),
-            pipeline: static line => ContentHash.Of(line.Stages.Map(Derived), static (digests, w) =>
-                w.Rows(digests, static (digest, x) => x.U128(digest))));
+            pipeline: static line => ContentHash.Of(line.Stages.Map(Derived), static w =>
+                w.Rows(static x => x.U128())));
 }
 ```
 

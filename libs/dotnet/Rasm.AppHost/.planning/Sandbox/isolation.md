@@ -358,10 +358,10 @@ public sealed partial record QuotaShape(
 
 public sealed record QuotaCell(QuotaShape Shape, Atom<MeterVector> Spent, MonotonicStamp Opened) {
     public static Fin<QuotaCell> Open(QuotaShape shape, ClockPolicy clocks) =>
-        Error.New(key.Message).Map(opened => new QuotaCell(shape, Atom(MeterVector.Zero), opened));
+        clocks.Line.Capture().Map(opened => new QuotaCell(shape, Atom(MeterVector.Zero), opened));
 
     public Fin<Option<Breach>> Breach(ClockPolicy clocks) =>
-        from now in Error.New(key.Message)
+        from now in clocks.Line.Capture()
         from ran in clocks.Line.Elapsed(Opened, now)
         select ran >= Shape.Wall.Bound
             ? Some(new Breach(CostUnit.WallMillis, (long)(ran - Shape.Wall.Bound).TotalMilliseconds))

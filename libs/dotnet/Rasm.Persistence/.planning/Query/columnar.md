@@ -253,7 +253,7 @@ public static class ColumnarLane {
         .Bind(static session => AdmitLoaded(session));
 
     static IO<ColumnarSession> AdmitLoaded(ColumnarSession session) {
-        Seq<string> missing = toSeq(session.Profile.Roster.Map(static extension => extension.Key)).Filter(key => !session.Loaded.Contains());
+        Seq<string> missing = toSeq(session.Profile.Roster.Map(static extension => extension.Key)).Filter(key => !session.Loaded.Contains(key));
         if (missing.IsEmpty) return IO.pure(session);
         session.Dispose();
         return IO.fail<ColumnarSession>(new ColumnarFault.ExtensionGap(string.Join(",", missing)));

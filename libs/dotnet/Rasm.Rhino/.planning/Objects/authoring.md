@@ -846,10 +846,10 @@ public abstract partial record GripMove {
     public sealed record Back : GripMove;
 
     internal Fin<GripMove> Admit() =>
-        Switch(to: static (key, move) => Acceptance.Input(value: move.Location).Map(_ => (GripMove)move),
-            by: static (key, move) => Acceptance.Input(value: move.Delta).Map(_ => (GripMove)move),
-            via: static (key, move) => Acceptance.Input(value: move.Motion).Map(_ => (GripMove)move),
-            back: static (_, move) => Fin.Succ<GripMove>(move));
+        Switch(to: static move => Acceptance.Input(value: move.Location).Map(_ => (GripMove)move),
+            by: static move => Acceptance.Input(value: move.Delta).Map(_ => (GripMove)move),
+            via: static move => Acceptance.Input(value: move.Motion).Map(_ => (GripMove)move),
+            back: static move => Fin.Succ<GripMove>(move));
 
     internal Fin<Unit> Apply(GripObject grip) =>
         Switch(
@@ -867,7 +867,7 @@ public abstract partial record GripEdit {
     public sealed record Move(Option<int> Index, GripMove Motion) : GripEdit;
 
     internal Fin<GripEdit> Admit() =>
-        Switch(rig: static (key, edit) => Admit.Need(edit.Signal).Map(_ => (GripEdit)edit),
+        Switch(rig: static edit => Admit.Need(edit.Signal).Map(_ => (GripEdit)edit),
             move: static (edit) =>
                 from motion in Admit.Need(edit.Motion).Bind(value => value.Admit())
                 from _ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), new KernelFault.InvalidInput())

@@ -169,12 +169,11 @@ public abstract partial record FaceQuery {
 
     public static Fin<FaceQuery> Of(FaceForm? form) {
         return Admit.Need(value: form).Bind(value => value.Switch(
-            state: op,
-            quartet: static (gate, input) =>
+            quartet: static input =>
                 from label in FactoryBridge.Accept<ResourceName>(candidate: input.Name)
                 from face in Admit.Need(value: input.Face)
                 select (FaceQuery)new QuartetCase(Name: label, Face: face),
-            axes: static (gate, input) =>
+            axes: static input =>
                 from family in FactoryBridge.Accept<ResourceName>(candidate: input.Family)
                 from weight in Admit.Need(value: input.Weight)
                 from slant in Admit.Need(value: input.Slant)
@@ -318,18 +317,17 @@ public static class Typefaces {
 
     public static Fin<FaceCensusAnswer> Census(FaceCensus request) {
         return Acceptance.Input(value: request).Bind(admitted => admitted.Switch(
-            state: op,
-            installed: static (gate, query) =>
+            installed: static query =>
                 from fonts in Try.lift(() => Fin.Succ(value: toSeq(query.Family.Match(
                     Some: static family => Font.InstalledFonts(familyName: family.Value),
                     None: static () => Font.InstalledFonts())))).Run().Bind(static inner => inner)
-                from faces in fonts.TraverseM(font => FaceInfo.Of(font: font, key: gate)).As()
+                from faces in fonts.TraverseM(font => FaceInfo.Of(font: font)).As()
                 select (FaceCensusAnswer)new FaceCensusAnswer.Faces(Items: faces),
-            quartets: static (gate, _) =>
+            quartets: static _ =>
                 from rows in Try.lift(() => Fin.Succ(value: toSeq(Font.InstalledFontsAsQuartets()))).Run().Bind(static inner => inner)
-                from items in rows.TraverseM(row => QuartetInfo.Of(quartet: row, key: gate)).As()
+                from items in rows.TraverseM(row => QuartetInfo.Of(quartet: row)).As()
                 select (FaceCensusAnswer)new FaceCensusAnswer.Quartets(Items: items),
-            names: static (gate, _) =>
+            names: static _ =>
                 from names in Try.lift(() => Fin.Succ(value: toSeq(Font.AvailableFontFaceNames()))).Run().Bind(static inner => inner)
                 from items in names.TraverseM(name =>
                     FactoryBridge.Accept<ResourceName>(candidate: name)).As()
@@ -748,7 +746,7 @@ public abstract partial record SectionOp {
         from patterns in DocumentCommit.Compensated(
                 source: plan.Patterns,
                 land: intent => LandPattern(document: document, intent: intent),
-                rollback: landed => Custody.Release(landed, row => row.Undo()))
+                rollback: landed => Custody.Release(landed, row => row.Undo(op)))
             .BindFail(primary => Drained<Seq<ImportLanding>>(primary: primary, spoil: owned))
         let targets = toHashMap(plan.Patterns.Zip(
             patterns, static (intent, landing) => (intent.Source, landing.Index)))
@@ -814,9 +812,9 @@ public abstract partial record SectionOp {
                 source: plan,
                 land: intent => LandSection(
                     document: document, intent: intent, targets: targets, interaction: interaction),
-                rollback: landed => Custody.Release(landed, row => row.Undo()))
+                rollback: landed => Custody.Release(landed, row => row.Undo(op)))
             .Map(static _ => unit)
-            .Rollback(Seq(patterns), run => Custody.Release(run, row => row.Undo()));
+            .Rollback(Seq(patterns), run => Custody.Release(run, row => row.Undo(op)));
 
     private static Fin<ImportLanding> LandSection(
         RhinoDoc document, SectionIntent intent, HashMap<int, ResourceIndex> targets,

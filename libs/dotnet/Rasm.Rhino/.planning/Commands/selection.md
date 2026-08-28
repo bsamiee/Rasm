@@ -59,7 +59,7 @@ public readonly partial struct PartIndex {
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (component is not ({ ComponentIndexType: ComponentIndexType.InvalidType, Index: -1 }
                     or { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 }),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(PartIndex), "an invalid type at index -1, or a named type at a non-negative index" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(PartIndex), "an invalid type at index -1, or a named type at a non-negative index" })))));
     }
 }
 
@@ -82,12 +82,12 @@ public sealed partial class PickOrigin {
         Option<double> curve = parameter;
         Option<Point2d> surface = uv;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (row is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Method) }))),
-                (!seat.IsValid, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Point), 0d, "a valid pick point" }))),
+                (row is null, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Method) }))),
+                (!seat.IsValid, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Point), 0d, "a valid pick point" }))),
                 (curve.Exists(static value => !ValidityClaim.Finite(value).Holds),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Parameter), curve.IfNone(0d), "a finite curve parameter" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Parameter), curve.IfNone(0d), "a finite curve parameter" }))),
                 (surface.Exists(static value => !value.IsValid),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Uv), 0d, "a valid surface parameter" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(Uv), 0d, "a valid surface parameter" })))));
     }
 
     internal static Fin<PickOrigin> Of(
@@ -111,9 +111,9 @@ public sealed partial class PickView {
         ref Option<uint> detailSerial) {
         uint serial = runtimeSerial;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
-                (serial is 0u, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(RuntimeSerial), serial, "a live view serial" }))),
+                (serial is 0u, () => new ValidationClause(string.Join(" | ", new object?[] { nameof(RuntimeSerial), serial, "a live view serial" }))),
                 (detailSerial.Exists(static value => value is 0u),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(DetailSerial), 0d, "a live detail serial" })))));
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(DetailSerial), 0d, "a live detail serial" })))));
     }
 
     internal static Fin<Option<PickView>> Admit(Option<RhinoView> view, uint detailSerial) => view.Match(
@@ -307,7 +307,7 @@ public abstract partial record PickRule : ISlotted<PickSlot> {
 
     internal Fin<Unit> Apply(PickContext context) => Switch(
         state: context,
-        inView: static (state, rule) => rule.Value.Live()
+        inView: static (state, rule) => rule.Value.Live(state.Op)
             .Bind(view => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.View = view))).Run().Bind(static inner => inner)),
         along: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.PickLine = rule.Value))).Run().Bind(static inner => inner),
         styled: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.PickStyle = rule.Value.Native))).Run().Bind(static inner => inner),

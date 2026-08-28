@@ -123,9 +123,8 @@ public abstract partial record NeighborIndex {
 
     public static Fin<NeighborIndex> Of(NeighborSource source) {
         return source.Switch(
-            state: op,
-            clusterCase: static (k, c) => Fin.Succ((NeighborIndex)new CloudCase(Source: c.Cloud)),
-            pointsCase: static (k, p) =>
+            clusterCase: static c => Fin.Succ((NeighborIndex)new CloudCase(Source: c.Cloud)),
+            pointsCase: static p =>
                 from points in p.Values.TraverseM(v => Acceptance.Value(v)).As().Map(static vs => vs.ToArray())
                 from _ in guard(points.Length > 0, new KernelFault.InvalidInput())
                 let coordinates = points.Select(IReadOnlyList<double> (v) => [v.X, v.Y, v.Z]).ToArray()
@@ -133,13 +132,13 @@ public abstract partial record NeighborIndex {
                 from trees in Try.lift(() => Fin.Succ(NeighborMetric.Items.ToFrozenDictionary(
                     static row => row, row => KDTree.Create(coordinates, payloads, row.Metric)))).Run().Bind(static inner => inner)
                 select (NeighborIndex)new PointsCase(points, trees),
-            meshCase: static (k, m) =>
+            meshCase: static m =>
                 from valid in guard(m.Source.IsValid, new KernelFault.InvalidInput())
                 from tree in Optional(RTree.CreateMeshFaceTree(mesh: m.Source)).ToFin(new KernelFault.InvalidResult())
                 select (NeighborIndex)new MeshFacesCase(Source: m.Source, Tree: tree),
-            boundsCase: static (k, b) => b.Boxes
-                .Map(static (box, index) => (Box: box, Index: index))
-                .Fold(Fin.Succ(new RTree()), (acc, item) => acc.Bind(tree =>
+            boundsCase: static b => b.Boxes
+                .Map(static index => (Box: box, Index: index))
+                .Fold(Fin.Succ(new RTree()), item => acc.Bind(tree =>
                     item.Box.IsValid && tree.Insert(box: item.Box, elementId: item.Index)
                         ? Fin.Succ(tree)
                         : new Lease<RTree>.Owned(Value: tree).Use(_ => Fin.Fail<RTree>(new KernelFault.InvalidResult()))))
@@ -192,14 +191,14 @@ public abstract partial record NeighborIndex {
     }
 
     private Fin<TOut> WithTree<TOut>(Func<RTree, Fin<TOut>> run) => Switch(
-        state: (Key: key, Run: run),
+        state: run,
         cloudCase: static (s, c) => c.Source.UseIndex(project: cloud =>
             Optional(RTree.CreatePointCloudTree(cloud: cloud)).ToFin(new KernelFault.InvalidResult())
-                .Bind(tree => new Lease<RTree>.Owned(Value: tree).Use(s.Run))),
+                .Bind(tree => new Lease<RTree>.Owned(Value: tree).Use(s))),
         pointsCase: static (s, p) => Optional(RTree.CreateFromPointArray(p.Points)).ToFin(new KernelFault.InvalidResult())
-            .Bind(tree => new Lease<RTree>.Owned(tree).Use(s.Run)),
-        meshFacesCase: static (s, m) => s.Run(m.Tree),
-        boundsCase: static (s, b) => s.Run(b.Tree));
+            .Bind(tree => new Lease<RTree>.Owned(tree).Use(s)),
+        meshFacesCase: static (s, m) => s(m.Tree),
+        boundsCase: static (s, b) => s(b.Tree));
 
     private static Fin<Seq<TItem>> SearchCapsule<TItem>(Func<List<TItem>, bool> run, Comparison<TItem> order, CancellationToken cancel) {
         List<TItem> buffer = [];
@@ -410,11 +409,10 @@ internal static partial class NeighborKernel {
         from attempts in toSeq(graph.Ids.Select(static (row, index) => (Row: row, Index: index)))
             .TraverseM(vertex => AttemptOf(cluster: cluster, index: vertex.Index, row: vertex.Row, policy: policy)).As()
         let census = attempts.Fold((Accepted: Seq<CurvatureSample>(), Rank: 0, Residual: 0, Solve: 0), static (held, attempt) => attempt.Switch(
-            state: held,
-            fitted: static (h, f) => (h.Accepted.Add(f.Sample), h.Rank, h.Residual, h.Solve),
-            rankRefused: static (h, _) => (h.Accepted, h.Rank + 1, h.Residual, h.Solve),
-            residualRefused: static (h, _) => (h.Accepted, h.Rank, h.Residual + 1, h.Solve),
-            solveRefused: static (h, _) => (h.Accepted, h.Rank, h.Residual, h.Solve + 1)))
+            fitted: static f => (h.Accepted.Add(f.Sample), h.Rank, h.Residual, h.Solve),
+            rankRefused: static _ => (h.Accepted, h.Rank + 1, h.Residual, h.Solve),
+            residualRefused: static _ => (h.Accepted, h.Rank, h.Residual + 1, h.Solve),
+            solveRefused: static _ => (h.Accepted, h.Rank, h.Residual, h.Solve + 1)))
         from residuals in census.Accepted.IsEmpty
             ? Fin.Succ(Option<Stat<Scalar>>.None)
             : Stat<Scalar>.Of(values: census.Accepted.Map(static s => (Scalar)s.Residual)).Map(Some)
@@ -536,13 +534,13 @@ internal static partial class NeighborKernel {
 internal static partial class NeighborKernel {
     internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud) => cloud.Switch(
         ringCase: static r =>
-            from seed in Direction.Of(value: VectorFrame.NewellNormal(ring: r.Vertices.ToArray()), context: r.Tolerance, key: k)
-            from chain in BishopChain(points: r.Vertices, initialNormal: seed, isClosed: true, context: r.Tolerance, key: k)
+            from seed in Direction.Of(value: VectorFrame.NewellNormal(ring: r.Vertices.ToArray()), context: r.Tolerance)
+            from chain in BishopChain(points: r.Vertices, initialNormal: seed, isClosed: true, context: r.Tolerance)
             select chain,
         polylineCase: static p =>
             from _ in guard(p.Vertices.Count >= 2, new KernelFault.InvalidInput()).ToFin()
-            from seed in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: p.Vertices[1] - p.Vertices[0]), context: p.Tolerance, key: k)
-            from chain in BishopChain(points: p.Vertices, initialNormal: seed, isClosed: false, context: p.Tolerance, key: k)
+            from seed in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: p.Vertices[1] - p.Vertices[0]), context: p.Tolerance)
+            from chain in BishopChain(points: p.Vertices, initialNormal: seed, isClosed: false, context: p.Tolerance)
             select chain,
         clusterCase: static _ => Fin.Fail<Seq<Plane>>(new KernelFault.Unsupported(InputType: typeof(VectorCloud.ClusterCase), OutputType: typeof(Seq<Plane>))));
 

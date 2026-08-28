@@ -1253,8 +1253,8 @@ public sealed partial class SampledLot {
         ref Option<CapabilityReport> capability,
         ref Option<ContentKey> prior) {
         if (lotSize < plan.SampleSize || subjects.IsEmpty
-            || !mrb.Keys.ForAll(key => subjects.ContainsKey())
-            || !chains.Keys.ForAll(key => subjects.ContainsKey())
+            || !mrb.Keys.ForAll(key => subjects.ContainsKey(key))
+            || !chains.Keys.ForAll(key => subjects.ContainsKey(key))
             || (stage.RequiresPrior && prior.IsNone))
             validationError = QualityEvidence.Validation("sampled-lot");
     }
@@ -1387,7 +1387,7 @@ public static class QualityEvidence {
             .Maybe(row.AmbientTemperature, static (inner, value) => inner.Amount(value))
             .Maybe(row.AmbientHumidity, static (inner, value) => inner.Amount(value))
             .Window(row.Period)
-            .Rows(row.Impacted, static (inner, key) => inner.Key())
+            .Rows(row.Impacted, static (inner, key) => inner.Key(key))
             .Moment(row.DueAt).Discriminant(row.Verdict);
 
         internal CanonicalWriter Trace(TraceEvidence row) => sink
@@ -1473,7 +1473,7 @@ public static class QualityEvidence {
                 .Rows(value.Evidence.Characteristics, static (inner, characteristic) => inner.Characteristic(characteristic))
                 .Rows(value.Evidence.Features, static (inner, feature) => inner.Feature(feature))
                 .Maybe(value.Evidence.Capability, static (inner, report) => inner.Capability(report))
-                .Maybe(value.Evidence.Prior, static (inner, key) => inner.Key())
+                .Maybe(value.Evidence.Prior, static (inner, key) => inner.Key(key))
                 .Moment(value.Evidence.SampledAt),
             millCert: static (row, value) => row.Ordinal(1)
                 .Reference(value.Evidence.Report)
@@ -1487,7 +1487,7 @@ public static class QualityEvidence {
                 .Rows(value.Evidence.Inspections, static (inner, inspection) => inner.Ndt(inspection))
                 .Observations(value.Evidence.Execution.ToValue())
                 .Context(value.Evidence.Context)
-                .Maybe(value.Evidence.Prior, static (inner, key) => inner.Key()),
+                .Maybe(value.Evidence.Prior, static (inner, key) => inner.Key(key)),
             nonconformance: static (row, value) => row.Ordinal(3)
                 .Reference(value.Evidence.Product).String(value.Evidence.Number.ToValue())
                 .Reference(value.Evidence.Source).Ordinal(value.Evidence.AffectedQuantity)
@@ -1499,14 +1499,14 @@ public static class QualityEvidence {
                 .Observations(value.Evidence.Verification.ToValue())
                 .Maybe(value.Evidence.Effectiveness, static (inner, set) => inner.Observations(set.ToValue()))
                 .Maybe(value.Evidence.Recurrence, static (inner, number) => inner.String(number.ToValue()))
-                .Rows(value.Evidence.Evidence, static (inner, key) => inner.Key())
+                .Rows(value.Evidence.Evidence, static (inner, key) => inner.Key(key))
                 .Discriminant(value.Evidence.Verdict).Reference(value.Evidence.Authority)
                 .Moment(value.Evidence.OpenedAt)
                 .Maybe(value.Evidence.ClosedAt, static (inner, at) => inner.Moment(at)),
             calibration: static (row, value) => row.Ordinal(4).Calibration(value.Evidence),
             conformance: static (row, value) => row.Ordinal(5)
                 .Declaration(value.Declaration)
-                .Rows(value.Records, static (inner, key) => inner.Key())
+                .Rows(value.Records, static (inner, key) => inner.Key(key))
                 .Moment(value.IssuedAt));
     }
 }

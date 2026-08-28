@@ -143,7 +143,7 @@ public abstract partial record EstimatorModel {
         partition: static p => (long)p.Centroids.RowCount,
         density: static d => (long)d.Core.Count(static core => core),
         mixture: static m => (long)m.Weights.Count,
-        margin: static m => m.Machines.Fold(0L, static (acc, machine) => acc + machine.Support.Length),
+        margin: static m => m.Machines.Fold(0L, static machine => acc + machine.Support.Length),
         neighbors: static n => (long)n.Design.RowCount,
         bayes: static b => (long)b.Priors.Count,
         lag: static l => (long)(l.ArCoefficients.Count + l.MaCoefficients.Count),
@@ -218,22 +218,22 @@ public abstract partial record EstimatorPolicy {
             Range(p.Regularization >= 0.0, "regularization", p.Regularization).ToValidation(),
             Range(p.LearningRate > 0.0, "learning-rate", p.LearningRate).ToValidation(),
             Range(p.Weight > 0.0, "weight", p.Weight).ToValidation())
-            .Apply(static (_, _, _) => unit).As().ToFin(),
+            .Apply(static () => unit).As().ToFin(),
         reduction: static p => (
             Range(p.EnergyFraction is > 0.0 and <= 1.0, "energy-fraction", p.EnergyFraction).ToValidation(),
             p.Parameters.Admit().ToValidation())
-            .Apply(static (_, _) => unit).As().ToFin(),
+            .Apply(static _ => unit).As().ToFin(),
         grouping: static p => (
             Range(p.Radius > 0.0, "radius", p.Radius).ToValidation(),
             Range(p.Ridge > 0.0, "ridge", p.Ridge).ToValidation(),
             Range(p.Neighbors >= 1, "neighbors", p.Neighbors).ToValidation())
-            .Apply(static (_, _, _) => unit).As().ToFin(),
+            .Apply(static () => unit).As().ToFin(),
         classification: static p => (
             Range(p.Regularization > 0.0, "regularization", p.Regularization).ToValidation(),
             Range(p.Box > 0.0, "box", p.Box).ToValidation(),
             Range(p.Neighbors >= 1, "neighbors", p.Neighbors).ToValidation(),
             p.Parameters.Admit().ToValidation())
-            .Apply(static (_, _, _, _) => unit).As().ToFin(),
+            .Apply(static () => unit).As().ToFin(),
         temporal: static _ => Fin.Succ(unit));
 
     private static Fin<Unit> Range(bool holds, string gate, double value) =>

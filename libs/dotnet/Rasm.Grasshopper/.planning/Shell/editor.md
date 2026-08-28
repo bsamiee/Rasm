@@ -156,9 +156,9 @@ public static class EditorShell {
     }
 
     public static Fin<ShellFacts> Apply(ShellOp op) {
-        return Admit.Need().Bind(valid =>
+        return Admit.Need(op).Bind(valid =>
             UiThread.Run(new UiDispatch<ShellFacts>.Blocking(
-                () => ScopeTarget.EditorHost.Acquire(key: active).Bind(scope => valid.Switch(
+                () => ScopeTarget.EditorHost.Acquire().Bind(scope => valid.Switch(
                     state: (Scope: scope, Key: active),
                     toggleCase: static (s, c) =>
                         from current in c.Row.Read(scope: s.Scope)
@@ -168,7 +168,7 @@ public static class EditorShell {
                         Editor.BeginRhinoGetter(doc: HostEdge.Slot(c.Target))
                             ? Fin.Succ(unit)
                             : Fin.Fail<Unit>((Error)new UiFault.HostRejected(Detail: nameof(Editor.BeginRhinoGetter)))).Run().Bind(static inner => inner))
-                    .Bind(_ => Project(scope: scope, key: active)))),
+                    .Bind(_ => Project(scope: scope)))),
                 DispatchLane.Interactive, active));
     }
 

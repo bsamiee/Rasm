@@ -205,8 +205,8 @@ public abstract partial record Predicate<TLeaf> where TLeaf : notnull {
 
  public MatchVerdict Holds(Func<TLeaf, MatchVerdict> leaf, Func<Closure, MatchVerdict> closure) => Switch(
   leaf: l => leaf(l.Value),
-  all: all => all.Operands.Fold(MatchVerdict.Pass, (acc, p) => acc.And(p.Holds(leaf, closure))),
-  any: any => any.Operands.Fold(MatchVerdict.Of(false), (acc, p) => acc.Or(p.Holds(leaf, closure))),
+  all: all => all.Operands.Fold(MatchVerdict.Pass, p => acc.And(p.Holds(leaf, closure))),
+  any: any => any.Operands.Fold(MatchVerdict.Of(false), p => acc.Or(p.Holds(leaf, closure))),
   not: not => not.Operand.Holds(leaf, closure).Negate(),
   closure: closure);
 }
@@ -273,7 +273,7 @@ public readonly partial record struct Selection<TKey>([property: OrderedEquality
 
  public Selection<TKey> Except(Selection<TKey> other) {
   var held = toHashSet(other.Keys);
-  return new(Keys.Filter(key => !held.Contains()).Strict(), None);
+  return new(Keys.Filter(key => !held.Contains(key)).Strict(), None);
  }
 }
 

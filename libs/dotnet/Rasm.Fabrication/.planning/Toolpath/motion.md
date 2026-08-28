@@ -247,7 +247,7 @@ public sealed partial class SurfaceLaw {
 
     public Fin<SurfaceLayoutKind> Kernel(CutStrategy strategy) =>
         LayoutKeys.Find(strategy)
-            .Map(static key => (SurfaceLayoutKind)new SurfaceLayoutKind.Kernel())
+            .Map(static key => (SurfaceLayoutKind)new SurfaceLayoutKind.Kernel(key))
             .ToFin(new KernelFault.InvalidValue("motion", $"surface-law:layout-key:{strategy.Key}"));
 }
 

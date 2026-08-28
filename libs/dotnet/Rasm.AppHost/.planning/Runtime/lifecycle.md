@@ -222,7 +222,7 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
                         (AppHostSlot.From, committed.State.From.Key),
                         (AppHostSlot.To, committed.State.To.Key),
                         (AppHostSlot.Trigger, committed.State.Trigger.Step.Key)))
-                    .Bind(_ => Hooks.Fire(at: AppHostPoint.Phase, fact: new AppHostFact.Phase(Commit: committed.State), key: Key))
+                    .Bind(_ => Hooks.Fire(at: AppHostPoint.Phase, fact: new AppHostFact.Phase(Commit: committed.State)))
                     .Map(_ => committed.State),
             Transition<PhaseCommit>.Refused refused => Fin.Fail<PhaseCommit>(refused.Cause),
         };

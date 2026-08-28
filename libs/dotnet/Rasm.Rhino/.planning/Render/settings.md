@@ -159,7 +159,7 @@ public sealed record SubOwners {
         from activeBorrow in Admit.Need(borrow)
         from owners in Try.lift(() => Fin.Succ(value: new SubOwners(settings: active))).Run().Bind(static inner => inner)
         from result in Try.lift(() => activeBorrow(owners)).Run().Bind(static inner => inner)
-            .Settled(held: Seq(owners), release: window => window.Release())
+            .Settled(held: Seq(owners), release: window => window.Release(key))
         select result;
 
     private Fin<Unit> Release() => Custody.Release(
@@ -877,7 +877,7 @@ public sealed record RenderConfig(
 
     internal Fin<Unit> Apply(RenderSettings settings) {
         RenderConfig self = this;
-        return from output in Admit.Need(self.Output).Bind(value => value.Admit())
+        return from output in Admit.Need(self.Output).Bind(value => value.Admit(key))
                from _ in guard(
                    ValidityClaim.All(
                        self.Source is { IsValid.Holds: true },
@@ -1067,11 +1067,10 @@ public static class SunSolver {
         return from active in Admit.Need(problem)
                from _ in guard(active.IsValid, new KernelFault.InvalidInput())
                from solution in active.Switch(
-            context: op,
-            direction: static (state, query) => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Vector(
+            direction: static query => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Vector(
                 global::Rhino.Render.Sun.SunDirection(
                     latitude: query.Latitude, longitude: query.Longitude, when: query.Moment)))).Run().Bind(static inner => inner),
-            altitude: static (state, query) => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Scalar(
+            altitude: static query => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Scalar(
                 global::Rhino.Render.Sun.AltitudeFromValues(
                     latitude: query.Latitude,
                     longitude: query.Longitude,
@@ -1080,18 +1079,18 @@ public static class SunSolver {
                     when: query.Moment,
                     hours: query.Hours,
                     fast: query.Mode.Key)))).Run().Bind(static inner => inner),
-            julian: static (state, query) => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Scalar(
+            julian: static query => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Scalar(
                 global::Rhino.Render.Sun.JulianDay(
                     timezoneHours: query.TimeZoneHours,
                     daylightMinutes: query.DaylightMinutes,
                     when: query.Moment,
                     hours: query.Hours)))).Run().Bind(static inner => inner),
-            twilight: static (state, _) => Try.lift(() => Fin.Succ<SunSolution>(
+            twilight: static _ => Try.lift(() => Fin.Succ<SunSolution>(
                 new SunSolution.Scalar(global::Rhino.Render.Sun.TwilightZone()))).Run().Bind(static inner => inner),
-            color: static (state, query) => Try.lift(() =>
-                PerceptualColor.OfHost(host: global::Rhino.Render.Sun.ColorFromAltitude(query.AltitudeDegrees), key: state)
+            color: static query => Try.lift(() =>
+                PerceptualColor.OfHost(host: global::Rhino.Render.Sun.ColorFromAltitude(query.AltitudeDegrees))
                     .Map(static value => (SunSolution)new SunSolution.Color(value))).Run().Bind(static inner => inner),
-            here: static (state, _) => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Location(
+            here: static _ => Try.lift(() => Fin.Succ<SunSolution>(new SunSolution.Location(
                 global::Rhino.Render.Sun.Here(out double latitude, out double longitude)
                     ? Some((latitude, longitude))
                     : Option<(double, double)>.None))).Run().Bind(static inner => inner))

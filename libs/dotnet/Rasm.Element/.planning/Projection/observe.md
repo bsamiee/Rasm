@@ -175,9 +175,9 @@ public static class ElementTap {
  static Fin<T> Timed<T>(
   ElementHooks hooks, MonotonicTimeline line, ElementPoint at, Func<Fin<T>> body, Func<T, Duration, ElementFact> fact,
   Func<T, Fin<T>>? fan = null) =>
-  Error.New(key.Message).Bind(start =>
+  line.Capture().Bind(start =>
    body().Bind(value =>
-    Error.New(key.Message).Bind(end =>
+    line.Capture().Bind(end =>
      line.Elapsed(start, end).Bind(elapsed =>
       hooks.Fire(at, fact(value, Duration.FromTimeSpan(elapsed)), admitted => Marked(admitted, () => Fin.Succ(value)))
        .Bind(landed => fan is null ? Fin.Succ(landed) : fan(landed))))));

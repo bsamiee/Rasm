@@ -192,10 +192,10 @@ public abstract partial record DimensionSpec {
                     select mark))).Run().Bind(static inner => inner)
         select minted;
 
-    private Fin<Unit> Admit() => Switch(aligned: static (key, spec) => spec.Points.Admit(),
-        rotated: static (key, spec) => spec.Points.Admit().Bind(_ => Acceptance.Rows(spec.RotationRadians)).Map(static _ => unit),
-        angularVertex: static (key, spec) => spec.Points.Admit(),
-        angularSpread: static (key, spec) => spec.Points.Admit(),
+    private Fin<Unit> Admit() => Switch(aligned: static spec => spec.Points.Admit(),
+        rotated: static spec => spec.Points.Admit().Bind(_ => Acceptance.Rows(spec.RotationRadians)).Map(static _ => unit),
+        angularVertex: static (spec) => spec.Points.Admit(),
+        angularSpread: static (spec) => spec.Points.Admit(),
         angularLines: static (spec) =>
             from lines in Acceptance.Rows(spec.SideA, spec.SideB)
             from points in Acceptance.Rows(spec.OnA, spec.OnB, spec.OnArc)
@@ -204,10 +204,10 @@ public abstract partial record DimensionSpec {
             from arc in Acceptance.Rows(spec.Value)
             from offset in Acceptance.Rows(spec.Offset)
             select unit,
-        radial: static (key, spec) => spec.Points.Admit(),
-        ordinate: static (key, spec) => spec.Points.Admit(),
-        markAt: static (key, spec) => Acceptance.Rows(spec.Center).Bind(_ => Admit.Positive(value: spec.Radius)).Map(static _ => unit),
-        markOn: static (key, spec) => Acceptance.Rows(spec.Parameter).Map(static _ => unit));
+        radial: static (spec) => spec.Points.Admit(),
+        ordinate: static (spec) => spec.Points.Admit(),
+        markAt: static spec => Acceptance.Rows(spec.Center).Bind(_ => Admit.Positive(value: spec.Radius)).Map(static _ => unit),
+        markOn: static spec => Acceptance.Rows(spec.Parameter).Map(static _ => unit));
 }
 ```
 
@@ -286,16 +286,16 @@ public abstract partial record DimAdjust {
                     plane: fit.Plane, centerPoint: fit.Center))
                 select unit));
 
-    private Fin<Unit> Admit() => Switch(linear: static (key, fit) => Acceptance.Rows(fit.Ext1End, fit.Ext2End, fit.OnDimLine).Map(static _ => unit),
-        angularVertex: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
-        angularSpread: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
+    private Fin<Unit> Admit() => Switch(linear: static fit => Acceptance.Rows(fit.Ext1End, fit.Ext2End, fit.OnDimLine).Map(static _ => unit),
+        angularVertex: static fit => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
+        angularSpread: static fit => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
         radial: static (fit) =>
             from plane in Acceptance.Rows(fit.Plane)
             from points in fit.Points.Admit()
             from rotation in Acceptance.Rows(fit.RotationRadians)
             select unit,
-        ordinate: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
-        mark: static (key, fit) => Acceptance.Rows(fit.Plane).Bind(_ => Acceptance.Rows(fit.Center)).Map(static _ => unit));
+        ordinate: static fit => Acceptance.Rows(fit.Plane).Bind(_ => fit.Points.Admit()),
+        mark: static fit => Acceptance.Rows(fit.Plane).Bind(_ => Acceptance.Rows(fit.Center)).Map(static _ => unit));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

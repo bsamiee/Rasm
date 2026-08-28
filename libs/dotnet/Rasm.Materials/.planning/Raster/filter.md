@@ -281,20 +281,20 @@ public abstract partial record PlaneOp {
         resize: op => input.Layers.Value is 1
             ? AdmittedEdge(op.Edge).Map(_ => input with { Width = op.Width, Height = op.Height })
             : new MaterialFault.Parameter($"<resize-layered:{input.Layers.Value}>"),
-        convolve: op => op.Kernel.Admitted().Bind(_ => AdmittedEdge(op.Edge)).Map(_ => input),
+        convolve: op => op.Kernel.Admitted(key).Bind(_ => AdmittedEdge(op.Edge)).Map(_ => input),
         heightNormal: op => (op.Inverse, input.Format.Components) switch {
-            (false, 1) => input.Retyped(3, AlphaMode.None, PlaneRange.Signed),
+            1 => input.Retyped(3, AlphaMode.None, PlaneRange.Signed),
             (true, >= 3) when input.Layers.Value is not 1 =>
                 new MaterialFault.Parameter($"<height-inverse-layered:{input.Layers.Value}>"),
             (true, >= 3) => input.Retyped(1, AlphaMode.None, PlaneRange.Unit),
-            (false, int n) => new MaterialFault.Parameter($"<height-normal-scalar:{n}>"),
+            (int n) => new MaterialFault.Parameter($"<height-normal-scalar:{n}>"),
             (true, int n) => new MaterialFault.Parameter($"<height-normal-vector:{n}>"),
         },
         fromHeight: op => input.Format.Components is 1
             ? input.Retyped(1, AlphaMode.None, op.Derivative.Range)
             : new MaterialFault.Parameter($"<from-height-scalar:{input.Format.Components}>"),
         dilate: op => (input.Alpha.Traits.Admits(PlaneTrait.Coverage), op.Rings) switch {
-            (false, _) => new MaterialFault.Parameter($"<dilate-no-coverage:{input.Alpha.Key}>"),
+            _ => new MaterialFault.Parameter($"<dilate-no-coverage:{input.Alpha.Key}>"),
             (_, <= 0) => new MaterialFault.Parameter($"<dilate-rings:{op.Rings}>"),
             _ => Fin.Succ(input),
         },

@@ -432,8 +432,8 @@ public static class LayoutPrograms {
             @fixed: static _ => Seq<ExtentProbe>(),
             auto: _ => Seq(new ExtentProbe(
                 new LayoutVar(track.Owner, axis.Axis.Extent),
-                children.Bind((child, index) => axis.Axis.Slot(index, columnCount) == slot
-                    ? Seq(new LayoutVar(child, axis.Axis.Extent))
+                children.Bind(index => axis.Axis.Slot(index, columnCount) == slot
+                    ? Seq(new LayoutVar(axis.Axis.Extent))
                     : Seq<LayoutVar>()))))));
         return new ConstraintProgram(panel, mainRows, edits, Seq<ValueRow>(), measures);
     }

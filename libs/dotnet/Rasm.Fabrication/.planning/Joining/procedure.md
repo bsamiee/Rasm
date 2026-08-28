@@ -1025,7 +1025,7 @@ public abstract partial record ProcedureDecision {
             .ToFin(new KernelFault.InvalidValue("procedure", "weld-procedure:empty-failure-set"))
             .Bind(first => Fin.Fail<ProcedureAssessment>(decision.Failures.Tail.Fold(
                 Failure(first),
-                static (combined, row) => combined + Failure(row)))));
+                static row => combined + Failure(row)))));
 
     private static Error Failure(ComplianceRow row) =>
         new FabricationFault.WpsUnqualified(row.Fault, row.FaultScalar);

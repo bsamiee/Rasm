@@ -504,9 +504,9 @@ internal static partial class SegmentKernel {
             return Fin.Succ((new Arr<double>(faceValues), skippedDegenerate, skippedNonFinite, finite, band));
         }
         return scalars.Switch(
-            perVertexCase: row => Build(row.Values, mesh.Vertices.Count, (face, _) =>
+            perVertexCase: row => Build(row.Values, mesh.Vertices.Count, _ =>
                 ((row.Values[index: face.A] + row.Values[index: face.B] + row.Values[index: face.C]) + (face.IsQuad ? row.Values[index: face.D] : 0.0)) / (face.IsQuad ? 4.0 : 3.0)),
-            perFaceCase: row => Build(row.Values, mesh.Faces.Count, (_, index) => row.Values[index: index]));
+            perFaceCase: row => Build(row.Values, mesh.Faces.Count, index => row.Values[index: index]));
     }
     private static MeshSegmentationResult ComponentsOf(Mesh mesh, IUndirectedGraph<int, SEdge<int>> adjacency, (Arr<double> FaceValues, int SkippedDegenerateFaces, int SkippedNonFiniteValues, int FiniteCount, Option<(double Min, double Max)> Band) scalars, Func<double, int> bucket, Segmentation draft) =>
         ResultOf(mesh: mesh, faceRegions: ConnectedComponents(adjacency: adjacency, buckets: [.. scalars.FaceValues.AsIterable().Select(value => double.IsFinite(x: value) ? bucket(arg: value) : UnassignedRegion)]), scalars: scalars, draft: draft);
@@ -644,10 +644,10 @@ internal static partial class SegmentKernel {
                 step: state => Some(Round(state)), settled: static state => state.Converged,
                 budget: maxIterations, declined: new KernelFault.InvalidResult())
             .Switch(
-                committed: static (k, row) => row.State.Labels.Any(static label => label >= 0) ? Fin.Succ(row.State) : Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()),
-                ceded: static (k, _) => Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()),
-                refused: static (_, row) => Fin.Fail<(int[], double[], int, bool)>(row.Cause),
-                contended: static (k, _) => Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()));
+                committed: static row => row.State.Labels.Any(static label => label >= 0) ? Fin.Succ(row.State) : Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()),
+                ceded: static _ => Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()),
+                refused: static row => Fin.Fail<(int[], double[], int, bool)>(row.Cause),
+                contended: static _ => Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()));
     }
 
     // --- [NORMALIZED_CUT]

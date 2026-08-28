@@ -438,7 +438,7 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         from exit in Folded(geometry: geometry).Match(
             Succ: static value => Fin.Succ(value),
             Fail: static error => Fin.Fail<Seq<TOut>>(error))
-        from _ in Fin.Succ(Charge(runtime: runtime, key: Key, mark: mark, items: geometry.Count, exit: exit)).ToEff()
+        from _ in Fin.Succ(Charge(runtime: runtime, mark: mark, items: geometry.Count, exit: exit)).ToEff()
         from result in exit.ToEff()
         select result;
     private static Unit Charge(Env runtime, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
@@ -507,13 +507,13 @@ public static class Analyze {
     public static Scope In(Context context) => new(context: Optional(context).ToFin(new KernelFault.MissingContext()));
 
     public static Operation<TGeometry, TOut> Query<TGeometry, TOut>(AnalysisQuery? query) where TGeometry : notnull where TOut : notnull {
-        return Optional(query).Map(q => q.Single<TGeometry, TOut>(key: active)).IfNone(() => Operation<TGeometry, TOut>.Reject(key: active, fault: new KernelFault.InvalidInput()));
+        return Optional(query).Map(q => q.Single<TGeometry, TOut>()).IfNone(() => Operation<TGeometry, TOut>.Reject(fault: new KernelFault.InvalidInput()));
     }
     public static Operation<(TA A, TB B), TOut> Query<TA, TB, TOut>(AnalysisQuery? query) where TA : notnull where TB : notnull where TOut : notnull {
-        return Optional(query).Map(q => q.Pair<TA, TB, TOut>(key: active)).IfNone(() => Operation<(TA A, TB B), TOut>.Reject(key: active, fault: new KernelFault.InvalidInput()));
+        return Optional(query).Map(q => q.Pair<TA, TB, TOut>()).IfNone(() => Operation<(TA A, TB B), TOut>.Reject(fault: new KernelFault.InvalidInput()));
     }
     public static Operation<Unit, TOut> Query<TOut>(AnalysisQuery? query) where TOut : notnull {
-        return Optional(query).Map(q => q.Service<TOut>(key: active)).IfNone(() => Operation<Unit, TOut>.Reject(key: active, fault: new KernelFault.InvalidInput()));
+        return Optional(query).Map(q => q.Service<TOut>()).IfNone(() => Operation<Unit, TOut>.Reject(fault: new KernelFault.InvalidInput()));
     }
 
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(AnalysisQuery query, params ReadOnlySpan<TGeometry> input) where TGeometry : notnull where TOut : notnull =>

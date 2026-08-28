@@ -121,19 +121,17 @@ public static class GhSession {
     }
 
     public static Fin<(bool Deferred, GaugedSpan<SessionLane> Span)> Apply(SessionOp op, MonotonicTimeline clock) {
-        return Admit.Need().Bind(valid =>
+        return Admit.Need(op).Bind(valid =>
             from gauged in clock.Gauged<(bool Deferred), SessionLane>(
                 lane: valid is SessionOp.RevealCase ? SessionLane.Reveal : SessionLane.Command,
-                work: active,
                 body: () => valid.Switch(
-                    state: active,
-                    revealCase: static (k, c) => UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
+                    revealCase: static c => UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
                         Try.lift(() => Editor.ShowEditor(
                             createVisible: true,
                             layoutRules: HostEdge.Slot(c.Layout))).Run().Bind(static inner => inner),
-                        DispatchLane.Interactive, k)
+                        DispatchLane.Interactive)
                         .Map(static _ => false),
-                    executeCase: static (k, c) =>
+                    executeCase: static c =>
                         from target in Admit.Need(c.Target)
                         from lane in Admit.Need(c.Lane)
                         from work in Admit.Need(c.Work)
@@ -142,50 +140,46 @@ public static class GhSession {
                                 ValueTask<Fin<Unit>> eventual = UiThread.Run(
                                     new UiDispatch<Unit>.Queued(GhCrossing.Bind<Unit>(
                                         target: target,
-                                        body: scope => Fin.Succ(HostEdge.Side(action: () => work(obj: scope))),
-                                        key: k)),
-                                    lane, k);
-                                return Fin.Succ(HostEdge.Side(action: () => ignore(SettleDeferred(eventual, cell, k))));
+                                        body: scope => Fin.Succ(HostEdge.Side(action: () => work(obj: scope))))),
+                                    lane);
+                                return Fin.Succ(HostEdge.Side(action: () => ignore(SettleDeferred(eventual, cell))));
                             }).Run().Bind(static inner => inner),
                             None: () => UiThread.Run(
                                 new UiDispatch<Unit>.Blocking(GhCrossing.Bind<Unit>(
                                     target: target,
-                                    body: scope => Fin.Succ(HostEdge.Side(action: () => work(obj: scope))),
-                                    key: k)),
-                                lane, k))
+                                    body: scope => Fin.Succ(HostEdge.Side(action: () => work(obj: scope))))),
+                                lane))
                         select c.Park.IsSome,
-                    repaintCase: static (k, c) => UiThread.Run(new UiDispatch<Unit>.Blocking(GhCrossing.Bind<Unit>(
+                    repaintCase: static c => UiThread.Run(new UiDispatch<Unit>.Blocking(GhCrossing.Bind<Unit>(
                             target: ScopeTarget.CanvasHost,
                             body: scope => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => c.Plan.Switch(
                                 state: (Surface: surface, Key: k),
-                                invalidateCase: static (s, _) => Try.lift(() => s.Surface.Invalidate()).Run().Bind(static inner => inner),
-                                scheduledCase: static (s, _) => Try.lift(() => s.Surface.ScheduleRedraw()).Run().Bind(static inner => inner),
-                                deferredCase: static (s, p) =>
+                                invalidateCase: static _ => Try.lift(() => s.Surface.Invalidate()).Run().Bind(static inner => inner),
+                                scheduledCase: static _ => Try.lift(() => s.Surface.ScheduleRedraw()).Run().Bind(static inner => inner),
+                                deferredCase: static p =>
                                     from admitted in guard(p.Delay >= TimeSpan.Zero, (Error)new KernelFault.InvalidInput()).ToFin()
                                     from painted in Try.lift(() => s.Surface.ScheduleRedraw(p.Delay)).Run().Bind(static inner => inner)
-                                    select painted)),
-                            key: k)),
-                            DispatchLane.Interactive, k)
+                                    select painted)))),
+                            DispatchLane.Interactive)
                         .Map(static _ => false),
-                    styleCase: static (k, c) =>
+                    styleCase: static c =>
                         from surface in Admit.Need(c.Surface)
                         from styled in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
                             Try.lift(surface.UseRhinoStyle).Run().Bind(static inner => inner)),
-                            DispatchLane.Interactive, k)
+                            DispatchLane.Interactive)
                         select false,
-                    focusCase: static (k, c) =>
+                    focusCase: static c =>
                         from surface in Admit.Need(c.Surface)
                         from focused in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
                             Try.lift(surface.Focus).Run().Bind(static inner => inner)),
-                            DispatchLane.Interactive, k)
+                            DispatchLane.Interactive)
                         select false,
-                    releaseCase: static (k, c) =>
+                    releaseCase: static c =>
                         from surface in Admit.Need(c.Surface)
                         from released in UiThread.Run(new UiDispatch<Unit>.Blocking(() => Try.lift(() =>
                             Fin.Succ(surface.Use(project: static form => HostEdge.Side(action: form.Close)))).Run().Bind(static inner => inner)),
-                            DispatchLane.Interactive, k)
-                        select false),
-                key: active)
+                            DispatchLane.Interactive)
+                        select false))
             from outcome in gauged.Value
             from written in GhInstruments.Settled(document: None, operation: outcome.Operation, deferred: outcome.Deferred, span: gauged.Span)
             select (outcome.Deferred, gauged.Span));

@@ -344,7 +344,7 @@ public static class MotionPump {
         from terminal in script.Switch(
             eased: static (plan) => Admit.Finite(value: plan.Curve.Evaluate(t: plan.Cycle.Terminal))
                 .Map(value => new MotionSample(Value: value, Velocity: None)),
-            sprung: static (_, plan) => Fin.Succ(new MotionSample(Value: plan.To, Velocity: Some(0.0))),
+            sprung: static plan => Fin.Succ(new MotionSample(Value: plan.To, Velocity: Some(0.0))),
             glided: static (plan) => plan.Decay
                 .Project(velocity: plan.Velocity)
                 .Map(rest => new MotionSample(Value: plan.Origin + rest, Velocity: None)))
@@ -368,7 +368,7 @@ public static class MotionPump {
         Atom<Option<MotionAttachment>> mounted = Atom(Option<MotionAttachment>.None);
         FaultCell faults = new(cap: Rasm.Numerics.Dimension.Create(value: 16), clock: TimeProvider.System);
         return from cadence in FactoryBridge.Accept<PositiveMagnitude>(candidate: clock.Pace.Period.TotalSeconds)
-               from origin in Error.New(key: key.Message)
+               from origin in timeline.Capture()
                let seed = Atom((BeatSeed)origin)
                from attachment in clock.Start(
                    onTick: () => Tick(

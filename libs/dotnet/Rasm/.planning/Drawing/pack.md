@@ -271,9 +271,9 @@ public abstract partial record PackOp {
         gaussianSplat: static _ => PackKind.GaussianSplat);
 
     internal HashMap<EncodingChannel, Func<Fin<float[]>>> Lanes() => Switch(
-        pointCloud: static (k, c) => {
+        pointCloud: static c => {
             Fin<Vector3d[]> normals = VectorCloudMetric.OrientedNormals
-                .Project<Seq<Vector3d>>(cloud: c.Source, policy: c.Policy.Cloud, key: k)
+                .Project<Seq<Vector3d>>(cloud: c.Source, policy: c.Policy.Cloud)
                 .Map(static values => values.ToArray());
             return HashMap(
                 (EncodingChannel.Position, () => Fin.Succ(Encode.Points(c.Source.Vertices))),
@@ -285,36 +285,36 @@ public abstract partial record PackOp {
                 (EncodingChannel.Verticality, () => normals.Map(static vectors =>
                     Array.ConvertAll(vectors, static vector => (float)Math.Abs(vector.Z)))));
         },
-        meshPatch: static (k, m) => HashMap(
+        meshPatch: static m => HashMap(
             (EncodingChannel.Position,  () => Fin.Succ(Encode.Vertices(m.Source))),
             (EncodingChannel.Normal,    () => Fin.Succ(Encode.Normals(m.Source))),
             (EncodingChannel.Uv,        () => Encode.Uvs(m.Source)),
             (EncodingChannel.Curvature, () => Encode.Vertexwise(
                 new ScalarField.MeanCurvatureFlowCase(m.Source, m.Policy.CurvatureStep, m.Policy.CurvatureRounds),
-                m.Source, m.Policy.Tolerance, k)),
-            (EncodingChannel.Geodesic,  () => ScalarField.Geodesic(m.Source, m.Policy.GeodesicSources, k)
-                .Bind(field => Encode.Vertexwise(field, m.Source, m.Policy.Tolerance, k))),
+                m.Source, m.Policy.Tolerance)),
+            (EncodingChannel.Geodesic,  () => ScalarField.Geodesic(m.Source, m.Policy.GeodesicSources)
+                .Bind(field => Encode.Vertexwise(field, m.Source, m.Policy.Tolerance))),
             (EncodingChannel.Weight,    () => Fin.Succ(Encode.AreaWeight(m.Source)))),
-        voxelGrid: static (k, v) => HashMap(
+        voxelGrid: static v => HashMap(
             (EncodingChannel.Position,  () => Fin.Succ(Encode.Cells(v.Grid))),
-            (EncodingChannel.Occupancy, () => Encode.Occupancy(v.Source, v.Grid, v.Policy, k)),
+            (EncodingChannel.Occupancy, () => Encode.Occupancy(v.Source, v.Grid, v.Policy)),
             (EncodingChannel.Weight,    () => Fin.Succ(Encode.Fill((int)v.Grid.CellCount, 1f)))),
-        brepPatch: static (k, b) => HashMap(
+        brepPatch: static b => HashMap(
             (EncodingChannel.Position,  () => Fin.Succ(Encode.Vertices(b.Source))),
             (EncodingChannel.Normal,    () => Fin.Succ(Encode.Normals(b.Source))),
             (EncodingChannel.Curvature, () => Encode.Vertexwise(
                 new ScalarField.MeanCurvatureFlowCase(b.Source, b.Policy.CurvatureStep, b.Policy.CurvatureRounds),
-                b.Source, b.Policy.Tolerance, k))),
-        field: static (k, f) => HashMap(
-            (EncodingChannel.Geodesic,  () => Encode.Vertexwise(f.Values, f.Source, f.Policy.Tolerance, k)),
+                b.Source, b.Policy.Tolerance))),
+        field: static f => HashMap(
+            (EncodingChannel.Geodesic,  () => Encode.Vertexwise(f.Values, f.Source, f.Policy.Tolerance)),
             (EncodingChannel.Weight,    () => Fin.Succ(Encode.AreaWeight(f.Source)))),
-        toolpath: static (_, t) => HashMap(
+        toolpath: static t => HashMap(
             (EncodingChannel.Position,  () => Fin.Succ(Encode.Points(t.Source.Vertices))),
             (EncodingChannel.SpanKind,  () => Fin.Succ(Encode.Kinds(t.Source))),
             (EncodingChannel.ArcCenter, () => Fin.Succ(Encode.Centers(t.Source))),
             (EncodingChannel.ArcSense,  () => Fin.Succ(Encode.Senses(t.Source))),
             (EncodingChannel.Weight,    () => Fin.Succ(Encode.ChordWeight(t.Source.Vertices)))),
-        gaussianSplat: static (_, g) => HashMap(
+        gaussianSplat: static g => HashMap(
             (EncodingChannel.Position,  () => Fin.Succ(Encode.Points(g.Source.Vertices))),
             (EncodingChannel.Scale,     () => Encode.Block(g.Scales, g.Source.Vertices.Count, EncodingChannel.Scale)),
             (EncodingChannel.Rotation,  () => Encode.Block(g.Rotations, g.Source.Vertices.Count, EncodingChannel.Rotation)),
@@ -411,19 +411,19 @@ public static class Encode {
     }
 
     static Fin<GeometryHash> SourceDigest(PackOp op) => op.Switch(
-        pointCloud:    static (k, s) => Digest(EncodeForm.Of(s.Source), k),
-        meshPatch:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
-        voxelGrid:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
-        brepPatch:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
-        field:         static (k, s) => Digest(EncodeForm.Of(s.Source), k),
-        toolpath:      static (_, s) => Fin.Succ(GeometryHash.Create(s.Source.Digest)),
-        gaussianSplat: static (k, s) => Digest(EncodeForm.Of(s.Source), k));
+        pointCloud:    static s => Digest(EncodeForm.Of(s.Source)),
+        meshPatch:     static s => Digest(EncodeForm.Of(s.Source)),
+        voxelGrid:     static s => Digest(EncodeForm.Of(s.Source)),
+        brepPatch:     static s => Digest(EncodeForm.Of(s.Source)),
+        field:         static s => Digest(EncodeForm.Of(s.Source)),
+        toolpath:      static s => Fin.Succ(GeometryHash.Create(s.Source.Digest)),
+        gaussianSplat: static s => Digest(EncodeForm.Of(s.Source)));
 
     static Fin<GeometryHash> Digest(EncodeForm form) =>
         Reconciliation.Apply(new ReconcileOp.Encode(form))
             .Bind(answer => answer.Switch(
-                digest:     static (_, d) => Fin.Succ(d.Value),
-                reconciled: static (k, _) => Fin.Fail<GeometryHash>(new KernelFault.InvalidResult())));
+                digest:     static d => Fin.Succ(d.Value),
+                reconciled: static (k) => Fin.Fail<GeometryHash>(new KernelFault.InvalidResult())));
 
     // --- [CENSUS]
     static Fin<int> Census(PackOp op) => op.Switch(

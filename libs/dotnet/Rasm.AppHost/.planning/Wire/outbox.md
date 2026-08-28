@@ -310,7 +310,7 @@ public static class OutboxRelay {
                     runtime.DeadLetter(
                         ContentHash.Of(
                             (Consumer: runtime.Consumer, Dedup: row.Dedup),
-                            static (state, writer) => writer.String(state.Consumer).String(state.Dedup)),
+                            static writer => writer.String(state.Consumer).String(state.Dedup)),
                         runtime.Consumer,
                         row.Ordinal.Sequence,
                         FaultWire.Observe(dead.Cause),

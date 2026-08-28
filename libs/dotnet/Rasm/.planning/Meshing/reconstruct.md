@@ -663,7 +663,7 @@ public static class MeshSdf {
                     from slots in CornerSlotsOf(face: space.Native.Faces[index: point.FaceIndex], triangle: point.Triangle)
                         .ToFin(new KernelFault.Unsupported(InputType: typeof(MeshPoint), OutputType: typeof(double)))
                     from _ in guard(slots.ForAll(slot => slot.Vertex >= 0 && slot.Vertex < solution.Values.Count), new KernelFault.InvalidResult())
-                    let signed = slots.Fold(0.0, (sum, slot) => sum + (point.T[slot.Slot] * solution.Values[index: slot.Vertex]))
+                    let signed = slots.Fold(0.0, slot => sum + (point.T[slot.Slot] * solution.Values[index: slot.Vertex]))
                     select new SdfMeshSample(Distance: active.PositiveInside ? -signed : signed,
                         Solve: new SdfSolve.BoundaryCase(Topology: solution.Topology, Heat: solution.Solve)),
                 closedCase: active =>

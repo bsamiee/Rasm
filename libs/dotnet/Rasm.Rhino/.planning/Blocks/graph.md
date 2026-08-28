@@ -417,7 +417,6 @@ public static partial class BlockGraph {
 
     private static Fin<string> RootPath(GraphSource source) =>
         source.SwitchPartially(
-            context: op,
             stored: static (held) => Acceptance.Text(value: held.Path),
             loaded: static (held) => held.Path.ToFin(Fail: new KernelFault.InvalidInput()).Bind(key.AcceptText),
             @default: static (_) => Fin.Fail<string>(error: new KernelFault.Unsupported(

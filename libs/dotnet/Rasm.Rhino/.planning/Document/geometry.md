@@ -563,23 +563,23 @@ public abstract partial record TagOp {
         geometry,
         read: static (state, tag) =>
             from name in Acceptance.Text(value: tag.Key)
-            select (TagResult)new TagResult.Value(Key: name, Stored: Optional(state.GetUserString(key: name))),
+            select (TagResult)new TagResult.Value(Key: name, Stored: Optional(state.GetUserString())),
         readAll: static (state, _) => Fin.Succ<TagResult>(value: new TagResult.Snapshot(Stored: Snapshot(state.GetUserStrings()))),
         set: static (state, tag) =>
             from name in Acceptance.Text(value: tag.Key)
             from value in Admit.Need(tag.Value)
-            let before = Optional(state.GetUserString(key: name))
+            let before = Optional(state.GetUserString())
             from _ in Admit.Confirm(success: state.SetUserString(key: name, value: value))
-            let after = Optional(state.GetUserString(key: name))
+            let after = Optional(state.GetUserString())
             from __ in Admit.Confirm(success: after.Equals(Some(value)))
             select (TagResult)new TagResult.Changed(Key: name, Before: before, After: after),
         delete: static (state, tag) =>
             from name in Acceptance.Text(value: tag.Key)
-            let before = Optional(state.GetUserString(key: name))
+            let before = Optional(state.GetUserString())
             from _ in before.IsSome
-                ? Admit.Confirm(success: state.DeleteUserString(key: name))
+                ? Admit.Confirm(success: state.DeleteUserString())
                 : Fin.Succ(value: unit)
-            let after = Optional(state.GetUserString(key: name))
+            let after = Optional(state.GetUserString())
             from __ in Admit.Confirm(success: after.IsNone)
             select (TagResult)new TagResult.Changed(Key: name, Before: before, After: after),
         clear: static (state, _) =>

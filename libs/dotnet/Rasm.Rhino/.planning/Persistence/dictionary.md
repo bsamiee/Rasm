@@ -465,7 +465,7 @@ public sealed record ArchiveMap {
     public Fin<ArchiveMap> Put(ArchiveKey key, ArchiveValue value) {
         return from admittedKey in FactoryBridge.Accept<ArchiveKey>(key.Value)
                from admittedValue in Admit.Need(value)
-               from archiveValue in admittedValue.AdmitArchive()
+               from archiveValue in admittedValue.AdmitArchive(op)
                select this with { Entries = Entries.AddOrUpdate(admittedKey, archiveValue) };
     }
 

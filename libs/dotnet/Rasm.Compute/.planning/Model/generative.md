@@ -100,8 +100,8 @@ public sealed partial class SearchKey {
 
     static void Number(GeneratorParams parameters, string key, double value) => parameters.SetSearchOption(value);
     static void Flag(GeneratorParams parameters, string key, double value) => parameters.SetSearchOption(value != 0.0);
-    static double ReadNumber(GeneratorParams parameters, string key) => parameters.GetSearchNumber();
-    static double ReadFlag(GeneratorParams parameters, string key) => parameters.GetSearchBool() ? 1.0 : 0.0;
+    static double ReadNumber(GeneratorParams parameters, string key) => parameters.GetSearchNumber(key);
+    static double ReadFlag(GeneratorParams parameters, string key) => parameters.GetSearchBool(key) ? 1.0 : 0.0;
 }
 
 [SmartEnum<string>]

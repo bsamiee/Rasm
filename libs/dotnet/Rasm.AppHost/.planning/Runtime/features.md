@@ -107,7 +107,7 @@ public static class FlagCompilation {
                 state: registry,
                 forceLevel: static (_, _) => Validation<Error, Unit>.Success(unit),
                 forceFlagsOff: static (held, row) => toSeq(row.Flags)
-                    .Traverse(key => held.Resolve(FlagKey.Create())
+                    .Traverse(key => held.Resolve(FlagKey.Create(key))
                         .ToValidation<Error>(new KernelFault.InvalidValue(Label: key, Requirement: "<a declared flag row>")))
                     .As()
                     .Map(static _ => unit),

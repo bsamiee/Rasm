@@ -732,8 +732,8 @@ public static class FilterFolds {
 
         public int Depth() => expr.Switch(
             leaf: static _ => 0,
-            all: static node => 1 + node.Operands.Fold(0, static (deep, part) => int.Max(deep, part.Depth())),
-            any: static node => 1 + node.Operands.Fold(0, static (deep, part) => int.Max(deep, part.Depth())),
+            all: static node => 1 + node.Operands.Fold(0, static part => int.Max(part.Depth())),
+            any: static node => 1 + node.Operands.Fold(0, static part => int.Max(part.Depth())),
             not: static node => 1 + node.Operand.Depth(),
             closure: static node => 1 + node.Seed.Depth());
 

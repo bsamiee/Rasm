@@ -609,7 +609,6 @@ public static class SettingStore {
     }
 
     private static Fin<SettingOperation> Admit(SettingOperation operation) => operation.Switch< Fin<SettingOperation>>(
-        state: op,
         readCase: static (read) => Admit.Need(read.Kind)
             .Bind(kind => guard(kind != SettingKind.Enum || read.Legacy.IsEmpty, new KernelFault.InvalidInput()).ToFin().Map(_ => kind))
             .Bind(kind => Admit(read.Legacy).Map(legacy => (Kind: kind, Legacy: legacy)))
@@ -684,9 +683,8 @@ public static class SettingStore {
         from source in Admit.Need(path)
         from root in Admit.Need(source.Root)
             .Bind(value => value.Switch< Fin<SettingsRoot>>(
-                state: op,
                 applicationCase: static (_, _) => Fin.Succ<SettingsRoot>(new SettingsRoot.ApplicationCase()),
-                plugInCase: static (plugIn) => plugIn.Plugin.Admit().Map<SettingsRoot>(_ => plugIn),
+                plugInCase: static (plugIn) => plugIn.Plugin.Admit(op).Map<SettingsRoot>(_ => plugIn),
                 commandCase: static (command) => Admit.Need(command.Owner).Map<SettingsRoot>(_ => command)))
         from children in source.Children
             .Map(child => FactoryBridge.Accept<SettingKey>(child.Value))
@@ -703,13 +701,11 @@ public static class SettingStore {
         select rows;
 
     private static Fin<SavedSettingsRoot> Admit(SavedSettingsRoot source) => source.Switch< Fin<SavedSettingsRoot>>(
-        state: op,
         plugInCase: static (_, _) => Fin.Succ<SavedSettingsRoot>(new SavedSettingsRoot.PlugInCase()),
         commandCase: static (command) => Acceptance.Text(value: command.EnglishCommandName)
             .Map<SavedSettingsRoot>(static name => new SavedSettingsRoot.CommandCase(name)));
 
     private static Fin<IntegerBound> Admit(IntegerBound bound) => bound.Switch< Fin<IntegerBound>>(
-        state: op,
         lowerCase: static (_, row) => Fin.Succ<IntegerBound>(row),
         upperCase: static (_, row) => Fin.Succ<IntegerBound>(row),
         rangeCase: static (row) => guard(row.Floor <= row.Ceiling, new KernelFault.InvalidInput())
@@ -777,9 +773,8 @@ public static class SettingStore {
 
     private static Fin<PersistentSettings> Resolve(SettingPath path, ChildPolicy children) =>
         path.Root.Switch< Fin<PersistentSettings>>(
-            state: op,
             applicationCase: static (_) => Try.lift(() => Fin.Succ(value: PersistentSettings.RhinoAppSettings)).Run().Bind(static inner => inner),
-            plugInCase: static (plugIn) => plugIn.Plugin.Admit()
+            plugInCase: static (plugIn) => plugIn.Plugin.Admit(op)
                 .Bind(_ => Try.lift(() => Fin.Succ(value: PersistentSettings.FromPlugInId(plugIn.Plugin.ToValue()))).Run().Bind(static inner => inner)),
             commandCase: static (command) => Try.lift(() => Fin.Succ(value: command.Owner.Settings)).Run().Bind(static inner => inner))
         .Bind(root => path.Children.Fold(
@@ -936,7 +931,6 @@ public static class SettingStore {
         (SettingPath Path, SettingKey Key) seat = (request.Path, request.Key);
         return Cell.Claim(
                 cell: GuardSeats,
-                key: seat,
                 mint: () => new SettingGuardSeat(request.Path, request.Key, request.Guard.Kind))
             .Switch(
                 state: (Node: node, Request: request, Seat: seat),

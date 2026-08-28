@@ -1389,8 +1389,8 @@ public sealed record WriteAttempt(WriteVerdict Verdict, Option<double> Rendered,
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class WriteBackSurface {
     public static IO<Host.WriteOutcomeWire> Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue) =>
-        from key in IO.pure()
-        from start in IO.lift(Error.New(key.Message))
+        from key in IO.pure(held)
+        from start in IO.lift(runtime.Clocks.Line.Capture(key))
         from attempt in Conduct(runtime, spec, canonicalValue) | WireRecovery.Refused()
         from remembered in IO.lift(() => Remember(runtime, spec.BindingId, attempt.Verdict))
         from outcome in Sealed(runtime, spec, canonicalValue, attempt, start, key)
@@ -1435,7 +1435,7 @@ public static class WriteBackSurface {
     static IO<Host.WriteOutcomeWire> Sealed(
         LiveWireRuntime runtime, BindingSpec spec, double canonical, WriteAttempt attempt,
         MonotonicStamp start) =>
-        from end in IO.lift(Error.New(key.Message))
+        from end in IO.lift(runtime.Clocks.Line.Capture())
         from span in IO.lift(runtime.Clocks.Line.Elapsed(start, end))
         select LiveWireContract.Outcome(
             spec.BindingId, canonical, attempt, Duration.FromTimeSpan(span));

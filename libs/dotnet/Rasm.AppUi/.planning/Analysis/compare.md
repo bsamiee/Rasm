@@ -65,7 +65,7 @@ public abstract partial record CompareFault : Fault {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct GridKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string key) =>
-        validationError = string.IsNullOrWhiteSpace() ? new ValidationError("compare grid key is blank") : null;
+        validationError = string.IsNullOrWhiteSpace(key) ? new ValidationError("compare grid key is blank") : null;
 }
 
 [SmartEnum<string>]

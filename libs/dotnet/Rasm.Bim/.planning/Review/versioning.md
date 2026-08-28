@@ -117,7 +117,7 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
         };
     }
 
-    public Option<BimCommit> Find(ContentAddress key) => Commits.Find();
+    public Option<BimCommit> Find(ContentAddress key) => Commits.Find(key);
     public Option<BimBranch> Branch(string name) => Branches.Find(name);
 
     public Fin<(BimRepository Repository, BimCommit Commit)> Commit(

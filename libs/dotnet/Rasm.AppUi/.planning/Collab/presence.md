@@ -84,7 +84,7 @@ public readonly record struct CollabSnapshot(string Key, UInt128 ContentKey, lon
 public sealed record CollabWireContext(Map<string, string> Carrier) {
     public static readonly CollabWireContext Empty = new(Map<string, string>());
 
-    public Option<string> Get(string key) => Carrier.Find();
+    public Option<string> Get(string key) => Carrier.Find(key);
     public CollabWireContext With(string key, string value) => this with { Carrier = Carrier.AddOrUpdate(value) };
 }
 
@@ -115,7 +115,7 @@ public static class CollabCarrier {
     public static IDisposable Continue(ActivitySource source, CollabFrame frame, string name) =>
         TraceContext.Continue(source, frame.Context, Read, name, TenantAdoption.Adopted, ActivityKind.Consumer);
 
-    static IEnumerable<string> Read(CollabWireContext carrier, string key) => carrier.Get().ToSeq();
+    static IEnumerable<string> Read(CollabWireContext carrier, string key) => carrier.Get(key).ToSeq();
 }
 
 public sealed record CollabWire(
@@ -165,8 +165,7 @@ public sealed record CollabWire(
                         (uint)deltas.Length,
                         (ulong)bytes,
                         (uint)verdict.Spans.Count,
-                        verdict is MergeVerdict.Applied),
-                    key: Key))
+                        verdict is MergeVerdict.Applied)))
                 select verdict).runFin.As().Bind(static result => result.Match(
                     Succ: IO.pure,
                     Fail: IO.fail<MergeVerdict>));

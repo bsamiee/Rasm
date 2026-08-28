@@ -187,7 +187,7 @@ internal sealed record FleetDemand(
     Map<DemandKey, double> Scalars,
     CapabilitySet<FleetCapability> Requested,
     ConstitutiveState State) {
-    public double this[DemandKey key] => Scalars.Find().IfNone(key.Fallback);
+    public double this[DemandKey key] => Scalars.Find(key).IfNone(key.Fallback);
 
     public Length TurnedDiameter =>
         Length.FromMillimeters(Math.Max(this[DemandKey.WorkpieceDiameter], Fleet.Planar(Part).Min));
@@ -213,7 +213,7 @@ internal sealed record FleetDemand(
                 && quantities.Find(flag.Row).Exists(static value => double.IsFinite(value) && value != 0.0))
             .ToArray());
 
-    private static double Read(Map<DemandKey, double> scalars, DemandKey key) => scalars.Find().IfNone(key.Fallback);
+    private static double Read(Map<DemandKey, double> scalars, DemandKey key) => scalars.Find(key).IfNone(key.Fallback);
 }
 ```
 

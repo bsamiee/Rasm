@@ -627,7 +627,7 @@ public sealed class CaptureTileSet {
             frame.Passes,
             SplatSort.For(payloads.Count),
             frame.Refused,
-            decoded.Retire(stale: (key, _) => !named.Contains(), advance: false));
+            decoded.Retire(stale: (key, _) => !named.Contains(key), advance: false));
     }
 
     private static readonly FrozenDictionary<ResidencyKind, Func<CaptureTileSet, ResidencyPayload, Fin<CapturePass>>> Mints =

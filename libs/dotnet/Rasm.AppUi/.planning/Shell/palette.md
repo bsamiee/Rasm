@@ -476,7 +476,7 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
             ? Fin.Succ(Overlay.With(key, None))
             : Fin.Fail<BindingOverlay>(new DeckFault.UnknownIntent(key));
 
-    public BindingOverlay Reset(string key) => Overlay.Without();
+    public BindingOverlay Reset(string key) => Overlay.Without(key);
 
     public ShortcutPolicy Commit(BindingOverlay overlay) =>
         Policy with { Sets = Policy.Sets.Map(row => row.SetKey == overlay.SetKey ? overlay : row) };

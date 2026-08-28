@@ -149,11 +149,11 @@ public abstract partial record Curves {
             || Kind.Of(type: typeof(TGeometry)).Exists(kind => CanProject(topology: kind.Topology, type: typeof(TGeometry)))) switch {
             false => new KernelFault.Unsupported(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Curve) => Project<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static (p, _, _, op) => p.As<Curve>()),
-                Type t when t == typeof(TopologyProjection) => Project<TGeometry, TOut, TopologyProjection>(key: Key, aspect: this, project: static (p, _, _, _) => Fin.Succ(p)),
-                Type t when t == typeof(CurveFeature) => Project<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static (_, feature, _, _) => Fin.Succ(feature)),
-                Type t when t == typeof(ComponentIndex) => Project<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static (p, _, _, _) => Fin.Succ(p.Source)),
-                Type t when t == typeof(CurveForm) && this is FormCase => Project<TGeometry, TOut, CurveForm>(key: Key, aspect: this, project: static (p, _, context, op) => p.As<Curve>().Map(curve => Normalization.CurveFormOf(curve: curve, context: context))),
+                Type t when t == typeof(Curve) => Project<TGeometry, TOut, Curve>(aspect: this, project: static (p, _, _, op) => p.As<Curve>()),
+                Type t when t == typeof(TopologyProjection) => Project<TGeometry, TOut, TopologyProjection>(aspect: this, project: static (p, _, _, _) => Fin.Succ(p)),
+                Type t when t == typeof(CurveFeature) => Project<TGeometry, TOut, CurveFeature>(aspect: this, project: static (_, feature, _, _) => Fin.Succ(feature)),
+                Type t when t == typeof(ComponentIndex) => Project<TGeometry, TOut, ComponentIndex>(aspect: this, project: static (p, _, _, _) => Fin.Succ(p.Source)),
+                Type t when t == typeof(CurveForm) && this is FormCase => Project<TGeometry, TOut, CurveForm>(aspect: this, project: static (p, _, context, op) => p.As<Curve>().Map(curve => Normalization.CurveFormOf(curve: curve, context: context))),
                 _ => new KernelFault.Unsupported(),
             },
         };
@@ -224,8 +224,8 @@ public abstract partial record Curves {
                     segmentsCase: static (items, _) => Fin.Succ(items),
                     isoCase: static (items, _) => Fin.Succ(items),
                     silhouetteCase: static (items, _) => Fin.Succ(items),
-                    atCase: static (items, at) => items.At(index: at.Value, key: Key),
-                    formCase: static (items, form) => form.Index.IsSome ? items.At(index: form.Index, key: Key) : Fin.Succ(items)).ToEff()
+                    atCase: static (items, at) => items.At(index: at.Value),
+                    formCase: static (items, form) => form.Index.IsSome ? items.At(index: form.Index) : Fin.Succ(items)).ToEff()
                 from result in TopologyProjection.Project(all: curves, chosen: chosen, project: values => values.TraverseM(projection => state.Project(arg1: projection, arg2: feature, arg3: runtime.Context, arg4: state.Key)).As().Bind(projected => Acceptance.Rows(values: projected))).ToEff()
                 select result).As<TGeometry, TOut>();
 
@@ -366,25 +366,25 @@ public abstract partial record Faces {
         Capability.DecomposeFaces.Admits(type: typeof(TGeometry)) switch {
             false => new KernelFault.Unsupported(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Brep) => Build<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None,
-                    project: static (chosen, _) => chosen.TraverseM(face => face.As<Brep>(key: Key)).As()
+                Type t when t == typeof(Brep) => Build<TGeometry, TOut, Brep>(selector: this, requirement: Requirement.None,
+                    project: static (chosen, _) => chosen.TraverseM(face => face.As<Brep>()).As()
                         .Bind(breps => Acceptance.Rows(values: breps))),
-                Type t when t == typeof(TopologyProjection) => Build<TGeometry, TOut, TopologyProjection>(key: Key, selector: this, requirement: Requirement.None,
+                Type t when t == typeof(TopologyProjection) => Build<TGeometry, TOut, TopologyProjection>(selector: this, requirement: Requirement.None,
                     project: static (chosen, _) => Acceptance.Rows(values: chosen)),
-                Type t when t == typeof(Plane) => Build<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
-                    project: static (chosen, runtime) => chosen.TraverseM(face => face.As<BrepFace>(key: Key).Bind(native => FrameAt(face: native, context: runtime, op: Key))).As()),
-                Type t when t == typeof(Point3d) => Build<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
-                    project: static (chosen, runtime) => chosen.TraverseM(face => face.As<BrepFace>(key: Key).Bind(native => MassKind.CentroidOf(geometry: native, context: runtime, op: Key))).As()),
-                Type t when t == typeof(Vector3d) => Build<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
-                    project: static (chosen, runtime) => chosen.TraverseM(face => face.As<BrepFace>(key: Key)
+                Type t when t == typeof(Plane) => Build<TGeometry, TOut, Plane>(selector: this, requirement: Requirement.SurfaceEvaluation,
+                    project: static (chosen, runtime) => chosen.TraverseM(face => face.As<BrepFace>().Bind(native => FrameAt(face: native, context: runtime, op: Key))).As()),
+                Type t when t == typeof(Point3d) => Build<TGeometry, TOut, Point3d>(selector: this, requirement: Requirement.SurfaceEvaluation,
+                    project: static (chosen, runtime) => chosen.TraverseM(face => face.As<BrepFace>().Bind(native => MassKind.CentroidOf(geometry: native, context: runtime, op: Key))).As()),
+                Type t when t == typeof(Vector3d) => Build<TGeometry, TOut, Vector3d>(selector: this, requirement: Requirement.SurfaceEvaluation,
+                    project: static (chosen, runtime) => chosen.TraverseM(face => face.As<BrepFace>()
                         .Bind(native => FrameAt(face: native, context: runtime, op: Key))
-                        .Bind(frame => Rasm.Numerics.Direction.Of(value: frame.ZAxis, context: runtime, key: Key).Map(static direction => direction.Value))).As()),
-                Type t when t == typeof(ComponentIndex) => Build<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None,
+                        .Bind(frame => Rasm.Numerics.Direction.Of(value: frame.ZAxis, context: runtime).Map(static direction => direction.Value))).As()),
+                Type t when t == typeof(ComponentIndex) => Build<TGeometry, TOut, ComponentIndex>(selector: this, requirement: Requirement.None,
                     project: static (chosen, _) => Acceptance.Rows(values: chosen.Map(static face => face.Source))),
-                Type t when t == typeof(int) => Build<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None,
+                Type t when t == typeof(int) => Build<TGeometry, TOut, int>(selector: this, requirement: Requirement.None,
                     project: static (chosen, _) => Acceptance.Rows(values: chosen.Map(static face => face.Source.Index))),
-                Type t when t == typeof(Interval) => Build<TGeometry, TOut, Interval>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
-                    project: static (chosen, _) => chosen.TraverseM(face => face.As<BrepFace>(key: Key).Bind(native => Topologies.DomainsOf(geometry: native, op: Key))).As().Map(static nested => nested.Bind(static domains => domains))),
+                Type t when t == typeof(Interval) => Build<TGeometry, TOut, Interval>(selector: this, requirement: Requirement.SurfaceEvaluation,
+                    project: static (chosen, _) => chosen.TraverseM(face => face.As<BrepFace>().Bind(native => Topologies.DomainsOf(geometry: native, op: Key))).As().Map(static nested => nested.Bind(static domains => domains))),
                 _ => new KernelFault.Unsupported(),
             },
         };
@@ -521,7 +521,7 @@ public abstract partial record Points {
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         extremaCase: static c => typeof(TOut) == typeof(Point3d) && Capability.CurveForm.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(requirement: Some(Requirement.Basic), requiresContext: true, state: (Key: c.Key, c.Directions),
-                evaluator: static (state, geometry) =>
+                evaluator: static geometry =>
                     from context in Env.Asks
                     from lease in Normalization.CurveForm(source: geometry).ToEff()
                     from points in lease.Use((Curve curve) => curve.IsValid switch {
@@ -545,27 +545,27 @@ public abstract partial record Points {
             : new KernelFault.Unsupported(),
         edgeMidpointsCase: static c => typeof(TOut) == typeof(Point3d) && Capability.ReadEdges.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(requiresContext: true, state: c.Key,
-                evaluator: static (op, geometry) => Curves.Project<TGeometry, Point3d, Point3d>(aspect: Curves.All,
+                evaluator: static geometry => Curves.Project<TGeometry, Point3d, Point3d>(aspect: Curves.All,
                     project: static (projection, _, _, key) => projection.As<Curve>().Map(static curve => curve.PointAtNormalizedLength(length: 0.5)))
                     .Apply(geometry: Seq(geometry))).As<TGeometry, TOut>()
             : new KernelFault.Unsupported(),
         verticesCase: static c => typeof(TOut) == typeof(Point3d) && Capability.ReadVertices.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(state: c.Key,
-                evaluator: static (op, geometry) =>
+                evaluator: static geometry =>
                     from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices()).ToEff()
                     from result in Acceptance.Rows(values: points).ToEff()
                     select result).As<TGeometry, TOut>()
             : new KernelFault.Unsupported(),
         controlPointsCase: static c => typeof(TOut) == typeof(Point3d) && Capability.ReadControlPoints.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(state: c.Key,
-                evaluator: static (op, geometry) =>
+                evaluator: static geometry =>
                     from points in Lattice(geometry: geometry).ToEff()
                     from result in Acceptance.Rows(values: points).ToEff()
                     select result).As<TGeometry, TOut>()
             : new KernelFault.Unsupported(),
         spreadCase: static s => s.Aspect.Output.Serves<TOut>() && Capability.ReadVertices.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, TOut>.Build(requiresContext: true, state: (Key: s.Key, s.Aspect),
-                evaluator: static (state, geometry) =>
+                evaluator: static geometry =>
                     from context in Env.Asks
                     from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices()).ToEff()
                     from fitted in state.Aspect.Fit(points: points, geometry: geometry, context: context).ToEff()

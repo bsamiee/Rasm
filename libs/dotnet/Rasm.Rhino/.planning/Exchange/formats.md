@@ -172,7 +172,7 @@ public sealed partial class VectorUnit {
     public static Fin<VectorUnit> For(ModelUnit unit) {
         return toSeq(Items)
             .Find(row => row.Unit == unit.System)
-            .ToFin(Fail: new KernelFault.InvalidValue(nameof(VectorUnit), string.Join(" | ", new object?[] { op, $"a unit the vector engines name; got '{unit.System}'" })));
+            .ToFin(Fail: new KernelFault.InvalidValue(nameof(VectorUnit), string.Join(" | ", new object?[] { $"a unit the vector engines name; got '{unit.System}'" })));
     }
 }
 
@@ -190,9 +190,9 @@ public abstract partial record VectorScale {
         Option<double> rhino = default) {
         return FactoryValidation.Admit(FactoryValidation.Violated(
                 (source.Exists(static value => !double.IsFinite(value) || value <= 0d),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ScaledCase.Source), source.IfNone(noneValue: 0d), "a finite positive source scale" }))),
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ScaledCase.Source), source.IfNone(noneValue: 0d), "a finite positive source scale" }))),
                 (rhino.Exists(static value => !double.IsFinite(value) || value <= 0d),
-                    () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(ScaledCase.Rhino), rhino.IfNone(noneValue: 0d), "a finite positive Rhino scale" })))))
+                    () => new ValidationClause(string.Join(" | ", new object?[] { nameof(ScaledCase.Rhino), rhino.IfNone(noneValue: 0d), "a finite positive Rhino scale" })))))
             .Map(_ => (VectorScale)new ScaledCase(Unit: vectorUnit, Source: source, Rhino: rhino));
     }
 

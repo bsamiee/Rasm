@@ -698,11 +698,11 @@ public sealed partial class ChaosKind {
     public static readonly ChaosKind Latency = new("latency", "Chaos.OnLatency",
         static (delay, _) => new ChaosInjection.Latency(delay), static row => row.Delay > Duration.Zero);
     public static readonly ChaosKind Fault = new("fault", "Chaos.OnFault",
-        static (_, key) => new ChaosInjection.Fault(), Resolvable);
+        static (_, key) => new ChaosInjection.Fault(key), Resolvable);
     public static readonly ChaosKind Outcome = new("outcome", "Chaos.OnOutcome",
-        static (_, key) => new ChaosInjection.Substituted(), Resolvable);
+        static (_, key) => new ChaosInjection.Substituted(key), Resolvable);
     public static readonly ChaosKind Behavior = new("behavior", "Chaos.OnBehavior",
-        static (_, key) => new ChaosInjection.Behavior(), Resolvable);
+        static (_, key) => new ChaosInjection.Behavior(key), Resolvable);
 
     public string Event { get; }
 

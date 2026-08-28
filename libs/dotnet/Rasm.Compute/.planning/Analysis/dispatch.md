@@ -376,7 +376,7 @@ public static partial class Analysis {
                 });
     }
 
-    static ReadOnlyMemory<byte> ContentBytes(UInt128 key) => ContentHash.Wire().Memory;
+    static ReadOnlyMemory<byte> ContentBytes(UInt128 key) => ContentHash.Wire(key).Memory;
 }
 ```
 

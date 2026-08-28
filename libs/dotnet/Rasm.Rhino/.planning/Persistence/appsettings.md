@@ -641,10 +641,9 @@ public static class AppSettings {
     public static Fin<Subscription> Mount(PluginKey writer) {
         return from admitted in writer.Admit()
                from _seated in Cell.Seat(cell: Seat, mint: () => writer).Switch(
-                   state: op,
-                   committed: static (_, _) => Fin.Succ(unit),
+                   committed: static _ => Fin.Succ(unit),
                    ceded: static (_) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
-                   refused: static (_, declined) => Fin.Fail<Unit>(error: declined.Cause),
+                   refused: static declined => Fin.Fail<Unit>(error: declined.Cause),
                    contended: static (_) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()))
                select Subscription.Of(detach: () => ignore(Cell.Step(
                    cell: Seat,
@@ -721,7 +720,6 @@ public static class AppSettings {
             : Fin.Succ(operation);
 
     private static Fin<AppOperation> Admit(AppOperation operation) => operation.Switch< Fin<AppOperation>>(
-        state: op,
         captureCase: static (value) => Verb(value.Family, FamilyVerb.Capture).Map(_ => (AppOperation)value),
         fallbackCase: static (value) => value.Theme.Match(
             Some: _ => guard(value.Family == AppSettingsFamily.Appearance, new KernelFault.InvalidInput())
@@ -752,12 +750,12 @@ public static class AppSettings {
         conductCase: static (value) => Admit.Need(value.Conduct)
             .Bind(conduct => Admit(conduct))
             .Map(conduct => (AppOperation)new AppOperation.ConductCase(conduct)),
-        windowPositionCase: static (_, _) => Fin.Succ<AppOperation>(new AppOperation.WindowPositionCase()),
+        windowPositionCase: static _ => Fin.Succ<AppOperation>(new AppOperation.WindowPositionCase()),
         autoRangeCase: static (value) => (
                 Admit.Need(value.Seed).ToValidation(),
                 guard(!value.Meshes.IsEmpty, new KernelFault.InvalidInput()).ToFin().ToValidation(),
                 value.Meshes.Traverse(mesh => Admit.Need(mesh).ToValidation()).As())
-            .Apply(static (seed, _, meshes) => (AppOperation)new AppOperation.AutoRangeCase(seed, meshes))
+            .Apply(static (seed, meshes) => (AppOperation)new AppOperation.AutoRangeCase(seed, meshes))
             .As()
             .ToFin());
 
@@ -768,9 +766,8 @@ public static class AppSettings {
                 InputType: typeof(AppSettingsFamily), OutputType: typeof(FamilyVerb))));
 
     private static Fin<AliasEdit> Admit(AliasEdit edit) => edit.Switch< Fin<AliasEdit>>(
-        state: op,
-        rosterCase: static (_, _) => Fin.Succ<AliasEdit>(new AliasEdit.RosterCase()),
-        presetCase: static (_, _) => Fin.Succ<AliasEdit>(new AliasEdit.PresetCase()),
+        rosterCase: static _ => Fin.Succ<AliasEdit>(new AliasEdit.RosterCase()),
+        presetCase: static _ => Fin.Succ<AliasEdit>(new AliasEdit.PresetCase()),
         probeCase: static (value) => FactoryBridge.Accept<AliasName>(value.Name.Value)
             .Map(name => (AliasEdit)new AliasEdit.ProbeCase(name)),
         putCase: static (value) => Admit(value.Binding)
@@ -796,9 +793,8 @@ public static class AppSettings {
         select admitted;
 
     private static Fin<ShortcutEdit> Admit(ShortcutEdit edit) => edit.Switch< Fin<ShortcutEdit>>(
-        state: op,
-        rosterCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.RosterCase()),
-        presetCase: static (_, _) => Fin.Succ<ShortcutEdit>(new ShortcutEdit.PresetCase()),
+        rosterCase: static _ => Fin.Succ<ShortcutEdit>(new ShortcutEdit.RosterCase()),
+        presetCase: static _ => Fin.Succ<ShortcutEdit>(new ShortcutEdit.PresetCase()),
         assignCase: static (value) => Admit(value.Binding)
             .Map(binding => (ShortcutEdit)new ShortcutEdit.AssignCase(binding)),
         mergeCase: static (value) => Admit.Need(value.Merge)
@@ -824,8 +820,7 @@ public static class AppSettings {
         select new ShortcutBinding(modifier, admittedMacro);
 
     private static Fin<RepeatEdit> Admit(RepeatEdit edit) => edit.Switch< Fin<RepeatEdit>>(
-        state: op,
-        rosterCase: static (_, _) => Fin.Succ<RepeatEdit>(new RepeatEdit.RosterCase()),
+        rosterCase: static _ => Fin.Succ<RepeatEdit>(new RepeatEdit.RosterCase()),
         replaceCase: static (value) => value.CommandNames
             .Traverse(name => Acceptance.Text(value: name).ToValidation())
             .As()
@@ -833,12 +828,11 @@ public static class AppSettings {
             .Map(names => (RepeatEdit)new RepeatEdit.ReplaceCase(names)));
 
     private static Fin<PathEdit> Admit(PathEdit edit) => edit.Switch< Fin<PathEdit>>(
-        state: op,
-        rosterCase: static (_, _) => Fin.Succ<PathEdit>(new PathEdit.RosterCase()),
+        rosterCase: static _ => Fin.Succ<PathEdit>(new PathEdit.RosterCase()),
         addCase: static (value) => (
                 DocumentPath.Of(value.Folder.Value).ToValidation(),
                 guard(value.IndexAt >= -1, new KernelFault.InvalidInput()).ToFin().ToValidation())
-            .Apply((folder, _) => (PathEdit)new PathEdit.AddCase(folder, value.IndexAt))
+            .Apply((folder) => (PathEdit)new PathEdit.AddCase(folder, value.IndexAt))
             .As()
             .ToFin(),
         removeCase: static (value) => DocumentPath.Of(value.Folder.Value)
@@ -852,12 +846,11 @@ public static class AppSettings {
                 .ToFin()
                 .Map(names => (PathEdit)new PathEdit.AutosaveCase(Some(names))),
             None: static () => Fin.Succ<PathEdit>(new PathEdit.AutosaveCase(None))),
-        recentCase: static (_, _) => Fin.Succ<PathEdit>(new PathEdit.RecentCase()),
-        dataFolderCase: static (_, value) => Fin.Succ<PathEdit>(new PathEdit.DataFolderCase(value.CurrentUser)),
-        templateFolderCase: static (_, value) => Fin.Succ<PathEdit>(new PathEdit.TemplateFolderCase(value.LanguageId)));
+        recentCase: static _ => Fin.Succ<PathEdit>(new PathEdit.RecentCase()),
+        dataFolderCase: static value => Fin.Succ<PathEdit>(new PathEdit.DataFolderCase(value.CurrentUser)),
+        templateFolderCase: static value => Fin.Succ<PathEdit>(new PathEdit.TemplateFolderCase(value.LanguageId)));
 
     private static Fin<GeneralConduct> Admit(GeneralConduct conduct) => conduct.Switch< Fin<GeneralConduct>>(
-        state: op,
         mouseSelectCase: static (value) => Defined(value.Mode)
             ? Fin.Succ<GeneralConduct>(value)
             : Fin.Fail<GeneralConduct>(new KernelFault.InvalidInput()),

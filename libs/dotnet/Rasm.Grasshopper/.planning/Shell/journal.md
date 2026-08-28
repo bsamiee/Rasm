@@ -111,7 +111,7 @@ public sealed class SessionJournal : IDisposable {
                from mounted in Try.lift(() => journal.consuming = Task.Run(
                    async () => (await HostEdge.Captured(async token => {
                        await foreach (UiEvent<GhFact> fact in drain.Reader.ReadAllAsync(cancellationToken: token)) {
-                           journal.Append(fact: fact, key: op)
+                           journal.Append(fact: fact)
                                .Bind(_ => journal.Shed(drain: drain))
                                .IfFail(journal.Park);
                        }
@@ -127,19 +127,18 @@ public sealed class SessionJournal : IDisposable {
                from committed in Cell.Commit(ledger, held => held.Folded(
                        document: document, fact: valid, capacity: policy.Capacity).Ledger)
                    .Switch(
-                       state: op,
-                       committed: (o, row) => row.State.Partitions
+                       committed: row => row.State.Partitions
                            .Find(document.IfNone(Guid.Empty))
                            .Bind(static rows => rows.Last)
                            .ToFin(new KernelFault.InvalidResult()),
-                       ceded: static (o, _) => Fin.Fail<JournalRow>(new KernelFault.InvalidResult()),
-                       refused: static (_, row) => Fin.Fail<JournalRow>(row.Cause),
-                       contended: static (o, _) => Fin.Fail<JournalRow>(new KernelFault.InvalidResult()))
+                       ceded: static _ => Fin.Fail<JournalRow>(new KernelFault.InvalidResult()),
+                       refused: static row => Fin.Fail<JournalRow>(row.Cause),
+                       contended: static _ => Fin.Fail<JournalRow>(new KernelFault.InvalidResult()))
                select committed;
     }
 
     public Fin<JournalExport> Export(Option<Guid> document = default) {
-        return from stamp in Error.New(key: op.Message)
+        return from stamp in clock.Capture()
                let held = ledger.Value
                let rows = document.Match(
                    Some: partition => held.Partitions.Find(partition).IfNone(Seq<JournalRow>()),

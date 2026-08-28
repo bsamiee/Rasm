@@ -304,12 +304,11 @@ public sealed class UtilizationCell : IDisposable {
     }
 
     public static Fin<UtilizationCell> Of(PressureSource source, MonotonicTimeline line) =>
-        Error.New(key.Message)
+        line.Capture()
             .Map(seed => new UtilizationCell(source, line, seed))
             .Map(static held => held.source.Switch(
-                state: held,
-                metered: static (cell, row) => cell.Listening(row),
-                runtime: static (cell, _) => cell));
+                metered: static row => cell.Listening(row),
+                runtime: static _ => cell));
 
     public Fin<Utilization> Read() => source.Switch(
         state: this,
@@ -325,7 +324,7 @@ public sealed class UtilizationCell : IDisposable {
     }
 
     Fin<Utilization> Counted() =>
-        Error.New(key.Message).Bind(now => Settled(Cell.Step(
+        line.Capture(key).Bind(now => Settled(Cell.Step(
             counted,
             held => Differenced(held, now, Duration.FromTimeSpan(Environment.CpuUsage.TotalTime)),
             Unmeasured)));

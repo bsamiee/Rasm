@@ -1195,8 +1195,8 @@ public static class DocumentStream {
     private static readonly Atom<long> Sequence = Atom(0L);
 
     public static Fin<Watch> Observe(Observation request) {
-        return Admit.Need(request).Bind(active => active.Switch(host: static (key, observation) => ObserveHost(request: observation),
-            file: static (key, observation) => ObserveFile(request: observation)));
+        return Admit.Need(request).Bind(active => active.Switch(host: static observation => ObserveHost(request: observation),
+            file: static observation => ObserveFile(request: observation)));
     }
 
     private static Fin<Watch> ObserveHost(Observation.Host request) =>

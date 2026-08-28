@@ -482,11 +482,9 @@ public static class CanvasOperator {
         return from valid in Acceptance.Value(value: op)
                from gauged in clock.Gauged< CanvasLane>(
                    lane: CanvasLane.Command,
-                   work: active,
                    body: () => GhSession.Run(ScopeTarget.CanvasHost, scope =>
                        scope.Canvas.ToFin(new KernelFault.MissingContext())
-                           .Bind(surface => valid.Execute(surface: surface, key: active)), key: active),
-                   key: active)
+                           .Bind(surface => valid.Execute(surface: surface))))
                from identity in gauged.Value
                select gauged.Span;
     }

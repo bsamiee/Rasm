@@ -1639,8 +1639,8 @@ internal sealed class ConstraintGraph {
             : new ConstraintVerdict.Violated(rule))).As();
 
     static Fin<bool> Satisfied(PlacementConstraint rule, Seq<Placed> placed) => rule.Switch(
-        precedes: row => Fin.Succ(placed.Map((slot, index) => (slot, index)).Find(slot => slot.slot.Part.PartId == row.Before)
-            .Bind(before => placed.Map((slot, index) => (slot, index)).Find(slot => slot.slot.Part.PartId == row.After)
+        precedes: row => Fin.Succ(placed.Map(index => (index)).Find(slot => slot.slot.Part.PartId == row.Before)
+            .Bind(before => placed.Map(index => (index)).Find(slot => slot.slot.Part.PartId == row.After)
                 .Map(after => before.index < after.index)).IfNone(false)),
         together: row => Fin.Succ(row.Parts.ForAll(part => placed.Exists(slot => slot.Part.PartId == part))
             && row.Parts.Bind(part => placed.Filter(slot => slot.Part.PartId == part))

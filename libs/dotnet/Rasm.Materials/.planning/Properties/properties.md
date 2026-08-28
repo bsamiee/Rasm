@@ -269,25 +269,25 @@ public static class MaterialPropertyCatalogue {
 
     static Fin<StrengthTriple> Strength(MechanicalSource source) =>
         source.Switch(
-            authored: static (k, a) => Fin.Succ(new StrengthTriple(
+            authored: static a => Fin.Succ(new StrengthTriple(
                 Published.Of(Pressure.FromMegapascals(a.YoungsMpa), AuthoredBand, PropertyEvidence.Catalogue),
                 Published.Of(Pressure.FromMegapascals(a.YieldMpa), AuthoredBand, PropertyEvidence.Catalogue),
                 Published.Of(Pressure.FromMegapascals(a.UltimateMpa), AuthoredBand, PropertyEvidence.Catalogue),
                 PropertyEvidence.Catalogue)),
-            nailWire: static (k, n) => n.Class.At(n.ShankDiameterIn).Match(
+            nailWire: static n => n.Class.At(n.ShankDiameterIn).Match(
                 Some: band => Fin.Succ(new StrengthTriple(
                     Published.Exact(Pressure.FromMegapascals(NailWireModulusMpa), NailWireTable),
                     Published.Exact(Pressure.FromMegapascals(band.FybMpa), NailWireTable),
                     Published.Exact(Pressure.FromMegapascals(n.UltimateMpa), NailWireTable),
                     NailWireTable)),
-                None: () => new ElementFault.ValueRejected(k, $"<nail-wire-diameter-unbanded:{n.Class.Key}:{n.ShankDiameterIn:R}>")),
-            enSteel: static (k, s) => Try.lift(() => {
+                None: () => new ElementFault.ValueRejected($"<nail-wire-diameter-unbanded:{n.Class.Key}:{n.ShankDiameterIn:R}>")),
+            enSteel: static s => Try.lift(() => {
                     EnSteelMaterial material = new(s.Grade, NationalAnnex.RecommendedValues);
                     material.Specification.DeliveryCondition = s.Delivery;
                     return Fin.Succ(EnSteelFactory.CreateBiLinear(material, Length.FromMillimeters(GradeThicknessMm)));
                 }).Run().Bind(static inner => inner)
                 .Map(law => Delegated(law, SteelTable)),
-            enRebar: static (k, r) => Try.lift(() => Fin.Succ(EnRebarFactory.CreateBiLinear(r.Grade))).Run().Bind(static inner => inner)
+            enRebar: static r => Try.lift(() => Fin.Succ(EnRebarFactory.CreateBiLinear(r.Grade))).Run().Bind(static inner => inner)
                 .Map(law => Delegated(law, RebarTable)));
 
     static StrengthTriple Delegated(IBiLinearMaterial law, PropertyEvidence evidence) =>

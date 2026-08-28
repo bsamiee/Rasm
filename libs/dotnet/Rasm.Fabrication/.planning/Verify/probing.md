@@ -332,7 +332,7 @@ public abstract partial record ProbeFeature {
             row.Samples.ForAll(static sample => ValidityClaim.All(
                 ValidityClaim.Finite(sample.Nominal), ValidityClaim.Direction(sample.SurfaceNormal))),
             row.Samples.AsIterable().Zip(row.Samples.AsIterable().Skip(1),
-                static (from, to) => from.Nominal.DistanceTo(to.Nominal)).Fold(0.0, static (sum, value) => sum + value) > 0.0),
+                static to => from.Nominal.DistanceTo(to.Nominal)).Fold(0.0, static value => sum + value) > 0.0),
         surface: static row => ValidityClaim.Direction(row.Normal));
 
     internal Fin<Seq<FeatureSample>> Project(int count, Context context) => Source.Switch(
@@ -390,7 +390,7 @@ public sealed partial class ProbeTargetKey {
     }
 
     public static Fin<ProbeTargetKey> Admit(ProbeCycle cycle, int feature, int sample) =>
-        Validate(cycle, feature, sample, out ProbeTargetKey key).Admitted();
+        Validate(cycle, feature, sample, out ProbeTargetKey key).Admitted(key);
 }
 
 [ComplexValueObject]

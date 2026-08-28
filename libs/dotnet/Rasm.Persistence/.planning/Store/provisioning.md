@@ -160,10 +160,10 @@ public sealed partial class RestartClass {
 public sealed partial class FailureRank {
     public static readonly FailureRank Required = new(
         "required",
-        static (_, key) => Fin.Fail<Seq<Error>>(new ServerFault.RequiredAbsent()));
+        static (_, key) => Fin.Fail<Seq<Error>>(new ServerFault.RequiredAbsent(key)));
     public static readonly FailureRank Degradable = new(
         "degradable",
-        static (faults, key) => Fin.Succ(faults.Add(new ServerFault.LaneFolded())));
+        static (faults, key) => Fin.Succ(faults.Add(new ServerFault.LaneFolded(key))));
     public static readonly FailureRank Observational = new(
         "observational",
         static (faults, key) => Fin.Succ(faults.Add(new ServerFault.Evidence("<absent>"))));

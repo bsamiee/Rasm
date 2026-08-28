@@ -431,7 +431,7 @@ public static partial class StageRun {
         from _ in guard(licensed.Grants, (Error)StageRefusal.Blocked.Fault())
         from precision in request.SelectedPrecision.ToFin(StageRefusal.Precision.Fault())
         from keys in Sources(request, produced)
-        from planes in keys.Traverse(key => ports.Read().ToValidation()).As().ToFin()
+        from planes in keys.Traverse(key => ports.Read(key).ToValidation()).As().ToFin()
         from __ in planes
             .Traverse(plane => guard(
                     plane.Width == request.InputWidth && plane.Height == request.InputHeight,

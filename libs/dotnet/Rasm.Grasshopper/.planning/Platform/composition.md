@@ -79,13 +79,10 @@ public sealed class PlatformRoot : IDisposable {
 
     public Fin<Unit> Hold<T>(Lease<T> mount) where T : class, IDisposable {
         return Admit.Need(mount).Bind(held => Cell.Commit(mounts, rows => rows.Add(() => Fin.Succ(held.Dispose()))).Switch(
-            state: (Operation: op, Lease: held),
-            committed: static (_, _) => Fin.Succ(unit),
-            ceded: static (state, _) => Unwind(
-                state.Lease, new GhFault.Registration(state.Operation, nameof(Hold)), state.Operation),
-            refused: static (state, row) => Unwind(state.Lease, row.Cause, state.Operation),
-            contended: static (state, _) => Unwind(
-                state.Lease, new GhFault.Registration(state.Operation, nameof(PlatformRoot)), state.Operation)));
+            committed: static _ => Fin.Succ(unit),
+            ceded: static () => Unwind(new GhFault.Registration(nameof(Hold))),
+            refused: static row => Unwind(row.Cause),
+            contended: static () => Unwind(new GhFault.Registration(nameof(PlatformRoot)))));
     }
 
     private static Fin<Unit> Unwind<T>(Lease<T> held, Error primary) where T : class, IDisposable =>

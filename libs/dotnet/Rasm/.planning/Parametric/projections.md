@@ -859,19 +859,18 @@ public readonly record struct SettleBand(double Position, double Velocity) : IVa
 public static class MotionDrive {
     public static Fin<MotionScript> Admit(MotionScript script) {
         return script.Switch(
-            state: op,
-            eased: static (row) =>
+            eased: static row =>
                 from curve in Admit.Need(value: row.Curve)
                 from period in Admit.Positive(value: row.Period.TotalSeconds)
                 from plan in CyclePlan.Of(count: row.Cycle.Count, reverses: row.Cycle.Reverses)
                 select (MotionScript)row,
-            sprung: static (row) =>
+            sprung: static row =>
                 from shape in guard(row.Shape.IsValid && row.Band.IsValid, new KernelFault.InvalidInput()).ToFin()
                 from origin in Admit.Finite(value: row.From)
                 from target in Admit.Finite(value: row.To)
                 from release in Admit.Finite(value: row.Velocity)
                 select (MotionScript)row,
-            glided: static (row) =>
+            glided: static row =>
                 from origin in Admit.Finite(value: row.Origin)
                 from release in Admit.Finite(value: row.Velocity)
                 from bound in Admit.Positive(value: row.Bound.TotalSeconds)

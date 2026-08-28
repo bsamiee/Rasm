@@ -288,7 +288,7 @@ public sealed record ResultLayer(
         Option<MeasureRole> measure,
         AveragingPosture averaging,
         LayerProvenance provenance) =>
-        (Col(!string.IsNullOrWhiteSpace(), "layer carries no key"),
+        (Col(!string.IsNullOrWhiteSpace(key), "layer carries no key"),
          kind.Admit(payload),
          Spanned(key, domain))
         .Apply((_, _, _) => new ResultLayer(kind, payload, domain, measure, domain.Palette, averaging,
@@ -863,7 +863,7 @@ public static class BakeFolds {
         IO.pure(
             from provenance in layer.Provenance
             let key = $"{AnalysisLayers.Plane}.{layer.Key}@{provenance.Correlation}"
-            from view in Viewpoint.Capture(context.Revision(),
+            from view in Viewpoint.Capture(context.Revision(key),
                 context.Camera, context.Section, stack.Ground(context.Scene),
                 Seq<string>(), Seq<ViewMeasurement>(), context.Clock.GetCurrentInstant())
             select (BakeProduct)new BakeProduct.View(view));

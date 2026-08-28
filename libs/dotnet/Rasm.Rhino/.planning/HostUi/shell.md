@@ -181,22 +181,21 @@ public static class HostThread {
     private sealed record Crossed<T>(Fin<T> Value) : IDetachedDocumentResult;
 
     public static Fin<T> Run<T>(HostWork<T> work) {
-        return work.Switch(execute: static (held, request) => RhinoApp.IsOnMainThread
+        return work.Switch(execute: static request => RhinoApp.IsOnMainThread
                 ? Try.lift(request.Body).Run().Bind(static inner => inner)
-                : Marshalled(body: request.Body, op: held, lane: DispatchLane.Immediate),
-            posted: static (held, request) => RhinoApp.IsOnMainThread
+                : Marshalled(body: request.Body, lane: DispatchLane.Immediate),
+            posted: static request => RhinoApp.IsOnMainThread
                 ? Try.lift(request.Body).Run().Bind(static inner => inner)
-                : MarshalLatency.Measured(lane: DispatchLane.Deferred, work: held, body: () => Posted(request: request, op: held)),
-            required: static (held, request) => RhinoApp.IsOnMainThread
+                : MarshalLatency.Measured(lane: DispatchLane.Deferred, body: () => Posted(request: request)),
+            required: static request => RhinoApp.IsOnMainThread
                 ? Try.lift(request.Body).Run().Bind(static inner => inner)
-                : Fin.Fail<T>(error: new UiFault.OffThread(Key: held)),
-            guarded: static (held, request) => RhinoApp.IsOnMainThread
-                ? Bracketed(request: request, op: held)
-                : Marshalled(body: () => Bracketed(request: request, op: held), op: held, lane: DispatchLane.Immediate),
-            session: static (held, request) => MarshalLatency.Measured(
+                : Fin.Fail<T>(error: new UiFault.OffThread()),
+            guarded: static request => RhinoApp.IsOnMainThread
+                ? Bracketed(request: request)
+                : Marshalled(body: () => Bracketed(request: request), lane: DispatchLane.Immediate),
+            session: static request => MarshalLatency.Measured(
                 lane: DispatchLane.Interactive,
-                work: held,
-                body: () => Session(work: request, op: held)));
+                body: () => Session(work: request)));
     }
 
     internal static Fin<Unit> Release(Seq<Func<Fin<Unit>>> releases) {
@@ -210,7 +209,7 @@ public static class HostThread {
         }).Run().Bind(static inner => inner);
 
     private static Fin<T> Marshalled<T>(Func<Fin<T>> body, DispatchLane lane) =>
-        MarshalLatency.Measured(lane: lane, work: op, body: () => Try.lift(() => {
+        MarshalLatency.Measured(lane: lane, body: () => Try.lift(() => {
             Atom<Option<Fin<T>>> landed = Atom(Option<Fin<T>>.None);
             RhinoApp.InvokeAndWait(action: () => ignore(Cell.Seat(landed, () => Try.lift(body).Run().Bind(static inner => inner))));
             return Settled(landed: landed, member: nameof(RhinoApp.InvokeAndWait));
@@ -290,11 +289,10 @@ public static class MarshalLatency {
                    Lane: mint.GetTagToken(LaneTag),
                    Outcome: mint.GetTagToken(OutcomeTag)))).Run().Bind(static inner => inner)
                from seated in Cell.Seat(Seat, () => row).Switch(
-                   state: op,
-                   committed: static (_, _) => Fin.Succ(value: unit),
-                   ceded: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
-                   refused: static (_, refusal) => Fin.Fail<Unit>(error: refusal.Cause),
-                   contended: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()))
+                   committed: static _ => Fin.Succ(value: unit),
+                   ceded: static (held) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
+                   refused: static refusal => Fin.Fail<Unit>(error: refusal.Cause),
+                   contended: static (held) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()))
                select (Lease<IDisposable>)new Lease<IDisposable>.Owned(Value: Subscription.Of(
                    detach: () => ignore(Cell.Step(
                        cell: Seat,
@@ -310,7 +308,7 @@ public static class MarshalLatency {
                 ledger.SetTag(seat.Work, work.ToValue());
                 ledger.SetTag(seat.Lane, lane.Key.ToString(CultureInfo.InvariantCulture));
                 ledger.AddCheckpoint(seat.Queued);
-                return seat.Timeline.Gauged<T, DispatchLane>(lane: lane, work: work, body: body, key: work)
+                return seat.Timeline.Gauged<T, DispatchLane>(lane: lane, work: work, body: body)
                     .Bind(pair => {
                         ledger.AddCheckpoint(seat.Settled);
                         ledger.RecordMeasure(seat.Elapsed, pair.Span.Elapsed.Ticks);
@@ -635,8 +633,7 @@ public sealed class ProgressLease : IDisposable {
                             select outcome,
                         released: static (ctx, _) => Fin.Fail<ProgressReading>(error: new KernelFault.MissingContext()));
                 }
-            }),
-            key: held);
+            }));
     }
 
     public Fin<Unit> Release() => HostThread.Run(
@@ -836,15 +833,13 @@ public sealed partial class WindowPolicy {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ShellWindows {
     public static Fin<Window> Parent(WindowScope scope) {
-        return scope.Switch(application: static (held, _) => HostThread.Run(
-                work: new HostWork<Window>.Execute(Body: () => Optional(RhinoEtoApp.MainWindow).ToFin(Fail: new KernelFault.MissingContext())),
-                key: held),
-            document: static (held, owned) => HostThread.Run(
+        return scope.Switch(application: static _ => HostThread.Run(
+                work: new HostWork<Window>.Execute(Body: () => Optional(RhinoEtoApp.MainWindow).ToFin(Fail: new KernelFault.MissingContext()))),
+            document: static owned => HostThread.Run(
                 work: new HostWork<Window>.Session(
                     Document: owned.Session,
                     Needs: [SessionNeed.Read],
-                    Body: document => Optional(RhinoEtoApp.MainWindowForDocument(document)).ToFin(Fail: new KernelFault.MissingContext())),
-                key: held));
+                    Body: document => Optional(RhinoEtoApp.MainWindowForDocument(document)).ToFin(Fail: new KernelFault.MissingContext()))));
     }
 
     public static Fin<Form> Adopt(Form window, DocumentSession session, WindowPolicy policy) {
@@ -1033,8 +1028,8 @@ public abstract partial record AssemblySource {
     public sealed record SearchFolder(string Path) : AssemblySource;
     public sealed record SearchFile(string Path) : AssemblySource;
 
-    internal Fin<AssemblySource> Admit() => Switch(searchFolder: static (held, row) => Acceptance.Text(value: row.Path).Map<AssemblySource>(path => new SearchFolder(Path: path)),
-        searchFile: static (held, row) => Acceptance.Text(value: row.Path).Map<AssemblySource>(path => new SearchFile(Path: path)));
+    internal Fin<AssemblySource> Admit() => Switch(searchFolder: static row => Acceptance.Text(value: row.Path).Map<AssemblySource>(path => new SearchFolder(Path: path)),
+        searchFile: static row => Acceptance.Text(value: row.Path).Map<AssemblySource>(path => new SearchFile(Path: path)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1050,8 +1045,8 @@ public sealed record ExtensionTally(PluginKey Plugin, int Applied, Option<Error>
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostFacts {
     public static Fin<HostFact> Probe(HostProbe probe) {
-        return probe.Switch(process: static (held, _) => Process(op: held).Map<HostFact>(static snapshot => new HostFact.ProcessCase(Snapshot: snapshot)),
-            printers: static (held, _) => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.PrinterCase(
+        return probe.Switch(process: static _ => Process(op: held).Map<HostFact>(static snapshot => new HostFact.ProcessCase(Snapshot: snapshot)),
+            printers: static _ => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.PrinterCase(
                 Printers: toSeq(HostUtils.GetPrinterNames()).Map(printer => new PrinterSlot(
                     Name: printer,
                     HorizontalDpi: HostUtils.GetPrinterDPI(printerName: printer, horizontal: true),
@@ -1061,16 +1056,16 @@ public static class HostFacts {
                         Extent: HostEdge.Probe<(double Width, double Height)>(() => (
                             HostUtils.GetPrinterFormSize(printer, form, out double width, out double height),
                             (width, height))))).Strict())).Strict()))).Run().Bind(static inner => inner),
-            entitlement: static (held, _) => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.EntitlementCase(
+            entitlement: static _ => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.EntitlementCase(
                 Verdict: EntitlementFact.Of(
                     entitled: CloudHostUtils.IsEntitled,
                     reason: CloudHostUtils.DenyReason,
                     signature: CloudHostUtils.Signature)))).Run().Bind(static inner => inner),
-            compute: static (held, _) => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.ComputeCase(
+            compute: static _ => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.ComputeCase(
                 Endpoints: toSeq(HostUtils.GetCustomComputeEndpoints())
                     .Map(static row => new HostEndpoint(Path: row.Item1, Contract: row.Item2))
                     .Strict()))).Run().Bind(static inner => inner),
-            scripting: static (held, _) => Try.lift(() => Optional(PythonScript.Create())
+            scripting: static _ => Try.lift(() => Optional(PythonScript.Create())
                 .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(PythonScript.Create))))
                 .Bind(engine => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.ScriptCase(
                     Engine: ScriptEngineSnapshot.Create(
@@ -1108,7 +1103,7 @@ public static class HostFacts {
 
 public static class HostAssemblies {
     public static Fin<ExtensionTally> Extend(PluginKey plugin, Seq<AssemblySource> sources) {
-        return from admitted in sources.TraverseM(source => Admit.Need(source).Bind(row => row.Admit())).As()
+        return from admitted in sources.TraverseM(source => Admit.Need(source).Bind(row => row.Admit(op))).As()
                from outcome in HostThread.Run(
                    work: new HostWork<ExtensionTally>.Execute(Body: () => Fin.Succ(value: admitted.Fold(
                        new ExtensionTally(Plugin: plugin, Applied: 0, Fault: None),
@@ -1124,12 +1119,12 @@ public static class HostAssemblies {
     }
 
     public static Fin<Assembly> Load(AssemblyIntake intake) {
-        return intake.Switch(fromPath: static (held, row) => Acceptance.Text(value: row.Path)
+        return intake.Switch(fromPath: static row => Acceptance.Text(value: row.Path)
                 .Bind(path => Try.lift(() => Optional(HostUtils.LoadAssemblyFrom(path: path))
                     .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(HostUtils.LoadAssemblyFrom))))).Run().Bind(static inner => inner)),
-            fromStream: static (held, row) => Try.lift(() => Optional(HostUtils.LoadAssemblyFromStream(stream: row.Source))
+            fromStream: static row => Try.lift(() => Optional(HostUtils.LoadAssemblyFromStream(stream: row.Source))
                 .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(HostUtils.LoadAssemblyFromStream))))).Run().Bind(static inner => inner),
-            fromName: static (held, row) => Try.lift(() => Optional(HostUtils.LoadAssemblyFromName(assemblyName: row.Name))
+            fromName: static row => Try.lift(() => Optional(HostUtils.LoadAssemblyFromName(assemblyName: row.Name))
                 .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(HostUtils.LoadAssemblyFromName))))).Run().Bind(static inner => inner));
     }
 }
@@ -1170,14 +1165,14 @@ public abstract partial record ScriptRun {
     public sealed record Expression(string Statements, string Formula) : ScriptRun;
     public sealed record Compiled(ScriptUnit Unit) : ScriptRun;
 
-    internal Fin<ScriptRun> Admit() => Switch(source: static (key, row) => Acceptance.Text(value: row.Script).Map<ScriptRun>(script => new Source(Script: script)),
-        file: static (key, row) => Acceptance.Text(value: row.Path).Map<ScriptRun>(path => new File(Path: path)),
-        fileInScope: static (key, row) => Acceptance.Text(value: row.Path).Map<ScriptRun>(path => new FileInScope(Path: path)),
+    internal Fin<ScriptRun> Admit() => Switch(source: static row => Acceptance.Text(value: row.Script).Map<ScriptRun>(script => new Source(Script: script)),
+        file: static row => Acceptance.Text(value: row.Path).Map<ScriptRun>(path => new File(Path: path)),
+        fileInScope: static row => Acceptance.Text(value: row.Path).Map<ScriptRun>(path => new FileInScope(Path: path)),
         expression: static (row) =>
             from statements in Acceptance.Text(value: row.Statements)
             from formula in Acceptance.Text(value: row.Formula)
             select (ScriptRun)new Expression(Statements: statements, Formula: formula),
-        compiled: static (_, row) => Fin.Succ<ScriptRun>(row));
+        compiled: static row => Fin.Succ<ScriptRun>(row));
 }
 
 [SmartEnum<bool>]
@@ -1422,7 +1417,7 @@ public abstract partial record TokenAsk(string ClientId) {
         string ClientId, string ClientSecret, Seq<string> Scopes, Option<string> Prompt, Option<int> MaxAge) : TokenAsk(ClientId);
     public sealed record TryCached(string ClientId, Seq<string> Scopes) : TokenAsk(ClientId);
 
-    internal Fin<TokenAsk> Admit() => Switch(acquire: static (key, row) =>
+    internal Fin<TokenAsk> Admit() => Switch(acquire: static row =>
             from id in Acceptance.Text(value: row.ClientId)
             from secret in Acceptance.Text(value: row.ClientSecret)
             select (TokenAsk)new Acquire(ClientId: id, ClientSecret: secret),
@@ -1838,7 +1833,7 @@ public sealed record NamedBag {
 
     public NamedBag Remove(string key) => new(rows: Rows.Remove());
 
-    public Option<NamedValue> Find(string key) => Rows.Find();
+    public Option<NamedValue> Find(string key) => Rows.Find(key);
 
     internal Fin<NamedLease> WriteInto(NamedParametersEventArgs args) {
         (Seq<Func<Fin<Unit>>> Releases, Option<Error> Fault) state = toSeq(Rows.AsIterable()).Fold(
@@ -1890,12 +1885,11 @@ public sealed class NamedRegistry {
 
     internal Fin<Guid> Claim(string name, PluginKey plugin) {
         Guid token = Guid.NewGuid();
-        return Cell.Claim(cell: names, key: name, mint: () => (plugin, token)).Switch(
-            state: op,
-            committed: static (_, _) => Fin.Succ(value: token),
-            ceded: static (held, _) => Fin.Fail<Guid>(error: new KernelFault.InvalidContext()),
-            refused: static (_, row) => Fin.Fail<Guid>(error: row.Cause),
-            contended: static (held, _) => Fin.Fail<Guid>(error: new KernelFault.InvalidResult()));
+        return Cell.Claim(cell: names, mint: () => (plugin, token)).Switch(
+            committed: static _ => Fin.Succ(value: token),
+            ceded: static (held) => Fin.Fail<Guid>(error: new KernelFault.InvalidContext()),
+            refused: static row => Fin.Fail<Guid>(error: row.Cause),
+            contended: static (held) => Fin.Fail<Guid>(error: new KernelFault.InvalidResult()));
     }
 
     internal Unit Yield(string name, Guid token) => ignore(names.Swap(held =>
@@ -2139,13 +2133,13 @@ public sealed class NoticeLease : IDisposable {
         PropertyChangedEventHandler changed = (_, args) => ignore(gate.Deliver(() => Fin.Succ<NoticeFact>(
             value: new NoticeFact.ChangedCase(
                 Property: args.PropertyName ?? string.Empty,
-                At: Error.New(key: op.Message).ToOption()))));
+                At: timeline.Capture().ToOption()))));
         return Subscription.AttachAll(Seq<Func<Fin<Subscription>>>(
                 () => Subscription.Acquire(
                     acquire: () => HostNotice.ExecuteAssemblyProtectedCode(action: () => notice.ButtonClicked = button =>
                         ignore(gate.Deliver(() => FactoryBridge.Row<HostNoticeButton, NoticeReply>(button)
                             .Map<NoticeFact>(reply => new NoticeFact.ReplyCase(
-                                Reply: reply, At: Error.New(key: op.Message).ToOption()))))),
+                                Reply: reply, At: timeline.Capture().ToOption()))))),
                     release: () => HostNotice.ExecuteAssemblyProtectedCode(action: () => notice.ButtonClicked = null)),
                 () => Subscription.Attach(
                     subscribe: callback => notice.PropertyChanged += callback,
@@ -2169,8 +2163,7 @@ public sealed class NoticeLease : IDisposable {
         return Acceptance.Text(value: field).Bind(named => Crossing(
             body: held => HostEdge.Side(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => ignore(value.Match(
                 Some: text => HostEdge.Side(() => held[named] = text),
-                None: () => HostEdge.Side(() => ignore(held.RemoveMetadata(key: named))))))),
-            key: admitted));
+                None: () => HostEdge.Side(() => ignore(held.RemoveMetadata(key: named)))))))));
     }
 
     public Fin<Unit> Release() {
@@ -2183,8 +2176,7 @@ public sealed class NoticeLease : IDisposable {
                 () => Try.lift(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => {
                     held.HideModal();
                     _ = HostNoticeCenter.Notifications.Remove(held);
-                })).Run().Bind(static inner => inner)),
-            key: admitted)
+                })).Run().Bind(static inner => inner)))
             .MapFail(failure => (faults.Park(item: failure), failure).Item2);
     }
 
@@ -2194,9 +2186,7 @@ public sealed class NoticeLease : IDisposable {
         HostNotice held = notice;
         return HostThread.Run(
             work: new HostWork<T>.Execute(Body: () => gate.Within(
-                body: () => Try.lift(() => Fin.Succ(value: body(held))).Run().Bind(static inner => inner),
-                key: admitted)),
-            key: admitted);
+                body: () => Try.lift(() => Fin.Succ(value: body(held))).Run().Bind(static inner => inner))));
     }
 }
 
@@ -2396,9 +2386,9 @@ public sealed class ShellCapsule : IDisposable {
                 .TraverseM(mount => mount(held.Identity.Plugin))
                 .As()
                 .Map(seats => held.Seated with { Retire = held.Seated.Retire + seats.Map(seat => Retiring(seat)) }),
-            vault: static (held, row) => row.Seat()
+            vault: static (held, row) => row.Seat(held.Op)
                 .Map(rows => held.Seated with { Retire = held.Seated.Retire + rows }),
-            engines: static (held, row) => row.Seat()
+            engines: static (held, row) => row.Seat(held.Op)
                 .Map(rows => held.Seated with { Retire = held.Seated.Retire + rows }),
             resolver: static (held, row) => HostAssemblies
                 .Extend(plugin: held.Identity.Plugin, sources: row.Sources)

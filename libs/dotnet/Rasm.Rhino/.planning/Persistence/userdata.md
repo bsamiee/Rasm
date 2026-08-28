@@ -260,7 +260,7 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
 
     protected sealed override void OnDuplicate(UserData source) {
         Try.lift(() => source is TSelf typed
-            ? typed.Snapshot().Bind(payload => Adopt(payload)).Map(static _ => unit)
+            ? typed.Snapshot(op).Bind(payload => Adopt(payload)).Map(static _ => unit)
             : Fin.Fail<Unit>(new KernelFault.Unsupported(InputType: source.GetType(), OutputType: typeof(TSelf)))).Run().Bind(static inner => inner)
             .Match(Succ: static _ => unit, Fail: error => Poison(error));
     }
@@ -409,14 +409,13 @@ public static class Custody {
         return Admit.Need(query)
             .Bind(active => Admit(active))
             .Bind(active => active.Switch< Fin<CustodyAnswer>>(
-                state: op,
                 censusCase: static (census) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.CensusCase(
                     census.Target.UserData.Map(Describe).ToSeq()))).Run().Bind(static inner => inner),
                 probeCase: static (probe) => probe.Reference.Switch<(CommonObject Target), Fin<CustodyAnswer>>(
                     state: (probe.Target),
-                    idCase: static (ctx, row) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.PresenceCase(
+                    idCase: static row => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.PresenceCase(
                         (CustodyPresence)ctx.Target.UserData.Contains(row.Value)))).Run().Bind(static inner => inner),
-                    typeCase: static (ctx, row) => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.DescriptionCase(
+                    typeCase: static row => Try.lift(() => Fin.Succ<CustodyAnswer>(value: new CustodyAnswer.DescriptionCase(
                         Optional(ctx.Target.UserData.Find(row.Value)).Map(Describe)))).Run().Bind(static inner => inner)),
                 sharedCase: static (read) => Open(read.Target)
                     .Bind(opened => ArchiveMap.Detach(opened.Dictionary)
@@ -451,34 +450,31 @@ public static class Custody {
         select program with { Steps = steps };
 
     private static Fin<CustodyQuery> Admit(CustodyQuery query) => query.Switch< Fin<CustodyQuery>>(
-        state: op,
         censusCase: static (census) => Admit.Need(census.Target).Map(_ => (CustodyQuery)census),
         probeCase: static (probe) => (
                 Admit.Need(probe.Target).ToValidation(),
                 probe.Reference.Switch< Fin<UserDataRef>>(
-                    state: op,
                     idCase: static (row) => guard(row.Value != Guid.Empty, new KernelFault.InvalidInput())
                         .ToFin()
                         .Map<UserDataRef>(_ => row),
                     typeCase: static (row) => Admit.Need(row.Value)
                         .Bind(type => guard(typeof(UserData).IsAssignableFrom(type), new KernelFault.InvalidInput()).ToFin())
                         .Map<UserDataRef>(_ => row)).ToValidation())
-            .Apply(static (target, reference) => (CustodyQuery)new CustodyQuery.ProbeCase(target, reference))
+            .Apply(static reference => (CustodyQuery)new CustodyQuery.ProbeCase(reference))
             .As()
             .ToFin(),
         sharedCase: static (read) => Admit.Need(read.Target).Map(_ => (CustodyQuery)read));
 
     private static Fin<CustodyStep> Admit(CustodyStep step) => step.Switch< Fin<CustodyStep>>(
-        state: op,
         attachCase: static (attach) => (Admit.Need(attach.Target).ToValidation(), AdmitAttach(attach.Value).ToValidation())
-            .Apply(static (target, value) => (CustodyStep)new CustodyStep.AttachCase(target, value))
+            .Apply(static value => (CustodyStep)new CustodyStep.AttachCase(value))
             .As()
             .ToFin(),
         removeCase: static (remove) => (
                 Admit.Need(remove.Target).ToValidation(),
                 Admit.Need(remove.Value).ToValidation(),
                 Admit.Need(remove.Disposal).ToValidation())
-            .Apply(static (target, value, disposal) => (CustodyStep)new CustodyStep.RemoveCase(target, value, disposal))
+            .Apply(static (value, disposal) => (CustodyStep)new CustodyStep.RemoveCase(value, disposal))
             .As()
             .ToFin(),
         purgeCase: static (purge) => Admit.Need(purge.Target).Map(_ => (CustodyStep)purge),
@@ -494,14 +490,14 @@ public static class Custody {
             .As()
             .ToFin(),
         replaceCase: static (replace) => (Admit.Need(replace.Target).ToValidation(), Admit.Need(replace.Payload).ToValidation())
-            .Apply(static (target, payload) => (CustodyStep)new CustodyStep.ReplaceCase(target, payload))
+            .Apply(static payload => (CustodyStep)new CustodyStep.ReplaceCase(payload))
             .As()
             .ToFin(),
         mergeCase: static (merge) => (
                 Admit.Need(merge.Target).ToValidation(),
                 Admit.Need(merge.Payload).ToValidation(),
                 Admit.Need(merge.Merge).ToValidation())
-            .Apply(static (target, payload, policy) => (CustodyStep)new CustodyStep.MergeCase(target, payload, policy))
+            .Apply(static (payload, policy) => (CustodyStep)new CustodyStep.MergeCase(payload, policy))
             .As()
             .ToFin());
 
@@ -512,7 +508,6 @@ public static class Custody {
                 : Fin.Fail<UserData>(error: new KernelFault.InvalidInput()));
 
     private static Fin<Unit> Land(CustodyStep step) => step.Switch< Fin<Unit>>(
-        state: op,
         attachCase: static (attach) => Try.lift(() => Admit.Confirm(success: attach.Target.UserData.Add(attach.Value))).Run().Bind(static inner => inner),
         removeCase: static (remove) => Try.lift(() => Admit.Confirm(success: remove.Target.UserData.Remove(remove.Value))).Run().Bind(static inner => inner)
             .Bind(_ => remove.Disposal.Key ? Try.lift(remove.Value.Dispose).Run().Bind(static inner => inner) : Fin.Succ(value: unit)),

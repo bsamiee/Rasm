@@ -306,7 +306,7 @@ public sealed class BlockVault {
     internal Fin<DocSeal> Engage(DocumentSession session, RefreshPolicy policy) =>
         from owner in Admit.Need(session)
         from active in Admit.Need(policy)
-        from seal in enrolled.Value.Find().Match(
+        from seal in enrolled.Value.Find(owner.Key).Match(
             Some: static held => Fin.Succ(value: held.Seal),
             None: () => Enrol(owner: owner, policy: active))
         select seal;
@@ -473,7 +473,7 @@ public sealed class BlockVault {
 
     private Fin<PreviewGrant> Committed(PreviewKey key, Lease<GdiBitmap> image) =>
         Commit(transition: state => {
-                Option<PreviewEntry> prior = state.Live.Find();
+                Option<PreviewEntry> prior = state.Live.Find(owner.Key);
                 int liveVersion = prior.Map(static held => held.Version).IfNone(noneValue: 0);
                 int retiredVersion = state.Retired.AsIterable()
                     .Filter(pair => pair.Key.Key == key)
@@ -501,7 +501,7 @@ public sealed class BlockVault {
             .Rollback(release: () => Lowered(faults: ReleaseAll(images: Seq(image))));
 
     private Fin<Option<PreviewGrant>> TryGrant(PreviewKey key) =>
-        Commit(transition: state => state.Live.Find().Case switch {
+        Commit(transition: state => state.Live.Find(row.Key).Case switch {
             PreviewEntry { Stale: false } current => (
                 state with {
                     Live = state.Live.AddOrUpdate(value: current with { Grants = current.Grants + 1 }),
@@ -539,7 +539,7 @@ public sealed class BlockVault {
         Custody.Release(releases: toSeq(attempts.ToArray()));
 
     private Seq<Error> Release(PreviewKey key, int version) {
-        return Commit(transition: state => state.Live.Find().Case switch {
+        return Commit(transition: state => state.Live.Find(row.Key).Case switch {
                 PreviewEntry current when current.Version == version => (
                     state with {
                         Live = state.Live.AddOrUpdate(value: current with { Grants = int.Max(current.Grants - 1, 0) }),
@@ -573,11 +573,10 @@ public sealed class BlockVault {
             (VaultState next, VaultOutcome outcome) = transition(arg: state);
             return next with { LastOutcome = outcome };
         }).Switch(
-            state: op,
-            committed: static (_, row) => Fin.Succ(value: row.State.LastOutcome),
-            ceded: static (_) => Fin.Fail<VaultOutcome>(error: new KernelFault.InvalidResult()),
-            refused: static (_, row) => Fin.Fail<VaultOutcome>(error: row.Cause),
-            contended: static (_) => Fin.Fail<VaultOutcome>(error: new KernelFault.InvalidResult()))).Run().Bind(static inner => inner);
+            committed: static row => Fin.Succ(value: row.State.LastOutcome),
+            ceded: static () => Fin.Fail<VaultOutcome>(error: new KernelFault.InvalidResult()),
+            refused: static row => Fin.Fail<VaultOutcome>(error: row.Cause),
+            contended: static () => Fin.Fail<VaultOutcome>(error: new KernelFault.InvalidResult()))).Run().Bind(static inner => inner);
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -586,11 +585,10 @@ public static class BlockLifecycle {
 
     public static Fin<Unit> Mount(BlockVault vault) {
         return Cell.Seat(Seat, () => vault).Switch(
-            state: op,
-            committed: static (_, _) => Fin.Succ(value: unit),
-            ceded: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
-            refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
-            contended: static (held, _) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()));
+            committed: static _ => Fin.Succ(value: unit),
+            ceded: static (held) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
+            refused: static row => Fin.Fail<Unit>(error: row.Cause),
+            contended: static (held) => Fin.Fail<Unit>(error: new KernelFault.InvalidResult()));
     }
 
     private static Fin<BlockVault> Mounted() => Seat.Value.ToFin(Fail: new KernelFault.MissingContext());

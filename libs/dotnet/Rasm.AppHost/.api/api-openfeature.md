@@ -107,7 +107,7 @@
 | [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]              |
 | :-----: | :------------------------------------------------------------------------ | :------- | :------------------------ |
 |  [01]   | `EvaluationContext.Builder()`                                             | static   | context construction      |
-|  [02]   | `EvaluationContextBuilder.SetTargetingKey()`                           | instance | sticky bucketing key      |
+|  [02]   | `EvaluationContextBuilder.SetTargetingKey(key)`                           | instance | sticky bucketing key      |
 |  [03]   | `EvaluationContextBuilder.Set(value)`                                | instance | targeting attribute       |
 |  [04]   | `EvaluationContextBuilder.Build()`                                        | instance | immutable context         |
 |  [05]   | `new InMemoryProvider(flags)`                                             | ctor     | config-backed flag set    |

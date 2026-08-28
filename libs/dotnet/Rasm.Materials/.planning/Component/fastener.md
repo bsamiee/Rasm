@@ -426,7 +426,7 @@ public static class FastenerSeed {
     public static readonly SeedLaw<StockRow> Law = SeedLaw<StockRow>.Of(
         family: ComponentFamily.Fastener,
         designation: static row => $"fastener.{row.Facts.Kind.Key}-{row.Facts.Designation}",
-        coherence: static (row, key) => row.Coherence(),
+        coherence: static (row, key) => row.Coherence(key),
         profile: static (row, key) => SectionProfile.Circle.Of(row.Facts.DiameterMm),
         substance: static row => row.Facts.Substance,
         source: static _ => Stock,

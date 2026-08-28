@@ -300,7 +300,7 @@ public static class StructuralMerge {
             .Append(Cycles(theirEdits, theirsByKey, ByOurs: false, stampTheirs)));
         HashSet<NodeId> poisoned = conflicts.Filter(static c => c.ConflictAxis.IsNone).Map(static c => c.Subject).ToHashSet();
         HashSet<(NodeId Key, string Axis)> conflictedAxes = conflicts.Bind(c => c.ConflictAxis.Map(axis => (c.Subject, axis)).ToSeq()).ToHashSet();
-        bool Excluded(NodeId key, string axis) => poisoned.Contains() || conflictedAxes.Contains((axis));
+        bool Excluded(NodeId key, string axis) => poisoned.Contains(key) || conflictedAxes.Contains((axis));
         Seq<EditOp> merged = toSeq(ourEdits.Map((key, axes) => toSeq(axes.Filter((axis, _) => !Excluded(axis)).Values)).Values.Bind(static ops => ops)
             .Append(theirEdits.Map((key, axes) => toSeq(axes.Filter((axis, _) => !Excluded(axis) && !ourEdits.Find().Map(a => a.ContainsKey(axis)).IfNone(false)).Values)).Values.Bind(static ops => ops)));
         return new MergeOutcome(merged, conflicts, Tally(merged, conflicts));

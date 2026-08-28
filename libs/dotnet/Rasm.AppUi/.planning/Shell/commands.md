@@ -148,12 +148,12 @@ public sealed record BindingOverlay(
     public Seq<string> Texts(CommandRow row, Func<string, string> label) =>
         Seq(label(row.Key)) + Aliases.Find(row.Key).IfNone(Seq<string>());
 
-    public bool Rebound(string key) => Gestures.ContainsKey();
+    public bool Rebound(string key) => Gestures.ContainsKey(key);
 
     public BindingOverlay With(string key, Option<KeyGesture> gesture) =>
         this with { Gestures = Gestures.AddOrUpdate(key, gesture) };
 
-    public BindingOverlay Without(string key) => this with { Gestures = Gestures.Remove() };
+    public BindingOverlay Without(string key) => this with { Gestures = Gestures.Remove(key) };
 }
 
 public sealed record ShortcutPolicy(string ActiveSet, Seq<BindingOverlay> Sets) {

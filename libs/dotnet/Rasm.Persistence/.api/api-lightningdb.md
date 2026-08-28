@@ -98,7 +98,7 @@
 | [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                                |
 | :-----: | :----------------------------------------------------------------- | :------- | :------------------------------------------ |
 |  [01]   | `LightningCursor.SetRange(ReadOnlySpan<byte>) -> MDBResultCode`    | instance | seeks the first key ≥ key                   |
-|  [02]   | `LightningCursor.Set()` / `SetKey()`                         | instance | exact seek without or with the value read   |
+|  [02]   | `LightningCursor.Set(key)` / `SetKey()`                         | instance | exact seek without or with the value read   |
 |  [03]   | `LightningCursor.GetBoth(value)` / `GetBothRange(value)` | instance | exact or ≥ seek on a `(value)` pair    |
 |  [04]   | `First()` / `Last()` / `Next()` / `Previous()`                     | instance | forward and backward B+tree walk            |
 |  [05]   | `LightningCursor.GetCurrent()`                                     | instance | the entry under the cursor                  |
@@ -111,7 +111,7 @@
 |  [12]   | `LightningCursor.Delete()` / `DeleteDuplicateData()`               | instance | drops the entry or the whole dup set        |
 |  [13]   | `GetMultiple()` / `NextMultiple()`                                 | instance | page-sized `DuplicatesFixed` bulk read      |
 |  [14]   | `LightningCursor.Renew()` / `Renew(LightningTransaction)`          | instance | rebinds the cursor to a renewed read txn    |
-|  [15]   | `cursor.AsEnumerable()` / `cursor.AllValuesFor()`               | static   | struct-enumerator walk, dup set for one key |
+|  [15]   | `cursor.AsEnumerable()` / `cursor.AllValuesFor(key)`               | static   | struct-enumerator walk, dup set for one key |
 
 - `LightningCursor.Put`: `CursorPutOptions` is positional, with no default; every walk member returns `(MDBResultCode, MDBValue key, MDBValue value)`.
 

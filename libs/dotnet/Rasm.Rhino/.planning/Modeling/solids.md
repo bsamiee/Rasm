@@ -99,10 +99,10 @@ public static class BenchBand {
     public static Fin<(Fin<T> Outcome, BenchEvidence Evidence)> Measured<T>(
         MonotonicTimeline timeline, string operation, long inputScale, Func<Fin<T>> run) {
         return from clock in Admit.Need(timeline)
-               from opened in Error.New(key: op.Message)
+               from opened in clock.Capture()
                let allocated = GC.GetAllocatedBytesForCurrentThread()
                let outcome = Try.lift(run).Run().Bind(static inner => inner)
-               from closed in Error.New(key: op.Message)
+               from closed in clock.Capture()
                from duration in clock.Elapsed(start: opened, end: closed)
                select (outcome, new BenchEvidence(
                    Operation: operation,

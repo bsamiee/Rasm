@@ -483,12 +483,12 @@ internal static class RequirementContext {
         internal Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
             TA a,
             TB b,
-            Func< Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
+            Func<Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
             CancellationToken cancel = default) where TA : notnull where TB : notnull =>
             (from pair in context.Validate(a: a, b: b, requirementA: Requirement.None, requirementB: Requirement.None, cancel: cancel)
              from kindA in pair.A.KindOf(context: context).ToValidation()
              from kindB in pair.B.KindOf(context: context).ToValidation()
-             from required in requirements(arg1: op, arg2: kindA, arg3: kindB).ToValidation()
+             from required in requirements(arg1: kindA, arg2: kindB).ToValidation()
              from validated in context.Validate(a: pair.A, b: pair.B, requirementA: required.A, requirementB: required.B, cancel: cancel)
              select (validated.A, validated.B, KindA: kindA, KindB: kindB)).As();
         private Validation<Error, (TA A, TB B)> Validate<TA, TB>(TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>

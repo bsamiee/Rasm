@@ -1193,26 +1193,26 @@ public abstract partial record CurveOp {
                         pitch: ctx.Pitch, turnCount: ctx.TurnCount, radius0: ctx.Radius0,
                         radius1: ctx.Radius1, pointsPerTurn: law.PointsPerTurn)))),
             parabola: static (_, edit) => edit.Seed.Switch(
-                fromVertex: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateParabolaFromVertex(
+                fromVertex: static seed => ModelGate.Single(() => NurbsCurve.CreateParabolaFromVertex(
                     vertex: seed.Vertex, startPoint: seed.Start, endPoint: seed.End)),
-                fromFocus: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateParabolaFromFocus(
+                fromFocus: static seed => ModelGate.Single(() => NurbsCurve.CreateParabolaFromFocus(
                     focus: seed.Focus, startPoint: seed.Start, endPoint: seed.End)),
-                fromPoints: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateParabolaFromPoints(
+                fromPoints: static seed => ModelGate.Single(() => NurbsCurve.CreateParabolaFromPoints(
                     startPoint: seed.Start, innerPoint: seed.Inner, endPoint: seed.End))),
             arcBezier: static (_, edit) => ModelGate.Single(() => NurbsCurve.CreateNonRationalArcBezier(
                     degree: edit.Degree.Key, center: edit.Center, start: edit.Start, end: edit.End,
                     radius: edit.Radius, tanSlider: edit.TanSlider.Value, midSlider: edit.MidSlider.Value)),
             analytic: static (_, edit) => edit.Seed.Switch(
-                ofLine: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateFromLine(line: seed.Value)),
-                ofArc: static (key, seed) => ModelGate.Single(() => seed.Structure.Case switch {
+                ofLine: static seed => ModelGate.Single(() => NurbsCurve.CreateFromLine(line: seed.Value)),
+                ofArc: static seed => ModelGate.Single(() => seed.Structure.Case switch {
                     (int degree, int cvCount) => NurbsCurve.CreateFromArc(arc: seed.Value, degree: degree, cvCount: cvCount),
                     _ => NurbsCurve.CreateFromArc(arc: seed.Value),
                 }),
-                ofCircle: static (key, seed) => ModelGate.Single(() => seed.Structure.Case switch {
+                ofCircle: static seed => ModelGate.Single(() => seed.Structure.Case switch {
                     (int degree, int cvCount) => NurbsCurve.CreateFromCircle(circle: seed.Value, degree: degree, cvCount: cvCount),
                     _ => NurbsCurve.CreateFromCircle(circle: seed.Value),
                 }),
-                ofEllipse: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateFromEllipse(ellipse: seed.Value))),
+                ofEllipse: static seed => ModelGate.Single(() => NurbsCurve.CreateFromEllipse(ellipse: seed.Value))),
             catenary: static (_, edit) => {
                 return Try.lift(() => {
                     Curve hung = edit.Law.Switch(

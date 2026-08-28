@@ -183,9 +183,9 @@ public static class CustomOps {
 
     static Validation<Error, Seq<OpOutput.MapKey>> Keyed(OrtValue keys, TensorElementType dtype) => dtype switch {
         TensorElementType.String => Success<Error, Seq<OpOutput.MapKey>>(toSeq(keys.GetStringTensorAsArray())
-            .Map(static key => (OpOutput.MapKey)new OpOutput.MapKey.String())),
+            .Map(static key => (OpOutput.MapKey)new OpOutput.MapKey.String(key))),
         TensorElementType.Int64 => Success<Error, Seq<OpOutput.MapKey>>(toSeq(keys.GetTensorDataAsSpan<long>().ToArray())
-            .Map(static key => (OpOutput.MapKey)new OpOutput.MapKey.Int64())),
+            .Map(static key => (OpOutput.MapKey)new OpOutput.MapKey.Int64(key))),
         TensorElementType unmodeled =>
             Fail<Error, Seq<OpOutput.MapKey>>(EgressRefusal.MapKeyUnmodelled.Fault()),
     };

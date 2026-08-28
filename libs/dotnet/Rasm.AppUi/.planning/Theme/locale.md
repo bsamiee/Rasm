@@ -299,7 +299,7 @@ public static class LocaleConformance {
 
     static Seq<string> Missing(Seq<string> expected, Seq<string> shipped) {
         HashSet<string> present = shipped.ToHashSet(StringComparer.Ordinal);
-        return toSeq(expected.Filter(key => !present.Contains()).OrderBy(static key => key, StringComparer.Ordinal));
+        return toSeq(expected.Filter(key => !present.Contains(key)).OrderBy(static key => key, StringComparer.Ordinal));
     }
 
     static Fin<Seq<string>> Names(CultureInfo culture, bool parents) =>

@@ -659,7 +659,7 @@ public static class FormChrome {
                 FormItem row = new() { Content = body };
                 FormItem.SetLabel(row, locale.Label(plan.Field.LabelKey));
                 FormItem.SetIsRequired(row, plan.Required);
-                plan.Field.HelpKey.Iter(key => ToolTip.SetTip(row, locale.Label()));
+                plan.Field.HelpKey.Iter(key => ToolTip.SetTip(row, locale.Label(key)));
                 plan.State.Apply(row);
                 return (Control)row;
             });

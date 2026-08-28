@@ -167,7 +167,7 @@ public sealed partial record TessellationRequest {
         CorrelationId correlation, CancellationToken cancel,
         IClock clock, MonotonicTimeline timeline) {
         var at = clock.GetCurrentInstant();
-        return (from mark in FinT.lift<IO, MonotonicStamp>(Error.New(key.Message))
+        return (from mark in FinT.lift<IO, MonotonicStamp>(timeline.Capture())
                 from _live in FinT.lift<IO, Unit>(Live(cancel))
                 from hit in FinT.lift<IO, Option<ReadOnlyMemory<byte>>>(store.Lookup(Address))
                 from outcome in hit.Match(

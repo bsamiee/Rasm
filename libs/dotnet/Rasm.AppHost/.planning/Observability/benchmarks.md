@@ -119,7 +119,7 @@ public abstract partial record BenchmarkFault : Fault {
 
     [FaultCase(0)]
     public sealed partial record GateRegressed : BenchmarkFault {
-        public GateRegressed(Seq<BudgetBreach> breaches) : base(key.ToString()) => Breaches = breaches;
+        public GateRegressed(Seq<BudgetBreach> breaches) : base(nameof(GateRegressed)) => Breaches = breaches;
         public Seq<BudgetBreach> Breaches { get; }
     }
     [FaultCase(1)]
