@@ -124,7 +124,7 @@
 |  [19]   | `Graphics.DpiX -> float`                                             | property | context horizontal DPI       |
 |  [20]   | `Graphics.DpiY -> float`                                             | property | context vertical DPI         |
 
-- `Graphics.DpiX`/`Graphics.DpiY`: RhinoWIP's host build returns a constant `96f`, so a Retina scale factor resolves from the host view rather than the context.
+- `Graphics.DpiX`/`Graphics.DpiY`: Rhino 9's host build returns a constant `96f`, so a Retina scale factor resolves from the host view rather than the context.
 
 [ENTRYPOINT_SCOPE]: path geometry and transform
 
@@ -183,7 +183,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Encoder-parameter carriers and the `Heif`/`Webp` format values resolve against the package build; the RhinoWIP host build omits both.
+- Encoder-parameter carriers and the `Heif`/`Webp` format values resolve against the package build; the Rhino 9 host build omits both.
 - Native-backed carriers implement `IDisposable`, so a boundary member returning one transfers the handle and its receiver disposes it.
 
 [STACKING]:

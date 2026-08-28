@@ -38,7 +38,7 @@ public static class Law {
             (comparer ?? Comparer<TKey>.Default).Compare(projection(p.Lo), projection(p.Hi)) <= 0,
             $"{name}: f({p.Lo}) = {projection(p.Lo)} > {projection(p.Hi)} = f({p.Hi})"), witness);
     public static Law<(T[] Source, T[] Shuffled)> Permutation<T, TResult>(string name, Gen<T[]> gen, Func<T[], TResult> f, (T[] Source, T[] Shuffled) witness, Func<TResult, TResult, bool>? eq = null) =>
-        Of(name, gen.SelectMany(arr => Gen.Shuffle(arr).Select(perm => (Source: arr, Shuffled: perm))), p => Eq(name, f(p.Source), f(p.Shuffled), eq), witness);
+        Of(name, gen.SelectMany(static arr => Gen.Shuffle(arr).Select(perm => (Source: arr, Shuffled: perm))), p => Eq(name, f(p.Source), f(p.Shuffled), eq), witness);
 
     private static Gen<(T A, T B, T C)> Triples<T>(Gen<T> gen) => gen.Select(gen, gen, static (a, b, c) => (A: a, B: b, C: c));
     private static void Eq<T>(string name, T left, T right, Func<T, T, bool>? eq) =>
@@ -67,7 +67,7 @@ public static partial class Spec {
     }
     public static void Hold<T>(params Law<T>[] laws) {
         NonEmpty(laws, "Hold: empty law table proves nothing");
-        _ = laws.AsIterable().Iter(law => { Cancel(); Hold(law); });
+        _ = laws.AsIterable().Iter(static law => { Cancel(); Hold(law); });
     }
     public static void Replay<T>(Gen<T> gen, Action<T> property, string seed) => ForAll(gen, property, seed, iter: 1);
     public static void Replay<T>(Law<T> law, string seed) {
@@ -134,24 +134,24 @@ public static partial class Spec {
     }
     public static void Succ<T>(Fin<T> result, Action<T>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Succ: value => Tap(then, value), Fail: error => throw new XunitException($"Expected Succ; got Fail: {error.Message}"));
+        _ = result.Match(Succ: value => Tap(then, value), Fail: static error => throw new XunitException($"Expected Succ; got Fail: {error.Message}"));
     }
     public static void Fail<T>(Fin<T> result, Action<Error>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Succ: value => throw new XunitException($"Expected Fail; got Succ: {value}"), Fail: error => Tap(then, error));
+        _ = result.Match(Succ: static value => throw new XunitException($"Expected Fail; got Succ: {value}"), Fail: error => Tap(then, error));
     }
     public static void Valid<T>(Validation<Error, T> result, Action<T>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Succ: value => Tap(then, value), Fail: error => throw new XunitException($"Expected Valid; got Invalid: {error.Message}"));
+        _ = result.Match(Succ: value => Tap(then, value), Fail: static error => throw new XunitException($"Expected Valid; got Invalid: {error.Message}"));
     }
     public static void Invalid<T>(Validation<Error, T> result, Action<Error>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Succ: value => throw new XunitException($"Expected Invalid; got Valid: {value}"), Fail: error => Tap(then, error));
+        _ = result.Match(Succ: static value => throw new XunitException($"Expected Invalid; got Valid: {value}"), Fail: error => Tap(then, error));
     }
     public static void Some<T>(Option<T> result, Action<T>? then = null) =>
-        _ = result.Match(Some: value => Tap(then, value), None: () => throw new XunitException("Expected Some; got None"));
+        _ = result.Match(Some: value => Tap(then, value), None: static () => throw new XunitException("Expected Some; got None"));
     public static void None<T>(Option<T> result) =>
-        _ = result.Match(Some: value => throw new XunitException($"Expected None; got Some: {value}"), None: static () => unit);
+        _ = result.Match(Some: static value => throw new XunitException($"Expected None; got Some: {value}"), None: static () => unit);
 
     // --- [DISTRIBUTION]
     public static void Classified<T>(Gen<T> gen, Func<T, string> classify, Action<string> writeLine, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
@@ -190,7 +190,7 @@ public static partial class Spec {
     }
     public static void Matrix(params (string Label, Func<bool> Probe, bool Expected)[] rows) {
         NonEmpty(rows, "Matrix: empty row table proves nothing");
-        _ = rows.AsIterable().Iter(row => {
+        _ = rows.AsIterable().Iter(static row => {
             Cancel();
             bool actual = row.Probe();
             Holds(actual == row.Expected, $"{row.Label}: expected {row.Expected}, got {actual}");
@@ -201,7 +201,7 @@ public static partial class Spec {
     public sealed record ValueObjectShape<TIn, TStruct>(Gen<TIn> Valid, Gen<TIn> Invalid, TryCreate<TIn, TStruct> TryCreate, Func<TStruct, TIn> Read, Func<TIn, TIn, bool>? Eq = null);
     public static void Family<TIn, TStruct>(params ValueObjectShape<TIn, TStruct>[] shapes) {
         NonEmpty(shapes, "Family: empty shape table proves nothing");
-        _ = shapes.AsIterable().Iter(s => {
+        _ = shapes.AsIterable().Iter(static s => {
             Cancel();
             ForAll(s.Valid, x => {
                 Holds(s.TryCreate(x, out TStruct owned), $"Family: valid input rejected for {typeof(TStruct).Name}: {x}");

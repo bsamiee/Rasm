@@ -5,11 +5,9 @@
 ## [01]-[PACKAGES]
 
 - `Silk.NET.WebGPU` and its `Native.WGPU` train are branch substrate — each consumer composes behind one folder boundary, so a swap edits a row per boundary.
-- `Generator.Equals` injects once at `Directory.Build.props`, never `PrivateAssets` — comparers cross assemblies; `Riok.Mapperly` inverts both.
 - Duplicate full type names alias the package the product does NOT name via `PackageReference` — aliasing the pinned one rebinds every mention.
 - `Grpc.Tools` refused — a per-csproj `<Protobuf>` item re-emits one contract per consumer at its own `GrpcServices` mode; bindings generate once.
 - `Grpc.AspNetCore.Server` is the server admission — the `Grpc.AspNetCore` metapackage ships no assembly and drags in `Grpc.Tools`.
-- `libs/dotnet` projects design as if PUBLISHED tomorrow — pack metadata rides the root configuration behind `IsPackable=false`, one flip from a package.
 
 ## [02]-[SHAPE]
 

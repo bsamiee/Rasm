@@ -12,6 +12,10 @@ public sealed partial class Norm {
 
     [UseDelegateFromConstructor]
     public partial double Of(int rows, int cols, Func<int, int, double> at);
+
+    // A keyless [SmartEnum] generates no ToString; the exhaustive Map breaks this line when a fifth norm lands.
+    public override string ToString() =>
+        Map(maxAbs: nameof(MaxAbs), l1: nameof(L1), lInf: nameof(LInf), frobenius: nameof(Frobenius));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

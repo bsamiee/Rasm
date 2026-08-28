@@ -4,21 +4,21 @@ xunit.v3 packages carry the whole .NET proof tree: `xunit.v3.assert` is the asse
 
 ## [01]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                         | [KIND]             | [CAPABILITY]                                                 |
-| :-----: | :----------------------------------------------- | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `Assert`                                         | static partial     | single surface: equality, type, collection, throws, control  |
-|  [02]   | `FactAttribute` / `TheoryAttribute`              | attribute          | test discovery; skip/explicit/timeout policy per case        |
-|  [03]   | `InlineDataAttribute` / `MemberDataAttribute`    | attribute          | inline and member theory data                                |
-|  [04]   | `ClassDataAttribute`                             | attribute          | class-typed theory data source                               |
-|  [05]   | `TheoryData<...>` / `TheoryDataRow<...>`         | data carrier       | typed theory rows, 16 arities each                           |
-|  [06]   | `CollectionAttribute` / `CollectionAttribute<T>` | attribute          | collection grouping and parallelism opt-out                  |
-|  [07]   | `CollectionDefinitionAttribute`                  | attribute          | collection definition with fixture binding                   |
-|  [08]   | `CollectionBehaviorAttribute`                    | assembly attribute | assembly parallelism policy: algorithm, max threads, disable |
-|  [09]   | `IClassFixture<T>` / `ICollectionFixture<T>`     | fixture            | class and collection fixture tiers                           |
-|  [10]   | `AssemblyFixtureAttribute`                       | fixture            | assembly-wide fixture tier                                   |
-|  [11]   | `TraitAttribute` / `TestCaseOrdererAttribute`    | attribute          | trait tagging and case ordering                              |
-|  [12]   | `ITestOutputHelper` / `TestContext`              | service            | per-test output sink and ambient test state                  |
-|  [13]   | `Xunit.Sdk.XunitException` family                | exception          | typed failures: `AllException`/`CollectionException`/...     |
+| [INDEX] | [SYMBOL]                                         | [KIND]             | [CAPABILITY]                                                   |
+| :-----: | :----------------------------------------------- | :----------------- | :------------------------------------------------------------- |
+|  [01]   | `Assert`                                         | static partial     | single surface: equality, type, collection, throws, control    |
+|  [02]   | `FactAttribute` / `TheoryAttribute`              | attribute          | test discovery; skip/explicit/timeout policy per case          |
+|  [03]   | `InlineDataAttribute` / `MemberDataAttribute`    | attribute          | inline and member theory data                                  |
+|  [04]   | `ClassDataAttribute`                             | attribute          | class-typed theory data source                                 |
+|  [05]   | `TheoryData<...>` / `TheoryDataRow<...>`         | data carrier       | typed theory rows, 16 arities each                             |
+|  [06]   | `CollectionAttribute` / `CollectionAttribute<T>` | attribute          | collection grouping and parallelism opt-out                    |
+|  [07]   | `CollectionDefinitionAttribute`                  | attribute          | collection definition with fixture binding                     |
+|  [08]   | `ParallelizationAttribute`                       | assembly attribute | assembly parallelism policy: `Mode`, `MaxThreads`, `Algorithm` |
+|  [09]   | `IClassFixture<T>` / `ICollectionFixture<T>`     | fixture            | class and collection fixture tiers                             |
+|  [10]   | `AssemblyFixtureAttribute`                       | fixture            | assembly-wide fixture tier                                     |
+|  [11]   | `TraitAttribute` / `TestCaseOrdererAttribute`    | attribute          | trait tagging and case ordering                                |
+|  [12]   | `ITestOutputHelper` / `TestContext`              | service            | per-test output sink and ambient test state                    |
+|  [13]   | `Xunit.Sdk.XunitException` family                | exception          | typed failures: `AllException`/`CollectionException`/...       |
 
 ## [02]-[ENTRYPOINTS]
 
@@ -33,7 +33,7 @@ xunit.v3 packages carry the whole .NET proof tree: `xunit.v3.assert` is the asse
 |  [07]   | `Assert.Throws<T>/ThrowsAny<T>/ThrowsAsync<T>`              | assertion | typed exception capture returning the exception                |
 |  [08]   | `Assert.InRange<T>(T, T, T)`                                | assertion | comparable range gate                                          |
 |  [09]   | `Assert.Fail(string?)` / `Assert.Multiple(params Action[])` | control   | explicit failure and aggregated multi-check                    |
-|  [10]   | `[Fact(Explicit = true)]`                                   | discovery | explicit-only cases; run via `-- --explicit only`              |
+|  [10]   | `[Fact(Explicit = true)]`                                   | discovery | explicit-only cases; run via `--explicit only`                 |
 
 ```csharp
 public class FactAttribute : Attribute, IFactAttribute {
@@ -52,10 +52,10 @@ public class TheoryAttribute : FactAttribute {
     public bool DisableDiscoveryEnumeration { get; set; }
     public bool SkipTestWithoutData { get; set; }
 }
-public sealed class CollectionBehaviorAttribute : Attribute {
-    public bool DisableTestParallelization { get; set; }
-    public int MaxParallelThreads { get; set; }
-    public ParallelAlgorithm ParallelAlgorithm { get; set; }
+public sealed class ParallelizationAttribute : Attribute {
+    public ParallelAlgorithm Algorithm { get; set; }
+    public int MaxThreads { get; set; }
+    public ParallelizationMode Mode { get; set; }
 }
 public interface ITestOutputHelper {
     string Output { get; }
@@ -66,9 +66,9 @@ public interface ITestOutputHelper {
 
 ## [03]-[IMPLEMENTATION_LAW]
 
-[RUNNER_CONFIG]: no `xunit.runner.json` exists in the repo; the runner's defaults (`parallelAlgorithm: conservative`, theory pre-enumeration, diagnostic caps) stand, and any per-suite deviation lands as a checked-in `xunit.runner.json` `Content` item in that suite alone. Result writers (`--report-xunit-trx`, `--report-xunit-html`, `--report-ctrf`) ship inside `xunit.v3.core.mtp-v2`, so no separate TRX extension is admitted.
+[RUNNER_CONFIG]: no `xunit.runner.json` exists in the repo; the runner's defaults (`parallelAlgorithm: conservative`, theory pre-enumeration, diagnostic caps) stand, and any per-suite deviation lands as a checked-in `xunit.runner.json` `Content` item in that suite alone. Result writers (`--report-xunit-trx`, `--report-xunit-html`, `--report-xunit-xml`, `--report-xunit-junit`, `--report-xunit-nunit`, `--report-xunit-ctrf`) ship inside `xunit.v3.core.mtp-v2`, so no separate TRX extension is admitted. `testconfig.json` is the MTP-mode configuration surface; its relative paths resolve against the working directory, never the test app, so no checked-in copy routes results.
 
-[MTP_BRIDGE]: `xunit.v3.mtp-v2` is a pure metapackage; its transitive `xunit.v3.core.mtp-v2` carries the `buildTransitive` props/targets that generate the MTP entry point, so `UseMicrosoftTestingPlatformRunner=true` + `OutputType=Exe` compile every suite into a self-hosting MTP executable, and the MTP dependency floor it declares floats up to the centrally pinned Testing.Platform stack.
+[MTP_BRIDGE]: `xunit.v3.mtp-v2` is a pure metapackage; its transitive `xunit.v3.core.mtp-v2` carries the `buildTransitive` props/targets that generate the entry point and set `IsTestingPlatformApplication`. `OutputType=Exe` is the one hard requirement; `UseMicrosoftTestingPlatformRunner=true` makes MTP the default host of the generated `Main`, and without it the bare executable routes to xunit's console runner and MTP answers only `--server`/`--internal-msbuild-node`. `IsTestProject` is a VSTest property xunit removed and no suite declares it.
 
 [FIXTURES]: fixtures route through `IClassFixture<T>`/`ICollectionFixture<T>`, `AssemblyFixtureAttribute`, and the `CollectionAttribute<T>`/`CollectionDefinitionAttribute` pairing; all three tiers ship in `xunit.v3.core.dll`.
 

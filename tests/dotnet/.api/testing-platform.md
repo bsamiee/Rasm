@@ -1,6 +1,6 @@
 # [DOTNET_TESTING_API_TESTING_PLATFORM]
 
-`Microsoft.Testing.Platform` is the self-hosting test runtime every C# suite compiles into: the MSBuild package generates the entry point and self-registers extensions from `TestingPlatformBuilderHook` items, and the CrashDump/HangDump extensions carry the diagnostics tail. `global.json` pins `test.runner = Microsoft.Testing.Platform`, so `dotnet test` routes through MTP on the pinned SDK. Each suite csproj declares its own stack (`IsTestProject`, `OutputType=Exe`, `UseMicrosoftTestingPlatformRunner`, the runtime packages); the root `Directory.Build.targets` derives the `--results-directory` splice from `IsTestProject`.
+`Microsoft.Testing.Platform` is the self-hosting test runtime every C# suite compiles into: the MSBuild package generates the entry point and self-registers extensions from `TestingPlatformBuilderHook` items, and the CrashDump/HangDump extensions carry the diagnostics tail. `global.json` pins `test.runner = Microsoft.Testing.Platform`, so `dotnet test` routes through MTP on the pinned SDK and forwards every switch it does not own to the test app — an unknown switch (`-nologo`) is exit code 5, invalid command line, rendered by the CLI as "Zero tests ran". Each suite csproj declares its own stack (`OutputType=Exe`, `UseMicrosoftTestingPlatformRunner`, the runtime packages).
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -13,22 +13,22 @@
 
 ## [02]-[ENTRYPOINTS]
 
-Every dump sub-flag demands its master switch. On the pinned SDK every option below passes straight through `dotnet test <option>`; MSBuild forwards the `TestingPlatformCommandLineArguments` property verbatim to each test executable.
+Every dump sub-flag demands its master switch. `--results-directory`, `--config-file`, `--diagnostic-output-directory`, and `--minimum-expected-tests` are `dotnet test`'s own MTP-mode options; every other option below reaches the test app as a forwarded token. `TestingPlatformCommandLineArguments` is read only by the MSBuild `Test` target, never by `dotnet test` or the bare executable.
 
-| [INDEX] | [SURFACE]                                                        | [KIND]  | [CAPABILITY]                                             |
-| :-----: | :--------------------------------------------------------------- | :------ | :------------------------------------------------------- |
-|  [01]   | `--results-directory`                                            | CLI     | TRX, coverage, and dump output root                      |
-|  [02]   | `--crashdump`                                                    | CLI     | crash dump master switch                                 |
-|  [03]   | `--crashdump-type` / `--crashdump-filename`                      | CLI     | crash dump type and filename                             |
-|  [04]   | `--hangdump`                                                     | CLI     | hang dump master switch                                  |
-|  [05]   | `--hangdump-type` / `--hangdump-timeout` / `--hangdump-filename` | CLI     | hang dump type, detection timeout, and filename          |
-|  [06]   | `--filter` / `--list-tests`                                      | CLI     | selection expression and list-without-run                |
-|  [07]   | `--minimum-expected-tests` / `--maximum-failed-tests`            | CLI     | discovered-count floor and fail-fast ceiling             |
-|  [08]   | `--diagnostic*` / `--timeout`                                    | CLI     | platform diagnostics family and global run timeout       |
-|  [09]   | `--ignore-exit-code` / `--no-banner` / `--no-progress`           | CLI     | force zero exit, suppress banner and progress            |
-|  [10]   | `TestingPlatformCommandLineArguments`                            | MSBuild | verbatim splice appended to every test-host command line |
-|  [11]   | `testconfig.json` -> `$(AssemblyName).testconfig.json`           | config  | project-directory options the MSBuild package copies     |
-|  [12]   | `platformOptions:resultDirectory`                                | config  | result root behind TRX, dumps, and the relocated log     |
+| [INDEX] | [SURFACE]                                                        | [KIND] | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------------------------- | :----- | :---------------------------------------------------- |
+|  [01]   | `--results-directory`                                            | CLI    | TRX, coverage, and dump output root                   |
+|  [02]   | `--crashdump`                                                    | CLI    | crash dump master switch                              |
+|  [03]   | `--crashdump-type` / `--crashdump-filename`                      | CLI    | crash dump type and filename                          |
+|  [04]   | `--hangdump`                                                     | CLI    | hang dump master switch                               |
+|  [05]   | `--hangdump-type` / `--hangdump-timeout` / `--hangdump-filename` | CLI    | hang dump type, detection timeout, and filename       |
+|  [06]   | `--filter` / `--list-tests`                                      | CLI    | selection expression and list-without-run             |
+|  [07]   | `--minimum-expected-tests` / `--zero-tests-policy`               | CLI    | discovered-count floor and the zero-test verdict gate |
+|  [08]   | `--diagnostic*` / `--timeout`                                    | CLI    | platform diagnostics family and global run timeout    |
+|  [09]   | `--ignore-exit-code` / `--no-ansi` / `--no-progress`             | CLI    | force zero exit, suppress ANSI and progress           |
+|  [10]   | `--results-directory` on `dotnet test`                           | CLI    | the one results route the CLI itself owns             |
+|  [11]   | `testconfig.json` -> `$(AssemblyName).testconfig.json`           | config | project-directory options the MSBuild package copies  |
+|  [12]   | `platformOptions:resultDirectory`                                | config | result root behind TRX, dumps, and the relocated log  |
 
 ```csharp
 public static class TestApplication {
@@ -46,7 +46,7 @@ public interface ITestApplicationBuilder {
 
 [ENTRY_POINT]: `IsTestingPlatformApplication` drives `GenerateTestingPlatformEntryPoint` and `GenerateSelfRegisteredExtensions`. Under the xunit adapter the entry point is the adapter's — `xunit.v3.core.mtp-v2` sets `GenerateTestingPlatformEntryPoint=false`, keeps `GenerateSelfRegisteredExtensions=true`, and generates `XunitAutoGeneratedEntryPoint`; hooks still register, the host is xunit's.
 
-[RESULT_ROUTING]: resolution runs one order — CLI `--results-directory`, then `platformOptions:resultDirectory`, then `TestResults` under the working directory, which `dotnet test` substitutes with the shell's. The root targets splice `--results-directory .artifacts/dotnet/test-results/<suite>/` through `TestingPlatformCommandLineArguments` for every `IsTestProject`, so every entry point (`dotnet test`, `dotnet run`, the bare executable) lands results in the artifacts tree and the repo root stays litter-free. No `testconfig.json` exists in the repo; adding one is the named defect until a platform option exists that the CLI cannot carry.
+[RESULT_ROUTING]: resolution runs one order — CLI `--results-directory`, then environment, then `platformOptions:resultDirectory`, then `TestResults` beside the test app, which already sits under `.artifacts/dotnet/bin`. `dotnet test` additionally creates an empty `TestResults` under the shell's working directory unless `--results-directory` is passed; the Nx `test` target runs from the project directory, where that directory is invisible to git. A `testconfig.json` `resultDirectory` resolves relative to the working directory, never the app, so no checked-in copy can route results; none exists in the repo.
 
 [TELEMETRY]: the telemetry extension rides as a transitive floor; `TESTINGPLATFORM_TELEMETRY_OPTOUT` or `DOTNET_CLI_TELEMETRY_OPTOUT` disables it, and `TestApplicationOptions.EnableTelemetry` is the in-process toggle.
 

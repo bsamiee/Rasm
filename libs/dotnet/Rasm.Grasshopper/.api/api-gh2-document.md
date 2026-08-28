@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_GH2_DOCUMENT]
 
-`Grasshopper2` is the Rhino 9 WIP visual-programming host, and its `Document` is the single mutable authority over one canvas definition. Every structural change enters through `DocumentMethods` (or `Grasshopper2.Parameters.Connections` for wire mutation) paired with a `Grasshopper2.Undo.ActionList`, so a mutation and its undo record seal as one act. Graph traversal reads through `Grasshopper2.Doc.Connectivity` over `ConnectiveObject`s, and execution runs on `SolutionServer` publishing the solution lifecycle over `Solution`/`SolutionRecord` phase state.
+`Grasshopper2` is the Rhino 9 visual-programming host, and its `Document` is the single mutable authority over one canvas definition. Every structural change enters through `DocumentMethods` (or `Grasshopper2.Parameters.Connections` for wire mutation) paired with a `Grasshopper2.Undo.ActionList`, so a mutation and its undo record seal as one act. Graph traversal reads through `Grasshopper2.Doc.Connectivity` over `ConnectiveObject`s, and execution runs on `SolutionServer` publishing the solution lifecycle over `Solution`/`SolutionRecord` phase state.
 
 ## [01]-[PUBLIC_TYPES]
 

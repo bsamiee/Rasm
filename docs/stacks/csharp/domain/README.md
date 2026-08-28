@@ -9,16 +9,15 @@ Domain pages route specialized C# implementation decisions after the root stack 
 |  [01]   | hosting and runtime     | [runtime](runtime.md)                   |
 |  [02]   | concurrency and streams | [concurrency](concurrency.md)           |
 |  [03]   | telemetry signal        | [diagnostics](diagnostics.md)           |
-|  [04]   | boundary validation     | [validation](validation.md)             |
-|  [05]   | resilience policy       | [resilience](resilience.md)             |
-|  [06]   | wire transport          | [transport](transport.md)               |
-|  [07]   | data persistence        | [persistence](persistence.md)           |
-|  [08]   | embedded durability     | [durability](durability.md)             |
-|  [09]   | postgres surface        | [postgres](postgres.md)                 |
-|  [10]   | data interchange        | [data interchange](data-interchange.md) |
-|  [11]   | compute lane            | [compute](compute.md)                   |
-|  [12]   | render and visuals      | [visuals](visuals.md)                   |
-|  [13]   | retained interaction    | [interaction](interaction.md)           |
+|  [04]   | resilience policy       | [resilience](resilience.md)             |
+|  [05]   | wire transport          | [transport](transport.md)               |
+|  [06]   | data persistence        | [persistence](persistence.md)           |
+|  [07]   | embedded durability     | [durability](durability.md)             |
+|  [08]   | postgres surface        | [postgres](postgres.md)                 |
+|  [09]   | data interchange        | [data interchange](data-interchange.md) |
+|  [10]   | compute lane            | [compute](compute.md)                   |
+|  [11]   | render and visuals      | [visuals](visuals.md)                   |
+|  [12]   | retained interaction    | [interaction](interaction.md)           |
 
 ## [02]-[CODE_DOCTRINE]
 

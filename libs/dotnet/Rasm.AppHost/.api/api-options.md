@@ -78,11 +78,11 @@
 [STACKING]:
 - `api-di`(`.api/api-di.md`): every `AddOptions`/`Configure`/`PostConfigure` surface is an `IServiceCollection` extension registering `IConfigureOptions`/`IPostConfigureOptions`/`IValidateOptions` descriptors, and `IOptions`/`IOptionsSnapshot`/`IOptionsMonitor` resolve as singleton, scoped, and singleton services.
 - `api-config`(`.api/api-config.md`) + `api-config-providers`(`.api/api-config-providers.md`): `OptionsBuilder.Bind(IConfiguration)` and `BindConfiguration(path)` project a config section onto the value and thread the provider reload token into `IOptionsMonitor`.
-- `api-validation`(`.api/api-validation.md`) + `api-validation-di`(`.api/api-validation-di.md`): a FluentValidation `IValidator<TOptions>` runs inside the validation stage as an `IValidateOptions<TOptions>`, the source-generated `OptionsValidatorAttribute` being the reflection-free alternative on the same stage.
 - within-lib: AppHost folds each Runtime policy record through one named `OptionsBuilder` bound from the ranked config chain and validated on start, so a runtime consumer reads an immutable `IOptions<TPolicy>` and every reload arrives as an explicit `IOptionsMonitor.OnChange` transition.
 
 [LOCAL_ADMISSION]:
 - Policy enters AppHost only as a bounded named `OptionsBuilder`; an open-ended setting is a typed record, never an options name.
 - Runtime-critical policy binds `ValidateOnStart`; deferred first-access validation is rejected.
+- Policy admission lands on one stage: the generated `[OptionsValidator]` proves structure and `Validation<Error, TPolicy>` accumulates cross-field admission at the composition root.
 - Reloads ride an explicit `IOptionsMonitor.OnChange` transition; ambient re-read of a mutable value rejects.
 - Configure and post-configure actions run at composition roots.

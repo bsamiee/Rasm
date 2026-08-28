@@ -86,7 +86,7 @@
                 "pack": false,
                 "publish": false,
                 "restore": false,
-                "test": false
+                "test": true
             }
         }
     ],

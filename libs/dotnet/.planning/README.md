@@ -131,7 +131,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `CsCheck`
 - `coverlet.MTP`
 - `Microsoft.Extensions.TimeProvider.Testing` — `FakeTimeProvider` deterministic clock for the proof gauges.
-- `NodaTime.Testing` — `FakeClock` semantic-instant double and the scripted zone sources a DST proof needs; `FakeTimeProvider`'s pair, not its rival.
+- `NodaTime.Testing` — `FakeClock` semantic-instant double and the scripted zone sources a DST proof needs.
 - `Microsoft.Extensions.Diagnostics.Testing` — `MetricCollector<T>` measurement-assertion harness over any instrument.
 - `Polly.Testing` — `ResiliencePipelineDescriptor` composition inspection over a built resilience pipeline.
 - `Microsoft.Testing.Platform`

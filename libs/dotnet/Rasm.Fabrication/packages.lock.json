@@ -43,6 +43,12 @@
         "resolved": "1.3.0",
         "contentHash": "MNRYZbx5tlZXYnHaMa2mAwAHWyYXCZPMr/auek0zVQob9m8jn1sF8cSw+pyY000nrE3BRLKC59nUv9vzl1dfGg=="
       },
+      "ErrorProne.NET.CoreAnalyzers": {
+        "type": "Direct",
+        "requested": "[0.9.0-beta.4, )",
+        "resolved": "0.9.0-beta.4",
+        "contentHash": "YTYfAB8r5VuAJLuQF/sgTy+iRVM5AW0vXyVWp+BRNqNBjddLZdxc1rBFa2E4EM92uSxa8FraDw6pRw4tf5/qwA=="
+      },
       "Generator.Equals": {
         "type": "Direct",
         "requested": "[4.0.2, )",
@@ -78,9 +84,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.138, )",
-        "resolved": "3.0.138",
-        "contentHash": "o97FZRHWIpMeg/Mzb5Whhcqe1/95SxZLn1bkG+P8T4ijiAY6eoe9BYTYyINBVzkyl5zehQ7NB6bz1DnEgqVZmQ=="
+        "requested": "[3.0.190, )",
+        "resolved": "3.0.190",
+        "contentHash": "CFX3BWg27iLO78RORLAGWghpP+1afiAaijAIfhU7+JI+n6V0uVpNIr6H7LYVnRTFb2WAH/450FcvarFl7STOQA=="
       },
       "Microsoft.Extensions.Caching.Hybrid": {
         "type": "Direct",

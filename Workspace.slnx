@@ -36,33 +36,7 @@
     </Folder>
     <Folder Name="/tests/" />
     <Folder Name="/tests/dotnet/" />
-    <Folder Name="/tests/dotnet/scenariokit/">
-        <Project Path="tests/dotnet/scenariokit/Rasm.ScenarioKit.csproj" />
-    </Folder>
     <Folder Name="/tests/dotnet/testkit/">
         <Project Path="tests/dotnet/testkit/Rasm.TestKit.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/scenarios/">
-        <Project Path="tests/dotnet/scenarios/Rasm.Scenarios.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/tools/rhino-bridge/">
-        <Project Path="tests/dotnet/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj" />
-        <Project Path="tests/dotnet/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tools/" />
-    <Folder Name="/tools/rhino-bridge/Cargo/">
-        <Project Path="tools/rhino-bridge/Cargo/Cargo.csproj" />
-    </Folder>
-    <Folder Name="/tools/rhino-bridge/Contract/">
-        <Project Path="tools/rhino-bridge/Contract/Contract.csproj" />
-    </Folder>
-    <Folder Name="/tools/rhino-bridge/Shell/">
-        <Project Path="tools/rhino-bridge/Shell/Shell.csproj" />
-    </Folder>
-    <Folder Name="/tools/rhino-bridge/Stub/">
-        <Project Path="tools/rhino-bridge/Stub/Stub.csproj" />
-    </Folder>
-    <Folder Name="/tools/rhino-bridge/Supervisor/">
-        <Project Path="tools/rhino-bridge/Supervisor/Supervisor.csproj" />
     </Folder>
 </Solution>

@@ -1,9 +1,0 @@
-name: rasm-bridge
-version: 1.0.0
-authors:
-    - Rasm
-description: Rhino 9 macOS package for the Rasm scenario bridge.
-keywords:
-    - rhino-9
-    - rhinocommon
-    - bridge

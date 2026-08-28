@@ -9,8 +9,6 @@
 
     <ItemGroup Label="Hosting Composition">
         <PackageReference Include="Cronos" />
-        <PackageReference Include="FluentValidation" />
-        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
         <PackageReference Include="LanguageExt.Sys" />
         <PackageReference Include="Microsoft.Extensions.Configuration" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />

@@ -2,8 +2,9 @@
 
 @README.md
 
-- Every language in project runs functional (FP) and railway-oriented (ROP).
-- Pure expressions, immutable data, total functions, and one outcome carrier per boundary; stack idiom varies, this law never does.
+- Every language ships pure expressions, total signatures, immutable published values, and one outcome carrier.
+- Dependency picks composition: dependent steps bind and short-circuit, independent steps combine and accumulate every failure.
+- Idiom varies per language, law never does; a language lacking a carrier authors one rather than a second failure path.
 
 ## [01]-[STANDARDS_ROUTING]
 
@@ -28,36 +29,39 @@
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
-[TOTALITY]: Signatures name every way a call ends, so no outcome escapes the return type
+[TOTALITY]: Signatures name every way a call ends, no outcome escapes the return type
+- ALWAYS give a failure value a case a consumer matches; recovery reads the case, never a rendered message or a substring, failure values must be matchable
+- ALWAYS name the failure vocabulary at the package that raises it; a consumer widens at the seam, never against one global list
 - ALWAYS map every input to a value in the return type; a function that cannot answer returns the reason it cannot
 - ALWAYS spell absence as an option-shaped value the consumer unwraps; null, sentinel, and magic defaults die at the admission gate
-- ALWAYS make an invalid state unrepresentable at construction, so every consumer reads one regime and re-validates nothing
+- ALWAYS make an invalid state unrepresentable at construction, every consumer reads one validated shape and re-validates nothing
 - ALWAYS reserve exceptions for faults the process cannot continue past; an expected failure rides the outcome carrier
 
 [FLOW]: Dependent steps sequence through one carrier that short-circuits on first failure
-- ALWAYS choose the outcome carrier at admission, thread it unchanged through the interior, and collapse it only at the host edge
 - ALWAYS chain a step that consumes the previous step's value by binding the carrier; the failure case skips the rest of the chain
+- ALWAYS shape recovery as a function from failure to carrier, seated at the owner that names the fault, never at each call site
+- ALWAYS choose the outcome carrier at admission, thread it unchanged through the interior, and collapse it only at the host edge
 - ALWAYS branch by matching the carrier's cases; a status flag, out-parameter, or nullable companion field never selects the path
 - ALWAYS hold one carrier per expression, lifting a call that returns a different carrier into the ambient one at the call site
-- ALWAYS shape recovery as a function from failure to carrier, seated at the owner that names the fault, never at each call site
+- ALWAYS stack asynchrony onto the carrier rather than beside it, one bind chains an awaited step and a synchronous one alike
 
 [INDEPENDENCE]: Results that do not consume each other combine in one step that collects every failure
+- ALWAYS spell the failure value so two failures append into one, append order never changes the result
 - ALWAYS combine independent results applicatively so the answer carries every failure, not the first one encountered
-- ALWAYS spell the failure value so two failures append into one, giving accumulation its meaning
-- ALWAYS fold a collection through one carrier-returning function into a single carrier over the whole collection
+- ALWAYS fold a collection through one carrier-returning function into a single carrier, accumulating when the elements are independent.
 - ALWAYS derive concurrency from independence: operands that do not consume each other evaluate together
 
-[EFFECTS]: Effects ride as values and execute once, at the host entry point
-- ALWAYS return an effect as a description; a function that touches the clock, filesystem, network, or host document returns the plan
-- ALWAYS run effect descriptions at the composition root and hand the collapsed outcome to the host
-- ALWAYS pair acquisition and release inside one bracketed description, so release runs on the failure path unchanged
-- ALWAYS thread mutable context as state carried forward through the chain, each step returning the next value
+[PURITY]: Interior functions read only their arguments and write only their return value
+- ALWAYS pass the clock, randomness, environment, and configuration as arguments; interior code reads no ambient source
+- ALWAYS pair acquisition and release in one bracket, so release runs unchanged on the failure path
+- ALWAYS carry changing context forward as a returned value; shared mutable state never coordinates two steps
+- ALWAYS confine mutation to a scope that owns it and publishes an immutable value; a buffer that never escapes stays pure
 
 [BOUNDARY]: Boundaries own every conversion between foreign material and domain values
 - ALWAYS emit logs, traces, and metrics from the collapsed outcome at the boundary; interior expressions stay pure and silent
-- ALWAYS publish a `libs/` package surface already carrier-typed, so a consuming package composes it without unwrapping
+- ALWAYS publish a `libs/` package surface already carrier-typed, a consuming package composes it without unwrapping
 - ALWAYS admit host, wire, and file material once at the boundary into validated domain values; the interior sees no raw shape
-- ALWAYS map foreign vocabulary to canonical names at the gate that validates, so one owner holds both directions
+- ALWAYS map foreign vocabulary to canonical names at the gate that validates, one owner holds both directions
 - ALWAYS collapse the carrier at the boundary into the host's own vocabulary — exit code, status, host exception, UI state
 
 ## [03]-[DEPENDENCY_POLICY]

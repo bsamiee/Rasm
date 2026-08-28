@@ -3,12 +3,6 @@
         <Description>Durable-state spine for the Rasm.Element ElementGraph: Marten event substrate, the version-control engine (commit-DAG, CRDT, time-travel, structural merge, provenance, retention, recovery), the synchronous topology and async columnar/cypher read lanes, tabular ingest, and the content-keyed geometry object store.</Description>
     </PropertyGroup>
 
-    <!-- MPXJ.Net compiles its Java closure through IKVM at build time; its class-resolution diagnostics are informational. -->
-    <PropertyGroup Label="IKVM Compile">
-        <IkvmCacheDir>$(RasmRepoRoot).cache/ikvm/</IkvmCacheDir>
-        <MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
-    </PropertyGroup>
-
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />

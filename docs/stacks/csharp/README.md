@@ -21,20 +21,19 @@ This table is the lookup by reader decision.
 |  [09]   | hosting and runtime     | [runtime](domain/runtime.md)                      |
 |  [10]   | concurrency and streams | [concurrency](domain/concurrency.md)              |
 |  [11]   | telemetry signal        | [diagnostics](domain/diagnostics.md)              |
-|  [12]   | boundary validation     | [validation](domain/validation.md)                |
-|  [13]   | resilience policy       | [resilience](domain/resilience.md)                |
-|  [14]   | wire transport          | [transport](domain/transport.md)                  |
-|  [15]   | data persistence        | [persistence](domain/persistence.md)              |
-|  [16]   | embedded durability     | [durability](domain/durability.md)                |
-|  [17]   | postgres surface        | [postgres](domain/postgres.md)                    |
-|  [18]   | data interchange        | [data interchange](domain/data-interchange.md)    |
-|  [19]   | compute lane            | [compute](domain/compute.md)                      |
-|  [20]   | render and visuals      | [visuals](domain/visuals.md)                      |
-|  [21]   | retained interaction    | [interaction](domain/interaction.md)              |
+|  [12]   | resilience policy       | [resilience](domain/resilience.md)                |
+|  [13]   | wire transport          | [transport](domain/transport.md)                  |
+|  [14]   | data persistence        | [persistence](domain/persistence.md)              |
+|  [15]   | embedded durability     | [durability](domain/durability.md)                |
+|  [16]   | postgres surface        | [postgres](domain/postgres.md)                    |
+|  [17]   | data interchange        | [data interchange](domain/data-interchange.md)    |
+|  [18]   | compute lane            | [compute](domain/compute.md)                      |
+|  [19]   | render and visuals      | [visuals](domain/visuals.md)                      |
+|  [20]   | retained interaction    | [interaction](domain/interaction.md)              |
 
 ## [02]-[DOCTRINE]
 
-Five law groups govern every C# decision in this stack. Concept pages instantiate them; no page restates them. Each exists so correctness is structural rather than disciplinary: admission-once makes the interior total over valid values; closed families convert change into compile-time pressure; policy-as-values makes behavior recoverable from declarations alone; derivation keeps computed values consistent with their primary. Density follows when each remaining declaration owns information, policy, lifecycle, or repeated work. Total lines and public surface grow sublinearly with capability because related growth lands inside existing owners while directly expressible values stay at their consumers. Enforcement is doctrine-first: `.editorconfig` severities, build-injected analyzers, and the repository's own analyzer encode these laws — the doctrine authors the tool, never the reverse. Analyzer findings against these laws are architecture pressure: fix the shape, not the diagnostic.
+Five law groups govern every C# decision in this stack. Concept pages instantiate them; no page restates them. Each exists so correctness is structural rather than disciplinary: admission-once makes the interior total over valid values; closed families convert change into compile-time pressure; policy-as-values makes behavior recoverable from declarations alone; derivation keeps computed values consistent with their primary. Density follows when each remaining declaration owns information, policy, lifecycle, or repeated work. Total lines and public surface grow sublinearly with capability because related growth lands inside existing owners while directly expressible values stay at their consumers. Enforcement is doctrine-first: `.editorconfig` severities, build-injected analyzers, and the root `Directory.Build.targets` shape guards encode these laws — the doctrine authors the tool, never the reverse. Analyzer findings against these laws are architecture pressure: fix the shape, not the diagnostic.
 
 [FLOW]:
 - `EXPRESSION_SPINE` — all domain logic is expression-shaped; dependent steps compose monadically and independent computations compose applicatively — dependence licenses sequence, independence licenses accumulation, and the carrier, never a flag, selects the combination algebra. Statements survive only inside measured kernels and platform-forced boundaries, and any page that shows one names the exemption. Depth is data: a dispatch nested inside a dispatch arm over discriminants available together, a conditional chained into a conditional, or a guard ladder deepening an expression marks a joint discriminant — it flattens into one pattern over the product, one table row, or one fold, and vertical nesting where a joint pattern states the law in one level is the rejected shape at every site. Composition runs through `Bind`, `Map`, query expressions, switch expressions, and generated `Switch` dispatch; `ref struct` fold kernels and span loops are the named kernel exemption.

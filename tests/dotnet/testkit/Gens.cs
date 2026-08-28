@@ -116,7 +116,7 @@ public static class Gens {
         (12, Gen.Byte.Array[1, 1]),
         (10, Gen.Byte.Select(Gen.Int[16, 256], static (value, count) => (byte[])[.. Enumerable.Repeat(value, count)])));
     public static readonly Gen<(byte[] Original, byte[] Mutated)> Mutant =
-        Gen.Byte.Array[1, 256].SelectMany(bytes => Gen.Int[0, bytes.Length - 1].Select(Gen.Int[1, 255], (index, mask) => {
+        Gen.Byte.Array[1, 256].SelectMany(static bytes => Gen.Int[0, bytes.Length - 1].Select(Gen.Int[1, 255], (index, mask) => {
             byte[] copy = [.. bytes];
             copy[index] ^= (byte)mask;
             return (Original: bytes, Mutated: copy);

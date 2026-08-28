@@ -19,9 +19,9 @@ apps/
 
 ## [02]-[HOSTS]
 
-Host roster stays open. Rhino 9 WIP and Grasshopper 2 are the bound hosts today, and Blender or any later host admits by landing its boundary package under `libs/.planning/ARCHITECTURE.md` `[12]-[ADMISSION]` — no tree, glob, or classification here changes for it.
+Host roster stays open. Rhino 9 and Grasshopper 2 are the bound hosts today, and Blender or any later host admits by landing its boundary package under `libs/.planning/ARCHITECTURE.md` `[12]-[ADMISSION]` — no tree, glob, or classification here changes for it.
 
-[CRITICAL]: Rhino targets the Rhino 9 WIP lane on macOS; GH1 `.gha`, Rhino 8, and Windows are refused targets.
+[CRITICAL]: Rhino targets the Rhino 9 lane on macOS; GH1 `.gha`, Rhino 8, and Windows are refused targets.
 
 - Hosts earn no folder level; an app naming its host is a naming choice, never structure.
 - Host assemblies resolve through shared build properties, and `Directory.Build.props` owns classification and the reference roster.

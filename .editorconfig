@@ -8,10 +8,10 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-# BuildCheck (`dotnet build -check`): BC0201/BC0202 cannot model the deliberate props-to-targets property reads.
+# BuildCheck (`dotnet build -check`): property reads inside conditions are the props-to-targets handshake, not defects. The two values must match or MSBuild refuses the config.
 [*.csproj]
-build_check.BC0201.severity = none
-build_check.BC0202.severity = none
+build_check.BC0201.AllowUninitializedPropertiesInConditions = true
+build_check.BC0202.AllowUninitializedPropertiesInConditions = true
 
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
@@ -144,153 +144,73 @@ csharp_space_between_square_brackets = false                                  # 
 dotnet_diagnostic.IDE0055.severity = error                                    # Enforce formatter compliance in CI/build.
 
 # --- [QUALITY_ANALYZERS] -----------------------------------------------------
+# AnalysisLevel latest-all enables every CA rule as a warning and TreatWarningsAsErrors promotes it; only carves and the rules latest-all leaves off earn a row here.
 dotnet_diagnostic.CA1034.severity = none                                      # Nested types are intentional for Thinktecture regular unions.
-dotnet_diagnostic.CA1720.severity = none                                      # Param SmartEnum variants are intentionally type-named (Integer, Boolean, etc.) — they map CLR types to GH adders.
-dotnet_diagnostic.MA0008.severity = none                                      # Auto layout is the runtime default for managed structs; restating it per type is noise.
+dotnet_diagnostic.CA1720.severity = none                                      # Grasshopper parameter SmartEnum items are named after the CLR type they adapt (Integer, Boolean); the name is the mapping.
+dotnet_diagnostic.MA0008.severity = none                                      # Roslyn already emits Sequential for structs, and host interop needs Sequential; restating the layout per type is noise.
 dotnet_diagnostic.MA0048.severity = none                                      # Allow intentionally consolidated domain/type modules.
 dotnet_diagnostic.MA0051.severity = none                                      # Allow dense expression-owned dispatch; repo standards police real bloat.
-dotnet_diagnostic.MA0176.severity = none                                      # Plugin GUIDs are one-shot identity literals; constant extraction adds no value.
-dotnet_diagnostic.MA0182.severity = none                                      # Cross-assembly internal usage via [InternalsVisibleTo] is opaque to single-project analysis.
-dotnet_diagnostic.TTRESG1000.severity = none                                  # Thinktecture source-generator self-warning on its own internal IMetadataOwner; not actionable in user code.
-dotnet_diagnostic.CA1002.severity = error                                     # Avoid exposing mutable List<T> in public APIs.
-dotnet_diagnostic.CA1008.severity = error                                     # Require enums to define a zero-valued member.
-dotnet_diagnostic.CA1031.severity = error                                     # Prevent catching overly broad exception types.
-dotnet_diagnostic.CA1032.severity = error                                     # Ensure custom exceptions expose standard constructors.
-dotnet_diagnostic.CA1051.severity = error                                     # Disallow visible instance fields; require encapsulation.
-dotnet_diagnostic.CA1054.severity = error                                     # Use Uri instead of string in URI parameters.
-dotnet_diagnostic.CA1055.severity = error                                     # Use Uri instead of string in URI return values.
-dotnet_diagnostic.CA1056.severity = error                                     # Use Uri instead of string in URI properties.
-dotnet_diagnostic.CA1062.severity = error                                     # Validate public method arguments for null.
-dotnet_diagnostic.CA1063.severity = error                                     # Enforce correct IDisposable implementation pattern.
-dotnet_diagnostic.CA1065.severity = error                                     # Avoid throwing exceptions from unexpected members.
-dotnet_diagnostic.CA1066.severity = error                                     # Implement IEquatable<T> when overriding Equals.
-dotnet_diagnostic.CA1069.severity = error                                     # Prevent duplicate enum values unless explicitly intentional.
-dotnet_diagnostic.CA1304.severity = error                                     # Require explicit culture in culture-sensitive operations.
-dotnet_diagnostic.CA1305.severity = error                                     # Require explicit culture for formatting/parsing.
-dotnet_diagnostic.CA1307.severity = error                                     # Require StringComparison-aware overload usage.
-dotnet_diagnostic.CA1308.severity = error                                     # Prefer uppercase normalization for culture stability.
-dotnet_diagnostic.CA1309.severity = error                                     # Require ordinal string comparisons when intended.
-dotnet_diagnostic.CA1310.severity = error                                     # Require StringComparison argument where applicable.
-dotnet_diagnostic.CA1311.severity = error                                     # Require explicit culture or invariant variants for parsing.
-dotnet_diagnostic.CA1507.severity = error                                     # Prefer nameof over hardcoded parameter/member strings.
-dotnet_diagnostic.CA1508.severity = error                                     # Detect dead/always-constant conditional branches.
-dotnet_diagnostic.CA1510.severity = error                                     # Use ArgumentNullException throw helper methods.
-dotnet_diagnostic.CA1511.severity = error                                     # Use ArgumentException throw helper methods.
-dotnet_diagnostic.CA1512.severity = error                                     # Use ArgumentOutOfRangeException throw helper methods.
-dotnet_diagnostic.CA1513.severity = error                                     # Use ObjectDisposedException throw helper methods.
-dotnet_diagnostic.CA1514.severity = error                                     # Avoid redundant length argument checks.
-dotnet_diagnostic.CA1516.severity = error                                     # Prefer cross-platform intrinsics over architecture-specific APIs.
-dotnet_diagnostic.CA1806.severity = error                                     # Prevent ignoring method results unintentionally.
-dotnet_diagnostic.CA1812.severity = error                                     # Remove internal types that are never instantiated.
-dotnet_diagnostic.CA1819.severity = error                                     # Avoid returning arrays from properties.
-dotnet_diagnostic.CA1820.severity = error                                     # Use Length for empty-string checks.
-dotnet_diagnostic.CA1822.severity = error                                     # Mark members static when no instance state is used.
-dotnet_diagnostic.CA1823.severity = error                                     # Remove unused private fields.
-dotnet_diagnostic.CA1824.severity = error                                     # Mark assemblies with NeutralResourcesLanguageAttribute.
-dotnet_diagnostic.CA1825.severity = error                                     # Avoid zero-length array allocations.
-dotnet_diagnostic.CA1826.severity = error                                     # Avoid LINQ extensions on indexable collections.
-dotnet_diagnostic.CA1827.severity = error                                     # Prefer Any() over Count() for emptiness checks.
-dotnet_diagnostic.CA1828.severity = error                                     # Prefer AnyAsync() over CountAsync() for emptiness checks.
-dotnet_diagnostic.CA1829.severity = error                                     # Prefer Count/Length properties over Enumerable.Count().
-dotnet_diagnostic.CA1830.severity = error                                     # Prefer strongly-typed StringBuilder overloads.
-dotnet_diagnostic.CA1831.severity = error                                     # Prefer AsSpan over range indexers on strings.
-dotnet_diagnostic.CA1832.severity = error                                     # Prefer AsSpan/AsMemory over range indexers on arrays.
-dotnet_diagnostic.CA1833.severity = error                                     # Prefer Span/Memory views over range copies.
-dotnet_diagnostic.CA1834.severity = error                                     # Prefer StringBuilder.Append(char) for single chars.
-dotnet_diagnostic.CA1835.severity = error                                     # Prefer Memory-based async APIs over array overloads.
-dotnet_diagnostic.CA1836.severity = error                                     # Prefer IsEmpty over Count-based emptiness checks.
-dotnet_diagnostic.CA1841.severity = error                                     # Prefer dictionary-specific contains methods.
-dotnet_diagnostic.CA1842.severity = error                                     # Avoid Task.WhenAll with a single task.
-dotnet_diagnostic.CA1843.severity = error                                     # Avoid Task.WaitAll with a single task.
-dotnet_diagnostic.CA1845.severity = error                                     # Prefer AsSpan over Substring for slicing scenarios.
-dotnet_diagnostic.CA1846.severity = error                                     # Prefer passing spans instead of materialized substrings.
-dotnet_diagnostic.CA1847.severity = error                                     # Prefer string.Contains(char) for single-character checks.
-dotnet_diagnostic.CA1848.severity = error                                     # Use LoggerMessage patterns for efficient logging.
-dotnet_diagnostic.CA1849.severity = error                                     # Prefer async APIs within async methods.
-dotnet_diagnostic.CA1850.severity = error                                     # Prefer static HashData-like APIs where available.
-dotnet_diagnostic.CA1851.severity = error                                     # Prevent multiple IEnumerable enumerations.
-dotnet_diagnostic.CA1852.severity = error                                     # Seal internal types that are not designed for inheritance.
-dotnet_diagnostic.CA1853.severity = error                                     # Remove unnecessary Dictionary.ContainsKey checks.
-dotnet_diagnostic.CA1854.severity = error                                     # Prefer TryGetValue over ContainsKey+indexer lookup.
-dotnet_diagnostic.CA1855.severity = error                                     # Prefer Span.Clear over Span.Fill(default).
-dotnet_diagnostic.CA1856.severity = error                                     # Use ConstantExpected attributes correctly.
-dotnet_diagnostic.CA1857.severity = error                                     # Pass constants where APIs expect them for perf.
-dotnet_diagnostic.CA1858.severity = error                                     # Prefer StartsWith for prefix checks over IndexOf.
-dotnet_diagnostic.CA1859.severity = error                                     # Prefer concrete types to avoid virtual/interface dispatch.
-dotnet_diagnostic.CA1860.severity = error                                     # Prefer collection Count/Length over Enumerable.Any().
-dotnet_diagnostic.CA1861.severity = error                                     # Avoid repeated constant arrays; hoist/reuse them.
-dotnet_diagnostic.CA1862.severity = error                                     # Use StringComparison overloads for string comparisons.
-dotnet_diagnostic.CA1863.severity = error                                     # Prefer composite format over repeated string formatting work.
-dotnet_diagnostic.CA1864.severity = error                                     # Prefer IDictionary.TryAdd over ContainsKey+Add.
-dotnet_diagnostic.CA1865.severity = error                                     # Prefer char overloads for string search APIs.
-dotnet_diagnostic.CA1866.severity = error                                     # Prefer char overloads for string search APIs.
-dotnet_diagnostic.CA1867.severity = error                                     # Prefer char overloads for string search APIs.
-dotnet_diagnostic.CA1868.severity = error                                     # Remove unnecessary Contains checks on sets.
-dotnet_diagnostic.CA1869.severity = error                                     # Cache and reuse JsonSerializerOptions instances.
-dotnet_diagnostic.CA1870.severity = error                                     # Use cached SearchValues instances for repeated matching.
-dotnet_diagnostic.CA1871.severity = error                                     # Avoid nullable structs in ThrowIfNull paths.
-dotnet_diagnostic.CA1872.severity = error                                     # Prefer Convert.ToHexString APIs over manual pipelines.
-dotnet_diagnostic.CA1873.severity = error                                     # Avoid expensive logging argument evaluation.
-dotnet_diagnostic.CA1874.severity = error                                     # Prefer Regex.IsMatch for boolean checks.
-dotnet_diagnostic.CA1875.severity = error                                     # Prefer Regex.Count when counting matches.
-dotnet_diagnostic.CA2000.severity = error                                     # Ensure IDisposable instances are disposed.
-dotnet_diagnostic.CA2002.severity = error                                     # Avoid locking on objects with weak identity.
-dotnet_diagnostic.CA2009.severity = error                                     # Avoid redundant ToImmutable* on already immutable collections.
-dotnet_diagnostic.CA2011.severity = error                                     # Avoid assigning a property inside its own setter.
-dotnet_diagnostic.CA2012.severity = error                                     # Use ValueTask instances correctly.
-dotnet_diagnostic.CA2014.severity = error                                     # Do not use stackalloc inside loops.
-dotnet_diagnostic.CA2016.severity = error                                     # Forward CancellationToken through call chains.
-dotnet_diagnostic.CA2017.severity = error                                     # Keep logger template placeholders in sync with args.
-dotnet_diagnostic.CA2019.severity = error                                     # Prevent inline initialization of ThreadStatic fields.
-dotnet_diagnostic.CA2021.severity = error                                     # Avoid incompatible Enumerable.Cast/OfType usage.
-dotnet_diagnostic.CA2022.severity = error                                     # Avoid inexact reads when using Stream.Read.
-dotnet_diagnostic.CA2023.severity = error                                     # Ensure logger message templates use valid braces.
-dotnet_diagnostic.CA2024.severity = error                                     # Avoid EndOfStream checks in async read flows.
-dotnet_diagnostic.CA2025.severity = error                                     # Avoid passing IDisposable into unawaited tasks.
-dotnet_diagnostic.CA2200.severity = error                                     # Preserve stack traces by rethrowing correctly.
-dotnet_diagnostic.CA2201.severity = error                                     # Avoid throwing reserved/general exception types.
-dotnet_diagnostic.CA2208.severity = error                                     # Construct argument exceptions with correct parameter names.
-dotnet_diagnostic.CA2213.severity = error                                     # Dispose disposable fields when owning lifetime.
-dotnet_diagnostic.CA2214.severity = error                                     # Avoid calling overridable members in constructors.
-dotnet_diagnostic.CA2219.severity = error                                     # Prevent throwing exceptions in exception-handling clauses.
-dotnet_diagnostic.CA2234.severity = error                                     # Prefer Uri-typed overloads over raw string URI overloads.
-dotnet_diagnostic.CA2241.severity = error                                     # Keep format placeholders aligned with arguments.
-dotnet_diagnostic.CA2242.severity = error                                     # Enforce correct NaN comparisons.
-dotnet_diagnostic.CA2244.severity = error                                     # Prevent duplicate indexed initializers.
-dotnet_diagnostic.CA2245.severity = error                                     # Prevent self-assignment operations.
-dotnet_diagnostic.CA2246.severity = error                                     # Prevent assigning a symbol and its member in one statement.
-dotnet_diagnostic.CA2248.severity = error                                     # Require valid enum value usage with Enum.HasFlag.
-dotnet_diagnostic.CA2249.severity = error                                     # Prefer String.Contains over IndexOf pattern checks.
-dotnet_diagnostic.CA2250.severity = error                                     # Prefer ThrowIfCancellationRequested over manual checks.
-dotnet_diagnostic.CA2251.severity = error                                     # Prefer String.Equals over String.Compare for equality checks.
-dotnet_diagnostic.CA2253.severity = error                                     # Use named logging placeholders instead of numeric names.
-dotnet_diagnostic.CA2254.severity = error                                     # Require static log templates for structured logging.
-dotnet_diagnostic.CA2263.severity = error                                     # Prefer generic overloads when concrete type is known.
 dotnet_diagnostic.CS0169.severity = error                                     # Remove private fields that are never used.
+dotnet_diagnostic.CA1516.severity = error                                     # Switched off by latest-all: cross-platform intrinsics over the per-ISA variants.
+dotnet_diagnostic.CA1021.severity = error                                     # Left off by latest-all: out parameters; an outcome rides the return carrier.
+dotnet_diagnostic.CA1045.severity = error                                     # Left off by latest-all: ref parameters; changing context returns as a value.
 dotnet_diagnostic.CS0649.severity = error                                     # Assign every field through validated construction.
 
 # --- [THREADING_ANALYZERS] ---------------------------------------------------
-dotnet_diagnostic.VSTHRD003.severity = none                                   # ASP.NET/Core apps can safely await foreign tasks without JTF context.
-dotnet_diagnostic.VSTHRD012.severity = none                                   # JTF injection is not applicable for no-main-thread application hosts.
-dotnet_diagnostic.VSTHRD100.severity = error                                  # Ban async void methods.
-dotnet_diagnostic.VSTHRD101.severity = error                                  # Ban async void lambdas and anonymous delegates.
+dotnet_diagnostic.VSTHRD003.severity = none                                   # No JoinableTaskFactory exists in any host here, so the prescribed repair is unavailable; foreign-task awaits stay legal.
 dotnet_diagnostic.VSTHRD103.severity = none                                   # Covered by CA1849 and MA0042 to avoid duplicate async-flow diagnostics.
-dotnet_diagnostic.VSTHRD110.severity = error                                  # Require observing/awaiting async call results.
-dotnet_diagnostic.VSTHRD111.severity = error                                  # Require explicit ConfigureAwait intent on awaits.
+dotnet_diagnostic.VSTHRD102.severity = error                                  # Info default: a private synchronous body under an async public member breaks the async chain.
+dotnet_diagnostic.VSTHRD111.severity = error                                  # Hidden default: require explicit ConfigureAwait intent on awaits.
 
 # --- [MEZIANTOU_ANALYZERS] ---------------------------------------------------
 dotnet_diagnostic.MA0003.severity = error                                     # Require parameter names to clarify arguments.
-dotnet_diagnostic.MA0004.severity = none                                      # Covered by VSTHRD111 to avoid duplicate ConfigureAwait diagnostics.
+dotnet_diagnostic.MA0004.severity = none                                      # ConfigureAwait already has two owners at error, CA2007 and VSTHRD111; a third restates them.
 dotnet_diagnostic.MA0007.severity = error                                     # Require a trailing comma after the last value in multi-line initializers.
 dotnet_diagnostic.MA0020.severity = error                                     # Prefer direct collection APIs over equivalent LINQ.
 dotnet_diagnostic.MA0028.severity = error                                     # Optimize StringBuilder append patterns.
 dotnet_diagnostic.MA0029.severity = error                                     # Combine adjacent LINQ operations.
 dotnet_diagnostic.MA0032.severity = error                                     # Require using overloads with CancellationToken when available.
-dotnet_diagnostic.MA0035.severity = error                                     # Ban dangerous threading APIs.
-dotnet_diagnostic.MA0038.severity = none                                      # Deprecated; covered by CA1822 to avoid duplicate static-method diagnostics.
-dotnet_diagnostic.MA0040.severity = none                                      # Covered by CA2016 to avoid duplicate CancellationToken-forwarding diagnostics.
-dotnet_diagnostic.MA0041.severity = none                                      # Deprecated; covered by CA1822 to avoid duplicate static-member diagnostics.
 dotnet_diagnostic.MA0042.severity = error                                     # Ban blocking calls in async-capable methods.
+dotnet_diagnostic.MA0001.severity = error                                     # Info default: StringComparison on the call shapes CA1307/CA1310 miss.
+dotnet_diagnostic.MA0043.severity = error                                     # Info default: nameof in ArgumentException parameter names.
+dotnet_diagnostic.MA0075.severity = error                                     # Info default: implicit culture-sensitive ToString.
+dotnet_diagnostic.MA0121.severity = error                                     # Shipped disabled: a parameter is never reassigned; changing context is a returned value.
+dotnet_diagnostic.MA0141.severity = error                                     # Shipped disabled: absence is matched with `is null`.
+dotnet_diagnostic.MA0142.severity = error                                     # Shipped disabled: presence is matched with `is not null`.
+dotnet_diagnostic.MA0170.severity = error                                     # Shipped disabled: a type comparison against a type it can never be.
+dotnet_diagnostic.MA0171.severity = error                                     # Shipped disabled: `is null` over Nullable<T>.HasValue.
+dotnet_diagnostic.MA0172.severity = error                                     # Shipped disabled: identical operands on both sides of a binary operator.
+dotnet_diagnostic.MA0186.severity = error                                     # Shipped disabled: [NotNullWhen(true)] on the Equals parameter.
+dotnet_diagnostic.MA0217.severity = error                                     # Shipped disabled: static lambda where nothing is captured; the non-Thinktecture twin of TTRESG1001.
+dotnet_diagnostic.MA0031.severity = error                                     # Info default: Enumerable.Count() where Any() or Length answers.
+dotnet_diagnostic.MA0036.severity = error                                     # Info default: a class with only static members is static.
+dotnet_diagnostic.MA0057.severity = error                                     # Info default: attribute class names end with Attribute.
+dotnet_diagnostic.MA0058.severity = error                                     # Info default: exception class names end with Exception.
+dotnet_diagnostic.MA0059.severity = error                                     # Info default: event-args class names end with EventArgs.
+dotnet_diagnostic.MA0067.severity = error                                     # Info default: Guid.Empty over new Guid().
+dotnet_diagnostic.MA0073.severity = error                                     # Info default: no comparison against a bool constant.
+dotnet_diagnostic.MA0101.severity = error                                     # Info default: a string literal carrying an implicit end of line.
+dotnet_diagnostic.MA0107.severity = error                                     # Shipped disabled: object.ToString rendering; the boundary renders, the interior does not.
+dotnet_diagnostic.MA0113.severity = error                                     # Info default: DateTime.UnixEpoch over the 1970 literal.
+dotnet_diagnostic.MA0114.severity = error                                     # Info default: DateTimeOffset.UnixEpoch over the 1970 literal.
+dotnet_diagnostic.MA0127.severity = error                                     # Info default: String.Equals over an `is` pattern on strings.
+dotnet_diagnostic.MA0128.severity = error                                     # Info default: `is` over SequenceEqual on spans of literals.
+dotnet_diagnostic.MA0133.severity = error                                     # Info default: DateTimeOffset spelled, never the implicit DateTime conversion.
+dotnet_diagnostic.MA0136.severity = error                                     # Info default: a raw string literal carrying an implicit end of line.
+dotnet_diagnostic.MA0152.severity = error                                     # Info default: Unwrap over a double await.
+dotnet_diagnostic.MA0154.severity = error                                     # Info default: langword in XML comments.
+dotnet_diagnostic.MA0173.severity = error                                     # Info default: LazyInitializer.EnsureInitialized over a hand-rolled check.
+dotnet_diagnostic.MA0180.severity = error                                     # Shipped disabled: ILogger<T> type parameter matches the containing type.
+dotnet_diagnostic.MA0184.severity = error                                     # Info default: an interpolated string without holes.
+dotnet_diagnostic.MA0188.severity = error                                     # Info default: System.TimeProvider over a custom clock abstraction.
+dotnet_diagnostic.MA0189.severity = error                                     # Info default: InlineArray over fixed-size buffers.
+dotnet_diagnostic.MA0204.severity = error                                     # Info default: an unnecessary partial modifier.
+dotnet_diagnostic.MA0205.severity = error                                     # Info default: exclusive-or over the expanded boolean form.
+dotnet_diagnostic.MA0206.severity = error                                     # Info default: unnecessary braces on a type declaration.
+dotnet_diagnostic.MA0212.severity = error                                     # Shipped disabled: MemoryMarshal.GetReference over indexing at zero.
+dotnet_diagnostic.MA0216.severity = error                                     # Info default: an unnecessary closed modifier.
+dotnet_diagnostic.MA0218.severity = error                                     # Info default: an empty language attribute in XML comments.
+dotnet_diagnostic.MA0219.severity = error                                     # Info default: the language attribute set in XML comments.
 dotnet_diagnostic.MA0044.severity = error                                     # Remove redundant ToString calls.
 dotnet_diagnostic.MA0050.severity = error                                     # Validate iterator arguments before enumeration.
 dotnet_diagnostic.MA0052.severity = error                                     # Prefer nameof over constant enum ToString.
@@ -304,7 +224,6 @@ dotnet_diagnostic.MA0080.severity = error                                     # 
 dotnet_diagnostic.MA0089.severity = error                                     # Prefer char overloads for single-character string operations.
 dotnet_diagnostic.MA0090.severity = error                                     # Remove empty else and finally blocks.
 dotnet_diagnostic.MA0098.severity = error                                     # Prefer indexers over equivalent LINQ access.
-dotnet_diagnostic.MA0100.severity = error                                     # Ensure tasks complete before resource disposal boundaries.
 dotnet_diagnostic.MA0102.severity = error                                     # Prefer readonly members where possible.
 dotnet_diagnostic.MA0105.severity = error                                     # Avoid closure captures by using lambda parameters.
 dotnet_diagnostic.MA0106.severity = error                                     # Prefer factory-argument overloads to avoid captures.
@@ -312,7 +231,6 @@ dotnet_diagnostic.MA0108.severity = error                                     # 
 dotnet_diagnostic.MA0110.severity = error                                     # Prefer Regex source generator for constant patterns.
 dotnet_diagnostic.MA0111.severity = error                                     # Prefer string.Create over FormattableString.
 dotnet_diagnostic.MA0134.severity = none                                      # Covered by VSTHRD110 to avoid duplicate async-observation diagnostics.
-dotnet_diagnostic.MA0155.severity = none                                      # Covered by VSTHRD100 to avoid duplicate async-void diagnostics.
 dotnet_diagnostic.MA0158.severity = none                                      # Covered by IDE0330 to avoid duplicate System.Threading.Lock diagnostics.
 dotnet_diagnostic.MA0159.severity = error                                     # Prefer Order over identity OrderBy.
 dotnet_diagnostic.MA0160.severity = error                                     # Prefer ContainsKey when TryGetValue output is unused.
@@ -333,7 +251,6 @@ dotnet_code_quality_unused_parameters = all                                   # 
 
 # --- [IDE_QUALITY_RULES] ----------------------------------------------------
 # Roslyn IDE rules without dedicated style preference keys. Most ship at silent severity by default and are invisible to `dotnet format --severity warn`.
-# Each entry promotes a mechanical, behavior-preserving cleanup to error.
 dotnet_diagnostic.IDE0001.severity = error                                    # Simplify type names (drop unneeded namespace qualifiers).
 dotnet_diagnostic.IDE0002.severity = error                                    # Simplify member access (drop unneeded type qualifiers).
 dotnet_diagnostic.IDE0004.severity = error                                    # Remove unnecessary cast expressions.
@@ -376,30 +293,63 @@ dotnet_diagnostic.RMG093.severity = error                                     # 
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
 
+# --- [ERRORPRONE_ANALYZERS] --------------------------------------------------
+# Warning-default rules (EPC11-13, EPC16-18, EPC20, EPC23-26, EPC30-31, EPC34, EPC41, ERP021-022, ERP031, ERP042) already error under TreatWarningsAsErrors; only Info-default and disabled rules earn a row.
+dotnet_diagnostic.EPC15.severity = error                                      # ConfigureAwait(false) required. Fires only in an assembly carrying an attribute whose simple name opens UseConfigureAwaitFalse; no assembly declares one yet, so the row is armed and silent. EPC14 (redundant ConfigureAwait) is its inverse and stays at the Info floor.
+dotnet_diagnostic.EPC19.severity = error                                      # CancellationTokenRegistration must be observed and disposed; an unobserved registration on a long-lived token pins the callback and its captures.
+dotnet_diagnostic.EPC27.severity = error                                      # async void method declaration; EPC17 covers the delegate form at the warning floor.
+dotnet_diagnostic.EPC28.severity = error                                      # [ExcludeFromCodeCoverage] on a partial class splits coverage across the parts.
+dotnet_diagnostic.EPC29.severity = error                                      # [ExcludeFromCodeCoverage] states its reason in the message. Reports inside generated code by analyzer design; the .artifacts carve below covers the MSBuild-emitted test entry points.
+dotnet_diagnostic.EPC32.severity = error                                      # TaskCompletionSource without TaskCreationOptions.RunContinuationsAsynchronously runs continuations inline on the completing thread.
+dotnet_diagnostic.EPC33.severity = error                                      # Thread.Sleep inside an async method; Task.Delay is the awaited form.
+dotnet_diagnostic.EPC35.severity = error                                      # Blocking on a task inside an async method: .Result, .Wait(), .GetAwaiter().GetResult().
+dotnet_diagnostic.EPC36.severity = error                                      # Async delegate under TaskCreationOptions.LongRunning abandons the dedicated thread at its first await.
+dotnet_diagnostic.EPC37.severity = error                                      # Argument validation inside an async method throws at await time, never at the call.
+dotnet_diagnostic.ERP041.severity = error                                     # EventSource subclass must be sealed; ERP042 covers the wider EventSource shape at the warning floor.
+dotnet_diagnostic.EPC38.severity = error                                      # Shipped disabled: IEnumerable<Task> enumerated twice starts a second, unrelated set of tasks.
+dotnet_diagnostic.EPC39.severity = error                                      # Shipped disabled: one enumerable re-iterated inside a loop.
+dotnet_diagnostic.EPC40.severity = error                                      # Shipped disabled: a private method re-enumerating an IEnumerable<T> parameter a caller passes as a deferred query.
+
 # --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------
-# Rule severity lives here alone; no NoWarn exists at any MSBuild surface and the RASM0002 shape guard refuses one in a project body.
+# Rule severity lives here alone; the RASM0002 shape guard refuses a NoWarn or WarningsNotAsErrors spelling in a project body. MSBuild-task warnings no analyzer config can reach (IKVM) are exempted once at the root targets, keyed on the package that raises them.
 dotnet_diagnostic.CS1591.severity = none                                      # GenerateDocumentationFile ships the XML for tooling; member-level doc prose is not required.
-dotnet_diagnostic.CS9236.severity = none                                      # Roslyn lambda binding-cost telemetry, not a defect signal.
 dotnet_diagnostic.CA2225.severity = none                                      # LanguageExt/Thinktecture operator algebra is the canonical surface; named alternates would duplicate it.
 
-[{libs/dotnet/Rasm,libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper,tools/rhino-bridge/Cargo,tests/dotnet/scenarios}/**.cs]
-dotnet_diagnostic.CA1416.severity = none                                      # Host-ui assemblies are macos-scoped by SupportedOSPlatform; Rhino.UI/Eto surfaces carry no platform annotations to check against.
+[{libs/dotnet/Rasm,libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper}/**.cs]
+dotnet_diagnostic.CA1416.severity = none                                      # Rhino's bundled System.Drawing.Common implements the Windows-annotated members on macOS; CA1416 reads the NuGet reference assembly, not the host runtime.
 
-[{libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper,tools/rhino-bridge/Cargo,tests/dotnet/scenarios}/**.cs]
+[{libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper}/**.cs]
 dotnet_diagnostic.CA1724.severity = none                                      # Microsoft.macOS exposes a Phase namespace colliding with the canonical ComponentUi.Phase enum.
 
 [libs/dotnet/Rasm.AppHost/**.cs]
-dotnet_diagnostic.EXTEXP0002.severity = none                                  # Resource-monitoring range and calculation rows: experimental-API opt-in.
+dotnet_diagnostic.EXTEXP0002.severity = none                                  # Compliance redaction rows (HmacRedactor): experimental-API opt-in.
 dotnet_diagnostic.EXTEXP0008.severity = none                                  # Resource-monitoring roster rows: experimental-API opt-in.
-dotnet_diagnostic.EXTOBS0001.severity = none                                  # Telemetry refresh rows: experimental-API opt-in.
 
-[tools/rhino-bridge/Contract/**.cs]
-dotnet_diagnostic.CA1819.severity = none                                      # Arrays are the wire DTO shape on this assembly alone.
-dotnet_diagnostic.StreamJsonRpc0008.severity = none                           # [GenerateShape]'s PolyType generator cannot construct Thinktecture-generated wire types (CS1729), and SystemTextJsonFormatter is the only formatter either end builds.
+[.artifacts/**.cs]
+dotnet_diagnostic.EPC29.severity = none                                       # xunit.v3.msbuildtasks and Microsoft.Testing.Platform.MSBuild emit message-less [ExcludeFromCodeCoverage] entry points here; foreign material, repaired at neither owner.
 
 [tests/**/*.cs]
+dotnet_diagnostic.VSTHRD111.severity = none                                   # xunit.analyzers suppresses CA2007 inside test bodies and xUnit1030 forbids ConfigureAwait(false) there; this row keeps the second owner from re-imposing it.
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit discovery requires public test classes; spec-local generators stay non-public.
 dotnet_diagnostic.MA0191.severity = none                                      # Adversarial null-payload laws intentionally use null-forgiving to enter non-nullable production boundaries.
+
+# --- [XUNIT_ANALYZERS] -------------------------------------------------------
+# xunit.analyzers rides xunit.v3.core; the rows below are the Info- and Hidden-default rules, every other xUnit rule already errors.
+dotnet_diagnostic.xUnit1004.severity = error                                  # A skipped test; a law that cannot run is deleted.
+dotnet_diagnostic.xUnit1033.severity = error                                  # A fixture the class declares but never accepts through its constructor.
+dotnet_diagnostic.xUnit1042.severity = error                                  # MemberData over an untyped source; TheoryData<T> types the rows.
+dotnet_diagnostic.xUnit1044.severity = error                                  # Theory data that cannot be serialized loses per-row discovery.
+dotnet_diagnostic.xUnit1045.severity = error                                  # Theory data whose serializability cannot be proven.
+dotnet_diagnostic.xUnit1046.severity = error                                  # TheoryDataRow over an unserializable type.
+dotnet_diagnostic.xUnit1047.severity = error                                  # TheoryDataRow whose serializability cannot be proven.
+dotnet_diagnostic.xUnit1050.severity = error                                  # Untyped theory data source; the row types are the contract.
+dotnet_diagnostic.xUnit2001.severity = error                                  # Hidden default: Assert.Equals over an invalid pair.
+dotnet_diagnostic.xUnit2022.severity = error                                  # Boolean assertion over a value that is already a boolean literal.
+dotnet_diagnostic.xUnit2023.severity = error                                  # Assert.Collection with one element; Assert.Single reads it.
+dotnet_diagnostic.xUnit2024.severity = error                                  # Boolean assertion over a Contains/Any; the collection assertion reads it.
+dotnet_diagnostic.xUnit2025.severity = error                                  # Boolean assertion whose value is a constant.
+dotnet_diagnostic.xUnit2032.severity = error                                  # Type assertion through IsType where IsAssignableFrom is meant, or the reverse.
+dotnet_diagnostic.xUnit2033.severity = error                                  # Info in the shipped binary: Assert.Empty/NotEmpty over a count.
 
 # --- [VERIFY_SNAPSHOTS] ------------------------------------------------------
 # VerifyChecks matches this section literal verbatim; the brace form is the tool's canonical shape.

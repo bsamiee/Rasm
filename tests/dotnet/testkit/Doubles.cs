@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Time.Testing;
 using Xunit.Sdk;
 
@@ -42,7 +43,7 @@ public sealed class CallProbe<TArgs> {
         ArgumentException.ThrowIfNullOrWhiteSpace(member);
         ArgumentNullException.ThrowIfNull(shape);
         ArgumentNullException.ThrowIfNull(bind);
-        int[] cursor = [0];
+        StrongBox<int> cursor = new(0);
         TResult Record(string label, Option<TArgs> payload, TResult value) {
             _ = calls.Swap(log => log.Add(new ProbeCall<TArgs>(label, payload)));
             return value;
@@ -51,7 +52,7 @@ public sealed class CallProbe<TArgs> {
             state: (args, member, cursor, Record: (Func<string, Option<TArgs>, TResult, TResult>)Record),
             canned: static (st, s) => st.Record(st.member, st.args, s.Value),
             fanOut: static (st, s) => {
-                int index = Interlocked.Increment(ref st.cursor[0]) - 1;
+                int index = Interlocked.Increment(ref st.cursor.Value) - 1;
                 return index < s.Values.Count
                     ? st.Record(st.member, st.args, s.Values[index])
                     : throw new XunitException($"FanOut double '{st.member}' exhausted after {s.Values.Count} value(s)");
@@ -81,10 +82,10 @@ public sealed class Timeline(DateTimeOffset? start = null) {
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
         TimeSpan origin = Clock.GetUtcNow() - Clock.Start;
         TimeSpan beat = period ?? TimeSpan.Zero;
-        int[] fired = [0];
+        StrongBox<int> fired = new(0);
         return Clock.CreateTimer(
             _ => {
-                int ordinal = Interlocked.Increment(ref fired[0]) - 1;
+                int ordinal = Interlocked.Increment(ref fired.Value) - 1;
                 _ = marks.Swap(log => log.Add(new ClockMark(label, origin + due + (beat * ordinal))));
             },
             state: null,

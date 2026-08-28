@@ -3,7 +3,7 @@
         <Description>Unified product UI layer for Rasm host surfaces, retained app panels, live projections, visuals, charts, and diagnostics.</Description>
         <!-- Native-asset packages (Skia, HarfBuzz, mpv) resolve per-RID. -->
         <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
-        <!-- Microsoft.ML.OnnxRuntime.Extensions ships version-specific OSX RID assets; the full RID graph is the resolution regime that actually finds them. -->
+        <!-- Microsoft.ML.OnnxRuntime.Extensions ships osx.10.14 version-specific RID assets that only the full RID graph resolves (NETSDK1206). -->
         <UseRidGraph>true</UseRidGraph>
     </PropertyGroup>
 

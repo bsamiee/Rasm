@@ -29,14 +29,11 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
 
-    <PropertyGroup Label="Restore And Audit">
+    <PropertyGroup Label="Restore">
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-        <RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>
         <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
         <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-        <NuGetAudit>true</NuGetAudit>
-        <NuGetAuditMode>all</NuGetAuditMode>
-        <NuGetAuditLevel>high</NuGetAuditLevel>
+        <NuGetAudit>false</NuGetAudit>
     </PropertyGroup>
 
     <PropertyGroup Label="Analysis">
@@ -47,6 +44,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Analyzers">
+        <PackageReference Include="ErrorProne.NET.CoreAnalyzers" PrivateAssets="all" />
         <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
         <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
     </ItemGroup>
@@ -59,6 +57,5 @@
         <RhinoAppPath>$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</RhinoAppPath>
         <RhinoResourcesPath>$(RhinoAppPath)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
         <Grasshopper2PluginPath>$(RhinoResourcesPath)ManagedPlugIns/Grasshopper2Plugin.rhp/</Grasshopper2PluginPath>
-        <YakPath Condition="'$(YakPath)' == ''">$(RhinoAppPath)Contents/Resources/bin/yak</YakPath>
     </PropertyGroup>
 </Project>

@@ -32,7 +32,7 @@
 
 ## [03]-[IMPLEMENTATION_LAW]
 
-[ACTIVATION]: each suite csproj declares the extension and it stays idle until a run passes `--coverlet`; the report lands in the run's results directory as `coverage.<format>` (or `<prefix>.coverage.<format>` under `--coverlet-file-prefix`), so the `--results-directory` splice already routes it under `.artifacts/dotnet/test-results/<suite>/`.
+[ACTIVATION]: each suite csproj declares the extension and it stays idle until a run passes `--coverlet`; the report lands in the run's results directory as `coverage.<format>` (or `<prefix>.coverage.<format>` under `--coverlet-file-prefix`), so it lands wherever the run's results directory resolves.
 
 [DEAD_KNOBS]: the shipped build assets read no `Coverlet*` MSBuild property — `CoverletOutputFormat`, `CoverletInclude`, `CoverletExclude`, `CoverletOutput`, and the rest of the `coverlet.msbuild` family configure nothing here. There is no output-directory option; only the filename prefix and the results directory route placement. In CLI-only mode default excludes (`[coverlet.*]*`, `[xunit.*]*`, `[Microsoft.Testing.*]*`, test-host families) and default exclude-attributes auto-merge.
 

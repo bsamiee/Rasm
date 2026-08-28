@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Measured execution package setup and lane doctrine for vector, tensor, model, and remote compute work.</Description>
-        <!-- Microsoft.ML.OnnxRuntime.Extensions ships version-specific OSX RID assets; the full RID graph is the resolution regime that actually finds them. -->
+        <!-- Microsoft.ML.OnnxRuntime.Extensions ships osx.10.14 version-specific RID assets that only the full RID graph resolves (NETSDK1206). -->
         <UseRidGraph>true</UseRidGraph>
     </PropertyGroup>
 

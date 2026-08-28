@@ -5,22 +5,22 @@
         <RasmRole Condition="$(MSBuildProjectDirectory.StartsWith('$(RasmTestsRoot)'))">tests</RasmRole>
         <RasmRole Condition="$(MSBuildProjectDirectory.StartsWith('$(RasmAppsRoot)'))">apps</RasmRole>
         <_RasmHostTokens>;$(RasmHost);</_RasmHostTokens>
-        <HostGrasshopper Condition="$(_RasmHostTokens.Contains(';grasshopper;')) or '$(RasmPlugin)' == 'grasshopper'">true</HostGrasshopper>
+        <HostGrasshopper Condition="$(_RasmHostTokens.Contains(';grasshopper;'))">true</HostGrasshopper>
         <HostPlatform Condition="$(_RasmHostTokens.Contains(';platform;'))">true</HostPlatform>
         <HostUi Condition="$(_RasmHostTokens.Contains(';ui;')) or '$(HostPlatform)' == 'true' or '$(HostGrasshopper)' == 'true'">true</HostUi>
-        <HostCommon Condition="$(_RasmHostTokens.Contains(';common;')) or '$(HostUi)' == 'true' or '$(RasmPlugin)' != ''">true</HostCommon>
+        <HostCommon Condition="$(_RasmHostTokens.Contains(';common;')) or '$(HostUi)' == 'true'">true</HostCommon>
     </PropertyGroup>
 
     <ItemGroup Label="Project Usings">
         <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
+        <Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" />
         <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Effects;LanguageExt.Pretty;LanguageExt.Traits;LanguageExt.Traits.Domain" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
         <Using Include="LanguageExt.Prelude" Static="true" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Core'))' != ''" />
-        <!-- LanguageExt.Streaming publishes into LanguageExt and LanguageExt.Pipes; no LanguageExt.Streaming namespace exists to import. -->
         <Using Include="LanguageExt.Pipes" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Streaming'))' != ''" />
         <Using Include="LanguageExt.Sys;LanguageExt.Sys.IO;LanguageExt.Sys.Traits;LanguageExt.Sys.Diag" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Sys'))' != ''" />
         <!-- LanguageExt.Parsec exports a static class Char; sources spell the BCL type as the keyword char. -->
         <Using Include="LanguageExt.Parsec" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Parsec'))' != ''" />
-        <Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" />
+        <!-- Test related usings -->
         <Using Include="Xunit" Condition="'@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.mtp-v2'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.assert'))' != ''" />
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
     </ItemGroup>
@@ -36,19 +36,17 @@
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(HostGrasshopper)' == 'true'" />
     </ItemGroup>
 
-    <ItemGroup Label="Rhino Plugin Metadata" Condition="'$(RasmPlugin)' != ''">
-        <AssemblyAttribute Include="Rhino.PlugIns.PlugInDescriptionAttribute">
-            <_Parameter1>Rhino.PlugIns.DescriptionType.Organization</_Parameter1>
-            <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
-            <_Parameter2>$(Company)</_Parameter2>
-        </AssemblyAttribute>
-        <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute" Condition="'$(RhinoPluginGuid)' != ''">
-            <_Parameter1>$(RhinoPluginGuid)</_Parameter1>
+    <ItemGroup Label="Host Platform Scope" Condition="'$(HostPlatform)' == 'true'">
+        <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+            <_Parameter1>macos</_Parameter1>
         </AssemblyAttribute>
     </ItemGroup>
 
-    <PropertyGroup Label="Test Results" Condition="'$(IsTestProject)' == 'true'">
-        <TestingPlatformCommandLineArguments>--results-directory "$(ArtifactsPath)test-results/$(MSBuildProjectName)/"</TestingPlatformCommandLineArguments>
+    <!-- MPXJ.Net compiles its Java closure through IKVM at build time, an item-list condition is illegal in evaluation-time PropertyGroup, so the owner is named. -->
+    <PropertyGroup Label="IKVM Compile" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
+        <IkvmCacheDir>$(RasmRepoRoot).cache/ikvm/</IkvmCacheDir>
+        <IkvmExportCacheDir>$(RasmRepoRoot).cache/ikvm/expcache/</IkvmExportCacheDir>
+        <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
     </PropertyGroup>
 
     <Target Name="VerifyRhinoHostBundle" BeforeTargets="ResolveAssemblyReferences" Condition="'$(HostCommon)' == 'true'">
@@ -61,9 +59,9 @@
 
     <Target Name="RasmReferenceRoleGuard" BeforeTargets="AssignProjectConfiguration" Condition="'@(ProjectReference)' != '' and '$(DesignTimeBuild)' != 'true'">
         <ItemGroup>
-            <_RasmDeclaredEdge Include="@(ProjectReference->'%(FullPath)')" Condition="'%(ProjectReference.RasmInfra)' != 'true'" />
+            <_RasmDeclaredEdge Include="@(ProjectReference->'%(FullPath)')" />
             <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'libs' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)'))" />
-            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmToolsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmTestsRoot)dotnet/testkit/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmTestsRoot)dotnet/scenariokit/'))" />
+            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmToolsRoot)'))" />
             <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(RasmAppsRoot)'))" />
             <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(MSBuildProjectDirectory)'))" />
         </ItemGroup>
@@ -73,81 +71,10 @@
 
     <Target Name="RasmProjectShapeGuard" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
         <PropertyGroup>
-            <_RasmShapeBreach>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), '&lt;(NoWarn|WarningsNotAsErrors|TreatWarningsAsErrors|AnalysisLevel|RunAnalyzers|EnforceCodeStyleInBuild|ArtifactsPath|BaseOutputPath|BaseIntermediateOutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|InformationalVersion)[ &gt;/]').Value)</_RasmShapeBreach>
-            <_RasmShapeBreach Condition="'$(_RasmShapeBreach)' == ''">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), 'PackageReference[^&gt;]*\s(Version|VersionOverride)\s*=').Value)</_RasmShapeBreach>
+            <_RasmShapeBreach>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), '&lt;(NoWarn|MSBuildWarningsAsMessages|WarningsAsMessages|MSBuildWarningsNotAsErrors|WarningsNotAsErrors|MSBuildTreatWarningsAsErrors|TreatWarningsAsErrors|CodeAnalysisTreatWarningsAsErrors|AnalysisLevel|AnalysisMode|RunAnalyzers|EnforceCodeStyleInBuild|NuGetAudit|NuGetAuditMode|NuGetAuditLevel|ArtifactsPath|UseArtifactsOutput|BaseOutputPath|BaseIntermediateOutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|InformationalVersion)[ &gt;/]').Value)</_RasmShapeBreach>
         </PropertyGroup>
         <Error Code="RASM0002" Condition="'$(_RasmShapeBreach)' != ''"
                Text="Project manifest '$(MSBuildProjectFile)' carries a policy element ('$(_RasmShapeBreach.Trim())…'): versions ride CPM, severities ride .editorconfig, output and analysis posture ride the root project." />
     </Target>
 
-    <Target Name="GetDynamicLoadPayload" DependsOnTargets="Build" Returns="@(_DynamicLoadPayload)">
-        <ItemGroup>
-            <_DynamicLoadPayload Include="$(TargetPath);$(ProjectDepsFilePath);@(ReferenceCopyLocalPaths)" />
-        </ItemGroup>
-    </Target>
-
-    <Target Name="GetDynamicLoadEntry" DependsOnTargets="Build" Returns="@(_DynamicLoadEntry)">
-        <ItemGroup>
-            <_DynamicLoadEntry Include="$(TargetPath);$(ProjectDepsFilePath)" />
-        </ItemGroup>
-    </Target>
-
-    <Target Name="_CollectPayloadProjects">
-        <ItemGroup>
-            <_PayloadProject Include="@(ProjectReference)" Condition="'%(ProjectReference.RasmPayload)' != ''" />
-        </ItemGroup>
-    </Target>
-
-    <Target Name="StageDynamicPayload" AfterTargets="Build" DependsOnTargets="_CollectPayloadProjects" Outputs="%(_PayloadProject.RasmPayload)">
-        <PropertyGroup Condition="'@(_PayloadProject)' != ''">
-            <_PayloadSlotDirectory>$(TargetDir)payload/%(_PayloadProject.RasmPayload)/</_PayloadSlotDirectory>
-            <_PayloadSlotTarget>GetDynamicLoadEntry</_PayloadSlotTarget>
-            <_PayloadSlotTarget Condition="'%(_PayloadProject.RasmPayload)' == 'cargo'">GetDynamicLoadPayload</_PayloadSlotTarget>
-        </PropertyGroup>
-        <MSBuild Projects="@(_PayloadProject)" Targets="$(_PayloadSlotTarget)" BuildInParallel="true">
-            <Output TaskParameter="TargetOutputs" ItemName="_PayloadSlotFile" />
-        </MSBuild>
-        <RemoveDir Directories="$(_PayloadSlotDirectory)" Condition="'$(_PayloadSlotDirectory)' != ''" />
-        <Copy SourceFiles="@(_PayloadSlotFile)" DestinationFolder="$(_PayloadSlotDirectory)" Condition="'$(_PayloadSlotDirectory)' != ''">
-            <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
-        </Copy>
-        <ItemGroup>
-            <_PayloadSlotFile Remove="@(_PayloadSlotFile)" />
-        </ItemGroup>
-    </Target>
-
-    <PropertyGroup Label="Yak Packaging" Condition="'$(YakPackageSlug)' != ''">
-        <YakManifestDirectory>$(RasmToolsRoot)yak/$(YakPackageSlug)/</YakManifestDirectory>
-        <YakPackageDirectory>$(ArtifactsPath)rhino/$(YakPackageSlug)/package/</YakPackageDirectory>
-        <YakPushSource Condition="'$(YakPushSource)' == '' and '$(YAK_SOURCE)' != ''">$(YAK_SOURCE)</YakPushSource>
-    </PropertyGroup>
-
-    <Target Name="YakStage" DependsOnTargets="GetDynamicLoadPayload" Condition="'$(YakPackageSlug)' != ''">
-        <MSBuild Projects="@(YakPayloadProject)" Targets="GetDynamicLoadPayload" BuildInParallel="true">
-            <Output TaskParameter="TargetOutputs" ItemName="_YakStagedPayload" />
-        </MSBuild>
-        <ItemGroup>
-            <_YakStagedPayload Include="@(_DynamicLoadPayload);$(YakManifestDirectory)manifest.yml" />
-        </ItemGroup>
-        <Error Condition="!Exists('$(YakPath)')" Text="Yak executable not found at '$(YakPath)'." />
-        <RemoveDir Directories="$(YakPackageDirectory)" />
-        <Copy SourceFiles="@(_YakStagedPayload)" DestinationFolder="$(YakPackageDirectory)" />
-    </Target>
-
-    <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''">
-        <Exec Command="&quot;$(YakPath)&quot; build --platform mac" WorkingDirectory="$(YakPackageDirectory)" />
-        <ItemGroup>
-            <_YakPackageFile Include="$(YakPackageDirectory)*.yak" />
-        </ItemGroup>
-        <Error Condition="'@(_YakPackageFile->Count())' != '1'" Text="Yak build must produce exactly one package under '$(YakPackageDirectory)'." />
-    </Target>
-
-    <Target Name="YakInstall" DependsOnTargets="YakBuild" Condition="'$(YakPackageSlug)' != ''">
-        <Exec Command="&quot;$(YakPath)&quot; install &quot;@(_YakPackageFile)&quot;" />
-    </Target>
-
-    <Target Name="YakPush" DependsOnTargets="YakBuild" Condition="'$(YakPackageSlug)' != ''">
-        <Exec Command="&quot;$(YakPath)&quot; push --source &quot;$(YakPushSource)&quot; &quot;@(_YakPackageFile)&quot;" Condition="'$(YakPushSource)' != ''" />
-        <Exec Command="&quot;$(YakPath)&quot; push &quot;@(_YakPackageFile)&quot;" Condition="'$(YakPushSource)' == ''" />
-    </Target>
 </Project>

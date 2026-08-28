@@ -26,8 +26,8 @@ Rasm/
 ├── tools/                    # Custom tools for developing this project
 │   └── biome/                # Python automation that Nx targets and CI jobs invoke
 ├── nx.json                   # Task graph, caching, and change detection across every branch
-├── Directory.Build.props     # C# configuration
-├── Directory.Build.targets   # C# items and references resolved after each project declares its packages
+├── Directory.Build.props     # C# setup, artifacts path, restore, analysis, workspace analyzers, Rhino bundle paths
+├── Directory.Build.targets   # C# derived items: package-keyed usings, host references, shape guards
 ├── Directory.Packages.props  # CPM - C#
 ├── pyproject.toml            # CPM - Python, and rule set tuning for all Python tools
 ├── pnpm-workspace.yaml       # CPM - TypeScript
@@ -40,11 +40,11 @@ Rasm/
 ├── stryker.config.json       # TypeScript mutation testing
 ├── stryker-config.json       # C# mutation testing
 ├── Workspace.slnx            # C# solution listing every C# project
-├── NuGet.config              # NuGet feed with package source mapping and audit source
+├── NuGet.config              # NuGet feed, clears inherited machine and user sources
 ├── global.json               # .NET SDK version and test runner config (MTP)
 ├── CLAUDE.md                 # Agent standards
 ├── AGENTS.md                 # Symlink to CLAUDE.md
-├── .editorconfig             # C# analyzer severity rules (200+)
+├── .editorconfig             # Analyzer severity, path-scoped carves, and BuildCheck rows
 ├── .gitattributes
 ├── .gitignore
 ├── README.md
