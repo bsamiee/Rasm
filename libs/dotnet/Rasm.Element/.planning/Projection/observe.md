@@ -294,11 +294,7 @@ public sealed partial class ElementInstrument {
  public static TelemetryContributorPort Telemetry(string version) =>
   new(Scope: TelemetrySource.Element, Version: version, Instruments: Rows, Planes: ElementPoint.Scopes);
 
- static partial void ValidateConstructorArguments(ref string key, ref InstrumentSpec row) {
-  if (!string.Equals(key, row.Name, StringComparison.Ordinal)) {
-   throw new ArgumentException($"<element-instrument:{key}>", nameof(row));
-  }
- }
+ public static Fin<Unit> Proof() => InstrumentSpec.Named(toSeq(Items).Map(static row => (row.Key, row.Row.Name)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

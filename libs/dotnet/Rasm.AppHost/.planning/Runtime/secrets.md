@@ -217,15 +217,17 @@ public static class CredentialPublic {
                 .MapFail(static error => (Error)new PemFault.CertRejected(error));
 
     public static Fin<CredentialMaterial> Spki(ReadOnlyMemory<byte> key) =>
-        Try.lift(() => Fin.Succ(Admit(key.Span))).Run().Bind(static inner => inner)
+        Try.lift(() => Admit(key.Span)).Run().Bind(static inner => inner)
             .Map(static admitted => (CredentialMaterial)new CredentialMaterial.Spki(admitted))
             .MapFail(static error => (Error)new PemFault.SpkiRejected(error));
 
-    static Der Admit(ReadOnlySpan<byte> key) {
+    static Fin<Der> Admit(ReadOnlySpan<byte> key) {
         _ = PublicKey.CreateFromSubjectPublicKeyInfo(key, out int read);
         return read == key.Length
-            ? Der.Of(key)
-            : throw new CryptographicException("trailing octets after subject public key info");
+            ? Fin.Succ(Der.Of(key))
+            : Fin.Fail<Der>(new KernelFault.OutOfRange(
+                Label: nameof(key), Scalar: key.Length,
+                Requirement: string.Create(provider: CultureInfo.InvariantCulture, $"exactly {read} subject-public-key-info octets")));
     }
 
     public static Host.CredentialPublicWire Carrier(CredentialMaterial material, string keyId) =>

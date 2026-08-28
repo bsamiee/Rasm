@@ -112,12 +112,15 @@ public sealed partial class AnalysisVerb {
             .Map(static candidate => (AnalysisQuery)RuntimeHelpers.GetUninitializedObject(type: candidate))
             .Map(static instance => (instance.Verb, Arities: CapabilitySet<QueryArity>.Of(Floors(query: instance).ToArray())))
             .Strict();
-        Seq<AnalysisVerb> twinned = claimed.Collisions(static row => row.Verb);
-        return claimed.Count == Items.Count && twinned.IsEmpty
-            ? claimed.ToFrozenDictionary(static row => row.Verb, static row => row.Arities)
-            : throw new InvalidOperationException(message: string.Create(provider: CultureInfo.InvariantCulture,
-                $"AnalysisVerb holds {Items.Count} rows against {claimed.Count} cases, twinned on [{string.Join(',', twinned.Map(static row => row.Key))}]."));
+        return claimed.ToFrozenDictionary(static row => row.Verb, static row => row.Arities);
     }, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static Fin<Unit> Proof() =>
+        Coverage.Value.Count == Items.Count
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.OutOfRange(
+                Label: nameof(AnalysisVerb), Scalar: Coverage.Value.Count,
+                Requirement: string.Create(provider: CultureInfo.InvariantCulture, $"one case per {Items.Count} declared rows")));
 
     private static Seq<QueryArity> Floors(AnalysisQuery query) =>
         Seq(

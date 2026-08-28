@@ -323,7 +323,7 @@ public sealed partial class AuditPolicy {
 - Owner: `RasterGrid` owns the local cell grid; `AdmittedAudit` owns the admitted stack, its local ordinates, the per-layer regions, and the per-layer support capsules; `RasterWorkspace` owns every pooled plane and the fill passes over them.
 - Law: the workspace rents FOUR planes per layer — solid occupancy, void occupancy, support coverage, and the component label — and `BytesPerCell` states the budget those four cost, so `DemandGate` bounds what is actually rented rather than a plane count that hides an integer plane behind three byte planes.
 - Exemption: `RasterWorkspace.Allocate`, `RasterWorkspace.Fill`, `OccupancyAction.Invoke`, and `SupportAction.Invoke` are the platform rental and parallel-fill kernels; each writes a disjoint cell and holds no shared state.
-- Entry: `RasterWorkspace.Allocate` is the one rental and disposes every prior owner on a partial failure; `Solid`, `Void`, `Support`, and `Labels` are the plane reads.
+- Entry: `RasterWorkspace.Allocate` is the one rental and rolls every prior owner back on a partial failure; `Solid`, `Void`, `Support`, and `Labels` are the plane reads.
 - Auto: occupancy classifies through the ONE `SliceRegion` non-zero winding rule every other `SliceStack` consumer reads, so the preflight fills exactly the geometry the program it gates deposits; a parity count over raw contours calls two same-winding nested rings void where the corpus fills them solid. The row-bucketed loop index supplies row-local candidates so each cell tests only the rings whose bounds cross its ordinate.
 - Law: the label plane is SHARED SCRATCH the solid and void labelings write in turn, so each labeling consumes its own labels inside its own pass — the component walk reads them for lineage, the void walk for escape — and a later fold asking a question occupancy already answers reads occupancy, never a label the next pass overwrites.
 - Packages: `CommunityToolkit.HighPerformance` (`MemoryOwner<T>`, `Memory2D<T>`, `Span2D<T>`, `AsMemory2D`, `AllocationMode`, `ParallelHelper.For2D`, `IAction2D`); `Additive/slicing` (`SliceRegion`, `SliceRegion.Of`, `Outers`, `Holes`, `Covers`); `Additive/support` (`SupportPlan`, `SupportLayer`, `SupportNode`).
@@ -409,25 +409,18 @@ internal sealed class RasterWorkspace : IDisposable {
         (this.solid, this.voids, this.support, this.labels, this.layers, this.grid) =
         (solid, voids, support, labels, layers, grid);
 
-    public static RasterWorkspace Allocate(int layers, RasterGrid grid) {
+    public static Fin<RasterWorkspace> Allocate(int layers, RasterGrid grid) {
         MemoryOwner<byte>? solid = null;
         MemoryOwner<byte>? voids = null;
         MemoryOwner<byte>? support = null;
         MemoryOwner<int>? labels = null;
-        try {
+        return Try.lift(() => {
             solid = MemoryOwner<byte>.Allocate(layers * grid.CellCount, AllocationMode.Clear);
             voids = MemoryOwner<byte>.Allocate(layers * grid.CellCount, AllocationMode.Clear);
             support = MemoryOwner<byte>.Allocate(layers * grid.CellCount, AllocationMode.Clear);
             labels = MemoryOwner<int>.Allocate(layers * grid.CellCount, AllocationMode.Clear);
             return new RasterWorkspace(solid, voids, support, labels, layers, grid);
-        }
-        catch {
-            labels?.Dispose();
-            support?.Dispose();
-            voids?.Dispose();
-            solid?.Dispose();
-            throw;
-        }
+        }).Run().Rollback(solid, voids, support, labels);
     }
 
     public Memory2D<byte> Solid(int layer) => Plane(solid, layer);
@@ -892,8 +885,11 @@ public static class Audit {
     private static Polyline Ring(Loop loop) =>
         new(toSeq(loop.Vertices).Add(loop.Vertices[0]));
 
-    private static Fin<AuditEvidence> Run(AdmittedAudit admitted) {
-        using RasterWorkspace workspace = RasterWorkspace.Allocate(admitted.Stack.LayerCount, admitted.Grid);
+    private static Fin<AuditEvidence> Run(AdmittedAudit admitted) =>
+        RasterWorkspace.Allocate(admitted.Stack.LayerCount, admitted.Grid)
+            .Bind(workspace => Evidence(workspace, admitted).Settled(() => Custody.Released(workspace)));
+
+    private static Fin<AuditEvidence> Evidence(RasterWorkspace workspace, AdmittedAudit admitted) {
         workspace.Fill(admitted);
         Seq<LayerComponent> components = Components(workspace, admitted);
         Seq<VoidRegion> voids = admitted.Risks.Contains(AuditRisk.Trap) || admitted.Risks.Contains(AuditRisk.Drainage)

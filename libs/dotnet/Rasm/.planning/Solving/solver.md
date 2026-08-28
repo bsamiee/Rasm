@@ -165,7 +165,7 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     int IComparable.CompareTo(object? value) => value switch {
         null => 1,
         Dual<T> other => CompareTo(other),
-        _ => throw new ArgumentException($"expected {nameof(Dual<T>)}", nameof(value)),
+        _ => 1,
     };
 
     public static bool operator <(Dual<T> left, Dual<T> right) => left.Value < right.Value;

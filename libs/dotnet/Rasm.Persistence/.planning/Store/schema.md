@@ -435,7 +435,9 @@ public static class BackendConformance {
             ReadOnlyMemory<byte> document = sink.ToArray();
             return document.Length <= DocumentCeiling
                 ? Fin.Succ<ReadOnlyMemory<byte>>(document)
-                : throw new InvalidDataException($"backend contract exceeds {DocumentCeiling} bytes");
+                : Fin.Fail<ReadOnlyMemory<byte>>(new KernelFault.OutOfRange(
+                    Label: nameof(SchemaContract.Document), Scalar: document.Length,
+                    Requirement: $"at most {DocumentCeiling} bytes"));
         }).Run().Bind(static inner => inner).MapFail(static error => (Error)new ContractFault.InvalidProjection(error));
 
     public static Fin<SchemaContract> Project(ReadOnlyMemory<byte> protoJson) {

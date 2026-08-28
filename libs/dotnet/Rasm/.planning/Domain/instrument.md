@@ -75,14 +75,17 @@ public sealed partial class Buckets {
 
     public ImmutableArray<double> Bounds { get; }
 
-    static partial void ValidateConstructorArguments(ref string key, ref string unit, ref ImmutableArray<double> bounds) {
-        if (string.IsNullOrWhiteSpace(unit)
-            || bounds.IsEmpty
-            || bounds.Any(static bound => !double.IsFinite(bound))
-            || bounds.Zip(bounds.Skip(1)).Any(static pair => pair.First >= pair.Second)) {
-            throw new ArgumentException($"<bucket-bounds:{key}>", nameof(bounds));
-        }
-    }
+    public static Fin<Unit> Proof() =>
+        toSeq(Items)
+            .Filter(static row => string.IsNullOrWhiteSpace(row.Unit)
+                || row.Bounds.IsEmpty
+                || row.Bounds.Any(static bound => !double.IsFinite(bound))
+                || row.Bounds.Zip(row.Bounds.Skip(1)).Any(static pair => pair.First >= pair.Second))
+            .Map(static row => (Error)new KernelFault.InvalidValue(
+                Label: row.Key, Requirement: "a named unit and strictly ascending finite bounds"))
+            is { IsEmpty: false } faults
+            ? Fin.Fail<Unit>(Error.Many(faults.Strict()))
+            : Fin.Succ(unit);
 
     public Histogram<T> Advised<T>(Meter meter, InstrumentSpec row) where T : struct, INumberBase<T> =>
         meter.CreateHistogram<T>(row.Name, row.Unit, row.Description, tags: null,
@@ -145,6 +148,14 @@ public sealed partial class MeasureForm {
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class InstrumentSpec {
+    public static Fin<Unit> Named(Seq<(string Key, string Name)> rows) =>
+        rows.Filter(static row => !string.Equals(row.Key, row.Name, StringComparison.Ordinal))
+            .Map(static row => (Error)new KernelFault.InvalidValue(
+                Label: row.Key, Requirement: $"an instrument named {row.Name}"))
+            is { IsEmpty: false } faults
+            ? Fin.Fail<Unit>(Error.Many(faults.Strict()))
+            : Fin.Succ(unit);
+
     public string Name { get; }
     public InstrumentKind Kind { get; }
     public MeasureForm Form { get; }

@@ -65,9 +65,8 @@ public sealed partial class FlowDirection {
 
     public CapabilitySet<PortCapability> Conducts { get; }
 
-    static partial void ValidateConstructorArguments(ref string key, ref CapabilitySet<PortCapability> conducts) {
-        if (Conduction.Admit(conducts).IsFail) { throw new ArgumentException($"<flow-direction-corner:{key}>", nameof(conducts)); }
-    }
+    public static Fin<Unit> Proof() =>
+        toSeq(Items).Traverse(static row => Conduction.Admit(row.Conducts)).As().Map(static _ => unit);
 
     public static FlowDirection Of(string? token) => TryGet(token?.Trim(), out FlowDirection? direction) ? direction : NotDefined;
 }
@@ -368,9 +367,8 @@ public sealed partial class TraceMode {
 
     public CapabilitySet<EdgeCapability> Legs { get; }
 
-    static partial void ValidateConstructorArguments(ref string key, ref CapabilitySet<EdgeCapability> legs) {
-        if (Orientation.Admit(legs).IsFail) { throw new ArgumentException($"<trace-mode-corner:{key}>", nameof(legs)); }
-    }
+    public static Fin<Unit> Proof() =>
+        toSeq(Items).Traverse(static row => Orientation.Admit(row.Legs)).As().Map(static _ => unit);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

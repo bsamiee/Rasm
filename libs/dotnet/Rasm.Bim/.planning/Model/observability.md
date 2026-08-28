@@ -311,11 +311,7 @@ public sealed partial class BimInstrument {
     public static TelemetryContributorPort Telemetry(string version) =>
         new(Scope: TelemetrySource.Bim, Version: version, Instruments: Rows, Planes: BimPoint.Scopes);
 
-    static partial void ValidateConstructorArguments(ref string key, ref InstrumentSpec row) {
-        if (!string.Equals(key, row.Name, StringComparison.Ordinal)) {
-            throw new ArgumentException($"<bim-instrument:{key}>", nameof(row));
-        }
-    }
+    public static Fin<Unit> Proof() => InstrumentSpec.Named(toSeq(Items).Map(static row => (row.Key, row.Row.Name)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

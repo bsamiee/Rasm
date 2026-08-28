@@ -469,11 +469,12 @@ public sealed partial class CorpusGrade {
  public static readonly CorpusGrade XL = new("xl",
   Row(262_144, 0.25, 16, Seq(Discipline.Structural, Discipline.Thermal, Discipline.Energy, Discipline.Acoustic, Discipline.Fire), 5, 1004));
 
- public CorpusProfile Profile { get; }
+ public Fin<CorpusProfile> Profile { get; }
 
- static CorpusProfile Row(int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed) =>
-  CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed)
-   .IfFail(static _ => throw new InvalidOperationException("Corpus grade declaration violates CorpusProfile admission."));
+ public static Fin<Unit> Proof() => toSeq(Items).Traverse(static grade => grade.Profile).As().Map(static _ => unit);
+
+ static Fin<CorpusProfile> Row(int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed) =>
+  CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed);
 }
 
 [SmartEnum<string>]
@@ -559,7 +560,7 @@ public static class CorpusGate {
   (ByteString.CopyFrom([0xFF, 0xFE]), false));
 
  public static Fin<CorpusModel> Mint(CorpusGrade grade) =>
-  GraphForge.Mint(grade.Profile).Map(step =>
+  grade.Profile.Bind(GraphForge.Mint).Map(step =>
    new CorpusModel(grade, step.Graph, step.Delta, step.Mutation, ContentAddress.OfGraph(step.Graph)));
 
  public static Fin<ContentAddress> Stable(CorpusGrade grade) =>

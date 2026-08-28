@@ -32,6 +32,8 @@
 - No declaration takes the simple name of an ADMITTED PACKAGE type its folder references — `FieldPack`, never `FieldCodec`, beside `Google.Protobuf`.
 - Host-boundary gesture and pick results stay PLURAL — a viewport pick and a canvas pick share no consumer, so one owner forces a cross-host edge.
 - `Option<T>` crosses to a host `T?` slot through `HostEdge.Slot`/`HostEdge.Nullable` ALONE — the one place `null` is a legal spelling on this branch.
+- Our own code THROWS NOWHERE — a refusal is a typed `Fin` failure and `Try.lift` is the one funnel a throwing host call crosses.
+- A throw survives only where a framework callback publishes NO result channel — a serializer converter, a projection factory, a connect delegate, an iterator mid-stream — and the enclosing boundary converts it back on the same page.
 - Value records holding a sequence, array, or map member declare `[Equatable]` with explicit member equality, or hold `Seq`/`Arr` over an array.
 - Boundary declarations whose simple name matches a kernel owner RENAME at the boundary — one assembly resolves bare names and the kernel keeps it.
 - `FaultBand.OwnerOf` takes the `BandKind` it decodes — the two id spaces partition, so an interval-only read answers whichever row sorts first.

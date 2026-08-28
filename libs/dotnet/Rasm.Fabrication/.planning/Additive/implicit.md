@@ -965,21 +965,16 @@ public static partial class Sdf {
             from morphed in Morph(combined, row.Morphology, row.Policy)
             select new Rasterized(morphed, inputs.Map(static held => held.Calibration).Somes().Head));
 
-    private static Fin<Voxels> Combine(Seq<Voxels> inputs, VoxelBoolean operation) =>
-        Try.lift(() => {
-                Voxels result = inputs[0].voxDuplicate();
-                try {
-                    _ = operation.Apply(result, inputs.Skip(1));
-                    return Fin.Succ(result);
-                }
-                catch {
-                    result.Dispose();
-                    throw;
-                }
-                finally {
-                    inputs.Iter(static input => input.Dispose());
-                }
-            }).Run().Bind(static inner => inner);
+    private static Fin<Voxels> Combine(Seq<Voxels> inputs, VoxelBoolean operation) {
+        Voxels? result = null;
+        return Try.lift(() => {
+                result = inputs[0].voxDuplicate();
+                _ = operation.Apply(result, inputs.Skip(1));
+                return result;
+            }).Run()
+            .Rollback(result)
+            .Settled(() => Custody.Dispose(inputs));
+    }
 
     private static Fin<Rasterized> Field(ImplicitOp.Field operation) =>
         from density in Acquire(operation.Cell.DensityField)

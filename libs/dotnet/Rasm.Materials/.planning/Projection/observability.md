@@ -442,11 +442,7 @@ public sealed partial class MaterialsInstrument {
     public static TelemetryContributorPort Telemetry(string version) =>
         new(Scope: TelemetrySource.Materials, Version: version, Instruments: Rows, Board: MaterialsDescriptors.Pack);
 
-    static partial void ValidateConstructorArguments(ref string key, ref InstrumentSpec row) {
-        if (!string.Equals(key, row.Name, StringComparison.Ordinal)) {
-            throw new ArgumentException($"<materials-instrument:{key}>", nameof(row));
-        }
-    }
+    public static Fin<Unit> Proof() => InstrumentSpec.Named(toSeq(Items).Map(static row => (row.Key, row.Row.Name)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

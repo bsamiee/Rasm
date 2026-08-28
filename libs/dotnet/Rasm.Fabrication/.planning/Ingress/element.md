@@ -244,11 +244,11 @@ public abstract partial record ElementProjection {
 - Owner: `FactColumn` owns one member's row name and its reader; `FactScope` owns path composition; `ElementColumns` owns every declared table the lowering folds; `FactColumns` owns the one `Emit` fan and the `Sound` completeness census over that owner's own fields.
 - Law: a member NAME appears exactly once, in the row that mints it, and the reader sits on the same line — so a fact path can never drift from the member it reports, and the interpolation that composed a root at each of a hundred and fifty sites collapses to the one join `FactScope.Row` runs.
 - Law: an absent reading is `None` and emits NO row. An optional column that emitted a zero published a measured value the graph never carried, and the coalescing census would then treat two absences as agreeing readings.
-- Law: every table is a HAND-KEPT MIRROR of its source type's member set, and `FactColumns.Sound` is what proves it — the census reflects THIS owner's own fields at first construction, so the proof roster cannot drift from the tables it proves, and a source member that no column names and no `[Unpublished]` carve claims throws where the tables initialize rather than dropping a fact in silence the way three of `PropertyEvidence`'s six went unpublished. Every table carries its own carve with its own reason: a member published by another table names that landing, a composite carrier's fields carve wholesale because they are the reach and never a fact, and a member nothing reaches carves with the reason it is unreachable — `Element.Observations` is the one such member, because no fabrication consumer reads a time series. NAMED LOSS: the proof matches NAMES, not readers, since a delegate body is not reflectable; the stronger form is a generated projection at the `Rasm.Element` owner, which is where the roster moves the day that owner publishes one.
+- Law: every table is a HAND-KEPT MIRROR of its source type's member set, and `FactColumns.Sound` is what proves it — the census reflects THIS owner's own fields at first construction, so the proof roster cannot drift from the tables it proves, and a source member that no column names and no `[Unpublished]` carve claims refuses through `FactColumns.Sound` rather than dropping a fact in silence the way three of `PropertyEvidence`'s six went unpublished. Every table carries its own carve with its own reason: a member published by another table names that landing, a composite carrier's fields carve wholesale because they are the reach and never a fact, and a member nothing reaches carves with the reason it is unreachable — `Element.Observations` is the one such member, because no fabrication consumer reads a time series. NAMED LOSS: the proof matches NAMES, not readers, since a delegate body is not reflectable; the stronger form is a generated projection at the `Rasm.Element` owner, which is where the roster moves the day that owner publishes one.
 - Cases: a column reads a number, a symbol, or a typed `PropertyValue`; the sources are `Element` itself, one material composition case, one `MaterialPropertySet` family, one section profile, one usage case, and one relationship case.
 - Auto: banded and indicator rosters (`AcousticBand`, `ImpactCategory`, `LifecycleStage`) fold their OWN `Items`, so a new band or indicator is a generated row and never a column here.
 - Growth: a new fabrication fact is one row on the owning table; a new source family is one table and one arm on the lowering fold — and either lands with its `[Unpublished]` carve, because the census refuses a table whose source carries a member no column names.
-- Packages: `System.Reflection` supplies the field, generic-argument, and property census `FactColumns.Sound` runs at first construction — the one reflective read on the page, paid once per process rather than per fact; `Rasm.Element` supplies every source type the tables mirror; LanguageExt.Core supplies `Seq`/`Option`/`Unit` and the `Empty`/`More` match the proof folds through.
+- Packages: `System.Reflection` supplies the field, generic-argument, and property census `FactColumns.Sound` runs — the one reflective read on the page, paid once per proof rather than per fact; `Rasm.Element` supplies every source type the tables mirror; LanguageExt.Core supplies `Seq`/`Option`/`Unit` and the `Empty`/`More` match the proof folds through.
 - Boundary: this cluster reads member VALUES only — no admission, no conversion policy, no fault. Unit lifting stays at the `Rasm.Element` measure owner, which already publishes SI scalars.
 
 ```csharp
@@ -284,7 +284,7 @@ public static class FactColumns {
     public static Seq<ElementFact> Emit<TSource>(this Seq<FactColumn<TSource>> columns, FactScope scope, TSource source) =>
         columns.Choose(column => column.Of(scope, source));
 
-    public static Unit Sound(Type owner) =>
+    public static Fin<Unit> Sound(Type owner) =>
         toSeq(owner.GetFields(BindingFlags.Public | BindingFlags.Static))
             .Filter(static field => field.FieldType.IsGenericType
                 && field.FieldType.GetGenericTypeDefinition() == typeof(Seq<>)
@@ -292,10 +292,11 @@ public static class FactColumns {
                 && field.FieldType.GetGenericArguments()[0].GetGenericTypeDefinition() == typeof(FactColumn<>))
             .Bind(field => Uncovered(field).Map(member => $"{field.Name}.{member}"))
             .Match(
-                Empty: static () => unit,
-                More: static gaps => throw new InvalidOperationException(string.Create(
-                    provider: CultureInfo.InvariantCulture,
-                    $"fact tables drop members with no carve: {string.Join(", ", gaps)}")));
+                Empty: static () => Fin.Succ(unit),
+                More: gaps => Fin.Fail<Unit>(new KernelFault.InvalidValue(
+                    Label: owner.Name,
+                    Requirement: string.Create(provider: CultureInfo.InvariantCulture,
+                        $"a carve for every fact member; uncovered {string.Join(", ", gaps)}"))));
 
     private static Seq<string> Uncovered(FieldInfo field) {
         Type source = field.FieldType.GetGenericArguments()[0].GetGenericArguments()[0];
@@ -310,7 +311,6 @@ public static class FactColumns {
 }
 
 public static class ElementColumns {
-    static ElementColumns() => ignore(FactColumns.Sound(typeof(ElementColumns)));
 
     public const string MaterialRow = "material";
 

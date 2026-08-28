@@ -934,12 +934,14 @@ public sealed partial class MeasureRole {
 
     public TypographyRole Typography => Tabular ? TypographyRole.Numeric : TypographyRole.Body;
 
-    static partial void ValidateConstructorArguments(
-        ref string key, ref Enum metricUnit, ref Enum imperialUnit, ref MeasureGrammar grammar, ref int decimals, ref bool tabular) {
-        if (metricUnit.GetType() != imperialUnit.GetType() || decimals < 0) {
-            throw new ArgumentException($"<unit-family:{key}>", nameof(imperialUnit));
-        }
-    }
+    public static Fin<Unit> Proof() =>
+        toSeq(Items)
+            .Filter(static row => row.MetricUnit.GetType() != row.ImperialUnit.GetType() || row.Decimals < 0)
+            .Map(static row => (Error)new KernelFault.InvalidValue(
+                Label: row.Key, Requirement: "one unit family across both systems and a non-negative decimal count"))
+            is { IsEmpty: false } faults
+            ? Fin.Fail<Unit>(Error.Many(faults.Strict()))
+            : Fin.Succ(unit);
 }
 
 [SmartEnum<string>]

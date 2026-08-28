@@ -855,12 +855,10 @@ public static partial class ProfileImport {
         int spans = polyline.IsClosed && vertices.Length > 1
             ? vertices.Length
             : Math.Max(0, vertices.Length - 1);
-        if (bulges.Length < spans)
-            throw new InvalidDataException($"hatch-polyline:bulges:{bulges.Length}:{spans}");
         return Range(0, spans).ToSeq().Map(index => new HatchSpan(
             Ocs(hatch.Normal, new XY(vertices[index].X, vertices[index].Y), hatch.Elevation, scale),
             Ocs(hatch.Normal, new XY(vertices[(index + 1) % vertices.Length].X, vertices[(index + 1) % vertices.Length].Y), hatch.Elevation, scale),
-            bulges[index] * Math.Sign(hatch.Normal.Z)));
+            (index < bulges.Length ? bulges[index] : 0.0) * Math.Sign(hatch.Normal.Z)));
     }
 
     private static Seq<HatchSpan> HatchSampled(Hatch hatch, IEnumerable<XYZ> source, double scale) {

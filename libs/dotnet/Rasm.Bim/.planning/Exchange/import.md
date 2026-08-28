@@ -399,7 +399,8 @@ public static partial class BimIo {
             model = TextContext(bytes, validation).ReadTextSchema2(new MemoryStream(bytes.ToArray()));
         }
         DecodeStage.Opened.Beat(hooks);
-        return Decoded(format, compressed ? Compression.Decompress(model, json) : model, at, hooks);
+        return (compressed ? Compression.Decompress(model, json) : Fin.Succ(model))
+            .Bind(decompressed => Decoded(format, decompressed, at, hooks));
     }
 
     static ReadContext TextContext(ReadOnlyMemory<byte> bytes, ValidationMode validation) {
@@ -533,16 +534,20 @@ public static partial class BimIo {
             && json.Length > 0
             && (json.Contains(draco, StringComparison.Ordinal) || json.Contains(meshopt, StringComparison.Ordinal));
 
-        public static ModelRoot Decompress(ModelRoot model, string json) {
+        public static Fin<ModelRoot> Decompress(ModelRoot model, string json) {
             var root = JsonNode.Parse(json)!.AsObject();
             Rows(root, "meshes").Iter((m, mesh) => mesh.Iter(entry =>
                 toSeq(model.LogicalMeshes[m].Primitives).Iter((p, primitive) =>
                     Reach(entry, "primitives", p, KhrExtension.DracoMeshCompression.Key)
                         .Iter(extension => DracoPrimitive(primitive, extension)))));
-            Rows(root, "bufferViews").Iter((v, view) => view
-                .Bind(entry => Extension(entry, KhrExtension.MeshoptCompression.Key))
-                .Iter(extension => MeshoptView(model, model.LogicalBufferViews[v], extension)));
-            return model;
+            return Rows(root, "bufferViews")
+                .Traverse((v, view) => view
+                    .Bind(entry => Extension(entry, KhrExtension.MeshoptCompression.Key))
+                    .Match(
+                        Some: extension => MeshoptView(model, model.LogicalBufferViews[v], extension),
+                        None: () => Fin.Succ(unit)))
+                .As()
+                .Map(_ => model);
         }
 
         static Seq<Option<JsonObject>> Rows(JsonObject root, string member) =>
@@ -596,31 +601,38 @@ public static partial class BimIo {
             }
         }
 
-        static unsafe void MeshoptView(ModelRoot model, BufferView view, JsonObject extension) {
+        static unsafe Fin<Unit> MeshoptView(ModelRoot model, BufferView view, JsonObject extension) {
             int count = (int)extension["count"]!;
             int stride = (int)extension["byteStride"]!;
-            MeshoptMode mode = Token(extension, "mode", MeshoptMode.Default);
-            MeshoptFilter filter = Token(extension, "filter", MeshoptFilter.Default);
+            if (Token(extension, "mode", MeshoptMode.Default) is not { Case: MeshoptMode mode }) { return Refused("mode", extension); }
+            if (Token(extension, "filter", MeshoptFilter.Default) is not { Case: MeshoptFilter filter }) { return Refused("filter", extension); }
             var compressed = model.LogicalBuffers[(int)extension["buffer"]!].Content;
             int offset = Optional((int?)extension["byteOffset"]).IfNone(0);
             int length = (int)extension["byteLength"]!;
             var destination = new byte[count * stride];
+            int status;
             fixed (byte* dst = destination)
             fixed (byte* src = compressed) {
-                int status = mode.Decode(dst, (nuint)count, (nuint)stride, src + offset, (nuint)length);
-                if (status != 0) { throw new InvalidDataException(string.Join(':', new object?[] { "import-decode", "meshopt-decode-status", status.ToString(CultureInfo.InvariantCulture) })); }
-                filter.Unfilter(dst, (nuint)count, (nuint)stride);
+                status = mode.Decode(dst, (nuint)count, (nuint)stride, src + offset, (nuint)length);
+                if (status == 0) { filter.Unfilter(dst, (nuint)count, (nuint)stride); }
+            }
+            if (status != 0) {
+                return Fin.Fail<Unit>(new BimFault.Refused(BimScope.Import, BimReason.Capability,
+                    string.Join(':', new object?[] { "meshopt-decode-status", status.ToString(CultureInfo.InvariantCulture) })));
             }
             destination.CopyTo(view.Content.AsSpan(0, destination.Length));
+            return Fin.Succ(unit);
         }
 
-        static TRow Token<TRow>(JsonObject extension, string member, TRow fallback)
+        static Fin<Unit> Refused(string member, JsonObject extension) =>
+            Fin.Fail<Unit>(new BimFault.Refused(BimScope.Import, BimReason.Capability,
+                string.Join(':', new object?[] { $"meshopt-{member}", (string?)extension[member] })));
+
+        static Option<TRow> Token<TRow>(JsonObject extension, string member, TRow fallback)
             where TRow : class, ISmartEnum<string, TRow, ValidationError> =>
             Optional((string?)extension[member]).Match(
-                Some: token => TRow.TryGet(token, out TRow? row) && row is { } admitted
-                    ? admitted
-                    : throw new InvalidDataException(string.Join(':', new object?[] { "import-decode", $"meshopt-{member}", token })),
-                None: () => fallback);
+                Some: token => TRow.TryGet(token, out TRow? row) && row is { } admitted ? Some(admitted) : Option<TRow>.None,
+                None: () => Some(fallback));
 
         public static string JsonChunk(ReadOnlyMemory<byte> glb) {
             using Stream source = glb.AsStream();

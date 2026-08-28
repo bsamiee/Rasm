@@ -207,11 +207,14 @@ public static class SandboxRows {
             childCase: static (seat, _) => IO.fail<T>(new SandboxFault.NoAuthority($"{seat.Plugin.PluginId}: no wasm instance on the process row")));
 
     static IO<WasmCapsule> Capsule(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime, VehicleProvider.WasmCase wasm) =>
-        IO.lift(() => Try.lift(() => {
-            Module module = Module.FromBytes(runtime.Engine, artifact.PluginId, artifact.Component.Span);
-            Store store = new(runtime.Engine);
-            Linker linker = new(runtime.Engine);
-            try {
+        IO.lift(() => {
+            Module? module = null;
+            Store? store = null;
+            Linker? linker = null;
+            return Try.lift(() => {
+                module = Module.FromBytes(runtime.Engine, artifact.PluginId, artifact.Component.Span);
+                store = new Store(runtime.Engine);
+                linker = new Linker(runtime.Engine);
                 store.SetWasiConfiguration(wasm.Wasi(scope));
                 store.SetLimits(memorySize: row.Quota.MemoryBytes);
                 store.SetEpochDeadline(Ticks(row.Quota.Wall.Bound, runtime.EpochPeriod));
@@ -220,15 +223,9 @@ public static class SandboxRows {
                 foreach (ImportRow import in wasm.Imports(scope)) {
                     linker.DefineFunction(import.Module, import.Name, import.Callback, import.Parameters, import.Results);
                 }
-                return Fin.Succ(new WasmCapsule(module, linker, store, linker.Instantiate(store, module), store.Fuel, Atom(Option<TrapCode>.None)));
-            }
-            catch {
-                linker.Dispose();
-                store.Dispose();
-                module.Dispose();
-                throw;
-            }
-        }).Run().Bind(static inner => inner));
+                return new WasmCapsule(module, linker, store, linker.Instantiate(store, module), store.Fuel, Atom(Option<TrapCode>.None));
+            }).Run().Rollback(module, store, linker);
+        });
 
     static ulong Ticks(TimeSpan bound, Duration period) =>
         (ulong)long.Max(1L, (long)Math.Ceiling(bound.TotalNanoseconds / period.TotalNanoseconds));

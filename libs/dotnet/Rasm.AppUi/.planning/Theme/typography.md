@@ -207,14 +207,14 @@ public sealed partial class TypographyRole {
         new(key, wire, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source,
             lane ?? FamilyLane.Sans, trackingBias, Optional(heading));
 
-    static partial void ValidateConstructorArguments(
-        ref string key, ref Rasm.Contracts.Ui.TypographyRole wire, ref int size, ref LeadingClass leading,
-        ref int rung, ref TrimPolicy trim, ref FeatureFacet numerals, ref FeatureFacet casing, ref FamilyLane lane,
-        ref double trackingBias, ref Option<int> heading) {
-        if (numerals.Axis != FacetAxis.Numeral || casing.Axis != FacetAxis.Casing) {
-            throw new ArgumentException($"<facet-axis:{key}>", nameof(numerals));
-        }
-    }
+    public static Fin<Unit> Proof() =>
+        toSeq(Items)
+            .Filter(static row => row.Numerals.Axis != FacetAxis.Numeral || row.Casing.Axis != FacetAxis.Casing)
+            .Map(static row => (Error)new KernelFault.InvalidValue(
+                Label: row.Key, Requirement: "a numeral facet on the numeral axis and a casing facet on the casing axis"))
+            is { IsEmpty: false } faults
+            ? Fin.Fail<Unit>(Error.Many(faults.Strict()))
+            : Fin.Succ(unit);
 
     public static TypographyRole ForHeading(int level) =>
         toSeq(Items).Find(row => row.Heading == Some(level)).IfNone(Label);

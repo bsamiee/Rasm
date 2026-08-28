@@ -628,8 +628,8 @@ public static partial class BimExport {
     readonly struct FeatureVertex(int row) : IVertexCustom {
         public int MaxColors => 0;
         public int MaxTextCoords => 0;
-        public Vector4 GetColor(int index) => throw new ArgumentOutOfRangeException(nameof(index));
-        public Vector2 GetTexCoord(int index) => throw new ArgumentOutOfRangeException(nameof(index));
+        public Vector4 GetColor(int index) => Vector4.One;
+        public Vector2 GetTexCoord(int index) => Vector2.Zero;
         public void SetColor(int index, Vector4 color) { }
         public void SetTexCoord(int index, Vector2 coord) { }
         public VertexMaterialDelta Subtract(IVertexMaterial baseValue) => VertexMaterialDelta.Zero;
@@ -646,8 +646,8 @@ public static partial class BimExport {
     readonly struct FeatureUvVertex(int row, Vector2 uv) : IVertexCustom {
         public int MaxColors => 0;
         public int MaxTextCoords => 1;
-        public Vector4 GetColor(int index) => throw new ArgumentOutOfRangeException(nameof(index));
-        public Vector2 GetTexCoord(int index) => index == 0 ? uv : throw new ArgumentOutOfRangeException(nameof(index));
+        public Vector4 GetColor(int index) => Vector4.One;
+        public Vector2 GetTexCoord(int index) => index == 0 ? uv : Vector2.Zero;
         public void SetColor(int index, Vector4 color) { }
         public void SetTexCoord(int index, Vector2 coord) { }
         public VertexMaterialDelta Subtract(IVertexMaterial baseValue) => VertexMaterialDelta.Zero;
