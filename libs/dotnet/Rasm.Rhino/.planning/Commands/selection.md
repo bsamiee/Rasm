@@ -295,7 +295,6 @@ public abstract partial record PickRule : ISlotted<PickSlot> {
         refreshClipping: static _ => PickSlot.Clipping);
 
     internal Fin<Unit> Admit() => Switch(
-        state: key,
         inView: static (rule) => Admit.Need(rule.Value).Map(static _ => unit),
         along: static (rule) => guard(rule.Value.IsValid, new KernelFault.InvalidInput(Axis: Some(nameof(Along)))).ToFin(),
         styled: static (rule) => guard(rule.Value is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Styled)))).ToFin(),
@@ -304,7 +303,7 @@ public abstract partial record PickRule : ISlotted<PickSlot> {
             rule.Enabled.Held.All(row => !rule.Disabled.Admits(capability: row)),
             new KernelFault.InvalidInput(Axis: Some(nameof(Gates)))).ToFin(),
         transformed: static (rule) => guard(rule.Value.IsValid, new KernelFault.InvalidInput(Axis: Some(nameof(Transformed)))).ToFin(),
-        refreshClipping: static (_, _) => Fin.Succ(value: unit));
+        refreshClipping: static _ => Fin.Succ(value: unit));
 
     internal Fin<Unit> Apply(PickContext context) => Switch(
         state: context,

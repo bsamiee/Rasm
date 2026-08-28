@@ -738,7 +738,6 @@ public abstract partial record CurveOp {
 
     internal Fin<CurveOp> Admitted() =>
         Switch(
-            context: key,
             offset: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Curve), ModelClaim.Handle(handle: row.Curve)), (nameof(row.Frame), row.Frame is { IsValid: true })),
             offsetOnSurface: static (row) => ModelClaim.Admits(row,

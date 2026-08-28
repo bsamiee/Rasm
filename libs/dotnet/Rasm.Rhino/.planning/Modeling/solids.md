@@ -617,7 +617,6 @@ public abstract partial record ExtrusionSeed : IValidityEvidence {
 
     internal Fin<GeometryHandle> Build() =>
         Switch(
-            context: key,
             profile: static (seed) => ModelGate.Borrow<Curve, GeometryHandle>(handle: seed.PlanarProfile,
                 body: profile => Try.lift(() => ModelGate.Own(
                     built: Extrusion.Create(planarCurve: profile, height: seed.Height, cap: seed.Cap))).Run().Bind(static inner => inner)),
@@ -867,7 +866,6 @@ public abstract partial record SolidOp {
 
     internal Fin<SolidOp> Admitted() =>
         Switch(
-            context: key,
             boolean: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Law), row.Law is { IsValid: true })),
             planarBoolean: static (row) => ModelClaim.Admits(row,

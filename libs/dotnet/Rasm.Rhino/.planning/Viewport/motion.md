@@ -342,7 +342,6 @@ public static class MotionPump {
         DocumentSession session, MotionScript script, RedrawTarget landing,
         Func<MotionSample, Fin<Unit>> apply) =>
         from terminal in script.Switch(
-            state: key,
             eased: static (plan) => Admit.Finite(value: plan.Curve.Evaluate(t: plan.Cycle.Terminal))
                 .Map(value => new MotionSample(Value: value, Velocity: None)),
             sprung: static (_, plan) => Fin.Succ(new MotionSample(Value: plan.To, Velocity: Some(0.0))),
@@ -410,7 +409,6 @@ public static class MotionPump {
         if (gate.Value is not DriveGate.Running) { return; }
         Fin<(Fin<bool> Value, GaugedSpan<DispatchLane> Span)> gauged = timeline.Gauged<bool, DispatchLane>(
             lane: DispatchLane.Paced,
-            work: key,
             body: () =>
                 from held in Fin.Succ(seed.Value)
                 from beat in timeline.Beat(seed: held, cadence: cadence)

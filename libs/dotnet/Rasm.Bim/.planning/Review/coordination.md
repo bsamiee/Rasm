@@ -224,7 +224,6 @@ public static class Coordination {
     }
 
     static Fin<CoordinationRule> Validate(CoordinationRule rule) => rule.Switch(
-        state:       key,
         require:     static (_, r) => Fin.Succ<CoordinationRule>(r),
         prohibit:    static (_, r) => Fin.Succ<CoordinationRule>(r),
         cardinality: static (k, r) => r.Min < 0 || r.Max.Match(Some: hi => hi < r.Min, None: static () => false)

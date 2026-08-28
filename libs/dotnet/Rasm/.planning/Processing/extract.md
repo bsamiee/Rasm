@@ -79,7 +79,6 @@ public abstract partial record ContourPolicy {
     public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels) =>
         new MeshScalarCase(Values: values, Levels: levels).Admit();
     internal Fin<ContourPolicy> Admit() => Switch(
-        state: key,
         planeCase: static (policy) => Rasm.Domain.Admit.Plane(basis: policy.Section).Map(_ => (ContourPolicy)policy),
         axisCase: static (policy) =>
             from _ in Rasm.Domain.Admit.AllFinite(policy.Start, policy.End)

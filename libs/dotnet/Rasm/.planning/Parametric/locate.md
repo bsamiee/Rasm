@@ -141,7 +141,6 @@ public abstract partial record Location {
     public sealed record ShortPath(Point2d Start, Point2d End) : Location;
 
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
-        state: key,
         curveAt: static (row) => Locate.Curve<TGeometry, TOut>(row.Address, row.Projection),
         surfaceAt: static (row) => Locate.Surface<TGeometry, TOut>(row.Uv, row.Projection),
         closest: static (row) => Locate.Closest<TGeometry, TOut>(row.Probe, row.Projection),

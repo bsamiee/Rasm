@@ -384,7 +384,6 @@ public sealed class GumballRig : IDisposable {
 
     internal Fin<Unit> Grip(GumballGrip next) =>
         Cell.Step(grip, held => held is GumballGrip.Released ? None : Some(next), new KernelFault.InvalidContext()).Switch(
-            state: key,
             committed: static (_, _) => Fin.Succ(unit),
             ceded: static (_, _) => Fin.Succ(unit),
             refused: static (_, row) => Fin.Fail<Unit>(row.Cause),

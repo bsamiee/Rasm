@@ -293,10 +293,9 @@ public static class Heal {
     internal static Fin<RepairEdit> Resolve(MeshEdit edit, MeshSpace current, RepairPolicy policy) {
         return Intersection.Apply(new IntersectOp.SelfMesh(current, policy.Intersection))
             .Bind(result => result.Switch(
-                state: key,
-                points:   static (site, _) => Fin.Fail<CrossTable>(new KernelFault.InvalidResult()),
-                segments: static (site, _) => Fin.Fail<CrossTable>(new KernelFault.InvalidResult()),
-                chains:   static (_, hit) => Fin.Succ(hit.Table)))
+                points:   static _ => Fin.Fail<CrossTable>(new KernelFault.InvalidResult()),
+                segments: static _ => Fin.Fail<CrossTable>(new KernelFault.InvalidResult()),
+                chains:   static hit => Fin.Succ(hit.Table)))
             .Bind(table => table.Segments.Count == 0 && table.Coplanar.Count == 0
                 ? Fin.Succ<RepairEdit>((edit, None, None))
                 : Recut(table));

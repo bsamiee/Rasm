@@ -254,7 +254,6 @@ internal abstract partial record IntersectionResult {
         polylines: static (o, p) => o == typeof(IntersectionKind) || Serves(output: o, shape: p),
         hits: static (o, _) => HitProjection.For(output: o).IsSome);
     internal Fin<Seq<TOut>> Project<TOut>() => Switch(
-        state: key,
         lines: Uniform<TOut>, points: Uniform<TOut>, intervals: Uniform<TOut>,
         polylines: static (k, p) => typeof(TOut) == typeof(IntersectionKind)
             ? OutputBinding.Of<IntersectionKind>().Admit<TOut>(values: p.Values.Map(static row => (object)row.Kind), key: k)

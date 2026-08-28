@@ -644,7 +644,6 @@ internal static partial class SegmentKernel {
                 step: state => Some(Round(state)), settled: static state => state.Converged,
                 budget: maxIterations, declined: new KernelFault.InvalidResult())
             .Switch(
-                state: key,
                 committed: static (k, row) => row.State.Labels.Any(static label => label >= 0) ? Fin.Succ(row.State) : Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()),
                 ceded: static (k, _) => Fin.Fail<(int[], double[], int, bool)>(new KernelFault.InvalidResult()),
                 refused: static (_, row) => Fin.Fail<(int[], double[], int, bool)>(row.Cause),

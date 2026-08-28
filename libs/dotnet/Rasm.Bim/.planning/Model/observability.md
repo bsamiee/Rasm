@@ -134,7 +134,7 @@ public readonly record struct StageMark(double Done, string Witness);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BimFact : IHookFact<BimPoint> {
-    private BimFact() => Key = key;
+    private BimFact() { }
 
 
     public bool Seats(BimPoint at) => Point.Equals(at);
@@ -153,19 +153,19 @@ public abstract partial record BimFact : IHookFact<BimPoint> {
         textured: static _ => BimPoint.Textured,
         degraded: static _ => BimPoint.ExchangeDegrade);
 
-    public sealed record Progress(ProgressLane Lane, StageMark Stage) : BimFact(Key);
-    public sealed record Imported(string Format, string Codec, long Bytes, int Blocks, int Instances, Duration Elapsed) : BimFact(Key);
-    public sealed record Exported(UInt128 ContentKey, string Format, long Bytes, Duration Elapsed) : BimFact(Key);
-    public sealed record Lowered(string Projector, int Nodes, int Edges) : BimFact(Key);
-    public sealed record Admission(GraphDelta Delta) : BimFact(Key);
-    public sealed record Egress(string Format, string Schema, int Nodes) : BimFact(Key);
-    public sealed record Committed(UInt128 CommitKey, ContentKeySet Parents, string Branch, int Elements) : BimFact(Key);
-    public sealed record IssueMutated(string Topic, BimIssueMutation Mutation, Option<string> Comment, GlobalIdSet GlobalIds) : BimFact(Key);
+    public sealed record Progress(ProgressLane Lane, StageMark Stage) : BimFact();
+    public sealed record Imported(string Format, string Codec, long Bytes, int Blocks, int Instances, Duration Elapsed) : BimFact();
+    public sealed record Exported(UInt128 ContentKey, string Format, long Bytes, Duration Elapsed) : BimFact();
+    public sealed record Lowered(string Projector, int Nodes, int Edges) : BimFact();
+    public sealed record Admission(GraphDelta Delta) : BimFact();
+    public sealed record Egress(string Format, string Schema, int Nodes) : BimFact();
+    public sealed record Committed(UInt128 CommitKey, ContentKeySet Parents, string Branch, int Elements) : BimFact();
+    public sealed record IssueMutated(string Topic, BimIssueMutation Mutation, Option<string> Comment, GlobalIdSet GlobalIds) : BimFact();
     public sealed record Verdict(string Specification, int Spec, ContentAddress Model, string Tier, string Outcome, string Severity,
-        int Findings, GlobalIdSet GlobalIds) : BimFact(Key);
-    public sealed record Emitted(string Artifact, string Leg, string Format, int Warnings) : BimFact(Key);
-    public sealed record Textured(string Format, int Bound, int Dropped, int Unresolved) : BimFact(Key);
-    public sealed record Degraded(string Lane, string Reason, string Subject) : BimFact(Key);
+        int Findings, GlobalIdSet GlobalIds) : BimFact();
+    public sealed record Emitted(string Artifact, string Leg, string Format, int Warnings) : BimFact();
+    public sealed record Textured(string Format, int Bound, int Dropped, int Unresolved) : BimFact();
+    public sealed record Degraded(string Lane, string Reason, string Subject) : BimFact();
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

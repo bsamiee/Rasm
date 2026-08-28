@@ -413,7 +413,6 @@ public abstract partial record DeformOp {
 
     internal Fin<DeformOp> Admitted() =>
         Switch(
-            context: key,
             morph: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Target), ModelClaim.Handle(handle: row.Target)),
                 (nameof(row.Kind), row.Kind is { IsValid: true })),

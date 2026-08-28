@@ -405,8 +405,7 @@ public abstract partial record ExportPayload {
     public sealed record Scene(ElementScene Elements) : ExportPayload;
 
     public Fin<ImportedGeometry> Flat() => Switch(
-        state: key,
-        soup:  static (_, s) => Fin.Succ(s.Geometry),
+        soup:  static s => Fin.Succ(s.Geometry),
         scene: static (k, s) => s.Elements.Soup(k));
 }
 
@@ -518,9 +517,8 @@ public static partial class BimExport {
 
     static Fin<byte[]> DotBimBytes(ExportPayload payload) =>
         payload.Switch(
-                state: key,
-                soup: static (k, s) => ElementScene.Of(s.Geometry, k),
-                scene: static (_, s) => Fin.Succ(s.Elements))
+                soup: static s => ElementScene.Of(s.Geometry),
+                scene: static s => Fin.Succ(s.Elements))
             .Bind(scene => Wired(scene));
 
     static Fin<byte[]> Wired(ElementScene scene) {

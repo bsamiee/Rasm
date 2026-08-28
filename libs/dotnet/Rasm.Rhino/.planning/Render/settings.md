@@ -741,8 +741,7 @@ public abstract partial record RenderOutput {
     }
 
     internal Fin<RenderOutput> Admit() => Switch(
-        context: key,
-        viewportCase: static (_, output) => Fin.Succ<RenderOutput>(output),
+        viewportCase: static output => Fin.Succ<RenderOutput>(output),
         fixedCase: static (output) => Fixed(
             size: output.Size, dpi: output.Dpi, units: output.Units,
             scaleBackgroundToFit: output.ScaleBackgroundToFit));

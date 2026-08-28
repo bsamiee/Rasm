@@ -199,7 +199,6 @@ public abstract partial record AcceptRule : ISlotted<AcceptSlot> {
         waitFor: static _ => Option<GetResult>.None);
 
     internal Fin<Unit> Admit() => Switch(
-        state: key,
         allowed: static (rule) => guard(rule.Gate is not null, new KernelFault.InvalidInput()).ToFin(),
         number: static (_, _) => Fin.Succ(unit),
         zero: static (_, _) => Fin.Succ(unit),
@@ -462,7 +461,6 @@ public abstract partial record PointRule : ISlotted<PointSlot> {
         onMouseUp: static _ => PointSlot.MouseUp);
 
     internal Fin<Unit> Admit() => Switch(
-        state: key,
         constrained: static (rule) => Admit.Need(rule.Value).Bind(value => value.Admit()),
         snaps: static (rule) => guard(!rule.Values.IsEmpty, new KernelFault.InvalidInput()).ToFin()
             .Bind(_ => PointConstraint.AdmitGeometry([.. rule.Values.Map(static point => point.IsValid)])),
@@ -710,7 +708,6 @@ public abstract partial record ObjectRule : ISlotted<ObjectSlot> {
         filter: static _ => ObjectSlot.Filter);
 
     internal Fin<Unit> Admit() => Switch(
-        state: key,
         preSelect: static (_, _) => Fin.Succ(unit),
         gates: static (rule) => guard(
             rule.Enabled.Held.All(row => !rule.Disabled.Admits(capability: row)),

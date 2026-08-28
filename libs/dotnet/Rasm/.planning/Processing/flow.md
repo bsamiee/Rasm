@@ -97,7 +97,6 @@ public abstract partial record Termination {
     private Termination() { }
 
     internal Fin<Termination> Admit() => Switch(
-        state: key,
         stepCountCase: static (_, termination) => Fin.Succ<Termination>(termination),
         arcLengthCase: static (_, termination) => Fin.Succ<Termination>(termination),
         magnitudeFloorCase: static (_, termination) => Fin.Succ<Termination>(termination),

@@ -52,7 +52,6 @@ public abstract partial record ProjectionFrame : IValidityEvidence {
 
     internal Fin<ViewportInfo> Rig() =>
         Switch(
-            context: key,
             snapshot: static (frame) => Seated(
                 pose: frame.Value.Pose, subject: frame.Value.Frustum.Bounds),
             pose: static (frame) =>
@@ -312,7 +311,6 @@ public abstract partial record ProjectionOp {
 
     internal Fin<ProjectionOp> Admitted() =>
         Switch(
-            context: key,
             drawing: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Subjects), ModelClaim.Rows(rows: row.Subjects, claim: static subject => (ValidityClaim)subject.IsValid)),
                 (nameof(row.Frame), row.Frame is { IsValid: true }),

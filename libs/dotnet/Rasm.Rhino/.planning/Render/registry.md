@@ -1569,11 +1569,10 @@ public abstract partial record ContentSignal : IDisposable {
         previewReady: static signal => Optional(signal.Image).Map(static image => image.Dispose()).IfNone(unit)));
 
     internal Fin<ContentSignal> Detached() => Switch(
-        context: key,
-        lifecycle: static (_, signal) => Fin.Succ<ContentSignal>(signal),
-        changed: static (_, signal) => Fin.Succ<ContentSignal>(signal),
-        fieldChanged: static (_, signal) => Fin.Succ<ContentSignal>(signal),
-        environmentFlip: static (_, signal) => Fin.Succ<ContentSignal>(signal),
+        lifecycle: static signal => Fin.Succ<ContentSignal>(signal),
+        changed: static signal => Fin.Succ<ContentSignal>(signal),
+        fieldChanged: static signal => Fin.Succ<ContentSignal>(signal),
+        environmentFlip: static signal => Fin.Succ<ContentSignal>(signal),
         previewReady: static (signal) =>
             from image in Admit.Need(signal.Image)
             from clone in Lease<System.Drawing.Bitmap>.Acquire(

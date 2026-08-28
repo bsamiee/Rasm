@@ -335,7 +335,6 @@ public abstract partial record AnalysisQuery {
             from projected in Project<TOut>(answer: answer).ToEff()
             select projected);
     private static Fin<Seq<TOut>> Project<TOut>(NeighborAnswer answer) => answer.Switch(
-        state: key,
         hits: static (found) => AnalysisOutput<TOut>.Project(values: found.Values),
         pairsFound: static (found) => AnalysisOutput<TOut>.Project(values: found.Values),
         graph: static (_) => Fin.Fail<Seq<TOut>>(new KernelFault.Unsupported(InputType: typeof(NeighborhoodGraph), OutputType: typeof(TOut))));

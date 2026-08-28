@@ -418,7 +418,6 @@ public abstract partial record SubDOp {
 
     internal Fin<SubDOp> Admitted() =>
         Switch(
-            context: key,
             fromMesh: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)), (nameof(row.Law), row.Law is { IsValid: true })),
             fromSurface: static (row) => ModelClaim.Admits(row,

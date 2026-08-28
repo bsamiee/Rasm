@@ -378,7 +378,6 @@ public abstract partial record MountCustody {
         released: static _ => Option<MountCustody>.None);
 
     public Fin<(MountCustody Next, Option<Seq<IMount>> Release)> Left() => Switch(
-        state: key,
         live: static (row) => row.Active.Match(
             Some: held => held.Value is 1
                 ? row.Phase.Closes
@@ -976,12 +975,11 @@ public abstract partial record PresenceOp {
     public sealed record Badge(Option<string> Label) : PresenceOp;
 
     internal Fin<Unit> Precondition() => Switch(
-        state: key,
-        alert: static (_, _) => Fin.Succ(unit),
+        alert: static _ => Fin.Succ(unit),
         tray: static (_) => HostPlatform.Demand(
             claim: new PlatformClaim.HandlerCase(Contract: typeof(TrayIndicator.IHandler))),
-        pulse: static (_, _) => Fin.Succ(unit),
-        badge: static (_, _) => Fin.Succ(unit));
+        pulse: static _ => Fin.Succ(unit),
+        badge: static _ => Fin.Succ(unit));
 
     internal static Fin<Unit> Anchored(Alert alert, Notification card) =>
         alert.Anchor.IsSome || !card.RequiresTrayIndicator

@@ -117,7 +117,6 @@ public abstract partial class VectorCloud : IDisposable {
         select (VectorCloud)new ClusterCase(Vertices: fold.Points, Tolerance: admitted.Context, Mass: fold.Mass, Indexed: new Lease<PointCloud>.Owned(Value: indexed), Admission: fold.Admission);
 
     internal Fin<VectorCloud> Admit() => Switch(
-        state: key,
         ringCase: static (ring) => Ring(points: ring.Vertices, context: ring.Tolerance),
         polylineCase: static (poly) => Polyline(points: poly.Vertices, context: poly.Tolerance),
         clusterCase: static (cluster) =>

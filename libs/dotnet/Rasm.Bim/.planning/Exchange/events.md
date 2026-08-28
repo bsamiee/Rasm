@@ -222,14 +222,13 @@ public static class BimEventing {
         }).Run().Bind(static inner => inner);
 
     static Fin<Option<UInt128>> Content(BimFact fact) => fact.Switch(
-        state:         key,
-        progress:      static (_, _) => Fin.Succ(Option<UInt128>.None),
-        imported:      static (_, _) => Fin.Succ(Option<UInt128>.None),
-        lowered:       static (_, _) => Fin.Succ(Option<UInt128>.None),
-        admission:     static (_, _) => Fin.Succ(Option<UInt128>.None),
-        egress:        static (_, _) => Fin.Succ(Option<UInt128>.None),
-        textured:      static (_, _) => Fin.Succ(Option<UInt128>.None),
-        degraded:      static (_, _) => Fin.Succ(Option<UInt128>.None),
+        progress:      static _ => Fin.Succ(Option<UInt128>.None),
+        imported:      static _ => Fin.Succ(Option<UInt128>.None),
+        lowered:       static _ => Fin.Succ(Option<UInt128>.None),
+        admission:     static _ => Fin.Succ(Option<UInt128>.None),
+        egress:        static _ => Fin.Succ(Option<UInt128>.None),
+        textured:      static _ => Fin.Succ(Option<UInt128>.None),
+        degraded:      static _ => Fin.Succ(Option<UInt128>.None),
         committed:     static (c) => Body(BimEventWire.Wire(c), BimEventContext.Default.CommittedWire).Map(body => Some(body.Content)),
         issueMutated:  static (i) => Body(BimEventWire.Wire(i), BimEventContext.Default.IssueMutatedWire).Map(body => Some(body.Content)),
         verdict:       static (v) => Body(BimEventWire.Wire(v), BimEventContext.Default.VerdictIssuedWire).Map(body => Some(body.Content)),

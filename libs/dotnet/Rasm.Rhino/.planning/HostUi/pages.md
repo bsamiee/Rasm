@@ -287,7 +287,6 @@ internal abstract partial record PageCustody {
         released: static _ => Option<PageCustody>.None);
 
     internal Fin<(PageCustody Next, Option<Seq<IMount>> Release)> Left() => Switch(
-        state: key,
         live: static (row) => row.Active.Match(
             Some: held => held.Value is 1
                 ? row.Phase.Closes

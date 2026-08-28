@@ -1535,9 +1535,9 @@ public static class Accounts {
         TokenAsk request, Option<Action<LoginPulse>> progress, Option<Env> env) {
         CancellationToken cancel = env.Map(static held => held.Cancellation).IfNone(CancellationToken.None);
         return HostEdge.Captured(async token => {
-            LoginProgress pulse = new(info => progress.Iter(tap => ignore(op.Catch(() => tap(new LoginPulse(
-                Phase: op.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
-                Description: HostEdge.Text(info.Description)))))));
+            LoginProgress pulse = new(info => progress.Iter(tap => ignore(Try.lift(() => HostEdge.Side(() => tap(new LoginPulse(
+                Phase: FactoryBridge.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
+                Description: HostEdge.Text(info.Description))))).Run())));
             Atom<Option<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth)>> landed =
                 Atom(Option<(IOpenIDConnectToken, IOAuth2Token)>.None);
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => {
@@ -1560,8 +1560,8 @@ public static class Accounts {
             }).ConfigureAwait(false);
             return landed.Value
                 .Filter(static row => row.OpenId is not null && row.Oauth is not null)
-                .ToFin(Fail: op.MissingContext())
-                .Map(row => new TokenLease(openId: row.OpenId, oauth: row.Oauth, clientId: request.ClientId, op: op));
+                .ToFin(Fail: new KernelFault.MissingContext())
+                .Map(row => new TokenLease(openId: row.OpenId, oauth: row.Oauth, clientId: request.ClientId));
         }, token: cancel);
     }
 }

@@ -420,7 +420,6 @@ public abstract partial record FreeformOp {
 
     internal Fin<FreeformOp> Admitted() =>
         Switch(
-            context: key,
             network: static (row) => ModelClaim.Admits(row, (nameof(row.Law), row.Law is { IsValid: true })),
             railRevolve: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),

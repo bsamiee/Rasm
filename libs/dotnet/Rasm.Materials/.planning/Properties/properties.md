@@ -269,7 +269,6 @@ public static class MaterialPropertyCatalogue {
 
     static Fin<StrengthTriple> Strength(MechanicalSource source) =>
         source.Switch(
-            state: key,
             authored: static (k, a) => Fin.Succ(new StrengthTriple(
                 Published.Of(Pressure.FromMegapascals(a.YoungsMpa), AuthoredBand, PropertyEvidence.Catalogue),
                 Published.Of(Pressure.FromMegapascals(a.YieldMpa), AuthoredBand, PropertyEvidence.Catalogue),

@@ -334,7 +334,6 @@ public abstract partial record PathPrimitive {
             row.RadiusY).ToNurbsCurve());
 
     internal static Fin<Seq<PathPrimitive>> Lower(PathSpec spec) => spec.Switch(
-        state: key,
         lineCase: static (_, row) => Fin.Succ(Seq<PathPrimitive>(new Line(P(row.From), P(row.To)))),
         polylineCase: static (_, row) => Fin.Succ(Chained(row.Points, closed: false)),
         polygonCase: static (_, row) => Fin.Succ(Chained(row.Points, closed: true)),

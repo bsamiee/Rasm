@@ -1325,7 +1325,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         RealtimeEngine self = this;
         return Observe(plan.Clock.Gauged<DrawTally, DispatchLane>(
                 lane: DispatchLane.Paced,
-                work: key,
                 body: () => self.lifecycle.Value.Held.ToFin(Fail: new KernelFault.InvalidContext()).Bind(held =>
                     from frame in Fin.Succ(ConduitFrame.Of(pipeline, pipeline.Viewport, phase))
                     from marks in Try.lift(() => project(frame)).Run().Bind(static inner => inner)
@@ -1619,11 +1618,10 @@ public abstract partial record EffectValue {
     public sealed record Colour(PerceptualColor Value) : EffectValue;
 
     internal Fin<object> Native() => Switch(
-        state: key,
-        number: static (_, row) => Fin.Succ<object>(row.Value),
-        whole: static (_, row) => Fin.Succ<object>(row.Value),
-        flag: static (_, row) => Fin.Succ<object>(row.Value.Enabled),
-        text: static (_, row) => Fin.Succ<object>(row.Value.Resolve()),
+        number: static row => Fin.Succ<object>(row.Value),
+        whole: static row => Fin.Succ<object>(row.Value),
+        flag: static row => Fin.Succ<object>(row.Value.Enabled),
+        text: static row => Fin.Succ<object>(row.Value.Resolve()),
         colour: static (row) => row.Value.ToArgb().Map(static packed => (object)packed));
 
     internal static Fin<EffectValue> Of(IConvertible held) => held switch {
@@ -1659,7 +1657,6 @@ public abstract partial record EffectSource {
     public sealed record AssemblyCase(System.Reflection.Assembly Source, Guid PlugInId) : EffectSource;
 
     internal Fin<Seq<Type>> Install() => Switch(
-        state: key,
         plugInCase: static (row) => Try.lift(() =>
             Optional(PostEffects.PostEffect.RegisterPostEffect(plugin: row.Owner))
                 .ToFin(Fail: new RenderFault.HostRefused(Member: nameof(PostEffects.PostEffect.RegisterPostEffect), Detail: "no type set"))
@@ -2346,26 +2343,25 @@ public abstract partial record SceneDelta {
     public sealed record DynamicReadyCase : SceneDelta;
 
     internal Fin<Unit> Release() => Switch(
-        state: key,
-        viewCase: static (_, _) => Fin.Succ(unit),
+        viewCase: static _ => Fin.Succ(unit),
         geometryCase: static (row) => Custody.Release(
             row.Added.Bind(static delta => delta.Patches).Strict(), static patch => Fin.Succ(patch.Geometry.Dispose())),
-        instanceCase: static (_, _) => Fin.Succ(unit),
-        motionCase: static (_, _) => Fin.Succ(unit),
+        instanceCase: static _ => Fin.Succ(unit),
+        motionCase: static _ => Fin.Succ(unit),
         lightCase: static (row) => Custody.Release(row.Lights, static delta => Fin.Succ(delta.Data.Dispose())),
         dynamicLightCase: static (row) => Custody.Release(row.Lights, static lease => Fin.Succ(lease.Dispose())),
         sunCase: static (row) => Try.lift(() => Fin.Succ(row.Sun.Dispose())).Run().Bind(static inner => inner),
-        materialCase: static (_, _) => Fin.Succ(unit),
-        settingsCase: static (_, _) => Fin.Succ(unit),
-        displaySettingsCase: static (_, _) => Fin.Succ(unit),
-        environmentCase: static (_, _) => Fin.Succ(unit),
-        skylightCase: static (_, _) => Fin.Succ(unit),
-        groundCase: static (_, _) => Fin.Succ(unit),
-        clipCase: static (_, _) => Fin.Succ(unit),
-        dynamicClipCase: static (_, _) => Fin.Succ(unit),
-        workflowCase: static (_, _) => Fin.Succ(unit),
-        attributesCase: static (_, _) => Fin.Succ(unit),
-        dynamicReadyCase: static (_, _) => Fin.Succ(unit));
+        materialCase: static _ => Fin.Succ(unit),
+        settingsCase: static _ => Fin.Succ(unit),
+        displaySettingsCase: static _ => Fin.Succ(unit),
+        environmentCase: static _ => Fin.Succ(unit),
+        skylightCase: static _ => Fin.Succ(unit),
+        groundCase: static _ => Fin.Succ(unit),
+        clipCase: static _ => Fin.Succ(unit),
+        dynamicClipCase: static _ => Fin.Succ(unit),
+        workflowCase: static _ => Fin.Succ(unit),
+        attributesCase: static _ => Fin.Succ(unit),
+        dynamicReadyCase: static _ => Fin.Succ(unit));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -2836,9 +2832,8 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         from patch in (from space in MeshSpace.Of(native: geometry.Resource, context: context)
                        from answer in Reconciliation.Apply(new ReconcileOp.Encode(EncodeForm.Of(space)))
                        from digest in answer.Switch(
-                           state: key,
-                           digest: static (_, row) => Fin.Succ(row.Value),
-                           reconciled: static (op, _) => Fin.Fail<GeometryHash>(new KernelFault.InvalidResult(Detail: Some(nameof(ReconcileAnswer.Reconciled)))))
+                           digest: static row => Fin.Succ(row.Value),
+                           reconciled: static (op) => Fin.Fail<GeometryHash>(new KernelFault.InvalidResult(Detail: Some(nameof(ReconcileAnswer.Reconciled)))))
                        from residency in policy.Residency
                            .TraverseM(pack => Encode.Apply(new PackOp.MeshPatch(Source: space, Policy: pack)))
                            .As()

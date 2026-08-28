@@ -186,7 +186,6 @@ public abstract partial record FaceQuery {
 
     internal Fin<Font> Mint() =>
         Switch(
-            state: key,
             quartetCase: static (query) =>
                 from family in Try.lift(() => toSeq(Font.InstalledFontsAsQuartets())
                     .Find(row => string.Equals(row.QuartetName, query.Name.Value, StringComparison.OrdinalIgnoreCase))
@@ -502,7 +501,6 @@ public abstract partial record SectionFill {
     public sealed record Solid(PerceptualColor Display, PerceptualColor Print) : SectionFill;
 
     internal Fin<Seq<SectionEdit>> Rows() => Switch(
-        state: key,
         none: static (_) => Restored(mode: SectionFillMode.None),
         viewport: static (_) => Restored(mode: SectionFillMode.Viewport),
         solid: static (fill) => SectionEdit.All((SectionField.FillMode, (StyleValue)StyleValue.Of(SectionFillMode.Solid.Host)),
@@ -558,7 +556,6 @@ public abstract partial record SectionBoundary {
         Option<SectionStroke> Linetype) : SectionBoundary;
 
     internal Fin<Seq<SectionEdit>> Rows() => Switch(
-        state: key,
         hidden: static (_) =>
             from defaults in SectionDefaults.On(axis: SectionAxis.Boundary)
             from stated in SectionEdit.Of(

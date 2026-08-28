@@ -547,12 +547,11 @@ public static class UserTexts {
 
     private static Fin<TextAddress.ObjectCase> Addressed(TextAddress address) =>
         address.Switch< Fin<TextAddress.ObjectCase>>(
-            state: key,
             documentKeyCase: static (value) => Fin.Fail<TextAddress.ObjectCase>(
                 error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { op, $"an object address; got '{value.Key.Value}'" }))),
             documentSectionCase: static (value) => Fin.Fail<TextAddress.ObjectCase>(
                 error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { op, $"an object address; got '{value.Address.Wire}'" }))),
-            objectCase: static (_, value) => Fin.Succ(value: value));
+            objectCase: static value => Fin.Succ(value: value));
 
     private static Fin<DocumentTextSnapshot> ReadDocument(RhinoDoc document) =>
         from rows in Try.lift(() => toSeq(Enumerable.Range(0, document.Strings.Count))

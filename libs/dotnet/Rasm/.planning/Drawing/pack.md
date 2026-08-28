@@ -271,7 +271,6 @@ public abstract partial record PackOp {
         gaussianSplat: static _ => PackKind.GaussianSplat);
 
     internal HashMap<EncodingChannel, Func<Fin<float[]>>> Lanes() => Switch(
-        state: key,
         pointCloud: static (k, c) => {
             Fin<Vector3d[]> normals = VectorCloudMetric.OrientedNormals
                 .Project<Seq<Vector3d>>(cloud: c.Source, policy: c.Policy.Cloud, key: k)
@@ -412,7 +411,6 @@ public static class Encode {
     }
 
     static Fin<GeometryHash> SourceDigest(PackOp op) => op.Switch(
-        state: key,
         pointCloud:    static (k, s) => Digest(EncodeForm.Of(s.Source), k),
         meshPatch:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
         voxelGrid:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
@@ -424,7 +422,6 @@ public static class Encode {
     static Fin<GeometryHash> Digest(EncodeForm form) =>
         Reconciliation.Apply(new ReconcileOp.Encode(form))
             .Bind(answer => answer.Switch(
-                state: key,
                 digest:     static (_, d) => Fin.Succ(d.Value),
                 reconciled: static (k, _) => Fin.Fail<GeometryHash>(new KernelFault.InvalidResult())));
 

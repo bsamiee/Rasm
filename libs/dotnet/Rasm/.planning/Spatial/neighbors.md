@@ -535,17 +535,16 @@ internal static partial class NeighborKernel {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class NeighborKernel {
     internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud) => cloud.Switch(
-        state: key,
-        ringCase: static (k, r) =>
+        ringCase: static r =>
             from seed in Direction.Of(value: VectorFrame.NewellNormal(ring: r.Vertices.ToArray()), context: r.Tolerance, key: k)
             from chain in BishopChain(points: r.Vertices, initialNormal: seed, isClosed: true, context: r.Tolerance, key: k)
             select chain,
-        polylineCase: static (k, p) =>
+        polylineCase: static p =>
             from _ in guard(p.Vertices.Count >= 2, new KernelFault.InvalidInput()).ToFin()
             from seed in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: p.Vertices[1] - p.Vertices[0]), context: p.Tolerance, key: k)
             from chain in BishopChain(points: p.Vertices, initialNormal: seed, isClosed: false, context: p.Tolerance, key: k)
             select chain,
-        clusterCase: static (k, _) => Fin.Fail<Seq<Plane>>(new KernelFault.Unsupported(InputType: typeof(VectorCloud.ClusterCase), OutputType: typeof(Seq<Plane>))));
+        clusterCase: static _ => Fin.Fail<Seq<Plane>>(new KernelFault.Unsupported(InputType: typeof(VectorCloud.ClusterCase), OutputType: typeof(Seq<Plane>))));
 
     internal static Fin<Seq<Plane>> BishopChain(Seq<Point3d> points, Direction initialNormal, bool isClosed, Context context) =>
         from _ in guard(points.Count >= 2, new KernelFault.InvalidInput()).ToFin()

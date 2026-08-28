@@ -1199,7 +1199,6 @@ public abstract partial record TextAnswer : IDetachedDocumentResult {
     public sealed record Scaled(double Factor) : TextAnswer;
 
     public Fin<Unit> Release() => Switch(
-        context: key,
         state: static (_, _) => Fin.Succ(unit),
         leaderState: static (answer) => answer.Facts.Release(),
         mapped: static (_, _) => Fin.Succ(unit),

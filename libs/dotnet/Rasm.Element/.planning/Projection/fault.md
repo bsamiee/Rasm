@@ -33,19 +33,19 @@ namespace Rasm.Element.Projection;
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Element;
-    private ElementFault(string detail) { Key = key; Detail = detail; }
+    private ElementFault(string detail) { Detail = detail; }
 
     public string Detail { get; }
     public override string Message => Detail;
 
-    [FaultCase(0)] public sealed partial record NodeAbsent(string Detail) : ElementFault(Key, Detail);
-    [FaultCase(1)] public sealed partial record RelationshipInvalid(string Detail) : ElementFault(Key, Detail);
-    [FaultCase(2)] public sealed partial record DeltaConflict(string Detail) : ElementFault(Key, Detail);
-    [FaultCase(3)] public sealed partial record ValueRejected(string Detail) : ElementFault(Key, Detail);
-    [FaultCase(4)] public sealed partial record ProjectionFailed(string Detail) : ElementFault(Key, Detail);
+    [FaultCase(0)] public sealed partial record NodeAbsent(string Detail) : ElementFault(Detail);
+    [FaultCase(1)] public sealed partial record RelationshipInvalid(string Detail) : ElementFault(Detail);
+    [FaultCase(2)] public sealed partial record DeltaConflict(string Detail) : ElementFault(Detail);
+    [FaultCase(3)] public sealed partial record ValueRejected(string Detail) : ElementFault(Detail);
+    [FaultCase(4)] public sealed partial record ProjectionFailed(string Detail) : ElementFault(Detail);
     [FaultCase(5)] public sealed partial record ProjectorFaulted(Error Cause)
-        : ElementFault(Key, $"projector failed: {Cause.Message}"), ICausedFault;
-    [FaultCase(6)] public sealed partial record AddressUnstable(string Detail) : ElementFault(Key, Detail);
+        : ElementFault($"projector failed: {Cause.Message}"), ICausedFault;
+    [FaultCase(6)] public sealed partial record AddressUnstable(string Detail) : ElementFault(Detail);
 }
 ```
 

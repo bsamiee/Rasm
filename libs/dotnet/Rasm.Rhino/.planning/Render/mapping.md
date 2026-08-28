@@ -92,8 +92,7 @@ public abstract partial record MappingRecovery {
         coordinatesCase: static held => Some(held.Coordinates));
 
     internal Fin<Unit> Release() => Switch(
-        state: key,
-        bareCase: static (_, _) => Fin.Succ(unit),
+        bareCase: static _ => Fin.Succ(unit),
         valuesCase: static (held) => Try.lift(() => Fin.Succ(value: HostEdge.Side(held.Spec.Dispose))).Run().Bind(static inner => inner),
         coordinatesCase: static (held) => Try.lift(() => Fin.Succ(value: HostEdge.Side(held.Coordinates.Dispose))).Run().Bind(static inner => inner));
 }
@@ -221,7 +220,6 @@ public abstract partial record MappingSpec : IDisposable {
 
     internal Fin<Lease<TextureMapping>> Mint() =>
         Switch(
-            context: key,
             surfaceParameter: static (_) => Owned(Try.lift(() =>
                 Optional(TextureMapping.CreateSurfaceParameterMapping()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)),
             planar: static (spec) => Owned(Try.lift(() =>

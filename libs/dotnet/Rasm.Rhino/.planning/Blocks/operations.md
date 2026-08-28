@@ -527,13 +527,12 @@ public abstract partial record BlockAnswer : IDetachedDocumentResult {
     public sealed record Pieces(Seq<ExplodedPiece> Products) : BlockAnswer;
 
     public Fin<Unit> Release() => Switch(
-        context: key,
-        state: static (_, _) => Fin.Succ(unit),
-        dependency: static (_, _) => Fin.Succ(unit),
+        state: static _ => Fin.Succ(unit),
+        dependency: static _ => Fin.Succ(unit),
         rendered: static (answer) => Custody.Dispose(held: Seq(answer.Preview)),
-        fields: static (_, _) => Fin.Succ(unit),
-        token: static (_, _) => Fin.Succ(unit),
-        minted: static (_, _) => Fin.Succ(unit),
+        fields: static _ => Fin.Succ(unit),
+        token: static _ => Fin.Succ(unit),
+        minted: static _ => Fin.Succ(unit),
         pieces: static (answer) => Custody.Release(
             held: answer.Products, release: piece => piece.Release()));
 }

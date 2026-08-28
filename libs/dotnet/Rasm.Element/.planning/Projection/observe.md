@@ -83,19 +83,19 @@ public readonly record struct AssessmentTouch(Discipline Discipline, AnalysisRou
 
 [Union]
 public abstract partial record ElementFact : IHookFact<ElementPoint> {
- private ElementFact() { Key = key; }
+ private ElementFact() { }
 
 
- public sealed record DeltaApplied(ContentAddress Delta, int Nodes, int Edges, Option<Header> Established, Seq<AssessmentTouch> Assessments) : ElementFact(Key);
- public sealed record Frozen(ContentAddress Snapshot, int Nodes, int Edges) : ElementFact(Key);
- public sealed record Baked(NodeId Root, Duration Elapsed) : ElementFact(Key);
- public sealed record Audited(ContentAddress Snapshot, Seq<AuditTally> Findings, Duration Elapsed) : ElementFact(Key) {
+ public sealed record DeltaApplied(ContentAddress Delta, int Nodes, int Edges, Option<Header> Established, Seq<AssessmentTouch> Assessments) : ElementFact();
+ public sealed record Frozen(ContentAddress Snapshot, int Nodes, int Edges) : ElementFact();
+ public sealed record Baked(NodeId Root, Duration Elapsed) : ElementFact();
+ public sealed record Audited(ContentAddress Snapshot, Seq<AuditTally> Findings, Duration Elapsed) : ElementFact() {
   public int Total => Findings.Fold(0, static (count, tally) => count + tally.Count);
   public int Blocking => Findings.Filter(static tally => tally.Severity.Blocks).Fold(0, static (count, tally) => count + tally.Count);
   public int Drifts => Findings.Filter(static tally => tally.Category == AuditCategory.AddressDrift).Fold(0, static (count, tally) => count + tally.Count);
  }
- public sealed record Assembled(ContentAddress Delta, int Projectors, int Nodes, int Edges, int Findings, Duration Elapsed) : ElementFact(Key);
- public sealed record Graded(ConstraintSeverity Severity, Error Violation, ContentAddress FindingKey, Option<ConstraintWaiver> Waiver) : ElementFact(Key) {
+ public sealed record Assembled(ContentAddress Delta, int Projectors, int Nodes, int Edges, int Findings, Duration Elapsed) : ElementFact();
+ public sealed record Graded(ConstraintSeverity Severity, Error Violation, ContentAddress FindingKey, Option<ConstraintWaiver> Waiver) : ElementFact() {
   public Option<int> Code => Violation is Fault fault ? Some(fault.Code) : None;
  }
  public ElementPoint Point => Map(

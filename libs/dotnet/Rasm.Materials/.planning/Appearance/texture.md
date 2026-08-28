@@ -861,7 +861,6 @@ public static class PeriodProof {
 
     public static Fin<Unit> Prove(PeriodOracle row) =>
         row.Switch(
-            state:    key,
             admitted: static (k, a) => a.Mint(k).Bind(source => Shifted(source, a, k)),
             refused:  static (k, r) => r.Mint(k).Match(
                 Succ: _ => Fin.Fail<Unit>(new MaterialFault.Parameter(k, $"<period-oracle-admitted-refusable:{r.Name}:{r.Reason}>")),

@@ -1088,13 +1088,11 @@ public abstract partial record DeliveryTarget {
 [SmartEnum<string>]
 public sealed partial class DeliveryChannel {
     public static readonly DeliveryChannel Push = new("push", static (target, key) => target.Switch(
-        state: key,
-        endpoint: static (e, k) => Fin<OutboundHop>.Succ(new OutboundHop.WebhookPost(e.Authority, k)),
-        peer: static (_, _) => Fin<OutboundHop>.Fail(new HopFault.Excluded("push:requires-endpoint"))));
+        endpoint: static k => Fin<OutboundHop>.Succ(new OutboundHop.WebhookPost(e.Authority, k)),
+        peer: static _ => Fin<OutboundHop>.Fail(new HopFault.Excluded("push:requires-endpoint"))));
     public static readonly DeliveryChannel Webhook = new("webhook", static (target, key) => target.Switch(
-        state: key,
-        endpoint: static (e, k) => Fin<OutboundHop>.Succ(new OutboundHop.WebhookPost(e.Authority, k)),
-        peer: static (_, _) => Fin<OutboundHop>.Fail(new HopFault.Excluded("webhook:requires-endpoint"))));
+        endpoint: static k => Fin<OutboundHop>.Succ(new OutboundHop.WebhookPost(e.Authority, k)),
+        peer: static _ => Fin<OutboundHop>.Fail(new HopFault.Excluded("webhook:requires-endpoint"))));
     public static readonly DeliveryChannel Email = new("email", static (target, _) => target.Switch(
         endpoint: static e => Fin<OutboundHop>.Succ(new OutboundHop.HttpApi(e.Authority)),
         peer: static _ => Fin<OutboundHop>.Fail(new HopFault.Excluded("email:requires-endpoint"))));

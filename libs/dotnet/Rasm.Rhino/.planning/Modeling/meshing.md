@@ -982,7 +982,6 @@ public abstract partial record MeshOp {
 
     internal Fin<MeshOp> Admitted() =>
         Switch(
-            context: key,
             fromGeometry: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Fidelity), row.Fidelity is { IsValid: true })),

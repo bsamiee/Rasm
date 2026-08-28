@@ -90,7 +90,6 @@ public abstract partial record HygieneRule {
     public sealed record Duplicates : HygieneRule;
 
     internal Fin<Unit> Admit() => Switch(
-        state: key,
         simplify: static (rule) => Admit.Positive(rule.Epsilon).Map(static _ => unit),
         ramerDouglasPeucker: static (rule) => Admit.Positive(rule.Epsilon).Map(static _ => unit),
         collinear: static (_, _) => Fin.Succ(unit),
@@ -928,12 +927,11 @@ public abstract partial record FieldMetric {
     public sealed record InscribedDiameter : FieldMetric;
 
     internal Fin<Unit> Admit() => Switch(
-        state: key,
-        occupancy: static (_, _) => Fin.Succ(unit),
-        signedClearance: static (_, _) => Fin.Succ(unit),
+        occupancy: static _ => Fin.Succ(unit),
+        signedClearance: static _ => Fin.Succ(unit),
         engagement: static (metric) => Admit.Positive(metric.CutterRadius).Map(static _ => unit),
         reachable: static (metric) => Admit.Positive(metric.ToolRadius).Map(static _ => unit),
-        inscribedDiameter: static (_, _) => Fin.Succ(unit));
+        inscribedDiameter: static _ => Fin.Succ(unit));
 
     internal double Sample(double clearance) => Switch(
         state: clearance,

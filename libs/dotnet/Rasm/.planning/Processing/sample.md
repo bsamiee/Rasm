@@ -150,7 +150,6 @@ public abstract partial record SampleKind {
     }
 
     internal Fin<SampleKind> Admit() => Switch(
-        state: key,
         explicitCase: static (c) => c.Points.IsEmpty ? Fin.Fail<SampleKind>(new KernelFault.InvalidInput()) : Fin.Succ<SampleKind>(c),
         poissonDiskCase: static (_, c) => Fin.Succ<SampleKind>(c),
         farthestCase: static (_, c) => Fin.Succ<SampleKind>(c),

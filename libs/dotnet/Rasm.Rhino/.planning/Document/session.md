@@ -798,7 +798,6 @@ public abstract partial record SessionSource {
     internal Fin<Lease<RhinoDoc>> Acquire(SessionMode mode) =>
         from modeAdmitted in Admits(mode: mode)
         from lease in Switch(
-            state: key,
             live: static (source) => Borrowed(document: Optional(source.Document).ToFin(Fail: new KernelFault.MissingContext())),
             active: static (_) => Try.lift(() =>
                 Borrowed(document: Optional(RhinoDoc.ActiveDoc).ToFin(Fail: new KernelFault.MissingContext()))).Run().Bind(static inner => inner),

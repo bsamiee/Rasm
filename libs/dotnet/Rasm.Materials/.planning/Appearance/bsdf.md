@@ -84,11 +84,11 @@ public sealed partial class SpectralBand {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MaterialFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Appearance;
-    private MaterialFault(string detail) { Key = key; Detail = detail; }
+    private MaterialFault(string detail) { Detail = detail; }
     public string Detail { get; }
-    [FaultCase(0)] public sealed partial record Gamut(string Detail) : MaterialFault(Key, Detail);
-    [FaultCase(1)] public sealed partial record Parameter(string Detail) : MaterialFault(Key, Detail);
-    [FaultCase(2)] public sealed partial record Graph(string Detail) : MaterialFault(Key, Detail);
+    [FaultCase(0)] public sealed partial record Gamut(string Detail) : MaterialFault(Detail);
+    [FaultCase(1)] public sealed partial record Parameter(string Detail) : MaterialFault(Detail);
+    [FaultCase(2)] public sealed partial record Graph(string Detail) : MaterialFault(Detail);
 
     public override string Message => Switch(
         state: Detail,

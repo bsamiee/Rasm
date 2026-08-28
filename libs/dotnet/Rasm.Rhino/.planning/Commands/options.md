@@ -189,8 +189,7 @@ public abstract partial record OptionValue {
         enumChoice: static _ => CapabilitySet<OptionTrait>.Of(OptionTrait.Varies));
 
     internal Seq<ValidationClause> Clauses() => Switch(
-        state: key,
-        verb: static (_, _) => Seq<ValidationClause>(),
+        verb: static _ => Seq<ValidationClause>(),
         toggle: static (row) => FactoryValidation.Violated(
             (row.Off is null || row.On is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Toggle) }))),
             (row.Off is not null && row.On is not null && string.Equals(row.Off.Key, row.On.Key, StringComparison.Ordinal),

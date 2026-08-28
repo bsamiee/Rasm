@@ -191,15 +191,13 @@ public abstract partial record Assessed {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssessmentAdmission {
     public static Fin<Assessed> Admit(AssessmentRecord record) => record.Switch(
-        state: key,
-        measured: static (k, r) => AdmissionSlots
-            .Gate(Band.Positive.Admits(r.SiValue), new ElementFault.ValueRejected(k,
-                $"<assessment-measured-nonpositive:{r.Material.ToValue()}:{r.Property.Key}:{r.SiValue:R}>"))
+        measured: static r => AdmissionSlots
+            .Gate(Band.Positive.Admits(r.SiValue), new ElementFault.ValueRejected($"<assessment-measured-nonpositive:{r.Material.ToValue()}:{r.Property.Key}:{r.SiValue:R}>"))
             .Map(_ => Column(Identity(r.Material, r.Modality, r.Reference, r.Taken, r.ValidUntil), r.Property, r.SiValue))
             .As().ToFin(),
-        graded: static (k, r) => Fin.Succ<Assessed>(new Assessed.Retention(
+        graded: static r => Fin.Succ<Assessed>(new Assessed.Retention(
             Identity(r.Material, AssessmentModality.Survey, r.Reference, r.Taken, r.ValidUntil), r.Grade.Retention)),
-        declared: static (k, r) => Declared(r.Material, r.Epd, k));
+        declared: static r => Declared(r.Material, r.Epd));
 
     static Fin<Assessed> Declared(MaterialId material, EpdRow epd) =>
         (Arity(epd),

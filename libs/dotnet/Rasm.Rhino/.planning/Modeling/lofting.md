@@ -441,7 +441,6 @@ public abstract partial record LoftOp {
 
     internal Fin<LoftOp> Admitted() =>
         Switch(
-            context: key,
             sweepOne: static (row) => ModelClaim.Admits(row,
                 (nameof(row.Rail), ModelClaim.Handle(handle: row.Rail)),
                 (nameof(row.Shapes), ModelClaim.Handles(handles: row.Shapes)),

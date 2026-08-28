@@ -37,20 +37,20 @@ namespace Rasm.Materials.Raster;
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RasterFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Raster;
-    private RasterFault(string detail) { Key = key; Detail = detail; }
+    private RasterFault(string detail) { Detail = detail; }
     public string Detail { get; }
-    [FaultCase(0)] public sealed partial record Decode(string Detail) : RasterFault(Key, Detail) { public override string Message => $"Raster container decode failed under '{Key}': {Detail}."; }
-    [FaultCase(1)] public sealed partial record Encode(string Detail) : RasterFault(Key, Detail) { public override string Message => $"Raster container encode failed under '{Key}': {Detail}."; }
-    [FaultCase(2)] public sealed partial record Device(string Detail) : RasterFault(Key, Detail) { public override string Message => $"Bake device failed under '{Key}': {Detail}."; }
-    [FaultCase(3)] public sealed partial record Tile(string Detail) : RasterFault(Key, Detail) { public override string Message => $"Tile synthesis failed under '{Key}': {Detail}."; }
-    [FaultCase(4)] public sealed partial record Provision(string Detail) : RasterFault(Key, Detail) { public override string Message => $"Provisioned tool unavailable under '{Key}': {Detail}."; }
+    [FaultCase(0)] public sealed partial record Decode(string Detail) : RasterFault(Detail) { public override string Message => $"Raster container decode failed: {Detail}."; }
+    [FaultCase(1)] public sealed partial record Encode(string Detail) : RasterFault(Detail) { public override string Message => $"Raster container encode failed: {Detail}."; }
+    [FaultCase(2)] public sealed partial record Device(string Detail) : RasterFault(Detail) { public override string Message => $"Bake device failed: {Detail}."; }
+    [FaultCase(3)] public sealed partial record Tile(string Detail) : RasterFault(Detail) { public override string Message => $"Tile synthesis failed: {Detail}."; }
+    [FaultCase(4)] public sealed partial record Provision(string Detail) : RasterFault(Detail) { public override string Message => $"Provisioned tool unavailable: {Detail}."; }
     [FaultCase(5)] public sealed partial record DecodeProvider(Error Cause)
-        : RasterFault(Key, "<codec-provider-refused>"), ICausedFault {
-        public override string Message => $"Raster container provider rejected decode under '{Key}'.";
+        : RasterFault("<codec-provider-refused>"), ICausedFault {
+        public override string Message => $"Raster container provider rejected decode.";
     }
     [FaultCase(6)] public sealed partial record EncodeProvider(Error Cause)
-        : RasterFault(Key, "<codec-provider-refused>"), ICausedFault {
-        public override string Message => $"Raster container provider rejected encode under '{Key}'.";
+        : RasterFault("<codec-provider-refused>"), ICausedFault {
+        public override string Message => $"Raster container provider rejected encode.";
     }
 }
 ```

@@ -323,7 +323,6 @@ public static partial class BlockGraph {
 
     private static Fin<Topology> Of(GraphSource source) =>
         Admit.Need(source).Bind(request => request.Switch(
-            context: key,
             live: static (held) => Admit.Need(held.Session).Bind(session => Admit.Demand(
                 use: document => LiveTopology(document: document),
                 needs: [SessionNeed.Read])),

@@ -104,10 +104,9 @@ public sealed class UiClock : IDisposable {
 
     private Fin<Unit> Seat(BeatSeed observed, ClockCursor next) =>
         Cell.Step(cursor, held => held.Seed == observed ? Some(next) : None, new KernelFault.InvalidResult()).Switch(
-            state: key,
-            committed: static (_, _) => Fin.Succ(unit),
+            committed: static _ => Fin.Succ(unit),
             ceded: static (_) => Fin.Fail<Unit>(new KernelFault.InvalidResult()),
-            refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
+            refused: static row => Fin.Fail<Unit>(row.Cause),
             contended: static (_) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
     public void Dispose();

@@ -53,12 +53,12 @@ namespace Rasm.Materials.Projection;
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProjectionFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Projection;
-    private ProjectionFault(string detail) { Key = key; Detail = detail; }
+    private ProjectionFault(string detail) { Detail = detail; }
     public string Detail { get; }
-    public override string Message => $"{Key.Value}: {Detail}";
-    [FaultCase(0)] public sealed partial record Source(string Detail) : ProjectionFault(Key, Detail);
-    [FaultCase(1)] public sealed partial record Unvouched(string Detail) : ProjectionFault(Key, Detail);
-    [FaultCase(2)] public sealed partial record Unresolved(string Detail) : ProjectionFault(Key, Detail);
+    public override string Message => Detail;
+    [FaultCase(0)] public sealed partial record Source(string Detail) : ProjectionFault(Detail);
+    [FaultCase(1)] public sealed partial record Unvouched(string Detail) : ProjectionFault(Detail);
+    [FaultCase(2)] public sealed partial record Unresolved(string Detail) : ProjectionFault(Detail);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -359,9 +359,8 @@ public abstract partial record ConstituentRecipe {
 public static class Constituents {
     public static Fin<Seq<(MaterialId Material, string Category, double Fraction, string PartName)>> Of(ConstituentRecipe recipe) =>
         recipe.Switch(
-            state: key,
-            mix:   static (k, m) => MixDesign.Proportion(m.Spec, k).Map(proportion => MixRows(m.Spec.Materials, proportion)),
-            layup: static (k, l) => LayupRows(l.Layers, k));
+            mix:   static m => MixDesign.Proportion(m.Spec).Map(proportion => MixRows(m.Spec.Materials, proportion)),
+            layup: static l => LayupRows(l.Layers));
 
     static Seq<(MaterialId Material, string Category, double Fraction, string PartName)> MixRows(MixMaterials materials, MixProportion p) {
         double total = p.CementKgM3 + p.WaterKgM3 + p.FineKgM3 + p.CoarseKgM3;
