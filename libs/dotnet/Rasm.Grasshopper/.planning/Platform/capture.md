@@ -310,8 +310,8 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
         return await staged.Match(
             Succ: async ready => {
                 (SCContentFilter minted, SCStreamConfiguration streamConfig, MonotonicTimeline clock) = ready;
-                Fin<CMSampleBuffer> sampled = await HostEdge.Captured(async _ => Fin.Succ(await SCScreenshotManager.CaptureSampleBufferAsync(
-                        contentFilter: minted, config: streamConfig).ConfigureAwait(false)));
+                Fin<CMSampleBuffer> sampled = await HostEdge.Captured(cancel, async _ => Fin.Succ(await SCScreenshotManager.CaptureSampleBufferAsync(
+                        contentFilter: minted, config: streamConfig).ConfigureAwait(false))).ConfigureAwait(false);
                 Fin<CaptureStill> still = sampled.Bind(buffer => {
                     Fin<CaptureStill> projected =
                         from stamp in clock.Capture()

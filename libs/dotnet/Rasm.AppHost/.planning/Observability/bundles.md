@@ -378,13 +378,13 @@ public static class DumpArtifacts {
     }
 
     static IO<ArtifactPayload> Captured(DumpPolicy policy, string path) =>
-        IO.liftAsync(async envIO => await HostEdge.Captured(async token => {
+        HostEdge.CapturedIO(async token => {
             await new DiagnosticsClient(Environment.ProcessId)
                 .WriteDumpAsync(policy.Kind, path, policy.Flags, token).ConfigureAwait(false);
             return Fin.Succ(new ArtifactPayload(
                 new ReadOnlyMemory<byte>(await File.ReadAllBytesAsync(path, token).ConfigureAwait(false)),
                 MaskTally.Empty));
-        })).Bind(static captured => IO.lift(captured));
+        }).Bind(static captured => IO.lift(captured));
 
     static IO<ArtifactPayload> Walked(DumpPolicy policy, string captureRoot, JsonTypeInfo<DumpTriage> contract) =>
         IO.lift(() => DumpTriage.Walk(DumpTriage.Path(captureRoot), policy))

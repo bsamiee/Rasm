@@ -282,7 +282,7 @@ internal static class MqttBinding {
     }
 
     private static async Task<Option<Error>> Granted(IMqttClient client, string topicFilter, CancellationToken ct) =>
-        (await HostEdge.Captured(
+        (await HostEdge.Captured(ct,
             async _ => Fin.Succ(await client.SubscribeAsync(
                 new MqttClientSubscribeOptionsBuilder()
                     .WithTopicFilter(topicFilter, MqttQualityOfServiceLevel.AtLeastOnce)
@@ -376,7 +376,7 @@ internal static class NatsBinding {
         INatsSub<byte[]> subscription, string subject, Channel<Error> shed,
         [EnumeratorCancellation] CancellationToken ct = default) {
         while (true) {
-            Fin<bool> advanced = await HostEdge.Captured(
+            Fin<bool> advanced = await HostEdge.Captured(ct,
                 async _ => Fin.Succ(await subscription.Msgs.WaitToReadAsync(ct).ConfigureAwait(false))).ConfigureAwait(false);
 
             while (shed.Reader.TryRead(out Error? refusal)) {

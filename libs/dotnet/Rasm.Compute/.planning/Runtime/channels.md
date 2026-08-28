@@ -139,15 +139,14 @@ public static class RpcEdge {
 public sealed partial class WarmProbe {
 
     public static readonly WarmProbe Connectivity = new("connectivity", observable: true, warm: static (services, _) =>
-        IO.liftAsync(async envIO => await HostEdge.Captured(
-            async token => {
-                await services.Channel.ConnectAsync(token).ConfigureAwait(false);
-                return Fin.Succ(services);
-            }).ConfigureAwait(false)));
+        HostEdge.CapturedIO(async token => {
+            await services.Channel.ConnectAsync(token).ConfigureAwait(false);
+            return Fin.Succ(services);
+        }));
 
     public static readonly WarmProbe RoundTrip = new("round-trip", observable: false, warm: static (services, call) =>
         IO.liftAsync(async envIO => {
-            Fin<HealthCheckResponse> outcome = (await HostEdge.Captured(
+            Fin<HealthCheckResponse> outcome = (await HostEdge.Captured(envIO.Token,
                 async token => Fin.Succ(await call.Health.CheckAsync(
                     new HealthCheckRequest(), cancellationToken: token).ResponseAsync.ConfigureAwait(false))).ConfigureAwait(false)).MapFail(RpcEdge.Rpc);
             return outcome.Match(
@@ -437,15 +436,14 @@ public sealed class CallSpine(CorrelationId correlation, ClockPolicy clocks) : I
     }
 
     public static IO<Fin<T>> Awaited<T>(Func<Task<T>> call, CancellationToken token) =>
-        IO.liftAsync(async _ => (await HostEdge.Captured(
-            async _ => Fin.Succ(await call().ConfigureAwait(false)),
-            token).ConfigureAwait(false)).MapFail(RpcEdge.Rpc));
+        IO.liftAsync(async _ => (await HostEdge.Captured(token,
+            async _ => Fin.Succ(await call().ConfigureAwait(false))).ConfigureAwait(false)).MapFail(RpcEdge.Rpc));
 
     public IO<Fin<T>> AwaitedHttp<T>(string subject, CancellationToken token, Func<string, CancellationToken, Task<Fin<T>>> exchange) =>
         IO.liftAsync(async envIO => {
             using CancellationTokenSource budget = new(DeadlineClass.HopTotal.Bound);
             using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(token, envIO.Token, budget.Token);
-            Fin<T> outcome = await HostEdge.Captured(
+            Fin<T> outcome = await HostEdge.Captured(linked.Token,
                 async active => await exchange(subject, active).ConfigureAwait(false)).ConfigureAwait(false);
             return outcome.MapFail(error =>
                 budget.IsCancellationRequested && !token.IsCancellationRequested && !envIO.Token.IsCancellationRequested

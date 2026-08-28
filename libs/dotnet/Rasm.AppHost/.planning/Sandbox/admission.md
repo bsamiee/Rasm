@@ -163,8 +163,8 @@ public static class SupplyChainGate {
             Fail: fault => IO.pure<Validation<Error, SupplyChainAdmission>>(Fail(fault)));
 
     static IO<Fin<SigstoreBundle>> Bundle(Probe probe, CancellationToken token) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(
-                async execution => Fin.Succ(await SigstoreBundle.LoadAsync(probe.Bundle, execution)), token))
+        IO.liftAsync(async () => (await HostEdge.Captured(token,
+                async execution => Fin.Succ(await SigstoreBundle.LoadAsync(probe.Bundle, execution))).ConfigureAwait(false))
             .MapFail(error => (Error)new SupplyChainFault.BundleUnreadable(probe.Subject, error)));
 
     static IO<string> ContentKey(Runtime gate, AdmissionSubject subject, CancellationToken token) => subject.Switch(

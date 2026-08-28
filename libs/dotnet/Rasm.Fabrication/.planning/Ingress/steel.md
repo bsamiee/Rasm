@@ -510,16 +510,15 @@ public static class SteelImport {
 
     private static Eff<byte[]> Payload(SteelSource source) =>
         source.Switch(
-                path: static path => liftEff(() => HostEdge.Captured(
+                path: static path => liftEff(() => HostEdge.Captured(path.Cancellation,
                     async execution => Fin.Succ(
-                        await File.ReadAllBytesAsync(path.Value, execution).ConfigureAwait(false)),
-                    token: path.Cancellation).AsTask())
+                        await File.ReadAllBytesAsync(path.Value, execution).ConfigureAwait(false))).AsTask())
                     .MapFail(error => Classify(Path.GetFileName(path.Value), error)),
                 text: static text => Eff.lift(() => Encoding.UTF8.GetBytes(text.Value)),
                 bytes: static bytes => Eff.lift(() => bytes.Value.ToArray()));
 
     private static Eff<IDstv> Parse(byte[] bytes) =>
-        liftEff(() => HostEdge.Captured(async _ => {
+        liftEff(() => HostEdge.Captured(CancellationToken.None, async _ => {
             using MemoryStream stream = new(bytes, writable: false);
             using TextReader reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
             return Fin.Succ<IDstv>(await new DstvReader().ParseAsync(reader).ConfigureAwait(false));

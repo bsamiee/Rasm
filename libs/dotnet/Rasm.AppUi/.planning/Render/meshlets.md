@@ -540,13 +540,13 @@ public sealed class PrefetchLane {
         RedrivePolicy policy, Action<Error> fault, CancellationToken token) =>
         IO.liftAsync(async () => {
             await foreach (PrefetchRequest request in queue.Reader.ReadAllAsync(token)) {
-                Fin<ReadOnlyMemory<byte>> bytes = await HostEdge.Captured(async _ =>
-                    Fin.Succ(await IO.retry(policy.Curve, blobs.Read(request.ContentKey)).RunAsync().ConfigureAwait(false)), token)
+                Fin<ReadOnlyMemory<byte>> bytes = await HostEdge.Captured(token, async _ =>
+                    Fin.Succ(await IO.retry(policy.Curve, blobs.Read(request.ContentKey)).RunAsync().ConfigureAwait(false)))
                     .ConfigureAwait(false);
                 await bytes.Match(
                     Succ: async payload => {
-                        Fin<Unit> landed = await HostEdge.Captured(async _ =>
-                            await upload(request.ContentKey, payload).RunAsync().ConfigureAwait(false), token)
+                        Fin<Unit> landed = await HostEdge.Captured(token, async _ =>
+                            await upload(request.ContentKey, payload).RunAsync().ConfigureAwait(false))
                             .ConfigureAwait(false);
                         ignore(landed.IfFail(fun(fault)));
                         return unit;

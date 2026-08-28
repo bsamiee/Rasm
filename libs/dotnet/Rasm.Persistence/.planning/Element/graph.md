@@ -360,8 +360,8 @@ public static class GraphStore {
         error.Exception.Match(
             Some: ex => ex is Marten.Exceptions.ConcurrentUpdateException or JasperFx.Events.EventStreamUnexpectedMaxEventIdException
                 ? expected.Match(
-                    Some: guard => IO.liftAsync(async () => await HostEdge.Captured(async token => Fin<Option<StreamState>>.Succ(Optional(
-                        await session.Events.FetchStreamStateAsync(model.Value, token).ConfigureAwait(false)), cancellationToken).ConfigureAwait(false))
+                    Some: guard => HostEdge.CapturedIO(async token => Fin<Option<StreamState>>.Succ(Optional(
+                        await session.Events.FetchStreamStateAsync(model.Value, token).ConfigureAwait(false))))
                         .Bind(IO.lift)
                         .Map(state => state.Match(
                             Some: s => Fin<StreamHead>.Fail(new GraphFault.StreamVersionConflict(model, guard, s.Version, error)),

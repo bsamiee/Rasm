@@ -185,7 +185,7 @@ public static class CdcIngress {
     static IO<Fin<IngressTally>> ConsumeAdmitted(IConsumer<string, byte[]> consumer, IngressSource source, IngressPorts ports,
         ProjectionContext frame, CancellationToken token) =>
         from folded in Range(0, source.Batch.Value).FoldM(IngressTally.Zero, (tally, _) => IO.liftAsync(async () =>
-            (await HostEdge.Captured(async _ => {
+            (await HostEdge.Captured(token, async _ => {
             Option<Error> refused = None;
             Option<IngressOutcome> settled = None;
             ConsumeResult<string, byte[]>? offered = await consumer.ConsumeAndProcessMessageAsync(async (result, _, processingToken) => {

@@ -1479,7 +1479,7 @@ public sealed class TokenLease : IDisposable {
     public bool Live => held.Value.Map(static pair => !pair.Oauth.IsExpired).IfNone(false);
 
     public ValueTask<Fin<Unit>> Refresh() {
-        return HostEdge.Captured(async _ => {
+        return HostEdge.Captured(CancellationToken.None, async _ => {
             if (held.Value.Case is not (IOpenIDConnectToken openId, IOAuth2Token oauth)) {
                 return Fin.Fail<Unit>(error: admitted.MissingContext());
             }
@@ -1494,7 +1494,7 @@ public sealed class TokenLease : IDisposable {
     }
 
     public ValueTask<Fin<Unit>> Revoke() {
-        return HostEdge.Captured(async _ => {
+        return HostEdge.Captured(CancellationToken.None, async _ => {
             if (held.Value.Case is not (IOpenIDConnectToken _, IOAuth2Token oauth)) {
                 return Fin.Fail<Unit>(error: admitted.MissingContext());
             }
@@ -1529,7 +1529,7 @@ public static class Accounts {
     private static ValueTask<Fin<TokenLease>> Dispatch(
         TokenAsk request, Option<Action<LoginPulse>> progress, Option<Env> env) {
         CancellationToken cancel = env.Map(static held => held.Cancellation).IfNone(CancellationToken.None);
-        return HostEdge.Captured(async token => {
+        return HostEdge.Captured(cancel, async token => {
             LoginProgress pulse = new(info => progress.Iter(tap => ignore(Try.lift(() => HostEdge.Side(() => tap(new LoginPulse(
                 Phase: FactoryBridge.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
                 Description: HostEdge.NonEmpty(info.Description))))).Run())));
@@ -1557,7 +1557,7 @@ public static class Accounts {
                 .Filter(static row => row.OpenId is not null && row.Oauth is not null)
                 .ToFin(Fail: new KernelFault.MissingContext())
                 .Map(row => new TokenLease(openId: row.OpenId, oauth: row.Oauth, clientId: request.ClientId));
-        }, token: cancel);
+        });
     }
 }
 

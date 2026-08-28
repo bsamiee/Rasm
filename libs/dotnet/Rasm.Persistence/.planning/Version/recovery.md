@@ -262,20 +262,20 @@ public static class PointInTimeRestore {
         .As();
 
     static IO<Fin<string>> RebuildProjections(RestoreContext restore) =>
-        IO.liftAsync<Fin<string>>(async () => await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await restore.Store.Advanced.RebuildSingleStreamAsync<GraphProjection>(restore.Model.Value).ConfigureAwait(false);
             await using IProjectionDaemon daemon = await restore.Store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
             await daemon.WaitForNonStaleData(restore.Objective.Rto.ToTimeSpan()).ConfigureAwait(false);
             EventStoreStatistics stats = await restore.Store.Advanced.FetchEventStoreStatistics().ConfigureAwait(false);
             return Fin<string>.Succ($"<projections-rebuilt:head{stats.EventSequenceNumber}>");
-        }).ConfigureAwait(false));
+        });
 
     static IO<Fin<string>> ReAttest(RestoreContext restore) =>
         from chain in restore.AttestedChain()
         from verdict in AttestedLedger.Verify(chain, restore.KeyringFor, restore.DigestOf)
         from outcome in verdict is AttestVerdict.Authentic or AttestVerdict.Unsigned
-            ? IO.liftAsync<Fin<string>>(async () => await HostEdge.Captured(async _ => {
+            ? HostEdge.CapturedIO(async _ => {
                 await using IQuerySession query = restore.Store.QuerySession();
                     GraphProjection? rebuilt = await restore.Target.StreamVersion.Match(
                         Some: version => query.Events.AggregateStreamAsync<GraphProjection>(restore.Model.Value, version: version),
@@ -289,7 +289,7 @@ public static class PointInTimeRestore {
                         $"re-attest:{string.Join('+', missing.Held.Select(static link => link.Key))}",
                         restore.TargetSeal.Address, reached))
                     .Map(_ => $"<chain-re-attested:{verdict.Key}:{reached.Value:x32}>");
-            }).ConfigureAwait(false))
+            })
             : IO.pure(Fin<string>.Fail(new RecoveryFault.RestoreFailed(new RestoreRefusal.Attestation(verdict))))
         select outcome;
 }

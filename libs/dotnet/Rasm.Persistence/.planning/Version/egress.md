@@ -63,10 +63,10 @@ public sealed record DrainLane(SinkKey Sink, Channel<OpLogEntry> Rows) {
     public Option<int> Depth => Rows.Reader.CanCount ? Some(Rows.Reader.Count) : None;
 
     public IO<Unit> Publish(OpLogEntry row) =>
-        IO.liftAsync(async env => await HostEdge.Captured(async token => {
+        HostEdge.CapturedIO(async token => {
             await Rows.Writer.WriteAsync(row, token).ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Bind(IO.lift);
 
     public IO<Unit> Flush() => IO.lift(() => { Rows.Writer.TryComplete(); return unit; });
 }

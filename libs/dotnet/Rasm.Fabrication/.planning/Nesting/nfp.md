@@ -1446,7 +1446,7 @@ internal sealed class PairMemo(HybridCache cache) {
     public (long Hits, long Misses) Census => (Interlocked.Read(ref hits), Interlocked.Read(ref misses));
 
     public async ValueTask<Fin<NoFitPolygon>> GetOrBuild(UInt128 identity, Func<Fin<NoFitPolygon>> build, CancellationToken cancel) =>
-        await HostEdge.Captured(async execution => {
+        await HostEdge.Captured(cancel, async execution => {
             bool built = false;
             NoFitPolygon polygon = await cache.GetOrCreateAsync(
                 $"nfp:{ContentHash.Hex(identity)}",
@@ -1456,7 +1456,7 @@ internal sealed class PairMemo(HybridCache cache) {
                 cancellationToken: execution).ConfigureAwait(false);
             _ = Interlocked.Increment(ref built ? ref misses : ref hits);
             return Fin.Succ(polygon);
-        }, token: cancel).ConfigureAwait(false);
+        }).ConfigureAwait(false);
 }
 
 internal static class PairTable {
@@ -1468,11 +1468,9 @@ internal static class PairTable {
         CancellationToken cancel = default) {
         Variant[] rows = variants.Values.OrderBy(static row => row.PartId).ThenBy(static row => row.Rotation)
             .ThenBy(static row => row.Mirrored).ToArray();
-        return (await HostEdge.Captured(
-                async execution => Fin.Succ(await memo.Match(
+        return (await HostEdge.Captured(cancel, async execution => Fin.Succ(await memo.Match(
                     Some: cache => Cached(rows, policy, cache, execution),
-                    None: () => ValueTask.FromResult(Parallel(rows, policy))).ConfigureAwait(false)),
-                token: cancel).ConfigureAwait(false))
+                    None: () => ValueTask.FromResult(Parallel(rows, policy))).ConfigureAwait(false))).ConfigureAwait(false))
             .Bind(results => results.ToSeq().TraverseM(identity).As()
                 .Bind(pairs => Inner(toSeq(rows), inventory, policy).Map(inner => pairs.Concat(inner)))
                 .Map(static found => toHashMap(found.DistinctBy(static row => row.Identity)
