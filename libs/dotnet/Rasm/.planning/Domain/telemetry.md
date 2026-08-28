@@ -453,13 +453,14 @@ public sealed class TelemetrySink {
 
 ## [05]-[CONTRIBUTE]
 
-- Owner: `ClassifiedValue` carries a sensitivity annotation as text; `Sensitivity` is the kernel's own sensitivity roster; `TelemetryContributorPort` is the ONE downward contribution fact a stratum hands a composing root — its instrument roster, published handles, trace planes, classifications, and board.
-- Entry: `Kernel(version)` mints the kernel's own port; `Admit` builds the port's whole declaration map by name and admits the optional board pack against it, so a mounting root folds every contributor before it mints a meter.
+- Owner: `ClassifiedValue` carries a sensitivity annotation as text; `Sensitivity` is the kernel's own sensitivity roster; `TelemetryContributorPort` is the ONE downward contribution fact a stratum hands a composing root — its instrument roster, published handles, trace planes, classifications, board, row-key correspondence, and the boot proofs the root must FORCE on its behalf.
+- Entry: `Kernel(version)` mints the kernel's own port; `Admit` builds the port's whole declaration map by name, admits the optional board pack against it, proves the `Keyed` row-key-to-instrument-name correspondence, and forces every `Rosters` proof, so a mounting root folds every contributor before it mints a meter.
 - Law: a producer measures at its own site — `InstrumentSet.Write`/`Level`/`Bind` against the rows this port declared, `SpanBand.Traced` for the bracket, `RasmEventEnvelope.Publish` for a durable fact — so no projection table, kind roster, or fan stands between a result and the instrument that observes it.
 - Law: `Admit` names WHICH declaration collided — a refusal that states only that some name repeats leaves a mounting root to diff two rosters by hand.
+- Law: a stratum's boot-time roster proof rides `Rosters` as a THUNK on this port and is forced by `Admit`, never left as a public member no owner reaches — a proof no reader forces guarantees nothing, and a package holding no composition root of its own has exactly one downward hand-off. `Keyed` is the same law for the one correspondence every instrument roster shares, so no package re-declares an `InstrumentSpec.Named` fold of its own.
 - Law: the port names its scope with the branch's own `TelemetrySource` row rather than a bare string, so a contributor cannot fork the package census the fault-band registry and the causal frame already key on; the schema pin is read, never passed, so no contributor can break the one coordinate tracer, meter, and logger bump together on.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a contributor's whole board and reliability policy is one `Board` value on its own port, its whole span custody one `Planes` roster on that same port, and a newly annotated sensitivity one `ClassifiedValue` row on its `Classifications` column.
+- Growth: a contributor's new boot proof is one `Rosters` thunk on its own port; a contributor's whole board and reliability policy is one `Board` value on its own port, its whole span custody one `Planes` roster on that same port, and a newly annotated sensitivity one `ClassifiedValue` row on its `Classifications` column.
 - Boundary: `Instruments` and `Published` split by WHO MOUNTS — the root binds handles for the first and a contributor owning its own meter lifetime declares the second, `Declared` is the union every naming gate, view predicate, and pack admission reads, and a row on neither roster exports a stream no gate can refuse. `Planes` carries the contributor's own `TraceScope` roster VERBATIM, because trace and meter scopes are distinct grammars neither derives from. `Classifications` carries sensitivity VALUES as `(taxonomy, value)` text, so no compliance type enters this assembly and a redaction root binding a redactor per rostered row has a set to PROVE its contributors against instead of a coincidence it discovers at egress.
 
 ```csharp
@@ -490,6 +491,8 @@ public sealed record TelemetryContributorPort(
     Seq<InstrumentSpec> Published = default,
     Seq<TraceScope> Planes = default,
     Seq<ClassifiedValue> Classifications = default,
+    Seq<(string Key, string Name)> Keyed = default,
+    Seq<Func<Fin<Unit>>> Rosters = default,
     Option<BoardPack> Board = default) {
     public static TelemetryContributorPort Kernel(string version) =>
         new(Scope: TelemetrySource.Kernel, Version: version, Instruments: KernelInstrument.Rows);
@@ -503,6 +506,8 @@ public sealed record TelemetryContributorPort(
                 Requirement: "one declaration per name across the mounted and published columns"))
             : Fin.Succ(Declared.ToHashMap(static row => row.Name, static row => row)))
         .Bind(roster => Board.TraverseM(pack => pack.Admit(roster)).As())
+        .Bind(_ => InstrumentSpec.Named(Keyed))
+        .Bind(_ => Rosters.Traverse(static proof => proof().ToValidation()).As().ToFin())
         .Map(static _ => unit);
 }
 ```

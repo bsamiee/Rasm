@@ -292,9 +292,10 @@ public sealed partial class ElementInstrument {
  public static Seq<InstrumentSpec> Rows => toSeq(Items).Map(static row => row.Row).Strict();
 
  public static TelemetryContributorPort Telemetry(string version) =>
-  new(Scope: TelemetrySource.Element, Version: version, Instruments: Rows, Planes: ElementPoint.Scopes);
+  new(Scope: TelemetrySource.Element, Version: version, Instruments: Rows, Planes: ElementPoint.Scopes,
+      Keyed: toSeq(Items).Map(static row => (row.Key, row.Row.Name)),
+      Rosters: [CorpusGrade.Proof, WireCodec.Proof]);
 
- public static Fin<Unit> Proof() => InstrumentSpec.Named(toSeq(Items).Map(static row => (row.Key, row.Row.Name)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

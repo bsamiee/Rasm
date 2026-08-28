@@ -309,9 +309,10 @@ public sealed partial class BimInstrument {
     public static Seq<InstrumentSpec> Rows => toSeq(Items).Map(static row => row.Row).Strict();
 
     public static TelemetryContributorPort Telemetry(string version) =>
-        new(Scope: TelemetrySource.Bim, Version: version, Instruments: Rows, Planes: BimPoint.Scopes);
+        new(Scope: TelemetrySource.Bim, Version: version, Instruments: Rows, Planes: BimPoint.Scopes,
+            Keyed: toSeq(Items).Map(static row => (row.Key, row.Row.Name)),
+            Rosters: [FlowDirection.Proof, TraceMode.Proof, BimBenchClaims.Proof]);
 
-    public static Fin<Unit> Proof() => InstrumentSpec.Named(toSeq(Items).Map(static row => (row.Key, row.Row.Name)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

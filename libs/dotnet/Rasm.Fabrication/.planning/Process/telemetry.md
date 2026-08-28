@@ -165,6 +165,8 @@ public static partial class FabricationInstruments {
     public static TelemetryContributorPort Telemetry(string version) =>
         new(Scope: TelemetrySource.Fabrication, Version: version, Instruments: Rows,
             Planes: toSeq(FabricationTrace.Scopes), Classifications: FabricationClassified.Values,
+            Keyed: toSeq(Items).Map(static row => (row.Key, row.Row.Name)),
+            Rosters: [FeatureControlWire.Proof],
             Board: Some(FabricationDescriptors.Pack));
 }
 ```

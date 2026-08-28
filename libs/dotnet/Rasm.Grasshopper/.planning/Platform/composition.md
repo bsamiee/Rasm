@@ -22,7 +22,7 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 ## [03]-[ROOT]
 
 - Owner: `PlatformRoot` — the load-time capsule the shell opens once per plugin: the resolved identity, the session's ONE `MonotonicTimeline`, its ONE bounded `FaultCell`, the conversion-broker registry cell `Components/data.md`'s `Coerce` reads, and one release roster. Every process-wide registry the folder holds seats here, so no library page carries a composition-root static (folder RULINGS `[02]`).
-- Entry: `PlatformRoot.Open(pluginRoot, plugin, faultCapacity, time)` → `Fin<Lease<PlatformRoot>>` resolves the identity, mints the timeline and fault cell from one supplied time provider, and seats the empty broker cell; `Hold(Lease<T>)` transfers each mounted lease into root custody; disposal releases the mounted leases in reverse mount order through the lease.
+- Entry: `PlatformRoot.Open(pluginRoot, plugin, faultCapacity, time)` → `Fin<Lease<PlatformRoot>>` FORCES the folder's four roster proofs first — `VerdictPort.RosterProof`, `PaintLog.Proof`, `InteractionLog.Proof`, `JournalLog.Proof`, each internal to this assembly and reachable from no other root — then resolves the identity, mints the timeline and fault cell from one supplied time provider, and seats the empty broker cell; `Hold(Lease<T>)` transfers each mounted lease into root custody; disposal releases the mounted leases in reverse mount order through the lease.
 - Law: `MonotonicTimeline.Of(time)` is callable HERE and nowhere else in the folder (folder RULINGS `[02]`) — one injected timeline per session makes gauged spans from one gesture orderable, and each gauged owner takes `Clock` as a REQUIRED parameter. Production shells supply `TimeProvider.System`; test hosts supply fakes through the same slot.
 - Law: `Faults` is the whole callback-custody cell handed to every mount row that parks evidence and to `HookSet.Of(cell:)`; the root never accepts the kernel's default cell and no owner mints another ring, so `Parked`/`Shed`/`Lost` describe the complete plugin boundary.
 - Law: the broker registry is the root's INSTANCE, never a library static — the root constructs `Components/data.md`'s one `BrokerLedger`, scope-ranked conversion rows enroll against it at plugin load, and `Coerce` reads the ledger it was handed, so a collectible plugin ALC drops exactly its own rows with the root's lease.
@@ -93,7 +93,9 @@ public sealed class PlatformRoot : IDisposable {
         HookScope plugin,
         Dimension faultCapacity,
         TimeProvider time) {
-        return from provider in Admit.Need(time)
+        return from _rosters in Seq(VerdictPort.RosterProof(), PaintLog.Proof(), InteractionLog.Proof(), JournalLog.Proof())
+                   .Traverse(static proof => proof.ToValidation()).As().ToFin()
+               from provider in Admit.Need(time)
                from capacity in Acceptance.Value(value: faultCapacity)
                from identity in PackageIdentity<HookScope, Unit>.Resolve(pluginRoot: pluginRoot, plugin: plugin)
                from clock in MonotonicTimeline.Of(provider: provider)

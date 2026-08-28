@@ -510,7 +510,7 @@ public sealed record TextureAtlas(TextureSet Sheet, Seq<AtlasPlacement> Placemen
 
 ## [04]-[SET_INGEST]
 
-- Owner: `SetIngest` the classification fold, the python-wire decode boundary, the Element contract-roster admission, AND the draft lift; `PlaneProbe` the per-file evidence row; `IngestRefusal` `[SmartEnum<string>]` the closed reason axis every unresolved stem carries; `IngestSource` `[Union]` the classification input (directory probes · declared manifest · decoded python `Appearance.Set`); `WireVocabulary` the one bridge per closed Raster vocabulary onto the generated `appearance.proto` enums, derived from each row's key and proved total at type init; `WireLimits` the declared parse ceilings the appearance and declaration documents cross; `ClassifiedMap` the resolved row; `RosterBinding` the per-channel binding-policy row the contract roster lifts; `SetManifest` the accumulating result and its monoid.
+- Owner: `SetIngest` the classification fold, the python-wire decode boundary, the Element contract-roster admission, AND the draft lift; `PlaneProbe` the per-file evidence row; `IngestRefusal` `[SmartEnum<string>]` the closed reason axis every unresolved stem carries; `IngestSource` `[Union]` the classification input (directory probes · declared manifest · decoded python `Appearance.Set`); `WireVocabulary` the one bridge per closed Raster vocabulary onto the generated `appearance.proto` enums, its key derivation and its bijection proof both the kernel `FactoryBridge.Lift`/`Total`/`Vocabulary` rungs rather than a second copy here, and `WireVocabulary.Proof` forced on the Materials contributor port so the ten row-to-enum correspondences hold before the first encode; `WireLimits` the declared parse ceilings the appearance and declaration documents cross; `ClassifiedMap` the resolved row; `RosterBinding` the per-channel binding-policy row the contract roster lifts; `SetManifest` the accumulating result and its monoid.
 - Entry: `public static SetManifest Classify(IngestSource source)` is TOTAL and PURE — it never reads a file, never faults, and never infers past its arm's law; every unclaimed stem accumulates into `Unresolved` as a TYPED `(IngestRefusal Reason, string Detail)` pair, and the caller decides whether an incomplete manifest is admissible for its purpose. `public static (IngestSource Source, Seq<RosterBinding> Binding) Roster(TextureRoster roster, Seq<PlaneProbe> probes)` is the Element contract-roster admission. `public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire)` parses the generated `set.proto` `Set`, admits it once, and accepts only the structural `pbr` arm; baked and environment products are not classification inputs. `Draft` lifts the admitted manifest into texture drafts.
 - Growth: a new alias is one entry on its channel's `Aliases` column — the resolver index DERIVES from `TextureChannel.Items`, so no second table exists to drift; a new packing token is one `ChannelPack` row; a new variant grammar is one token predicate in `Tokenize`; a new refusal shape is one `IngestRefusal` row and the mint site that hands it, so the reason axis stays bounded where a formatted token was unbounded; a new ingest-time repair is one arm in the lift's per-map conversion, never a second lift.
 - Law: PROVENANCE AND LICENCE are INGEST EVIDENCE, carried on `SetManifest` and `IngestIntent` as an `IngestProvenance` row and interpreted nowhere on this page. A licence class is the `Appearance/neural` `ModelCard.LicenseClass` band's vocabulary and this stratum names no frontier type, so the DECLARED token crosses UP and the frontier bands it — the same posture the primaries axis takes toward a container's declared chromaticity, recorded and never converted. Absence is honest and never a grant. It folds by FIRST evidence exactly as the convention does, and it never enters a set key: two providers shipping byte-identical planes address ONE blob, and their grants are facts about the acquisition rather than about the bytes. That is also the whole module-side landing a text-to-material SERVICE product needs — the existing `Stems` and `Declared` arms already accept a service's files under the same alias law, so no service-source `IngestSource` case exists and none is owed.
@@ -803,35 +803,29 @@ public sealed record WireLimits(int SizeLimit, int RecursionLimit) {
 }
 
 public static class WireVocabulary {
-    public static Option<TEnum> Lift<TEnum>(string key) where TEnum : struct, Enum =>
-        Enum.TryParse(key.Replace("_", string.Empty).Replace("-", string.Empty), ignoreCase: true, out TEnum value)
-        && !EqualityComparer<TEnum>.Default.Equals(value, default)
-            ? Some(value)
-            : None;
+    public static Fin<Unit> Proof() =>
+        Seq(FactoryBridge.Vocabulary<TextureChannel, Wire.Role>(static () => TextureChannel.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<PlaneTransfer, Wire.Transfer>(static () => PlaneTransfer.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<AlphaMode, Wire.AlphaMode>(static () => AlphaMode.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<MipPolicy, Wire.MipPolicy>(static () => MipPolicy.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<NormalConvention, Wire.NormalConvention>(static () => NormalConvention.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<PlaneFormat, Wire.PlaneFormat>(static () => PlaneFormat.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<LayerLaw, Wire.LayerLaw>(static () => LayerLaw.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<KtxPayload, Wire.KtxPayload>(static () => KtxPayload.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<BlockFormat, Wire.BlockFormat>(static () => BlockFormat.Items, static r => r.Key),
+            FactoryBridge.Vocabulary<ChannelPack, Wire.Pack>(static () => ChannelPack.Items, static r => r.Key))
+            .Traverse(static proof => proof.ToValidation()).As().ToFin().Map(static _ => unit);
 
-    public static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
-        where TRow : notnull where TEnum : struct, Enum =>
-        new(() => rows().ToFrozenDictionary(static row => row, row => Lift<TEnum>(key(row)).IfNone(default(TEnum))));
-
-    public static Fin<Unit> Proof<TRow, TEnum>(Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
-        where TRow : notnull where TEnum : struct, Enum =>
-        toSeq(rows())
-            .Filter(row => Lift<TEnum>(key(row)).IsNone)
-            .Map(row => (Error)new MaterialFault.Parameter($"<wire-vocabulary-unsound:{typeof(TEnum).Name}:{key(row)}>"))
-            is { IsEmpty: false } faults
-            ? Fin.Fail<Unit>(Error.Many(faults.Strict()))
-            : Fin.Succ(unit);
-
-    static readonly Lazy<FrozenDictionary<TextureChannel, Wire.Role>> Roles = Total<TextureChannel, Wire.Role>(static () => TextureChannel.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<PlaneTransfer, Wire.Transfer>> Transfers = Total<PlaneTransfer, Wire.Transfer>(static () => PlaneTransfer.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<AlphaMode, Wire.AlphaMode>> Alphas = Total<AlphaMode, Wire.AlphaMode>(static () => AlphaMode.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<MipPolicy, Wire.MipPolicy>> Mips = Total<MipPolicy, Wire.MipPolicy>(static () => MipPolicy.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<NormalConvention, Wire.NormalConvention>> Conventions = Total<NormalConvention, Wire.NormalConvention>(static () => NormalConvention.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<PlaneFormat, Wire.PlaneFormat>> Formats = Total<PlaneFormat, Wire.PlaneFormat>(static () => PlaneFormat.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<LayerLaw, Wire.LayerLaw>> Laws = Total<LayerLaw, Wire.LayerLaw>(static () => LayerLaw.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<KtxPayload, Wire.KtxPayload>> Payloads = Total<KtxPayload, Wire.KtxPayload>(static () => KtxPayload.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<BlockFormat, Wire.BlockFormat>> Blocks = Total<BlockFormat, Wire.BlockFormat>(static () => BlockFormat.Items, static r => r.Key);
-    static readonly Lazy<FrozenDictionary<ChannelPack, Wire.Pack>> Packs = Total<ChannelPack, Wire.Pack>(static () => ChannelPack.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<TextureChannel, Wire.Role>> Roles = FactoryBridge.Total<TextureChannel, Wire.Role>(static () => TextureChannel.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<PlaneTransfer, Wire.Transfer>> Transfers = FactoryBridge.Total<PlaneTransfer, Wire.Transfer>(static () => PlaneTransfer.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<AlphaMode, Wire.AlphaMode>> Alphas = FactoryBridge.Total<AlphaMode, Wire.AlphaMode>(static () => AlphaMode.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<MipPolicy, Wire.MipPolicy>> Mips = FactoryBridge.Total<MipPolicy, Wire.MipPolicy>(static () => MipPolicy.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<NormalConvention, Wire.NormalConvention>> Conventions = FactoryBridge.Total<NormalConvention, Wire.NormalConvention>(static () => NormalConvention.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<PlaneFormat, Wire.PlaneFormat>> Formats = FactoryBridge.Total<PlaneFormat, Wire.PlaneFormat>(static () => PlaneFormat.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<LayerLaw, Wire.LayerLaw>> Laws = FactoryBridge.Total<LayerLaw, Wire.LayerLaw>(static () => LayerLaw.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<KtxPayload, Wire.KtxPayload>> Payloads = FactoryBridge.Total<KtxPayload, Wire.KtxPayload>(static () => KtxPayload.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<BlockFormat, Wire.BlockFormat>> Blocks = FactoryBridge.Total<BlockFormat, Wire.BlockFormat>(static () => BlockFormat.Items, static r => r.Key);
+    static readonly Lazy<FrozenDictionary<ChannelPack, Wire.Pack>> Packs = FactoryBridge.Total<ChannelPack, Wire.Pack>(static () => ChannelPack.Items, static r => r.Key);
     static readonly Lazy<FrozenDictionary<RasterFormat, Wire.Container>> Containers = new(static () =>
         RasterFormat.Items
             .Choose(static row => Enum.TryParse(row.Key, ignoreCase: true, out Wire.Container container) && container != Wire.Container.Unspecified

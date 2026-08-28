@@ -589,6 +589,7 @@ public sealed partial class StoreInstruments {
 
     public static TelemetryContributorPort Telemetry(string version) =>
         new(Scope: TelemetrySource.Persistence, Version: version, Instruments: Rows,
+            Keyed: toSeq(Items).Map(static row => (row.Key, row.Row.Name)),
             Board: StoreDescriptors.Pack);
 }
 

@@ -17,7 +17,7 @@ Rasm.AppUi turns the resolved token generation into the live application surface
 - Evidence: the committed variant, density, trigger, and changed-key count fire as `AppUiFact.Theme` at `AppUiPoint.Theme` on the composition `HookSet`; the CloudEvent envelope's HLC is the sole evidence time authority, and ordering among swaps is the commit order of the one atom. `ThemePolicy` reloads land their `ReloadOutcome` on the options-monitor reload stream, the same class the locale section rides.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one trigger constant, one policy value, or one `Rematerialize` row with its reason; zero new surface.
-- Boundary: `Rematerialize` rows are DISPATCHED, never merely listed — the swap capsule takes one bound rebuild action PER ROW and its mount proof refuses a roster row nothing rebuilds, so a row that rebuilds nothing cannot sit indistinguishable beside one that does.
+- Boundary: `Rematerialize` rows are DISPATCHED, never merely listed — the swap capsule takes one bound rebuild action PER ROW and `Of` refuses a roster row nothing rebuilds BEFORE the cell exists, so a row that rebuilds nothing cannot sit indistinguishable beside one that does and no caller can skip the proof by reaching the constructor.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -140,34 +140,50 @@ public static class ThemeEmission {
 
 - Owner: `ThemeCell` — the apply-then-publish swap capsule with its one `Ran` synchronous crossing and its settings registration.
 - Law: `Swap` orders resolve → apply → commit → rebuild → observe: the CANDIDATE seed feeds the resolve and neither atom commits until the retained application succeeded, so a refused generation or a failed apply leaves `Current` AND `Seed` at the committed predecessor — the prior spelling swapped the seed ahead of resolution, leaving a rejected accent live for the next unrelated swap.
-- Entry: `Swap(ThemeRequest, PreferenceCell) : IO<Fin<ResolvedTheme>>`; `Rebuilt() ` — the per-row dispatch over the bound re-materialization actions; `Covered(HashMap<Rematerialize, IO<Unit>> bound) : Fin<Unit>` — the mount proof that every roster row carries a rebuild; `Settings(scopes, preferences)` — the settings-registry row whose picker extent DERIVES from the resolved extent scale; `For(profile, mount, preferences)` — the per-surface resolve over the election and the override column; `Preview(simulate)` — the operator CVD lens over `ThemeCatalog.Simulated`; `Track(preferences, observe)` — the host preference-change terminal edge; `Republish(policy, preferences)` — the options-monitor bridge.
+- Entry: `Swap(ThemeRequest, PreferenceCell) : IO<Fin<ResolvedTheme>>`; `Rebuilt() ` — the per-row dispatch over the bound re-materialization actions; `Of(current, seed, chain, surfaceOverride, apply, rebuild, hooks) : Fin<ThemeCell>` — the ONE construction, folding the private `Covered` proof that every `Rematerialize` roster row carries a rebuild, so an uncovered roster is unrepresentable rather than provable-on-request; `Settings(scopes, preferences)` — the settings-registry row whose picker extent DERIVES from the resolved extent scale; `For(profile, mount, preferences)` — the per-surface resolve over the election and the override column; `Preview(simulate)` — the operator CVD lens over `ThemeCatalog.Simulated`; `Track(preferences, observe)` — the host preference-change terminal edge; `Republish(policy, preferences)` — the options-monitor bridge.
 - Auto: every successful swap returns the committed `ResolvedTheme` and fires its transition facts through the composition-bound `HookSet`; `Diff` gates the no-op on the record's generated equality — an identical regeneration answers `previous.Equals(next)` and reports zero changed keys — while `Changed` counts the exact keys that moved.
 - Packages: Avalonia, Rasm.AppHost (project — `ReloadOutcome`, `ConfigError`, `SettingsRow`, `SettingScope`), Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: one bound rebuild action per new `Rematerialize` row — the mount proof breaks the composition that forgot it; one settings field per new policy value.
+- Growth: one bound rebuild action per new `Rematerialize` row — `Of` breaks the composition that forgot it; one settings field per new policy value.
 - Boundary: `ThemePolicy` is the persisted per-profile theme section — `Republish` admits the variant and density keys through the generated `TryGet` lookups and the accent hex through `Color.TryParse`, a rejected write keeps prior values live as `ReloadOutcome.Rejected` on the reload stream, and cross-process propagation rides the op-log cursor exactly as the locale section does; variant and density are CLOSED rosters, so both settings fields pick from their own generated rows and a hand roster naming a retired variant is unspellable; the accent surface projection reads the LIVE seed accent — a persisted explicit accent equal to the default re-admits identically, so the projection carries no override bookkeeping.
 
 ```csharp
-public sealed class ThemeCell(
-    Atom<ResolvedTheme> current,
-    Atom<AppearanceSeed> seed,
-    FontChain chain,
-    Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> surfaceOverride,
-    Func<ResolvedTheme, IO<Fin<Unit>>> apply,
-    HashMap<Rematerialize, IO<Unit>> rebuild,
-    HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) {
-    public Atom<ResolvedTheme> Current { get; } = current;
+public sealed class ThemeCell {
+    readonly HashMap<Rematerialize, IO<Unit>> rebuild;
 
-    public Atom<AppearanceSeed> Seed { get; } = seed;
+    ThemeCell(
+        Atom<ResolvedTheme> current,
+        Atom<AppearanceSeed> seed,
+        FontChain chain,
+        Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> surfaceOverride,
+        Func<ResolvedTheme, IO<Fin<Unit>>> apply,
+        HashMap<Rematerialize, IO<Unit>> rebuild,
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
+        (Current, Seed, Chain, SurfaceOverride, Apply, this.rebuild, Hooks) =
+            (current, seed, chain, surfaceOverride, apply, rebuild, hooks);
 
-    public FontChain Chain { get; } = chain;
+    public static Fin<ThemeCell> Of(
+        Atom<ResolvedTheme> current,
+        Atom<AppearanceSeed> seed,
+        FontChain chain,
+        Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> surfaceOverride,
+        Func<ResolvedTheme, IO<Fin<Unit>>> apply,
+        HashMap<Rematerialize, IO<Unit>> rebuild,
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
+        Covered(rebuild).Map(_ => new ThemeCell(current, seed, chain, surfaceOverride, apply, rebuild, hooks));
 
-    public Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> SurfaceOverride { get; } = surfaceOverride;
+    public Atom<ResolvedTheme> Current { get; }
 
-    public Func<ResolvedTheme, IO<Fin<Unit>>> Apply { get; } = apply;
+    public Atom<AppearanceSeed> Seed { get; }
 
-    public HookSet<AppUiPoint, AppUiFact, TelemetrySource> Hooks { get; } = hooks;
+    public FontChain Chain { get; }
 
-    public static Fin<Unit> Covered(HashMap<Rematerialize, IO<Unit>> bound) =>
+    public Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> SurfaceOverride { get; }
+
+    public Func<ResolvedTheme, IO<Fin<Unit>>> Apply { get; }
+
+    public HookSet<AppUiPoint, AppUiFact, TelemetrySource> Hooks { get; }
+
+    private static Fin<Unit> Covered(HashMap<Rematerialize, IO<Unit>> bound) =>
         toSeq(Rematerialize.Items).Filter(row => bound.Find(row).IsNone) switch {
             { IsEmpty: true } => Fin.Succ(unit),
             var unbound => Fin.Fail<Unit>(new ThemeFault.MountRejected(

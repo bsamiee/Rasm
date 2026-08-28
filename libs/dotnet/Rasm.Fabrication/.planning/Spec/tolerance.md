@@ -1322,15 +1322,15 @@ public sealed class FeatureControlWire : IToleranceEncoder {
     static readonly Validator Rules = new(Contract.FabricationReflection.Descriptor);
 
     static readonly Lazy<FrozenDictionary<FeatureCharacteristic, Contract.Characteristic>> Characteristics =
-        Total<FeatureCharacteristic, Contract.Characteristic>(static () => FeatureCharacteristic.Items, static row => row.Key);
+        FactoryBridge.Total<FeatureCharacteristic, Contract.Characteristic>(static () => FeatureCharacteristic.Items, static row => row.Key);
     static readonly Lazy<FrozenDictionary<FeatureScope, Contract.Scope>> Scopes =
-        Total<FeatureScope, Contract.Scope>(static () => FeatureScope.Items, static row => row.Key);
+        FactoryBridge.Total<FeatureScope, Contract.Scope>(static () => FeatureScope.Items, static row => row.Key);
     static readonly Lazy<FrozenDictionary<ToleranceZoneKind, Contract.ZoneKind>> ZoneKinds =
-        Total<ToleranceZoneKind, Contract.ZoneKind>(static () => ToleranceZoneKind.Items, static row => row.Key);
+        FactoryBridge.Total<ToleranceZoneKind, Contract.ZoneKind>(static () => ToleranceZoneKind.Items, static row => row.Key);
     static readonly Lazy<FrozenDictionary<FrameModifier, Contract.Modifier>> Modifiers =
-        Total<FrameModifier, Contract.Modifier>(static () => FrameModifier.Items, static row => row.Key);
+        FactoryBridge.Total<FrameModifier, Contract.Modifier>(static () => FrameModifier.Items, static row => row.Key);
     static readonly Lazy<FrozenDictionary<EgressKind, Contract.Egress>> Egresses =
-        Total<EgressKind, Contract.Egress>(static () => EgressKind.Items, static row => row.Key);
+        FactoryBridge.Total<EgressKind, Contract.Egress>(static () => EgressKind.Items, static row => row.Key);
     static readonly Lazy<FrozenDictionary<MaterialCondition, Contract.Material>> Materials =
         Total<MaterialCondition, Contract.Material>(static () => MaterialCondition.Items, static row => row.Key, static row =>
             row == MaterialCondition.Regardless ? Contract.Material.Regardless
@@ -1428,38 +1428,17 @@ public sealed class FeatureControlWire : IToleranceEncoder {
     }
 
     static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(
-        Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
-        where TRow : notnull where TEnum : struct, Enum =>
-        Total(rows, key, row => Lift<TEnum>(key(row)).IfNone(default(TEnum)));
-
-    static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(
         Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key, Func<TRow, TEnum> lift)
         where TRow : notnull where TEnum : struct, Enum =>
         new(() => rows().ToFrozenDictionary(row => row, lift));
 
-    internal static Fin<Unit> Proof<TRow, TEnum>(Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
-        where TRow : notnull where TEnum : struct, Enum {
-        (TRow Row, string Key, Option<TEnum> Value)[] mapped = rows()
-            .Select(row => (Row: row, Key: key(row), Value: Lift<TEnum>(key(row))))
-            .ToArray();
-        FrozenSet<TEnum> generated = Enum.GetValues<TEnum>()
-            .Where(static value => !EqualityComparer<TEnum>.Default.Equals(value, default))
-            .ToFrozenSet();
-        FrozenSet<TEnum> projected = mapped.Choose(static row => row.Value).ToFrozenSet();
-        return mapped.Select(static row => row.Key).Distinct(StringComparer.Ordinal).Count() == mapped.Length
-            && projected.Count == mapped.Length
-            && projected.SetEquals(generated)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
-                Label: $"{typeof(TRow).Name}->{typeof(TEnum).Name}",
-                Requirement: "a bijective wire vocabulary"));
-    }
-
-    static Option<TEnum> Lift<TEnum>(string key) where TEnum : struct, Enum =>
-        Enum.TryParse(key.Replace("-", string.Empty), ignoreCase: true, out TEnum value)
-        && !EqualityComparer<TEnum>.Default.Equals(value, default)
-            ? Some(value)
-            : None;
+    internal static Fin<Unit> Proof() =>
+        Seq(FactoryBridge.Vocabulary<FeatureCharacteristic, Contract.Characteristic>(static () => FeatureCharacteristic.Items, static row => row.Key),
+            FactoryBridge.Vocabulary<FeatureScope, Contract.Scope>(static () => FeatureScope.Items, static row => row.Key),
+            FactoryBridge.Vocabulary<ToleranceZoneKind, Contract.ZoneKind>(static () => ToleranceZoneKind.Items, static row => row.Key),
+            FactoryBridge.Vocabulary<FrameModifier, Contract.Modifier>(static () => FrameModifier.Items, static row => row.Key),
+            FactoryBridge.Vocabulary<EgressKind, Contract.Egress>(static () => EgressKind.Items, static row => row.Key))
+            .Traverse(static proof => proof.ToValidation()).As().ToFin().Map(static _ => unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

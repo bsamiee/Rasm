@@ -19,8 +19,8 @@
 
 | [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                                 |
 | :-----: | :-------- | :------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `tree`    | `tree -a <dir>`, `-L n` sets depth (default 4); `-D` lists dirs only                                                       |
-|  [02]   | `loc`     | `loc --json <dir>`, rows sort inside folder groups, ranks on `folder`+`file`                                               |
+|  [01]   | `tree`    | `tree <dir>`; hidden files and gitignore are baked in, `-a` is noise; `-L n` sets depth (default 4); `-D` lists dirs only  |
+|  [02]   | `loc`     | `loc <dir>` to read; `--json` only to pipe — it is the larger output; rows rank on `folder`+`file` inside folder groups    |
 |  [03]   | `fmt`     | `fmt --check <dir>` verifies, `fmt <dir>` writes, routes each file to its formatter by extension; `.cs` has no lane        |
 |  [04]   | `fd`      | `--hidden` is baked in `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored          |
 |  [05]   | `rg`      | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding |

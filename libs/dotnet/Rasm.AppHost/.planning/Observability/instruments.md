@@ -175,7 +175,9 @@ public sealed partial class AppHostMeasure {
 
     public static TelemetryContributorPort Telemetry(string version) =>
         new(Scope: TelemetrySource.AppHost, Version: version, Instruments: Rows,
-            Planes: Seq(OutboxRelay.Scope), Board: Some(Board));
+            Planes: Seq(OutboxRelay.Scope),
+            Keyed: toSeq(Items).Map(static row => (row.Key, row.Row.Name)),
+            Board: Some(Board));
 
     private static AppHostMeasure Count(
         string segment, string unit, string description, Seq<AppHostSlot> dimensions,

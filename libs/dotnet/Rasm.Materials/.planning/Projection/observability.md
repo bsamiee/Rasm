@@ -440,9 +440,11 @@ public sealed partial class MaterialsInstrument {
     public static Seq<InstrumentSpec> Rows => toSeq(Items).Map(static row => row.Row).Strict();
 
     public static TelemetryContributorPort Telemetry(string version) =>
-        new(Scope: TelemetrySource.Materials, Version: version, Instruments: Rows, Board: MaterialsDescriptors.Pack);
+        new(Scope: TelemetrySource.Materials, Version: version, Instruments: Rows,
+            Keyed: toSeq(Items).Map(static row => (row.Key, row.Row.Name)),
+            Rosters: [SustainabilityCatalogue.Proof, DesignBasis.Proof, WireVocabulary.Proof],
+            Board: MaterialsDescriptors.Pack);
 
-    public static Fin<Unit> Proof() => InstrumentSpec.Named(toSeq(Items).Map(static row => (row.Key, row.Row.Name)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

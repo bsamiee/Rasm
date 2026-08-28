@@ -774,7 +774,7 @@ public static class GestureBlend {
 ## [06]-[PHASE_MAPPING]
 
 - Owner: `PhaseMotion` frozen mapping table and its `Covered` totality assertion.
-- Entry: `PhaseMotion.Resolve(ProgressPhase phase)` — typed totality over the map, with degrade applied inside and an unmapped future case returned as `MotionFault.PhaseUnmapped`; `PhaseMotion.Covered()` — the same check over the whole vocabulary.
+- Entry: `PhaseMotion.Resolve(ProgressPhase phase)` — typed totality over the map, with degrade applied inside and an unmapped future case returned as `MotionFault.PhaseUnmapped`; `PhaseMotion.Covered()` — the same check over the whole vocabulary, forced on the branch's `AppUiTelemetry.Mount` roster list so no composition reaches a phase table it never proved.
 - Auto: this owner is the ONE phase-motion authority; the progress surfaces owing its binding — the dialog progress ladder, run-queue cards, stat tiles, and chart progress series — compose `Resolve` at their own pages, and the headless conformance sweep reads `Covered`.
 - Packages: Rasm.Compute (project), LanguageExt.Core, BCL inbox
 - Growth: a new phase lands as one map row beside its Compute case; zero new surface.

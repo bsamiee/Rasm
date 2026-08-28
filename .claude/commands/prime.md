@@ -15,7 +15,7 @@ Grounding stays below 100k tokens and reads only target- or objective-owned surf
 ## [01]-[TOPOLOGY]
 
 Run in one parallel block:
-1. `tree -a -L 3 libs` — Maps every branch and package with per-file size and modified-age columns: all docs as relative page weight in one view.
+1. `tree -L 3 libs` — Maps every branch and package with per-file size and modified-age columns: all docs as relative page weight in one view.
 2. `fd -t d -d 3 '^\.(planning|api)$' libs` — censuses the scaffold: which folders carry a `.planning/` and which carry an `.api/` catalog tier.
 3. `fd -d 1 -t f .` — Root files, names only. Root file — central manifests, lockfiles, workspace/solution files, tool config — an owner to know exists.
 
