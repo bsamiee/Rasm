@@ -910,9 +910,19 @@ public abstract partial record SectionAsk {
         from plotWeight in PrintPen.OfHost(weight: style.BoundaryPlotWeightMillimeters)
         from width in FactoryBridge.Accept<DraftScale>(candidate: style.BoundaryWidthScale)
         from name in FactoryBridge.Accept<ResourceName>(candidate: style.Name)
-        from rule in FactoryBridge.Row<SectionRule>(field: style.SectionFillRule)
+        from rule in SectionFields.Row<SectionRule>(field: style.SectionFillRule)
         from mode in FactoryBridge.Row<SectionBackgroundFillMode, SectionFillMode>(
             candidate: style.BackgroundFillMode, ordinal: static value => (int)value)
+        from linetype in Stroke(style: style)
+        from hatch in Hatch(style: style, display: hatchDisplay, print: hatchPrint)
+        select SectionSpec.Create(
+            name: name,
+            fill: mode.Fill(display: fillDisplay, print: fillPrint),
+            boundary: style.BoundaryVisible
+                ? new SectionBoundary.Stroke(boundaryDisplay, boundaryPrint, width, plotWeight, linetype)
+                : new SectionBoundary.Hidden(),
+            hatch: hatch,
+            rule: rule)).Run().Bind(static inner => inner);
 
     private static Fin<Option<SectionStroke>> Stroke(SectionStyle style) =>
         Optional(style.GetBoundaryLinetype()) is { IsSome: true, Case: Linetype embedded }

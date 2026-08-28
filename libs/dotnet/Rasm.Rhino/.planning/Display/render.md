@@ -2109,6 +2109,17 @@ public static class Effects {
 
     private static Fin<EffectFact> Detached(PostEffects.PostEffectData data) => Try.lift(() =>
         from stage in FactoryBridge.Row<PostEffects.PostEffectType, EffectStage>(candidate: data.Type)
+        from name in Acceptance.Text(value: data.LocalName)
+        let display = (data.On ? CapabilitySet<EffectDisplay>.Of(EffectDisplay.On) : CapabilitySet<EffectDisplay>.None)
+            is var held && data.Shown ? held.With(EffectDisplay.Shown) : held
+        let id = EffectId.Create(data.Id)
+        select new EffectFact(
+            Id: id,
+            Stage: stage,
+            Name: HostText.Create(english: name, context: 0),
+            Display: display,
+            Builtin: BuiltinEffect.Named(id),
+            Digest: data.DataCRC(current_remainder: 0u))).Run().Bind(static inner => inner);
 }
 
 [PostEffects.CustomPostEffect(

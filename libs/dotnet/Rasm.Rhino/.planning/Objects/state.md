@@ -317,6 +317,18 @@ public abstract partial record Touch {
         Touch self = this;
         return Try.lift(() =>
             from selection in FactoryBridge.Row<int, SelectionGrade>(native.IsSelected(checkSubObjects: true))
+            from _ in self.Switch(
+                native,
+                selectCase: static (context, touch) => touch.Scope.Roster
+                    .TraverseM(component => guard(
+                        !touch.Signal.On || context.IsSubObjectSelectable(
+                            componentIndex: component, ignoreSelectionState: true),
+                        new KernelFault.InvalidInput()).ToFin())
+                    .As()
+                    .Map(static _ => unit),
+                highlightCase: static (_, _) => Fin.Succ(value: unit))
+            from highlight in HighlightState.Of(native: native)
+            select new TouchState(Native: native, Selection: selection, Highlight: highlight)).Run().Bind(static inner => inner);
     }
 
     private Fin<Seq<TouchResult>> ApplyCaptured(Seq<TouchState> states) {

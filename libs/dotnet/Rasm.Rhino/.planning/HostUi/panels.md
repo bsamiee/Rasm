@@ -422,7 +422,7 @@ public static class PanelHost {
                        work: new HostWork<PanelMount<TPanel>>.Execute(Body: () => Try.lift(() =>
                            FactoryBridge.Row<bool, DockBarUse>(candidate: Panels.DockBarIdInUse(work.DockBar))
                                .Map<PanelMount<TPanel>>(use => new PanelMount<TPanel>.DockBar(
-                                   Id: work.DockBar, Use: use))).Run().Bind(static inner => inner))
+                                   Id: work.DockBar, Use: use))).Run().Bind(static inner => inner))))
                select outcome;
     }
 
