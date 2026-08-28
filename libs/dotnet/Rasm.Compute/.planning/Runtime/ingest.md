@@ -282,11 +282,12 @@ internal static class MqttBinding {
     }
 
     private static async Task<Option<Error>> Granted(IMqttClient client, string topicFilter, CancellationToken ct) =>
-        (await Try.lift(async _ => Fin.Succ(await client.SubscribeAsync(
+        (await HostEdge.Captured(
+            async _ => Fin.Succ(await client.SubscribeAsync(
                 new MqttClientSubscribeOptionsBuilder()
                     .WithTopicFilter(topicFilter, MqttQualityOfServiceLevel.AtLeastOnce)
                     .Build(),
-                ct).ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false))
+                ct).ConfigureAwait(false))).ConfigureAwait(false))
         .Match(
             Succ: result => toSeq(result.Items)
                 .Find(static item => item.ResultCode >= MqttClientSubscribeResultCode.UnspecifiedError)
@@ -375,7 +376,8 @@ internal static class NatsBinding {
         INatsSub<byte[]> subscription, string subject, Channel<Error> shed,
         [EnumeratorCancellation] CancellationToken ct = default) {
         while (true) {
-            Fin<bool> advanced = await Try.lift(async _ => Fin.Succ(await subscription.Msgs.WaitToReadAsync(ct).ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false);
+            Fin<bool> advanced = await HostEdge.Captured(
+                async _ => Fin.Succ(await subscription.Msgs.WaitToReadAsync(ct).ConfigureAwait(false))).ConfigureAwait(false);
 
             while (shed.Reader.TryRead(out Error? refusal)) {
                 yield return Fin.Fail<BrokerDelivery>(refusal);

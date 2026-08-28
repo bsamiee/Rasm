@@ -154,7 +154,7 @@ public static class SeriesLane {
                     Backend.Series.Key, new EngineFault("<facet-arity>", family.Key))));
 
     public static IO<Fin<Seq<SeriesJobHealth>>> Jobs(NpgsqlDataSource store, SeriesKind kind) =>
-        IO.liftAsync(async () => (await Try.lift(async token => {
+        IO.liftAsync(async () => (await HostEdge.Captured(async token => {
             await using NpgsqlCommand command = store.CreateCommand(
                 "SELECT j.hypertable_name, s.job_status, s.last_successful_finish, s.total_failures " +
                 "FROM timescaledb_information.jobs j JOIN timescaledb_information.job_stats s ON s.job_id = j.job_id " +
@@ -168,7 +168,7 @@ public static class SeriesLane {
                     reader.GetInt64(3)));
             }
             return Fin<Seq<SeriesJobHealth>>.Succ(toSeq(rows));
-        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(Backend.Series.ReadRefused));
+        }).ConfigureAwait(false)).MapFail(Backend.Series.ReadRefused));
 
     public static readonly Identifier WeightedColumn = Identifier.Create("weighted");
 }

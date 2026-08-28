@@ -139,15 +139,17 @@ public static class RpcEdge {
 public sealed partial class WarmProbe {
 
     public static readonly WarmProbe Connectivity = new("connectivity", observable: true, warm: static (services, _) =>
-        IO.liftAsync(async envIO => await Try.lift(async token => {
+        IO.liftAsync(async envIO => await HostEdge.Captured(
+            async token => {
                 await services.Channel.ConnectAsync(token).ConfigureAwait(false);
                 return Fin.Succ(services);
-            }).Run().Bind(static inner => inner).ConfigureAwait(false)));
+            }).ConfigureAwait(false)));
 
     public static readonly WarmProbe RoundTrip = new("round-trip", observable: false, warm: static (services, call) =>
         IO.liftAsync(async envIO => {
-            Fin<HealthCheckResponse> outcome = (await Try.lift(async token => Fin.Succ(await call.Health.CheckAsync(
-                    new HealthCheckRequest(), cancellationToken: token).ResponseAsync.ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(RpcEdge.Rpc);
+            Fin<HealthCheckResponse> outcome = (await HostEdge.Captured(
+                async token => Fin.Succ(await call.Health.CheckAsync(
+                    new HealthCheckRequest(), cancellationToken: token).ResponseAsync.ConfigureAwait(false))).ConfigureAwait(false)).MapFail(RpcEdge.Rpc);
             return outcome.Match(
                 Succ: _ => Fin.Succ(services),
                 Fail: error => error is WireFault.Unreachable
@@ -435,13 +437,16 @@ public sealed class CallSpine(CorrelationId correlation, ClockPolicy clocks) : I
     }
 
     public static IO<Fin<T>> Awaited<T>(Func<Task<T>> call, CancellationToken token) =>
-        IO.liftAsync(async _ => (await Try.lift(async _ => Fin.Succ(await call().ConfigureAwait(false))).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(RpcEdge.Rpc));
+        IO.liftAsync(async _ => (await HostEdge.Captured(
+            async _ => Fin.Succ(await call().ConfigureAwait(false)),
+            token).ConfigureAwait(false)).MapFail(RpcEdge.Rpc));
 
     public IO<Fin<T>> AwaitedHttp<T>(string subject, CancellationToken token, Func<string, CancellationToken, Task<Fin<T>>> exchange) =>
         IO.liftAsync(async envIO => {
             using CancellationTokenSource budget = new(DeadlineClass.HopTotal.Bound);
             using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(token, envIO.Token, budget.Token);
-            Fin<T> outcome = await Try.lift(async active => await exchange(subject, active).ConfigureAwait(false)).Run().Bind(static inner => inner).ConfigureAwait(false);
+            Fin<T> outcome = await HostEdge.Captured(
+                async active => await exchange(subject, active).ConfigureAwait(false)).ConfigureAwait(false);
             return outcome.MapFail(error =>
                 budget.IsCancellationRequested && !token.IsCancellationRequested && !envIO.Token.IsCancellationRequested
                     && error is KernelFault.Cancelled cancelled

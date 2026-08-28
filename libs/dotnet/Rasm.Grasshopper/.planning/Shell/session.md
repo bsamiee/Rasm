@@ -192,7 +192,7 @@ public static class GhSession {
     }
 
     private static async Task SettleDeferred(ValueTask<Fin<Unit>> eventual, FaultCell faults) {
-        Fin<Unit> settled = await Try.lift(async _ => await eventual.ConfigureAwait(false)).Run().Bind(static inner => inner);
+        Fin<Unit> settled = await HostEdge.Captured(async _ => await eventual.ConfigureAwait(false));
         settled.IfFail(cause => ignore(faults.Park(point: Hook, cause: cause)));
     }
 }

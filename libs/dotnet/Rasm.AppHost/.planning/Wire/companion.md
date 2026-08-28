@@ -1035,7 +1035,7 @@ public sealed class IngressBody {
 
     private static Task<Fin<IngressBody>> Captured(
         HttpRequest request, Dimension limit, ContentType framing) =>
-        Try.lift(async _ => {
+        HostEdge.Captured(async _ => {
             byte[] staging = GC.AllocateUninitializedArray<byte>(checked(limit.Value + 1));
             int count = 0;
             while (count <= limit.Value) {
@@ -1055,7 +1055,7 @@ public sealed class IngressBody {
             byte[] exact = GC.AllocateUninitializedArray<byte>(count);
             staging.AsSpan(0, count).CopyTo(exact);
             return Fin.Succ(new IngressBody(exact, framing));
-        }).Run().Bind(static inner => inner);
+        });
 }
 
 public sealed record IngressPolicy(

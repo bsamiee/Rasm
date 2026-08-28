@@ -1484,9 +1484,9 @@ public sealed class TokenLease : IDisposable {
     public bool Live => held.Value.Map(static pair => !pair.Oauth.IsExpired).IfNone(false);
 
     public ValueTask<Fin<Unit>> Refresh() {
-        return Try.lift(async _ => {
+        return HostEdge.Captured(async _ => {
             if (held.Value.Case is not (IOpenIDConnectToken openId, IOAuth2Token oauth)) {
-                return Fin.Fail<Unit>(error: new KernelFault.MissingContext());
+                return Fin.Fail<Unit>(error: admitted.MissingContext());
             }
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => {
                 IOpenIDConnectToken updated = await RhinoAccountsManager.UpdateOpenIDConnectTokenAsync(
@@ -1495,20 +1495,20 @@ public sealed class TokenLease : IDisposable {
                 _ = held.Swap(current => current.Map(row => (updated, row.Oauth)));
             }).ConfigureAwait(false);
             return Fin.Succ(value: unit);
-        }).Run().Bind(static inner => inner);
+        });
     }
 
     public ValueTask<Fin<Unit>> Revoke() {
-        return Try.lift(async _ => {
+        return HostEdge.Captured(async _ => {
             if (held.Value.Case is not (IOpenIDConnectToken _, IOAuth2Token oauth)) {
-                return Fin.Fail<Unit>(error: new KernelFault.MissingContext());
+                return Fin.Fail<Unit>(error: admitted.MissingContext());
             }
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: secret =>
                 RhinoAccountsManager.RevokeAuthTokenAsync(
                     oauth2Token: oauth, secretKey: secret, cancellationToken: CancellationToken.None))
                 .ConfigureAwait(false);
             return Fin.Succ(value: ignore(Cell.Take(held)));
-        }).Run().Bind(static inner => inner);
+        });
     }
 
     public void Dispose() => ignore(Cell.Take(held));
@@ -1534,10 +1534,10 @@ public static class Accounts {
     private static ValueTask<Fin<TokenLease>> Dispatch(
         TokenAsk request, Option<Action<LoginPulse>> progress, Option<Env> env) {
         CancellationToken cancel = env.Map(static held => held.Cancellation).IfNone(CancellationToken.None);
-        return Try.lift(async token => {
-            LoginProgress pulse = new(info => progress.Iter(tap => ignore(Try.lift(() => tap(new LoginPulse(
-                Phase: FactoryBridge.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
-                Description: HostEdge.Text(info.Description)))).Run().Bind(static inner => inner))));
+        return HostEdge.Captured(async token => {
+            LoginProgress pulse = new(info => progress.Iter(tap => ignore(op.Catch(() => tap(new LoginPulse(
+                Phase: op.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
+                Description: HostEdge.Text(info.Description)))))));
             Atom<Option<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth)>> landed =
                 Atom(Option<(IOpenIDConnectToken, IOAuth2Token)>.None);
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => {
@@ -1560,9 +1560,9 @@ public static class Accounts {
             }).ConfigureAwait(false);
             return landed.Value
                 .Filter(static row => row.OpenId is not null && row.Oauth is not null)
-                .ToFin(Fail: new KernelFault.MissingContext())
-                .Map(row => new TokenLease(openId: row.OpenId, oauth: row.Oauth, clientId: request.ClientId));
-        }).Run().Bind(static inner => inner);
+                .ToFin(Fail: op.MissingContext())
+                .Map(row => new TokenLease(openId: row.OpenId, oauth: row.Oauth, clientId: request.ClientId, op: op));
+        }, token: cancel);
     }
 }
 

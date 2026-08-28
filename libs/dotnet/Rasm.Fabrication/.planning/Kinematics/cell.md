@@ -233,15 +233,15 @@ public abstract partial record CellLibrary {
             Use: library => Switch(
                 state: library,
                 refresh: static (source, verb) => IO.liftVAsync<Fin<CellCatalog>>(() =>
-                    Try.lift(async _ => {
+                    HostEdge.Captured(async _ => {
                         await source.UpdateLibraryAsync().ConfigureAwait(false);
                         return Fin.Succ(Catalog(source, verb));
-                    }).Run().Bind(static inner => inner)).Bind(static result => IO.lift(result)),
+                    })).Bind(static result => IO.lift(result)),
                 download: static (source, verb) => IO.liftVAsync<Fin<CellCatalog>>(() =>
-                    Try.lift(async _ => {
+                    HostEdge.Captured(async _ => {
                         await source.DownloadLibraryAsync(verb.Item).ConfigureAwait(false);
                         return Fin.Succ(Catalog(source, verb));
-                    }).Run().Bind(static inner => inner)).Bind(static result => IO.lift(result)),
+                    })).Bind(static result => IO.lift(result)),
                 remove: static (source, verb) => IO.lift(() => Try.lift(() => {
                     source.RemoveDownloadedLibrary(verb.Item);
                     return Fin.Succ(Catalog(source, verb));

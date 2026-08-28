@@ -517,10 +517,10 @@ public static class ClusterProvision {
                 : Some(new ServerFault.Ungated(extension.Key)));
 
     public static IO<Unit> Reload(NpgsqlDataSource source) =>
-        IO.liftAsync(async () => (await Try.lift(async _ => {
+        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
             await source.ReloadTypesAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(ServerFault.Lift))
+        }).ConfigureAwait(false)).MapFail(ServerFault.Lift))
         .Bind(IO.lift);
 
     public static IO<Fin<Unit>> Register(StoreProfile profile, IDocumentSession session, MaintenanceJob job, ProvisionVerdict.Provisioned cluster) =>
@@ -532,11 +532,11 @@ public static class ClusterProvision {
     static IO<Fin<Unit>> Queued(IDocumentSession session, string sql, Option<ServerFault> refusal) =>
         refusal.Match(
             Some: fault => IO.pure(Fin<Unit>.Fail(fault)),
-            None: () => IO.liftAsync(async () => (await Try.lift(async token => {
+            None: () => IO.liftAsync(async () => (await HostEdge.Captured(async token => {
                 session.QueueSqlCommand(sql);
                 await session.SaveChangesAsync(token).ConfigureAwait(false);
                 return Fin<Unit>.Succ(unit);
-            }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(ServerFault.Lift)));
+            }).ConfigureAwait(false)).MapFail(ServerFault.Lift)));
 
     public static NpgsqlDataSource Source(string dsn, string name, SourceWire wire) {
         NpgsqlDataSourceBuilder builder = new(dsn) { Name = name };

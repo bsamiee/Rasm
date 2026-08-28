@@ -1142,7 +1142,7 @@ public static class ClipEncoder {
         select published;
 
     static IO<byte[]> Drained(VideoEncodeRow row, IAsyncEnumerable<Fin<SKImage>> frames, CancellationToken cancel) =>
-        IO.liftVAsync(() => Try.lift(async token => {
+        IO.liftVAsync(() => HostEdge.Captured(async token => {
                 ClipMuxer? held = null;
                 try {
                     await foreach (Fin<SKImage> landed in frames.WithCancellation(token).ConfigureAwait(false)) {
@@ -1164,7 +1164,7 @@ public static class ClipEncoder {
                         : held.Close();
                 }
                 finally { held?.Dispose(); }
-            }).Run().Bind(static inner => inner))
+            }, cancel))
             .Bind(static settled => IO.lift(settled));
 }
 ```

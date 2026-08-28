@@ -185,11 +185,11 @@ public static class CdcIngress {
     static IO<Fin<IngressTally>> ConsumeAdmitted(IConsumer<string, byte[]> consumer, IngressSource source, IngressPorts ports,
         ProjectionContext frame, CancellationToken token) =>
         from folded in Range(0, source.Batch.Value).FoldM(IngressTally.Zero, (tally, _) => IO.liftAsync(async () =>
-            (await Try.lift(async _ => {
+            (await HostEdge.Captured(async _ => {
             Option<Error> refused = None;
             Option<IngressOutcome> settled = None;
             ConsumeResult<string, byte[]>? offered = await consumer.ConsumeAndProcessMessageAsync(async (result, _, processingToken) => {
-                (await Settle(result.Message, source, ports, processingToken).ConfigureAwait(false)).Match(
+                (await Settle(result.Message, source, ports, key, processingToken).ConfigureAwait(false)).Match(
                     Succ: outcome => {
                         processingToken.ThrowIfCancellationRequested();
                         settled = Some(outcome);
@@ -204,7 +204,7 @@ public static class CdcIngress {
             return refused.Match(
                 Some: Fin<IngressTally>.Fail,
                 None: () => Fin.Succ(settled.IfNone(() => Positioned(offered)).Count(tally)));
-        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(error => IngressFault.Lift(error,
+        }).ConfigureAwait(false)).MapFail(error => IngressFault.Lift(error,
             static raised => raised is KafkaException,
             cause => new IngressFault.EnvelopeRejected(None, cause))))).Bind(IO.lift)).As()
         from committed in IO.lift(() => {

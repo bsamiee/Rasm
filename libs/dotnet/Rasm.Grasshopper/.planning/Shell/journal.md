@@ -109,14 +109,14 @@ public sealed class SessionJournal : IDisposable {
         Option<JournalPolicy> policy = default) {
         return from journal in Of(clock: clock, faults: faults, policy: policy)
                from mounted in Try.lift(() => journal.consuming = Task.Run(
-                   async () => (await Try.lift(async token => {
+                   async () => (await HostEdge.Captured(async token => {
                        await foreach (UiEvent<GhFact> fact in drain.Reader.ReadAllAsync(cancellationToken: token)) {
-                           journal.Append(fact: fact)
+                           journal.Append(fact: fact, key: op)
                                .Bind(_ => journal.Shed(drain: drain))
                                .IfFail(journal.Park);
                        }
                        return Fin.Succ(unit);
-                   }).Run().Bind(static inner => inner)).IfFail(journal.Park))).Run().Bind(static inner => inner)
+                   }, token: journal.drain.Token)).IfFail(journal.Park))).Run().Bind(static inner => inner)
                select (Lease<SessionJournal>)new Lease<SessionJournal>.Owned(Value: journal);
     }
 

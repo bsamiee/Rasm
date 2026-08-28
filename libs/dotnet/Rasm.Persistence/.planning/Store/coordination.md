@@ -205,7 +205,7 @@ public static class Coordinate {
         ProjectionContext frame,
         Option<Action<IDocumentSession>> commit,
         CancellationToken cancellationToken) =>
-        IO.liftAsync(async () => (await Try.lift(async token => {
+        IO.liftAsync(async () => (await HostEdge.Captured(async token => {
             await session.BeginTransactionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = new((NpgsqlConnection)session.Connection!);
             Seq<LockScope> locks = toSeq(sql.Bind(static row => row.Locks).Distinct()
@@ -223,7 +223,7 @@ public static class Coordinate {
             else { commit.IfSome(apply => apply(session)); }
             await session.SaveChangesAsync(token).ConfigureAwait(false);
             return outcome;
-        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
+        }, cancellationToken).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
 
     public static IO<Fin<Seq<CoordRow>>> Verified(
         IDocumentSession session,
@@ -242,14 +242,14 @@ public static class Coordinate {
         Option<LeaseToken> held,
         ProjectionContext frame,
         CancellationToken cancellationToken) =>
-        IO.liftAsync(async () => (await Try.lift(async token => {
+        IO.liftAsync(async () => (await HostEdge.Captured(async token => {
             await session.BeginTransactionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = new((NpgsqlConnection)session.Connection!);
             Seq<CaseSql> probes = sql.Map(static row => row with { Guarded = None, Wake = None });
             probes.Iter(row => batch.BatchCommands.Add(Bound(row.Truth, row.Binds, held, frame)));
             Seq<Seq<CoordRow>> sets = await Sets(batch, token).ConfigureAwait(false);
             return Project(ops, probes, sets, held);
-        }).Run().Bind(static inner => inner).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
+        }, cancellationToken).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
 
     static async Task Rollback(NpgsqlConnection connection, CancellationToken cancellationToken) {
         await using NpgsqlCommand undo = new(Undo, connection);

@@ -707,9 +707,10 @@ One carriage law rules every kernel page; no page re-decides it.
 
 - Law: `Eff<Env>` is the runtime CARRIAGE — a pipeline needing tolerance context, progress, or cancellation is `Eff<Env, T>` composing `Env.Asks`/`Env.EnvAsks`.
 - Law: below the `Eff` floor the synchronous owners thread `Context` and `CancellationToken` as explicit parameters (`Requirement.Apply(context, value, cancel)` is the canonical shape); at the floor and above, `Env` carries both. One operation is written in exactly one paradigm — a `Fin`/`Validation` body, or an `Eff<Env, T>` pipeline.
-- Owner: `HostEdge` is the ONE crossing vocabulary between kernel carriers and a host that speaks `null`, `void`, `out`, and `ref`. `Slot`/`Nullable` project `Option<T>` onto a host reference or nullable slot, `Text` admits a host string back as `Option<string>`, `Side`/`SideWhen` lift a void host call onto `Unit` so a statement composes as an expression, `Probe` folds the host try-pattern onto `Option<T>`, and `Settle` writes a `Fin` success into a host `ref` slot and answers whether it landed.
+- Owner: `HostEdge` is the ONE crossing vocabulary between kernel carriers and a host that speaks `null`, `void`, `out`, and `ref`, plus `Captured`, the ASYNCHRONOUS funnel LanguageExt's `Try` has no twin for. `Slot`/`Nullable` project `Option<T>` onto a host reference or nullable slot, `Text` admits a host string back as `Option<string>`, `Side`/`SideWhen` lift a void host call onto `Unit` so a statement composes as an expression, `Probe` folds the host try-pattern onto `Option<T>`, and `Settle` writes a `Fin` success into a host `ref` slot and answers whether it landed.
 - Law: optional context is `Option<T> x = default` consumed through `IfNone` against its policy owner's canonical row; `T? x = null` optional tails are the deleted form kernel-wide. `HostEdge.Slot`/`Nullable` are the ONE place `null` is a legal spelling — a host slot the domain never reads back — so no host-facing page hand-spells the `Option` → `null` projection.
-- Boundary: `HostEdge` converts SHAPE, never outcome — a member here mints no fault and reads no policy; a crossing that can fail returns `Option<T>` and its refusal is the caller's own typed fault.
+- Law: `Try.lift(f).Run()` funnels a SYNCHRONOUS host call and `Captured` its awaited twin; both normalize a requested cancellation onto `Errors.Cancelled` and keep every other exception as the exact captured `Exceptional`, so a classifier composes AFTER the funnel and never inside it.
+- Boundary: every other `HostEdge` member converts SHAPE, never outcome — it mints no fault and reads no policy; a crossing that can fail returns `Option<T>` and its refusal is the caller's own typed fault.
 - Law: telemetry is a TAP, never a result — the `TelemetrySink` (`telemetry.md`) rides `Env` at the `Eff` floor or enters a synchronous gate point as one explicit trailing parameter beside `Context`/`CancellationToken`; facts publish through its one `Tap`, and an observe-side subscriber fault isolates onto the tap's own cell, never failing the tapped operation.
 - Boundary: `Env` is `Analysis/query.md`'s frozen record — this page legislates the carriage law, that page owns the record and the pipeline shape.
 - Packages: LanguageExt.Core (`Option`, `Fin`, `Unit`); BCL inbox.
@@ -733,6 +734,12 @@ public static class HostEdge {
     public static bool Settle<T>(ref T slot, Fin<T> outcome) {
         if (outcome.Case is T value) { slot = value; return true; }
         return false;
+    }
+
+    public static async ValueTask<Fin<T>> Captured<T>(Func<CancellationToken, ValueTask<Fin<T>>> body, CancellationToken token = default) {
+        try { return await body(token).ConfigureAwait(false); }
+        catch (OperationCanceledException raised) when (token.IsCancellationRequested) { return Fin.Fail<T>(Errors.Cancelled + Error.New(raised.Message, raised)); }
+        catch (Exception raised) { return Fin.Fail<T>(Error.New(raised.Message, raised)); }
     }
 }
 ```

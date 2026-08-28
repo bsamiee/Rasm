@@ -246,14 +246,14 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         Func<CancellationToken, IAsyncEnumerable<T>> stream, Option<RedrivePolicy> redrive,
         ChannelWriter<T> writer, IObserver<bool> transport, string edge, Action<Error> fault, CancellationToken life) {
         for (int attempt = 0; !life.IsCancellationRequested;) {
-            Fin<Unit> pass = await Try.lift(async token => {
+            Fin<Unit> pass = await HostEdge.Captured(async token => {
                 transport.OnNext(false);
                 await foreach (T item in stream(token).WithCancellation(token).ConfigureAwait(false)) {
                     await writer.WriteAsync(item, token).ConfigureAwait(false);
                     attempt = 0;
                 }
                 return Fin.Succ(unit);
-            }).Run().Bind(static inner => inner).ConfigureAwait(false);
+            }).ConfigureAwait(false);
             if (pass.Case is not Error error) { break; }
             if (error is KernelFault.Cancelled) { fault(error); break; }
             transport.OnNext(true);

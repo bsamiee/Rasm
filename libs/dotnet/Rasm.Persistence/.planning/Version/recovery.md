@@ -123,7 +123,7 @@ public static class RecoveryRoutes {
         select gauged;
 
     static IO<(RecoveryPoint Point, Duration Rpo)> PgPitr(RecoveryContext ctx, ProjectionContext frame) =>
-        IO.liftAsync(async () => await Try.lift(async _ => {
+        IO.liftAsync(async () => await HostEdge.Captured(async _ => {
             await using LogicalReplicationConnection replication = new(ctx.Dsn);
             await replication.Open().ConfigureAwait(false);
             ReplicationSystemIdentification system = await replication.IdentifySystem().ConfigureAwait(false);
@@ -137,7 +137,7 @@ public static class RecoveryRoutes {
             ulong lagBytes = system.XLogPos >= ctx.ArchiveFlushed ? (ulong)system.XLogPos - (ulong)ctx.ArchiveFlushed : 0UL;
             return Fin<(RecoveryPoint, Duration)>.Succ(
                 (RecoveryPoint.Of(system, head, frame.Now()), Duration.FromSeconds(lagBytes / double.Max(ctx.WalBytesPerSecond, 1d))));
-        }).Run().Bind(static inner => inner).ConfigureAwait(false)).Bind(IO.lift);
+        }).ConfigureAwait(false)).Bind(IO.lift);
 
     static IO<(RecoveryPoint Point, Duration Rpo)> ObjectReplica(RecoveryContext ctx, ProjectionContext frame) =>
         ctx.ReplicaManifest.TraverseM(entry => ctx.BlobStore.Head(ctx.BlobClient, entry.Key).Map(present => (entry.Key, entry.SealedAt, Present: present.IsSome))).As()
@@ -262,20 +262,20 @@ public static class PointInTimeRestore {
         .As();
 
     static IO<Fin<string>> RebuildProjections(RestoreContext restore) =>
-        IO.liftAsync<Fin<string>>(async () => await Try.lift(async _ => {
+        IO.liftAsync<Fin<string>>(async () => await HostEdge.Captured(async _ => {
             await restore.Store.Advanced.RebuildSingleStreamAsync<GraphProjection>(restore.Model.Value).ConfigureAwait(false);
             await using IProjectionDaemon daemon = await restore.Store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
             await daemon.WaitForNonStaleData(restore.Objective.Rto.ToTimeSpan()).ConfigureAwait(false);
             EventStoreStatistics stats = await restore.Store.Advanced.FetchEventStoreStatistics().ConfigureAwait(false);
             return Fin<string>.Succ($"<projections-rebuilt:head{stats.EventSequenceNumber}>");
-        }).Run().Bind(static inner => inner).ConfigureAwait(false));
+        }).ConfigureAwait(false));
 
     static IO<Fin<string>> ReAttest(RestoreContext restore) =>
         from chain in restore.AttestedChain()
         from verdict in AttestedLedger.Verify(chain, restore.KeyringFor, restore.DigestOf)
         from outcome in verdict is AttestVerdict.Authentic or AttestVerdict.Unsigned
-            ? IO.liftAsync<Fin<string>>(async () => await Try.lift(async _ => {
+            ? IO.liftAsync<Fin<string>>(async () => await HostEdge.Captured(async _ => {
                 await using IQuerySession query = restore.Store.QuerySession();
                     GraphProjection? rebuilt = await restore.Target.StreamVersion.Match(
                         Some: version => query.Events.AggregateStreamAsync<GraphProjection>(restore.Model.Value, version: version),
@@ -289,7 +289,7 @@ public static class PointInTimeRestore {
                         $"re-attest:{string.Join('+', missing.Held.Select(static link => link.Key))}",
                         restore.TargetSeal.Address, reached))
                     .Map(_ => $"<chain-re-attested:{verdict.Key}:{reached.Value:x32}>");
-            }).Run().Bind(static inner => inner).ConfigureAwait(false))
+            }).ConfigureAwait(false))
             : IO.pure(Fin<string>.Fail(new RecoveryFault.RestoreFailed(new RestoreRefusal.Attestation(verdict))))
         select outcome;
 }

@@ -139,10 +139,10 @@ public sealed class UpdateMachine {
               from start in IO.lift(() => host.Clocks.Now)
               from prior in IO.lift(() => Prior)
               from transferred in IO.liftAsync(async () =>
-                  await Try.lift(async execution => {
+                  await HostEdge.Captured(async execution => {
                       await manager.DownloadUpdatesAsync(found, progress.Report, execution).ConfigureAwait(false);
                       return Fin.Succ(unit);
-                  }).Run().Bind(static inner => inner))
+                  }, token))
               from admitted in transferred.Match(
                   Succ: _ => SupplyChainGate.Admit(gate, new AdmissionSubject.Release(found.TargetFullRelease, channel), token),
                   Fail: error => IO.pure<Validation<Error, SupplyChainAdmission>>(Fail<Error, SupplyChainAdmission>(error)))
