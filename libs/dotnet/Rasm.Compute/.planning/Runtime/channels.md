@@ -447,8 +447,8 @@ public sealed class CallSpine(CorrelationId correlation, ClockPolicy clocks) : I
                 async active => await exchange(subject, active).ConfigureAwait(false)).ConfigureAwait(false);
             return outcome.MapFail(error =>
                 budget.IsCancellationRequested && !token.IsCancellationRequested && !envIO.Token.IsCancellationRequested
-                    && error is KernelFault.Cancelled cancelled
-                    ? new WireFault.DeadlineExpired(subject, cancelled.Cause)
+                    && Redrive.Cancellation(error).Case is Error cause
+                    ? new WireFault.DeadlineExpired(subject, cause)
                     : error);
         });
 

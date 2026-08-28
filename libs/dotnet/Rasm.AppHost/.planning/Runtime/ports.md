@@ -434,7 +434,7 @@ public static partial class FaultWire {
             terminalCase: static _ => StatusCode.FailedPrecondition,
             transientCase: static _ => StatusCode.Unavailable,
             throttledCase: static _ => StatusCode.ResourceExhausted),
-        _ when error.Is(Errors.Cancelled) => StatusCode.Cancelled,
+        _ when Redrive.Cancellation(error).IsSome => StatusCode.Cancelled,
         _ when error.Is(Errors.TimedOut) => StatusCode.DeadlineExceeded,
         _ => StatusCode.Internal,
     };

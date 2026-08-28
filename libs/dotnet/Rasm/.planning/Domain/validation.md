@@ -663,16 +663,16 @@ public static class Admit {
         guard(ValidityClaim.CountAtLeast(count: count, floor: minimum), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
     public static Fin<Unit> SameCount(int expected, params ReadOnlySpan<int> counts) =>
         guard(Holds(values: counts, claim: count => ValidityClaim.CountExactly(count: count, expected: expected)), new KernelFault.InvalidInput()).ToFin();
-    public static Fin<Seq<T>> All<T>(Seq<T> values, Func<T, ValidityClaim> claim, int floor) =>
-        guard(ValidityClaim.All(ValidityClaim.CountAtLeast(count: values.Count, floor: floor), values.ForAll(value => claim(arg: value))), new KernelFault.InvalidInput()).ToFin().Map(_ => values);
+    public static Fin<Seq<T>> All<T>(Seq<T> values, Func<T, ValidityClaim> claim, int floor, [CallerMemberName] string label = "") =>
+        guard(ValidityClaim.All(ValidityClaim.CountAtLeast(count: values.Count, floor: floor), values.ForAll(value => claim(arg: value))), new KernelFault.InvalidInput(Axis: Some(label))).ToFin().Map(_ => values);
     public static Fin<Unit> AllFinite(ReadOnlySpan<double> values, [CallerMemberName] string label = "") => guard(ValidityClaim.Finite(values), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
     public static Fin<Unit> AllFinite(Seq<Point3d> points, [CallerMemberName] string label = "") => guard(points.ForAll(static point => ValidityClaim.Finite(point)), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
     public static Fin<Unit> AllFinite(params ReadOnlySpan<Point3d> points) =>
         guard(Holds(values: points, claim: static point => ValidityClaim.Finite(point)), new KernelFault.InvalidInput()).ToFin();
     public static Fin<Unit> AllFinite(params ReadOnlySpan<Vector3d> vectors) =>
         guard(Holds(values: vectors, claim: static vector => ValidityClaim.Finite(vector)), new KernelFault.InvalidInput()).ToFin();
-    public static Fin<Unit> PositiveFiniteWeights(ReadOnlySpan<double> weights, int count) =>
-        guard(ValidityClaim.All(ValidityClaim.CountExactly(count: weights.Length, expected: count), ValidityClaim.Finite(weights), weights.IsEmpty || TensorPrimitives.Min(weights) > 0.0), new KernelFault.InvalidInput()).ToFin();
+    public static Fin<Unit> PositiveFiniteWeights(ReadOnlySpan<double> weights, int count, [CallerMemberName] string label = "") =>
+        guard(ValidityClaim.All(ValidityClaim.CountExactly(count: weights.Length, expected: count), ValidityClaim.Finite(weights), weights.IsEmpty || TensorPrimitives.Min(weights) > 0.0), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
     public static bool FiniteComplexSpan(ReadOnlySpan<Complex> values) =>
         Holds(values: values, claim: static value => ValidityClaim.All(ValidityClaim.Finite(value: value.Real), ValidityClaim.Finite(value: value.Imaginary)));
     public static bool HermitianDiagonalRealSpan(ReadOnlySpan<Complex> diagonal) {
@@ -684,7 +684,7 @@ public static class Admit {
         double tolerance = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: scale * EpsilonPolicy.SqrtEpsilon);
         return Holds(values: diagonal, claim: entry => Math.Abs(value: entry.Imaginary) <= tolerance);
     }
-    public static Fin<Plane> Plane(Plane basis) =>
+    public static Fin<Plane> Plane(Plane basis, [CallerMemberName] string label = "") =>
         guard(ValidityClaim.All(
             basis.IsValid,
             ValidityClaim.Finite(basis.Origin),
@@ -692,20 +692,20 @@ public static class Admit {
             ValidityClaim.Finite(basis.YAxis),
             ValidityClaim.Finite(basis.ZAxis),
             Vector3d.AreOrthonormal(x: basis.XAxis, y: basis.YAxis, z: basis.ZAxis),
-            Vector3d.AreRighthanded(x: basis.XAxis, y: basis.YAxis, z: basis.ZAxis)), new KernelFault.InvalidInput()).ToFin().Map(_ => basis);
-    public static Fin<Vector3d> Directional(Vector3d value, double tolerance) =>
-        guard(ValidityClaim.All(ValidityClaim.Finite(value), value.Length > tolerance), new KernelFault.InvalidInput()).ToFin().Map(_ => value);
-    public static Fin<Unit> Cone(Point3d apex, Vector3d axis, double halfAngle) =>
+            Vector3d.AreRighthanded(x: basis.XAxis, y: basis.YAxis, z: basis.ZAxis)), new KernelFault.InvalidInput(Axis: Some(label))).ToFin().Map(_ => basis);
+    public static Fin<Vector3d> Directional(Vector3d value, double tolerance, [CallerMemberName] string label = "") =>
+        guard(ValidityClaim.All(ValidityClaim.Finite(value), value.Length > tolerance), new KernelFault.InvalidInput(Axis: Some(label))).ToFin().Map(_ => value);
+    public static Fin<Unit> Cone(Point3d apex, Vector3d axis, double halfAngle, [CallerMemberName] string label = "") =>
         from _ in AllFinite(apex)
-        from direction in Directional(value: axis, tolerance: EpsilonPolicy.ZeroTolerance)
-        from angle in guard(Band.HalfTurn.Admits(value: halfAngle), new KernelFault.InvalidInput())
+        from direction in Directional(value: axis, tolerance: EpsilonPolicy.ZeroTolerance, label: label)
+        from angle in guard(Band.HalfTurn.Admits(value: halfAngle), new KernelFault.InvalidInput(Axis: Some(label)))
         select unit;
-    public static Fin<Unit> KernelInput(double distance, double radius) =>
-        guard(ValidityClaim.All(ValidityClaim.Nonnegative(value: distance), Band.Positive.Admits(value: radius)), new KernelFault.InvalidInput()).ToFin();
-    public static Fin<Unit> FalloffInput(double distance, double distanceSquared, double tolerance) =>
-        guard(ValidityClaim.All(ValidityClaim.Nonnegative(value: distance), ValidityClaim.Nonnegative(value: distanceSquared), ValidityClaim.Nonnegative(value: tolerance)), new KernelFault.InvalidInput()).ToFin();
-    public static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency) =>
-        guard(ValidityClaim.All(Band.Octave.Admits(value: octaves), ValidityClaim.Positive(value: frequency), Band.Ratio.Admits(value: persistence), Band.Growth.Admits(value: lacunarity)), new KernelFault.InvalidInput()).ToFin();
+    public static Fin<Unit> KernelInput(double distance, double radius, [CallerMemberName] string label = "") =>
+        guard(ValidityClaim.All(ValidityClaim.Nonnegative(value: distance), Band.Positive.Admits(value: radius)), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
+    public static Fin<Unit> FalloffInput(double distance, double distanceSquared, double tolerance, [CallerMemberName] string label = "") =>
+        guard(ValidityClaim.All(ValidityClaim.Nonnegative(value: distance), ValidityClaim.Nonnegative(value: distanceSquared), ValidityClaim.Nonnegative(value: tolerance)), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
+    public static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency, [CallerMemberName] string label = "") =>
+        guard(ValidityClaim.All(Band.Octave.Admits(value: octaves), ValidityClaim.Positive(value: frequency), Band.Ratio.Admits(value: persistence), Band.Growth.Admits(value: lacunarity)), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
 
     private static bool Holds<T>(ReadOnlySpan<T> values, Func<T, ValidityClaim> claim) {
         foreach (T value in values) {

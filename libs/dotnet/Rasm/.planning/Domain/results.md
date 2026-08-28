@@ -351,12 +351,13 @@ public static class FaultExtensions {
 
 ## [03]-[REDRIVE]
 
-- Owner: `Retriability` the branch-wide retriability discriminant carried as a virtual on `Fault` and the ONE posture spelling through its `Key` projection, `RedrivePolicy` the one re-drive policy value, `Verdict` the one durable re-drive answer, and `Redrive` the two-arm executor.
+- Owner: `Retriability` the branch-wide retriability discriminant carried as a virtual on `Fault` and the ONE posture spelling through its `Key` projection, `RedrivePolicy` the one re-drive policy value, `Verdict` the one durable re-drive answer, and `Redrive` the two-arm executor and the ONE cancellation reading.
 - Cases: `Retriability` is a `[Union]` rather than a keyed roster because `Throttled` carries a server-stated delay the other two do not; `Verdict` splits a scheduled retry from an exhausted bound and a terminal refusal, and every case is consumed by `Settle`.
 - Entry: a fault band overrides `Retriability` on its own cases and states nothing else — every kernel and folder band inherits `Terminal` by construction, so a case that never overrides is terminal without spelling it. `RedrivePolicy.Of(law, bound)` is the ONE mint name; the bound applies by derivation at `Curve`, so a stored curve cannot disagree with `Bound`, and `Exhausted` reads the same ordinal convention `Curve`'s stream counts — attempt zero is the first failure, and exactly `Bound` re-drives admit on both arms.
 - Law: library tiers CLASSIFY and execute nothing — the discriminant rides the fault, the policy rides the runtime, and only a root-bound executor runs `Redrive`. Per-policy `Func<Error, bool>` classifiers are the deleted form: they re-decide at each policy what the fault already answers, which is exactly the split the branch retriability ruling forbids; `bool IsTransient` interfaces fall for the same reason, one axis short of the throttled case.
 - Law: `Settle` is one verdict per pass and holds NO loop state, so a resumed workflow, a swept outbox row, and a cache-aged assessment each read the same predicate against their own durable ordinal. Exhaustion is a typed `Abandoned`, never a success-shaped fall-through, and a schedule that runs dry at the ordinal abandons rather than retrying forever.
 - Law: `Key` is the ONE posture render and every consumer composes it — a metric dimension value, a span tag, a log field, and a board caption all read the same member, so the three-literal `Switch` a consumer once spelled for itself is deleted wherever it stood. The failure that form carries is silent: each copy is proved total by the generator and none is proved to AGREE with its siblings, so one renamed word splits a dashboard population and no build says so.
+- Law: `Cancellation(Error)` is the ONE cancellation reading and answers the CAUSE, so a caller needing the evidence and a caller needing only the verdict compose the same member. It spans BOTH spellings by construction — `KernelFault.Cancelled` a cancellation `HostEdge.Captured` PROVED against a token, `Errors.Cancelled` the code `Try.lift` and every kernel refusal normalize onto — and folds `ManyErrors` membership like `Posture`. A site testing one spelling alone is the deleted form: it reads correct and silently misses every cancellation minted by the other funnel.
 - Law: a foreign `Error` — anything not deriving `Fault` — is Terminal by construction, so an un-adopted third-party error cannot become silently retriable. `Settle` folds the `ManyErrors` MEMBERSHIP tree recursively, never `Inner` which is causal evidence: `AsIterable()` and `Count` read DIRECT children alone, so a nested aggregate otherwise hides a terminal leaf behind a wrapper.
 - Exemption: `Redrive.Run` is the IN-PROCESS arm and carries the whole retry mechanism on `IO<T>.RetryWhile`; no hand attempt loop, no `Task.Delay` window, and no clock arithmetic exists at any consumer.
 - Growth: a new retriability posture is one `Retriability` case with the `Settle` arm it selects and one word on `Key`, which every emitter then answers unedited; a new backoff shape is a `Schedule` composition at the policy mint, never a member here.
@@ -415,6 +416,12 @@ public static class Redrive {
             .IfNone(Retriability.Terminal),
         Fault expected => expected.Retriability,
         _ => Retriability.Terminal,
+    };
+
+    public static Option<Error> Cancellation(Error fault) => fault switch {
+        KernelFault.Cancelled proven => Some(proven.Cause),
+        ManyErrors many => many.Errors.Choose(Cancellation).Head,
+        _ => fault.Is(Errors.Cancelled) ? Some(fault) : None,
     };
 
     public static Verdict Settle(RedrivePolicy policy, Error fault, int attempt) =>

@@ -702,7 +702,7 @@ public static class CommandExecution {
                 Succ: admitted => deck.Composition
                     .Cross(row.ToIntent(admitted, deck.Composition, caller), cancel)
                     .Map(Settled)
-                    .Catch(static error => error is KernelFault.Cancelled, static _ => IO.pure((CommandOutcome)new CommandOutcome.Cancelled())),
+                    .Catch(static error => Redrive.Cancellation(error).IsSome, static _ => IO.pure((CommandOutcome)new CommandOutcome.Cancelled())),
                 Fail: static fault => IO.pure((CommandOutcome)new CommandOutcome.Rejected(Observed(fault))))
             from elapsed in Gauge(deck, start)
             let result = new DeckOutcome(row.Key, deck.Composition.SurfaceKey, elapsed, outcome, payload.Digest())

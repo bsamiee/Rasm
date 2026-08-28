@@ -197,7 +197,7 @@ public sealed partial record TessellationRequest {
             .Catch(error => IO.pure(Fin.Fail<TessellationCross>(Boundary(error))));
 
     static Error Boundary(Error error) =>
-        error is KernelFault.Cancelled || error.Is(Errors.Cancelled)
+        Redrive.Cancellation(error).IsSome
             ? error
             : new BimFault.BoundaryFailed(BimBoundary.TessellationCompanion, error);
 

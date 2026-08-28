@@ -255,7 +255,7 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
                 return Fin.Succ(unit);
             }).ConfigureAwait(false);
             if (pass.Case is not Error error) { break; }
-            if (error is KernelFault.Cancelled) { fault(error); break; }
+            if (Redrive.Cancellation(error).IsSome) { fault(error); break; }
             transport.OnNext(true);
             Option<Duration> after = redrive.Bind(policy => policy.Next(attempt));
             if (after.IsNone) { fault(error); break; }

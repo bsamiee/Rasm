@@ -221,7 +221,7 @@ public sealed record SupportArtifact(
 
     static IO<ArtifactPayload> Pumped(TraceSession opened, Duration window) =>
         from pump in IO.lift(() => (fun(opened.Source.Process)(), unit).Item2).Fork(window.ToTimeSpan())
-        from _ in pump.Await | @catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
+        from _ in pump.Await | @catch(static error => Redrive.Cancellation(error).IsSome, static _ => IO.pure(unit))
         select ArtifactPayload.Of(opened.Sink.ToString(), MaskTally.Empty);
 
     public static Seq<SupportArtifact> Folded(Seq<SupportArtifact> own, params ReadOnlySpan<SupportContributorPort> contributed) =>

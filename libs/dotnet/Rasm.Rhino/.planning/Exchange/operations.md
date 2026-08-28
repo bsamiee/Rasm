@@ -360,7 +360,7 @@ public abstract partial record BatchStep<TOutcome> where TOutcome : IBatchYield 
             None: () => new BatchVerdict(Failed: false, Halted: false, Mutation: step.Mutation)),
         failedCase: static step => new BatchVerdict(
             Failed: true,
-            Halted: step.Failure.Is(Errors.Cancelled) || step.Failure is KernelFault.Cancelled,
+            Halted: Redrive.Cancellation(step.Failure).IsSome,
             Mutation: step.Mutation));
 
     public Seq<ExchangeEvidence> Evidence => Switch(

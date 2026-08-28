@@ -225,7 +225,7 @@ public static class SchedulePort {
     static IO<Unit> Occurrence(ScheduleEntry entry) =>
         entry.Work()
             .Timeout(entry.Deadline.Allotted.ToTimeSpan())
-            .Catch(static error => error.Is(Errors.TimedOut) || error.Is(Errors.Cancelled),
+            .Catch(static error => error.Is(Errors.TimedOut) || Redrive.Cancellation(error).IsSome,
                    _ => IO.fail<Unit>(new TimeFault.OccurrenceTimedOut(Key: entry.Key, Allotted: entry.Deadline.Allotted)));
 
     public static Fin<Seq<Instant>> Missed(ScheduleEntry entry, Instant lastFired, Instant now) =>

@@ -409,9 +409,9 @@ public static class DrainConductor {
         from lane in IO.lift(() => host.Spine.Derive(work, host.Clocks, DeadlineClass.DrainCooperative, cooperative)).Bracket(
             Use: scope => row.Drain(scope.Token)
                 .Map(static _ => DeadlineClass.DrainCooperative)
-                .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(DeadlineClass.DrainCooperative))
+                .Catch(static error => Redrive.Cancellation(error).IsSome, static _ => IO.pure(DeadlineClass.DrainCooperative))
                 .Timeout(cooperative.ToTimeSpan() + DeadlineClass.DrainForced.Bound)
-                .Catch(static error => error.Is(Errors.TimedOut) || error.Is(Errors.Cancelled), static _ => IO.pure(DeadlineClass.DrainForced)),
+                .Catch(static error => error.Is(Errors.TimedOut) || Redrive.Cancellation(error).IsSome, static _ => IO.pure(DeadlineClass.DrainForced)),
             Fin: static scope => IO.lift(fun(scope.Dispose)))
         from finish in IO.lift(Error.New(work.Message, work))
         from elapsed in IO.lift(host.Clocks.Line.Elapsed(start, finish, work))
