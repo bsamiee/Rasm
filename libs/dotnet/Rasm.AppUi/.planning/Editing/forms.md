@@ -284,10 +284,10 @@ public sealed partial class FieldEntry {
         (value.GetString() ?? string.Empty) switch {
             var text => Options(field.Control).Match(
                 Some: rows => System.Array.IndexOf(rows.Map(static row => row.Value).ToArray(), text) switch {
-                    >= 0 and var at => Fin.Succ<FieldValue>(new FieldValue.Pick(Some(at), text)),
+                    >= 0 and var at => Fin.Succ<FieldValue>(new FieldValue.Pick(Some(at), Some(text))),
                     _ => Fin.Fail<FieldValue>(new FormFault.FieldInvalid(field.Key.Value, $"value outside the option roster: {text}")),
                 },
-                None: () => Fin.Succ<FieldValue>(new FieldValue.Pick(None, text))),
+                None: () => Fin.Succ<FieldValue>(new FieldValue.Pick(None, Some(text)))),
         };
 
     static Map<string, double> Bindings(FormState state) =>
@@ -484,7 +484,9 @@ public static class FieldJson {
         markup: static row => JsonSerializer.SerializeToElement(row.Rtf),
         number: static row => JsonSerializer.SerializeToElement(row.Value),
         flag: static row => JsonSerializer.SerializeToElement(row.Value.Match(Some: held => (bool?)held, None: () => null)),
-        pick: static row => JsonSerializer.SerializeToElement(row.Text),
+        pick: static row => JsonSerializer.SerializeToElement(row.Text.Match(
+            Some: static text => text,
+            None: static () => (string?)null)),
         pickSet: static row => JsonSerializer.SerializeToElement(row.Keys.ToArray()),
         colour: static row => row.Value.ToRgb() switch {
             var (red, green, blue, alpha) => JsonSerializer.SerializeToElement(
@@ -506,7 +508,7 @@ public static class FieldJson {
         markup: static (_, row) => row.Rtf,
         number: static (held, row) => row.Value.ToString(held.Formats),
         flag: static (_, row) => row.Value.Match(Some: static held => held ? bool.TrueString : bool.FalseString, None: static () => string.Empty),
-        pick: static (_, row) => row.Text,
+        pick: static (_, row) => row.Text.IfNone(string.Empty),
         pickSet: static (_, row) => string.Join(", ", row.Keys),
         colour: static (_, row) => row.Value.ToRgb() switch {
             var (red, green, blue, alpha) => string.Create(CultureInfo.InvariantCulture, $"#{alpha:x2}{red:x2}{green:x2}{blue:x2}"),

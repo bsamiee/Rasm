@@ -2,7 +2,7 @@
 
 `Marks` owns the package's ONE draw dispatch over four canvases — the live display pipeline, the retained `CustomDisplay` overlay, an interactive Eto surface, and a replayed page — and `DisplayMark` is its one vocabulary: the SCREEN band is the kernel `Rasm.Interaction` mark algebra composed verbatim, the WORLD band is `WorldMark`, the RhinoCommon payloads only a `DisplayPipeline` or `CustomDisplay` can draw, and the SPRITE band is the `DisplayBitmap` blit family only the pipeline's GPU blend path serves. The partition is HOST knowledge: a world mark routed to a surface, a kernel fill routed to the pipeline, and a sprite routed to a retained overlay each land as a typed refusal row on `DrawTally`, never a silent partial draw.
 
-The Eto half of the old two-backend algebra is DELETED, not moved: paths, fills, strokes, glyph blocks, poses, clips, text shaping, the paint program, the resource stock, and hit-testing are `Interaction/paint`'s (`Mark`, `PathSpec`, `FillSource`, `StrokeSpec`, `GlyphBlock`, `PosePlan`, `PaintProgram`, `PaintStock`, `Surface`), and a consumer wanting the retained screen program calls `PaintProgram.Of` directly. What stays here is what RhinoCommon alone can know — the `DisplayPen` projection with its halo, taper, and pattern axes, the `DisplayMaterial` custody bracket, the iso-banding effect, the sprite cache, and the world mark family. `PerceptualColor` remains the only colour source and every host egress composes the kernel `ToDrawing` projection, so an out-of-gamut ink refuses typed instead of clipping.
+The Eto half of the old two-backend algebra is DELETED, not moved: paths, fills, strokes, glyph blocks, transforms, clips, text shaping, the paint program, the resource stock, and hit-testing are `Interaction/paint`'s (`Mark`, `PathSpec`, `FillSource`, `StrokeSpec`, `GlyphBlock`, `TransformSpec`, `PaintProgram`, `PaintStock`, `Surface`), and a consumer wanting the retained screen program calls `PaintProgram.Of` directly. What stays here is what RhinoCommon alone can know — the `DisplayPen` projection with its halo, taper, and pattern axes, the `DisplayMaterial` custody bracket, the iso-banding effect, the sprite cache, and the world mark family. `PerceptualColor` remains the only colour source and every host egress composes the kernel `ToDrawing` projection, so an out-of-gamut ink refuses typed instead of clipping.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ The Eto half of the old two-backend algebra is DELETED, not moved: paths, fills,
 
 - Owner: `Stroke` is the display-pen spec — colour, ladder-free screen-or-world thickness, cap, join, the KERNEL `Dash`, decoration, and pattern policy — and `Mint` is its one `DisplayPen` projection; `PenRhythm` is the pipeline's interval projection of the kernel dash; `ShadedFace`/`ShadedMaterial` bracket the disposable `DisplayMaterial`; `BlendUse` mirrors the host blend roster and `BlendPair` is the source-and-destination pair every sprite blit names once.
 - Cases: `WidthSpace` closes the thickness regime at two rows carrying `CoordinateSystem` — the `bool WorldWidth` and the ternary that read it delete; `PatternTrait` is the pattern capability vocabulary (`Autoscale`, `BySegment`, `WorldLength` — every corner legal, law `Open`) and `PatternLaw` carries the set beside the scale and offset the host pattern engine reads; `PenDecoration` owns the halo and taper axes as admitted component records, so an anonymous tuple with hand positivity guards no longer rides the stroke.
-- Law: the DASH is the kernel's. `Interaction.Dash` is the one dash vocabulary and `PenRhythm.Table` is its total pipeline projection into width-multiple intervals; `PenRhythm.Admit` states the host bound — `DisplayPen.SetPattern` accepts at most eight entries (`PACKAGE_LIMIT_AS_LAW`), so a longer `PatternedCase` refuses at `Stroke.Of` rather than truncating inside a paint call. The kernel `PatternedCase.Offset` serves the Eto dash alone; the pipeline pattern offset is `PatternLaw`'s own column, and the two never alias.
+- Law: the DASH is the kernel's. `Interaction.Dash` is the one dash vocabulary and `PenRhythm.Table` is its total pipeline projection into width-multiple intervals; `PenRhythm.Admit` states the host bound — `DisplayPen.SetPattern` accepts at most eight entries (`PACKAGE_LIMIT_AS_LAW`), so a longer `Pattern` refuses at `Stroke.Of` rather than truncating inside a paint call. The kernel `Pattern.Offset` serves the Eto dash alone; the pipeline pattern offset is `PatternLaw`'s own column, and the two never alias.
 - Law: this pen is a DISPLAY thickness — screen pixels or world units — and never a paper weight. A plotted line width reads the `Drawing/sheet` `LineWidth` ladder at the publishing surface; a screen hairline is the kernel `StrokeSpec.Hairline` device law; neither aliases this column, and a `Stroke` fed into a plot is the strata violation the publish page refuses.
 - Law: shaded appearance is `ShadedMaterial`, never a host `DisplayMaterial` — the native is disposable and carries eight raw screen colours, so it mints inside `Use`, serves exactly the bracketed draw call, and releases on every exit; the second face is `Option`, so a one-sided material spells no back band rather than mirroring the front. Every quantization inside the bracket rides `PerceptualColor.ToDrawing`, so a wide-gamut face refuses typed before the native exists.
 - Law: `BlendPair.Over` is the one canonical row — the Porter-Duff source-over pair (`SourceAlpha`, `InverseSourceAlpha`) both boundaries hand-spelled at every blit — and any other composition names its pair explicitly.
@@ -228,21 +228,21 @@ public sealed record Stroke {
 internal static class PenRhythm {
     private const int MaxIntervals = 8;
 
-    internal static Fin<Dash> Admit(Dash dash) => dash is Dash.PatternedCase row
+    internal static Fin<Dash> Admit(Dash dash) => dash is Dash.Pattern row
         ? !row.Intervals.IsEmpty
             && row.Intervals.Count <= MaxIntervals
             && row.Intervals.ForAll(static gap => float.IsFinite(gap) && gap > 0f)
             ? Fin.Succ(dash)
-            : Fin.Fail<Dash>(new KernelFault.InvalidInput(Axis: Some(nameof(Dash.PatternedCase.Intervals))))
+            : Fin.Fail<Dash>(new KernelFault.InvalidInput(Axis: Some(nameof(Dash.Pattern.Intervals))))
         : Fin.Succ(dash);
 
     internal static Seq<float> Table(Dash dash) => dash.Switch(
-        solidCase: static _ => Seq<float>(),
-        dashedCase: static _ => [3f, 1f],
-        dottedCase: static _ => [1f, 1f],
-        dashDotCase: static _ => [3f, 1f, 1f, 1f],
-        dashDotDotCase: static _ => [3f, 1f, 1f, 1f, 1f, 1f],
-        patternedCase: static row => row.Intervals);
+        solid: static _ => Seq<float>(),
+        dashed: static _ => [3f, 1f],
+        dot: static _ => [1f, 1f],
+        dashDot: static _ => [3f, 1f, 1f, 1f],
+        dashDotDot: static _ => [3f, 1f, 1f, 1f, 1f, 1f],
+        pattern: static row => row.Intervals);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -299,7 +299,7 @@ public sealed record ShadedMaterial(ShadedFace Front, Option<ShadedFace> Back) {
 
 - Owner: `PathPrimitive` is the pipeline's lowered screen geometry — four curve-mintable cases — and `Lower` is the ONE projection from the kernel `PathSpec` onto it; `SpriteRef` admits sprite bytes under a content-hash identity and `SpriteSheet` owns the `DisplayBitmap` cache; `PointUse`, `VectorTip`, and `PolygonPaint` are world-mark vocabularies; `IsoBanding` owns banded-shading data with `IsoGap` closing its gap tri-state.
 - Law: the composite lowering is the KERNEL's twice over — the authored figure is `Interaction.PathSpec` and the corner walk, radius clamp, and cardinal-spline arithmetic are `Rasm.Parametric`'s (`ParametricOp.RoundedRectangle`, `ParametricOp.CardinalSpline`), so this page carries no curve arithmetic a NURBS emission could disagree with. Frame-local coordinates ARE screen coordinates (`Plane.WorldXY` over the rectangle's own intervals), and angles stay RADIANS end to end — the kernel answers radians and `ArcCurve` consumes them, so the old degree round-trip is deleted whole.
-- Law: an elliptical `ArcCase` refuses on the pipeline — `PathPrimitive.Arc` is circular because the pipeline curve mint is — and the refusal names the corner; a non-circular arc rides `CurveCase` or `EllipseCase` instead. The role-resolved OS faces, fills, glyph blocks, panes, clips, and poses refuse the same way at the mark projection: each is an Eto-surface capability the kernel replays and the pipeline cannot.
+- Law: an elliptical `PathSpec.Arc` refuses on the pipeline — `PathPrimitive.Arc` is circular because the pipeline curve mint is — and the refusal names the corner; a non-circular arc rides `PathSpec.Curve` or `PathSpec.Ellipse` instead. The role-resolved OS faces, fills, glyph blocks, images, image regions, clips, and transforms refuse the same way at the mark projection: each is an Eto-surface capability the kernel replays and the pipeline cannot.
 - Law: sprite bytes admitted by `ISpriteFiles` enter once through `SpriteRef.Of` under `ContentHash.Hex` — the kernel's one lowercase identity text — so two sources with one payload share one cache row and no raw path crosses the asset boundary.
 - Law: the sheet's lifecycle is a `Cell`-stepped state machine, never a monitor barrier — `Use` enters through a guarded step that declines once draining begins, a leave decrements, and the last borrower leaving a draining sheet performs all-attempted disposal. `Release()` carries immediate cleanup faults; `Dispose` is only the host-required adapter.
 - Law: `PointUse` carries one row per DISTINCT host marker — `PointStyle` is an aliased enum (`Circle`≡`RoundSimple`, `Square`≡`Simple`, `SolidSquare`≡`VariableDot`, `RoundDot`≡`SolidRound`≡`SolidCircle`), so a row per alias would seat values no host call can tell apart.
@@ -334,33 +334,33 @@ public abstract partial record PathPrimitive {
             row.RadiusY).ToNurbsCurve());
 
     internal static Fin<Seq<PathPrimitive>> Lower(PathSpec spec) => spec.Switch(
-        lineCase: static row => Fin.Succ(Seq<PathPrimitive>(new Line(P(row.From), P(row.To)))),
-        polylineCase: static row => Fin.Succ(Chained(row.Points, closed: false)),
-        polygonCase: static row => Fin.Succ(Chained(row.Points, closed: true)),
-        rectCase: static row => Fin.Succ(Edges(row.Frame)),
-        roundRectCase: static (row) => Outlined(new ParametricOp.RoundedRectangle(
+        line: static row => Fin.Succ(Seq<PathPrimitive>(new Line(P(row.From), P(row.To)))),
+        polyline: static row => Fin.Succ(Chained(row.Points, closed: false)),
+        polygon: static row => Fin.Succ(Chained(row.Points, closed: true)),
+        rectangle: static row => Fin.Succ(Edges(row.Frame)),
+        roundedRectangle: static (row) => Outlined(new ParametricOp.RoundedRectangle(
             Frame: Plane.WorldXY,
             X: new Interval(row.Frame.X, row.Frame.X + row.Frame.Width),
             Y: new Interval(row.Frame.Y, row.Frame.Y + row.Frame.Height),
             NW: row.NW, NE: row.NE, SE: row.SE, SW: row.SW)),
-        ellipseCase: static row => Fin.Succ(Seq<PathPrimitive>(new Ellipse(
+        ellipse: static row => Fin.Succ(Seq<PathPrimitive>(new Ellipse(
             new Point2d(row.Frame.X + (row.Frame.Width / 2.0), row.Frame.Y + (row.Frame.Height / 2.0)),
             row.Frame.Width / 2.0,
             row.Frame.Height / 2.0))),
-        arcCase: static (row) => Math.Abs(row.Frame.Width - row.Frame.Height) <= float.Epsilon
+        arc: static (row) => Math.Abs(row.Frame.Width - row.Frame.Height) <= float.Epsilon
             ? Fin.Succ(Seq<PathPrimitive>(new Arc(
                 new Point2d(row.Frame.X + (row.Frame.Width / 2.0), row.Frame.Y + (row.Frame.Height / 2.0)),
                 row.Frame.Width / 2.0,
                 row.Start,
                 row.Sweep)))
-            : Fin.Fail<Seq<PathPrimitive>>(new KernelFault.Unsupported(typeof(PathSpec.ArcCase), typeof(DisplayPipeline))),
-        bezierCase: static row => Fin.Succ(Seq<PathPrimitive>(new Bezier(P(row.From), P(row.ControlA), P(row.ControlB), P(row.To)))),
-        curveCase: static (row) => Outlined(new ParametricOp.CardinalSpline(
+            : Fin.Fail<Seq<PathPrimitive>>(new KernelFault.Unsupported(typeof(PathSpec.Arc), typeof(DisplayPipeline))),
+        cubicBezier: static row => Fin.Succ(Seq<PathPrimitive>(new Bezier(P(row.From), P(row.ControlA), P(row.ControlB), P(row.To)))),
+        curve: static (row) => Outlined(new ParametricOp.CardinalSpline(
             Frame: Plane.WorldXY,
             Points: new Arr<Point2d>([.. toSeq(row.Points).Map(P)]),
             Tension: row.Tension,
             Closed: false)),
-        compositeCase: static (row) => row.Figures.TraverseM(figure => Lower(spec: figure)).As()
+        composite: static (row) => row.Figures.TraverseM(figure => Lower(spec: figure)).As()
             .Map(static lowered => lowered.Bind(static run => run).Strict()));
 
     private static Point2d P(Eto.Drawing.PointF at) => new(at.X, at.Y);
@@ -625,14 +625,14 @@ public sealed class SpriteSheet : IDisposable {
 
 - Owner: `DisplayMark` partitions the three payload bands by backend capability while preserving one public concept; `WorldMark` is the RhinoCommon world band, grown by the retained-overlay fold (`Points`, `Vector`, `Polygon`, `Label3d` — the old eight-case `RetainedMark` deletes whole); `SpriteMark` is the ONE `DisplayBitmap` blit family whose `SpriteAnchor` closes the three anchor shapes the host publishes; `Canvas` names the four backends, each case CARRYING what its backend consumes; `Marks.Paint` is the one dispatch and `DrawTally` its accounted evidence.
 - Entry: `Marks.Paint(canvas, marks)` draws one batch and accounts every mark as drawn, culled, or refused — a capability-illegal `Canvas × mark` corner lands a typed refusal ROW on `DrawTally` and the batch continues, while a HOST fault aborts typed; `DrawTally.IsValid` is the empty refusal set, so a silent partial draw is unrepresentable.
-- Law: the corner table is LAW, per canvas: the PIPELINE draws world marks, sprite blits, and the stroke-and-plain-text projection of kernel screen marks (fills, glyph blocks, panes, clips, poses, and OS-role faces refuse — Eto-surface capabilities); the RETAINED overlay draws the `CustomDisplay`-addressable world subset (`Points`, `Vector`, `Polygon`, undecorated `Curve`, `Label3d`) and refuses the rest; the SURFACE and PAGE replay kernel screen marks through `PaintProgram.Replay` — the kernel owns draw, cull, hit, and stock — and refuse world and sprite bands. NAMED LOSS: the per-entry backend twins (`Pipeline`/`Surface`/`ScreenPipeline`/`ScreenSurface`/`WorldPipeline`) and their per-arm refusals; bought back as the explicit corner rows this dispatch names and `DrawTally` reports.
+- Law: the corner table is LAW, per canvas: the PIPELINE draws world marks, sprite blits, and the stroke-and-plain-text projection of kernel screen marks (fills, glyph blocks, images, image regions, clips, transforms, and OS-role faces refuse — Eto-surface capabilities); the RETAINED overlay draws the `CustomDisplay`-addressable world subset (`Points`, `Vector`, `Polygon`, undecorated `Curve`, `Label3d`) and refuses the rest; the SURFACE and PAGE replay kernel screen marks through `PaintProgram.Replay` — the kernel owns draw, cull, hit, and stock — and refuse world and sprite bands. NAMED LOSS: the per-entry backend twins (`Pipeline`/`Surface`/`ScreenPipeline`/`ScreenSurface`/`WorldPipeline`) and their per-arm refusals; bought back as the explicit corner rows this dispatch names and `DrawTally` reports.
 - Law: `Surface` and `Page` are two quality postures over one Graphics replay — `Surface` carries its caller's `ScenePolicy`, `Page` is pinned `Fidelity` because a printed page never trades quality for latency — and both hand the kernel the stock and timeline the replay is gauged against.
 - Law: render order is input order; hit-testing is the KERNEL's (`PaintProgram.Hit` over the screen band) and this page answers none — the world band hit-tests through the host pick pipeline, a different owner.
 - Law: an arrowhead is a HOST primitive, never a re-derived triangle — `WorldMark.Arrowhead` folds `DrawAnnotationArrowhead(Arrowhead, Transform, Color)` so head shape rides the `DimensionStyle.ArrowType` row or the user-block the `Arrowhead` carries.
 - Law: the retained fold is loss-stated — `AddArc`/`AddCircle`/`AddLine` convenience adds collapse onto `AddCurve` over the caller's own curve (same geometry, one arm), and a DECORATED stroke (halo, taper, pattern) refuses on the retained arm because `CustomDisplay` draws colour-and-width alone; witness: `RetainedMark.Line(line, colour, 2)` rebuilds as `new WorldMark.Curve(new LineCurve(line.From, line.To), stroke)`.
 - Law: mark admission folds every payload, style presence, and finite coordinate before dispatch; no invalid child reaches a backend, and every colour egress rides `ToDrawing` inside the arm that draws it.
 - Growth: a world drawable is one `WorldMark` case and one arm per canvas that admits it; a sprite anchor is one `SpriteAnchor` case; a canvas is one `Canvas` case carrying its own context and its corner rows.
-- Boundary: the kernel `Mark` vocabulary is composed VERBATIM — no local screen union, path carrier, stroke, fill, pose, text style, or paint program exists on this page, and a consumer wanting the retained screen program calls `PaintProgram.Of`.
+- Boundary: the kernel `Mark` vocabulary is composed VERBATIM — no local screen union, path carrier, stroke, fill, transform, text style, or paint program exists on this page, and a consumer wanting the retained screen program calls `PaintProgram.Of`.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -771,7 +771,7 @@ public static class Marks {
             _ => Option<Error>.None,
         });
         return PaintProgram.Of(marks: screen)
-            .Bind(program => program.Replay(target: target, policy: policy, stock: stock, clock: clock, lane: DispatchLane.Paced))
+            .Bind(program => target.Use(graphics => program.Replay(target: graphics, policy: policy, stock: stock, clock: clock, lane: DispatchLane.Paced)))
             .Map(tally => new DrawTally(Drawn: tally.Drawn, Culled: tally.Culled, Refused: refused));
     }
 
@@ -786,30 +786,30 @@ public static class Marks {
         sprite: static (ctx, row) => SpritePipeline(ctx.Frame, ctx.Sprites, row.Value));
 
     private static Fin<Either<Error, Outcome>> ScreenProjection(ConduitFrame frame, Mark mark) => mark switch {
-        Mark.StrokeCase row =>
+        Mark.Stroke row =>
             (from primitives in PathPrimitive.Lower(spec: row.Path)
              from stroke in Stroke.Of(
-                 colour: row.Stroke.Colour,
-                 width: row.Stroke.Width,
+                 colour: row.Style.Colour,
+                 width: row.Style.Width,
                  space: WidthSpace.Screen,
-                 cap: StrokeCap.For(row.Stroke.Cap),
-                 join: StrokeJoin.For(row.Stroke.Join),
-                 dash: row.Stroke.Dash)
+                 cap: StrokeCap.For(row.Style.Cap),
+                 join: StrokeJoin.For(row.Style.Join),
+                 dash: row.Style.Dash)
              from pen in stroke.Mint()
              from drawn in Try.lift(() => primitives.Iter(primitive => {
                  using global::Rhino.Geometry.Curve curve = primitive.Mint();
                  frame.Pipeline.DrawCurve(curve, pen);
              })).Run()
              select Either.Right<Error, Outcome>(Outcome.Drawn)),
-        Mark.TextCase { Face.Source: TypeSource.FamilyCase family } row =>
-            from ink in row.Ink.ToDrawing()
+        Mark.Text { Face.Source: TypeSource.Family family } row =>
+            from ink in row.Colour.ToDrawing()
             from drawn in Try.lift(() => HostEdge.Side(() => frame.Pipeline.Draw2dText(
-                row.Text,
+                row.Value,
                 ink,
-                new Point2d(row.At.X, row.At.Y),
-                row.Block.Map(static block => block.Align == Eto.Drawing.FormattedTextAlignment.Center).IfNone(false),
+                new Point2d(row.Origin.X, row.Origin.Y),
+                row.Layout.Map(static block => block.Align == Eto.Drawing.FormattedTextAlignment.Center).IfNone(false),
                 (int)row.Face.Size.Map(static size => size.Value).IfNone(12d),
-                family.Family.Value))).Run()
+                family.Name.Value))).Run()
             select Either.Right<Error, Outcome>(Outcome.Drawn),
         _ => Fin.Succ(Either.Left<Error, Outcome>(new KernelFault.Unsupported(mark.GetType(), typeof(DisplayPipeline)))),
     };

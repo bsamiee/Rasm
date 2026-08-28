@@ -973,8 +973,8 @@ public sealed partial class PreviewSpec {
     public static Fin<PreviewSpec> Of(
         PixelSpan width, PixelSpan height, PreviewSurface surface,
         Option<PixelSpan> ceiling = default) =>
-        from extent in AssetExtent.Of(
-            width: width, height: height, scale: PositiveMagnitude.Create(1.0), max: ceiling)
+        from extent in FactoryBridge.Lift<AssetExtent>(AssetExtent.Validate(
+            width, height, PositiveMagnitude.Create(1.0), ceiling.IfNone(AssetExtent.Ceiling), out AssetExtent? extent), extent)
         select Create(extent: extent, surface: surface);
 }
 

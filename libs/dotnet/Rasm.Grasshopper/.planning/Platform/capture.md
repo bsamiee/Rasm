@@ -380,7 +380,7 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
         Fin<Unit> stopped = await Complete(begin: stream.StopCapture);
         await deliveriesDrained.Task;
         Fin<Unit> removed = RemoveOutput(stream: stream, sink: sink);
-        Fin<Unit> completed = drain.Complete();
+        drain.Complete();
         Fin<Unit> disposed = ReleaseAll(
             stream.Dispose,
             sink.Dispose,
@@ -389,7 +389,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
             filter.Dispose);
         Fin<Unit> released = stopped
             .Settled(release: () => removed)
-            .Settled(release: () => completed)
             .Settled(release: () => disposed);
         released.IfFail(error => ignore(Park(error: error,
             emit: static (logger, detail) => CaptureLog.ReleaseFault(logger: logger, detail: detail))));

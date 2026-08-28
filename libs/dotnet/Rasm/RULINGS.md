@@ -72,15 +72,14 @@ Every reopen predicate rides the license gate.
 - `UiThread.Run(crossing, lane)` is the ONE marshal entry — the crossing CASE selects arity, and a crossing never swallows a body's `Fin`.
 - `MountCustody` is the ONE release latch on host chrome — teardown runs recursive and mint-reverse behind the machine's own published transitions.
 - `UiLease` is the ONE accruing one-shot release base — a mount derives it and accrues teardown arms at mint; a hand latch beside it is deleted.
-- `UiFault.Absent` names a missing host MEMBER, `Unavailable` a missing platform FEATURE, a live-member raise `HostRejected` — never conflated.
+- `KernelFault.MissingContext` names an absent host context, `UiFault.Rejected` a domain clause, and `UiFault.HostRejected` a raised host operation — never conflated.
 - `DataScope.Assign` is the ONE ambient-model boundary and `StoreGate.Mount` the ONE store gate — per-control source wiring is the deleted form.
-- `Field` is the ONE harvest-tagging site and `FieldReport.Value(tag)` the ONE read — a half-filled report is unrepresentable by construction.
 - `Displays.Capture` is the ONE host-image mint and answers a `Lease`; drag slop derives from a `ToleranceLane` row, never a caller magnitude.
 - `Surface` is HOST-AFFINE end to end and `PaintColor` the ONE `PerceptualColor` ↔ host-colour correspondence — `HitTest` alone crosses free.
 - `Platform.Add` publishes no removal, so a seat CAPTURES the prior factory and release re-registers it; `HostPlatform.Demand` is the ONE gate.
-- `PayloadSlot.Box` is the ONE erased mint and refuses a disposable — a native handle rides `Resourced` with its lease, never `Bytes`.
+- `PayloadSlot.Box` is the ONE erased mint and refuses a disposable — a native handle rides `Resource` with its lease, never `Bytes`.
 - Interaction clocks take a `MonotonicTimeline`, never a bare `TimeProvider`; a failing tick never silently stops — the posture ROW decides.
-- `AssetOrigin.Resolve` answers the asked extent in the asked product shape; the filter CHAIN is the operation — empty IS unfiltered, order is law.
+- Each host boundary interprets `AssetOrigin`; a pixel raster's scale rides its admitted `AssetExtent`; the filter CHAIN is the operation — empty IS unfiltered, order is law.
 - `HookSet` takes the folder's `<Package>Point` roster as a TYPE PARAMETER — an untyped registry loses the closed-roster compile break.
 - `Fire` is the ONE raise and `Ring<T>` the ONE bounded fault cell — a second raise path skips veto admission and bounded fault custody.
 - Hook fact unions declare their own seating — `IHookFact.Seats` derives from the fact→point map and `Fire` gates entry and veto-product on it.

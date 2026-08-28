@@ -1,6 +1,6 @@
 # [RASM_RHINO_HOSTUI_PANELS]
 
-`PanelHost` owns Rhino panel registration, placement, per-document instances, visibility, icon, lifecycle evidence, and dock-bar facts through one typed request family. `Rui` owns toolbar-file mutation and census through one command fold, `PanelSections` realizes collapsible host sections from capability sets, and `HostControl` closes the consumable `Rhino.UI.Controls` widget library as instances of the kernel control family. Every control tree is grown by `ControlForge` and owned by an `ElementMount`, every icon origin is the kernel asset family, every colour crosses as `PerceptualColor`, and every entry enters the Rhino command thread through `HostThread.Run` and answers a detached result.
+`PanelHost` owns Rhino panel registration, placement, per-document instances, visibility, icon, lifecycle evidence, and dock-bar facts through one typed request family. `Rui` owns toolbar-file mutation and census through one command fold, `PanelSections` realizes collapsible host sections from capability sets, and `HostControl` closes the consumable `Rhino.UI.Controls` widget library as instances of the kernel control family. Every control tree is created and owned by an `ElementMount`, every icon origin is the kernel asset family, every colour crosses as `PerceptualColor`, and every entry enters the Rhino command thread through `HostThread.Run` and answers a detached result.
 
 ## [01]-[INDEX]
 
@@ -25,7 +25,7 @@
 - Law: `Admits` is a PREDICATE and answers a bool. It asks whether an audience covers an owner, which every sibling `Admit` on this page does not: those admit a value and can refuse, this one filters a fan and has nothing to recover from. A result here would be a failure no caller could act on.
 - Output: `PanelFact` carries owning plug-in, panel, optional document, change, and the monotonic ordinal the registry stamped, and projects its own seat.
 - Boundary: `Construction` retains the leased `ElementMount` so realization failure and control-tree lifetime stay typed even where the host requires a constructed panel instance.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Panel`, `IPanel`, `ShowPanelReason`, `Panels.IsShowing`/`IsHiding`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Label`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Realize`, `ElementMount`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Cell`, `Transition`, `Ring<Error>`, `Lease<T>`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`DocKey`, `PluginKey`).
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Panel`, `IPanel`, `ShowPanelReason`, `Panels.IsShowing`/`IsHiding`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Label`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ElementMount.Create`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Cell`, `Transition`, `Ring<Error>`, `Lease<T>`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`DocKey`, `PluginKey`).
 - Growth: a new lifecycle evidence is one `PanelChange` case; a new identity axis is one column on the seat, breaking every ledger read loudly.
 
 ```csharp
@@ -136,7 +136,7 @@ public abstract class HostPanel : Panel, IPanel {
     protected HostPanel(PluginKey plugin, ControlSpec content, ElementRuntime runtime) {
         owner = plugin.Admit().Map(_ => plugin);
         identity = PanelKey.Of(panelType: GetType());
-        Construction = ControlForge.Realize(spec: content, runtime: runtime);
+        Construction = ElementMount.Create(spec: content, runtime: runtime);
         Control? rejected = null;
         Content = Construction.Match<Control>(
             Succ: outcome => {
@@ -303,11 +303,10 @@ internal abstract partial record PanelBadge {
         stream: static (_) => Unserved(nameof(AssetOrigin.Stream)),
         raster: static (_) => Unserved(nameof(AssetOrigin.Raster)),
         vector: static (_) => Unserved(nameof(AssetOrigin.Vector)),
-        source: static (_) => Unserved(nameof(AssetOrigin.Source)),
-        render: static (_) => Unserved(nameof(AssetOrigin.Render)));
+        source: static (_) => Unserved(nameof(AssetOrigin.Source)));
 
     private static Fin<PanelBadge> Unserved(string origin) =>
-        Fin.Fail<PanelBadge>(error: new UiFault.HostRejected(Detail: $"{nameof(Panels.RegisterPanel)} takes a resource anchor or an icon; {origin} is neither"));
+        Fin.Fail<PanelBadge>(error: new UiFault.HostRejected(Cause: Error.New(0, $"{nameof(Panels.RegisterPanel)} takes a resource anchor or an icon; {origin} is neither")));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -503,7 +502,7 @@ public static class PanelHost {
                     (Anchor: named, Icon: owned, Text: text),
                     named: (held, row) => guard(
                             flag: row.Anchor.Owner == typeof(TPanel).Assembly || verb != PanelVerb.Rebadged,
-                            False: new UiFault.HostRejected(Detail: $"{nameof(Panels.ChangePanelIcon)} resolves a resource against {typeof(TPanel).Assembly.GetName().Name}"))
+                            False: new UiFault.HostRejected(Cause: Error.New(0, $"{nameof(Panels.ChangePanelIcon)} resolves a resource against {typeof(TPanel).Assembly.GetName().Name}")))
                         .ToFin()
                         .Map(_ => held.Anchor(row.Anchor, held.Text)),
                     owned: (held, row) => row.Icon.Use(icon => Fin.Succ(value: held.Icon(icon, held.Text))))
@@ -938,17 +937,17 @@ public static class MenuLinks {
 
 ## [07]-[SECTIONS]
 
-- Owner: `PanelSectionSpec` carries caption, body, height, command-option caption, a capability set, and one optional lifecycle hook; `PanelSectionFeature` and `PanelSectionHolderFeature` close per-section and holder capability; `PanelSectionSignal` closes attach, detach, holder-visibility, and refresh evidence; `PanelSectionLeaf` is the host section; `PanelSectionMount` owns the holder and every grown `ElementMount`.
+- Owner: `PanelSectionSpec` carries caption, body, height, command-option caption, a capability set, and one optional lifecycle hook; `PanelSectionFeature` and `PanelSectionHolderFeature` close per-section and holder capability; `PanelSectionSignal` closes attach, detach, holder-visibility, and refresh evidence; `PanelSectionLeaf` is the host section; `PanelSectionMount` owns the holder and every created `ElementMount`.
 - Entry: `PanelSections.Mount` opens ONE crossing, grows every body inside it, preserves declaration order, and answers a mount owning the holder, every `ElementMount`, and the accumulated hook faults.
-- Auto: bodies grow through the DISPATCH-FREE core rather than the affinity-gated entry, because this owner already holds the crossing — a per-body gate would re-marshal inside a frame that is already the marshal.
-- Auto: a mid-fold refusal releases the mounts it already grew in reverse order, so a partial realize leaks no host control and the hand cleanup tower has no site.
+- Auto: bodies use the DISPATCH-FREE core rather than the affinity-gated entry, because this owner already holds the crossing — a per-body gate would re-marshal inside a frame that is already the marshal.
+- Auto: a mid-fold refusal releases the mounts it already created in reverse order, so partial construction leaks no host control and the hand cleanup tower has no site.
 - Law: every leaf lifecycle override chains its host base FIRST, then routes its signal; a hook fault parks on the mount's bounded ring and never re-enters the holder.
 - Law: the full-height law is a MOUNT law, not a section law. Every capability corner on one section is legal — a hidden section can still be collapsible and initially expanded — while at most one section in a holder can claim the full height, so the corner gate is open and the roster gate is at the fold that sees all of them.
 - Law: an empty section sequence refuses BEFORE any host leaf mints, because a holder with no sections is a control the caller then has to discover is inert.
 - Law: the refresh flags stay a host word. The host publishes no named flag vocabulary for its view update, so a roster here would be an authored guess at a set the host owns; the case carries the word and names it as the host's.
 - Law: release is a guarded TRANSITION over the same state the panel base steps, so both one-shot owners on this page answer the same vocabulary and neither carries a latch of its own.
 - Output: `PanelSectionMount` — the holder control, the accumulated hook and teardown faults, and the reverse-order drain.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`EtoCollapsibleSection3`, `ICollapsibleSectionHolder2`, `EtoCollapsibleSectionHolder2`, `LocalizeStringPair`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Grow`, `ElementMount`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Cell`, `Transition`, `Ring<Error>`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`).
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`EtoCollapsibleSection3`, `ICollapsibleSectionHolder2`, `EtoCollapsibleSectionHolder2`, `LocalizeStringPair`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ElementMount.CreateCurrent`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Cell`, `Transition`, `Ring<Error>`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`).
 - Growth: a new lifecycle signal is one `PanelSectionSignal` case with one override; a new section capability is one row on its roster.
 
 ```csharp
@@ -1112,12 +1111,12 @@ public static class PanelSections {
         CapabilitySet<PanelSectionHolderFeature> features,
         ElementRuntime runtime) =>
         sections
-            .Fold(Fin.Succ(Seq<ElementMount>()), (held, section) => held.Bind(grown => ControlForge
-                .Grow(spec: section.Body, runtime: runtime)
+            .Fold(Fin.Succ(Seq<ElementMount>()), (held, section) => held.Bind(mounts => ElementMount
+                .CreateCurrent(spec: section.Body, runtime: runtime)
                 .Match(
-                    Succ: outcome => Fin.Succ(grown.Add(outcome)),
+                    Succ: outcome => Fin.Succ(mounts.Add(outcome)),
                     Fail: fault => HostThread.Release(
-                        releases: grown.Rev().Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))).Match(
+                        releases: mounts.Rev().Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))).Match(
                             Succ: _ => Fin.Fail<Seq<ElementMount>>(error: fault),
                             Fail: cleanup => Fin.Fail<Seq<ElementMount>>(error: fault + cleanup)))))
             .Bind(contents => Held(sections: sections, contents: contents.Strict(), features: features));
@@ -1165,8 +1164,8 @@ public static class PanelSections {
 - Law: the theme feed's role map is the positive ALLOW-LIST — every declared role must resolve to a zone swatch, and an unresolved role fails the feed with the missing paths as typed evidence rather than seating a partial grid.
 - Law: `ThemePalette.Detach` and `UiServices.Resolve` cross the command thread like every other entry on this page, and `Feed` inherits the crossing through `Detach` rather than opening a second one.
 - Boundary: the parent-coupled host slider and the document-bound linetype grid stay behind their own document-scoped owners; the host dialog bases ride the shell presenter, and native pointer handles never cross this family.
-- Output: `ControlMint` per case and `ThemeChange` per feed — both settled values the kernel owners already publish.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`NumericUpDownWithUnitParsing`, `RichTextAreaWithAlternateText`, `ImageButton`, `ImageToolTipButton`, `AddRemoveButton`, `RhinoButtonRow`, `ControlGridLayout`, `Divider`, `LabelSeparator`, `StaticAlignedLabel`, `DisplayAndPrintColorPicker`, `ViewportControl`, `RhinoLayout` padding/spacing/width/label factories, `NumericUpDownWithUnitParsingUpdateMode`, `DistanceDisplayMode`, `GridWrapMode`, `DisplayAndPrintColorPickerMode`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Theme.ThemeZone`, `RhinoUiServiceLocator`, `PlatformServiceProvider`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); `Rasm/Interaction` (`ControlSpec`, `ControlMint`, `ElementSpec`, `ElementRuntime`, `EditTrait`, `IntentTable.Verb`, `IntentKey`, `PaintColor`, `ThemePort`, `ThemeShift`, `ThemeVariant`, `PaletteRole`, `ThemeChange`, `UiFault`); `Rasm/Domain` (`Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`, `PositiveMagnitude`).
+- Output: `ControlMint` per case and `(ThemeChange Change, Error Failures)` per feed — the accepted change and its restyle warnings remain separate values.
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`NumericUpDownWithUnitParsing`, `RichTextAreaWithAlternateText`, `ImageButton`, `ImageToolTipButton`, `AddRemoveButton`, `RhinoButtonRow`, `ControlGridLayout`, `Divider`, `LabelSeparator`, `StaticAlignedLabel`, `DisplayAndPrintColorPicker`, `ViewportControl`, `RhinoLayout` padding/spacing/width/label factories, `NumericUpDownWithUnitParsingUpdateMode`, `DistanceDisplayMode`, `GridWrapMode`, `DisplayAndPrintColorPickerMode`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Theme.ThemeZone`, `RhinoUiServiceLocator`, `PlatformServiceProvider`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `WriterT`); `Rasm/Interaction` (`ControlSpec`, `ControlMint`, `ElementSpec`, `ElementRuntime`, `EditTrait`, `IntentTable.Verb`, `IntentKey`, `PaintColor`, `ThemePort`, `ThemeShift`, `ThemeVariant`, `PaletteRole`, `ThemeChange`, `UiFault`); `Rasm/Domain` (`Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`, `PositiveMagnitude`).
 - Growth: a new Rhino widget is one `HostControl` case and one mint arm; a new layout row is one entry on its own vocabulary; a new update mode is one `UnitPulse` row the mask fold already reads.
 
 ```csharp
@@ -1374,9 +1373,10 @@ public abstract partial record HostControl {
             _ = row.Format.Apply(stepper);
             _ = row.Prefix.Iter(text => stepper.Prefix = text.Resolve());
             _ = row.Suffix.Iter(text => stepper.Suffix = text.Resolve());
-            return Fin.Succ(value: ControlMint.Editor(
-                host: stepper,
-                pick: () => Fin.Succ<FieldValue>(value: new FieldValue.Number(Value: stepper.Value))));
+            return Fin.Succ(value: new ControlMint(
+                Host: new Lease<Control>.Owned(stepper),
+                Pick: Some<Func<Fin<FieldValue>>>(() =>
+                    Fin.Succ<FieldValue>(value: new FieldValue.Number(Value: stepper.Value)))));
         }).Run().Bind(static inner => inner),
         richAlternate: static (held, row) => Try.lift(() => {
             RichTextAreaWithAlternateText rich = new() { ReadOnly = !row.Traits.Admits(EditTrait.Editable) };
@@ -1384,26 +1384,30 @@ public abstract partial record HostControl {
                 rich.AlternateText = text.Resolve();
                 rich.ShowAlternateText = true;
             }));
-            return Fin.Succ(value: ControlMint.Editor(
-                host: rich,
-                pick: () => Fin.Succ<FieldValue>(value: new FieldValue.Markup(Rtf: rich.Text))));
+            return Fin.Succ(value: new ControlMint(
+                Host: new Lease<Control>.Owned(rich),
+                Pick: Some<Func<Fin<FieldValue>>>(() =>
+                    Fin.Succ<FieldValue>(value: new FieldValue.Markup(Rtf: rich.Text)))));
         }).Run().Bind(static inner => inner),
         command: static (held, row) => Button(row: row.Row, runtime: held)
-            .Map(ControlMint.Leaf),
+            .Map(static control => new ControlMint(Host: new Lease<Control>.Owned(control))),
         addRemove: static (held, row) =>
             from add in held.Intents.Verb(row.Add)
             from remove in held.Intents.Verb(row.Remove)
-            from control in Try.lift(() => ControlMint.Leaf(
-                host: new AddRemoveButton { AddCommand = add, RemoveCommand = remove })).Run()
+            from control in Try.lift(() => new ControlMint(
+                Host: new Lease<Control>.Owned(new AddRemoveButton { AddCommand = add, RemoveCommand = remove }))).Run()
             select control,
         actionRow: static (held, row) => Try.lift(() => new RhinoButtonRow {
                 Spacing = row.Gap.Stacked(axis: Orientation.Horizontal),
             }).Run()
             .Bind(bar => row.Rows
                 .TraverseM(entry => Button(row: entry, runtime: held)
-                    .Bind(button => Try.lift(() => (HostEdge.Side(() => bar.AddButton(button)), ControlMint.Leaf(host: button)).Item2).Run()))
+                    .Bind(button => Try.lift(() => (HostEdge.Side(() => bar.AddButton(button)),
+                        new ControlMint(Host: new Lease<Control>.Owned(button))).Item2).Run()))
                 .As()
-                .Map(children => ControlMint.Leaf(host: bar) with { Children = children.Strict() })),
+                .Map(children => new ControlMint(
+                    Host: new Lease<Control>.Owned(bar),
+                    Children: children.Strict()))),
         gridWrap: static (held, row) => row.Items
             .TraverseM(item => item.Mint(runtime: held))
             .As()
@@ -1415,23 +1419,26 @@ public abstract partial record HostControl {
                     StretchItemsToWidth = row.Stretch.Key,
                 };
                 _ = children.Iter(child => HostEdge.Side(() => grid.Items.Add(child.Host.Resource)));
-                return Fin.Succ(value: ControlMint.Leaf(grid) with { Children = children.Strict() });
+                return Fin.Succ(value: new ControlMint(
+                    Host: new Lease<Control>.Owned(grid),
+                    Children: children.Strict()));
             }).Run().Bind(static inner => inner)),
-        labelRow: static (held, row) => row.Field.Mint(runtime: held).Bind(field => Try.lift(() => ControlMint.Leaf(host: RhinoLayout.LabelTableLayout(
-                    row.Caption.Resolve(), field.Host.Resource, true, row.Gap.Key))
-                with { Children = Seq(field) }).Run()),
+        labelRow: static (held, row) => row.Field.Mint(runtime: held).Bind(field => Try.lift(() => new ControlMint(
+                Host: new Lease<Control>.Owned(RhinoLayout.LabelTableLayout(
+                    row.Caption.Resolve(), field.Host.Resource, true, row.Gap.Key)),
+                Children: Seq(field))).Run()),
         dividerLine: static (held, row) => row.Colour
             .Traverse(colour => colour.ToEto())
             .As()
             .Bind(ink => Try.lift(() => {
                 Divider line = new();
                 _ = ink.Iter(colour => line.Color = colour);
-                return Fin.Succ(value: ControlMint.Leaf(host: line));
+                return Fin.Succ(value: new ControlMint(Host: new Lease<Control>.Owned(line)));
             }).Run().Bind(static inner => inner)),
-        captionRule: static (held, row) => Try.lift(() => ControlMint.Leaf(
-            host: new LabelSeparator { Text = row.Caption.Resolve() })).Run(),
-        pinnedLabel: static (held, row) => Try.lift(() => ControlMint.Leaf(
-            host: new StaticAlignedLabel(row.Alignment) { Text = row.Text.Resolve() })).Run(),
+        captionRule: static (held, row) => Try.lift(() => new ControlMint(
+            Host: new Lease<Control>.Owned(new LabelSeparator { Text = row.Caption.Resolve() }))).Run(),
+        pinnedLabel: static (held, row) => Try.lift(() => new ControlMint(
+            Host: new Lease<Control>.Owned(new StaticAlignedLabel(row.Alignment) { Text = row.Text.Resolve() }))).Run(),
         outputColour: static (held, row) =>
             from display in row.Display.ToEto()
             from print in row.Print.ToEto()
@@ -1441,13 +1448,14 @@ public abstract partial record HostControl {
                 DisplayColor = display,
                 PrintColor = print,
             }).Run()
-            select ControlMint.Editor(
-                host: picker,
-                pick: () => PaintColor.OfHost(host: picker.DisplayColor)
-                    .Map<FieldValue>(static value => new FieldValue.Colour(Value: value))),
-        viewportView: static (held, row) => Try.lift(() => ControlMint.Leaf(host: row.Title.Match(
-            Some: static title => new ViewportControl(viewportTitle: title.Resolve()),
-            None: static () => new ViewportControl()))).Run());
+            select new ControlMint(
+                Host: new Lease<Control>.Owned(picker),
+                Pick: Some<Func<Fin<FieldValue>>>(() => PaintColor.OfHost(host: picker.DisplayColor)
+                    .Map<FieldValue>(static value => new FieldValue.Colour(Value: value)))),
+        viewportView: static (held, row) => Try.lift(() => new ControlMint(
+            Host: new Lease<Control>.Owned(row.Title.Match(
+                Some: static title => new ViewportControl(viewportTitle: title.Resolve()),
+                None: static () => new ViewportControl())))).Run());
 
     private static Fin<ImageButton> Button(HostCommandRow row, ElementRuntime runtime) =>
         runtime.Intents.Verb(row.Intent).Bind(command => Try.lift(() => {
@@ -1477,7 +1485,7 @@ public static class ThemePalette {
                 .Map(static swatches => swatches.Strict()))));
     }
 
-    public static Fin<ThemeChange> Feed(
+    public static Fin<(ThemeChange Change, Error Failures)> Feed(
         ThemeZone zone,
         ThemePort theme,
         ThemeVariant variant,
@@ -1493,8 +1501,8 @@ public static class ThemePalette {
                     shift: new ThemeShift.Hosted(
                         Variant: variant,
                         Cells: toHashMap(toSeq(roles.AsIterable())
-                            .Choose(row => found.Find(row.Key).Map(value => (row.Value, value))))))
-                : Fin.Fail<ThemeChange>(error: new KernelFault.InvalidResult(Detail: Some(string.Join(",", missing))));
+                            .Choose(row => found.Find(row.Key).Map(value => (row.Value, value)))))).Run().As()
+                : Fin.Fail<(ThemeChange, Error)>(error: new KernelFault.InvalidResult(Detail: Some(string.Join(",", missing))));
         });
     }
 }
@@ -1504,7 +1512,7 @@ public static class UiServices {
         return HostThread.Run(
             work: new HostWork<TService>.Execute(Body: () => Try.lift(() =>
                 (Optional(RhinoUiServiceLocator.GetService<TService>()) | Optional(PlatformServiceProvider.Service as TService))
-                    .ToFin(Fail: new UiFault.HostRejected(Detail: $"no {typeof(TService).Name} is registered on this host"))).Run().Bind(static inner => inner)));
+                    .ToFin(Fail: new UiFault.HostRejected(Cause: Error.New(0, $"no {typeof(TService).Name} is registered on this host")))).Run().Bind(static inner => inner)));
     }
 }
 ```

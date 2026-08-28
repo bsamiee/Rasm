@@ -1436,7 +1436,7 @@ public static class ExportPlan {
 
     public static Fin<string> Chosen(ExportRequest request, ExportField field) =>
         Read(request, field).Bind(value => value is FieldValue.Pick pick
-            ? Fin.Succ(pick.Text)
+            ? pick.Text.ToFin(Refusal(field, "carries no choice text"))
             : Fin.Fail<string>(Refusal(field, "is not a choice")));
 
     public static Fin<bool> Flagged(ExportRequest request, ExportField field) =>

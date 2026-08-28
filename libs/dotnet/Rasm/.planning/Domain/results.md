@@ -200,7 +200,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand UiContext        = new(6920,  6, BandKind.Fault, TelemetrySource.AppUi);
     // --- [KERNEL]
     public static readonly FaultBand Kernel           = new(9100,  11, BandKind.Fault, TelemetrySource.Kernel);
-    public static readonly FaultBand Interaction      = new(9200,  10, BandKind.Fault, TelemetrySource.Kernel);
+    public static readonly FaultBand Interaction      = new(9200,  6, BandKind.Fault, TelemetrySource.Kernel);
 
     public int Code(int offset) => Key + offset;
 

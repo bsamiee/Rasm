@@ -25,10 +25,10 @@ Bar is a fold of `BarItemSpec` rows onto one host `Bar`, a panel is a fold of ca
 
 ## [03]-[PANEL]
 
-- Owner: `PanelControl` `[Union]` — the category-scoped control rows a panel build folds through the `InputPanel.Add*` family, each returning its typed control: `LabelCase(string Text, bool Italic, string Tip)` (`AddLabel(string, bool italic, string tooltip)` → `Label`), `CheckCase(string Label, bool Initial, Action<bool> Changed, string Tip)` (`AddCheck` → `CheckBox`), `TextCase(string Label, Action<string> Changed, string Tip)` (`AddText` → `TextBox`), `BarCase(bool CategoryLabels, Option<int> RowHeight, Seq<BarItem> Items)` (`AddBar(bool, params BarItem[])`, the `Some` height selecting the `AddBar(bool, int, params BarItem[])` overload → `Bar`), `SpecCase(ControlSpec Spec, ElementRuntime Runtime)` (the kernel control-module boundary MADE REAL: the build realizes the spec through `ControlForge.Grow` and hands `mount.Host` to `Add(Control)`, the realized `ElementMount` joining the build's teardown custody), `HostCase(Control Surface)` (`Add(Control)` — the raw escape for a host-realized control that has no kernel spec). `PanelPlan` record — `Seq<PanelCategory>` where each `PanelCategory(ChromeTag Name, Seq<PanelControl> Rows)` opens through `BeginCategory` — whose returned `IDisposable` closes the category scope and is disposed by the fold after its rows land — then folds its rows in order.
+- Owner: `PanelControl` `[Union]` — the category-scoped control rows a panel build folds through the `InputPanel.Add*` family, each returning its typed control: `LabelCase(string Text, bool Italic, string Tip)` (`AddLabel(string, bool italic, string tooltip)` → `Label`), `CheckCase(string Label, bool Initial, Action<bool> Changed, string Tip)` (`AddCheck` → `CheckBox`), `TextCase(string Label, Action<string> Changed, string Tip)` (`AddText` → `TextBox`), `BarCase(bool CategoryLabels, Option<int> RowHeight, Seq<BarItem> Items)` (`AddBar(bool, params BarItem[])`, the `Some` height selecting the `AddBar(bool, int, params BarItem[])` overload → `Bar`), `SpecCase(ControlSpec Spec, ElementRuntime Runtime)` (the kernel control-module boundary MADE REAL: the build realizes the spec through `ElementMount.CreateCurrent` and hands `mount.Host` to `Add(Control)`, the realized `ElementMount` joining the build's teardown custody), `HostCase(Control Surface)` (`Add(Control)` — the raw escape for a host-realized control that has no kernel spec). `PanelPlan` record — `Seq<PanelCategory>` where each `PanelCategory(ChromeTag Name, Seq<PanelControl> Rows)` opens through `BeginCategory` — whose returned `IDisposable` closes the category scope and is disposed by the fold after its rows land — then folds its rows in order.
 - Owner: `PanelOp` `[Union]` — the panel verb family: `BuildCase(PanelPlan Plan)`, `MoveCase(ChromeTag Category, ChromeTag Above)` (`MoveCategoryBelow(string category, string above)`), `RenameCase(ChromeTag Category, ChromeTag Next)` (`RenameCategory`), `RemoveCase(ChromeTag Category)` (`RemoveCategory`), `EmbedCase` (`ToEtoControl()` — the panel projected as an embeddable `Control`, returned on the outcome), `FloatCase(Control Owner, PointF At, RectangleF Screen)` (`ShowAsForm(Control, PointF, RectangleF)` → `Form` — the floated panel returns as `Lease<Form>.Owned` on the outcome, so teardown rides `Shell/session.md`'s release custody and a dangling chrome form is unconstructible).
 - Law: the category build UNWINDS — the panel is a LIVE host surface, so a refused build removes every category it already opened through `RemoveCategory` in reverse order AND disposes every `ElementMount` its `SpecCase` rows realized before the aggregate refusal returns, with unwind refusals aggregating INTO that fault rather than vanishing (branch RULINGS `[02]`); no spec set can leave half a plan on live chrome, and the settled build's teardown owns its realized mounts the same way.
-- Law: the panel is the one category-structured control surface — a bespoke Eto form assembling label/check/text rows beside it re-derives what `InputPanel` owns and is the deleted form; a control family richer than the `Add*` set enters as `SpecCase` realized through the kernel forge — `HostCase` stays the raw escape for host-realized objects only — so the host roster bounds nothing and the kernel control module is COMPOSED, never advertised. Category verbs return `bool` — a `false` settles `UiFault.HostRejected` carrying the missing category tag, never a silent no-op.
+- Law: the panel is the one category-structured control surface — a bespoke Eto form assembling label/check/text rows beside it re-derives what `InputPanel` owns and is the deleted form; a control family richer than the `Add*` set enters as `SpecCase` realized through `ElementMount.CreateCurrent` — `HostCase` stays the raw escape for host-realized objects only — so the host roster bounds nothing and the kernel control module is COMPOSED, never advertised. Category verbs return `bool` — a `false` settles `UiFault.HostRejected` carrying the missing category tag, never a silent no-op.
 - Boundary: value admission for check/text callbacks is the consumer's — a callback that admits raw text into a domain owner composes the kernel `Rasm/Interaction` binding module's gate; this page wires the callback and adjudicates nothing.
 - Packages: Grasshopper2 (`InputPanel`, `BarItem`), Eto (`Control`, `Form`, `PointF`, `RectangleF`), `Rasm.Domain` (`Fault`, `Lease<T>`), `Rasm.Interaction` (`UiFault`).
 - Growth: a new panel control kind is one `PanelControl` case (kernel-expressible controls cost a `ControlSpec` value, not a case); a new category verb is one `PanelOp` case.
@@ -297,7 +297,7 @@ public static class Chrome {
                 captureCase: static (t) => Passed(verb: op, action: () =>
                     Frame.ScreencapFolder = HostEdge.Slot(t.Folder))),
             floatCase: static c => Admit.Need(c.Target).Bind(floats => Settle(floats: floats, verb: c.Verb)))),
-            DispatchLane.Interactive, active));
+            DispatchLane.Interactive));
     }
 
     public static Fin<Lease<ChromeSeat>> Mount(Seq<ChromeIntent> standing);
@@ -339,10 +339,10 @@ public static class Chrome {
         removeCase: static (s, c) => Ruled(name: (string)c.Category,
             rule: () => s.RemoveCategory((string)c.Category)),
         embedCase: static (s, c) => Try.lift(() =>
-                Optional(s.ToEtoControl()).ToFin((Error)new UiFault.HostRejected(Detail: "host returned nothing"))).Run().Bind(static inner => inner)
+                Optional(s.ToEtoControl()).ToFin((Error)new UiFault.HostRejected(Cause: Error.New(0, "host returned nothing")))).Run().Bind(static inner => inner)
             .Map(static surface => (ChromeOutcome)new ChromeOutcome.EmbeddedCase(Surface: surface)),
         floatCase: static (s, c) => Try.lift(() =>
-                Optional(s.ShowAsForm(c.Owner, c.At, c.Screen)).ToFin((Error)new UiFault.HostRejected(Detail: "host returned nothing"))).Run().Bind(static inner => inner)
+                Optional(s.ShowAsForm(c.Owner, c.At, c.Screen)).ToFin((Error)new UiFault.HostRejected(Cause: Error.New(0, "host returned nothing")))).Run().Bind(static inner => inner)
             .Map(static window => (ChromeOutcome)new ChromeOutcome.FloatedCase(Window: new Lease<Form>.Owned(Value: window))));
 
     private static Fin<ChromeOutcome> Built(InputPanel panel, PanelPlan plan);
@@ -350,7 +350,7 @@ public static class Chrome {
     private static Fin<ChromeOutcome> Ruled(string name, Func<bool> rule) =>
         Try.lift(() => rule()
             ? Fin.Succ((ChromeOutcome)new ChromeOutcome.PassedCase(Verb: verb))
-            : Fin.Fail<ChromeOutcome>((Error)new UiFault.HostRejected(Key: verb, Detail: name))).Run().Bind(static inner => inner);
+            : Fin.Fail<ChromeOutcome>((Error)new UiFault.HostRejected(Cause: Error.New(0, name)))).Run().Bind(static inner => inner);
 
     private static Fin<Option<ElementMount>> Fill(InputPanel panel, PanelControl row) => row.Switch(
         state: panel,
@@ -360,7 +360,7 @@ public static class Chrome {
         barCase: static (s, c) => Fin.Succ((HostEdge.Side(action: () => c.RowHeight.Match(
             Some: height => s.AddBar(c.CategoryLabels, height, [.. c.Items]),
             None: () => s.AddBar(c.CategoryLabels, [.. c.Items]))), Option<ElementMount>.None).Item2),
-        specCase: static (s, c) => ControlForge.Grow(spec: c.Spec, runtime: c.Runtime)
+        specCase: static (s, c) => ElementMount.CreateCurrent(spec: c.Spec, runtime: c.Runtime)
             .Map(realized => (HostEdge.Side(action: () => s.Add(realized.Host)), Some(realized)).Item2),
         hostCase: static (s, c) => Fin.Succ((HostEdge.Side(action: () => s.Add(c.Surface)), Option<ElementMount>.None).Item2));
 
@@ -401,7 +401,7 @@ public static class Chrome {
         tallyCase: static (s, c) => Try.lift(() => s.StateCount(c.State)).Run()
             .Map(static count => (ChromeOutcome)new ChromeOutcome.CountCase(Value: count)),
         bindCase: static (s, c) => Try.lift(() =>
-                Optional(s.FindByName((string)c.Name)).ToFin((Error)new UiFault.HostRejected(Detail: (string)c.Name))).Run().Bind(static inner => inner)
+                Optional(s.FindByName((string)c.Name)).ToFin((Error)new UiFault.HostRejected(Cause: Error.New(0, (string)c.Name)))).Run().Bind(static inner => inner)
             .Bind(found => Try.lift(() => found.MakeNumeric(c.Channel, c.ValueKey)).Run().Bind(static inner => inner))
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase()));
 

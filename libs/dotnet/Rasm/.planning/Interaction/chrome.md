@@ -2,33 +2,33 @@
 
 `Rasm.Interaction` owns the one interactive-verb vocabulary and every chrome that vocabulary projects into. A verb is a ROW — its identity, its text, its gesture, its availability probe, its behaviour, and every surface occurrence it claims — and a menu bar, a toolbar, a context menu, a window, a modal, a native prompt, a printed document, and an OS presence are projections of that one row set rather than eight parallel registries. Two projection shapes survive on a named discriminant: PLACEMENT is declarative and rank-ordered, NODE is authored and order-preserving, and neither can express the other without capping a depth or forcing an ordering nothing declared.
 
-Both host boundaries carried the whole spine and each held half of it. Rhino held the placement algebra, the behaviour-carrying command family, the three chrome projections with their conflict admission, the window realize with its reverse-order chrome teardown, the injected-presenter modal, and the entire print flow; Grasshopper held the mint row, the recursive menu tree with its lease-owned recursive detach, the latency-and-fault journal echo, the window posture record with its live mutation verbs, the skin row, the mount custody triple, and the eight-case native prompt family. This owner is their union at every axis. Host residue stays where its host types live: Rhino's `.rui` toolbar-file catalog and `MenuLinks` live menu mutation are that host's OWN menu system and are not this owner, its `Rhino.UI` panel and page registries stay, its multi-value document-scoped `Inquiry` dialogs stay, and Grasshopper2 canvas chrome, editor panes, and the session styling target stay — the kernel carries the skin ROW over an INJECTED styler, each host supplying its own function.
+Both host boundaries carried the whole spine and each held half of it. Rhino held the placement algebra, the behaviour-carrying command family, the three chrome projections with their conflict admission, the window realize with its reverse-order chrome teardown, the injected-presenter modal, and the entire print flow; Grasshopper held the command mint, the recursive menu tree with its lease-owned recursive detach, the latency-and-fault journal echo, the window posture record with its live mutation verbs, the styling function, the mount custody triple, and the eight-case native prompt family. This owner is their union at every axis. Host residue stays where its host types live: Rhino's `.rui` toolbar-file catalog and `MenuLinks` live menu mutation are that host's OWN menu system and are not this owner, its `Rhino.UI` panel and page registries stay, its multi-value document-scoped `Inquiry` dialogs stay, and Grasshopper2 canvas chrome, editor panes, and the session styling target stay — the kernel carries an optional styling function supplied by each host.
 
-Composition is downward and sideways inside the sub-domain: `Lease<T>`, `Atom`, `Cell`/`Transition`, `Validation`, `ValidityClaim`, `CapabilitySet<TCapability>`, `ICapability<TSelf>`, and `CapabilityLaw<TCapability>` from `Domain`; `ModelUnit` from `Domain/context`; `Dimension`, `UnitInterval`, and `PerceptualColor` from `Numerics/atoms`; `MonotonicTimeline` and `GaugedSpan<TLane>` from `Parametric/projections`; `SheetSize`, `SheetMargin`, and `SheetOrientation` from `Drawing/sheet`; `FaultCell` from `Domain/hooks`; `UiFault`, `RejectReason`, `UiDispatch<T>`, `DispatchLane`, and `UiThread` from `Interaction/dispatch`; `ControlSpec`, `ElementRuntime`, `ElementMount`, `FieldReport`, `FieldTag`, `NumberPolicy`, and `AlphaMode` from `Interaction/control`; `IUiFact`, `IUiSource<TFact>`, `EventAnchor`, and `EvidenceDrain<TFact>` from `Interaction/input`; `PlatformClaim` and `HostPlatform` from `Interaction/platform`; `PaintProgram`, `ScenePolicy`, and `TypeFace` from `Interaction/paint`; `IconRender`, `AssetExtent`, and `FileLocation` from `Interaction/asset`.
+Composition is downward and sideways inside the sub-domain: `Lease<T>`, `Atom`, `Cell`/`Transition`, `Validation`, `ValidityClaim`, `CapabilitySet<TCapability>`, `ICapability<TSelf>`, and `CapabilityLaw<TCapability>` from `Domain`; `ModelUnit` from `Domain/context`; `Dimension`, `UnitInterval`, and `PerceptualColor` from `Numerics/atoms`; `MonotonicTimeline` and `GaugedSpan<TLane>` from `Parametric/projections`; `SheetSize`, `SheetMargin`, and `SheetOrientation` from `Drawing/sheet`; `FaultCell` from `Domain/hooks`; `UiFault`, `RejectReason`, `UiDispatch<T>`, `DispatchLane`, and `UiThread` from `Interaction/dispatch`; `ControlSpec`, `ElementRuntime`, `ElementMount`, `FieldTag`, and `NumberPolicy` from `Interaction/control`; `IUiFact`, `IUiSource<TFact>`, `EventAnchor`, and `EvidenceDrain<TFact>` from `Interaction/input`; `PlatformRequirement` and `HostPlatform` from `Interaction/platform`; `PaintProgram`, `ScenePolicy`, and `TypeFace` from `Interaction/paint`; `IconRender`, `AssetExtent`, and `FileLocation` from `Interaction/asset`.
 
 ## [01]-[INDEX]
 
-- [02]-[INTENT]: `IntentKey`, `PlacementKey`, `GroupKey`, `SubMenuKey`, `JobName`, `CommandRole`, `CommandKind`, `PlacementSlot`, `IntentRow`, `Invocation`, `IntentTable` — the verb row set, its mint and behaviour columns, and the three declarative chrome projections.
-- [03]-[MENU]: `MenuNode`, `MenuMode`, `MenuBudget`, `MenuSlot`, `MenuBranch`, `OwnedContextMenu`, `MenuForge` — the authored node tree, its declared bounds, its flat projection, and its recursively lease-owned realization.
-- [04]-[WINDOW]: `ShellCapability`, `WindowRole`, `MountPhase`, `ChromeStyler`, `WindowChrome`, `WindowSpec`, `WindowVerb`, `IMount`, `MountCustody`, `WindowMount` — the window posture, its skin adapter, its live verbs, the custody machine every mount on this page composes, and the mount that owns every host object the realize minted.
-- [05]-[PROMPT]: `RefusalPosture`, `PromptSettle<TResult>`, `PromptChoice<TResult>`, `Prompt<TResult>`, `FilterPlan`, `PickerSpec`, `PickerResult`, `PickerDemand<TResult>`, `AskVerdict`, `AskTrait`, `AskDelivery`, `AskModality`, `AskPolicy` — the result-typed modal over an injected presenter and the native prompt family as cases of one gate, each case answering its own typed result.
+- [02]-[INTENT]: `IntentKey`, `PlacementKey`, `GroupKey`, `SubMenuKey`, `JobName`, `CommandKind`, `PlacementSlot`, `IntentRow`, `Invocation`, `IntentTable` — the verb row set, its behaviour owner, and the three declarative chrome projections.
+- [03]-[MENU]: `MenuNode`, `MenuMode`, `MenuSlot`, `MenuBranch`, `OwnedContextMenu`, `MenuTree` — the authored node tree, its limits, its flat projection, and its recursively lease-owned realization.
+- [04]-[WINDOW]: `ShellCapability`, `WindowRole`, `MountPhase`, `WindowChrome`, `WindowSpec`, `WindowVerb`, `IMount`, `MountCustody`, `WindowMount` — the window posture, its styling function, its live verbs, the custody machine every mount on this page composes, and the mount that owns every host object the realize minted.
+- [05]-[PROMPT]: `PromptChoice<TResult>`, `Prompt<TResult>`, `FilterPlan`, `PickerSpec`, `PickerResult`, `PickerDemand<TResult>`, `AskVerdict`, `AskTrait`, `AskDelivery`, `AskModality`, `AskPolicy` — the result-typed modal over an injected presenter and the native prompt family as cases of one gate, each case answering its own typed result.
 - [06]-[PRINT]: `PrintRoute`, `PageFrame`, `PageSpan`, `PrintScope`, `CollatePosture`, `PageOrder`, `PrintSpec`, `PrintPage`, `PrintPageFact`, `PrintOutcome`, `PrintPlan` — the deferred document run, its sheet-composed page geometry, and its per-page evidence.
 - [07]-[PRESENCE]: `ToastKey`, `Toast`, `PulseState`, `PresenceOp`, `PresenceHold`, `PresenceMount`, `Presence` — the OS presence family as cases of one applied-and-restored gate.
 
 ## [02]-[INTENT]
 
-- Owner: `IntentKey` the verb identity, `PlacementKey` the surface identity, `GroupKey` the radio-group identity, `SubMenuKey` the submenu identity, `JobName` the print job's; `CommandKind` the closed behaviour family; `CommandRole` the mint column; `PlacementSlot` one surface occurrence; `IntentRow` one verb; `Invocation` one invocation fact; `IntentTable` the materialized deck every projection borrows from.
+- Owner: `IntentKey` the verb identity, `PlacementKey` the surface identity, `GroupKey` the radio-group identity, `SubMenuKey` the submenu identity, `JobName` the print job's; `CommandKind` the closed behaviour and command-mint family; `PlacementSlot` one surface occurrence; `IntentRow` one verb; `Invocation` one invocation fact; `IntentTable` the materialized deck every projection borrows from.
 - Cases: `Act` runs an effect, `Toggle` reads and writes a two-state, `Pick` reads and chooses inside a named radio group. Behaviour is the CASE and mint posture is the ROW, and the row DERIVES from the case — the two boundaries carried these as two independent vocabularies, so a Grasshopper spec could name a radio mint with no group read and a Rhino kind could carry behaviour no mint supported.
 - Entry: `Materialize` is the one construction and answers a leased table; `Verb` resolves the host command, `Invoke` the programmatic raise, `Attach` seats the relay every raise publishes through, `RefreshAvailability` the state sweep, and `MenuOf`/`BarOf`/`PopupOf` the three placement projections.
 - Auto: identity, gesture, and placement-rank conflicts are THREE independent admissions accumulated through `Validation` before a single command mints, so an author with three defects reads all three rather than being sent back three times.
 - Auto: every raise publishes ONE fact through the sub-domain's evidence drain, which is the single minter of the ordinal and the stamp under one compare-and-swap — a second counter here would hand two events one order, and the drain is bounded, so a verb storm sheds against a declared capacity and reports the shed rather than growing a journal for process life.
 - Law: latency rides `MonotonicTimeline.Gauged` on `DispatchLane.Interactive` — an invocation IS an interactive crossing and the kernel timeline is the one gauge, so no stopwatch pair exists here. The span is `Option`-shaped because a refused crossing produces none, and a zero-elapsed sentinel is indistinguishable from an instantaneous verb.
-- Law: `Invocation` carries `Fin<Unit>` and DERIVES its fault, so the settled bool and the parallel fault column both boundaries carried collapse into the outcome that already holds both. NAMED LOSS: none — `Fault` is a projection, not a stored fact.
+- Law: `Invocation` carries `Fin<Unit>`, so consumers match the outcome directly rather than reading parallel settled and fault columns.
 - Law: the icon is an `IconRender`, so a verb names WHAT to draw and the asset owner resolves it into the toolkit stack this chrome takes; the resolved bitmap lease rides the bound entry and releases in mint-reverse order with its command. Both boundaries passed a live host image into the row, which left the image with no owner the moment a table rebuilt.
 - Law: the table owns every command each projection borrows, so it releases LAST — a window releasing its table while a realized menu still carries those commands releases in the wrong order. Detach precedes dispose at every entry, because a detach-only sever strands one host command widget per verb on every rebuild.
 - Output: `Invocation` per raise, UI-driven and programmatic alike, published as an `IUiFact` into the caller's drain — a palette ranking, a usage attribution, and a failure surface all fold `drain.Reader`, and the drain's `Shed` and `Refused` are where each loss reads as a number. `IntentTable` is itself an `IUiSource<IUiFact>`, so a consumer subscribing it and a consumer reading the drain see one order.
 - Packages: Eto.Forms for `Command`/`CheckCommand`/`RadioCommand`, `ContextMenu`, `MenuBar`, and `ToolBar` — the menu-bar and toolbar chrome and the two `Command` projection members are seated at `libs/dotnet/.api/api-eto-forms.md`; LanguageExt.Core for `Fin`/`Validation`/`Seq`/`Atom`/`Lease`; Thinktecture.Runtime.Extensions for the union and the keyed rows; `Interaction/input` for the bounded `EvidenceDrain` every raise publishes through.
-- Growth: a verb is one `IntentRow`; a surface occurrence is one `PlacementSlot`; a behaviour modality is one `CommandKind` case naming its mint row, and every projection is untouched; a new identity space is one value object beside the four already here.
+- Growth: a verb is one `IntentRow`; a surface occurrence is one `PlacementSlot`; a behaviour modality is one `CommandKind` case carrying its mint and execution behavior, and every projection is untouched; a new identity space is one value object beside the four already here.
 - Boundary: Rhino's `.rui` toolbar files, `RhinoApp.ToolbarFiles`, and `MenuLinks` live menu mutation are that host's OWN menu catalog over its own persistence format — conflating them with this table is the sharpest trap in the boundary corpus, because the two answer different questions about different files.
 
 ```csharp
@@ -88,17 +88,6 @@ public readonly partial struct JobName {
     }
 }
 
-[SmartEnum<int>]
-public sealed partial class CommandRole {
-    public static readonly CommandRole Push = new(key: 0, mint: static (_, _) => new Command());
-    public static readonly CommandRole Check = new(key: 1, mint: static (seed, _) => new CheckCommand { Checked = seed.IfNone(false) });
-    public static readonly CommandRole Radio = new(key: 2, mint: static (seed, head) => head.Match(
-        Some: controller => new RadioCommand { Controller = controller, Checked = seed.IfNone(false) },
-        None: () => new RadioCommand { Checked = seed.IfNone(false) }));
-
-    [UseDelegateFromConstructor] internal partial Command Mint(Option<bool> seed, Option<RadioCommand> head);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CommandKind {
     private CommandKind() { }
@@ -107,20 +96,14 @@ public abstract partial record CommandKind {
     public sealed record Toggle(Func<bool> Read, Action<bool> Write) : CommandKind;
     public sealed record Pick(GroupKey Group, Func<bool> Read, Action Choose) : CommandKind;
 
-    internal CommandRole Role => Switch(
-        act: static _ => CommandRole.Push,
-        toggle: static _ => CommandRole.Check,
-        pick: static _ => CommandRole.Radio);
-
-    internal Option<GroupKey> Group => Switch(
-        act: static _ => Option<GroupKey>.None,
-        toggle: static _ => Option<GroupKey>.None,
-        pick: static kind => Some(kind.Group));
-
-    internal Option<bool> Seed => Switch(
-        act: static _ => Option<bool>.None,
-        toggle: static kind => Some(kind.Read()),
-        pick: static kind => Some(kind.Read()));
+    internal (Command Host, Option<GroupKey> Group) Mint(Option<RadioCommand> controller) => Switch(
+        state: controller,
+        act: static (_, _) => ((Command)new Command(), Option<GroupKey>.None),
+        toggle: static (_, kind) => (
+            (Command)new CheckCommand { Checked = kind.Read() }, Option<GroupKey>.None),
+        pick: static (head, kind) => ((Command)head.Match(
+            Some: command => new RadioCommand { Controller = command, Checked = kind.Read() },
+            None: () => new RadioCommand { Checked = kind.Read() }), Some(kind.Group)));
 
     internal Fin<Unit> Execute(Command host) => Switch(
         state: host,
@@ -155,9 +138,6 @@ public readonly record struct Invocation(
     IntentKey Key,
     Fin<Unit> Outcome,
     Option<GaugedSpan<DispatchLane>> Span) : IUiFact, IValidityEvidence {
-    public string Kind => "intent";
-    public Option<Error> Fault => Outcome.Match(Succ: static _ => Option<Error>.None, Fail: Some);
-    public Option<TimeSpan> Latency => Span.Map(static span => span.Elapsed);
     public bool IsValid => Outcome.IsSucc;
 }
 
@@ -170,7 +150,7 @@ public sealed class IntentTable : IMount, IUiSource<IUiFact>, IDisposable {
     private readonly EvidenceDrain<IUiFact> drain;
     private readonly MonotonicTimeline clock;
     private readonly Atom<MountCustody> custody = Atom<MountCustody>(
-        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
+        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
     public Seq<Error> ReleaseFaults => teardown.Value;
@@ -204,25 +184,24 @@ public sealed class IntentTable : IMount, IUiSource<IUiFact>, IDisposable {
 
 ## [03]-[MENU]
 
-- Owner: `MenuNode` the recursive authored vocabulary; `MenuMode` the per-entry presentation row a flat host consumes; `MenuBudget` the two declared bounds and their provenance; `MenuSlot` one entry of the flat projection; `MenuBranch` one realized item with the children it owns; `OwnedContextMenu` the popup that releases its whole forest; `MenuForge` the four gates.
+- Owner: `MenuNode` the recursive authored vocabulary; `MenuMode` the per-entry presentation row a flat host consumes; `MenuSlot` one entry of the flat projection; `MenuBranch` one realized item with the children it owns; `OwnedContextMenu` the popup that releases its whole forest; `MenuTree` the construction, flattening, and ordinal-resolution gates.
 - Cases: `Verb` resolves an intent through the table onto its host menu item, `Stub` folds children into a submenu, `Rule` is the divider. One tree value describes any authored menu, and the parallel per-surface menu builders both boundaries carried collapse onto this node algebra plus the table. `MenuMode` is `Active`, `Muted`, or `Divider` — the three presentations a flat host renders, keyed by ordinal because that is the array a flat host reads.
-- Entry: `Context` acquires the full forest inside one marshal and answers a leased popup; `Attach` mounts it as a control's context menu; `Popup` shows it at a point; `Flatten` projects the same tree for a host that consumes a flat roster and answers an INDEX, and `Choose` resolves that index back to the verb it named.
+- Entry: `Context` acquires the full forest inside one marshal and answers a leased popup; `Flatten` projects the same tree for a host that consumes a flat roster and answers an INDEX, and `Choose` resolves that index back to the verb it named. Assignment and display stay at the control boundary.
 - Law: this projection and the table's placement projection BOTH survive on a named discriminant. PLACEMENT is declarative and rank-ordered, so a plugin contributing a verb never sees the tree it lands in; NODE is authored and order-preserving, so a canvas popup states its own sequence. Collapsing to one would cap the authored tree at the placement algebra's single submenu level or force rank ordering onto a hand-built tree. Witness: Rhino's placement fold orders by group then rank; the Grasshopper node fold preserves author order.
 - Law: menu items are PROJECTIONS of table rows — checked state, enablement, gesture display, and icon all ride the host command the item was created from, so a menu carries no state beside its command and a toggle flip needs no menu code at all.
 - Law: a FLAT host is a projection of the same tree, never a second authoring vocabulary. A host consuming a string roster beside a mode array and answering an ordinal — the shape `Dialogs.ShowContextMenu` publishes — reads `Flatten`, so an author writes one `MenuNode` tree and every surface renders what it can. Nesting is what the flat host cannot hold, so a `Stub` emits its own text as a `Muted` header row bracketed by dividers and then its children in order: the grouping survives as presentation where it cannot survive as structure, and NAMED LOSS is the submenu's collapse-and-expand affordance alone.
 - Law: availability is READ at flatten, so a verb whose `Available` probe answers false projects `Muted` rather than being dropped — a dropped row shifts every later ordinal and the host's answer would then name a different verb than the one the user pressed.
 - Law: the index answer resolves through `Choose` and nowhere else. A negative ordinal is DISMISSAL and answers absence, an out-of-range ordinal and an ordinal naming a header or divider are typed refusals, and only a `Verb` slot answers an `IntentKey` — so no caller re-derives the mapping from its own copy of the roster it passed in.
-- Law: the fold recurses on the runtime stack, so it carries a DECLARED depth ceiling and returns a typed exhaustion refusal at the bound. A generated or hostile tree is the one failure no result below catches, and a success-shaped fall-through past the bound certifies a truncated menu as complete. Both bounds are `MenuBudget` ROWS naming what they derive from — the stack the fold descends and the flat host's own roster ceiling — because a magic literal beside the fold names neither and can be read, tuned, or refuted at no site.
+- Law: the fold recurses on the runtime stack, so `MenuTree` carries private depth and item limits and returns a typed exhaustion refusal at either bound. A generated or hostile tree is the one failure no result below catches, and a success-shaped fall-through past a limit certifies a truncated menu as complete.
 - Law: release is recursive and mint-reverse — every submenu detaches before its parent disposes, and the whole teardown runs once behind the `MountCustody` machine's own transition. That machine is the ONE latch on this sub-domain: an interlocked int beside it answers the same question a second time, and re-arming after a faulted release re-runs the whole teardown over natives already detached, which is the double-dispose the sibling lease arrows foreclose.
 - Exemption: the recursive native detach is the one statement-shaped region on this page — a submenu's items clear, its branch detaches, and the latch writes its terminal state inside one frame, and no fold, schedule, or expression spine expresses a sequence whose every step must run after an earlier one refused. It is contained here and no consumer writes one.
 - Law: the lease IS the evidence; a release fault is retained on the popup rather than raised into the host event pump.
 - Packages: Eto.Forms for `ContextMenu`, `MenuItem`, `ButtonMenuItem`, `SubMenuItem`, and the separator item, all seated at `libs/dotnet/.api/api-eto-forms.md`; LanguageExt.Core for `Fin`/`Seq`/`Lease`; Thinktecture.Runtime.Extensions for the union and the budget rows.
-- Growth: a new entry kind is one case with one build arm and one flatten arm; a new flat presentation is one `MenuMode` row; a new declared bound is one `MenuBudget` row; the four gates never widen.
+- Growth: a new entry kind is one case with one build arm and one flatten arm; a new flat presentation is one `MenuMode` row; the three gates never widen.
 - Boundary: menu lifecycle observation — opening, closing, closed — is the input owner's fact algebra over the live popup inside the lease window, never a column on a node. The flat host's own screen-point argument and its call stay at that boundary: `Flatten` answers the roster and `Choose` reads the ordinal, and neither knows where the menu was shown.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using EtoPointF = Eto.Drawing.PointF;
 using Rasm.Domain;
 using Rasm.Numerics;
 
@@ -254,7 +233,7 @@ internal sealed record MenuBranch(MenuItem Root, Seq<Lease<MenuItem>> Owned);
 public sealed class OwnedContextMenu : ContextMenu, IMount {
     private readonly Seq<MenuBranch> branches;
     private readonly Atom<MountCustody> custody = Atom<MountCustody>(
-        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
+        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
     public Seq<Error> ReleaseFaults => teardown.Value;
@@ -267,43 +246,30 @@ public sealed class OwnedContextMenu : ContextMenu, IMount {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class MenuBudget {
-    public static readonly MenuBudget Depth = new(key: 0, bound: Dimension.Create(value: 16));
-    public static readonly MenuBudget Roster = new(key: 1, bound: Dimension.Create(value: 512));
+public static class MenuTree {
+    private static readonly Dimension MaximumDepth = Dimension.Create(value: 16);
+    private static readonly Dimension MaximumItems = Dimension.Create(value: 512);
 
-    public Dimension Bound { get; }
-}
-
-public static class MenuForge {
-    public static Fin<Lease<ContextMenu>> Context(
-        Seq<MenuNode> nodes, IntentTable table, Option<Dimension> depth = default);
-
-    public static Fin<Unit> Attach(Control host, Lease<ContextMenu> menu);
-
-    public static Fin<Unit> Popup(Lease<ContextMenu> menu, Control anchor, EtoPointF at);
-
-    public static Fin<Seq<MenuSlot>> Flatten(
-        Seq<MenuNode> nodes, IntentTable table, Option<Dimension> depth = default);
-
+    public static Fin<Lease<ContextMenu>> Context(Seq<MenuNode> nodes, IntentTable table);
+    public static Fin<Seq<MenuSlot>> Flatten(Seq<MenuNode> nodes, IntentTable table);
     public static Fin<Option<IntentKey>> Choose(Seq<MenuSlot> slots, int index);
 }
 ```
 
 ## [04]-[WINDOW]
 
-- Owner: `ShellCapability` the window-capability vocabulary; `WindowRole` the modality row; `ChromeStyler` the injected skin mechanism whose PRESENCE is the declaration; `MountPhase` the lifecycle row every mount and the handler capsule read; `WindowChrome` the full posture; `WindowSpec` one modeless surface; `WindowVerb` the live mutation vocabulary; `IMount` the custody floor an adoptable mount answers; `MountCustody` the re-entrancy and adoption state machine; `WindowMount` the owned realization.
-- Cases: `Shell` is the ordinary form and `Float` the always-on-top palette — the two roles both boundaries spelled, under two names. `WindowVerb` is `Front`, `Retitle`, and `Redress`, each behind one marshalled gate over the live mount. `MountCustody` is `Live` with its visit count, its adopted children, the owner that adopted it, and its phase, or `Released`. `MountPhase` is `Open`, `Closing`, or `Released`, each carrying the `Closes` consequence every arm reads.
-- Entry: `Realize` builds and owns; `Present` is the same realize followed by the show; `Steer` is the ONE live-mutation gate; `Adopt` transfers a child window's release into its owner's.
+- Owner: `ShellCapability` the window-capability vocabulary; `WindowRole` the modality row; `MountPhase` the lifecycle row every mount and the handler capsule read; `WindowChrome` the full posture; `WindowSpec` one modeless surface with an optional styling function; `WindowVerb` the live mutation vocabulary; `IMount` the custody floor an adoptable mount answers; `MountCustody` the re-entrancy and adoption state machine; `WindowMount` the owned realization.
+- Cases: `Modeless` is the ordinary form and `Floating` the palette — the two roles both boundaries spelled, under two names. `WindowVerb` is `Front`, `Retitle`, and `Redress`, each behind one marshalled gate over the live mount. `MountCustody` is `Live` with its visit count, adopted children, and phase, or `Released`. `MountPhase` is `Open`, `Closing`, or `Released`, each carrying the `Closes` consequence every arm reads.
+- Entry: `Realize` builds and owns; showing stays at the application boundary; `Steer` is the ONE live-mutation gate; `Adopt` transfers a child mount's release into its owner's.
 - Auto: the six capability bits — a flags enum at one boundary and five loose bool columns at the other — ride ONE `CapabilitySet<ShellCapability>` read by set algebra. Every corner is legal — a fixed always-on-top palette with no close box and a resizable taskbar shell are both real windows — so the law is `CapabilityLaw.Open` and states it.
 - Auto: opacity is a `UnitInterval`, so the unbounded double both boundaries accepted can no longer name a window ninety percent past opaque.
-- Law: the skin is ONE column whose PRESENCE is the declaration. Declaration rows beside a styler slot admit two decorative corners — a declared-bare window holding a styler nothing runs and a declared-skinned window dressing nothing — which is the legal-corner defect this page's own capability law forecloses everywhere else. Mounts render and diffs compare `Styler.IsSome`, which is the same fact the row carried, and the host function itself stays uncompared because no value equality compares it.
+- Law: styling is ONE optional function whose presence is the declaration. Realization traverses `Style`, and the host function itself stays uncompared because no value equality compares it.
 - Law: ownership transfers only after the complete realize settles. Menu and toolbar mint BEFORE the window exists, so a refusal anywhere after them would leave two host objects with no owner; the drain releases both on the no-window path and the mount owns them once the window has taken them.
 - Law: teardown is the exact inverse of construction — content detaches, the element mount releases, the window disposes, then the chrome the window carried releases in mint-reverse order — and every step runs even when an earlier one refuses, each refusal accumulating on the mount's own ledger. Teardown faults never ride an unwinding stack, because a raise from a `finally` REPLACES the primary error.
 - Law: custody is a state machine, not a flag pair. A steer ENTERS and LEAVES, a release CLOSES, and a close arriving mid-steer defers to the last leave rather than disposing a form a verb is still writing. The visit count is ABSENT rather than zero — the count carrier starts at one, and absence is exactly what a zero stood for — so a leave with no matching enter is a typed refusal instead of a negative count that then reaches a release nothing entered. Adopted children release with their owner, which is what closes the gap where a chrome owner pinned z-order and nothing released the pinned window.
 - Law: this machine is the ONE release latch on the page, and every mount here composes it — the deck, the popup, the modal, and the presence each hold one atom of custody and one atom of retained faults, where four interlocked int latches sat beside it answering the same question four times and each discarded its release verdict through `ignore`. A cleanup refusal never rides a discard: `Dispose` parks the verdict on the mount's own ledger, which `ReleaseFaults` publishes.
-- Law: the child forest is `IMount`, not `WindowMount`. A page mount, a panel mount, and a window mount are the same custody problem — something that was minted, can be adopted, and must be released exactly once — so the floor carries a key and a release and nothing else, and a host mount that is not a window composes this machine rather than re-spelling it. Pinning the forest to one realization is what forced the boundary to carry a second custody triple for its pages.
-- Law: adoption writes BOTH ends. The owner's forest gains the child and the child's custody names its `Owner`, so a child released FIRST drops itself out of that forest instead of leaving a row whose release the owner will re-attempt. An owner slot nothing read would be the decorative half of the pair. NAMED LOSS: Rhino's page-owner CLAIM and TRANSFER arms still do not seat here — they discriminate on a host page-owner identity the kernel has no vocabulary for — but the custody they guarded is this machine, so what stays at that boundary is the identity resolution alone.
+- Law: the child forest is `IMount`, not `WindowMount`. A page mount, a panel mount, and a window mount are the same custody problem — something that was minted, can be adopted, and must be released exactly once — so the floor carries a release and nothing else, and a host mount that is not a window composes this machine rather than re-spelling it.
+- Law: custody lives on the parent's child roster. Adoption after closing or release returns the child for immediate release instead of dropping it or writing an unavailable child backlink.
 - Output: `WindowMount` exposes the surface, the realized plant, and the accumulated release faults; the leased mount IS the transfer of ownership.
 - Packages: Eto.Forms for `Form`/`FloatingForm`/`Window`/`WindowState`/`WindowStyle`; Eto.Drawing for the point, size, and icon carriers, entering as prelude aliases alone; LanguageExt.Core for `Fin`/`Seq`/`Atom`/`Lease`; Thinktecture.Runtime.Extensions for the unions and keyed rows; `Domain/hooks` for the `FaultCell` a prompt parks its reporter faults on.
 - Growth: a new modality is one `WindowRole` row; a new posture fact is one `WindowChrome` field; a new capability is one `ShellCapability` row nothing else edits; a new live verb is one `WindowVerb` case breaking `Steer` loudly; a new lifecycle phase is one `MountPhase` row carrying its `Closes` consequence; a new adoptable mount kind is one `IMount` implementation and no edit to this machine at all.
@@ -333,19 +299,19 @@ public sealed partial class ShellCapability : ICapability<ShellCapability> {
     public int Rank { get; }
 }
 
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class WindowRole {
-    public static readonly WindowRole Shell = new(key: 0, mint: static () => new Form());
-    public static readonly WindowRole Float = new(key: 1, mint: static () => new FloatingForm());
+    public static readonly WindowRole Modeless = new(mint: static () => new Form());
+    public static readonly WindowRole Floating = new(mint: static () => new FloatingForm());
 
     [UseDelegateFromConstructor] internal partial Form Mint();
 }
 
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class MountPhase {
-    public static readonly MountPhase Open = new(key: 0, closes: false);
-    public static readonly MountPhase Closing = new(key: 1, closes: true);
-    public static readonly MountPhase Released = new(key: 2, closes: true);
+    public static readonly MountPhase Open = new(closes: false);
+    public static readonly MountPhase Closing = new(closes: true);
+    public static readonly MountPhase Released = new(closes: true);
 
     public bool Closes { get; }
 }
@@ -368,14 +334,16 @@ public abstract partial record MountCustody {
     private MountCustody() { }
 
     public sealed record Live(
-        Option<Dimension> Active, Seq<IMount> Children, Option<IMount> Owner, MountPhase Phase) : MountCustody;
+        Option<Dimension> Active, Seq<IMount> Children, MountPhase Phase) : MountCustody;
     public sealed record Released : MountCustody;
 
-    public Option<MountCustody> Entered() => Switch(
+    public Fin<MountCustody> Entered() => Switch(
         live: static row => row.Phase.Closes
-            ? Option<MountCustody>.None
-            : Some<MountCustody>(row with { Active = Some(Dimension.Create(value: row.Active.Map(static held => held.Value).IfNone(0) + 1)) }),
-        released: static _ => Option<MountCustody>.None);
+            ? Fin.Fail<MountCustody>(new UiFault.Released())
+            : Fin.Succ<MountCustody>(row with {
+                Active = Some(Dimension.Create(value: row.Active.Map(static held => held.Value).IfNone(0) + 1)),
+            }),
+        released: static _ => Fin.Fail<MountCustody>(new UiFault.Released()));
 
     public Fin<(MountCustody Next, Option<Seq<IMount>> Release)> Left() => Switch(
         live: static (row) => row.Active.Match(
@@ -395,21 +363,12 @@ public abstract partial record MountCustody {
                 : ((MountCustody)new Released(), Some(row.Children)),
         released: static row => ((MountCustody)row, Option<Seq<IMount>>.None));
 
-    public MountCustody Adopted(IMount child) => Switch(
+    public (MountCustody Next, Option<IMount> Release) Adopted(IMount child) => Switch(
         state: child,
-        live: static (held, row) => (MountCustody)(row with { Children = row.Children.Add(held) }),
-        released: static (_, row) => row);
-
-    public MountCustody Dropped(IMount child) => Switch(
-        state: child,
-        live: static (held, row) => (MountCustody)(row with {
-            Children = row.Children.Filter(seated => seated.Key != held.Key),
-        }),
-        released: static (_, row) => row);
-
-    public Option<IMount> Adopter() => Switch(
-        live: static row => row.Owner,
-        released: static _ => Option<IMount>.None);
+        live: static (held, row) => row.Phase.Closes
+            ? ((MountCustody)row, Some(held))
+            : ((MountCustody)(row with { Children = row.Children.Add(held) }), Option<IMount>.None),
+        released: static (held, row) => ((MountCustody)row, Some(held)));
 
     private static Fin<(MountCustody Next, Option<Seq<IMount>> Release)> Unmatched() =>
         Fin.Fail<(MountCustody, Option<Seq<IMount>>)>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(Live.Active)),
@@ -417,8 +376,6 @@ public abstract partial record MountCustody {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ChromeStyler(Func<Control, Fin<Unit>> Dress);
-
 public sealed record WindowChrome(
     CapabilitySet<ShellCapability> Capabilities,
     Option<EtoPoint> Origin,
@@ -445,12 +402,11 @@ public sealed record WindowSpec(
     ControlSpec Content,
     WindowRole Role,
     WindowChrome Chrome,
-    Option<ChromeStyler> Styler,
+    Option<Func<Control, Fin<Unit>>> Style,
     Option<PlacementKey> Menu,
     Option<PlacementKey> Bar,
-    bool Activated) {
+    bool ShowActivated) {
     public Fin<Lease<WindowMount>> Realize(ElementRuntime runtime);
-    public Fin<Lease<WindowMount>> Present(ElementRuntime runtime);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -460,7 +416,7 @@ public sealed class WindowMount : IMount, IDisposable {
     private readonly ElementMount plant;
     private readonly Seq<Lease<IDisposable>> chrome;
     private readonly Atom<MountCustody> custody = Atom<MountCustody>(
-        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
+        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
     public Form Surface => surface.Resource;
@@ -478,20 +434,20 @@ public sealed class WindowMount : IMount, IDisposable {
 
 ## [05]-[PROMPT]
 
-- Owner: `RefusalPosture` the admission-refusal row; `PromptSettle<TResult>` the modal's one settled carrier; `PromptChoice<TResult>` one affirmative outcome; `Prompt<TResult>` the result-typed modal; `FilterPlan` one file-type filter; `PickerSpec` the native prompt family, `PickerResult` its mirror, and `PickerDemand<TResult>` the typed half that pairs them; `AskVerdict` the message verdict roster; `AskTrait`, `AskDelivery`, and `AskModality` the message vocabularies with `AskPolicy` the knob record carrying them.
+- Owner: `PromptChoice<TResult>` one affirmative outcome; `Prompt<TResult>` the result-typed modal with its refusal policy; `FilterPlan` one file-type filter; `PickerSpec` the native prompt family, `PickerResult` its mirror, and `PickerDemand<TResult>` the typed half that pairs them; `AskVerdict` the message verdict roster; `AskTrait`, `AskDelivery`, and `AskModality` the message vocabularies with `AskPolicy` the knob record carrying them.
 - Cases: eight prompts — open, save, folder, shade, glyph, ask, edit, and number — against eight results, so every native prompt settles typed through ONE gate and a per-prompt member family never exists. `AskTrait` carries foreground, topmost, right-aligned, and right-to-left presentation; `AskDelivery` carries the application, desktop, and service targets; `AskModality` carries the application, system, and task scopes.
-- Entry: `Ask` on the modal under two arities the PRESENTER discriminates, `Present` on the picker union, and `Typed.Present` on each picker case for the typed answer. Each is one marshal: construction, styling, the modal loop, result capture, and reverse-order release share the window, and no dialog handle escapes it.
-- Auto: a choice projects from the harvested `FieldReport`, so the Rhino form's report-free projection and the Grasshopper form's settle-from-report are ONE column — a choice that ignores the report ignores its parameter, and a choice that needs it no longer needs a captured control.
+- Entry: one `Ask` returns `IO<Option<TResult>>` through the injected presenter, `Present` runs on the picker union, and `Typed.Present` on each picker case returns the typed answer. Each is one marshal: construction, styling, the modal loop, result capture, and reverse-order release share the window, and no dialog handle escapes it.
+- Auto: a choice projects from the harvested field map, so every choice reads admitted values through `HashMap.Find` and no choice needs a captured control.
 - Auto: the two host number-prompt overloads are ONE case whose `NumberPolicy` presence selects them: a policy naming both a floor and a ceiling takes the bounded call, any other takes the unbounded one. The knob set the sibling control owner already declares is the knob set here.
-- Law: refusal posture is a ROW, not a fork. Rhino closes on an admission refusal and Grasshopper renders it and keeps the dialog open; both are postures on the one prompt, so a surface picks its own without a second modal type.
-- Law: dismissal is a CASE and never a sentinel. `PromptSettle` is the one carrier the crossing threads: a chosen value, a refused admission, and a dismissal are three cases a caller recovers from differently, where three stacked carriers over one crossing were unstacked again at the boundary that read them — the carrier is chosen once at admission and collapses at the host edge alone. Cancellation keeps its own fault case, and a host raise inside the modal pump lands as a typed refusal rather than an exception crossing the loop.
+- Law: `KeepOpenOnRefusal` is the prompt's refusal policy. Rhino closes on an admission refusal and Grasshopper renders it and keeps the dialog open; both configure the same modal type.
+- Law: dismissal is ordinary absence inside `IO<Option<TResult>>`; admission and host refusal ride the effect's failure channel, and cancellation belongs to the effect.
 - Law: presentation IS the presenter value. A host boundary hands its own semi-modal presenter, so a host-parented dialog cannot route around that contract; an owner-taking entry that shows the dialog itself is the deleted form.
 - Law: the SPEC case fixes the answer shape, so the pairing is declared once at each case as its `Typed` demand and a consumer never re-probes the result union. `Present` answers the closed `PickerResult` because that family is what a host dialog settles into and what a journal stores; `Typed.Present` answers `Fin<Option<TResult>>` over the same crossing, dismissal riding the absence the page already rules and a host answering the WRONG shape riding a typed refusal naming both cases. A consumer switching over eight results to recover the one it asked for is the defect the demand deletes; folding the two into one generic entry is the unsound form, because nothing but the case ties the request to its answer.
 - Law: the picker's shade and glyph cases carry `PerceptualColor` and `TypeFace`, its three file cases carry `FileLocation` on both legs, and its message case carries an `AskVerdict` row — so a captured colour, face, path, or verdict is the kernel's own identity and no consumer of this family converts a host struct. One path type crosses in and out of all three file cases, where a `Uri` on two and a raw string on the third made one concept two types inside one union.
 - Law: the message prompt's knobs ride a POLICY, not four more positional columns. Buttons, icon, default button, presentation traits, delivery target, and modality are one knob set both hosts publish, and the set carries the ONE admission a message prompt has: a default naming a button the roster does not present is unpressable, so the host silently defaults to its own first button and the declared default is lost. Every trait corner is legal — a topmost right-to-left foreground box is a real dialog — so the capability law is open and says so.
 - Law: delivery is a REQUEST the host answers, and only the application target is platform-universal. A desktop or service target on a host publishing no session routing refuses TYPED by name before the show, the same posture the presence owner holds for a tray anchor — a silent fall back to the in-application box delivers the message somewhere the caller did not ask for. NAMED LOSS: a Rhino-only button roster — abort/retry/ignore and retry/cancel — has no member on the toolkit surface this case presents through and stays at that boundary as its own inquiry.
 - Law: the edit and number cases route the host's native single-value fast lane, which the branch catalogue names as the one form — a hand-built one-field dialog beside them is the deleted shape, and it is exactly what a kernel-only spelling would re-mint.
-- Output: `Fin<TResult>` for the modal over its `PromptSettle` crossing, `PickerResult` for the picker and `Fin<Option<TResult>>` for its typed demand; all three are settled facts and none exposes a live host dialog.
+- Output: `IO<Option<TResult>>` for the modal, `PickerResult` for the picker, and `Fin<Option<TResult>>` for its typed demand; none exposes a live host dialog.
 - Packages: Eto.Forms for `Dialog<T>`, the four common dialogs, and the message-box vocabulary — `MessageBoxDefaultButton` registering at `libs/dotnet/.api/api-eto-forms.md` beside the window vocabulary it joins; Eto.Drawing for the size carrier, prelude-aliased; RhinoCommon `Rhino.UI` for the two native value prompts; LanguageExt.Core for `Fin`/`Option`/`Seq`/`Lease`; Thinktecture.Runtime.Extensions for the unions, the posture row, and the message vocabularies; `Domain/validation` for `ICapability` and `CapabilitySet`.
 - Growth: a new affirmative outcome is one `PromptChoice` row; a new native prompt is one `PickerSpec` case with one `Present` arm, its `PickerResult` mirror, and the `Typed` demand that pairs them; a new message presentation is one `AskTrait` row, a new delivery target one `AskDelivery` row, and a new host verdict one `AskVerdict` row; neither gate widens.
 - Boundary: Rhino's multi-value, document-scoped, and resource-scoped dialogs — layer, linetype, print-width, sun, and the property and check rosters — stay at that boundary as its own instances, because each is a `Rhino.UI` document surface with no host-neutral analogue.
@@ -505,14 +461,6 @@ using Rasm.Numerics;
 namespace Rasm.Interaction;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class RefusalPosture {
-    public static readonly RefusalPosture Close = new(key: 0, holds: false);
-    public static readonly RefusalPosture KeepOpen = new(key: 1, holds: true);
-
-    internal bool Holds { get; }
-}
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AskTrait : ICapability<AskTrait> {
@@ -524,20 +472,18 @@ public sealed partial class AskTrait : ICapability<AskTrait> {
     public int Rank { get; }
 }
 
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class AskDelivery {
-    public static readonly AskDelivery Application = new(key: 0, universal: true);
-    public static readonly AskDelivery Desktop = new(key: 1, universal: false);
-    public static readonly AskDelivery Service = new(key: 2, universal: false);
-
-    internal bool Universal { get; }
+    public static readonly AskDelivery Application = new();
+    public static readonly AskDelivery Desktop = new();
+    public static readonly AskDelivery Service = new();
 }
 
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class AskModality {
-    public static readonly AskModality Application = new(key: 0);
-    public static readonly AskModality System = new(key: 1);
-    public static readonly AskModality Task = new(key: 2);
+    public static readonly AskModality Application = new();
+    public static readonly AskModality System = new();
+    public static readonly AskModality Task = new();
 }
 
 [SmartEnum<string>]
@@ -551,15 +497,6 @@ public sealed partial class AskVerdict {
     internal DialogResult Host { get; }
 
     public static Fin<AskVerdict> OfHost(DialogResult host);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PromptSettle<TResult> {
-    private PromptSettle() { }
-
-    public sealed record Chose(TResult Value) : PromptSettle<TResult>;
-    public sealed record Refused(Error Cause) : PromptSettle<TResult>;
-    public sealed record Dismissed : PromptSettle<TResult>;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -582,7 +519,7 @@ public abstract partial record PickerSpec {
     }
 
     public sealed record Shade(
-        PerceptualColor Seed, AlphaMode Alpha,
+        PerceptualColor Seed, bool AllowAlpha,
         Option<Seq<PerceptualColor>> Palette = default, Option<Func<PerceptualColor, Fin<Unit>>> Preview = default) : PickerSpec {
         public PickerDemand<PerceptualColor> Typed => Demand<PerceptualColor>(
             static answer => answer is PickerResult.Shade picked ? Some(picked.Value) : None);
@@ -659,7 +596,7 @@ public sealed record AskPolicy(
         Modality: AskModality.Application));
 }
 
-public sealed record PromptChoice<TResult>(string Caption, Func<FieldReport, Fin<TResult>> Project);
+public sealed record PromptChoice<TResult>(string Caption, Func<HashMap<FieldTag, FieldValue>, Fin<TResult>> Project);
 
 public sealed record Prompt<TResult>(
     string Title,
@@ -668,17 +605,12 @@ public sealed record Prompt<TResult>(
     Option<string> CancelCaption,
     Option<EtoSize> ClientSize,
     DialogDisplayMode DisplayMode,
-    Option<ChromeStyler> Styler,
-    RefusalPosture Posture,
+    Option<Func<Control, Fin<Unit>>> Style,
+    bool KeepOpenOnRefusal,
     FaultCell Faults) {
-    public Fin<TResult> Ask(
+    public IO<Option<TResult>> Ask(
         ElementRuntime runtime,
-        Func<Dialog<PromptSettle<TResult>>, Fin<PromptSettle<TResult>>> present);
-
-    public ValueTask<Fin<TResult>> Ask(
-        ElementRuntime runtime,
-        Func<Dialog<PromptSettle<TResult>>, ValueTask<Fin<PromptSettle<TResult>>>> present,
-        CancellationToken cancellation);
+        Func<Dialog<Option<TResult>>, IO<Option<TResult>>> present);
 
     private Fin<Unit> Admit();
 }
@@ -687,16 +619,12 @@ public sealed record Prompt<TResult>(
 internal sealed class PromptMount<TResult> : IMount, IDisposable {
     private readonly ElementMount body;
     private readonly Atom<MountCustody> custody = Atom<MountCustody>(
-        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
+        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
     public Seq<Error> ReleaseFaults => teardown.Value;
 
-    internal Dialog<PromptSettle<TResult>> Dialog { get; }
-
-    internal Unit Cancel();
-
-    internal static Fin<TResult> Settle(PromptSettle<TResult> verdict);
+    internal Dialog<Option<TResult>> Dialog { get; }
 
     public Fin<Unit> Release();
     public void Dispose() => _ = Release();
@@ -713,7 +641,7 @@ internal sealed class PromptMount<TResult> : IMount, IDisposable {
 - Law: nothing inside the run's scope re-marshals. Page and completion callbacks fire from the run the driver is already blocking on, so presence lands through the affinity assertion and a refusal reaches the outcome's fault roster; a blocking crossing from inside that callback waits on the thread that raised it.
 - Law: every attempted page normalizes the host's selected-range page number to a zero-based source and scope ordinal, so a page fact's index means the same thing under every scope. A page outside the scope is a typed refusal carrying its own fact rather than a silently dropped render.
 - Law: completion is DERIVED and never stored — one in-range fact per expected page, distinct indices, host completion, and no failed fact. A page's render failure is stored because the host page event cannot return it, and the run never converts a stored failure into successful completion.
-- Law: the copy count is a `Dimension`, so the non-positive copy count both boundaries had to refuse at admission is unrepresentable. The page interval is one `PageSpan` owner admitting first, last, and the job ceiling together, so the bound and the selection validate against each other rather than against a hand-spelled ladder inside one arm — and the toolkit's own `Range<int>` is named at the single `PrintSettings` write, under the one prelude alias that disambiguates it from the carrier library's.
+- Law: the copy count is a `Dimension`, so the non-positive copy count both boundaries had to refuse at admission is unrepresentable. `PageSpan` admits the ordered interval once, and `PrintScope.Admit` compares its last page with the live job ceiling; the toolkit's own `Range<int>` is named at the single `PrintSettings` write, under the one prelude alias that disambiguates it from the carrier library's.
 - Output: `PrintOutcome` is this driver's RAW run outcome alone — printer-evidence vocabulary belongs to the publishing surface that folds these facts into its own.
 - Packages: Eto.Forms printing for `PrintDocument`, both dialogs, `PageSettings`, `PrintSettings`, and the orientation and selection vocabularies, registered at `libs/dotnet/.api/api-eto-printing.md`; Eto.Drawing for the rectangle carrier, prelude-aliased; `Drawing/sheet` for the extent roster, its orientation row, and its margin quad, and `Domain/context` for the unit projection; LanguageExt.Core for `IO`/`Fin`/`Seq`/`Atom`/`Set`; Thinktecture.Runtime.Extensions for the unions, the two job classifiers, and the page-span value object.
 - Growth: a route is one `PrintRoute` case, a geometry source one `PageFrame` case, a job option one `PrintSpec` field, a job posture one row on its own classifier, and a page fact one `PrintPageFact` case.
@@ -751,7 +679,7 @@ public abstract partial record PageFrame {
         internal Fin<EtoRectangleF> Inset() =>
             from points in ModelUnit.Of(value: UnitSystem.PrinterPoints)
             let laid = Orientation.Extent(size: Size)
-            from surface in SheetSize.Custom(
+            from surface in SheetSize.Of(
                 width: laid.Width, height: laid.Height, standard: Size.Standard)
             from extent in surface.In(unit: points)
             from margin in Margin.In(unit: points)
@@ -771,7 +699,7 @@ public abstract partial record PageFrame {
             x: 0f, y: 0f, width: held.PageSize.Width, height: held.PageSize.Height)),
         printer: static (_, frame) => Fin.Succ(frame.Settings.PrintableArea),
         bounded: static (_, frame) => Fin.Succ(frame.Bounds),
-        sheet: static (held, frame) => frame.Inset(held.Key));
+        sheet: static (_, frame) => frame.Inset());
 }
 
 [ComplexValueObject]
@@ -783,8 +711,6 @@ public sealed partial class PageSpan {
         validationError = last.Value >= first.Value
             ? null
             : new ValidationError(message: "PageSpan requires a last page at or after its first.");
-
-    public static Fin<PageSpan> Of(Dimension first, Dimension last, Dimension pageCount);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -807,10 +733,11 @@ public abstract partial record PrintScope {
     internal Fin<Unit> Admit(Dimension pageCount) => Switch(
         state: pageCount,
         all: static (_, _) => Fin.Succ(unit),
-        selected: static (held, scope) =>
-            PageSpan.Of(first: scope.Span.First, last: scope.Span.Last, pageCount: held)
-                .Map(static _ => unit),
-        hostSelection: static (held, _) => Fin.Fail<Unit>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(PrintScope)), Reason: RejectReason.HostSelection)));
+        selected: static (held, scope) => scope.Span.Last.Value <= held.Value
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new UiFault.Rejected(
+                Field: FieldTag.Create(value: nameof(PageSpan)), Reason: RejectReason.PageSpan)),
+        hostSelection: static (_, _) => Fin.Succ(unit));
 
     internal static Dimension Expected(PrintSettings settings, Dimension pageCount);
 
@@ -836,20 +763,20 @@ public abstract partial record PrintPageFact : IValidityEvidence {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class CollatePosture {
-    public static readonly CollatePosture Host = new(key: 0, apply: static _ => unit);
-    public static readonly CollatePosture Collated = new(key: 1, apply: static settings => HostEdge.Side(() => settings.Collate = true));
-    public static readonly CollatePosture Uncollated = new(key: 2, apply: static settings => HostEdge.Side(() => settings.Collate = false));
+    public static readonly CollatePosture Host = new(apply: static _ => unit);
+    public static readonly CollatePosture Collated = new(apply: static settings => HostEdge.Side(() => settings.Collate = true));
+    public static readonly CollatePosture Uncollated = new(apply: static settings => HostEdge.Side(() => settings.Collate = false));
 
     [UseDelegateFromConstructor] internal partial Unit Apply(PrintSettings settings);
 }
 
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class PageOrder {
-    public static readonly PageOrder Host = new(key: 0, apply: static _ => unit);
-    public static readonly PageOrder Forward = new(key: 1, apply: static settings => HostEdge.Side(() => settings.Reverse = false));
-    public static readonly PageOrder Reverse = new(key: 2, apply: static settings => HostEdge.Side(() => settings.Reverse = true));
+    public static readonly PageOrder Host = new(apply: static _ => unit);
+    public static readonly PageOrder Forward = new(apply: static settings => HostEdge.Side(() => settings.Reverse = false));
+    public static readonly PageOrder Reverse = new(apply: static settings => HostEdge.Side(() => settings.Reverse = true));
 
     [UseDelegateFromConstructor] internal partial Unit Apply(PrintSettings settings);
 }
@@ -877,31 +804,13 @@ public sealed record PrintOutcome(
     Dimension Expected,
     bool HostCompleted,
     Seq<Error> Faults) : IValidityEvidence {
-    public Seq<PrintPageFact.Failed> Failed => Pages.Choose(static fact => fact.Map(
-        @default: static _ => Option<PrintPageFact.Failed>.None,
-        failed: Some));
-
-    public int Actual => Pages.Count;
-
-    private Tally Measured => Pages.Fold(state: Tally.Of(expected: Expected), f: static (tally, fact) => tally.With(fact));
-
-    public bool Completed => HostCompleted && Measured.Complete;
+    public bool Completed =>
+        HostCompleted
+        && Pages.Count == Expected.Value
+        && Pages.ForAll(fact => fact.IsValid && fact.Index >= 0 && fact.Index < Expected.Value)
+        && Pages.Map(static fact => fact.Index).Distinct().Count == Pages.Count;
 
     public bool IsValid => ValidityClaim.All(Completed, Faults.IsEmpty);
-
-    private readonly record struct Tally(Dimension Expected, int Count, Set<int> Indices, bool InRange, bool Failed) {
-        internal static Tally Of(Dimension expected) =>
-            new(Expected: expected, Count: 0, Indices: Set<int>(), InRange: true, Failed: false);
-
-        internal Tally With(PrintPageFact fact) => this with {
-            Count = Count + 1,
-            Indices = Indices.TryAdd(fact.Index),
-            InRange = InRange && fact.Index >= 0 && fact.Index < Expected.Value,
-            Failed = Failed || !fact.IsValid,
-        };
-
-        internal bool Complete => Count == Expected.Value && Indices.Count == Count && InRange && !Failed;
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -915,9 +824,9 @@ public sealed record PrintPlan(JobName Name, Seq<PrintPage> Pages, PrintSpec Spe
 
 ## [07]-[PRESENCE]
 
-- Owner: `ToastKey` the notification identity; `Toast` the transient alert; `PulseState` the progress projection; `PresenceOp` the closed presence family; `PresenceHold` what a mount actually holds per case; `PresenceMount` the applied presence; `Presence` the one gate.
+- Owner: `ToastKey` the notification identity; `Toast` the transient alert; `PulseState` the progress projection; `PresenceOp` the closed presence family and acquisition gate; `PresenceHold` what a mount actually holds per case; `PresenceMount` the applied presence.
 - Cases: `Alert` delivers a system toast with its activation route, `Tray` holds persistent tray presence with an icon and an optional menu, `Pulse` projects job progress onto the OS taskbar or dock, and `Badge` sets the application badge label.
-- Entry: `Apply` is the ONE gate and answers a leased mount; `Steer` is the live re-point on a standing mount — same-case only, the hold's `Prior` never re-captured — so a stepping consumer never releases and re-applies per frame. It crosses as `UiDispatch<T>.Blocking`, which runs in-frame when the caller already holds the marshal and invokes otherwise, so a caller inside a UI-affine callback reaches the same member and never waits on the thread it is holding.
+- Entry: `PresenceOp.Apply` answers a leased mount; `Steer` is the live re-point on a standing mount — same-case only, the hold's `Prior` never re-captured — so a stepping consumer never releases and re-applies per frame. It crosses as `UiDispatch<T>.Blocking`, which runs in-frame when the caller already holds the marshal and invokes otherwise, so a caller inside a UI-affine callback reaches the same member and never waits on the thread it is holding.
 - Auto: release RESTORES rather than merely detaching — a pulse mount lands the idle state, a badge mount clears the label, a tray mount hides and detaches before disposing, and an alert mount detaches its activation route. Both boundaries applied progress and badge state as fire-and-forget writes, so a job that ended without clearing left the taskbar pinned at its last fraction forever.
 - Auto: the progress fraction is a `UnitInterval` and the row projects it, so the host member that throws outside its bound is guarded by the type rather than by a caught argument exception.
 - Law: an alert whose host demands a tray anchor and receives none refuses TYPED before the show, naming the clause it refused under. The precondition is an INSTANCE read off the minted notification's own handler — a per-platform fact that does not exist until the card is minted — so the gate runs between the mint and the show and the refusal releases the card like any other failed acquisition. A bool on the op could only ever answer for the tray case and answered false for every alert that actually needed an anchor.
@@ -974,15 +883,17 @@ public abstract partial record PresenceOp {
     public sealed record Pulse(PulseState State) : PresenceOp;
     public sealed record Badge(Option<string> Label) : PresenceOp;
 
+    public Fin<Lease<PresenceMount>> Apply(FaultCell faults);
+
     internal Fin<Unit> Precondition() => Switch(
         alert: static _ => Fin.Succ(unit),
         tray: static (_) => HostPlatform.Demand(
-            claim: new PlatformClaim.HandlerCase(Contract: typeof(TrayIndicator.IHandler))),
+            requirement: new PlatformRequirement.Handler(Contract: typeof(TrayIndicator.IHandler))),
         pulse: static _ => Fin.Succ(unit),
         badge: static _ => Fin.Succ(unit));
 
     internal static Fin<Unit> Anchored(Alert alert, Notification card) =>
-        alert.Anchor.IsSome || !card.RequiresTrayIndicator
+        !card.RequiresTrayIndicator || alert.Anchor.Bind(static mount => mount.Indicator).IsSome
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new UiFault.Rejected(Field: FieldTag.Create(value: nameof(Alert)), Reason: RejectReason.TrayAnchor));
 }
@@ -993,7 +904,7 @@ public abstract partial record PresenceOp {
 internal abstract partial record PresenceHold {
     private PresenceHold() { }
 
-    internal sealed record AlertHold(Lease<Notification> Card) : PresenceHold;
+    internal sealed record AlertHold(Lease<Notification> Card, Option<Lease<EtoImage>> Content) : PresenceHold;
     internal sealed record TrayHold(
         Lease<TrayIndicator> Indicator, Option<Lease<EtoImage>> Icon, Option<Lease<ContextMenu>> Menu) : PresenceHold;
     internal sealed record PulseHold(PulseState Prior) : PresenceHold;
@@ -1009,7 +920,7 @@ public sealed record Toast(ToastKey Key, string Title, string Message, Option<Le
 public sealed class PresenceMount : IMount, IDisposable {
     private readonly PresenceHold hold;
     private readonly Atom<MountCustody> custody = Atom<MountCustody>(
-        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
+        new MountCustody.Live(Active: None, Children: Seq<IMount>(), Phase: MountPhase.Open));
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
 
     public PresenceOp Applied { get; }
@@ -1025,10 +936,6 @@ public sealed class PresenceMount : IMount, IDisposable {
     public void Dispose() => _ = Release();
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Presence {
-    public static Fin<Lease<PresenceMount>> Apply(PresenceOp operation, FaultCell faults);
-}
 ```
 
 ## [08]-[RESEARCH]

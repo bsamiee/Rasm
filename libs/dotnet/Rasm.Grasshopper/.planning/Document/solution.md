@@ -14,7 +14,7 @@
 - Owner: `MarshalLane` `[SmartEnum<int>]` — the thread-custody vocabulary: `Window` (the case runs inside the shared marshal window) and `Worker` (the case blocks the caller's own thread and must NOT hold the marshal); the lane is a COLUMN on `SolutionCommand`, derived from the case itself, so the dispatch reads custody off the value and no `is`-ladder at the gate re-derives it. `WaitPosture` `[ValueObject<TimeSpan>]` — the REQUIRED wait budget of a blocking await, positive by construction; an unbounded block on a live UI application is the hazard the budget deletes, and exhaustion is a typed refusal, never a hang. `SolutionCommand` `[Union]` — the closed execution vocabulary. `LaunchCase(SolutionMode, Option<CancellationTokenSource>)` discriminates the two start shapes on payload presence — a bare mode rides `SolutionServer.Start(SolutionMode)`, a bridled launch rides `Start(CancellationTokenSource, SolutionMode)` — and returns the moment the run is dispatched; `AwaitCase(SolutionMode, CancellationTokenSource, WaitPosture)` drives the same `Start` and blocks the caller's own thread on the `Task<Solution>` it hands back, at most the posture's budget; `HaltCase` stops the server; `CancelCase(Solution)` cancels one in-flight run cooperatively through `Solution.Cancel`; `DeferCase(IDocumentObject)` queues deferred expiry through `SolutionServer.DelayedExpire`; `ExpireCase(Seq<IDocumentObject>)` expires an explicit object set through each subject's own `IDocumentObject.Expire`. Awaited runs answer `GateOutcome.RunCase` with the final pulse.
 - Entry: `SolutionControl.Drive(SolutionCommand op, Option<HostDocument> graph = default, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default)` → `Fin<GateOutcome>` — the one execution gate; `SolutionControl.Watch(EvidenceDrain<GhFact> drain, Atomicity atomicity, Option<HostDocument> graph = default)` → `Fin<Lease<UiSubscription<GhFact>>>` — the whole six-row lifecycle family attached transactionally through the kernel `UiEvents.Observe` over `GhSource.Of(document.Solution)`, the subscription's lifetime the kernel lease.
 - Law: the gate is the `solution.lifecycle` fire site — every command heralds `GrasshopperPoint.SolutionLifecycle` (`Observe` modality) on the injected hooks with its own op and the document identity before the host verb runs, because the host's `SolutionEventArgs` carries no cancellation and observers therefore attach to the GATES, not the events; absent hooks drive unobserved.
-- Law: `Worker` custody BYPASSES the marshal, and that bypass is what makes the blocking posture satisfiable. `SolutionServer.Start` runs the whole solve on a threadpool worker and hands back its `Task<Solution>`, so the run settles independently of the UI idle loop and the only thread that blocks is the caller's own. Routing the await through the marshal like every `Window` case posts the block ONTO the idle loop the run does not need but every other gate does, which is the starvation the marshal law names; the worker path therefore probes the kernel's `UiThread.OnMarshal` and refuses with `KernelFault.InvalidContext` when the caller already holds the UI thread. Host's own `StartWait` is that same deadlock as a member and never enters the gate.
+- Law: `Worker` custody BYPASSES the marshal, and that bypass is what makes the blocking posture satisfiable. `SolutionServer.Start` runs the whole solve on a threadpool worker and hands back its `Task<Solution>`, so the run settles independently of the UI idle loop and the only thread that blocks is the caller's own. Routing the await through the marshal like every `Window` case posts the block ONTO the idle loop the run does not need but every other gate does, which is the starvation the marshal law names; the worker path therefore probes the kernel's `UiThread.IsUIThread` and refuses with `KernelFault.InvalidContext` when the caller already holds the UI thread. Host's own `StartWait` is that same deadlock as a member and never enters the gate.
 - Law: the wait is BOUNDED — the worker path waits `Task.Wait(posture, bridle.Token)` and a budget that lapses refuses with the folder's typed overdue fault carrying the budget it exhausted; the dispatched run keeps running (the bridle, not the wait, owns cancellation), so a caller that wants the run dead on timeout cancels its own `CancellationTokenSource` on the refusal.
 - Law: every `Window` case shares ONE marshal through `DocumentGate.Run`, so no live server handle crosses back out; run lifecycle facts arrive on the explicit `Watch` stream.
 - Law: expiry is a two-verb protocol on one owner — `DeferCase` queues and `ExpireCase` bypasses the queue for an explicit set — because the host drains its own deferred queue internally at run start and publishes no drain member; document-wide expiry (`ObjectList.ExpireAll`) is `Document/graph.md`'s membership verb, and a third expiry spelling anywhere in the folder is the deleted form.
@@ -93,7 +93,7 @@ public static partial class SolutionControl {
         SolutionCommand.AwaitCase command,
         Option<HostDocument> graph,
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks) =>
-        from onMarshal in UiThread.OnMarshal()
+        from onMarshal in UiThread.IsUIThread()
         from _ in guard(!onMarshal, (Error)new KernelFault.InvalidContext())
         from seat in DocumentGate.Resolve(graph: graph,
             body: document => Try.lift(() => (document.Identity, Server: document.Solution)).Run())
@@ -123,7 +123,7 @@ public static partial class SolutionControl {
         return Optional(drain).ToFin(new KernelFault.InvalidInput())
             .Bind(sink => DocumentGate.Resolve(graph: graph, body: document =>
                 UiEvents.Observe(
-                    anchor: EventAnchor.Ambient,
+                    anchor: unit,
                     drain: sink,
                     atomicity: atomicity,
                     rows: [.. GhSource.Of(document.Solution)])));
@@ -194,7 +194,7 @@ public static partial class SolutionControl {
         return Optional(run).ToFin(new KernelFault.InvalidInput())
             .Bind(live => UiThread.Run(
                 new UiDispatch<RunPulse>.Blocking(() => Try.lift(() => SolutionMap.Pulse(run: live)).Run()),
-                DispatchLane.Interactive, active))
+                DispatchLane.Interactive))
             .Bind(pulse => GhInstruments.Probed(document: document, pulse: pulse).Map(_ => pulse));
     }
 

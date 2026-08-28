@@ -170,7 +170,7 @@ public static partial class HistoryLedger {
                    Seq<Node> up = Climb(tip: head, ancestor: a);
                    Seq<Node> down = Climb(tip: tail, ancestor: a).Rev().Tail;
                    return Fin.Succ(new BranchPath(Ancestor: a, Path: up + down));
-               }).Run().Bind(static inner => inner)), DispatchLane.Interactive, active)
+               }).Run().Bind(static inner => inner)), DispatchLane.Interactive)
                select path;
 
         static Seq<Node> Climb(Node tip, Node ancestor) => toSeq(LanguageExt.List.unfold(Some(tip), held => held.Map(node =>
@@ -182,7 +182,7 @@ public static partial class HistoryLedger {
             .Bind(node => UiThread.Run(new UiDispatch<BranchCrown>.Blocking(() => Try.lift(() =>
                 Fin.Succ(new BranchCrown(
                     Primary: Optional(node.PrimaryChild),
-                    Secondary: toSeq(node.SecondaryChildren)))).Run().Bind(static inner => inner)), DispatchLane.Interactive, active));
+                    Secondary: toSeq(node.SecondaryChildren)))).Run().Bind(static inner => inner)), DispatchLane.Interactive));
     }
 }
 ```

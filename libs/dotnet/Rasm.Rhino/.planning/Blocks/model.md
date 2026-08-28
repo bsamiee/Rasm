@@ -543,7 +543,7 @@ internal sealed partial class PreviewFrame {
         ref DefinedView projection,
         ref AssetExtent extent,
         ref RasterScale scale) =>
-        validationError = projection is not null && scale is not null && extent.IsValid
+        validationError = projection is not null && scale is not null
             ? null
             : new ValidationError(message: "Preview frame demands an admitted projection, extent, and raster scale.");
 

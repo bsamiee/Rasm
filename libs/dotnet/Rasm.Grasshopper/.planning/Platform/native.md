@@ -284,7 +284,7 @@ public static class NativeLayer {
     private static readonly Seq<(Accessibility Row, Func<NSWorkspace, bool> Read)> ConcessionProbes = Seq(
         (Accessibility.ReduceMotion, (Func<NSWorkspace, bool>)(static w => w.AccessibilityDisplayShouldReduceMotion)),
         (Accessibility.ReduceTransparency, static w => w.AccessibilityDisplayShouldReduceTransparency),
-        (Accessibility.DifferentiateColour, static w => w.AccessibilityDisplayShouldDifferentiateWithoutColor),
+        (Accessibility.DifferentiateWithoutColor, static w => w.AccessibilityDisplayShouldDifferentiateWithoutColor),
         (Accessibility.IncreaseContrast, static w => w.AccessibilityDisplayShouldIncreaseContrast),
         (Accessibility.InvertColors, static w => w.AccessibilityDisplayShouldInvertColors));
 

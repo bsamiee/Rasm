@@ -89,10 +89,10 @@ public readonly record struct NudgeVector(float Dx, float Dy) : IValidityEvidenc
                 None: () => Some(next)));
 
     public static Seq<Mark> Guides(SnappingAction action, PerceptualColor ink, StrokeSpec stroke, TypeFace face) =>
-        toSeq(action.Lines).Map(line => (Mark)new Mark.StrokeCase(
-            Path: new PathSpec.LineCase(From: line.From, To: line.To), Stroke: stroke))
-        + Seq1((Mark)new Mark.TextCase(
-            Face: face, Block: None, Ink: ink, At: action.LabelPoint, Text: action.LabelText));
+        toSeq(action.Lines).Map(line => (Mark)new Mark.Stroke(
+            Path: new PathSpec.Line(From: line.From, To: line.To), Style: stroke))
+        + Seq1((Mark)new Mark.Text(
+            Face: face, Layout: None, Colour: ink, Origin: action.LabelPoint, Value: action.LabelText));
 }
 ```
 

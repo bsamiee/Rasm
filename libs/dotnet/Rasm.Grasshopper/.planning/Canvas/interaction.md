@@ -103,9 +103,10 @@ public sealed record GhResponder(
     CoordinateSystem Frame,
     Option<RectangleF> Boundary,
     Option<Func<ResponseRotationArgs, InputVerdict>> Rotation,
+    Option<Func<ResponseMouseArgs, InputVerdict>> SingleClick,
     Option<Func<bool>> HadEffect) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
-        Spec.IsValid || Boundary.IsSome || Rotation.IsSome,
+        Spec.IsValid || Boundary.IsSome || Rotation.IsSome || SingleClick.IsSome,
         Boundary.ForAll(static frame => ValidityClaim.Finite(frame: frame).Holds));
 }
 
@@ -133,13 +134,13 @@ internal sealed class SpecResponder : Responses, IResponsive {
     public override void MouseOver(ResponseMouseArgs e) => Beside(PointerPhase.Over, e, () => base.MouseOver(e));
     public override void MouseLeave() => Beside(PointerPhase.Leave, args: null, () => base.MouseLeave());
     public override Response MouseDown(ResponseMouseArgs e) => Answer(PointerPhase.Down, e, () => base.MouseDown(e));
-    public override Response MouseDrag(ResponseMouseArgs e) => Answer(PointerPhase.Drag, e, () => base.MouseDrag(e));
+    public override Response MouseDrag(ResponseMouseArgs e) => Answer(PointerPhase.Move, e, () => base.MouseDrag(e));
     public override Response MouseUp(ResponseMouseArgs e) => Answer(PointerPhase.Up, e, () => base.MouseUp(e));
     public override Response MouseWheel(ResponseMouseArgs e) => Answer(PointerPhase.Wheel, e, () => base.MouseWheel(e));
-    public override Response MouseSingleClick(ResponseMouseArgs e) => Answer(PointerPhase.SingleClick, e, () => base.MouseSingleClick(e));
+    public override Response MouseSingleClick(ResponseMouseArgs e) => Slotted(responder.SingleClick, e, () => base.MouseSingleClick(e));
     public override Response MouseDoubleClick(ResponseMouseArgs e) => Answer(PointerPhase.DoubleClick, e, () => base.MouseDoubleClick(e));
-    public override Response KeyDown(KeyEventArgs e) => Keyed(KeyPhase.KeyDown, e, () => base.KeyDown(e));
-    public override Response KeyUp(KeyEventArgs e) => Keyed(KeyPhase.KeyUp, e, () => base.KeyUp(e));
+    public override Response KeyDown(KeyEventArgs e) => Keyed(KeyPhase.Down, e, () => base.KeyDown(e));
+    public override Response KeyUp(KeyEventArgs e) => Keyed(KeyPhase.Up, e, () => base.KeyUp(e));
     public override Response TextInput(TextInputEventArgs e) => Slotted(responder.Spec.Text, e, () => base.TextInput(e));
     public override Response Rotation(ResponseRotationArgs e) => Slotted(responder.Rotation, e, () => base.Rotation(e));
 
@@ -267,15 +268,15 @@ public sealed class EdgeResize {
 
     private static Option<EdgeGrip> Projected(ResizingFrame frame) =>
         (frame.ResizeTopEdge, frame.ResizeLeftEdge, frame.ResizeRightEdge, frame.ResizeBottomEdge) switch {
-            (true, true, true, true) => Some<EdgeGrip>(new EdgeGrip.Whole()),
-            (true, true, false, false) => Some<EdgeGrip>(new EdgeGrip.Corner(At: GripCorner.TopLeft)),
-            (true, false, true, false) => Some<EdgeGrip>(new EdgeGrip.Corner(At: GripCorner.TopRight)),
-            (false, true, false, true) => Some<EdgeGrip>(new EdgeGrip.Corner(At: GripCorner.BottomLeft)),
-            (false, false, true, true) => Some<EdgeGrip>(new EdgeGrip.Corner(At: GripCorner.BottomRight)),
-            (true, false, false, false) => Some<EdgeGrip>(new EdgeGrip.Edge(Side: GripEdge.Top)),
-            (false, true, false, false) => Some<EdgeGrip>(new EdgeGrip.Edge(Side: GripEdge.Left)),
-            (false, false, true, false) => Some<EdgeGrip>(new EdgeGrip.Edge(Side: GripEdge.Right)),
-            (false, false, false, true) => Some<EdgeGrip>(new EdgeGrip.Edge(Side: GripEdge.Bottom)),
+            (true, true, true, true) => Some<EdgeGrip>(unit),
+            (true, true, false, false) => Some<EdgeGrip>(GripCorner.TopLeft),
+            (true, false, true, false) => Some<EdgeGrip>(GripCorner.TopRight),
+            (false, true, false, true) => Some<EdgeGrip>(GripCorner.BottomLeft),
+            (false, false, true, true) => Some<EdgeGrip>(GripCorner.BottomRight),
+            (true, false, false, false) => Some<EdgeGrip>(GripEdge.Top),
+            (false, true, false, false) => Some<EdgeGrip>(GripEdge.Left),
+            (false, false, true, false) => Some<EdgeGrip>(GripEdge.Right),
+            (false, false, false, true) => Some<EdgeGrip>(GripEdge.Bottom),
             _ => Option<EdgeGrip>.None,
         };
 }

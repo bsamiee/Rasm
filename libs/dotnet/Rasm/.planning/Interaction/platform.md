@@ -1,32 +1,29 @@
 # [RASM_PLATFORM]
 
-`Rasm.Interaction` owns the ambient host backend boundary every interaction surface stands on: which platform is live and what it admits, how a widget's backend handler is registered and resolved with its custody intact, how a raw native view crosses into the managed tree and back out, and how a keyed style claims its identity and rebroadcasts a theme. Rows answer every platform question — never a string comparison or a scattered `IsMac` predicate — and every registration this page performs returns its own inverse because the host registries it writes into are append-only and publish no removal.
+`Rasm.Interaction` owns the ambient host backend boundary every interaction surface stands on: which platform is live and what it admits, how a widget's backend handler is registered and resolved with its custody intact, how a raw native view crosses into the managed tree, and how a keyed style claims its identity and rebroadcasts a theme. Rows answer every platform question — never a string comparison or a scattered `IsMac` predicate — and every registration this page performs returns its own inverse because the host registries it writes into are append-only and publish no removal.
 
-Grasshopper held the platform boundary and Rhino the theme catalog. Grasshopper carried the typed snapshot, the polymorphic capability demand behind one gate, the context window, the handler-identity capsule with its native handle and control object, the leased mint census over both platform raise points, the two style mint arms — widget facade and concrete handler — the injective ledger, and the provider swap; Rhino carried the three-case handler demand with its matching custody triple, the platform-context and worker scopes, the eager-and-deferred native mount with its attachment lease, and the whole theme grid with its plugin-scoped style claim, its tracked weak control set, and its rebroadcast change. This owner is their union at every axis.
+Grasshopper held the platform boundary and Rhino the theme catalog. Grasshopper carried the typed snapshot, the polymorphic capability demand behind one gate, the two style registration arms — widget facade and concrete handler — and the injective ledger; Rhino carried the three-case handler demand, the eager-and-deferred native mount with its attachment lease, and the whole theme grid with its plugin-scoped style claim, its tracked weak control set, and its rebroadcast change. This owner is their union at every axis.
 
-Composition is downward and sideways inside the sub-domain: `Lease<T>`, `Atom`, `Cell`/`Transition`, `Validation`, `ValidityClaim`, `CapabilitySet<TCapability>`, and `ICapability<TSelf>` from `Domain`; `FaultCell` from `Domain/hooks`; `TelemetrySource` from `Domain/frame`; `PerceptualColor` from `Numerics/atoms`; `UiFault`, `RejectReason`, `FaultGate`, `UiDispatch<T>`, `DispatchLane`, and `UiThread` from `Interaction/dispatch`; `MountPhase` from `Interaction/chrome`; `ThemeGrid`, `ThemeSnapshot`, `ThemeShift`, and `ThemeChange` from `Interaction/paint`. Two settled host facts every registration here composes: `Platform.Add` registers under both the supplied type and its declared contract and then clears the resolved-handler cache, so a prior factory is recoverable through `Platform.Find` and a release RESTORES it; `Style.Add` appends into the active provider's per-key handler list whose only removal is a whole-registry clear, so a style registration's inverse is a dispatch cell its lease empties and never a second `Add`. `Eto.Drawing` never enters as a manifest using, so every fence aliases the host types it names.
+Composition is downward and sideways inside the sub-domain: `Lease<T>`, `Atom`, `Cell`/`Transition`, `Validation`, `ValidityClaim`, `CapabilitySet<TCapability>`, and `ICapability<TSelf>` from `Domain`; `FaultCell` from `Domain/hooks`; `TelemetrySource` from `Domain/frame`; `PerceptualColor` from `Numerics/atoms`; `UiFault`, `RejectReason`, `FaultGate`, `UiDispatch<T>`, `DispatchLane`, and `UiThread` from `Interaction/dispatch`; `ThemeGrid`, `ThemeSnapshot`, `ThemeShift`, and `ThemeChange` from `Interaction/paint`. Two settled host facts every registration here composes: `Platform.Add` registers under both the supplied type and its declared contract and then clears the resolved-handler cache, so a prior factory is recoverable through `Platform.Find` and a release RESTORES it; `Style.Add` appends into the active provider's per-key handler list whose only removal is a whole-registry clear, so a style registration's inverse is a dispatch cell its lease empties and never a second `Add`. `Eto.Drawing` never enters as a manifest using, so every fence aliases the host types it names.
 
 ## [01]-[INDEX]
 
-- [02]-[HANDLER]: `HandlerDemand`, `HandlerCustody`, `HandlerHold<THandler>`, `MintFact`, `HandlerRow`, `HandlerIdentity`, `HandlerSeat`, `Handlers` — the registration rows with their restoring lease, the custody-preserving resolution, the widget identity capsule, and the mint census.
-- [03]-[MOUNT]: `NativeMount`, `PlatformMount` — the two native-supply timings and the realize-plus-attach capsule that owns the crossing's inverse.
-- [04]-[PLATFORM]: `PlatformCapability`, `Accessibility`, `FormFactor`, `PlatformScope`, `PlatformRow`, `PlatformClaim`, `PlatformId`, `PlatformFact`, `HostPlatform`, `StyleKey`, `StyleRow`, `StyleContext`, `StyleSeat`, `ThemePort` — the platform roster with its capability gate, the accessibility-display vocabulary, and scope rows, and the keyed style port that injects a theme grid into the host registry.
+- [02]-[HANDLER]: `HandlerDemand`, `Handlers` — restoring registration and custody-preserving resolution.
+- [03]-[MOUNT]: `NativeMount` — the two native-supply timings with realized and leased attachment forms.
+- [04]-[PLATFORM]: `PlatformCapability`, `Accessibility`, `PlatformRow`, `PlatformRequirement`, `PlatformId`, `PlatformFact`, `HostPlatform`, `StyleKey`, `StyleRow`, `StyleContext`, `ThemePort` — the platform roster with its capability gate, the accessibility-display vocabulary, and the keyed style port that injects a theme grid into the host registry.
 
 ## [02]-[HANDLER]
 
-- Owner: `HandlerDemand` states ownership on the way in and names the host member it composes; `HandlerCustody` states it on the way out and carries the release; `HandlerHold<THandler>` the custody-carrying answer; `HandlerRow` one registration closed over its contract at mint; `HandlerSeat` the seated batch with its restoring release; `HandlerIdentity` the per-widget capsule; `MintFact` the census fact; `Handlers` the four entries.
-- Cases: `HandlerDemand` is `Create` — mint a handler the caller now owns — `Shared` — the platform-cached singleton whose disposal poisons every other consumer — or `Registered`, a factory lookup whose invoke mints as `Create` does. `HandlerCustody` is `Owned` or `Borrowed`, the one axis a release reads, and each demand row names which custody its answer travels under.
-- Entry: `Handlers.Seat` registers a row batch and leases the restore; `Resolve` answers a custody-carrying option; `Identity` reads one widget's capsule; `Census` leases an observer over both platform mint raises.
-- Law: custody survives the crossing. One undifferentiated handler return erases exactly the fact a caller has to act on, so the demand row NAMES the custody its answer carries and the hold carries both — separating an owned handler from the platform's shared singleton is one row read at both ends rather than two parallel families a call site keeps consistent by hand. NAMED LOSS: a third custody spelling for a registry lookup, which named the demand rather than the disposal it licensed.
+- Owner: `HandlerDemand` states ownership on the way in and names the host member it composes; `Handlers` owns registration and resolution.
+- Cases: `HandlerDemand` is `Create` — mint a handler the caller now owns — `Shared` — the platform-cached singleton whose disposal poisons every other consumer — or `Registered`, a factory lookup whose invoke mints as `Create` does.
+- Entry: `Handlers.Register` registers a host-shaped batch and leases the restore; `Resolve` answers a custody-carrying option.
+- Law: custody survives the crossing. One undifferentiated handler return erases exactly the fact a caller has to act on, so resolution returns the handler with its already-bound release function — separating an owned handler from the platform's shared singleton remains one demand-row decision without exposing an ownership flag to consumers.
 - Law: a resolve gates on `Supports<THandler>` before it creates, so a missing capability is a DISCOVERY result answering absence rather than a construction failure raising through the boundary.
 - Law: `Platform.Add` publishes no removal, so a seat CAPTURES the prior factory through `Platform.Find` and the release re-registers it. Where the platform registered none, the release seats a factory that refuses typed: the contract was unresolvable before the seat and is unresolvable after, and the refusal is the recoverable spelling of the raise the host otherwise throws. Restoring runs in reverse-seat order so a row layered over another unwinds to the state it found.
-- Law: the row CLOSES its generic at mint, so nothing past construction carries an erased factory a consumer mis-casts; the `Type` column exists because `Platform.Add(Type, Func<object>)` is the host contract this page admits once, and it never leaves the row.
-- Law: the seat carries the rows it took. Hosts that refuse one registration leave the others live, and a caller reads WHICH refused rather than inferring a partial seat from a count.
-- Law: attach and detach both marshal — the platform's mint raises are UI-thread state, so an off-thread subtraction races the raises it is removing itself from, and the exact delegate identity attach used is what comes back off.
-- Law: the identity capsule is a READ, never a key. Its two opaque host slots are handles the boundary casts at its own edge, its native handle rides `Option` because `nint.Zero` is a legal address the moment a platform hands one back, and its measured lifecycle fact reads the sub-domain's own `MountPhase` row rather than a second two-state vocabulary spelled beside it.
-- Output: `HandlerSeat` publishes `Seated` and `Refused`; `Handlers.Census` publishes `MintFact` through the observer and parks observer faults on the injected `FaultCell` through `FaultGate.Isolate` rather than failing the raise — a `void` reporter licenses a discard and bounds nothing, while the cell's parks, sheds, and declined parks all read as numbers.
-- Packages: Eto for `Platform` and its mint raises, Eto.Forms for `Widget` and `Control`; LanguageExt.Core for the types and the `Lease`; Thinktecture.Runtime.Extensions for the two rosters; `Domain/hooks` for the bounded `FaultCell` every observer raise parks on.
-- Growth: a new demand modality is one `HandlerDemand` row carrying its host member and its custody column; a new census raise is one `MintFact` case breaking every observer dispatch loudly.
+- Law: each registration arrives in the host's `(Type Contract, Func<object> Factory)` shape, so nothing past admission carries a second registration model.
+- Law: independent registration admission faults accumulate before mutation; ordered host writes then short-circuit and restore their successful prefix on failure.
+- Packages: Eto for `Platform`; LanguageExt.Core for the types and the `Lease`; Thinktecture.Runtime.Extensions for the demand roster.
+- Growth: a new demand modality is one `HandlerDemand` row carrying its host member and ownership column.
 - Boundary: HOST-SPECIFIC-STAYS — the AppKit bridge contracts each boundary registers against these rows (`IMacViewHandler`, `IMacWindow`, and the `MacConversions`/`CGConversions` projection owners) stay at the Grasshopper boundary, because they name `Microsoft.macOS` types the kernel does not reference.
 
 ```csharp
@@ -37,82 +34,41 @@ using Rasm.Domain;
 namespace Rasm.Interaction;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class HandlerCustody {
-    public static readonly HandlerCustody Owned = new(key: 0, release: static (handler, key) =>
-        FaultGate.Host(() => Fin.Succ(HostEdge.Side(() => (handler as IDisposable)?.Dispose()))));
-    public static readonly HandlerCustody Borrowed = new(key: 1, release: static (_, _) => Fin.Succ(unit));
-
-    [UseDelegateFromConstructor] internal partial Fin<Unit> Release(object handler);
-}
-
-[SmartEnum<int>]
+[SmartEnum]
 public sealed partial class HandlerDemand {
-    public static readonly HandlerDemand Create = new(key: 0, custody: HandlerCustody.Owned,
-        mint: static (platform, contract, key) => FaultGate.Host(() => Fin.Succ(Some(platform.Create(type: contract)))));
-    public static readonly HandlerDemand Shared = new(key: 1, custody: HandlerCustody.Borrowed,
-        mint: static (platform, contract, key) => FaultGate.Host(() => Fin.Succ(Some(platform.CreateShared(type: contract)))));
-    public static readonly HandlerDemand Registered = new(key: 2, custody: HandlerCustody.Owned,
-        mint: static (platform, contract, key) => FaultGate.Host(
-            () => Fin.Succ(Optional(platform.Find(type: contract)).Map(static factory => factory())), key));
+    public static readonly HandlerDemand Create = new(owned: true,
+        resolve: static (platform, contract) => FaultGate.Capture(
+            () => Fin.Succ(Some(platform.Create(type: contract)))));
+    public static readonly HandlerDemand Shared = new(owned: false,
+        resolve: static (platform, contract) => FaultGate.Capture(
+            () => Fin.Succ(Some(platform.CreateShared(type: contract)))));
+    public static readonly HandlerDemand Registered = new(owned: true,
+        resolve: static (platform, contract) => FaultGate.Capture(
+            () => Fin.Succ(Optional(platform.Find(type: contract)).Map(static factory => factory()))));
 
-    public HandlerCustody Custody { get; }
+    public bool Owned { get; }
 
-    [UseDelegateFromConstructor] internal partial Fin<Option<object>> Mint(Platform platform, Type contract);
-}
-
-public sealed record HandlerHold<THandler>(HandlerCustody Custody, THandler Handler) where THandler : class {
-    public Fin<Unit> Release() => Custody.Release(handler: Handler);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MintFact {
-    private MintFact() { }
-    public sealed record HandlerCase(object Instance) : MintFact;
-    public sealed record WidgetCase(Widget Instance) : MintFact;
+    [UseDelegateFromConstructor] internal partial Fin<Option<object>> Resolve(Platform platform, Type contract);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record HandlerRow(Type Contract, Func<Platform, Fin<Unit>> Seat, Func<Platform, Fin<Unit>> Restore) {
-    public static HandlerRow Of<THandler>(Func<THandler> factory) where THandler : class;
-}
-
-public sealed record HandlerIdentity(
-    Type Widget,
-    Option<string> Id,
-    Option<StyleKey> Worn,
-    Option<object> Handler,
-    Option<nint> Native,
-    Option<object> Control,
-    MountPhase Phase);
-
-// --- [SERVICES] ------------------------------------------------------------------------
-public sealed class HandlerSeat : IDisposable {
-    public Seq<HandlerRow> Seated { get; }
-    public Seq<(HandlerRow Row, Error Cause)> Refused { get; }
-    public void Dispose();
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Handlers {
-    public static Fin<Lease<HandlerSeat>> Seat(params ReadOnlySpan<HandlerRow> rows);
+    public static Fin<Lease<IDisposable>> Register(
+        params ReadOnlySpan<(Type Contract, Func<object> Factory)> registrations);
 
-    public static Fin<Option<HandlerHold<THandler>>> Resolve<THandler>(HandlerDemand demand)
+    public static Fin<Option<(THandler Handler, Func<Fin<Unit>> Release)>> Resolve<THandler>(HandlerDemand demand)
         where THandler : class;
-
-    public static Fin<HandlerIdentity> Identity(Widget widget);
-
-    public static Fin<Lease<IDisposable>> Census(Action<MintFact> observe, FaultCell faults);
 }
 ```
 
 ## [03]-[MOUNT]
 
-- Owner: `NativeMount` the two supply timings a native view can arrive under; `PlatformMount` the crossing capsule owning realize, attach, and the leased detach.
+- Owner: `NativeMount` owns the two supply timings a native view can arrive under and the two teardown shapes consumers require.
 - Cases: `Eager` carries a live platform view the host constructor admits directly; `Deferred` carries the supplier and the typed error sink the host's own creation hook invokes, so an expensive native view materializes only when the managed tree demands it.
-- Entry: `NativeMount.Realize` answers the bare control for a caller whose mount already owns teardown — the spec-tree `Embedded` node is that caller; `PlatformMount.Attach` is the standalone crossing that realizes, attaches, and leases its own detach.
+- Entry: `NativeMount.Realize` answers the bare control for a caller whose mount already owns teardown — the spec-tree `Embedded` node is that caller; `Attach` is the standalone crossing that realizes, attaches, and leases its own detach.
 - Law: the two entries are NOT an arity pair, and the discriminant is teardown ownership named here: a realized control inside a realized subtree is released by that subtree's reverse-order mount, and a control crossing on its own has no such owner, so it takes the lease. Callers holding a mount that also takes a lease release twice.
-- Law: hosting and extraction are two directions of ONE bridge — the mount carries native INTO the managed tree while the identity capsule's native handle and control object carry managed OUT — and both cross typed: an absent view refuses on the result, an extraction miss lowers to absence, and no direction raises through the boundary.
+- Law: the mount carries native INTO the managed tree; managed-to-native extraction is a direct `IControlObjectSource.ControlObject` read at its consuming boundary, so an absent view refuses on the result and no second identity snapshot survives beside the host member.
 - Law: a deferred supply that refuses RETAINS its fault on the injected `FaultCell` and never on a raw `Action<Error>`, because the host creation hook has no return the refusal rides and a `void` sink licenses a silent discard; the mount's failure set is that retention made readable.
 - Law: the `object` payload is the host's own contract — the native host constructor admits an untyped platform view — so the erasure is admitted ONCE here and never widens: nothing downstream re-types it and the boundary that supplied the view is the only party that knows what it is.
 - Auto: release detaches before disposing, so a control whose native side was already torn down never double-detaches.
@@ -131,28 +87,20 @@ namespace Rasm.Interaction;
 public abstract partial record NativeMount {
     private NativeMount() { }
     public sealed record Eager(object Native) : NativeMount;
-    public sealed record Deferred(Func<object> Supply, FaultCell Faults) : NativeMount;
+    public sealed record Deferred(Func<Fin<object>> Supply, FaultCell Faults) : NativeMount;
 
     public Fin<Control> Realize();
+    public Fin<Lease<Control>> Attach();
 }
 
-// --- [SERVICES] ------------------------------------------------------------------------
-public sealed class PlatformMount : IDisposable {
-    public static Fin<Lease<PlatformMount>> Attach(NativeMount mount);
-
-    public Control Subject { get; }
-    public Seq<Error> Failures { get; }
-
-    public void Dispose();
-}
 ```
 
 ## [04]-[PLATFORM]
 
-- Owner: `PlatformCapability` the admitted-feature vocabulary; `Accessibility` the host accessibility-display vocabulary every motion, theme, and translucency consumer reads as one `CapabilitySet<Accessibility>`; `FormFactor` the two device postures; `PlatformRow` the backend roster; `PlatformClaim` the one capability demand; `PlatformFact` the ambient snapshot; `HostPlatform` the four ambient entries; `StyleKey` the keyed style identity; `StyleRow`, `StyleContext`, and `StyleSeat` the registration family; `ThemePort` the injection port binding a `ThemeGrid` to the host style registry.
-- Cases: `PlatformRow` carries six rows keyed on the host's own platform identifiers — macOS, WinForms, WPF, GTK, iOS, Android — and `PlatformClaim` is `FeatureCase`, `HandlerCase`, or `RowCase`, three demand shapes behind one gate. `Accessibility` carries five rows — `ReduceMotion`, `IncreaseContrast`, `DifferentiateColour`, `ReduceTransparency`, `InvertColors` — the closed macOS accessibility-display axis set; `CapabilitySet` carries the combination, so the five bool columns three folders declared independently are one canonical key-ordered membership, and only ONE row is a motion fact — the other four are display settings, which is why the roster seats here and not with the motion fold.
-- Entry: `HostPlatform.Snapshot` reads the ambient fact; `Demand` is the ONE capability gate; `Scope(scope, body)` is the ONE scoped crossing over the `PlatformScope` row; `ThemePort.Register` claims and seats a style batch, `Wear` assigns a claimed key to a widget, `Change` lands a theme shift, and `Provide` swaps the provider.
-- Law: form factor is a ROW COLUMN, not a probe pair. Reading `IsDesktop` and `IsMobile` off the live platform and carrying both as bools admits a platform answering neither and a platform answering both; the roster declares each row's factor once and the fact projects it, so the two host predicates are the deleted form and the scattered `IsMac` tests they enabled have no spelling left.
+- Owner: `PlatformCapability` the admitted-feature vocabulary; `Accessibility` the host accessibility-display vocabulary every motion, theme, and translucency consumer reads as one `CapabilitySet<Accessibility>`; `PlatformRow` the backend roster; `PlatformRequirement` the one capability demand; `PlatformFact` the ambient snapshot; `HostPlatform` the snapshot and demand entries; `StyleKey`, `StyleRow`, and `StyleContext` the registration family; `ThemePort` the injection port binding a `ThemeGrid` to the host style registry.
+- Cases: `PlatformRow` carries six rows keyed on the host's own platform identifiers — macOS, WinForms, WPF, GTK, iOS, Android — and `PlatformRequirement` is `Features`, `Handler`, or `Backend`, three demand shapes behind one gate. `Accessibility` carries five rows — `ReduceMotion`, `IncreaseContrast`, `DifferentiateWithoutColor`, `ReduceTransparency`, `InvertColors` — the closed macOS accessibility-display axis set; `CapabilitySet` carries the combination, so the five bool columns three folders declared independently are one canonical key-ordered membership, and only ONE row is a motion fact — the other four are display settings, which is why the roster seats here and not with the motion fold.
+- Entry: `HostPlatform.Snapshot` reads the ambient fact; `Demand` is the ONE capability gate; `ThemePort.Register` claims and seats a style batch, `Apply` assigns a claimed key to a widget, and `Change` lands a theme shift.
+- Law: form factor is the host's `IsMobile` fact. Desktop is its negation where required, so a second vocabulary and a paired boolean cannot drift from the admitted snapshot.
 - Law: bundle validity is an ADMISSION, not a column. Platforms reporting themselves invalid produce no usable fact, so `Snapshot` refuses typed and the `Valid` bool disappears rather than riding out for every reader to re-check. The identity is a `PlatformId`, so the fact carries no evidence fold at all — a one-conjunct claim over an admitted value object measures nothing its own construction did not refuse.
 - Law: capability is a `CapabilitySet<PlatformCapability>` over the host's own feature vocabulary — the upstream is the platform feature flag set and each row names its flag — so a demand is set algebra with an ordinal-key wire rather than a bitwise test, and a claim carrying two required features admits or refuses as one.
 - Law: an unrecognised platform answers ABSENCE on the row, never a synthetic fallback. Spelling that absence as an `Other` row — the negation of the other four — hides what it stands for, so the option carries it readable instead. NAMED LOSS: a consumer switching total over the roster answers the absent case explicitly. Witness: `Rasm.Rhino/.planning/Eto/platform.md:37 Other` rebuilt as `PlatformFact.Row : Option<PlatformRow>`.
@@ -161,10 +109,10 @@ public sealed class PlatformMount : IDisposable {
 - Law: a batch with a duplicate key refuses BEFORE it seats anything, so the host registry never holds half of a rejected ledger.
 - Law: this port REGISTERS and never generates. Cell grid, contrast floors, and transition admission are `Interaction/paint#[05]-[THEME]`'s frozen value; here a shift is forwarded to that owner and only its ACCEPTED change drives the rebroadcast, so a refused shift never reaches a tracked control.
 - Auto: tracked controls are held WEAKLY and compacted on every rebroadcast, so the port never keeps a retired control alive and a rebroadcast walks only what the host still holds.
-- Auto: a rebroadcast failure lands on the change's failure set rather than on the caller's result — a single control refusing its restyle does not un-accept a theme every other control already took.
-- Output: `ThemeChange` from the grid carries generation, variant, changed roles, and rebroadcast failures; `StyleSeat` publishes claimed and refused rows.
-- Packages: Eto for `Platform`, its identifiers, its feature flags, `Style`, and the `IStyleProvider` contract a provider swap seats (`libs/dotnet/.api/api-eto-platform.md`); Eto.Forms for `Widget` and `Control`; LanguageExt.Core for `Atom`, `HashMap`, the types, and the `Lease`; Thinktecture.Runtime.Extensions for the rows, the claim union, and the two key value objects; `Domain/hooks` for the `FaultCell` a seat's restyle faults park on.
-- Growth: a new backend is one `PlatformRow` row carrying its probe and its factor; a new host feature is one `PlatformCapability` row naming its flag; a new accessibility accommodation is one `Accessibility` row plus one probe entry at each boundary that reads the host; a new demand shape is one `PlatformClaim` case; a new ambient scope is one `PlatformScope` row and no second entry.
+- Auto: independent rebroadcast failures combine through `Error.operator +` on `WriterT<Error, Fin, ThemeChange>` rather than entering the accepted change — a single control refusing its restyle does not un-accept a theme every other control already took.
+- Output: `ThemeChange` from the grid carries generation, variant, and changed roles; the writer output carries rebroadcast failures.
+- Packages: Eto for `Platform`, its identifiers, its feature flags, and `Style` (`libs/dotnet/.api/api-eto-platform.md`); Eto.Forms for `Widget` and `Control`; LanguageExt.Core for `Atom`, `HashMap`, `WriterT`, the types, and the `Lease`; Thinktecture.Runtime.Extensions for the rows, the requirement union, and the two key value objects; `Domain/hooks` for the `FaultCell` a registration's restyle faults park on.
+- Growth: a new backend is one `PlatformRow` key; a new host feature is one `PlatformCapability` row naming its flag; a new accessibility accommodation is one `Accessibility` row plus one probe entry at each boundary that reads the host; a new demand shape is one `PlatformRequirement` case.
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino theme-zone swatch feeder that produces a hosted shift and its host UI service resolution stay at that boundary; the Grasshopper session styling target stays at that one, and every `NSWorkspace` or preference PROBE filling `CapabilitySet<Accessibility>` stays at the boundary that reads its host. Plugin identity is `Domain/frame`'s `PackageIdentity`, never a second identity here.
 
 ```csharp
@@ -178,10 +126,10 @@ namespace Rasm.Interaction;
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlatformCapability : ICapability<PlatformCapability> {
-    public static readonly PlatformCapability CellView = new(key: "cell-view", rank: 0, flag: PlatformFeatures.CustomCellSupportsControlView);
-    public static readonly PlatformCapability Transparency = new(key: "transparency", rank: 1, flag: PlatformFeatures.DrawableWithTransparentContent);
-    public static readonly PlatformCapability TabOrder = new(key: "tab-order", rank: 2, flag: PlatformFeatures.TabIndexWithCustomContainers);
-    public static readonly PlatformCapability MultiThread = new(key: "multi-thread", rank: 3, flag: PlatformFeatures.MultiThreadedUI);
+    public static readonly PlatformCapability CustomCellControlView = new(key: "cell-view", rank: 0, flag: PlatformFeatures.CustomCellSupportsControlView);
+    public static readonly PlatformCapability TransparentDrawableContent = new(key: "transparency", rank: 1, flag: PlatformFeatures.DrawableWithTransparentContent);
+    public static readonly PlatformCapability CustomContainerTabIndex = new(key: "tab-order", rank: 2, flag: PlatformFeatures.TabIndexWithCustomContainers);
+    public static readonly PlatformCapability MultiThreadedUi = new(key: "multi-thread", rank: 3, flag: PlatformFeatures.MultiThreadedUI);
     public static readonly PlatformCapability Mnemonics = new(key: "mnemonics", rank: 4, flag: PlatformFeatures.Mnemonics);
 
     public int Rank { get; }
@@ -195,47 +143,30 @@ public sealed partial class PlatformCapability : ICapability<PlatformCapability>
 public sealed partial class Accessibility : ICapability<Accessibility> {
     public static readonly Accessibility ReduceMotion = new(key: "reduce-motion", rank: 0);
     public static readonly Accessibility IncreaseContrast = new(key: "increase-contrast", rank: 1);
-    public static readonly Accessibility DifferentiateColour = new(key: "differentiate-colour", rank: 2);
+    public static readonly Accessibility DifferentiateWithoutColor = new(key: "differentiate-without-color", rank: 2);
     public static readonly Accessibility ReduceTransparency = new(key: "reduce-transparency", rank: 3);
     public static readonly Accessibility InvertColors = new(key: "invert-colors", rank: 4);
 
     public int Rank { get; }
 }
 
-[SmartEnum<int>]
-public sealed partial class FormFactor {
-    public static readonly FormFactor Desktop = new(key: 0);
-    public static readonly FormFactor Mobile = new(key: 1);
-}
-
-[SmartEnum<int>]
-public sealed partial class PlatformScope {
-    public static readonly PlatformScope Context = new(key: 0);
-    public static readonly PlatformScope Worker = new(key: 1);
-}
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlatformRow {
-    public static readonly PlatformRow Mac = new(key: Platforms.macOS, factor: FormFactor.Desktop, probe: static platform => platform.IsMac);
-    public static readonly PlatformRow WinForms = new(key: Platforms.WinForms, factor: FormFactor.Desktop, probe: static platform => platform.IsWinForms);
-    public static readonly PlatformRow Wpf = new(key: Platforms.Wpf, factor: FormFactor.Desktop, probe: static platform => platform.IsWpf);
-    public static readonly PlatformRow Gtk = new(key: Platforms.Gtk, factor: FormFactor.Desktop, probe: static platform => platform.IsGtk);
-    public static readonly PlatformRow Ios = new(key: Platforms.Ios, factor: FormFactor.Mobile, probe: static platform => platform.IsIos);
-    public static readonly PlatformRow Android = new(key: Platforms.Android, factor: FormFactor.Mobile, probe: static platform => platform.IsAndroid);
-
-    public FormFactor Factor { get; }
-
-    [UseDelegateFromConstructor]
-    internal partial bool Probe(Platform platform);
+    public static readonly PlatformRow Mac = new(key: Platforms.macOS);
+    public static readonly PlatformRow WinForms = new(key: Platforms.WinForms);
+    public static readonly PlatformRow Wpf = new(key: Platforms.Wpf);
+    public static readonly PlatformRow Gtk = new(key: Platforms.Gtk);
+    public static readonly PlatformRow Ios = new(key: Platforms.Ios);
+    public static readonly PlatformRow Android = new(key: Platforms.Android);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PlatformClaim {
-    private PlatformClaim() { }
-    public sealed record FeatureCase(CapabilitySet<PlatformCapability> Required) : PlatformClaim;
-    public sealed record HandlerCase(Type Contract) : PlatformClaim;
-    public sealed record RowCase(PlatformRow Row) : PlatformClaim;
+public abstract partial record PlatformRequirement {
+    private PlatformRequirement() { }
+    public sealed record Features(CapabilitySet<PlatformCapability> Required) : PlatformRequirement;
+    public sealed record Handler(Type Contract) : PlatformRequirement;
+    public sealed record Backend(PlatformRow Required) : PlatformRequirement;
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -257,53 +188,33 @@ public readonly partial struct PlatformId {
     }
 }
 
-[StructLayout(LayoutKind.Auto)]
 public readonly record struct PlatformFact(
     PlatformId Id,
     Option<PlatformRow> Row,
-    CapabilitySet<PlatformCapability> Capabilities) {
-    public Option<FormFactor> Factor => Row.Map(static row => row.Factor);
-}
+    bool IsMobile,
+    CapabilitySet<PlatformCapability> Capabilities);
 
 internal sealed record StyleContext(Func<ThemeSnapshot> Snapshot, Action<Control> Track, FaultCell Faults);
 
-public sealed record StyleRow(StyleKey Tag, Action<StyleContext> Seat) {
-    public static StyleRow OfWidget<TWidget>(StyleKey tag, Action<TWidget, ThemeSnapshot> dress) where TWidget : Widget;
-    public static StyleRow OfHandler<THandler>(StyleKey tag, Action<THandler, ThemeSnapshot> dress) where THandler : class, Widget.IHandler;
+public sealed record StyleRow(StyleKey Key, Func<StyleContext, Fin<Unit>> Register) {
+    public static StyleRow ForWidget<TWidget>(StyleKey key, Action<TWidget, ThemeSnapshot> apply) where TWidget : Widget;
+    public static StyleRow ForHandler<THandler>(StyleKey key, Action<THandler, ThemeSnapshot> apply) where THandler : class, Widget.IHandler;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class StyleSeat : IDisposable {
-    public TelemetrySource Owner { get; }
-    public Seq<StyleRow> Claimed { get; }
-    public Seq<(StyleRow Row, Error Cause)> Refused { get; }
-    public void Dispose();
-}
+public sealed class ThemePort(ThemeGrid grid) {
+    public Fin<Lease<IDisposable>> Register(
+        TelemetrySource owner, FaultCell faults, params ReadOnlySpan<StyleRow> rows);
 
-public sealed class ThemePort {
-    public static Fin<ThemePort> Of(ThemeGrid grid);
-
-    public ThemeSnapshot Current { get; }
-    public Seq<Error> Failures { get; }
-
-    public Fin<Lease<StyleSeat>> Register(TelemetrySource owner, FaultCell faults, params ReadOnlySpan<StyleRow> rows);
-
-    public Fin<Unit> Wear(Widget widget, StyleKey style);
-
-    public Fin<Unit> Provide(IStyleProvider provider);
-
-    public Unit Track(Control control);
-
-    public Fin<ThemeChange> Change(ThemeShift shift);
+    public Fin<Unit> Apply(Widget widget, StyleKey style);
+    public WriterT<Error, Fin, ThemeChange> Change(ThemeShift shift);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostPlatform {
     public static Fin<PlatformFact> Snapshot();
 
-    public static Fin<Unit> Demand(PlatformClaim claim);
-
-    public static Fin<TResult> Scope<TResult>(PlatformScope scope, Func<Fin<TResult>> body);
+    public static Fin<Unit> Demand(PlatformRequirement requirement);
 }
 ```
 

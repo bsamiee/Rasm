@@ -167,9 +167,9 @@ public static class EditorShell {
                     getterCase: static (s, c) => Try.lift(() =>
                         Editor.BeginRhinoGetter(doc: HostEdge.Slot(c.Target))
                             ? Fin.Succ(unit)
-                            : Fin.Fail<Unit>((Error)new UiFault.HostRejected(Detail: nameof(Editor.BeginRhinoGetter)))).Run().Bind(static inner => inner))
+                            : Fin.Fail<Unit>((Error)new UiFault.HostRejected(Cause: Error.New(0, nameof(Editor.BeginRhinoGetter))))).Run().Bind(static inner => inner))
                     .Bind(_ => Project(scope: scope)))),
-                DispatchLane.Interactive, active));
+                DispatchLane.Interactive));
     }
 
     public static Fin<Lease<ShellFacts>> Mount(Seq<ShellOp> standing);

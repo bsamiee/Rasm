@@ -89,14 +89,6 @@ public abstract partial record GhFact : IUiFact {
     public sealed record SolutionCase(SolutionSignal Signal, Option<SolutionId> Id, Option<Error> Failure) : GhFact;
     public sealed record UndoCase(UndoSignal Signal) : GhFact;
     public sealed record Kernel(UiFact Fact) : GhFact;
-
-    public string Kind => Switch(
-        canvasCase:   static _ => "canvas",
-        documentCase: static _ => "document",
-        graphCase:    static _ => "graph",
-        solutionCase: static _ => "solution",
-        undoCase:     static _ => "undo",
-        kernel:       static fact => fact.Fact.Kind);
 }
 ```
 
@@ -106,7 +98,7 @@ public abstract partial record GhFact : IUiFact {
 - Law: a GH2 SUBJECT rides its ROW — the kernel `EventAnchor` union is Eto-shaped and closed, so a row over a `Document`, `SolutionServer`, or `History` closes over the subject at its mint (`GhSource.Of(document)` answers that subject's row set) and admits `EventAnchor.Ambient` alone, the spelling that states no Eto surface is touched; the six canvas rows demand `OnControl` whose control IS the GH2 `Canvas` and refuse any other typed. Anchor agreement stays admission, never documentation.
 - Law: every wire spells its host delegate exactly — the flex-interface four carry typed args (`ProjectionChangedEventArgs`, `WindowSelectionEventArgs`, `MouseDwellEventArgs` with `ContentPoint`, `ControlDrawEventArgs`); the document three carry `DocumentModifiedEventArgs`/`DocumentStateEventArgs`/`BeforeAfterEventArgs<Document, IDocumentParent>`; the object-list ten carry the `ObjectEventArgs` family; the solution six carry `SolutionIdEventArgs`/`SolutionEventArgs`/`SolutionExceptionEventArgs`; the undo seven carry `UndoEventArgs`/`UndoNodeEventArgs`/`UndoNodeMovedEventArgs`. Wire assuming a wrong delegate family fails at compile.
 - Law: the emit thunk publishes into the kernel drain through `UiEvents.Observe` — projection runs inside the drain's own admission, a refused projection counts on `Refused`, a dropped event on `Shed`, and the ordinal mints under the drain's one compare-and-swap. No row touches an ordinal, a fault cell, or a log; the loss accounting is the kernel's.
-- Law: subscription is `UiEvents.Observe(anchor, drain, Atomicity.AllOrNothing, rows)` — the folder's ruled posture: a refused row detaches every seated sibling and refuses whole, because the journal reading the drain is replayable only over a complete row set. Diagnostic consumer wanting partial attach names `Atomicity.Partial` at its own call site; both are kernel rows, not folder forks.
+- Law: subscription is `UiEvents.Observe(anchor, drain, Atomicity.AllOrNothing, rows)` — the folder's ruled posture: a refused row detaches every attached sibling and refuses whole, because the journal reading the drain is replayable only over a complete row set. Diagnostic consumer wanting partial attach names `Atomicity.Partial` at its own call site; both are kernel rows, not folder forks.
 - Boundary: native-monitor streams stay `Platform/native.md`'s — the platform owner projects its gated monitors into the same drain from above; the eight canvas paint fences are `Canvas/paint.md`'s executor and never rows here.
 - Packages: Grasshopper2 (the canvas/document/object-list/solution/history event families and args types), `Rasm.Interaction` (`IUiSource`, `EventAnchor`, `UiEvents`, `EvidenceDrain`, `Atomicity`), `Rasm.Domain` (`Fault`).
 - Growth: a new host stream is one row through an existing fold; a new args family is one `EventTable` instantiation — the roster's two folds and the kernel gate never change.
@@ -189,17 +181,15 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
 
     private static GhSource Canvas<TArgs>(string key, EventTable<Canvas, TArgs> wired, Func<Canvas, TArgs, GhFact> project)
         where TArgs : EventArgs =>
-        new(Bind: (anchor, emit, op) => anchor switch {
-            EventAnchor.OnControl { Value: Canvas surface } => Try.lift(() => Hook(surface, wired, project, emit)).Run(),
-            _ => Fin.Fail<IDisposable>(new KernelFault.InvalidInput()),
-        });
+        new(Key: key, Bind: (anchor, emit) => anchor.IsOnControl && anchor.AsOnControl is Canvas surface
+            ? Try.lift(() => Hook(surface, wired, project, emit)).Run()
+            : Fin.Fail<IDisposable>(new KernelFault.InvalidInput()));
 
     private static GhSource Subject<THost, TArgs>(THost host, string key, EventTable<THost, TArgs> wired, Func<THost, TArgs, GhFact> project)
         where TArgs : EventArgs =>
-        new(Bind: (anchor, emit, op) => anchor switch {
-            EventAnchor.Ambient => Try.lift(() => Hook(host, wired, project, emit)).Run(),
-            _ => Fin.Fail<IDisposable>(new KernelFault.InvalidInput()),
-        });
+        new(Key: key, Bind: (anchor, emit) => anchor.IsAmbient
+            ? Try.lift(() => Hook(host, wired, project, emit)).Run()
+            : Fin.Fail<IDisposable>(new KernelFault.InvalidInput()));
 
     private static GhSource Listed(Document graph, string key, GraphSignal signal, EventTable<Document, ObjectEventArgs> wired) =>
         Subject(graph, key, wired, project: (_, args) => new GhFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));

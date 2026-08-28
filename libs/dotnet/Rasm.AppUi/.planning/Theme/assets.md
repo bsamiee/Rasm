@@ -14,14 +14,14 @@ Rasm.AppUi composes the kernel asset vocabulary through Avalonia. `AssetDeclarat
 ## [02]-[ICON_AXIS]
 
 - Owner: the origin family is the KERNEL's `AssetOrigin`; `HostGlyph` is the boundary resolver row a kernel `Vector` key binds and `SemiGlyph` the shipped-geometry vocabulary whose key IS the resource string; `IconSurface` owns the walk, the filter fold, and the one materialize dispatch; `IconRow` pairs a key's alternative origin with its tint role and mirror axis; `GlyphPaint` is the folded chain every arm draws through; `AssetRuntime` is the composition-bound capability set; `AssetProduct` is the boundary product carrier for image and pointer alike; `AssetFault` is the direct generated `[Union]` with one `[FaultCase]` leaf per asset failure.
-- Cases: kernel `AssetOrigin` = Resource | File | Stream | Raster | Vector | Source | Render, every arm answered or refused BY NAME; `HostGlyph` = Symbolic | Sized | Shipped; `GlyphForm` = Image | Pointer; `AssetProduct` = Glyph | Pointer; mirror is the kernel `Option<MirrorAxis>`; rendering state is the kernel `Seq<IconFilter>`.
-- Law: the icon size axis IS the `MetricFamily.Icon` scale and its EXTENT is the kernel `AssetExtent` — a request carries a STEP, the resolve reads `ResolvedTheme.Metric(MetricFamily.Icon, step)`, and `AssetExtent.Of` admits that logical edge beside the backing scale, deriving the device extent and refusing past the kernel ceiling. NAMED LOSS: a fractional resolved dip rounds to the kernel's integral logical edge at admission.
+- Cases: kernel `AssetOrigin` = Resource | File | Stream | Raster | Vector | Source, every arm answered or refused BY NAME; `HostGlyph` = Symbolic | Sized | Shipped; `GlyphForm` = Image | Pointer; `AssetProduct` = Glyph | Pointer; mirror is the kernel `Option<MirrorAxis>`; rendering state is the kernel `Seq<IconFilter>`.
+- Law: the icon size axis IS the `MetricFamily.Icon` scale and its EXTENT is the kernel `AssetExtent` — a request carries a STEP, the resolve reads `ResolvedTheme.Metric(MetricFamily.Icon, step)`, and generated `AssetExtent.Validate` admits that logical edge beside the backing scale, deriving the device extent and refusing past the kernel ceiling. NAMED LOSS: a fractional resolved dip rounds to the kernel's integral logical edge at admission.
 - Law: mirroring carries its AXIS and derives its MECHANISM — a font binding selects its mirrored codepoint plane through `FlowDirection`, every geometry, vector, and byte-backed arm reflects under one matrix — and the pose's ROTATION and both EXTENT edges reach every arm: `Turned` composes rotation about the box centre with the reflection, `Framed` viewboxes width by height, so a caller-composed `IconRender` renders the pose it states.
 - Entry: `IconSurface.Resolve(AssetRuntime runtime, AssetRequest request, ResolvedTheme resolved)` — `Fin`; admission is `Validation` over the independent metric-step and scale gates, then the dependent extent. Kernel refusals cross WHOLE as the `UiFault` the kernel minted.
-- Auto: declaration order inside a key's `AssetDeclaration.Icons` IS fallback order; `Elected` derives the Fluent size from the package's own `IconSizeValues.Enumerable`; the filter chain folds ONCE per row before any arm draws, so `IconRender.Wire` round-trips what was drawn; every product admits through the asset plane's `BudgetedCache` instance.
-- Packages: Rasm (`AssetKey`, `AssetOrigin`, `AssetAnchor`, `AssetExtent`, `AssetRaster`, `RasterStack`, `AlphaLayout`, `IconPose`, `MirrorAxis`, `IconFilter`, `IconRender`, `PerceptualColor`, `BlendPath`, `Dimension`, `PositiveMagnitude`, `UnitInterval`, `VectorAngle`, `FaultBand`, `[FaultCase]`, `Fault`), FluentIcons.Common, FluentIcons.Avalonia, Semi.Avalonia, Avalonia, Wacton.Unicolour (`Cvd` alone), Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Auto: declaration order inside a key's `AssetDeclaration.Icons` IS fallback order; `Elected` derives the Fluent size from the package's own `IconSizeValues.Enumerable`; the filter chain folds ONCE per row before any arm draws; every product admits through the asset plane's `BudgetedCache` instance.
+- Packages: Rasm (`AssetKey`, `AssetOrigin`, `AssetAnchor`, `AssetExtent`, `AssetRaster`, `AlphaLayout`, `IconPose`, `MirrorAxis`, `IconFilter`, `IconRender`, `PerceptualColor`, `BlendPath`, `Dimension`, `PositiveMagnitude`, `UnitInterval`, `VectorAngle`, `FaultBand`, `[FaultCase]`, `Fault`), FluentIcons.Common, FluentIcons.Avalonia, Semi.Avalonia, Avalonia, Wacton.Unicolour (`Cvd` alone), Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one `AssetDeclaration` row absorbs a new asset with its icon alternatives; a new host-typed payload is one `HostGlyph` case, never an origin case; a new byte source, product shape, rendering state, or reflection axis lands at the KERNEL and breaks the matching arm here loudly.
-- Boundary: ONE walk for both forms — the table fold produces the image, the request's `GlyphForm` projects it, so a pointer is the image rasterized through one `RenderTargetBitmap`. HOST-TYPED PAYLOADS ARE ROWS: a FluentIcons `Symbol`, a sized `Icon`, and a `SemiGlyph` ride `AssetRuntime.Bindings` under their own keys, their icon rows carrying `AssetOrigin.Vector(key)` alone — `Vector` reads the binding table first and falls to the avares SVG lane, two disjoint key sets walked as one lookup. Tint reads `ResolvedTheme.Paint(role, rung)` into `IconFilter.Tinted`; `Selected` REFUSES because selection is a token-ROLE election at `Theme/tokens`; `Disabled` folds to a coverage factor the one quantization crossing multiplies into alpha, rounded, never truncated. `AssetOrigin.Render` refuses: the kernel draw replays a `PaintProgram` onto an Eto target. `Raster` asks `RasterStack.Pixels` at the pose extent and uploads under the frame's own `AlphaLayout` straight from the kernel rows' span. `Stream` opens its factory EXACTLY ONCE per resolve. `Shipped` geometry builds once inside `Semi.Avalonia.Icons`, an unguarded replacement, so `AssetRuntime.Glyphs` is read on the UI thread alone. `Resolve` walks alternatives through `BindFail` — `operator |` evaluates both operands and decodes every lower row after the winner exists. Every known absence refuses on the result by name; throwing native calls cross `Try.lift` with exact exception evidence.
+- Boundary: ONE walk for both forms — the table fold produces the image, the request's `GlyphForm` projects it, so a pointer is the image rasterized through one `RenderTargetBitmap`. HOST-TYPED PAYLOADS ARE ROWS: a FluentIcons `Symbol`, a sized `Icon`, and a `SemiGlyph` ride `AssetRuntime.Bindings` under their own keys, their icon rows carrying `AssetOrigin.Vector(key)` alone — `Vector` reads the binding table first and falls to the avares SVG lane, two disjoint key sets walked as one lookup. Tint reads `ResolvedTheme.Paint(role, rung)` into `IconFilter.Tinted`; selection is a token-role election at `Theme/tokens`; `Disabled` folds to a coverage factor the one quantization crossing multiplies into alpha, rounded, never truncated. `Raster` selects the nearest `AssetRaster.Pixels` at the pose scale and uploads under the frame's own `AlphaLayout` straight from the kernel rows' span. `Stream` opens its factory EXACTLY ONCE per resolve. `Shipped` geometry builds once inside `Semi.Avalonia.Icons`, an unguarded replacement, so `AssetRuntime.Glyphs` is read on the UI thread alone. `Resolve` walks alternatives through `BindFail` — `operator |` evaluates both operands and decodes every lower row after the winner exists. Every known absence refuses on the result by name; throwing native calls cross `Try.lift` with exact exception evidence.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -154,7 +154,8 @@ public static class IconSurface {
                 FactoryBridge.Accept<PositiveMagnitude>(request.Scale).MapFail(static _ => (Error)new AssetFault.ScaleOffAxis($"{request.Scale}")).ToValidation())
             .Apply(static (dip, scale) => (Dip: dip, Scale: scale)).ToFin()
         from edge in FactoryBridge.Accept<Dimension>((int)double.Round(admitted.Dip))
-        from extent in AssetExtent.Of(width: edge, height: edge, scale: admitted.Scale)
+        from extent in FactoryBridge.Lift<AssetExtent>(
+            AssetExtent.Validate(edge, edge, admitted.Scale, AssetExtent.Ceiling, out AssetExtent? extent), extent)
         let flipping = request.Flow is FlowDirection.RightToLeft
         from ranked in Rows(runtime.Rows, request.Key)
         from picture in ranked.AsIterable().Fold(
@@ -163,7 +164,7 @@ public static class IconSurface {
                 runtime: runtime,
                 render: new IconRender(
                     Origin: row.Source,
-                    Pose: IconPose.Upright(extent) with { Mirror = row.Mirror.Filter(_ => flipping) },
+                    Pose: new IconPose(VectorAngle.Create(0d), row.Mirror.Filter(_ => flipping), extent),
                     Filters: new IconFilter.Tinted(tint).Cons(request.Filters))))))
         from product in Formed(request.Form, picture, extent)
         select product;
@@ -174,16 +175,16 @@ public static class IconSurface {
             resource: static (s, c) => Decoded(() => Optional(c.Anchor.Owner.GetManifestResourceStream(c.Anchor.ResourcePath)), s.Key).Map(image => Posed(image, s.Pose)),
             file: static (s, c) => Decoded(() => Some<System.IO.Stream>(System.IO.File.OpenRead((string)c.Location)), s.Key).Map(image => Posed(image, s.Pose)),
             stream: static (s, c) => Decoded(() => Optional(c.Open()), s.Key).Map(image => Posed(image, s.Pose)),
-            raster: static (s, c) => c.Resolve(extent: s.Pose.Extent, stack: RasterStack.Pixels)
-                .Bind(frame => frame is AssetRaster.Pixels rows
-                    ? Uploaded(rows)
-                    : Fin.Fail<IImage>(new AssetFault.MaterializeRejected($"{s.Key}/{frame.Stack.Key}")))
+            raster: static (s, c) => Optional(c.Scales
+                    .OfType<AssetRaster.Pixels>()
+                    .MinBy(frame => Math.Abs(frame.Extent.Scale.Value - s.Pose.Extent.Scale.Value)))
+                .ToFin(Fail: new AssetFault.MaterializeRejected($"{s.Key}: no pixel raster"))
+                .Bind(Uploaded)
                 .Map(image => Posed(image, s.Pose)),
             vector: static (s, c) => s.Runtime.Bindings.TryGetValue(c.Key, out HostGlyph? bound)
                 ? Glyphed(s.Runtime, bound, s.Pose, s.Paint)
                 : Quantized(s.Paint).Bind(colour => s.Runtime.Svg.Image(c.Key, colour)).Map(image => Posed(image, s.Pose)),
-            source: static (s, c) => Try.lift(() => (Geometry)StreamGeometry.Parse(c.Text)).Run().Bind(geometry => Drawn(geometry, s.Paint, s.Pose)),
-            render: static (s, _) => Fin.Fail<IImage>(new AssetFault.MaterializeRejected($"{s.Key}/{nameof(AssetOrigin.Render)}"))));
+            source: static (s, c) => Try.lift(() => (Geometry)StreamGeometry.Parse(c.Text)).Run().Bind(geometry => Drawn(geometry, s.Paint, s.Pose))));
 
     static Fin<IImage> Glyphed(AssetRuntime runtime, HostGlyph bound, IconPose pose, GlyphPaint paint) =>
         Quantized(paint).Bind(colour => bound.Switch(
@@ -206,7 +207,6 @@ public static class IconSurface {
             (acc, filter) => acc.Bind(paint => filter.Switch(
                 state: paint,
                 disabled: static (s, _) => Fin.Succ(s with { Coverage = DisabledCover }),
-                selected: static (_, _) => Fin.Fail<GlyphPaint>(new AssetFault.MaterializeRejected(nameof(IconFilter.Selected))),
                 greyscale: static (s, _) => Fin.Succ(s with { Colour = s.Colour.Simulate(Cvd.Achromatopsia, UnitInterval.Create(1d)) }),
                 tinted: static (s, c) => Fin.Succ(s with { Colour = c.Tint }),
                 fading: static (s, c) => Fin.Succ(s with { Colour = s.Colour.Mix(c.Tint, c.Strength, BlendPath.Oklab) }),
@@ -350,8 +350,7 @@ flowchart LR
     Vector -->|unbound key| SvgPipeline --> Picture
     Materialize --> Source[AssetOrigin.Source] --> StreamGeometry --> DrawingImage
     Materialize --> Bytes[Resource · File · Stream] --> Decoded[Bitmap decode] --> Picture
-    Materialize --> RasterOrigin[AssetOrigin.Raster] --> KernelResolve[Resolve at RasterStack.Pixels] --> WriteableBitmap --> Picture
-    Materialize --> RenderCase[AssetOrigin.Render] --> Refused[typed refusal: Eto paint run]
+    Materialize --> RasterOrigin[AssetOrigin.Raster] --> PixelRaster[nearest AssetRaster.Pixels] --> WriteableBitmap --> Picture
     Picture --> Formed --> Glyph[AssetProduct.Glyph]
     Formed --> RenderTargetBitmap --> Pointer[AssetProduct.Pointer]
 ```
@@ -363,7 +362,7 @@ flowchart LR
 - Entry: `PointerCatalog.Resolve(AssetRuntime runtime, PointerRow row, double scale, ResolvedTheme resolved)` — `Fin`; platform handles mint once into the runtime's `BudgetedCache` under the row key (a `Cursor` is a platform handle the capability owns, never a process-static), drawn rows ride `IconSurface.Resolve` under `GlyphForm.Pointer`.
 - Packages: Rasm (`AssetKey`, `UnitInterval`), Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one `PointerRow` row carrying its origin absorbs a new pointer affordance; a platform roster gaining a member turns one Drawn row into a Platform row with zero consumer change.
-- Boundary: DISCRIMINANT AT THE SITE — the kernel `Rasm/Interaction/input.md` `CursorRow` is the SAME semantic vocabulary bound to Eto `Cursors` through a kernel-internal `Resolve`; Avalonia cannot reach that delegate, so this page keeps a semantic row bound to `StandardCursorType` under its own name and the kernel widening (semantic row + per-boundary binding table, the `HostGlyph` idiom) is a SEAT escalation, not a local re-spell. The Avalonia roster ships no grab pair; its corner rows ARE the diagonal resize affordance. Every consumer names a ROW — a `StandardCursorType` literal at a call site is the deleted form.
+- Boundary: DISCRIMINANT AT THE SITE — this page keeps the Avalonia cursor vocabulary host-owned and bound directly to `StandardCursorType`. The Avalonia roster ships no grab pair; its corner rows ARE the diagonal resize affordance. Every consumer names a ROW — a `StandardCursorType` literal at a call site is the deleted form.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

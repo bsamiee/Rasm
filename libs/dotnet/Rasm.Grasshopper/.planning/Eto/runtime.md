@@ -1,8 +1,8 @@
 # [RASM_GRASSHOPPER_ETO_RUNTIME]
 
-Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interaction` module — marshal (`UiThread` over the `UiDispatch` crossing family), repeating-beat identity (`UiClock`/`PulseBeat`/`FaultPosture`), data transfer (`Transfer`), display and input facts (`Displays`/`InputState`), and OS presence (`Presence`) — composed directly by every consumer. This page keeps ONLY what the kernel's own boundary laws assign to the platform: the leased `UITimer` that DRIVES a kernel clock (kernel clock law — "the clock owns identity and the host owns the timer"), and the measured frame-interval producer that FEEDS `UiThread.Tune` so the stall watchdog budgets against the display this process runs on (E-G41).
+Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interaction` module — marshal (`UiThread` over the `UiDispatch` crossing family), repeating-beat identity (`UiClock`/`PulseBeat`/`FaultPosture`), data transfer through direct `IDataObject` reads and `PayloadSlot.Write`, display and input facts (`Displays`/`InputState`), and OS presence (`Presence`) — composed directly by every consumer. This page keeps ONLY what the kernel's own boundary laws assign to the platform: the leased `UITimer` that DRIVES a kernel clock (kernel clock law — "the clock owns identity and the host owns the timer"), and the measured frame-interval producer that FEEDS `UiThread.Tune` so the stall watchdog budgets against the display this process runs on (E-G41).
 
-`EtoTimer` mints the platform lease: one `UITimer` whose `Elapsed` calls the kernel clock's tick, minted inside a kernel marshal and released once by the `TimerHold` capsule, which parks a release refusal on the composition's `FaultCell` — the cell the telemetry root already reads. `FrameTune` is the pace producer: it admits the measured minimum refresh interval (from `Platform/native.md`'s display-link measurement on macOS, or the display metadata fallback), scales the kernel `PaceBand` to it, and seats the result through `UiThread.Tune` — a fabricated 60 Hz period reads every frame of a 120 Hz display as on-time, which is the exact stall class the watchdog exists for.
+`EtoTimer` mints the platform lease: one `UITimer` whose `Elapsed` calls the kernel clock's result-returning tick and stops on failure, minted inside a kernel marshal and released once by the `TimerHold` capsule, which parks a release refusal on the composition's `FaultCell` — the cell the telemetry root already reads. `FrameTune` is the pace producer: it admits the measured minimum refresh interval (from `Platform/native.md`'s display-link measurement on macOS, or the display metadata fallback), scales the kernel `PaceBand` to it, and seats the result through `UiThread.Tune` — a fabricated 60 Hz period reads every frame of a 120 Hz display as on-time, which is the exact stall class the watchdog exists for.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 
 ## [02]-[TIMER]
 
-- Owner: `EtoTimer` — the one `UITimer` supplier: `Drive(PositiveMagnitude cadence, Action tick, FaultCell faults)` → `Fin<Lease<TimerHold>>` mints the timer at the admitted cadence, wires `Elapsed` to the supplied tick, starts it, and returns `Owned` over the `TimerHold` capsule; `TimerHold.Dispose` stops the timer, detaches the handler, and disposes — construction and release each marshal through the kernel `UiThread.Run` blocking arity because `UITimer` is UI-affine.
+- Owner: `EtoTimer` — the one `UITimer` supplier: `Drive(PositiveMagnitude cadence, Func<Fin<Unit>> tick, FaultCell faults)` → `Fin<Lease<TimerHold>>` mints the timer at the admitted cadence, wires `Elapsed` to the supplied tick, stops on its failed result, and returns `Owned` over the `TimerHold` capsule; `TimerHold.Dispose` stops the timer, detaches the handler, and disposes — construction and release each marshal through the kernel `UiThread.Run` blocking arity because `UITimer` is UI-affine.
 - Law: the lease's `Owned` case carries a VALUE alone, so the release lives on the leased type — `TimerHold` is the UI-affine capsule holding the timer, the handler it must detach, and the mint key its release marshal reuses; a lease taken over the bare timer cannot detach the handler, because the handler is not recoverable from the `UITimer` it was attached to.
 - Law: a release refusal PARKS on the composition's `FaultCell` under the capsule's own point id — the cell's `Parked`/`Lost` gauges are the telemetry root's reads, so a still-attached handler is counted evidence, never an invisible discard; a capsule-local `Atom<Seq<Error>>` ledger nothing read was the deleted FaultCell twin.
 - Law: identity lives in the KERNEL clock — the tick this timer drives is `UiClock`'s own; drift, misses, ordinals, postures, observers, and fault custody are the kernel's, and a body here that computes any of them re-derives what the beat already carries. This page supplies the platform lease and NOTHING else, per the kernel clock boundary law.
@@ -21,7 +21,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 
 ## [03]-[PACE]
 
-- Owner: `FrameTune` — the pace producer: `Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default)` → `Fin<Unit>` scales the kernel `PaceBand` to the measured minimum refresh interval and seats `UiThread.Tune(new StallPolicy(Pace: scaled, Stretch: ...), clock)`; the per-lane stretch map stays kernel-default empty unless a measured host pathology earns a named override row.
+- Owner: `FrameTune` — the pace producer: `Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default)` → `Fin<Transition<StallPolicy>>` scales the kernel `PaceBand` to the measured minimum refresh interval, lifts `StallPolicy.Validate` through `FactoryBridge.Lift<StallPolicy>`, and seats `UiThread.Tune`; the per-lane stretch map stays kernel-default empty unless a measured host pathology earns a named override row.
 - Law: the interval is MEASURED, never declared — `Platform/native.md`'s display-link measurement produces it on macOS and the display metadata read is the fallback; the kernel seeds `StallPolicy.Portable` so an untuned floor over-reports a stall and never hides one, and this producer only ever tightens toward the real display.
 - Law: the seat transition is the kernel's — `Tune` answers the kernel `Transition<StallPolicy>` semantics, so a tune that lost a race under contention is a read case, never an assumed swap; this producer retries nothing and reports the refusal.
 - Boundary: WHO calls `Feed` is `Platform/composition.md`'s load roster (the pacer row) and `Platform/native.md`'s re-measure on display change; this page owns the producer spelling alone.
@@ -60,16 +60,16 @@ public sealed class TimerHold : IDisposable {
 public static class EtoTimer {
     private static readonly HookId Hook = HookId.Create(value: "rasm.grasshopper.eto.timer");
 
-    public static Fin<Lease<TimerHold>> Drive(PositiveMagnitude cadence, Action tick, FaultCell faults) {
+    public static Fin<Lease<TimerHold>> Drive(
+        PositiveMagnitude cadence, Func<Fin<Unit>> tick, FaultCell faults) {
         return from body in Admit.Need(tick)
                from minted in UiThread.Run(new UiDispatch<(UITimer Timer, EventHandler<EventArgs> Handler)>.Blocking(() => {
                        UITimer? native = null;
                        EventHandler<EventArgs>? handler = null;
                        Fin<(UITimer Timer, EventHandler<EventArgs> Handler)> opened = Try.lift(() => {
-                           native = new UITimer { Interval = (double)cadence };
-                           handler = (_, _) => Try.lift(body).Run()
-                               .IfFail(fault => ignore(faults.Park(point: Hook, cause: fault)));
-                           native.Elapsed += handler;
+                           handler = (_, _) => ignore(Try.lift(body).Run().Bind(static inner => inner)
+                               .IfFail(_ => Optional(native).Iter(static active => active.Stop())));
+                           native = new UITimer(handler) { Interval = (double)cadence };
                            native.Start();
                            return Fin.Succ((Timer: native, Handler: handler));
                        }).Run().Bind(static inner => inner);
@@ -85,11 +85,17 @@ public static class EtoTimer {
 }
 
 public static class FrameTune {
-    public static Fin<Unit> Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default) {
+    public static Fin<Transition<StallPolicy>> Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default) {
         return from ceiling in FactoryBridge.Accept<PositiveMagnitude>(candidate: 1.0 / interval.Value)
                from scaled in PaceBand.Portable.ScaleTo(ceiling: ceiling)
+               from policy in FactoryBridge.Lift<StallPolicy>(
+                   fault: StallPolicy.Validate(
+                       pace: scaled,
+                       stretch: HashMap<DispatchLane, double>(),
+                       out StallPolicy? admitted),
+                   admitted: admitted)
                from seated in UiThread.Tune(
-                   policy: new StallPolicy(Pace: scaled, Stretch: HashMap<DispatchLane, double>()),
+                   policy: policy,
                    clock: clock)
                select seated;
     }
@@ -102,9 +108,7 @@ public static class FrameTune {
 | :-----: | :------------------- | :---------- | :------------------------------------- |
 |  [01]   | platform timer lease | `EtoTimer`  | `Drive → Fin<Lease<TimerHold>>`        |
 |  [02]   | release custody      | `TimerHold` | `Dispose → FaultCell`                  |
-|  [03]   | pace production      | `FrameTune` | `Feed → Fin<Unit>` via `UiThread.Tune` |
-
-Everything else this page once owned is the kernel's, composed directly: `EtoDispatch`/`DispatchLane`/`PulseLane`/`DispatchPulse`/`DispatchEcho`/the watchdog → kernel `UiThread`/`UiDispatch`/`DispatchLane`/`StallPolicy`/`Watch`/`Tap`; `UiCadence`/`ClockBeat`/`UiClock`/`FaultPosture` → kernel `UiClock`/`PulseBeat`/`FaultPosture` (cadence = `PositiveMagnitude`); `TransferSurface`/`TransferPayload`/`PayloadShape`/`Transfer` → kernel `Transfer`; `DisplayMetrics`/`Display`/`PointerSnapshot`/`InputState`/`ModifierWatch` → kernel `Displays`/`InputState`; `Notice`/`NoticeMount`/`TrayMount`/`NoticeSurface` → kernel `Presence`. `RuntimeLog` partial and the `DispatchEcho` echo stream retire with their owners — queued-crossing settlement evidence is the kernel's `Tap`, and session queue faults park on the caller's `FaultCell`.
+|  [03]   | pace production      | `FrameTune` | `Feed → Fin<Transition<StallPolicy>>` via `UiThread.Tune` |
 
 ## [05]-[RESEARCH]
 

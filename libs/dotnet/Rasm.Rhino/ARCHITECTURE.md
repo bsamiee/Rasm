@@ -101,7 +101,7 @@ Five strata order the sub-domain folders; a folder composes its own owners and l
 - S1 map — fence node to folder: `PickCapture` Commands, `GraphFold` Blocks, `ArchiveMap` Persistence, `ModelGate` Modeling, `ContentRef` Render.
 - S1 absent edge — `Annotation` composes the spine with no discriminating import, so the fence draws it nowhere.
 - S1 law — `Modeling` reaches only the geometry-custody capsule; its camera read is the ruled counter-edge, never a lease.
-- S1 law — kernel `Rasm.Interaction` (`UiThread`, `ControlForge`, `IntentTable`, `Surface`) floors every shell surface, adapted by nothing here.
+- S1 law — kernel `Rasm.Interaction` (`UiThread`, `ElementMount`, `IntentTable`, `Surface`) floors every shell surface, adapted by nothing here.
 - S2 composite — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands, Blocks' `GraphProjection`, and Annotation's `LinetypeSource`.
 - S2 composite — `HostUi` (`HostThread`, `PanelHost`, `HostPage`) composes the kernel `Rasm.Interaction` band directly.
 - S2 composite — Plugin (`RasmPlugIn`, `PluginCensus`, `Licenses`, `Participation`) composes Persistence's settings pipeline and `PluginKey` identity.

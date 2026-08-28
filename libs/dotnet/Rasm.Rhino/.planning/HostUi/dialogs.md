@@ -15,7 +15,7 @@
 - Auto: the layer, linetype, and multi-layer asks read their host tables through ONE roster gate — a live count, an admitted ordinal set, and an optional by-layer sentinel — so no arm re-derives the range comparison the gate already made.
 - Law: the message prompt seats at the kernel and only its UNPRESENTABLE roster stays. `PickerSpec.Ask` carries the toolkit button sets; Rhino's abort/retry/ignore and retry/cancel rosters have no `MessageBoxButtons` member, which is the carve the kernel prompt owner states, so `Inquiry.Verdict` exists for those two rosters alone and its traits, delivery, and modality are the KERNEL vocabularies projected onto the host flag word at the arm. NAMED LOSS: none — every other message posture is one `PickerSpec.Ask` value.
 - Law: `Inquiry.Shade` stays because the Rhino colour dialog is a different host surface, not a narrower one: it presents a `NamedColorList` palette and raises a live per-change callback, and the toolkit dialog `PickerSpec.Shade` presents through publishes neither. A preview refusal accumulates on a BOUNDED ring and rides beside the accepted colour, because a transient preview throw never invalidates the colour the operator then accepted; a dismissal answers `UiFault.Dismissed` and carries nothing.
-- Law: the context menu is a PROJECTION of the kernel node tree, never a second authoring vocabulary. `MenuForge.Flatten` answers the flat roster `Dialogs.ShowContextMenu` consumes — the text, the `MenuMode` ordinal array, and the verb each slot names — and `MenuForge.Choose` resolves the returned ordinal back to its `IntentKey`, so no caller re-derives the mapping from its own copy of the roster it passed in and a header or divider ordinal refuses typed.
+- Law: the context menu is a PROJECTION of the kernel node tree, never a second authoring vocabulary. `MenuTree.Flatten` answers the flat roster `Dialogs.ShowContextMenu` consumes — the text, the `MenuMode` ordinal array, and the verb each slot names — and `MenuTree.Choose` resolves the returned ordinal back to its `IntentKey`, so no caller re-derives the mapping from its own copy of the roster it passed in and a header or divider ordinal refuses typed.
 - Law: the print-width ask composes the folder's own plot-weight owner. `PrintPen` already names the three states a host double smuggles — the application default at `0.0`, the no-plot posture at `-1.0`, and a positive millimetre snapped onto the ISO 128-24 ladder — so this ask declares no width type and the dialog's cancel, which answers an unset double, is read BEFORE the pen ingress rather than surfacing there as an out-of-range width.
 - Law: every host cancellation is `UiFault.Dismissed` and every out-of-range result is `InvalidResult`; admission rejects and execution never repairs, so no consumer observes a partial answer.
 - Law: the answer names the operator's own axis, never the request's. A layer ask offers the set-current button under a three-corner request row and the operator answers a two-state fact, so `LayerCurrency` is the answer's vocabulary and the request row is not reused as a result.
@@ -23,7 +23,7 @@
 - Boundary: the kernel picker marshals itself, so the demand arity nests two crossings in a stated order — the Rhino command frame outside, the toolkit marshal inside — because the anchor and the document grant are resolved before any toolkit dialog exists.
 - Boundary: native `ref`/`out` calls stay statement-shaped inside the terminal fold, and the host verdict is read through the settle gate so the host member itself runs under the operation's catch.
 - Output: `InquiryAnswer` for the local family and `Option<TResult>` for a kernel demand, dismissal riding absence there and its own refusal case here — both settled values holding no live host dialog.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Dialogs` message, list, check, property, context-menu, layer, linetype, print-width, sun, and colour members; `NamedColorList`; `RhinoEtoApp.MainWindowForDocument`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`RangeDialog`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control` as the anchor type); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`); `Rasm/Interaction` (`PickerDemand`, `UiFault`, `MenuNode`, `MenuForge`, `MenuSlot`, `IntentTable`, `IntentKey`, `AskTrait`, `AskDelivery`, `AskModality`, `AlphaMode`); `Rasm/Domain` (`Ring<Error>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`); `Rasm.Rhino/Document` (`DocumentSession`, `SessionNeed`, `PrintPen`).
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Dialogs` message, list, check, property, context-menu, layer, linetype, print-width, sun, and colour members; `NamedColorList`; `RhinoEtoApp.MainWindowForDocument`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`RangeDialog`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control` as the anchor type); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`); `Rasm/Interaction` (`PickerDemand`, `UiFault`, `MenuNode`, `MenuTree`, `MenuSlot`, `IntentTable`, `IntentKey`, `AskTrait`, `AskDelivery`, `AskModality`); `Rasm/Domain` (`Ring<Error>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`); `Rasm.Rhino/Document` (`DocumentSession`, `SessionNeed`, `PrintPen`).
 - Growth: a new Rhino-only interrogation is one `Inquiry` case, one answer case, and one arm; a new toolkit prompt is one `PickerSpec` case at the kernel and no edit here; a message roster the toolkit gains moves OUT of `VerdictRoster` and into the kernel policy.
 
 ```csharp
@@ -236,7 +236,7 @@ public abstract partial record Inquiry {
     public sealed record Sun : Inquiry;
     public sealed record Shade(
         PerceptualColor Seed,
-        AlphaMode Alpha,
+        bool AllowAlpha,
         Option<NamedColorList> Palette = default,
         Option<Func<PerceptualColor, Fin<Unit>>> Preview = default) : Inquiry;
 }
@@ -388,12 +388,12 @@ public static class Inquiries {
                     from answer in Zipped(rows: rows, values: values)
                     select (InquiryAnswer)new InquiryAnswer.Properties(Rows: answer),
                 menu: static (held, ask) =>
-                    from slots in MenuForge.Flatten(nodes: ask.Nodes, table: ask.Table)
+                    from slots in MenuTree.Flatten(nodes: ask.Nodes, table: ask.Table)
                     let index = Dialogs.ShowContextMenu(
                         items: slots.Map(static slot => slot.Text).AsIterable(),
                         screenPoint: ask.ScreenPoint,
                         modes: slots.Map(static slot => slot.Mode.Key).AsIterable())
-                    from chosen in MenuForge.Choose(slots: slots, index: index)
+                    from chosen in MenuTree.Choose(slots: slots, index: index)
                     from verb in chosen.ToFin(Fail: new UiFault.Dismissed())
                     select (InquiryAnswer)new InquiryAnswer.Menu(Verb: verb),
                 range: static (held, ask) => Try.lift(() => {
@@ -558,7 +558,7 @@ public static class Inquiries {
             bool accepted = Dialogs.ShowColorDialog(
                 parent: parent,
                 color: ref colour,
-                allowAlpha: ask.Alpha == AlphaMode.Alpha,
+                allowAlpha: ask.AllowAlpha,
                 namedColorList: HostEdge.Slot(ask.Palette),
                 colorCallback: HostEdge.Slot(ask.Preview.Map(preview => new Dialogs.OnColorChangedEvent(
                     live => ignore(PerceptualColor.OfHost(host: live)
@@ -588,9 +588,8 @@ public static class Inquiries {
 - Owner: `HostAsset` is the closed request family for the four productions no kernel asset origin can make; `HostProduct` carries their three answer shapes; `PreviewInk` closes the mesh-preview colour cardinality; `PatternPass` carries the linetype pattern pair whose presence selects the host overload; `PixelGround` carries the composite the pixel rasterizer alone publishes; `PreviewChannel` keys the host stroke channel; `PaletteEntry` is one admitted named colour.
 - Entry: `HostAssets.Render` admits the whole request, then routes on the document the request declares — only the mesh preview names a `DocumentSession` and demands `SessionNeed.Read`, and every other production runs in a plain command frame.
 - Auto: `HostAssets.Polarity` reads the host dark-mode probe once and answers a kernel `ThemeVariant`, so a caller following the host and a caller pinning a variant hand this owner ONE column and no tri-state optional bool exists.
-- Law: a resource, file, stream, scale-indexed set, or draw-program origin resolves at the KERNEL and never here — `AssetOrigin.Resolve(extent, stack)` already answers the raster in the asked product shape, so the three resource loaders, the scale-down selector, and the two output-typed cases this page carried are the deleted form. NAMED LOSS: the host's reduced-variant picker, which selected a smaller EMBEDDED image rather than resampling; recovered because a multi-variant asset is `AssetOrigin.Raster`, whose selection reads the asked extent as data.
 - Law: the SVG production stays because the rasterizer is Rhino's own — it adjusts for dark mode and composites onto a ground the toolkit decoder has no parameter for — so this owner takes the kernel origin family as its INPUT and answers the kernel raster carrier as its OUTPUT, and only the rasterization between them is host work.
-- Law: an origin the host rasterizer cannot read refuses TYPED naming the case. The rasterizer takes SVG document TEXT, which is exactly `AssetOrigin.Source`; every other origin case names a byte source the kernel already resolves, so routing one here would be this page decoding what the kernel owns.
+- Law: an origin the host rasterizer cannot read refuses TYPED naming the case. The rasterizer takes SVG document TEXT, which is exactly `AssetOrigin.Source`; every other origin case lies outside this source-text rasterizer.
 - Law: the ground rides its PRESENCE and selects the host member. `PixelsFromSvg` composites onto a ground under a declared coverage carriage and `BitmapFromSvg` publishes neither parameter, so a stated ground is a pixel ask and an absent one a bitmap ask — the same presence law the kernel number prompt states, and it forecloses the corner where a declared ground is silently dropped.
 - Law: the mesh preview's colour cardinality is a CASE admitted once at the request. Zero colours derive the document display colour, one broadcasts, and one per mesh pairs; the count comparison happens at admission and never again inside a production that already holds an admitted ink.
 - Law: text metrics are not an asset. Shaping and measurement are the kernel paint owner's `GlyphBlock`, whose `Measure` already crosses the toolkit marshal and answers a result, so a caller measures directly and this page opens no second crossing — which is what retired the blocking wait this production once made on a marshalled task.
@@ -743,11 +742,10 @@ public static class HostAssets {
         stream: static (_) => Refused(nameof(AssetOrigin.Stream)),
         raster: static (_) => Refused(nameof(AssetOrigin.Raster)),
         vector: static (_) => Refused(nameof(AssetOrigin.Vector)),
-        source: static (row) => Acceptance.Text(value: row.Text),
-        render: static (_) => Refused(nameof(AssetOrigin.Render)));
+        source: static (row) => Acceptance.Text(value: row.Text));
 
     private static Fin<string> Refused(string origin) =>
-        Fin.Fail<string>(error: new UiFault.HostRejected(Detail: $"{nameof(DrawingUtilities.BitmapFromSvg)} reads source text; {origin} resolves at the kernel"));
+        Fin.Fail<string>(error: new UiFault.HostRejected(Cause: Error.New(0, $"{nameof(DrawingUtilities.BitmapFromSvg)} reads source text; {origin} is not source text")));
 
     private static Fin<HostProduct> Bitmap(string text, HostAsset.Vector ask) =>
         Try.lift(() => Optional(DrawingUtilities.BitmapFromSvg(
@@ -770,7 +768,7 @@ public static class HostAssets {
                 adjustForDarkMode: ask.Polarity != ThemeVariant.Light))
             .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
         from raster in AssetRaster.OfPixels(
-            scale: ask.Extent.Scale, extent: ask.Extent, layout: ground.Layout, rows: toArray(rows))
+            extent: ask.Extent, layout: ground.Layout, rows: toArray(rows))
         select (HostProduct)new HostProduct.Raster(Value: raster);
 
     private static DrawingSize Extent(AssetExtent extent) =>

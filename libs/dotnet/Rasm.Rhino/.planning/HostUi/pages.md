@@ -64,7 +64,7 @@ public sealed partial class PageReveal {
     internal partial Fin<Window> Window(OptionsDialogPage page);
 
     private static Func<OptionsDialogPage, Fin<Window>> Refused =>
-        static (_, op) => Fin.Fail<Window>(error: new UiFault.HostRejected(Detail: $"{nameof(RhinoEtoApp)} publishes no reveal window for this seat"));
+        static (_, op) => Fin.Fail<Window>(error: new UiFault.HostRejected(Cause: Error.New(0, $"{nameof(RhinoEtoApp)} publishes no reveal window for this seat")));
 
     private static Func<OptionsDialogPage, Fin<Window>> Resolved(Func<OptionsDialogPage, Window?> resolve) =>
         (page, op) => Try.lift(() => Optional(resolve(page)).ToFin(Fail: new KernelFault.MissingContext())).Run().Bind(static inner => inner);
@@ -232,7 +232,7 @@ public sealed partial record SelectionEvidence(
 
 - Owner: `HostPage` is the realized handle and the solution's page `IMount`; `PageLeaf` closes the internal host-base alternatives; `PageOwner` names who claimed a registration; `PageCustody` is the re-entrancy and adoption machine over the kernel mount floor.
 - Entry: `Realize` is the sole page mint and runs only inside an existing command-thread frame; `Navigate`, `Reveal`, `Selection`, and `Modify` expose the distinct result regimes of the handle; `Release` is the `IMount` teardown every owner reaches through.
-- Auto: realization brackets its own unwind through the leased `ElementMount`, so a refused style hop releases the control tree it had already grown, the cleanup fault aggregates into the primary, and the hand dispose-then-return block has no site.
+- Auto: realization brackets its own unwind through the leased `ElementMount`, so a refused style hop releases the control tree it had already created, the cleanup fault aggregates into the primary, and the hand dispose-then-return block has no site.
 - Law: this page answers the kernel `IMount` floor, so it is adoptable by every mount in the solution as ITSELF, its child forest is `Seq<IMount>`, and its phase rows are the kernel `MountPhase` with the `Closes` consequence each row carries. NAMED LOSS: none — the local two-row phase vocabulary deletes.
 - Law: the re-entrancy machine MIRRORS the kernel custody shape rather than composing it, and the discriminant is an access modifier, not a design: `MountCustody` publishes its enter, leave, close, and adopt transitions `internal` to the kernel assembly, so a boundary mount can answer the floor and hold the phase rows but cannot step the machine. Every transition here takes and answers the kernel's own public types, so the local machine deletes with no call-site change the moment those transitions publish.
 - Law: the claim cell is the other half and stays host-specific by CONCEPT: the kernel custody owner band is an `IMount`, while a registration is claimed by a MOUNT TOKEN or transferred to the HOST COLLECTION, neither of which is a mount this page could hand it. Enter, leave, close, and adopt are custody; claim, unclaim, and transfer are the token's.
@@ -245,7 +245,7 @@ public sealed partial record SelectionEvidence(
 - Exemption: the custody seat is `lock`-held rather than compare-and-swap, because the release it hands back disposes host controls and a replayable transition body would run that disposal on every contended retry. It is contained in this class and no consumer writes one.
 - Boundary: `Realize` and every entry below are the published surface a command body in the `apps/<app>/` plugin shell composes; the app root is the sole producer and no in-package fence mints a page.
 - Output: `HostPage` retains its leased `ElementMount` and publishes its release faults; the handle IS the evidence and no second value exists.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`OptionsDialogPage`, `ObjectPropertiesPage`, `ObjectPropertiesPageEventArgs`, `StackedDialogPage`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Window`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`); `Rasm/Interaction` (`ControlForge.Realize`, `ElementMount`, `ElementRuntime`, `IMount`, `MountPhase`, `UiFault`); `Rasm/Domain` (`Cell`, `Transition`, `Ring<Error>`, `Lease<T>.Use`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`ObjectKinds`, `DocKey`, `SessionMode`).
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`OptionsDialogPage`, `ObjectPropertiesPage`, `ObjectPropertiesPageEventArgs`, `StackedDialogPage`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Window`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`); `Rasm/Interaction` (`ElementMount.Create`, `ElementRuntime`, `IMount`, `MountPhase`, `UiFault`); `Rasm/Domain` (`Cell`, `Transition`, `Ring<Error>`, `Lease<T>.Use`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`ObjectKinds`, `DocKey`, `SessionMode`).
 - Growth: a new post-realization regime is one entry over the same custody window; a new host base is one `PageLeaf` case with its own leaf class; a new lifecycle phase is one kernel `MountPhase` row and no edit here.
 
 ```csharp
@@ -416,7 +416,7 @@ public sealed class HostPage : IMount, IDisposable {
         ElementRuntime runtime,
         Func<TPlan, Control, PageLeaf> seat)
         where TPlan : PagePlan =>
-        ControlForge.Realize(spec: tree, runtime: runtime).Bind(outcome => Try.lift(() => {
+        ElementMount.Create(spec: tree, runtime: runtime).Bind(outcome => Try.lift(() => {
                 EtoExtensions.UseRhinoStyle(outcome.Resource.Host);
                 return Fin.Succ(value: new HostPage(
                     plan: plan, leaf: seat(plan, outcome.Resource.Host), content: outcome));
@@ -498,10 +498,10 @@ public sealed class HostPage : IMount, IDisposable {
             .Settled(release: () => content.Use(outcome => outcome.Release()));
 
     private static Error Absent(string member) =>
-        new UiFault.HostRejected(Detail: $"this page publishes no {member}");
+        new UiFault.HostRejected(Cause: Error.New(0, $"this page publishes no {member}"));
 
     private static Error Contested() =>
-        new UiFault.HostRejected(Detail: $"a {nameof(PageOwner)} other than the claimant answered");
+        new UiFault.HostRejected(Cause: Error.New(0, $"a {nameof(PageOwner)} other than the claimant answered"));
 }
 
 internal sealed class OptionsLeaf : OptionsDialogPage {
@@ -672,8 +672,8 @@ public abstract partial record PageNav {
                 select added,
             styled: static (held, nav) =>
                 from platform in HostPlatform.Snapshot()
-                from _ in platform.Row.Filter(Styling.Contains).ToFin(Fail: new UiFault.HostRejected(Detail: $"{nameof(StackedDialogPage.NavigationTextColor)} is published by "
-                        + string.Join(", ", Styling.Map(static row => row.Key))))
+                from _ in platform.Row.Filter(Styling.Contains).ToFin(Fail: new UiFault.HostRejected(Cause: Error.New(0, $"{nameof(StackedDialogPage.NavigationTextColor)} is published by "
+                        + string.Join(", ", Styling.Map(static row => row.Key)))))
                 from ink in nav.Style.Color.ToDrawing()
                 select HostEdge.Side(() => {
                     held.Page.NavigationTextIsBold = nav.Style.Emphasis.Key;

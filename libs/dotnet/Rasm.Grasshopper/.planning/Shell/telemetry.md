@@ -74,8 +74,8 @@ Instrument cells and folder-owned tag cells extend the `rasm.grasshopper.` prefi
 - Entry: every write member answers `Fin<Unit>` — `unit` when no capsule is seated, the kernel write path's refusal otherwise — so a producer binds it into its own result and an unmounted name or a family mismatch rides that result to the producer's `FaultCell` instead of vanishing into a void write.
 - Law: document attribution is result-owned — a document-scoped write takes the host `Document.Identity` guid and stamps `gh.doc = {documentId:N}`; `Settled` and `Pulsed` take `Option<Guid>` because a session command and a canvas pulse settle without a document, and an absent tag reads as the untagged whole; `Dropped`, `Marshalled`, and `Hooked` are process-scoped and carry no document, because a shed fact's document identity died with the fact.
 - Law: per-document tag fan-out is bounded by open documents, and the app-root views own cardinality caps; a write never re-validates its result — the typed owner already admitted it, and `IsValid` stays the acceptance oracle at the producing boundary.
-- Boundary: kernel marshal latency arrives as `DispatchPulse` from the `UiThread.Watch` tap; each hook `IsolatedFault` enters `Hooked` whole, so point, locally derived owner, and recursive recovery posture project without losing its `Error`.
-- Packages: BCL inbox, LanguageExt.Core, `Rasm.Domain` (`InstrumentSet`, `KernelInstrument`, `Redrive`), `Rasm.Interaction` (`DispatchPulse`, `IsolatedFault`), `Rasm.Parametric` (`GaugedSpan`), `Canvas/paint.md`/`Canvas/motion.md`/`Canvas/canvas.md`/`Document/document.md`/`Document/solution.md`/`Platform/capture.md` result owners.
+- Boundary: kernel marshal latency arrives as `GaugedSpan<DispatchLane>` from `UiThread.Watch`; each hook `IsolatedFault` enters `Hooked` whole, so point, locally derived owner, and recursive recovery posture project without losing its `Error`.
+- Packages: BCL inbox, LanguageExt.Core, `Rasm.Domain` (`InstrumentSet`, `KernelInstrument`, `Redrive`), `Rasm.Interaction` (`DispatchLane`, `IsolatedFault`), `Rasm.Parametric` (`GaugedSpan`), `Canvas/paint.md`/`Canvas/motion.md`/`Canvas/canvas.md`/`Document/document.md`/`Document/solution.md`/`Platform/capture.md` result owners.
 - Growth: a new lane is one write member with its roster row; a new tag axis on an existing write is one `Tag` pair inside the member.
 
 ```csharp
@@ -235,10 +235,10 @@ public static class GhInstruments {
     public static Fin<Unit> Dropped(string source, long dropped) => Write(set =>
         set.Write(DrainDropped, dropped, InstrumentSet.Tags((SourceSlot, source))));
 
-    public static Fin<Unit> Marshalled(DispatchPulse pulse) => Write(set =>
-        InstrumentSet.Tags((LaneSlot, pulse.Span.Lane.Key)) switch {
-            var tags => set.Write(DispatchBody, pulse.Span.Elapsed.TotalSeconds, tags)
-                .Bind(_ => pulse.Span.Breached ? set.Write(DispatchStalls, 1L, tags) : Fin.Succ(unit)),
+    public static Fin<Unit> Marshalled(GaugedSpan<DispatchLane> span) => Write(set =>
+        InstrumentSet.Tags((LaneSlot, span.Lane.Key)) switch {
+            var tags => set.Write(DispatchBody, span.Elapsed.TotalSeconds, tags)
+                .Bind(_ => span.Breached ? set.Write(DispatchStalls, 1L, tags) : Fin.Succ(unit)),
         });
 
     public static Fin<Unit> Breached(Guid document, GaugedSpan<BudgetRow> span) => Write(set =>

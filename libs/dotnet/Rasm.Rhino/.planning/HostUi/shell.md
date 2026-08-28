@@ -2,7 +2,7 @@
 
 `Rasm.Rhino.HostUi` owns the Rhino application shell: the command-thread crossing every host write rides, the status and progress surfaces the host publishes, window parenting and modal presentation, the capability probes and resolver the process answers, the scripting and node-in-code pipelines, the skin load-phase adapter, the accounts and compute-endpoint custody, the typed named-parameter bus, the notification family, and the composition capsule that seats every process-lifetime registry the boundary owns. The capsule is the boundary's ONE in-package composition owner — `Plugin/lifecycle#ADAPTER`'s `OnLoad` is the load root that opens it, and the `apps/<app>/` plugin shell stays the out-of-package root for AppHost lacing and app pins.
 
-Composition is downward: `Fin`, `Cell`/`Transition`, `Lease<T>`, `Custody`, `Ring<T>`, `FaultCell`, `HookBinding`, `CapabilitySet`/`CapabilityLaw`, `ValidityClaim`, and `PackageIdentity<TKey,THostFact>` from `Rasm/Domain`; `MonotonicTimeline`, `MonotonicStamp`, and `GaugedSpan<TLane>` from `Rasm/Parametric/projections`; `UiFault`, `DispatchLane`, `StallPolicy`, `UiThread`, `ThemeGrid`, `ThemePort`, `ThemeShift`, `ThemeVariant`, `ThemeChange`, `ChromeStyler`, `Presence`, `PresenceOp`, `PresenceMount`, and `PulseState` from `Rasm/Interaction`; `Env` from `Rasm/Analysis/query`; `ModelUnit`, `DocKey`, `DocumentSession`, `SessionNeed`, `Subscription`, `PluginKey`, `RhinoPoint`, and `MountRegistry` from the Document spine. The boundary mints no fault family of its own — every refusal codes on the kernel `UiFault` over `FaultBand.Interaction`, `HostRejected` carrying the host member a platform call refused at. `ShellIdentity`, `ShellTelemetry`, `MarshalLane`, `MarshalPulse`, and a local `StallPolicy` are deleted forms: the kernel owns each, and the identity resolve carries `PluginKey` by construction.
+Composition is downward: `Fin`, `Cell`/`Transition`, `Lease<T>`, `Custody`, `Ring<T>`, `FaultCell`, `HookBinding`, `CapabilitySet`/`CapabilityLaw`, `ValidityClaim`, and `PackageIdentity<TKey,THostFact>` from `Rasm/Domain`; `MonotonicTimeline`, `MonotonicStamp`, and `GaugedSpan<TLane>` from `Rasm/Parametric/projections`; `UiFault`, `DispatchLane`, `StallPolicy`, `UiThread`, `ThemeGrid`, `ThemePort`, `ThemeShift`, `ThemeVariant`, `ThemeChange`, `PresenceOp`, `PresenceMount`, and `PulseState` from `Rasm/Interaction`; `Env` from `Rasm/Analysis/query`; `ModelUnit`, `DocKey`, `DocumentSession`, `SessionNeed`, `Subscription`, `PluginKey`, `RhinoPoint`, and `MountRegistry` from the Document spine. The boundary mints no fault family of its own — every refusal codes on the kernel `UiFault` over `FaultBand.Interaction`, `HostRejected` carrying the host member a platform call refused at. `ShellIdentity`, `ShellTelemetry`, `MarshalLane`, `MarshalPulse`, and a local `StallPolicy` are deleted forms: the kernel owns each, and the identity resolve carries `PluginKey` by construction.
 
 ## [01]-[INDEX]
 
@@ -32,7 +32,7 @@ Composition is downward: `Fin`, `Cell`/`Transition`, `Lease<T>`, `Custody`, `Rin
 - Law: marshal-boundary latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins under the mounting plugin's identity, the app root registers the checkpoint, measure, and tag names through `RegisterCheckpointNames`/`RegisterMeasureNames`/`RegisterTagNames` and the tokens resolve once at mount, and an empty seat is the zero-cost pass-through. The `RhinoInstruments.MarshalDuration` row (`Document/events#TELEMETRY_TAP`) reads this ledger as `rasm.rhino.hostui.marshal.duration`.
 - Law: the seat cell is a MOUNT SEAT, not a composition root — its sole writer is `ShellMount.Marshal` through `Cell.Seat`, the same shape `Blocks/lifecycle#LIFECYCLE` holds for its vault (branch RULINGS `[02]`). `HostThread.Run` is the boundary's most-composed primitive and is reached from every sub-domain, so the ledger arrives at a seat rather than as a parameter; every entry a plug-in root reaches once — `NamedCallbacks`, `Progress.Use`, `Notices.Use` — takes its dependency as a VALUE instead.
 - Law: the gauged set is every crossing that can queue — `Execute` and `Guarded` when marshalled, `Posted` always, and `Session` whole (its `Demand` marshals inside the host) — while `Required` never crosses, its off-thread arm being a refusal rather than a queue.
-- Law: the lane is the kernel `DispatchLane` and the budget is its own. `Execute` and `Guarded` ride `Immediate` (one frame), `Posted` rides `Deferred` (six), and `Session` rides `Interactive` (four) — the exact multiples this boundary carried before the roster existed, so the collapse loses no budget and seats no local pace. Breach is DERIVED off `GaugedSpan` and lands as a measure on the ledger; a second retained pulse beside it would be one fact in two places, and `UiThread.LastPulse` answers the Eto marshal, which is a different boundary.
+- Law: the lane is the kernel `DispatchLane` and the budget is its own. `Execute` and `Guarded` ride `Immediate` (one frame), `Posted` rides `Deferred` (six), and `Session` rides `Interactive` (four) — the exact multiples this boundary carried before the roster existed, so the collapse loses no budget and seats no local pace. Breach is DERIVED off `GaugedSpan` and lands as a measure on the ledger; a second retained pulse beside it would be one fact in two places.
 - Exemption: a gauge failure fails the crossing. `MonotonicTimeline.Gauged` runs the body INSIDE its own carrier and states that only a gauge failure fails the outer one, so a broken capture surfaces rather than publishing a crossing whose evidence does not exist.
 - Packages: `Rasm/Domain/results` (`Cell`, `Transition`, `Ring<T>`, `ValidityClaim`), `Domain/frame`; `Rasm/Interaction/dispatch` (`UiFault`, `DispatchLane`); `Rasm/Parametric/projections` (`MonotonicTimeline`, `GaugedSpan`); `Rasm.Rhino/Document/session` (`DocumentSession`, `SessionNeed`, `IDetachedDocumentResult`), kernel `Domain/results` (`Custody`); `libs/dotnet/.api/api-telemetry-abstractions.md` (`ILatencyContext`, `ILatencyContextProvider`, `ILatencyContextTokenIssuer`, `CheckpointToken`, `MeasureToken`, `TagToken`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`RhinoApp.IsOnMainThread`/`InvokeAndWait`/`InvokeOnUiThread`, `Localization`), `api-rhinocommon-runtime.md` (`RiskyAction`).
 - Growth: a new crossing modality is one `HostWork<T>` case and one `Run` arm; a new gauged coordinate is one measure token the seat resolves once.
@@ -236,11 +236,11 @@ public static class HostThread {
                     declined: new KernelFault.InvalidContext())
                 .Switch(
                     state: (Task: completed.Task),
-                    committed: static (ctx, _) => Fin.Fail<T>(error: new UiFault.HostRejected(Detail: nameof(RhinoApp.InvokeOnUiThread))),
+                    committed: static (ctx, _) => Fin.Fail<T>(error: new UiFault.HostRejected(Cause: Error.New(0, nameof(RhinoApp.InvokeOnUiThread)))),
                     ceded: static (ctx, _) => Fin.Fail<T>(error: new KernelFault.InvalidResult()),
                     refused: static (ctx, row) => row.State is PostedState.Settled
                         ? ctx.Task.Result
-                        : Fin.Fail<T>(error: new UiFault.HostRejected(Detail: nameof(RhinoApp.InvokeOnUiThread))),
+                        : Fin.Fail<T>(error: new UiFault.HostRejected(Cause: Error.New(0, nameof(RhinoApp.InvokeOnUiThread)))),
                     contended: static (ctx, _) => Fin.Fail<T>(error: new KernelFault.InvalidResult()));
         }).Run().Bind(static inner => inner);
 
@@ -253,7 +253,7 @@ public static class HostThread {
     private static Fin<T> Settled<T>(Atom<Option<Fin<T>>> landed, string member) =>
         landed.Value.Match(
             Some: static result => result,
-            None: () => Fin.Fail<T>(error: new UiFault.HostRejected(Detail: member)));
+            None: () => Fin.Fail<T>(error: new UiFault.HostRejected(Cause: Error.New(0, member))));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -521,7 +521,7 @@ public abstract partial record MeterGrant {
         code switch {
             1 => Fin.Succ<MeterGrant>(value: new Owned(Document: document)),
             -1 => Fin.Succ<MeterGrant>(value: new Foreign()),
-            _ => Fin.Fail<MeterGrant>(error: new UiFault.HostRejected(Detail: nameof(StatusBar.ShowProgressMeter))),
+            _ => Fin.Fail<MeterGrant>(error: new UiFault.HostRejected(Cause: Error.New(0, nameof(StatusBar.ShowProgressMeter)))),
         };
 }
 
@@ -695,9 +695,8 @@ public sealed class ProgressLease : IDisposable {
             Some: standing => standing.Resource.Steer(
                 operation: new PresenceOp.Pulse(State: new PulseState.Working(Progress: fraction))),
             None: () =>
-                from mount in Presence.Apply(
-                    operation: new PresenceOp.Pulse(State: new PulseState.Working(Progress: fraction)),
-                    faults: cell)
+                from mount in new PresenceOp.Pulse(State: new PulseState.Working(Progress: fraction))
+                    .Apply(faults: cell)
                 from seated in Cell.Seat(presence, () => mount).Switch(
                     state: (Mount: mount),
                     committed: static (_, _) => Fin.Succ(value: unit),
@@ -781,15 +780,15 @@ public static class Progress {
 ## [05]-[WINDOWS]
 
 - Owner: `WindowScope` selects the application or document parent, and `ShellWindows.Parent` resolves both through one entry.
-- Owner: `WindowPolicy` carries the kernel `ChromeStyler` a window wears and the close-time persistence Rhino keys by window type; `ShellTheme` projects the Rhino theme edge onto the kernel grid.
+- Owner: `WindowPolicy` carries the optional styling function a window wears and the close-time persistence Rhino keys by window type; `ShellTheme` projects the Rhino theme edge onto the kernel grid.
 - Entry: `Adopt`, `Present`, `Discover`, and `Owner` remain separate because modeless ownership, modal return, typed census, and inverse document lookup carry distinct result regimes.
-- Law: `Present` owns every modal modality on one name — a `Dialog<TResult>` returns its typed result, a bare `Dialog` (the themed message box and every result-on-the-instance dialog) returns `Unit` and the caller reads the instance, and a `CommonDialog` (every native-backed picker) returns its `DialogResult` verdict with the instance carrying the picked value — the input's static type discriminates, never a mode flag.
+- Law: `Present` owns every modal modality on one name — a `Dialog<Option<TResult>>` returns `IO<Option<TResult>>`, a bare `Dialog` (the themed message box and every result-on-the-instance dialog) returns `Unit` and the caller reads the instance, and a `CommonDialog` (every native-backed picker) returns its `DialogResult` verdict with the instance carrying the picked value — the input's static type discriminates, never a mode flag.
 - Law: `Present` is the sole host-boundary modal presenter and is the presenter VALUE the kernel `Prompt<TResult>.Ask` takes as its `present` argument, so `Rasm.Interaction` never sees a `Rhino.UI` type and no adapter stands between them. Raw `ShowModal` never appears at a consumer and raw `ShowDialog` appears exactly once: the `CommonDialog` arm, because a native picker publishes no semi-modal member.
 - Law: adoption is DOCUMENT DOCKING and is not the kernel realize. `Interaction/chrome#WINDOW` `WindowSpec.Realize` builds a window it then owns; this entry takes a window the CALLER already built and binds it to a Rhino document through the registered host bridge, which is a boundary the kernel cannot name. The kernel's own mint-order law — menu and toolbar before the window, both drained on the no-window path — already governs everything it realizes; what stays here is the inverse this entry alone owes: a failed show ROLLS BACK the caller's own title, location, and window state through `Custody.Rollback`, because those belong to a value this boundary borrowed and never owned.
-- Law: `WindowPolicy` rows carry a kernel `ChromeStyler` and a persist function. The styler is the kernel's one dress mechanism; persistence keys by the window TYPE because Rhino owns the persisted slot identity, and a row declaring neither is the bare row rather than two absent columns.
+- Law: `WindowPolicy` rows carry an optional `Func<Control, Fin<Unit>>` and a persist function. Persistence keys by the window TYPE because Rhino owns the persisted slot identity, and a row declaring neither is the bare row rather than two absent columns.
 - Law: `ShellTheme` observes only — the polarity probe is Rhino's and the grid is the kernel's. `Current` reads the host LIVE at every call, never a boot snapshot: the OS theme changes under a running process, and `HostSnapshot`'s `HostTrait.DarkMode` row is a point-in-time fact of the process record, not the theme edge's answer. Theme mutation is `Persistence/appsettings#STATE_AND_FAMILY`'s `AppTheme`, reached through `AppSettings.Commit(AppOperation.ThemeCase)`, and a shell consumer composes that owner rather than writing the host theme edge.
 - Exemption: `HostUtils.RunningInDarkMode` reads `AdvancedSettings.DarkMode`, a managed settings read rather than thread-affine native UI state, so it is safe off-thread and owes no `HostThread` crossing.
-- Packages: `Rasm/Domain/results` (`Lease<T>`); `Rasm/Interaction/chrome` (`ChromeStyler`), `Interaction/paint` (`ThemeVariant`, `ThemeShift`, `ThemeChange`), `Interaction/platform` (`ThemePort`); `Rasm.Rhino/Document/session` (`DocumentSession`, `SessionNeed`, `DocKey`), `Document/lifetime` (`Subscription`), kernel `Domain/results` (`Custody`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`RhinoEtoApp.MainWindow`/`MainWindowForDocument`, `EtoExtensions.UseRhinoStyle`/`Show`/`ShowSemiModal`/`SavePosition`/`RestorePosition`/`LocalizeAndRestore`/`WindowsFromDocument`/`GetRhinoDoc`, `ThemeSettings.ThemeChanged`), `api-rhinocommon-runtime.md` (`HostUtils.RunningInDarkMode`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Window`, `Form`, `Dialog`, `Dialog<TResult>`, `CommonDialog`, `DialogResult`, `Control`).
+- Packages: `Rasm/Domain/results` (`Lease<T>`); `Rasm/Interaction/chrome` (`Prompt<TResult>`), `Interaction/paint` (`ThemeVariant`, `ThemeShift`, `ThemeChange`), `Interaction/platform` (`ThemePort`); `Rasm.Rhino/Document/session` (`DocumentSession`, `SessionNeed`, `DocKey`), `Document/lifetime` (`Subscription`), kernel `Domain/results` (`Custody`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`RhinoEtoApp.MainWindow`/`MainWindowForDocument`, `EtoExtensions.UseRhinoStyle`/`Show`/`ShowSemiModal`/`SavePosition`/`RestorePosition`/`LocalizeAndRestore`/`WindowsFromDocument`/`GetRhinoDoc`, `ThemeSettings.ThemeChanged`), `api-rhinocommon-runtime.md` (`HostUtils.RunningInDarkMode`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Window`, `Form`, `Dialog`, `Dialog<TResult>`, `CommonDialog`, `DialogResult`, `Control`).
 - Growth: a new dress-and-persist posture is one `WindowPolicy` row; a new parent axis is one `WindowScope` case and one `Parent` arm.
 - Boundary: every document-scoped operation is a `HostWork<T>.Session` value, and every returned owner detaches as `DocKey`.
 
@@ -805,29 +804,29 @@ public abstract partial record WindowScope {
 [SmartEnum]
 public sealed partial class WindowPolicy {
     public static readonly WindowPolicy Native = new(
-        styler: Some(new ChromeStyler(Dress: static (control, key) => Try.lift(() => {
+        styler: Some<Func<Control, Fin<Unit>>>(static control => Try.lift(() => {
             EtoExtensions.UseRhinoStyle(control);
             return control is Window window
                 ? Fin.Succ(value: ignore(EtoExtensions.RestorePosition(window, window.GetType())))
                 : Fin.Succ(value: unit);
-        }).Run().Bind(static inner => inner))),
-        persist: static (window, key) => Try.lift(() => EtoExtensions.SavePosition(window, window.GetType())).Run().Bind(static inner => inner));
+        }).Run().Bind(static inner => inner)),
+        persist: static window => Try.lift(() => EtoExtensions.SavePosition(window, window.GetType())).Run().Bind(static inner => inner));
     public static readonly WindowPolicy Localized = new(
-        styler: Some(new ChromeStyler(Dress: static (control, key) => Try.lift(() => control is Window window
+        styler: Some<Func<Control, Fin<Unit>>>(static control => Try.lift(() => control is Window window
             ? Fin.Succ(value: HostEdge.Side(() => EtoExtensions.LocalizeAndRestore(window, window.GetType())))
-            : Fin.Succ(value: unit)).Run().Bind(static inner => inner))),
-        persist: static (window, key) => Try.lift(() => EtoExtensions.SavePosition(window, window.GetType())).Run().Bind(static inner => inner));
+            : Fin.Succ(value: unit)).Run().Bind(static inner => inner)),
+        persist: static window => Try.lift(() => EtoExtensions.SavePosition(window, window.GetType())).Run().Bind(static inner => inner));
     public static readonly WindowPolicy Bare = new(
-        styler: Option<ChromeStyler>.None,
-        persist: static (_, _) => Fin.Succ(value: unit));
+        styler: Option<Func<Control, Fin<Unit>>>.None,
+        persist: static _ => Fin.Succ(value: unit));
 
-    public Option<ChromeStyler> Styler { get; }
+    public Option<Func<Control, Fin<Unit>>> Styler { get; }
 
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Persist(Window window);
 
     internal Fin<Unit> Prepare(Window window) =>
-        Styler.TraverseM(dress => dress.Dress(window)).As().Map(static _ => unit);
+        Styler.TraverseM(style => style(window)).As().Map(static _ => unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -868,18 +867,17 @@ public static class ShellWindows {
                 }));
     }
 
-    public static Fin<TResult> Present<TResult>(
-        Dialog<TResult> dialog,
+    public static IO<Option<TResult>> Present<TResult>(
+        Dialog<Option<TResult>> dialog,
         DocumentSession session,
-        Option<Control> parent = default) {
-        return HostThread.Run(
-            work: new HostWork<TResult>.Session(
+        Option<Control> parent = default) =>
+        IO.lift(() => HostThread.Run(
+            work: new HostWork<Option<TResult>>.Session(
                 Document: session,
                 Needs: [SessionNeed.Dialog],
                 Body: document => (parent | Optional((Control)RhinoEtoApp.MainWindowForDocument(document)))
                     .ToFin(Fail: new KernelFault.MissingContext())
-                    .Bind(owner => Try.lift(() => EtoExtensions.ShowSemiModal(dialog, document, owner)).Run())));
-    }
+                    .Bind(owner => Try.lift(() => EtoExtensions.ShowSemiModal(dialog, document, owner)).Run()))));
 
     public static Fin<Unit> Present(Dialog dialog, DocumentSession session, Option<Control> parent = default) {
         return HostThread.Run(
@@ -921,9 +919,9 @@ public static class ShellWindows {
 public static class ShellTheme {
     public static ThemeVariant Current => HostUtils.RunningInDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
 
-    public static Fin<Subscription> Observe(ThemePort theme, CallbackObserver<ThemeChange> observer) {
+    public static Fin<Subscription> Observe(ThemePort theme, CallbackObserver<(ThemeChange Change, Error Failures)> observer) {
         EventHandler handler = (_, _) => ignore(observer.Guard(
-            project: () => theme.Change(shift: new ThemeShift.Generated(Variant: Current))));
+            project: () => theme.Change(shift: new ThemeShift.Generated(Variant: Current)).Run().As()));
         return Subscription.Attach(
             subscribe: callback => ThemeSettings.ThemeChanged += callback,
             unsubscribe: callback => ThemeSettings.ThemeChanged -= callback,
@@ -1276,7 +1274,7 @@ public static class HostScripts {
     private static Fin<ScriptOutcome> Ran(Func<bool> ran, string member) =>
         Try.lift(() => ran()
             ? Fin.Succ<ScriptOutcome>(value: new ScriptOutcome.Ran())
-            : Fin.Fail<ScriptOutcome>(error: new UiFault.HostRejected(Detail: member))).Run().Bind(static inner => inner);
+            : Fin.Fail<ScriptOutcome>(error: new UiFault.HostRejected(Cause: Error.New(0, member)))).Run().Bind(static inner => inner);
 
     private static Fin<PythonScript> Engine() =>
         Try.lift(() => Optional(PythonScript.Create()).ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(PythonScript.Create))))).Run().Bind(static inner => inner);
@@ -2113,7 +2111,7 @@ internal sealed class NoticeGate(CallbackObserver<NoticeFact> observer) {
             return state.Switch(
                 body,
                 live: static (held, _) => held(),
-                released: static (held, _) => Fin.Fail<T>(error: new UiFault.Released(Key: held.Key)));
+                released: static (held, _) => Fin.Fail<T>(error: new UiFault.Released()));
         }
     }
 }
@@ -2359,16 +2357,21 @@ public sealed class ShellCapsule : IDisposable {
                     plugin: held.Identity.Plugin, provider: row.Provider, issuer: row.Issuer,
                     timeline: held.Timeline)
                 .Map(lease => held.Seated with { Retire = held.Seated.Retire.Add(Retiring(lease)) }),
-            pacing: static (held, row) => UiThread.Tune(
-                    policy: new StallPolicy(Pace: row.Band, Stretch: row.Stretch),
-                    clock: Some(held.Timeline))
-                .Map(_ => held.Seated),
+            pacing: static (held, row) =>
+                from policy in FactoryBridge.Lift<StallPolicy>(
+                    fault: StallPolicy.Validate(
+                        pace: row.Band,
+                        stretch: row.Stretch,
+                        out StallPolicy? admitted),
+                    admitted: admitted)
+                from _ in UiThread.Tune(policy: policy, clock: Some(held.Timeline))
+                select held.Seated,
             theme: static (held, row) =>
                 from grid in ThemeGrid.Freeze(
                         program: row.Program, initial: row.Initial, contrast: row.Contrast,
                         clock: held.Timeline)
                     .ToFin()
-                from theme in ThemePort.Of(grid: grid)
+                let theme = new ThemePort(grid: grid)
                 select held.Seated with { Themes = Some(theme) },
             named: static (held, row) => {
                 NamedRegistry registry = NamedRegistry.Of();

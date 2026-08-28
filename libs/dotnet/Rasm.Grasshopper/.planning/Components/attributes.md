@@ -54,6 +54,7 @@ public abstract partial record ChromeEvent {
         Grasshopper2.UI.Skinning.Shade Shade) : ChromeEvent;
     public sealed record Menu(Eto.Forms.ContextMenu Host) : ChromeEvent;
     public sealed record Pointer(PointerPhase Kind, Option<Grasshopper2.UI.Flex.ResponseMouseArgs> Args) : ChromeEvent;
+    public sealed record SingleClick(Grasshopper2.UI.Flex.ResponseMouseArgs Args) : ChromeEvent;
     public sealed record Key(KeyPhase Phase, Eto.Forms.KeyEventArgs Args) : ChromeEvent;
     public sealed record Text(Eto.Forms.TextInputEventArgs Args) : ChromeEvent;
     public sealed record Focus(bool Gained) : ChromeEvent;
@@ -67,6 +68,7 @@ public abstract partial record ChromeEvent {
         paint: static _ => ChromeKind.Paint,
         menu: static _ => ChromeKind.Menu,
         pointer: static _ => ChromeKind.Pointer,
+        singleClick: static _ => ChromeKind.Pointer,
         key: static _ => ChromeKind.Key,
         text: static _ => ChromeKind.Text,
         focus: static _ => ChromeKind.Focus,
@@ -160,13 +162,13 @@ public sealed class ChromeCell {
         responder => responder.MouseOverHook += args => ignore(cell.Pointer(PointerPhase.Over, Optional(args), host)),
         responder => responder.MouseLeaveHook += () => ignore(cell.Pointer(PointerPhase.Leave, None, host)),
         responder => responder.MouseDownHook += args => cell.Pointer(PointerPhase.Down, Optional(args), host),
-        responder => responder.MouseDragHook += args => cell.Pointer(PointerPhase.Drag, Optional(args), host),
+        responder => responder.MouseDragHook += args => cell.Pointer(PointerPhase.Move, Optional(args), host),
         responder => responder.MouseUpHook += args => cell.Pointer(PointerPhase.Up, Optional(args), host),
         responder => responder.MouseWheelHook += args => cell.Pointer(PointerPhase.Wheel, Optional(args), host),
-        responder => responder.MouseSingleClickHook += args => cell.Pointer(PointerPhase.SingleClick, Optional(args), host),
+        responder => responder.MouseSingleClickHook += args => cell.Verdict(new ChromeEvent.SingleClick(args), host),
         responder => responder.MouseDoubleClickHook += args => cell.Pointer(PointerPhase.DoubleClick, Optional(args), host),
-        responder => responder.KeyDownHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.KeyDown, args), host),
-        responder => responder.KeyUpHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.KeyUp, args), host),
+        responder => responder.KeyDownHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.Down, args), host),
+        responder => responder.KeyUpHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.Up, args), host),
         responder => responder.TextInputHook += args => cell.Verdict(new ChromeEvent.Text(args), host),
         responder => responder.GotFocus += (_, _) => ignore(cell.Decide(new ChromeEvent.Focus(Gained: true), host)),
         responder => responder.LostFocus += (_, _) => ignore(cell.Decide(new ChromeEvent.Focus(Gained: false), host)));

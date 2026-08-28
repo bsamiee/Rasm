@@ -22,6 +22,7 @@ Temporal identity is the kernel's too: every tick advances one `MonotonicTimelin
 // --- [IMPORTS] -------------------------------------------------------------------------
 using AppKit;
 using CoreAnimation;
+using Eto.Forms;
 using Foundation;
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -58,7 +59,7 @@ public abstract partial record RedrawTarget {
 - Owner: `FrameClock` `[Union]` owns display-link, timer, and idle pacing rows; `ConcessionProbe` is the PRODUCER of the kernel `CapabilitySet<Accessibility>` — the five `NSWorkspace` accessibility reads land as rows — while the pace stays a `PaceBand` on the clock row and never enters a sample; `MotionAttachment` is the pause/resume/dispose lease every row answers; `MacPacer` is the one `Microsoft.macOS` crossing.
 - Entry: `FrameClock.Resolve(Option<PaceBand>) : Fin<FrameClock>` admits a pace band and selects display link or timer off ONE anchor probe crossing `UiThread` — the probe is an AppKit window walk, so the row decision runs UI-affine inside the `Fin` funnel; `FrameClock.Idle()` admits background-tolerant pacing explicitly; `Start(onTick, onFault) : Fin<MotionAttachment>` returns one lifecycle whose tick is a bare PULSE — the drive mints its own kernel beat per pulse, so no clock row carries a timestamp column.
 - Law: the tick is a PULSE, never a stamped value. The drive owns the one `MonotonicTimeline` beat chain (seed → `Beat(seed, cadence)` per tick), so timer, idle, and display-link rows all advance one temporal identity and the deleted `FrameTick` carrier — timestamp, delta, and a per-frame `BackingScale` column — has no successor: elapsed and delta ride the kernel beat, and density rides the kernel `DisplayFacts` a consumer reads once per drive, not per frame.
-- Law: the timer row is the kernel `UiClock` — `UiClock.Of(cadence, beat, posture, faults, clock)` over the drive's own timeline — so cadence, drift, missed-beat counting, and observer isolation are the kernel's and this page adds only the `MotionAttachment` projection over the lease's `Pause`/`Resume`/`Stop`. A page-local timer wrapper re-deriving drift beside that owner is the deleted form; the former Eto `Pulse` composition retired with the Eto sub-domain.
+- Law: the timer row is the kernel `UiClock` — `UiClock.Of(cadence, beat, posture, faults, timeline)` over the drive's own timeline — so cadence, drift, missed-beat counting, and observer isolation are the kernel's and this page adds only the `MotionAttachment` timer lifecycle while retaining the clock for ticks. A page-local timer wrapper re-deriving drift beside that owner is the deleted form; the former Eto `Pulse` composition retired with the Eto sub-domain.
 - Law: the display link is built from a WINDOW-DERIVED screen — `NSScreen.GetDisplayLink(target, selector)` on the key window's screen, falling to the first application window that resolves one — and `NSScreen.MainScreen` is the deleted form: it names the application main screen, not the paced surface's, so a second-display target paces against the wrong refresh ceiling. No window resolving a screen is a typed refusal that selects the timer row, never a substituted anchor.
 - Law: `GetDisplayLink` carries `SupportedOSPlatform("macos14.0")` and declares non-null while the native result still needs validation, so the row admits on `OperatingSystem.IsMacOSVersionAtLeast(14)` — never the OS family — and every vended link crosses `Optional(...).ToFin(...)` before it is configured or attached.
 - Law: the link lifecycle is create → `AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common)` → `Paused` toggling → `RemoveFromRunLoop` → `Invalidate` → `Dispose` — teardown is the exact inverse of attachment and an invalidated link is dead and rebuilt, never resumed. Every link mutation runs ON the main run loop; release marshals through the kernel dispatch because a drive is disposed from whatever lane owns it. `ObserveDidChangeScreenParameters` re-reads the panel bounds and rebinds the link, so a monitor swap re-rates a running animation instead of orphaning it.
@@ -73,7 +74,7 @@ internal static class ConcessionProbe {
     private static readonly Seq<(Accessibility Row, Func<bool> Active)> Reads = Seq<(Accessibility, Func<bool>)>(
         (Accessibility.ReduceMotion, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion),
         (Accessibility.IncreaseContrast, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldIncreaseContrast),
-        (Accessibility.DifferentiateColour, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor),
+        (Accessibility.DifferentiateWithoutColor, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor),
         (Accessibility.ReduceTransparency, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceTransparency),
         (Accessibility.InvertColors, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldInvertColors));
 
@@ -115,14 +116,14 @@ public abstract partial record FrameClock {
             displayLinkCase: static (ctx, clock) => MacPacer.Start(pace: clock.Pace, onTick: ctx.OnTick, onFault: ctx.OnFault),
             timerCase: static (ctx, clock) =>
                 from cadence in FactoryBridge.Accept<PositiveMagnitude>(candidate: clock.Pace.Period.TotalSeconds)
-                from lease in UiClock.Of(
+                from pulseClock in UiClock.Of(
                     cadence: cadence,
                     beat: _ => Try.lift(() => { ctx.OnTick(); return Fin.Succ(unit); }).Run().Bind(static inner => inner),
-                    posture: Some(FaultPosture.Continue),
-                    faults: Some(ctx.Faults),
-                    clock: Some(ctx.Timeline))
-                from started in lease.Use(clock => clock.Start())
-                select (MotionAttachment)Attachment.Clocked(lease: lease),
+                    posture: FaultPosture.Continue,
+                    faults: ctx.Faults,
+                    timeline: ctx.Timeline)
+                from attachment in Attachment.Clocked(clock: pulseClock, cadence: cadence)
+                select attachment,
             idleCase: static (ctx, _) => Try.lift(() => Fin.Succ<MotionAttachment>(Attachment.Idle(beat: ctx.OnTick))).Run().Bind(static inner => inner))
         select attachment;
 }
@@ -130,10 +131,32 @@ public abstract partial record FrameClock {
 internal sealed class Attachment(Func<Unit> pause, Func<Unit> resume, Action release) : MotionAttachment {
     internal static readonly Attachment Completed = new(static () => unit, static () => unit, static () => { });
 
-    internal static Attachment Clocked(Lease<UiClock> lease) => new(
-        pause: () => ignore(lease.Use(clock => clock.Pause())),
-        resume: () => ignore(lease.Use(clock => clock.Resume())),
-        release: lease.Dispose);
+    internal static Fin<MotionAttachment> Clocked(UiClock clock, PositiveMagnitude cadence) {
+        UITimer? timer = null;
+        EventHandler<EventArgs>? handler = null;
+        return Try.lift(() => {
+            EventHandler<EventArgs> registered = handler = (_, _) => ignore(clock.Tick());
+            UITimer active = timer = new UITimer(registered) { Interval = cadence.Value };
+            active.Start();
+            return (MotionAttachment)new Attachment(
+                pause: () => HostEdge.Side(active.Stop),
+                resume: () => HostEdge.Side(active.Start),
+                release: () => ignore(Release(active, registered, clock)));
+        }).Run().Rollback(release: () => Release(timer, handler, clock));
+    }
+
+    private static Fin<Unit> Release(
+        UITimer? timer, EventHandler<EventArgs>? handler, UiClock clock) =>
+        Custody.Release(Seq<Func<Fin<Unit>>>(
+            () => timer is null
+                ? Fin.Succ(unit)
+                : Try.lift(() => {
+                    timer.Stop();
+                    if (handler is not null) { timer.Elapsed -= handler; }
+                    timer.Dispose();
+                    return unit;
+                }).Run(),
+            () => Custody.Released(clock)));
 
     internal static Attachment Idle(Action beat) {
         int attached = 0;
