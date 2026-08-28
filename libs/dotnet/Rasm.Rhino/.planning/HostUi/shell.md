@@ -1053,7 +1053,7 @@ public static class HostFacts {
                     VerticalDpi: HostUtils.GetPrinterDPI(printerName: printer, horizontal: false),
                     Forms: toSeq(HostUtils.GetPrinterFormNames(printerName: printer)).Map(form => new PrintForm(
                         Name: form,
-                        Extent: HostEdge.Probe<(double Width, double Height)>(() => (
+                        Extent: Admit.Probe<(double Width, double Height)>(() => (
                             HostUtils.GetPrinterFormSize(printer, form, out double width, out double height),
                             (width, height))))).Strict())).Strict()))).Run().Bind(static inner => inner),
             entitlement: static _ => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.EntitlementCase(
@@ -1585,7 +1585,7 @@ public static class HostEndpoints {
 - Law: `NamedSlot.Admit` revalidates one complete schema before native arguments exist, and the schema is a keyed carrier, so a duplicate key is unrepresentable rather than caught by a distinct-count guard.
 - Law: execution cancellation reads the kernel `Env`; its direct poll carries `Errors.Cancelled`, while caught cancellation remains `Try.lift` custody.
 - Law: a decode or write fold holds its own PREFIX for release. A traverse abandons the values it already rehydrated, and every one of them is a native handle this boundary owns until the synchronous host call ends, so the fold accumulates and `Custody.Release` reverses and drains it.
-- Packages: `Rasm/Domain/results` (`Cell`, `Transition`), `Domain/validation` (`HostEdge.Probe`); `Rasm/Interaction/dispatch` (`UiFault`); `Rasm/Analysis/query` (`Env`); `Rasm.Rhino/Document/events` (`PluginKey`), `Document/lifetime` (`Subscription`), kernel `Domain/results` (`Custody`); `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md` (`HostUtils.RegisterNamedCallback`/`RemoveNamedCallback`/`ExecuteNamedCallback`, `NamedParametersEventArgs` and its `TryGet*`/`Set` roster), `api-rhinocommon-fileio.md` (`SerializationOptions`), `api-rhinocommon-geometry.md` (`CommonObject.ToJSON`/`FromJSON`), `api-rhinocommon-meshing.md` (`MeshingParameters.ToEncodedString`/`FromEncodedString`).
+- Packages: `Rasm/Domain/results` (`Cell`, `Transition`), `Domain/validation` (`Admit.Probe`); `Rasm/Interaction/dispatch` (`UiFault`); `Rasm/Analysis/query` (`Env`); `Rasm.Rhino/Document/events` (`PluginKey`), `Document/lifetime` (`Subscription`), kernel `Domain/results` (`Custody`); `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md` (`HostUtils.RegisterNamedCallback`/`RemoveNamedCallback`/`ExecuteNamedCallback`, `NamedParametersEventArgs` and its `TryGet*`/`Set` roster), `api-rhinocommon-fileio.md` (`SerializationOptions`), `api-rhinocommon-geometry.md` (`CommonObject.ToJSON`/`FromJSON`), `api-rhinocommon-meshing.md` (`MeshingParameters.ToEncodedString`/`FromEncodedString`).
 - Growth: a new host parameter is ONE `NamedKind` row and ONE `NamedValue` case; nothing else edits.
 - Boundary: geometry, viewport, and meshing rows cross as serialized values, and the three live-handle readers the host also publishes — `TryGetObjRefs`, `TryGetRhinoObjects`, and the native window-handle pair — carry document handles and raw pointers this boundary's detachment law forecloses; object identity crosses on the `IdSet` row instead. `NamedLease` owns every rehydrated common object until the synchronous host call ends.
 
