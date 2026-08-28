@@ -75,8 +75,8 @@ public sealed record GraphGrouping<TVertex> where TVertex : notnull {
 
 public sealed record GraphProjection<TVertex> where TVertex : notnull {
     public static readonly GraphProjection<TVertex> Closure = new(project: static (graph, op) =>
-        Try.lift(() => Fin.Succ(value: graph.ComputeTransitiveClosure(
-            edgeFactory: static (source, target) => new SEdge<TVertex>(source: source, target: target)))).Run().Bind(static inner => inner));
+        Try.lift(() => graph.ComputeTransitiveClosure(
+            edgeFactory: static (source, target) => new SEdge<TVertex>(source: source, target: target))).Run());
     public static readonly GraphProjection<TVertex> Reduction = new(project: static (graph, op) =>
         GraphFold.Reduced(graph: graph));
 
@@ -232,7 +232,7 @@ public static partial class BlockGraph {
                        from policy in Admit.Need(ask.Policy)
                        from topology in Complete(source: ctx)
                        from graph in topology.Fold()
-                       from values in Try.lift(() => Fin.Succ(value: policy.Select(graph))).Run().Bind(static inner => inner)
+                       from values in Try.lift(() => policy.Select(graph)).Run()
                        select (BlockGraphAnswer)new BlockGraphAnswer.Definitions(Keys: values),
                    path: static (ctx, ask) =>
                        from topology in Complete(source: ctx)
@@ -255,7 +255,7 @@ public static partial class BlockGraph {
                        from topology in Complete(source: ctx)
                        from policy in Admit.Need(ask.Policy)
                        from graph in topology.Fold()
-                       from groups in Try.lift(() => Fin.Succ(value: policy.Select(graph))).Run().Bind(static inner => inner)
+                       from groups in Try.lift(() => policy.Select(graph)).Run()
                        select (BlockGraphAnswer)new BlockGraphAnswer.Groups(Values: groups),
                    projection: static (ctx, ask) =>
                        from policy in Admit.Need(ask.Policy)
@@ -267,7 +267,7 @@ public static partial class BlockGraph {
                    condensation: static (ctx, _) =>
                        from topology in Complete(source: ctx)
                        from graph in topology.Fold()
-                       from condensed in Try.lift(() => Fin.Succ(value: GraphFold.Condensed(graph: graph))).Run().Bind(static inner => inner)
+                       from condensed in Try.lift(() => GraphFold.Condensed(graph: graph)).Run()
                        select (BlockGraphAnswer)new BlockGraphAnswer.Condensed(
                            Components: condensed.Components,
                            Edges: condensed.Edges),
@@ -1026,7 +1026,7 @@ public static partial class BlockGraph {
         }).Run().Bind(static inner => inner);
         return primary.Settled(
             held: Seq(snapshot),
-            release: path => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => System.IO.File.Delete(path: path)))).Run().Bind(static inner => inner));
+            release: path => Try.lift(() => HostEdge.Side(() => System.IO.File.Delete(path: path))).Run());
     }).Run().Bind(static inner => inner);
 }
 ```

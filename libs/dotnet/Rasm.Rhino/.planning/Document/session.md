@@ -93,10 +93,9 @@ public readonly partial struct DocKey : IDetachedDocumentResult {
 
     public static Fin<Seq<DocKey>> Census(DocumentSet scope) {
         return from admitted in Admit.Need(scope)
-               from documents in Try.lift(() => Fin.Succ(
-                   value: toSeq(RhinoDoc.OpenDocuments(includeHeadless: admitted.IncludeHeadless))
+               from documents in Try.lift(() => toSeq(RhinoDoc.OpenDocuments(includeHeadless: admitted.IncludeHeadless))
                        .Filter(document => admitted.Admits(document: document))
-                       .Strict())).Run().Bind(static inner => inner)
+                       .Strict()).Run()
                from keys in documents
                    .Traverse(document => Of(document: document).ToValidation())
                    .As()
@@ -261,7 +260,7 @@ public sealed partial class SessionSnapshot : IDetachedDocumentResult {
 
     internal static Fin<SessionSnapshot> Of(RhinoDoc document) {
         return from active in Optional(document).ToFin(Fail: new KernelFault.MissingContext())
-               from facts in Try.lift(() => Fin.Succ(value: SessionMap.Facts(document: active))).Run().Bind(static inner => inner)
+               from facts in Try.lift(() => SessionMap.Facts(document: active)).Run()
                from identity in FactoryBridge.Accept<DocKey>(candidate: facts.Serial)
                from path in Optional(facts.Path)
                    .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
@@ -388,7 +387,7 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
             .Traverse(value => DocumentPath.Of(value: value))
             .As()
         from worksession in Try.lift(() => Optional(owner.Worksession).ToFin(Fail: new DraftFault.HostRefused(Member: nameof(RhinoDoc.Worksession), Detail: "returned no worksession"))).Run().Bind(static inner => inner)
-        from facts in Try.lift(() => Fin.Succ(value: SessionMap.Worksession(worksession: worksession))).Run().Bind(static inner => inner)
+        from facts in Try.lift(() => SessionMap.Worksession(worksession: worksession)).Run()
         from paths in toSeq(facts.ModelPaths ?? [])
             .Traverse(value => DocumentPath.Of(value: value).ToValidation())
             .As()
@@ -1203,8 +1202,8 @@ public abstract partial record RegimeChange {
                    .Apply(static (policy, unit) => (Policy: policy, Unit: unit))
                    .As()
                    .ToFin()
-               from native in Try.lift(() => Fin.Succ(value: LengthUnit.FromKnownUnitSystem(
-                   knownUnitSystem: admission.Unit.System))).Run().Bind(static inner => inner)
+               from native in Try.lift(() => LengthUnit.FromKnownUnitSystem(
+                   knownUnitSystem: admission.Unit.System)).Run()
                select (RegimeChange)new Units(
                    native: native,
                    unit: admission.Unit,
@@ -1221,10 +1220,10 @@ public abstract partial record RegimeChange {
                    .Apply(static (label, scale) => (Label: label, Scale: scale))
                    .As()
                    .ToFin()
-               from unitValue in Try.lift(() => Fin.Succ(value: LengthUnit.FromCustomUnitSystem(
+               from unitValue in Try.lift(() => LengthUnit.FromCustomUnitSystem(
                    name: admission.Label,
                    customUnitSize: admission.Scale,
-                   knownUnitSystem: UnitSystem.Meters))).Run().Bind(static inner => inner)
+                   knownUnitSystem: UnitSystem.Meters)).Run()
                from change in Of(units: unitValue, scaling: scaling)
                select change;
     }
@@ -1269,14 +1268,12 @@ public abstract partial record RegimeChange {
                     scale: change.Scaling.HostScale)
                 ? Fin.Succ(value: unit)
                 : Fin.Fail<Unit>(new DraftFault.HostRefused(Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "answered false"))).Run().Bind(static inner => inner),
-            tolerances: static (context, change) => Try.lift(() => Fin.Succ(
-                value: context.Space.SetTolerances(
+            tolerances: static (context, change) => Try.lift(() => context.Space.SetTolerances(
                     document: context.Document,
-                    context: change.Value))).Run().Bind(static inner => inner),
+                    context: change.Value)).Run(),
             precision: static (context, change) =>
                 from digits in change.Value.Digits()
-                from written in Try.lift(() => Fin.Succ(
-                    value: context.Space.SetPrecision(document: context.Document, digits: digits))).Run().Bind(static inner => inner)
+                from written in Try.lift(() => context.Space.SetPrecision(document: context.Document, digits: digits)).Run()
                 select written);
         return mutation.Rollback(() => Restore(
             document: document,
@@ -1321,12 +1318,12 @@ public abstract partial record RegimeChange {
                 ? Fin.Succ(value: unit)
                 : Fin.Fail<Unit>(new DraftFault.HostRefused(Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "restore answered false"))).Run().Bind(static inner => inner))
             .As().Map(static _ => unit).ToValidation();
-        K<Validation<Error>, Unit> tolerances = Try.lift(() => Fin.Succ(value: space.SetTolerances(
+        K<Validation<Error>, Unit> tolerances = Try.lift(() => space.SetTolerances(
             document: document,
-            context: before.Space))).Run().Bind(static inner => inner).ToValidation();
-        K<Validation<Error>, Unit> precision = Try.lift(() => Fin.Succ(value: space.SetPrecision(
+            context: before.Space)).Run().ToValidation();
+        K<Validation<Error>, Unit> precision = Try.lift(() => space.SetPrecision(
             document: document,
-            digits: before.Digits))).Run().Bind(static inner => inner).ToValidation();
+            digits: before.Digits)).Run().ToValidation();
         return (units, tolerances, precision)
             .Apply(static (_, _, _) => unit)
             .As()
@@ -1595,7 +1592,7 @@ public abstract partial record UnitText : IDetachedDocumentResult {
             return from _whole in guard(
                        flag: parsedAll && !parsed.IsUnset(),
                        False: new KernelFault.InvalidInput()).ToFin()
-                   from value in Try.lift(() => Fin.Succ(value: parsed.Length(units: context.Native))).Run().Bind(static inner => inner)
+                   from value in Try.lift(() => parsed.Length(units: context.Native)).Run()
                    from finite in guard(flag: double.IsFinite(value), False: new KernelFault.InvalidResult())
                    select (UnitText)new LengthValueCase(
                        value: value,

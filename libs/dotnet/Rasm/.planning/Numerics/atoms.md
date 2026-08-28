@@ -732,24 +732,24 @@ public static class Placement {
     public static Fin<Transform> Build(TransformSpec spec, Option<Context> context = default) {
         return Optional(spec).ToFin(Fail: new KernelFault.InvalidInput()).Bind(request => request.Switch(
             state: context,
-            existing: static (state, value) => Acceptance.Input(value: value.Value),
+            existing: static (state, value) => Admit.Value(value: value.Value),
             identity: static (state, _) => Acceptance.Value(value: Transform.Identity),
             translation: static (state, value) =>
-                from motion in Acceptance.Input(value: value.Motion)
+                from motion in Admit.Value(value: value.Motion)
                 from result in Acceptance.Value(value: Transform.Translation(motion: motion))
                 select result,
             diagonal: static (state, value) =>
-                from diagonal in Acceptance.Input(value: value.Values)
+                from diagonal in Admit.Value(value: value.Values)
                 from result in Acceptance.Value(value: Transform.Diagonal(diagonal: diagonal))
                 select result,
             uniformScale: static (state, value) =>
-                from anchor in Acceptance.Input(value: value.Anchor)
-                from factor in Acceptance.Input(value: value.Factor)
+                from anchor in Admit.Value(value: value.Anchor)
+                from factor in Admit.Value(value: value.Factor)
                 from result in Acceptance.Value(value: Transform.Scale(anchor: anchor, scaleFactor: factor))
                 select result,
             planeScale: static (state, value) =>
                 from plane in Admit.Plane(basis: value.Plane)
-                from factors in Acceptance.Input(value: value.Factors)
+                from factors in Admit.Value(value: value.Factors)
                 from result in Acceptance.Value(value: Transform.Scale(
                     plane: plane,
                     xScaleFactor: factors.X,
@@ -758,9 +758,9 @@ public static class Placement {
                 select result,
             axisRotation: static (state, value) =>
                 from model in state.ToFin(Fail: new KernelFault.MissingContext())
-                from angle in Acceptance.Input(value: value.Angle)
+                from angle in Admit.Value(value: value.Angle)
                 from axis in Direction.Of(value: value.Axis, context: model)
-                from center in Acceptance.Input(value: value.Center)
+                from center in Admit.Value(value: value.Center)
                 from result in Acceptance.Value(value: Transform.Rotation(
                     angleRadians: angle,
                     rotationAxis: axis.Value,
@@ -768,15 +768,15 @@ public static class Placement {
                 select result,
             sinCosRotation: static (state, value) =>
                 from model in state.ToFin(Fail: new KernelFault.MissingContext())
-                from sin in Acceptance.Input(value: value.Sin)
-                from cos in Acceptance.Input(value: value.Cos)
+                from sin in Admit.Value(value: value.Sin)
+                from cos in Admit.Value(value: value.Cos)
                 from _ in guard(
                     Math.Abs(value: ((sin * sin) + (cos * cos)) - 1.0)
                         <= Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: model.Fractional),
                     new KernelFault.InvalidInput())
                     .ToFin()
                 from axis in Direction.Of(value: value.Axis, context: model)
-                from center in Acceptance.Input(value: value.Center)
+                from center in Admit.Value(value: value.Center)
                 from result in Acceptance.Value(value: Transform.Rotation(
                     sinAngle: sin,
                     cosAngle: cos,
@@ -784,8 +784,8 @@ public static class Placement {
                     rotationCenter: center))
                 select result,
             centerRotation: static (state, value) =>
-                from angle in Acceptance.Input(value: value.Angle)
-                from center in Acceptance.Input(value: value.Center)
+                from angle in Admit.Value(value: value.Angle)
+                from center in Admit.Value(value: value.Center)
                 from result in Acceptance.Value(value: Transform.Rotation(
                     angleRadians: angle,
                     rotationCenter: center))
@@ -794,7 +794,7 @@ public static class Placement {
                 from model in state.ToFin(Fail: new KernelFault.MissingContext())
                 from start in Direction.Of(value: value.From, context: model)
                 from end in Direction.Of(value: value.To, context: model)
-                from center in Acceptance.Input(value: value.Center)
+                from center in Admit.Value(value: value.Center)
                 from result in Acceptance.Value(value: Transform.Rotation(
                     startDirection: start.Value,
                     endDirection: end.Value,
@@ -821,18 +821,18 @@ public static class Placement {
                     z1: target.Z))
                 select result,
             yawPitchRoll: static (state, value) =>
-                from yaw in Acceptance.Input(value: value.Yaw)
-                from pitch in Acceptance.Input(value: value.Pitch)
-                from roll in Acceptance.Input(value: value.Roll)
+                from yaw in Admit.Value(value: value.Yaw)
+                from pitch in Admit.Value(value: value.Pitch)
+                from roll in Admit.Value(value: value.Roll)
                 from result in Acceptance.Value(value: Transform.RotationZYX(
                     yaw: yaw,
                     pitch: pitch,
                     roll: roll))
                 select result,
             eulerZYZ: static (state, value) =>
-                from alpha in Acceptance.Input(value: value.Alpha)
-                from beta in Acceptance.Input(value: value.Beta)
-                from gamma in Acceptance.Input(value: value.Gamma)
+                from alpha in Admit.Value(value: value.Alpha)
+                from beta in Admit.Value(value: value.Beta)
+                from gamma in Admit.Value(value: value.Gamma)
                 from result in Acceptance.Value(value: Transform.RotationZYZ(
                     alpha: alpha,
                     beta: beta,
@@ -840,16 +840,16 @@ public static class Placement {
                 select result,
             mirror: static (state, value) =>
                 from model in state.ToFin(Fail: new KernelFault.MissingContext())
-                from point in Acceptance.Input(value: value.Point)
+                from point in Admit.Value(value: value.Point)
                 from normal in Direction.Of(value: value.Normal, context: model)
                 from result in Acceptance.Value(value: Transform.Mirror(
                     pointOnMirrorPlane: point,
                     normalToMirrorPlane: normal.Value))
                 select result,
             textureMapping: static (state, value) =>
-                from offset in Acceptance.Input(value: value.Offset)
-                from repeat in Acceptance.Input(value: value.Repeat)
-                from rotation in Acceptance.Input(value: value.Rotation)
+                from offset in Admit.Value(value: value.Offset)
+                from repeat in Admit.Value(value: value.Repeat)
+                from rotation in Admit.Value(value: value.Rotation)
                 from result in Acceptance.Value(value: Transform.TextureMapping(
                     offset: offset,
                     repeat: repeat,
@@ -870,16 +870,16 @@ public static class Placement {
                     plane1: target))
                 select result,
             vectorBasisMap: static (state, value) =>
-                (Acceptance.Input(value.X0), Acceptance.Input(value.Y0), Acceptance.Input(value.Z0),
-                 Acceptance.Input(value.X1), Acceptance.Input(value.Y1), Acceptance.Input(value.Z1))
+                (Admit.Value(value.X0), Admit.Value(value.Y0), Admit.Value(value.Z0),
+                 Admit.Value(value.X1), Admit.Value(value.Y1), Admit.Value(value.Z1))
                     .Apply(static (x0, y0, z0, x1, y1, z1) => Transform.ChangeBasis(
                         X0: x0, Y0: y0, Z0: z0, X1: x1, Y1: y1, Z1: z1))
                     .As()
                     .Bind(result => Acceptance.Value(result)),
             pointBasisMap: static (state, value) =>
-                (Acceptance.Input(value.P0), Acceptance.Input(value.X0), Acceptance.Input(value.Y0),
-                 Acceptance.Input(value.Z0), Acceptance.Input(value.P1), Acceptance.Input(value.X1),
-                 Acceptance.Input(value.Y1), Acceptance.Input(value.Z1))
+                (Admit.Value(value.P0), Admit.Value(value.X0), Admit.Value(value.Y0),
+                 Admit.Value(value.Z0), Admit.Value(value.P1), Admit.Value(value.X1),
+                 Admit.Value(value.Y1), Admit.Value(value.Z1))
                     .Apply(static (p0, x0, y0, z0, p1, x1, y1, z1) => Transform.ChangeBasis(
                         P0: p0, X0: x0, Y0: y0, Z0: z0,
                         P1: p1, X1: x1, Y1: y1, Z1: z1))
@@ -899,9 +899,9 @@ public static class Placement {
                 select result,
             shear: static (state, value) =>
                 from plane in Admit.Plane(basis: value.Plane)
-                from x in Acceptance.Input(value: value.X)
-                from y in Acceptance.Input(value: value.Y)
-                from z in Acceptance.Input(value: value.Z)
+                from x in Admit.Value(value: value.X)
+                from y in Admit.Value(value: value.Y)
+                from z in Admit.Value(value: value.Z)
                 from result in Acceptance.Value(value: Transform.Shear(
                     plane: plane,
                     x: x,
@@ -909,7 +909,7 @@ public static class Placement {
                     z: z))
                 select result,
             compose: static (state, value) => value.Values
-                .TraverseM(transform => Acceptance.Input(transform))
+                .TraverseM(transform => Admit.Value(transform))
                 .As()
                 .Map(static admitted => admitted.Fold(
                     initialState: Transform.Identity,
@@ -919,7 +919,7 @@ public static class Placement {
 
     extension(Transform source) {
         public Fin<Transform> Inverse() {
-            return from active in Acceptance.Input(value: source)
+            return from active in Admit.Value(value: source)
                    from inverse in active.TryGetInverse(inverseTransform: out Transform result)
                        ? Acceptance.Value(value: result)
                        : Fin.Fail<Transform>(error: new KernelFault.InvalidResult())
@@ -927,7 +927,7 @@ public static class Placement {
         }
 
         public Fin<Decomposition> Decompose(DecompositionMethod method, Context context) {
-            return from active in Acceptance.Input(value: source)
+            return from active in Admit.Value(value: source)
                    from activeMethod in Optional(method).ToFin(Fail: new KernelFault.InvalidInput())
                    from model in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
                    from result in activeMethod.Apply(source: active, context: model)
@@ -935,7 +935,7 @@ public static class Placement {
         }
 
         public Fin<Transform> Rewrite(TransformRewrite rewrite, Context context) {
-            return from active in Acceptance.Input(value: source)
+            return from active in Admit.Value(value: source)
                    from selector in Optional(rewrite).ToFin(Fail: new KernelFault.InvalidInput())
                    from model in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
                    from result in selector.Apply(source: active, context: model)

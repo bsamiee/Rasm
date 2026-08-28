@@ -962,8 +962,8 @@ public static class Publishing {
         OutputPolicy output,
         FileCodec codec,
         Func<string, Fin<Unit>> write) =>
-        from named in Try.lift(() => Fin.Succ(value: DocumentPath.Create(value: StampText.Render(
-            template: PageStem(target: target, scope: scope), scope: scope)))).Run().Bind(static inner => inner)
+        from named in Try.lift(() => DocumentPath.Create(value: StampText.Render(
+            template: PageStem(target: target, scope: scope), scope: scope))).Run()
         from _landed in output.Land(target: named, codec: codec, stage: write)
         select unit;
 

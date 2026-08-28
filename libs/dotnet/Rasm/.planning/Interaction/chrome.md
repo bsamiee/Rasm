@@ -125,9 +125,9 @@ public abstract partial record CommandKind {
     internal Fin<Unit> Execute(Command host) => Switch(
         state: host,
         act: static (held, kind) => Try.lift(kind.Effect).Run().Bind(static inner => inner),
-        toggle: static (held, kind) => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
-            kind.Write(held is CheckCommand check && check.Checked)))).Run().Bind(static inner => inner),
-        pick: static (held, kind) => Try.lift(() => Fin.Succ(HostEdge.Side(kind.Choose))).Run().Bind(static inner => inner));
+        toggle: static (held, kind) => Try.lift(() => HostEdge.Side(() =>
+            kind.Write(held is CheckCommand check && check.Checked))).Run(),
+        pick: static (held, kind) => Try.lift(() => HostEdge.Side(kind.Choose)).Run());
 
     internal Unit Refresh(Command host) => Switch(
         state: host,

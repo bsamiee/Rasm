@@ -166,14 +166,14 @@ public static class MaterialBridge {
         }).Run().Bind(static inner => inner);
 
     internal static Fin<SlotUsage> Usage(RenderMaterial material, RenderMaterial.StandardChildSlots slot) =>
-        Try.lift(() => Fin.Succ(value: new SlotUsage(
+        Try.lift(() => new SlotUsage(
             Slot: slot,
             TextureType: RenderMaterial.TextureTypeFromSlot(slot: slot),
             Grant: Optional(material.GetTextureFromUsage(slot: slot)).Map(texture => (
                 Texture: texture.Id,
                 Posture: UsagePosture.Of(native: material.GetTextureOnFromUsage(slot: slot)),
                 Amount: material.GetTextureAmountFromUsage(slot: slot))),
-            SlotName: material.TextureChildSlotName(slot: slot)))).Run().Bind(static inner => inner);
+            SlotName: material.TextureChildSlotName(slot: slot))).Run();
 }
 ```
 
@@ -302,7 +302,7 @@ internal static class AxisFold {
     internal static Fin<Unit> Apply<TRow, TTarget, TState>(TTarget target, TState state, Func<TRow, TTarget, TState, Unit> write)
         where TRow : class, ISmartEnum<string, TRow, ValidationError> =>
         toSeq(TRow.Items)
-            .TraverseM(row => Try.lift(() => Fin.Succ(value: write(arg1: row, arg2: target, arg3: state))).Run().Bind(static inner => inner))
+            .TraverseM(row => Try.lift(() => write(arg1: row, arg2: target, arg3: state)).Run())
             .As()
             .Map(static _ => unit);
 }
@@ -422,12 +422,12 @@ public readonly record struct TextureTraits(
     TextureEnvironmentMappingMode InternalEnvironmentMode,
     CapabilitySet<TextureTrait> Traits) : IDetachedDocumentResult {
     public static Fin<TextureTraits> Of(RenderTexture texture) =>
-        Try.lift(() => Fin.Succ(value: new TextureTraits(
+        Try.lift(() => new TextureTraits(
             Texels: Optional(texture.PixelSize2),
             LocalTransform: texture.LocalMappingTransform,
             LocalMappingType: texture.GetLocalMappingType(),
             InternalEnvironmentMode: texture.GetInternalEnvironmentMappingMode(),
-            Traits: TextureTrait.Of(texture: texture)))).Run().Bind(static inner => inner);
+            Traits: TextureTrait.Of(texture: texture))).Run();
 }
 
 public sealed record TextureFacsimile(
@@ -442,8 +442,8 @@ public sealed record TextureFacsimile(
     CapabilitySet<FacsimileTrait> Traits) : IDetachedDocumentResult {
     internal static Fin<TextureFacsimile> Of(SimulatedTexture simulated) =>
         Error.New(texture: simulated.Message, texture: simulated).Map(mapping => new TextureFacsimile(
-            Filename: HostEdge.Text(simulated.Filename),
-            OriginalFilename: HostEdge.Text(simulated.OriginalFilename),
+            Filename: HostEdge.NonEmpty(simulated.Filename),
+            OriginalFilename: HostEdge.NonEmpty(simulated.OriginalFilename),
             LocalTransform: simulated.LocalMappingTransform,
             Repeat: simulated.Repeat,
             Offset: simulated.Offset,
@@ -629,7 +629,7 @@ public sealed partial class PhotometricFile : IDetachedDocumentResult {
                from custody in PhotometricPress.Custody(lease: lease)
                from seated in custody.Lease.Use(
                    body: transfer => ChangeScope.Write(content: parent, reason: reason, body: live =>
-                       from prior in Try.lift(() => Fin.Succ(value: live.ChildSlotOn(childSlotName: slot))).Run().Bind(static inner => inner)
+                       from prior in Try.lift(() => live.ChildSlotOn(childSlotName: slot)).Run()
                        from taken in Try.lift(() => {
                                live.SetChildSlotOn(childSlotName: slot, bOn: true, cc: reason.Native);
                                return Admit.Confirm(success: live.SetChild(renderContent: custody.Content, childSlotName: slot));
@@ -698,7 +698,7 @@ public sealed record PhotometricPress(Func<PhotometricFile, RhinoDoc?, Fin<Lease
                 error: new KernelFault.InvalidResult(Detail: Some(nameof(Lease<RenderContent>.Borrowed))));
 
     internal static Fin<ContentTransfer> Transfer(Lease<RenderContent> lease) =>
-        Held(lease: lease).Bind(owned => Try.lift(() => Fin.Succ(value: new ContentTransfer(owned: owned))).Run().Bind(static inner => inner));
+        Held(lease: lease).Bind(owned => Try.lift(() => new ContentTransfer(owned: owned)).Run());
 
     internal static Fin<(RenderContent Content, Lease<ContentTransfer> Lease)> Custody(Lease<RenderContent> lease) =>
         Held(lease: lease).Bind(owned =>

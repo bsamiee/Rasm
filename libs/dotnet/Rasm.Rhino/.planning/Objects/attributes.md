@@ -30,7 +30,7 @@ Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes
 - Law: decal removal keys on `Decal.CRC` — the host removes by decal identity, so retract carries the snapshot's `Crc` column and the arm removes every live decal whose `CRC` matches; face-material removal keys on the plug-in guid the dictionary indexes.
 - Law: host quirks cross verbatim — `DecalCreateParams.StartLatitude`/`EndLatitude` carry the horizontal sweep and `StartLongitude`/`EndLongitude` the vertical (the host inverts the names), and `MaterialRefs.Create` swaps front and back values across its native boundary; neither is locally corrected, so a host repair never double-swaps.
 - Growth: a new writable axis adds one edit case, one admission arm, one apply arm, and its detached read projection when the page owns that read.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`HostEdge.Text`, `Try.lift`, `Admit.Confirm`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`HostEdge.NonEmpty`, `Try.lift`, `Admit.Confirm`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -443,8 +443,8 @@ public abstract partial record AttributeEdit {
                 edit.Visible.IsSome || edit.Color.IsSome || edit.PlotColor.IsSome || edit.ColorSource.IsSome
                 || edit.PlotColorSource.IsSome || edit.Pen.IsSome,
                 new KernelFault.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            anchorFrame: static edit => Acceptance.Input(value: edit.Frame).Map(_ => (AttributeEdit)edit),
-            anchorMove: static edit => Acceptance.Input(value: edit.Motion).Map(_ => (AttributeEdit)edit),
+            anchorFrame: static edit => Admit.Value(value: edit.Frame).Map(_ => (AttributeEdit)edit),
+            anchorMove: static edit => Admit.Value(value: edit.Motion).Map(_ => (AttributeEdit)edit),
             meshing: static (edit) => edit.Encoded
                 .Traverse(text =>
                     from accepted in Acceptance.Text(value: text)
@@ -824,8 +824,8 @@ public sealed record AttributeSnapshot(
                     .TraverseM(pair => MaterialRefSnapshot.Of(live: pair.Value)).As()
                 select new AttributeSnapshot(
                 ObjectId: attributes.ObjectId,
-                Name: HostEdge.Text(attributes.Name),
-                Url: HostEdge.Text(attributes.Url),
+                Name: HostEdge.NonEmpty(attributes.Name),
+                Url: HostEdge.NonEmpty(attributes.Url),
                 LayerIndex: layer,
                 LinetypeIndex: ResourceIndex.Maybe(value: attributes.LinetypeIndex),
                 MaterialIndex: ResourceIndex.Maybe(value: attributes.MaterialIndex),

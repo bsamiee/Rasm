@@ -481,7 +481,7 @@ public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCach
         });
 
     static IO<T> Captured<T>(Func<Task<T>> crossing) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
+        HostEdge.CapturedIO(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false)))
             .Bind(IO.lift);
 
     string LogicalKey(string physical) {
@@ -594,7 +594,7 @@ public static class WideColumnIndex {
 public sealed record WideColumnLane(Mapper Mapper, StoreRedrivePort Redrive, CacheToken Cluster, CacheTtl Ttl) {
     IO<Fin<T>> Dialed<T>(ColumnVerb verb, Func<Task<T>> call) =>
         Redrive.Carry(new StoreHop.WideColumn(verb), (string)Cluster,
-            IO.liftAsync(async () => (await HostEdge.Captured(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).ConfigureAwait(false))
+            HostEdge.CapturedIO(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).Map(outcome => outcome
                 .MapFail(CacheFault.Lift))
             .Bind(IO.lift))
         .Map(Fin.Succ)

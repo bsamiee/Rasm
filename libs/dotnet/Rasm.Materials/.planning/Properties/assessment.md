@@ -243,9 +243,9 @@ public static class AssessmentAdmission {
 // --- [DECLARATION_WIRE] ----------------------------------------------------------------
 public static class DeclarationWire {
     public static Fin<AssessmentRecord> Decode(ReadOnlyMemory<byte> record) =>
-        Try.lift(() => Fin.Succ(DeclarationRecord.Parser.ParseFrom(
+        Try.lift(() => DeclarationRecord.Parser.ParseFrom(
                 CodedInputStream.CreateWithLimits(
-                    record.AsStream(), WireLimits.Declaration.SizeLimit, WireLimits.Declaration.RecursionLimit)))).Run().Bind(static inner => inner)
+                    record.AsStream(), WireLimits.Declaration.SizeLimit, WireLimits.Declaration.RecursionLimit))).Run()
             .Bind(admitted => WireAdmission.Admit(admitted, WireBoundary.InboundPayload))
             .Map(admitted => (AssessmentRecord)new AssessmentRecord.Declared(
                 MaterialId.Create(admitted.MaterialKey), ToEpd(admitted, Banded(admitted.Cells))));

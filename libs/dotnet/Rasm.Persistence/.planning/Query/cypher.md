@@ -182,11 +182,11 @@ public static class GraphSession {
     const string SessionLoad = "LOAD 'age'; SET search_path = ag_catalog, \"$user\", public;";
 
     public static IO<Duration> Rebuild(IDocumentStore store) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await using IProjectionDaemon daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
             return Fin<Duration>.Succ(await ReadRouter.AwaitNonStale(daemon, QueryLane.Cypher).RunAsync().ConfigureAwait(false));
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Bind(IO.lift);
 
     public static Fin<SetKey> Decode(string? extractedModel, string? extractedId) =>
         extractedModel is { } model && Guid.TryParse(model, out Guid parsed) && extractedId is { } value
@@ -220,7 +220,7 @@ public static class GraphSession {
 
     public static IO<Fin<Unit>> Define(NpgsqlDataSource source, CypherEnablement gate, GraphDdl ddl) =>
         gate is CypherEnablement.SelfHosted
-            ? IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+            ? HostEdge.CapturedIO(async _ => {
                   await using NpgsqlConnection connection = await source.OpenConnectionAsync().ConfigureAwait(false);
                   await using NpgsqlCommand command = connection.CreateCommand();
                   (string Sql, Seq<(string Name, object Value)> Args) lowering = ddl.Lower();
@@ -228,7 +228,7 @@ public static class GraphSession {
                   lowering.Args.Iter(argument => command.Parameters.AddWithValue(argument.Name, argument.Value));
                   await command.ExecuteNonQueryAsync().ConfigureAwait(false);
                   return Fin.Succ(unit);
-              }).ConfigureAwait(false)).MapFail(static error => error.Exception.Case is NpgsqlException
+              }).Map(outcome => outcome.MapFail(static error => error.Exception.Case is NpgsqlException
                   ? (Error)new CypherFault.MatchFailed(error)
                   : error))
             : IO.pure(Fin<Unit>.Fail(new CypherFault.Disabled()));
@@ -633,7 +633,7 @@ public static class GraphLane {
         }, static error => new CypherFault.RouteFailed(error));
 
     static IO<Fin<T>> Captured<T>(Func<System.Threading.Tasks.Task<Fin<T>>> crossing, Func<Error, CypherFault> arm) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => await crossing().ConfigureAwait(false)).ConfigureAwait(false))
+        HostEdge.CapturedIO(async _ => await crossing().ConfigureAwait(false)).Map(outcome => outcome
             .MapFail(error => error.Exception.Case is NpgsqlException ? arm(error) : error));
 
     static async System.Threading.Tasks.Task<GraphResult> ReadRoute(NpgsqlCommand command) {

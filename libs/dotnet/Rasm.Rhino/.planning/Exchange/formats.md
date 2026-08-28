@@ -617,7 +617,7 @@ public static class CodecPort {
         Guid plugIn, int index, CodecPhase phase, string filename) =>
         from codec in Registry.Value.Find((plugIn, phase, index))
             .ToFin(Fail: new ExchangeFault.CodecUnknown(Requested: $"{phase.Key}#{index}"))
-        from path in Try.lift(() => Fin.Succ(value: DocumentPath.Create(value: filename))).Run().Bind(static inner => inner)
+        from path in Try.lift(() => DocumentPath.Create(value: filename)).Run()
         select (Codec: codec, Path: path);
 }
 

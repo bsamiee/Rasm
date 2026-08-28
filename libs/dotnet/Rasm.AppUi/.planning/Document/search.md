@@ -137,11 +137,11 @@ public sealed partial class SearchQuery {
 
 public sealed record SearchRun(SearchQuery Query, ISearchStrategy Strategy) {
     public static Fin<SearchRun> Of(SearchQuery query) =>
-        Try.lift(() => Fin.Succ(SearchStrategyFactory.Create(
+        Try.lift(() => SearchStrategyFactory.Create(
                 query.Terms,
                 !query.Options.Admits(SearchOption.CaseSensitive),
                 query.Options.Admits(SearchOption.WholeWords),
-                query.Grammar.Editor))).Run().Bind(static inner => inner)
+                query.Grammar.Editor)).Run()
             .Map(strategy => new SearchRun(query, strategy));
 }
 ```

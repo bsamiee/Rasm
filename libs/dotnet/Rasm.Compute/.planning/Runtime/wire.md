@@ -71,8 +71,8 @@ public static class ParseGuard {
     public static Fin<T> Read<T>(MessageParser<T> generated, ReadOnlySequence<byte> payload, WireLimits limits) where T : IMessage<T> =>
         payload.Length > limits.SizeLimit
             ? Fin.Fail<T>(new ComputeFault.PayloadOverBounds($"<inbound-over-bound:{payload.Length}:{limits.SizeLimit}>"))
-            : Try.lift(() => Fin.Succ(Parser(generated).ParseFrom(
-                    CodedInputStream.CreateWithLimits(payload.AsStream(), limits.SizeLimit, limits.RecursionLimit)))).Run().Bind(static inner => inner)
+            : Try.lift(() => Parser(generated).ParseFrom(
+                    CodedInputStream.CreateWithLimits(payload.AsStream(), limits.SizeLimit, limits.RecursionLimit))).Run()
                 .MapFail(static error => (Error)new WireFault.Internal(WireBoundary.InboundPayload, error))
                 .Bind(Validated);
 

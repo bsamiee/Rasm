@@ -35,14 +35,14 @@ public readonly record struct WireRoute {
     public WireShape Shape { get; }
 
     public static Fin<WireRoute> Of(PointF source, PointF target) {
-        return Try.lift(() => Fin.Succ(new WireRoute(shape: WireShape.Create(source, target)))).Run().Bind(static inner => inner);
+        return Try.lift(() => new WireRoute(shape: WireShape.Create(source, target))).Run();
     }
 
     public static Fin<WireRoute> Of(IParameterAttributes source, IParameterAttributes target) {
         return (Admit.Need(value: source).ToValidation(), Admit.Need(value: target).ToValidation())
             .Apply(static (origin, goal) => (Origin: origin, Goal: goal))
             .As().ToFin()
-            .Bind(pair => Try.lift(() => Fin.Succ(new WireRoute(shape: WireShape.Create(pair.Origin, pair.Goal)))).Run().Bind(static inner => inner));
+            .Bind(pair => Try.lift(() => new WireRoute(shape: WireShape.Create(pair.Origin, pair.Goal))).Run());
     }
 }
 

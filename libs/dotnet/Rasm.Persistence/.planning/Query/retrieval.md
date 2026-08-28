@@ -142,12 +142,12 @@ public static class SearchRoute {
 public static class ScaleoutRoute {
     public static IO<Fin<Seq<(UInt128 ContentKey, float Score)>>> Query(
         QdrantClient client, Identifier collection, ReadOnlyMemory<float> probe, Seq<PrefetchQuery> prefetch, ulong tenant, RetrievalLimit top) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             IReadOnlyList<ScoredPoint> hits = await client.QueryAsync(
                 (string)collection, query: probe.ToArray(), prefetch: [.. prefetch], limit: (ulong)top.Value, shardKeySelector: tenant).ConfigureAwait(false);
             return Fin.Succ(toSeq(hits).Map(static hit =>
                 (UInt128.Parse(hit.Payload["content-key"].StringValue, NumberStyles.HexNumber, CultureInfo.InvariantCulture), hit.Score)));
-        }).ConfigureAwait(false));
+        });
 }
 ```
 
@@ -582,13 +582,13 @@ public static class ResultCache {
         Func<TState, CancellationToken, ValueTask<T>> produce, HybridCache cache) {
         string subjectKey = subject.ContentKey.ToString("x32", CultureInfo.InvariantCulture);
         string operation = operationKey.ToString("x32", CultureInfo.InvariantCulture);
-        return IO.liftAsync(async () => await HostEdge.Captured(async token => Fin<T>.Succ(await cache.GetOrCreateAsync(
+        return HostEdge.CapturedIO(async token => Fin<T>.Succ(await cache.GetOrCreateAsync(
             $"{policy.Namespace}:{subjectKey}:{operation}",
             state,
             produce,
             new HybridCacheEntryOptions { Expiration = policy.TimeToLive.ToTimeSpan() },
             tags: [$"elementset:{subjectKey}"],
-            cancellationToken: token).ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.lift);
+            cancellationToken: token).ConfigureAwait(false))).Bind(IO.lift);
     }
 }
 

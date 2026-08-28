@@ -234,7 +234,7 @@ public sealed class ProgressCell {
 
     private Unit Forward(Atom<ProgressMark> gate, SubscriptionPolicy policy, Func<ProgressMark, IO<Unit>> observer, ProgressMark mark) =>
         gate.Value != mark && Cell.Step(gate, prior => policy.Due(prior, mark) ? Some(mark) : None, Undue) is Transition<ProgressMark>.Committed
-            ? Try.lift(() => Fin.Succ(observer(mark).Run())).Run().Bind(static inner => inner).Match(Succ: static _ => unit, Fail: Fail)
+            ? Try.lift(() => observer(mark).Run()).Run().Match(Succ: static _ => unit, Fail: Fail)
             : unit;
 
     private static readonly ComputeFault Undue = new ComputeFault.PayloadOverBounds("<progress-under-cadence>");

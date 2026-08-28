@@ -191,7 +191,7 @@ public static class IconOwner {
 
     public static Fin<Seq<IconState>> Poses(IIcon icon) {
         return Admit.Need(icon).Bind(target => UiThread.Run(new UiDispatch<Seq<IconState>>.Blocking(
-            () => Try.lift(() => Fin.Succ(toSeq(target.States))).Run().Bind(static inner => inner)), DispatchLane.Interactive));
+            () => Try.lift(() => toSeq(target.States)).Run()), DispatchLane.Interactive));
     }
 
     public static Fin<IconContext> Filtered(

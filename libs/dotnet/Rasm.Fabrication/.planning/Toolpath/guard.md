@@ -87,7 +87,7 @@ public sealed record AcceptedBenchmarkClaim {
                 AdmissionSlots.Gate(judged is not null, FabConcern.Toolpath, "benchmark-claim:judge-absent", FabricationFault.Inadmissible)))
             .As()
             .ToFin()
-        from accepted in Try.lift(() => Fin.Succ(judged(bench.Claim, host))).Run().Bind(static inner => inner)
+        from accepted in Try.lift(() => judged(bench.Claim, host)).Run()
         from _judged in accepted
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue("guard", "benchmark-claim:refused"))
@@ -838,11 +838,11 @@ public static class Guard {
 
     private static Fin<(Seq<Hazard> Hazards, Seq<string> Warnings)> ProbeVoxel(GuardProbe.Voxel probe, Point3d target) =>
         Try.lift(probe.Acquire).Run().Bind(static inner => inner)
-            .Bind(lease => Try.lift(() => Fin.Succ(Seq(
+            .Bind(lease => Try.lift(() => Seq(
                         (VoxelObstacle.Stock, lease.Stock),
                         (VoxelObstacle.Fixture, lease.Fixture),
                         (VoxelObstacle.Protected, lease.Protected))
-                    .Bind(row => VoxelContacts(lease.Tool, row.Item2, row.Item1, probe.Ray, target)))).Run().Bind(static inner => inner)
+                    .Bind(row => VoxelContacts(lease.Tool, row.Item2, row.Item1, probe.Ray, target))).Run()
                 .Map(hazards => (hazards, Seq<string>()))
                 .Settled(lease.Release, VoxelLease.ReleaseBoundary));
 

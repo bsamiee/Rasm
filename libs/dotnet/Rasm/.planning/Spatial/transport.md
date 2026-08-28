@@ -48,7 +48,7 @@ public sealed partial class CloudTransportPolicy {
 
     public static Fin<CloudTransportPolicy> Of(double regularization, int maxIterations, Context context,
         bool debias = false, Option<double> massRelaxation = default) {
-        return from model in Admit.NotNull(value: context)
+        return from model in Admit.Need(value: context)
                from reg in FactoryBridge.Accept<PositiveMagnitude>(regularization)
                from cap in FactoryBridge.Accept<Dimension>(maxIterations)
                from relax in massRelaxation.TraverseM(value =>
@@ -97,9 +97,9 @@ public readonly record struct SinkhornSummary(
 public static class CloudTransport {
     public static Fin<TOut> Sinkhorn<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target,
         CloudTransportPolicy policy) {
-        return from src in Admit.NotNull(value: source)
-               from tgt in Admit.NotNull(value: target)
-               from active in Admit.NotNull(value: policy)
+        return from src in Admit.Need(value: source)
+               from tgt in Admit.Need(value: target)
+               from active in Admit.Need(value: policy)
                from srcMass in CloudKernel.MassOf(cluster: src)
                from tgtMass in CloudKernel.MassOf(cluster: tgt)
                from plan in Solve(src.Vertices, tgt.Vertices, srcMass, tgtMass, active)

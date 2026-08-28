@@ -340,7 +340,7 @@ public static partial class ProfileImport {
         ProfileFormat.Admit(source.Path).Bind(format => Capture(source.Path, notices => format.Switch(
             state: (Source: source, Format: format, Notices: notices),
             dxf: static state => ProbeDxf(state.Source, state.Format, state.Notices),
-            dwg: static state => Try.lift(() => Fin.Succ(File.ReadAllBytes(state.Source.Path.Value))).Run().Bind(static inner => inner)
+            dwg: static state => Try.lift(() => File.ReadAllBytes(state.Source.Path.Value)).Run()
                 .MapFail(error => Classify(state.Source.Path, error))
                 .Bind(payload => Open(ProfileFormat.Dwg, state.Source, payload, state.Notices))
                 .Map(document => Census(
@@ -358,8 +358,8 @@ public static partial class ProfileImport {
         ProfileSource source,
         byte[] payload,
         Atom<Seq<ProfileNotification>> notices) =>
-        Try.lift(() => Fin.Succ(format.Read(payload, source.Policy.Reader,
-            (_, args) => notices.Swap(rows => rows.Add(Notice(args)))))).Run().Bind(static inner => inner);
+        Try.lift(() => format.Read(payload, source.Policy.Reader,
+            (_, args) => notices.Swap(rows => rows.Add(Notice(args))))).Run();
 
     private static Fin<ProfileCensus> ProbeDxf(
         ProfileSource source, ProfileFormat format, Atom<Seq<ProfileNotification>> notices) =>
@@ -729,7 +729,7 @@ public static partial class ProfileImport {
         .ToFrozenDictionary();
 
     public static Eff<ImportedProfile> Read(ProfileSource source) => Eff.lift(() =>
-        from raw in Try.lift(() => Fin.Succ(File.ReadAllBytes(source.Path.Value))).Run().Bind(static inner => inner)
+        from raw in Try.lift(() => File.ReadAllBytes(source.Path.Value)).Run()
             .MapFail(error => Classify(source.Path, error))
         from format in ProfileFormat.Admit(source.Path)
         from result in Capture(source.Path, notices =>
@@ -800,11 +800,10 @@ public static partial class ProfileImport {
 
     private static Fin<ProfileLowered> HatchContours(Hatch row, EntityLowering at) =>
         Planar(row.Normal, at)
-            .Bind(_ => Try.lift(() => Fin.Succ(
-                toSeq(row.Paths).Map((boundary, index) => (boundary, index)).Strict())).Run().Bind(static inner => inner))
+            .Bind(_ => Try.lift(() => toSeq(row.Paths).Map((boundary, index) => (boundary, index)).Strict()).Run())
             .Bind(boundaries => boundaries.Traverse(item =>
-                Try.lift(() => Fin.Succ(item.boundary.Edges.ToSeq()
-                    .Bind(edge => HatchEdge(row, edge, at.Policy.Spline.Value, at.Scale)).Strict())).Run().Bind(static inner => inner)
+                Try.lift(() => item.boundary.Edges.ToSeq()
+                    .Bind(edge => HatchEdge(row, edge, at.Policy.Spline.Value, at.Scale)).Strict()).Run()
                     .Bind(spans => spans.IsEmpty
                         ? Fin.Fail<Loop>(Fault(at.Path, row, $"hatch:{item.index}:empty"))
                         : Loop.Admit(
@@ -869,8 +868,8 @@ public static partial class ProfileImport {
     }
 
     private static Fin<ProfileLowered> Insertion(Insert row, EntityLowering at) =>
-        Try.lift(() => Fin.Succ(toSeq(row.Explode()).Strict()
-                .Concat(toSeq(row.Attributes).Map(static attribute => (Entity)attribute)).Strict())).Run().Bind(static inner => inner)
+        Try.lift(() => toSeq(row.Explode()).Strict()
+                .Concat(toSeq(row.Attributes).Map(static attribute => (Entity)attribute)).Strict()).Run()
             .Bind(children => children
                 .Map(static (child, index) => (Child: child, Ordinal: index))
                 .Traverse(child => Lower(at with {

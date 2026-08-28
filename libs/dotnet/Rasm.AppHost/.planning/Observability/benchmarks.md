@@ -409,7 +409,7 @@ public static class ProfileCapture {
     }
 
     static Option<T> Guarded<T>(Func<Option<T>> call) =>
-        Try.lift(() => Fin.Succ(call())).Run().Bind(static inner => inner)
+        Try.lift(() => call()).Run()
             .IfFail(static _ => Option<T>.None);
 
     static Unit Publish(

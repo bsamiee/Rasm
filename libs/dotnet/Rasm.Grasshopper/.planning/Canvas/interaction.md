@@ -127,7 +127,7 @@ internal sealed class SpecResponder : Responses, IResponsive {
     }
 
     public override bool HadEffect => responder.HadEffect.Match(
-        Some: probe => Try.lift(() => Fin.Succ(probe())).Run().Bind(static inner => inner).IfFail(cause => (Park(cause), true).Item2),
+        Some: probe => Try.lift(() => probe()).Run().IfFail(cause => (Park(cause), true).Item2),
         None: () => base.HadEffect);
 
     public override void MouseOver(ResponseMouseArgs e) => Beside(PointerPhase.Over, e, () => base.MouseOver(e));

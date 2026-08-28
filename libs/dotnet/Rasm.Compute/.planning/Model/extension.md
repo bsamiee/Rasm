@@ -90,7 +90,7 @@ public static class CustomOps {
     public static Fin<OrtValue> StringSlots(OrtAllocator allocator, long[] shape) =>
         Extent(shape)
             .ToFin(EgressRefusal.SlotsSymbolic.Fault())
-            .Bind(_ => Try.lift(() => Fin.Succ(OrtValue.CreateTensorWithEmptyStrings(allocator, shape))).Run().Bind(static inner => inner));
+            .Bind(_ => Try.lift(() => OrtValue.CreateTensorWithEmptyStrings(allocator, shape)).Run());
 
     extension(OrtValue value) {
         public Fin<OpOutput> Egress(SlotShape declared) =>

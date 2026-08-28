@@ -674,7 +674,7 @@ public static class CrdtWire {
     public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload) =>
         payload.Length > PayloadLimit
             ? Fin.Fail<CrdtOp>(new CommitFault.DecodeDrift(Error.New($"<crdt-payload-overrun:{payload.Length}:{PayloadLimit}>")))
-            : Try.lift(() => Fin.Succ(CrdtOpWire.Parser.ParseFrom(payload.Span))).Run().Bind(static inner => inner)
+            : Try.lift(() => CrdtOpWire.Parser.ParseFrom(payload.Span)).Run()
                 .MapFail(static error => error.Exception.Case is InvalidProtocolBufferException
                     ? (Error)new CommitFault.DecodeDrift(error)
                     : error)

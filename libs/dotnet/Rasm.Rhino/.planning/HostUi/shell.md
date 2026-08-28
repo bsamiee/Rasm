@@ -110,7 +110,7 @@ public sealed partial class CallbackObserver<T> {
         }).Run().Bind(static inner => inner).Match(
             Succ: static _ => unit,
             Fail: primary => {
-                Error retained = Try.lift(() => Fin.Succ(value: Reject(primary))).Run().Bind(static inner => inner).Match(
+                Error retained = Try.lift(() => Reject(primary)).Run().Match(
                     Succ: static _ => primary,
                     Fail: secondary => primary + secondary);
                 return ignore(faults.Park(item: retained));
@@ -277,7 +277,7 @@ public static class MarshalLatency {
         return from live in Admit.Need(provider)
                from mint in Admit.Need(issuer)
                from clock in Admit.Need(timeline)
-               from row in Try.lift(() => Fin.Succ(value: new MarshalSeat(
+               from row in Try.lift(() => new MarshalSeat(
                    Plugin: plugin,
                    Provider: live,
                    Timeline: clock,
@@ -287,7 +287,7 @@ public static class MarshalLatency {
                    Overrun: mint.GetMeasureToken(OverrunMeasure),
                    Work: mint.GetTagToken(WorkTag),
                    Lane: mint.GetTagToken(LaneTag),
-                   Outcome: mint.GetTagToken(OutcomeTag)))).Run().Bind(static inner => inner)
+                   Outcome: mint.GetTagToken(OutcomeTag))).Run()
                from seated in Cell.Seat(Seat, () => row).Switch(
                    committed: static _ => Fin.Succ(value: unit),
                    ceded: static (held) => Fin.Fail<Unit>(error: new KernelFault.InvalidContext()),
@@ -445,11 +445,11 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
     private static ToastOutcome Shown(ToastSpec spec) =>
         (from view in Optional(spec.View).ToFin(Fail: new KernelFault.MissingContext())
          from message in Admitted(text: spec.Message)
-         from raised in Try.lift(() => Fin.Succ(value: spec.Placement.Switch(
+         from raised in Try.lift(() => spec.Placement.Switch(
              (View: view, Message: message),
              standard: static (held, _) => held.View.ShowToast(held.Message),
              scaled: static (held, placed) => held.View.ShowToast(held.Message, placed.Height.ToValue()),
-             located: static (held, placed) => held.View.ShowToast(held.Message, placed.Height.ToValue(), placed.Point)))).Run().Bind(static inner => inner)
+             located: static (held, placed) => held.View.ShowToast(held.Message, placed.Height.ToValue(), placed.Point))).Run()
          select ToastId.Create(value: raised))
         .Match<ToastOutcome>(Succ: static id => new ToastOutcome.Shown(Id: id), Fail: static fault => new ToastOutcome.Refused(Fault: fault));
 }
@@ -461,7 +461,7 @@ public static class PromptWatch {
         EventHandler<CommandPromptChangedEventArgs> handler = (_, args) => ignore(observer.Guard(
             project: () => Fin.Succ(value: new PromptFact(
                 Prompt: args.Prompt,
-                Default: HostEdge.Text(args.PromptDefault),
+                Default: HostEdge.NonEmpty(args.PromptDefault),
                 Options: toSeq(args.Options)
                     .Map(static option => new PromptOption(Index: option.Index, English: option.EnglishName, Local: option.LocalName))
                     .Strict(),
@@ -665,8 +665,8 @@ public sealed class ProgressLease : IDisposable {
             foreign: static (self, _) => Seq<Func<Fin<Unit>>>(self.Restore) + self.Disarm()));
 
     private Seq<Func<Fin<Unit>>> Disarm() => Seq<Func<Fin<Unit>>>(
-        () => Try.lift(() => Fin.Succ((escape.Iter(static row => row.Dispose()), unit).Item2)).Run().Bind(static inner => inner),
-        () => Try.lift(() => Fin.Succ((abort.Iter(static source => source.Dispose()), unit).Item2)).Run().Bind(static inner => inner));
+        () => Try.lift(() => (escape.Iter(static row => row.Dispose()), unit).Item2).Run(),
+        () => Try.lift(() => (abort.Iter(static source => source.Dispose()), unit).Item2).Run());
 
     private static Fin<(int Position, HostText Label)> Bounded(long position, HostText label, ProgressPolicy policy) =>
         position >= policy.Lower && position <= policy.Upper
@@ -707,7 +707,7 @@ public sealed class ProgressLease : IDisposable {
                 select seated);
 
     private Fin<Unit> Restore() => Cell.Take(presence).Current
-        .TraverseM(mount => Try.lift(() => Fin.Succ(value: mount.Dispose())).Run().Bind(static inner => inner))
+        .TraverseM(mount => Try.lift(() => mount.Dispose()).Run())
         .As()
         .Map(static _ => unit);
 
@@ -760,7 +760,7 @@ public static class Progress {
     private static Fin<(Option<CancellationTokenSource> Abort, Option<Subscription> Escape)> Armed(ProgressPolicy policy) {
         if (!policy.Features.Contains(ProgressFeature.Escape)) { return Fin.Succ((Option<CancellationTokenSource>.None, Option<Subscription>.None)); }
         CancellationTokenSource source = new();
-        EventHandler handler = (_, _) => ignore(Try.lift(source.Cancel).Run().Bind(static inner => inner));
+        EventHandler handler = (_, _) => ignore(Try.lift(source.Cancel).Run());
         return Subscription.Attach(
                 subscribe: callback => RhinoApp.EscapeKeyPressed += callback,
                 unsubscribe: callback => RhinoApp.EscapeKeyPressed -= callback,
@@ -878,7 +878,7 @@ public static class ShellWindows {
                 Needs: [SessionNeed.Dialog],
                 Body: document => (parent | Optional((Control)RhinoEtoApp.MainWindowForDocument(document)))
                     .ToFin(Fail: new KernelFault.MissingContext())
-                    .Bind(owner => Try.lift(() => Fin.Succ(value: EtoExtensions.ShowSemiModal(dialog, document, owner))).Run().Bind(static inner => inner))));
+                    .Bind(owner => Try.lift(() => EtoExtensions.ShowSemiModal(dialog, document, owner)).Run())));
     }
 
     public static Fin<Unit> Present(Dialog dialog, DocumentSession session, Option<Control> parent = default) {
@@ -898,7 +898,7 @@ public static class ShellWindows {
                 Needs: [SessionNeed.Dialog],
                 Body: document => (parent | Optional((Control)RhinoEtoApp.MainWindowForDocument(document)))
                     .ToFin(Fail: new KernelFault.MissingContext())
-                    .Bind(owner => Try.lift(() => Fin.Succ(value: dialog.ShowDialog(owner))).Run().Bind(static inner => inner))));
+                    .Bind(owner => Try.lift(() => dialog.ShowDialog(owner)).Run())));
     }
 
     public static Fin<Seq<TWindow>> Discover<TWindow>(DocumentSession session) where TWindow : Window {
@@ -906,7 +906,7 @@ public static class ShellWindows {
             work: new HostWork<Seq<TWindow>>.Session(
                 Document: session,
                 Needs: [SessionNeed.Read],
-                Body: document => Try.lift(() => Fin.Succ(value: toSeq(EtoExtensions.WindowsFromDocument<TWindow>(document)).Strict())).Run().Bind(static inner => inner)));
+                Body: document => Try.lift(() => toSeq(EtoExtensions.WindowsFromDocument<TWindow>(document)).Strict()).Run()));
     }
 
     public static Fin<DocKey> Owner(Form window) {
@@ -976,8 +976,8 @@ public abstract partial record EntitlementFact {
     public sealed record Denied(Option<string> Reason) : EntitlementFact;
 
     internal static EntitlementFact Of(bool entitled, string? reason, string? signature) => entitled
-        ? new Granted(Signature: HostEdge.Text(signature))
-        : new Denied(Reason: HostEdge.Text(reason));
+        ? new Granted(Signature: HostEdge.NonEmpty(signature))
+        : new Denied(Reason: HostEdge.NonEmpty(reason));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1204,7 +1204,7 @@ public sealed record NodeFunction {
     public Seq<string> Outputs { get; }
 
     internal static Fin<NodeFunction> Of(ComponentFunctionInfo info) =>
-        Try.lift(() => Fin.Succ(value: new NodeFunction(
+        Try.lift(() => new NodeFunction(
             info: info,
             name: info.Name,
             space: info.Namespace,
@@ -1212,7 +1212,7 @@ public sealed record NodeFunction {
             component: info.ComponentGuid,
             inputs: toSeq(info.InputNames).Strict(),
             optionalInputs: toSeq(info.InputsOptional).Strict(),
-            outputs: toSeq(info.OutputNames).Strict()))).Run().Bind(static inner => inner);
+            outputs: toSeq(info.OutputNames).Strict())).Run();
 
     public Fin<NodeReturn> Call(Seq<object> arguments, NodeCallShape shape) {
         NodeFunction self = this;
@@ -1291,7 +1291,7 @@ public static class NodeFunctions {
     }
 
     public static Fin<Seq<NodeFunction>> Census() {
-        return Try.lift(() => Fin.Succ(value: Components.NodeInCodeFunctions)).Run().Bind(static inner => inner)
+        return Try.lift(() => Components.NodeInCodeFunctions).Run()
             .Bind(table => toSeq(table.GetDynamicMembers())
                 .TraverseM(info => NodeFunction.Of(info: info))
                 .As()
@@ -1469,7 +1469,7 @@ public sealed class TokenLease : IDisposable {
             Expires: Moment(pair.OpenId.Exp),
             Emails: toSeq(pair.OpenId.Emails).Strict(),
             EmailVerified: Optional(pair.OpenId.EmailVerified),
-            Name: HostEdge.Text(pair.OpenId.Name)));
+            Name: HostEdge.NonEmpty(pair.OpenId.Name)));
 
     public Fin<OauthEvidence> Oauth() => Read(
         project: static pair => new OauthEvidence(
@@ -1513,7 +1513,7 @@ public sealed class TokenLease : IDisposable {
 
     private Fin<T> Read<T>(Func<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth), T> project) {
         return held.Value.ToFin(Fail: new KernelFault.MissingContext())
-            .Bind(pair => Try.lift(() => Fin.Succ(value: project(pair))).Run().Bind(static inner => inner));
+            .Bind(pair => Try.lift(() => project(pair)).Run());
     }
 }
 
@@ -1532,7 +1532,7 @@ public static class Accounts {
         return HostEdge.Captured(async token => {
             LoginProgress pulse = new(info => progress.Iter(tap => ignore(Try.lift(() => HostEdge.Side(() => tap(new LoginPulse(
                 Phase: FactoryBridge.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
-                Description: HostEdge.Text(info.Description))))).Run())));
+                Description: HostEdge.NonEmpty(info.Description))))).Run())));
             Atom<Option<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth)>> landed =
                 Atom(Option<(IOpenIDConnectToken, IOAuth2Token)>.None);
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => {
@@ -2172,7 +2172,7 @@ public sealed class NoticeLease : IDisposable {
         Subscription attached = observation;
         return HostThread.Release(
             releases: Seq<Func<Fin<Unit>>>(
-                () => Try.lift(attached.Dispose).Run().Bind(static inner => inner),
+                () => Try.lift(attached.Dispose).Run(),
                 () => Try.lift(() => HostNotice.ExecuteAssemblyProtectedCode(action: () => {
                     held.HideModal();
                     _ = HostNoticeCenter.Notifications.Remove(held);
@@ -2186,7 +2186,7 @@ public sealed class NoticeLease : IDisposable {
         HostNotice held = notice;
         return HostThread.Run(
             work: new HostWork<T>.Execute(Body: () => gate.Within(
-                body: () => Try.lift(() => Fin.Succ(value: body(held))).Run().Bind(static inner => inner))));
+                body: () => Try.lift(() => body(held)).Run())));
     }
 }
 
@@ -2243,7 +2243,7 @@ public static class Notices {
             return NoticeLease.Of(notice: notice, observer: observer, timeline: timeline)
                 .Bind(lease => Try.lift(() => HostNoticeCenter.Notifications.Add(notice)).Run().Bind(static inner => inner)
                     .Map(_ => lease)
-                    .Rollback(release: () => Try.lift(lease.Dispose).Run().Bind(static inner => inner)));
+                    .Rollback(release: () => Try.lift(lease.Dispose).Run()));
         }).Run().Bind(static inner => inner);
 }
 ```
@@ -2400,7 +2400,7 @@ public sealed class ShellCapsule : IDisposable {
                 .As()
                 .Map(_ => held.Seated));
 
-    private static Func<Fin<Unit>> Retiring(IDisposable seat) => () => Try.lift(seat.Dispose).Run().Bind(static inner => inner);
+    private static Func<Fin<Unit>> Retiring(IDisposable seat) => () => Try.lift(seat.Dispose).Run();
 
     private static Func<Fin<Unit>> Retiring(Lease<IDisposable> seat) => () => Try.lift(() => seat.Dispose()).Run().Bind(static inner => inner);
 }

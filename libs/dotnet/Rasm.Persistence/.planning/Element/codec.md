@@ -441,7 +441,7 @@ public static class Snapshots {
             .Bind(row => persist(row).Map(_ => row));
 
     public static IO<Seq<string>> Sweep(ProjectionContext frame, SnapshotRoute route, Seq<SnapshotCatalogRow> catalog) =>
-        IO.lift(() => Try.lift(() => Fin.Succ((Now: frame.Now(), Files: toSeq(Directory.EnumerateFiles(route.Directory))))).Run().Bind(static inner => inner))
+        IO.lift(() => Try.lift(() => (Now: frame.Now(), Files: toSeq(Directory.EnumerateFiles(route.Directory)))).Run())
             .Map(scan => scan.Files.Filter(file => !catalog.Exists(row => string.Equals(Path.GetFileName(file), $"{row.Id}{Suffix}", StringComparison.Ordinal)) && scan.Now - Instant.FromDateTimeUtc(File.GetLastWriteTimeUtc(file)) >= route.OrphanAge))
             .Bind(static orphans => orphans.TraverseM(static file =>
                 IO.lift(() => Try.lift(() => { File.Delete(file); return Fin<string>.Succ(file); }).Run().Bind(static inner => inner))).As());

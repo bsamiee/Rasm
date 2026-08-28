@@ -96,7 +96,7 @@ public readonly partial struct ScreenDrag : IDisallowDefaultValue {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(ScreenDrag), "two distinct valid screen points inside the integer window" }));
 
     public static Fin<ScreenDrag> Of(Point2d from, Point2d to) =>
-        FactoryBridge.Accept<ScreenDrag>(fault: Validate(from, to, out ScreenDrag admitted), admitted: admitted);
+        FactoryBridge.Lift<ScreenDrag>(fault: Validate(from, to, out ScreenDrag admitted), admitted: admitted);
 
     internal System.Drawing.Point Previous => new((int)From.X, (int)From.Y);
     internal System.Drawing.Point Current => new((int)To.X, (int)To.Y);
@@ -220,7 +220,7 @@ public abstract partial record ProjectionChange {
                 ctx.CameraAngle = (double)change.Angle / 2.0;
                 return Fin.Succ(value: unit);
             }).Run().Bind(static inner => inner),
-            lockCase: static (ctx, change) => Try.lift(() => Fin.Succ(value: change.State.Seat(viewport: ctx))).Run().Bind(static inner => inner),
+            lockCase: static (ctx, change) => Try.lift(() => change.State.Seat(viewport: ctx)).Run(),
             definedCase: static (ctx, change) => Admit.Confirm(
                 success: ctx.SetProjection(projection: change.Projection.Native, viewName: change.ViewName, updateConstructionPlane: change.CPlane.ShouldUpdate)),
             isometricCase: static (ctx, change) => Admit.Confirm(
@@ -253,14 +253,14 @@ public abstract partial record StackVerb {
                 ctx.PushViewProjection();
                 return Fin.Succ<StackMove>(new StackMove.Moved());
             }).Run().Bind(static inner => inner),
-            viewPop: static (ctx, _) => Try.lift(() => Fin.Succ(StackMove.Of(moved: ctx.PopViewProjection()))).Run().Bind(static inner => inner),
-            viewNext: static (ctx, _) => Try.lift(() => Fin.Succ(StackMove.Of(moved: ctx.NextViewProjection()))).Run().Bind(static inner => inner),
-            viewPrevious: static (ctx, _) => Try.lift(() => Fin.Succ(StackMove.Of(moved: ctx.PreviousViewProjection()))).Run().Bind(static inner => inner),
+            viewPop: static (ctx, _) => Try.lift(() => StackMove.Of(moved: ctx.PopViewProjection())).Run(),
+            viewNext: static (ctx, _) => Try.lift(() => StackMove.Of(moved: ctx.NextViewProjection())).Run(),
+            viewPrevious: static (ctx, _) => Try.lift(() => StackMove.Of(moved: ctx.PreviousViewProjection())).Run(),
             cPlanePush: static (ctx, verb) => Try.lift(() => {
                 ctx.PushConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane });
                 return Fin.Succ<StackMove>(new StackMove.Moved());
             }).Run().Bind(static inner => inner),
-            cPlanePop: static (ctx, _) => Try.lift(() => Fin.Succ(StackMove.Of(moved: ctx.PopConstructionPlane()))).Run().Bind(static inner => inner),
+            cPlanePop: static (ctx, _) => Try.lift(() => StackMove.Of(moved: ctx.PopConstructionPlane())).Run(),
             setCPlane: static (ctx, verb) => Try.lift(() => {
                 ctx.SetConstructionPlane(cplane: new DocObjects.ConstructionPlane { Plane = verb.Plane });
                 return Fin.Succ<StackMove>(new StackMove.Moved());
@@ -430,9 +430,8 @@ public abstract partial record ClipLink {
                 from plane in PlaneOf(document: ctx.Document, id: link.PlaneId)
                 from _ in Admit.Confirm(success: plane.RemoveClipViewport(viewport: ctx.Viewport, commit: link.Commit.Commits))
                 select Seq(link.PlaneId),
-            censusCase: static (ctx, _) => Try.lift(() => Fin.Succ(
-                toSeq(ctx.Document.Objects.FindClippingPlanesForViewport(viewport: ctx.Viewport))
-                    .Choose(static plane => ResourceId.Maybe(plane.Id)).Strict())).Run().Bind(static inner => inner));
+            censusCase: static (ctx, _) => Try.lift(() => toSeq(ctx.Document.Objects.FindClippingPlanesForViewport(viewport: ctx.Viewport))
+                    .Choose(static plane => ResourceId.Maybe(plane.Id)).Strict()).Run());
 
     private static Fin<DocObjects.ClippingPlaneObject> PlaneOf(RhinoDoc document, ResourceId id) =>
         Optional(document.Objects.FindId(objectId: id.Value) as DocObjects.ClippingPlaneObject).ToFin(Fail: new KernelFault.InvalidInput());
@@ -478,8 +477,8 @@ public sealed partial class RestoreScope {
     internal Fin<TOut> Within<TOut>(Func<Fin<TOut>> body) {
         RestoreScope self = this;
         return from run in Admit.Need(value: body)
-               from priors in Try.lift(() => Fin.Succ(toSeq(RestoreFacet.Items)
-                   .Map(static facet => (Facet: facet, Value: facet.Read())).Strict())).Run().Bind(static inner => inner)
+               from priors in Try.lift(() => toSeq(RestoreFacet.Items)
+                   .Map(static facet => (Facet: facet, Value: facet.Read())).Strict()).Run()
                from result in Apply(
                        rows: toSeq(RestoreFacet.Items).Map(facet => (Facet: facet, Value: self.Facets.Contains(facet))))
                    .Bind(_ => Try.lift(run).Run().Bind(static inner => inner))
@@ -490,7 +489,7 @@ public sealed partial class RestoreScope {
     }
 
     internal static Fin<Unit> Apply(Seq<(RestoreFacet Facet, bool Value)> rows) => rows
-        .Traverse(row => Try.lift(() => Fin.Succ(value: row.Facet.Write(on: row.Value))).Run().Bind(static inner => inner).ToValidation())
+        .Traverse(row => Try.lift(() => row.Facet.Write(on: row.Value)).Run().ToValidation())
         .As()
         .ToFin()
         .Map(static _ => unit);
@@ -704,7 +703,7 @@ internal sealed class CameraStage {
     internal static Fin<CameraStage> Of(DocumentSession session, ViewportTarget target, ApplyPolicy plan) =>
         from owner in ViewportLease.Of(session: session, target: target)
         from census in owner.Use(
-            borrow: (_, row) => Try.lift(() => Fin.Succ(value: row.Viewport.Id)).Run().Bind(static inner => inner),
+            borrow: (_, row) => Try.lift(() => row.Viewport.Id).Run(),
             terminal: static (_, _) => Fin.Succ(value: unit),
             mode: ViewportBorrowMode.Observe)
         from staged in census
@@ -718,7 +717,7 @@ internal sealed class CameraStage {
 
     internal static Fin<Unit> Seat(CameraPose pose, RhinoViewport viewport) =>
         from _projection in CameraSeat.Accepts(projection: pose.Projection, viewport: viewport)
-        from _seated in Try.lift(() => Fin.Succ(value: CameraSeat.Seat(viewport: viewport, pose: pose))).Run().Bind(static inner => inner)
+        from _seated in Try.lift(() => CameraSeat.Seat(viewport: viewport, pose: pose)).Run()
         select unit;
 }
 

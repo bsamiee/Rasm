@@ -139,7 +139,7 @@ public static class Heal {
         Option<RepairPolicy> policy = default) {
         Seq<HealOp> sequence = ops.IfNone(() => Standard);
         RepairPolicy repair = policy.IfNone(RepairPolicy.Canonical);
-        return from space in Acceptance.Input(input)
+        return from space in Admit.Value(input)
                from _ in guard(!sequence.IsEmpty, new KernelFault.InvalidInput())
                from session in Run(space)
                select session;

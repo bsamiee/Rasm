@@ -157,14 +157,14 @@ public sealed record SubOwners {
     internal static Fin<TOut> Within<TOut>(RenderSettings settings, Func<SubOwners, Fin<TOut>> borrow) =>
         from active in Admit.Need(settings)
         from activeBorrow in Admit.Need(borrow)
-        from owners in Try.lift(() => Fin.Succ(value: new SubOwners(settings: active))).Run().Bind(static inner => inner)
+        from owners in Try.lift(() => new SubOwners(settings: active)).Run()
         from result in Try.lift(() => activeBorrow(owners)).Run().Bind(static inner => inner)
             .Settled(held: Seq(owners), release: window => window.Release(key))
         select result;
 
     private Fin<Unit> Release() => Custody.Release(
         held: held,
-        release: owner => Try.lift(() => Fin.Succ(value: HostEdge.Side(owner.Dispose))).Run().Bind(static inner => inner));
+        release: owner => Try.lift(() => HostEdge.Side(owner.Dispose)).Run());
 }
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -443,14 +443,14 @@ public sealed record GroundPlaneState(
     internal Fin<Unit> Apply(GroundPlane ground) {
         GroundPlaneState self = this;
         return from _ in guard(self.IsValid, new KernelFault.InvalidInput()).ToFin()
-               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+               from applied in Try.lift(() => HostEdge.Side(() => {
                    ignore(GroundTrait.Apply(ground: ground, traits: self.Traits));
                    ground.Altitude = self.Altitude;
                    ground.MaterialInstanceId = self.Material.Map(static id => id.ToValue()).IfNone(Guid.Empty);
                    ground.TextureOffset = self.TextureOffset;
                    ground.TextureSize = self.TextureSize;
                    ground.TextureRotation = self.TextureRotation;
-               }))).Run().Bind(static inner => inner)
+               })).Run()
                select applied;
     }
 }
@@ -461,10 +461,10 @@ public readonly record struct SkylightState(bool Enabled, double ShadowIntensity
     internal Fin<Unit> Apply(Skylight sky) {
         SkylightState self = this;
         return from _ in guard(ValidityClaim.Nonnegative(value: self.ShadowIntensity), new KernelFault.InvalidInput()).ToFin()
-               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+               from applied in Try.lift(() => HostEdge.Side(() => {
                    sky.Enabled = self.Enabled;
                    sky.ShadowIntensity = self.ShadowIntensity;
-               }))).Run().Bind(static inner => inner)
+               })).Run()
                select applied;
     }
 }
@@ -518,7 +518,7 @@ public sealed partial class SunState : IDetachedDocumentResult {
 
     internal Fin<Unit> Apply(global::Rhino.Render.Sun sun) {
         SunState self = this;
-        return Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+        return Try.lift(() => HostEdge.Side(() => {
             sun.Enabled = self.Enabled;
             sun.Intensity = self.Intensity;
             sun.Accuracy = self.Accuracy.Native;
@@ -541,7 +541,7 @@ public sealed partial class SunState : IDetachedDocumentResult {
                     sun.ManualControlOn = true;
                     sun.Vector = placement.Value;
                 })));
-        }))).Run().Bind(static inner => inner);
+        })).Run();
     }
 }
 
@@ -584,11 +584,11 @@ public readonly record struct WorkflowState(
         return from _ in guard(
                    ValidityClaim.All(ValidityClaim.Positive(value: self.PreProcessGamma), self.PostGamma is not null),
                    new KernelFault.InvalidInput()).ToFin()
-               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+               from applied in Try.lift(() => HostEdge.Side(() => {
                    ignore(WorkflowStage.Apply(workflow: workflow, stages: self.Stages));
                    workflow.PreProcessGamma = self.PreProcessGamma;
                    ignore(self.PostGamma.Apply(workflow));
-               }))).Run().Bind(static inner => inner)
+               })).Run()
                select applied;
     }
 }
@@ -605,10 +605,10 @@ public readonly record struct DitherState(DitherMethod Method, bool Enabled) : I
     internal Fin<Unit> Apply(Dithering dither) {
         DitherState self = this;
         return from _ in guard(self.Method is not null, new KernelFault.InvalidInput()).ToFin()
-               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+               from applied in Try.lift(() => HostEdge.Side(() => {
                    dither.Method = self.Method.Native;
                    dither.Enabled = self.Enabled;
-               }))).Run().Bind(static inner => inner)
+               })).Run()
                select applied;
     }
 }
@@ -625,11 +625,11 @@ public sealed record SafeFrameState(
     internal Fin<Unit> Apply(SafeFrame frame) {
         SafeFrameState self = this;
         return from _ in guard(self.IsValid, new KernelFault.InvalidInput()).ToFin()
-               from applied in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+               from applied in Try.lift(() => HostEdge.Side(() => {
                    ignore(GuideTrait.Apply(frame: frame, traits: self.Traits));
                    ignore(GuideZone.Action.Seats(frame: frame, band: self.Action));
                    ignore(GuideZone.Title.Seats(frame: frame, band: self.Title));
-               }))).Run().Bind(static inner => inner)
+               })).Run()
                select applied;
     }
 }
@@ -832,18 +832,18 @@ public sealed record EnvironmentBindingState {
 
     internal static Fin<Seq<(EnvironmentRole Role, EnvironmentView View, Option<Guid> Content)>> Resolve(
         RenderSettings settings) =>
-        Try.lift(() => Fin.Succ(toSeq(EnvironmentRole.Items).Bind(role => toSeq(EnvironmentView.Items).Map(view => (
+        Try.lift(() => toSeq(EnvironmentRole.Items).Bind(role => toSeq(EnvironmentView.Items).Map(view => (
             Role: role,
             View: view,
             Content: Optional(settings.RenderEnvironmentId(role.Native, view.Native))
-                .Filter(static id => id != Guid.Empty)))))).Run().Bind(static inner => inner);
+                .Filter(static id => id != Guid.Empty))))).Run();
 
     internal Fin<Unit> Apply(RenderSettings settings) {
         EnvironmentBindingState self = this;
-        return Try.lift(() => Fin.Succ(value: self.rows.Iter(row => {
+        return Try.lift(() => self.rows.Iter(row => {
             settings.SetRenderEnvironmentId(row.Role.Native, row.Binding.Content.Map(static id => id.ToValue()).IfNone(Guid.Empty));
             settings.SetRenderEnvironmentOverride(row.Role.Native, row.Binding.Override);
-        }))).Run().Bind(static inner => inner);
+        })).Run();
     }
 }
 
@@ -1176,11 +1176,11 @@ public sealed record RenderState(
     internal static Fin<RenderState> Of(SubOwners owners) =>
         from frame in RenderConfig.Of(settings: owners.Settings)
         from ground in GroundPlaneState.Of(ground: owners.Ground)
-        from sky in Try.lift(() => Fin.Succ(value: SkylightState.Of(sky: owners.Sky))).Run().Bind(static inner => inner)
+        from sky in Try.lift(() => SkylightState.Of(sky: owners.Sky)).Run()
         from daylight in SunState.Of(sun: owners.Daylight)
         from workflow in WorkflowState.Of(workflow: owners.Workflow)
         from dither in DitherState.Of(dither: owners.Dither)
-        from guides in Try.lift(() => Fin.Succ(value: SafeFrameState.Of(frame: owners.Guides))).Run().Bind(static inner => inner)
+        from guides in Try.lift(() => SafeFrameState.Of(frame: owners.Guides)).Run()
         from channels in ChannelState.Of(channels: owners.Channels)
         from environments in EnvironmentBindingState.Resolve(settings: owners.Settings)
         from evidence in SunEvidence.Of(sun: owners.Daylight)
@@ -1358,7 +1358,7 @@ public sealed class AmbientWatch : IDisposable {
             .Map(key => contextual with { Key = key })).Run().Bind(static inner => inner);
 
     private static Fin<Unit> Park(AmbientFact fact, Error fault, Ring<AmbientFailure> failures) =>
-        Try.lift(() => Fin.Succ(value: ignore(failures.Park(item: new AmbientFailure(Fact: fact, Fault: fault))))).Run().Bind(static inner => inner)
+        Try.lift(() => ignore(failures.Park(item: new AmbientFailure(Fact: fact, Fault: fault)))).Run()
             .Match(
                 Succ: _ => Fin.Fail<Unit>(error: fault),
                 Fail: retention => Fin.Fail<Unit>(error: fault + retention));

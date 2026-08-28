@@ -146,7 +146,7 @@ public sealed class PointerLease : IDisposable {
     internal Fin<Unit> Enable() => Arm(enabled: true);
 
     private Fin<Unit> Arm(bool enabled) => HostThread.Run(
-        work: new HostWork<Unit>.Execute(Body: () => Try.lift(() => Fin.Succ((hook.Enabled = enabled, unit).Item2)).Run().Bind(static inner => inner)));
+        work: new HostWork<Unit>.Execute(Body: () => Try.lift(() => (hook.Enabled = enabled, unit).Item2).Run()));
 
     private Fin<Unit> Release() => lifecycle.Close(
         stop: () => Arm(enabled: false),
@@ -217,7 +217,7 @@ internal sealed class PointerHook : MouseCallback {
                     && (verdict == InputVerdict.Handled || verdict == InputVerdict.Capture)
                     ? (e.Cancel = true, ignore(vetoed.Swap(static count => count + 1)), projected with { Verdict = new PointerVerdict.Vetoed() }).Item3
                     : projected;
-            _ = HostEdge.SideWhen(!sink.TryWrite(settled), () => ignore(rejected.Swap(static count => count + 1)));
+            if (!sink.TryWrite(settled)) { ignore(rejected.Swap(static count => count + 1)); }
             return Fin.Succ(unit);
         }, static () => Fin.Succ(unit), key).IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
     }
@@ -431,8 +431,8 @@ public sealed class GumballRig : IDisposable {
 public static class Gumballs {
     public static Fin<GumballRig> Mount(GumballSeat seat, ActiveSpaceUse space, GumballLook look) {
         return guard(seat is not null && seat.Valid && space is not null && look is not null, new KernelFault.InvalidInput()).ToFin()
-            .Bind(_ => Try.lift(() => Fin.Succ(new GumballObject())).Run().Bind(static inner => inner).Bind(ball =>
-            Try.lift(() => Fin.Succ(new GumballDisplayConduit(space.Key))).Run().Bind(static inner => inner)
+            .Bind(_ => Try.lift(() => new GumballObject()).Run().Bind(ball =>
+            Try.lift(() => new GumballDisplayConduit(space.Key)).Run()
                 .Rollback(release: () => { ball.Dispose(); return Fin.Succ(unit); })
                 .Bind(pipe => {
                     GumballRig rig = new(ball, pipe);
@@ -668,7 +668,7 @@ internal sealed record WidgetSink(
     internal Unit Emit(Func<WidgetFact> project) => Observe(Lifecycle.Within(
         body: () => {
             _ = Submitted.Swap(static count => count + 1);
-            _ = HostEdge.SideWhen(!Writer.TryWrite(project()), () => ignore(Rejected.Swap(static count => count + 1)));
+            if (!Writer.TryWrite(project())) { ignore(Rejected.Swap(static count => count + 1)); }
             return Fin.Succ(unit);
         },
         refused: static () => Fin.Succ(unit)));
@@ -701,7 +701,7 @@ internal sealed class GripWidget : GripUserInterfaceObject {
             line: static (owner, value) => HostEdge.Side(() => owner.Constrain(value.Value)),
             arc: static (owner, value) => HostEdge.Side(() => owner.Constrain(value.Value)),
             circle: static (owner, value) => HostEdge.Side(() => owner.Constrain(value.Value)));
-        _ = HostEdge.SideWhen(!spec.Snaps.IsEmpty, () => SetSnapPoints(spec.Snaps.AsEnumerable()));
+        if (!spec.Snaps.IsEmpty) { SetSnapPoints(spec.Snaps.AsEnumerable()); }
     }
     protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
     protected override void OnMouseDown(MouseState e) => sink.Pulse(WidgetPulse.Press, e);
@@ -880,7 +880,7 @@ public sealed class WidgetHost : IDisposable {
                         Some: static rows => rows.ForAll(static mark => mark is not null && mark.Valid),
                         None: static () => true),
                 new KernelFault.InvalidInput()).ToFin().Bind(_ => Find(identity).Bind(value =>
-                    Try.lift(() => Fin.Succ(State(identity, value))).Run().Bind(static inner => inner).Bind(prior =>
+                    Try.lift(() => State(identity, value)).Run().Bind(prior =>
                         SetPosture(value, posture)
                             .Map(_ => (ignore(marks.Iter(value.Sink.Retarget)), State(identity, value)).Item2)
                             .Rollback(
@@ -939,7 +939,7 @@ public sealed class WidgetHost : IDisposable {
     private Fin<WidgetMount> Find(WidgetId identity) => mounted.Find(identity).ToFin(new KernelFault.InvalidInput());
     private Fin<Unit> Retire(WidgetId identity, WidgetMount value) =>
         from _ in value.Retire()
-        from __ in Try.lift(() => Fin.Succ((mounted.Remove(identity), unit).Item2)).Run().Bind(static inner => inner)
+        from __ in Try.lift(() => (mounted.Remove(identity), unit).Item2).Run()
         select unit;
 
     private static WidgetState State(WidgetId identity, WidgetMount value) => new(
@@ -959,7 +959,7 @@ public sealed class WidgetHost : IDisposable {
     private Fin<Unit> ReleaseAll() => Custody.Release(
         releases: mounted.AsIterable().ToSeq()
             .Map(row => (Func<Fin<Unit>>)(() => Retire(identity: row.Key, value: row.Value)))
-            .Add(() => Try.lift(() => Fin.Succ((channel.Writer.TryComplete(), unit).Item2)).Run().Bind(static inner => inner)));
+            .Add(() => Try.lift(() => (channel.Writer.TryComplete(), unit).Item2).Run()));
 
     public void Dispose() => _ = lifecycle.Close(
         stop: static () => Fin.Succ(unit),

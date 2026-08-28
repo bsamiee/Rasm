@@ -269,7 +269,7 @@ public abstract partial record WindowOp : IValidityEvidence {
         snapshot: static (ctx, _) => Try.lift(() => Optional(ctx.GetBitmap()).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             .Bind(bitmap => CaptureArtifact.Raster(bitmap: bitmap))
             .Map(static artifact => (WindowYield)new WindowYield.RasterCase(artifact)),
-        saveAs: static (ctx, row) => Try.lift(() => Fin.Succ((row.Egress.Write(ctx, row.Target), row.Target).Item2)).Run().Bind(static inner => inner)
+        saveAs: static (ctx, row) => Try.lift(() => (row.Egress.Write(ctx, row.Target), row.Target).Item2).Run()
             .Map(settled => (WindowYield)new WindowYield.SavedCase(settled, row.Egress)));
 }
 
@@ -482,9 +482,9 @@ internal sealed class JobAsync : AsyncRenderContext {
     private void Settled(RenderWindow window, RealtimePort port) {
         Fin<Unit> outcome = Try.lift(() => program.Render(port, halt.Token)).Run().Bind(static inner => inner);
         _ = outcome.IfFail(record);
-        _ = Try.lift(() => Fin.Succ(HostEdge.Side(() => window.EndAsyncRender(successCode: outcome.IsSucc
+        _ = Try.lift(() => HostEdge.Side(() => window.EndAsyncRender(successCode: outcome.IsSucc
             ? RenderWindow.RenderSuccessCode.Completed
-            : RenderWindow.RenderSuccessCode.Failed)))).Run().Bind(static inner => inner).IfFail(record);
+            : RenderWindow.RenderSuccessCode.Failed))).Run().IfFail(record);
     }
 
     public override void StopRendering() {
@@ -494,12 +494,12 @@ internal sealed class JobAsync : AsyncRenderContext {
             lifecycle = new JobAsyncLifecycle.Stopped();
             _ = Custody.Release(
                     releases: Seq<Func<Fin<Unit>>>(
-                        () => Try.lift(halt.Cancel).Run().Bind(static inner => inner),
+                        () => Try.lift(halt.Cancel).Run(),
                         () => Try.lift(JoinRenderThread).Run().Bind(static inner => inner),
-                        () => Try.lift(() => Fin.Succ(value: prior.Switch(
+                        () => Try.lift(() => prior.Switch(
                             idle: static _ => unit,
                             running: static row => row.Port.Close(),
-                            stopped: static _ => unit))).Run().Bind(static inner => inner),
+                            stopped: static _ => unit)).Run(),
                         () => program.Stopped.TraverseM(hook => Try.lift(hook).Run().Bind(static inner => inner)).As().Map(static _ => unit),
                         () => Try.lift(() => base.StopRendering()).Run().Bind(static inner => inner)))
                 .IfFail(record);
@@ -508,7 +508,7 @@ internal sealed class JobAsync : AsyncRenderContext {
 
     protected override void Dispose(bool isDisposing) {
         Seq<Func<Fin<Unit>>> releases = isDisposing
-            ? Seq<Func<Fin<Unit>>>(() => Try.lift(halt.Dispose).Run().Bind(static inner => inner), () => Try.lift(() => base.Dispose(isDisposing)).Run().Bind(static inner => inner))
+            ? Seq<Func<Fin<Unit>>>(() => Try.lift(halt.Dispose).Run(), () => Try.lift(() => base.Dispose(isDisposing)).Run().Bind(static inner => inner))
             : Seq<Func<Fin<Unit>>>(() => Try.lift(() => base.Dispose(isDisposing)).Run().Bind(static inner => inner));
         _ = Custody.Release(releases: releases).IfFail(record);
     }
@@ -578,7 +578,7 @@ internal sealed class JobPipeline : RenderPipeline {
 
     protected override bool IgnoreRhinoObject(RhinoObject obj) =>
         program.Scene.Bind(static scene => scene.Exclude).Match(
-            Some: exclude => Try.lift(() => Fin.Succ(exclude(obj))).Run().Bind(static inner => inner).Match(
+            Some: exclude => Try.lift(() => exclude(obj)).Run().Match(
                 Succ: static excluded => excluded,
                 Fail: failure => { Record(failure); return false; }),
             None: () => base.IgnoreRhinoObject(obj));
@@ -740,15 +740,15 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
         if (current is null) { return Fin.Succ(unit); }
         return Custody.Release(
             releases: Seq<Func<Fin<Unit>>>(
-                () => Try.lift(() => Fin.Succ(current.Halt())).Run().Bind(static inner => inner),
+                () => Try.lift(() => current.Halt()).Run(),
                 () => Try.lift(() => { current.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner)));
     }
 
     public void Dispose() {
         lock (lifecycle) {
-            _ = HostEdge.SideWhen(
-                Cell.Step(phase, static held => held.Closes ? None : Some(MountPhase.Released), new KernelFault.InvalidContext()) is Transition<MountPhase>.Committed,
-                () => ignore(Retire().IfFail(failure => ignore(faults.Park(item: failure)))));
+            if (Cell.Step(phase, static held => held.Closes ? None : Some(MountPhase.Released), new KernelFault.InvalidContext()) is Transition<MountPhase>.Committed) {
+                ignore(Retire().IfFail(failure => ignore(faults.Park(item: failure))));
+            }
         }
     }
 }
@@ -990,15 +990,15 @@ public sealed class RealtimePort {
     public Fin<Unit> Write(PixelBlock block) => Held().Bind(target => block.Blit(target, key));
 
     public Fin<Unit> Progress(HostText caption, UnitInterval fraction) => Held().Bind(target =>
-        Try.lift(() => Fin.Succ(HostEdge.Side(() => target.SetProgress(text: caption.Resolve(), progress: (float)fraction.Value)))).Run().Bind(static inner => inner));
+        Try.lift(() => HostEdge.Side(() => target.SetProgress(text: caption.Resolve(), progress: (float)fraction.Value))).Run());
 
     public Fin<Unit> Rendering(SwitchState state) => Held().Bind(target =>
-        Try.lift(() => Fin.Succ(HostEdge.Side(() => target.SetIsRendering(is_rendering: state.Enabled)))).Run().Bind(static inner => inner));
+        Try.lift(() => HostEdge.Side(() => target.SetIsRendering(is_rendering: state.Enabled))).Run());
 
     public Fin<Unit> Invalidate(Option<(Offset2i Origin, Size2i Extent)> region = default) => Held().Bind(target =>
-        Try.lift(() => Fin.Succ(region.Match(
+        Try.lift(() => region.Match(
             Some: row => HostEdge.Side(() => target.InvalidateArea(row.Origin.Window(extent: row.Extent))),
-            None: () => HostEdge.Side(target.Invalidate)))).Run().Bind(static inner => inner));
+            None: () => HostEdge.Side(target.Invalidate))).Run());
 
     internal Unit Close() => ignore(Cell.Take(window));
 
@@ -1264,7 +1264,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     public override void SetView(ViewInfo view) {
         base.SetView(view);
         _ = Observe(
-            from frame in Try.lift(() => Fin.Succ(new ViewFrame(View: view.Viewport.Id, Crc: ComputeViewportCrc(view)))).Run().Bind(static inner => inner)
+            from frame in Try.lift(() => new ViewFrame(View: view.Viewport.Id, Crc: ComputeViewportCrc(view))).Run()
             from _ in Fin.Succ(ignore(viewed.Swap(_ => Some(frame))))
             from bound in bound.Bind(static plan => plan.Program.Viewed)
                 .TraverseM(seat => Try.lift(() => seat(frame)).Run().Bind(static inner => inner)).As().Map(static _ => unit)
@@ -1331,8 +1331,8 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
                     from outcome in Marks.Paint(new Canvas.Pipeline(frame, held.Sprites), marks, self.key)
                     select outcome)))
             .Bind(measured => (
-                HostEdge.SideWhen(measured.Span.Breached, () => ignore(self.Observe(new RenderFault.HostRefused(
-                    Key: self.key, Member: nameof(Project), Detail: $"{phase.Key} overran {measured.Span.Overrun}")))),
+                measured.Span.Breached ? HostEdge.Side(() => ignore(self.Observe(new RenderFault.HostRefused(
+                    Key: self.key, Member: nameof(Project), Detail: $"{phase.Key} overran {measured.Span.Overrun}")))) : unit,
                 measured.Value).Item2)
             .Map(outcome => (outcome.Refused.Iter(cause => ignore(Observe(cause))), outcome).Item2);
     }
@@ -1384,8 +1384,7 @@ public static class LightAuthorities {
     public static Fin<SeatToken> Register(Guid engine, LightAuthorityProgram program, PlugIn owner) {
         return from admitted in guard(program is { IsValid: true }, new KernelFault.InvalidInput(Axis: Some(nameof(program)))).ToFin()
                from plugin in Admit.Need(owner)
-               from claimed in Seats.Claim(engine, program, () => Try.lift(() => Fin.Succ(
-                   HostEdge.Side(() => LightManagerSupport.RegisterLightManager(plugin)))).Run().Bind(static inner => inner))
+               from claimed in Seats.Claim(engine, program, () => Try.lift(() => HostEdge.Side(() => LightManagerSupport.RegisterLightManager(plugin))).Run())
                select claimed.Token;
     }
 
@@ -1592,7 +1591,7 @@ public sealed partial class BuiltinEffect {
     [UseDelegateFromConstructor]
     internal partial Guid Uuid();
 
-    public Fin<EffectId> Address() => Try.lift(() => Fin.Succ(EffectId.Create(Uuid()))).Run().Bind(static inner => inner);
+    public Fin<EffectId> Address() => Try.lift(() => EffectId.Create(Uuid())).Run();
 
     internal static Option<BuiltinEffect> Named(EffectId effect) =>
         toSeq(Items).Find(row => row.Uuid() == effect.Value);
@@ -1838,12 +1837,12 @@ public sealed class ChannelView {
         Read(at).Bind(quad => PerceptualColor.OfHost(host: quad, transfer: RgbTransfer.Linear));
 
     public Fin<Unit> Write(Offset2i at, Color4f value) =>
-        Within(at).Bind(_ => Try.lift(() => Fin.Succ(HostEdge.Side(() => channel.SetValue(x: at.X, y: at.Y, value: value)))).Run().Bind(static inner => inner));
+        Within(at).Bind(_ => Try.lift(() => HostEdge.Side(() => channel.SetValue(x: at.X, y: at.Y, value: value))).Run());
 
     public Fin<Unit> Write(Offset2i at, PerceptualColor value) => Lowered(value).Bind(quad => Write(at, quad));
 
     public Fin<Unit> Accumulate(Offset2i at, Color4f value) =>
-        Within(at).Bind(_ => Try.lift(() => Fin.Succ(HostEdge.Side(() => channel.AddValue(x: at.X, y: at.Y, value: value)))).Run().Bind(static inner => inner));
+        Within(at).Bind(_ => Try.lift(() => HostEdge.Side(() => channel.AddValue(x: at.X, y: at.Y, value: value))).Run());
 
     public Fin<Unit> Accumulate(Offset2i at, PerceptualColor value) => Lowered(value).Bind(quad => Accumulate(at, quad));
 
@@ -1900,12 +1899,12 @@ public sealed class EffectPass {
         pipeline.Dimensions() is var frame ? Size2i.Of(width: frame.Width, height: frame.Height) : Fin.Fail<Size2i>(new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
     public bool GpuAllowed => pipeline.GPUAllowed;
     public bool Rendering => pipeline.IsRendering;
-    public Fin<Guid> Session => Try.lift(() => Fin.Succ(pipeline.RenderingId)).Run().Bind(static inner => inner);
-    public Fin<float> PeakLuminance => Try.lift(() => Fin.Succ(value: pipeline.GetMaxLuminance())).Run().Bind(static inner => inner);
-    public Fin<Seq<EffectId>> Order => Try.lift(() => Fin.Succ(value: toSeq(pipeline.ExecutionOrder()).Map(EffectId.Create))).Run().Bind(static inner => inner);
+    public Fin<Guid> Session => Try.lift(() => pipeline.RenderingId).Run();
+    public Fin<float> PeakLuminance => Try.lift(() => pipeline.GetMaxLuminance()).Run();
+    public Fin<Seq<EffectId>> Order => Try.lift(() => toSeq(pipeline.ExecutionOrder()).Map(EffectId.Create)).Run();
 
-    public Fin<Duration> Elapsed => Try.lift(() => Fin.Succ(Duration.FromMilliseconds(
-        (double)pipeline.GetEndTimeInMilliseconds() - pipeline.GetStartTimeInMilliseconds()))).Run().Bind(static inner => inner);
+    public Fin<Duration> Elapsed => Try.lift(() => Duration.FromMilliseconds(
+        (double)pipeline.GetEndTimeInMilliseconds() - pipeline.GetStartTimeInMilliseconds())).Run();
 
     public Fin<Unit> Restart(Duration at) {
         return guard(at >= Duration.Zero, new KernelFault.InvalidInput(Axis: Some(nameof(at)))).ToFin().Bind(_ => Try.lift(() =>
@@ -2101,10 +2100,10 @@ public static class Effects {
 
     private static Fin<EffectRoster> Roster(PostEffects.PostEffectCollection collection) =>
         from rows in toSeq(collection).TraverseM(data => Detached(data: data)).As()
-        from selected in Try.lift(() => Fin.Succ(value: toSeq(EffectStage.Items)
+        from selected in Try.lift(() => toSeq(EffectStage.Items)
             .Choose(stage => Admit.Probe<Guid>((out Guid chosen) => collection.GetSelectedPostEffect(type: stage.Key, id: out chosen))
                 .Map(chosen => (stage, EffectId.Create(chosen))))
-            .ToHashMap())).Run().Bind(static inner => inner)
+            .ToHashMap()).Run()
         select new EffectRoster(Rows: rows.Strict(), Selected: selected);
 
     private static Fin<EffectFact> Detached(PostEffects.PostEffectData data) => Try.lift(() =>
@@ -2361,7 +2360,7 @@ public abstract partial record SceneDelta {
         motionCase: static _ => Fin.Succ(unit),
         lightCase: static (row) => Custody.Release(row.Lights, static delta => Fin.Succ(delta.Data.Dispose())),
         dynamicLightCase: static (row) => Custody.Release(row.Lights, static lease => Fin.Succ(lease.Dispose())),
-        sunCase: static (row) => Try.lift(() => Fin.Succ(row.Sun.Dispose())).Run().Bind(static inner => inner),
+        sunCase: static (row) => Try.lift(() => row.Sun.Dispose()).Run(),
         materialCase: static _ => Fin.Succ(unit),
         settingsCase: static _ => Fin.Succ(unit),
         displaySettingsCase: static _ => Fin.Succ(unit),
@@ -2504,22 +2503,22 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                    (Plugin: plugin, Plan: plan, Timeline: timeline, Units: regime, Context: ambient),
                    liveCase: static (held, row) =>
                        from lease in ViewportLease.Of(session: row.Session, target: row.Target)
-                       from opened in lease.Use(borrow: seat => seat.Info(view => Try.lift(() => Fin.Succ(new SceneQueue(
+                       from opened in lease.Use(borrow: seat => seat.Info(view => Try.lift(() => new SceneQueue(
                            plugin: held.Plugin.Id,
                            document: row.Session.Key,
                            view: view,
                            policy: held.Plan,
                            timeline: held.Timeline,
                            units: held.Units,
-                           context: held.Context))).Run().Bind(static inner => inner)))
+                           context: held.Context)).Run()))
                        select opened,
-                   previewCase: static (held, row) => Try.lift(() => Fin.Succ(new SceneQueue(
+                   previewCase: static (held, row) => Try.lift(() => new SceneQueue(
                        plugin: held.Plugin.Id,
                        preview: row.Args,
                        policy: held.Plan,
                        timeline: held.Timeline,
                        units: held.Units,
-                       context: held.Context))).Run().Bind(static inner => inner))
+                       context: held.Context)).Run())
                select queue;
     }
 
@@ -2530,9 +2529,9 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                    this,
                    worldCase: static (held, row) => Try.lift(() =>
                        Fin.Succ(HostEdge.Side(() => held.CreateWorld(bFlushWhenReady: row.FlushWhenReady.Enabled)))).Run().Bind(static inner => inner),
-                   flushCase: static (held, _) => Try.lift(() => Fin.Succ(HostEdge.Side(held.Flush))).Run().Bind(static inner => inner),
-                   oneShotCase: static (held, _) => Try.lift(() => Fin.Succ(HostEdge.Side(held.OneShot))).Run().Bind(static inner => inner),
-                   materialsCase: static (held, _) => Try.lift(() => Fin.Succ(HostEdge.Side(held.RefreshMaterials))).Run().Bind(static inner => inner))
+                   flushCase: static (held, _) => Try.lift(() => HostEdge.Side(held.Flush)).Run(),
+                   oneShotCase: static (held, _) => Try.lift(() => HostEdge.Side(held.OneShot)).Run(),
+                   materialsCase: static (held, _) => Try.lift(() => HostEdge.Side(held.RefreshMaterials)).Run())
                select done;
     }
 
@@ -2570,8 +2569,8 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                from measured in timeline.Gauged<Rasm.Numerics.Dimension, DispatchLane>(
                    lane: DispatchLane.Deferred,
                    body: () => self.Apply(self.Taken(), body, env))
-               from applied in (HostEdge.SideWhen(measured.Span.Breached, () => ignore(self.faults.Park(
-                       item: new RenderFault.HostRefused(Member: nameof(Drain), Detail: measured.Span.Overrun.ToString())))),
+               from applied in (measured.Span.Breached ? HostEdge.Side(() => ignore(self.faults.Park(
+                       item: new RenderFault.HostRefused(Member: nameof(Drain), Detail: measured.Span.Overrun.ToString())))) : unit,
                    measured.Value).Item2
                select applied;
     }
@@ -2590,7 +2589,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                 Custody.Release(
                     Seq<Func<Fin<Unit>>>(
                         () => self.Stranded(closed.Stranded),
-                        () => Try.lift(() => Fin.Succ(HostEdge.Side(() => ignore(self.lane.Writer.TryComplete())))).Run().Bind(static inner => inner),
+                        () => Try.lift(() => HostEdge.Side(() => ignore(self.lane.Writer.TryComplete()))).Run(),
                         () => self.Sweep(),
                         () => Try.lift(() => { self.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner))),
             _ => Fin.Succ(unit),
@@ -2609,13 +2608,13 @@ public sealed class SceneQueue : Cq.ChangeQueue {
 
     protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<Cq.MeshInstance> addedOrChanged) => StageBatch(
         source: toSeq(addedOrChanged),
-        detach: payload => Try.lift(() => Fin.Succ(new InstanceDelta(
+        detach: payload => Try.lift(() => new InstanceDelta(
             Instance: payload.InstanceId,
             Root: payload.RootId,
             Parent: payload.ParentId,
             Mesh: payload.MeshId,
             Material: Touch(material: payload.MaterialId, instance: payload.InstanceId),
-            Placement: payload.Transform))).Run().Bind(static inner => inner),
+            Placement: payload.Transform)).Run(),
         release: static _ => Fin.Succ(unit),
         project: rows => new SceneDelta.InstanceCase(Removed: toSeq(deleted).Strict(), Upserted: rows));
 
@@ -2626,7 +2625,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         source: toSeq(lightChanges),
         detach: payload =>
             from change in FactoryBridge.Row<Cq.Light.Event, LightMotion>(candidate: payload.ChangeType)
-            from data in Try.lift(() => Fin.Succ(new Lease<Light>.Owned(Value: (Light)payload.Data.Duplicate()))).Run().Bind(static inner => inner)
+            from data in Try.lift(() => new Lease<Light>.Owned(Value: (Light)payload.Data.Duplicate())).Run()
             select new LightDelta(Id: payload.Id, Crc: payload.IdCrc, Change: change, Data: data),
         release: static delta => Fin.Succ(delta.Data.Dispose()),
         project: static rows => new SceneDelta.LightCase(Lights: rows));
@@ -2637,8 +2636,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         release: static lease => Fin.Succ(lease.Dispose()),
         project: static rows => new SceneDelta.DynamicLightCase(Lights: rows));
 
-    protected override void ApplySunChanges(Light sun) => ignore(Observe(Try.lift(() => Fin.Succ(
-        Stage(new SceneDelta.SunCase(Sun: new Lease<Light>.Owned(Value: (Light)sun.Duplicate()))))).Run().Bind(static inner => inner)));
+    protected override void ApplySunChanges(Light sun) => ignore(Observe(Try.lift(() => Stage(new SceneDelta.SunCase(Sun: new Lease<Light>.Owned(Value: (Light)sun.Duplicate())))).Run()));
 
     protected override void ApplyMaterialChanges(List<Cq.Material> mats) => ignore(Stage(new SceneDelta.MaterialCase(
         Touches: toSeq(mats).Map(payload => Touch(material: payload.Id, instance: payload.MeshInstanceId)).Strict())));
@@ -2715,7 +2713,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override uint ContentRenderHash(RenderContent content, CrcRenderHashFlags flags, string excluded, LinearWorkflow lw) =>
         policy.ContentDigest.Match(
             Some: digest => Observe(
-                    from probe in HostEdge.Text(excluded).Match(
+                    from probe in HostEdge.NonEmpty(excluded).Match(
                         Some: named => HashProbe.Excluding(flags, named),
                         None: () => HashProbe.Excluding(flags))
                     from address in ContentRef.Of(content.Id)
@@ -2746,10 +2744,10 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             opened: opened.Value,
             sealedAt: timeline.Capture().ToOption(),
             units: units);
-        _ = HostEdge.SideWhen(!lane.Writer.TryWrite(batch), () => {
+        if (!lane.Writer.TryWrite(batch)) {
             _ = batch.Release();
             _ = losses.Park(item: new QueueLoss(At: batch.Sealed, Deltas: batch.Count));
-        });
+        }
         return ignore(Cell.Step(
             cell,
             static held => held is QueueCell.Sealing row ? Some<QueueCell>(new QueueCell.Open(row.Staged)) : None,
@@ -2829,11 +2827,11 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             source: toSeq(payload.GetMeshes()),
             detach: Patch,
             release: static patch => Fin.Succ(patch.Geometry.Dispose()))
-        from delta in Try.lift(() => Fin.Succ(new MeshDelta(
+        from delta in Try.lift(() => new MeshDelta(
             Id: payload.Id(),
             Ocs: payload.OcsTransform,
             Mappings: toSeq(payload.Mappings).Map(QueueMap.Detach).Strict(),
-            Patches: patches.Strict()))).Run().Bind(static inner => inner)
+            Patches: patches.Strict())).Run()
         select delta;
 
     private Fin<MeshPatch> Patch(Mesh native) =>

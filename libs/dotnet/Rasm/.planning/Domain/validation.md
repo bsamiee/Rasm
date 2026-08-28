@@ -51,7 +51,7 @@ public sealed partial record Requirement {
     public Validation<Error, T> Apply<T>(Context? context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
             (null, _, _) => new KernelFault.MissingGeometry(),
-            (T candidate, _, Requirement { IsEmpty: true }) => Acceptance.Input(value: candidate).ToValidation(),
+            (T candidate, _, Requirement { IsEmpty: true }) => Admit.Value(value: candidate).ToValidation(),
             (T candidate, Context ctx, Requirement req) => RunChecks(checks: req.checks, context: ctx, original: candidate, cancel: cancel),
             _ => new KernelFault.MissingContext(),
         };
@@ -79,7 +79,7 @@ public sealed partial record Requirement {
             object value when Capability.Form.Admits(type: value.GetType()) => value.GeometryForm().ToValidation()
                 .Bind(native => native.Use(geometry => RunChecks(
                     checks: checks, context: context, geometry: geometry, original: original, cancel: cancel))),
-            _ => Acceptance.Input(value: original).ToValidation(),
+            _ => Admit.Value(value: original).ToValidation(),
         };
     private static Validation<Error, T> RunChecks<T>(Set<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
         toSeq(checks)
@@ -150,7 +150,7 @@ public sealed partial record Requirement {
 ## [03]-[ACCEPTANCE_ORACLE]
 
 - Owner: `Acceptance` static is the validity oracle and result-acceptance gate, routed directly by `Analysis/query.md`. Its name is frozen, keyed by the repository analyzer's docID.
-- Entry: `Value`/`Input`/`Rows`/`Results` gate one value, re-label the rejection, lift into `Seq`, and bridge a same-type sequence, and `Text` is the boundary TRIM projection admitting a host string; heterogeneous raw-to-typed projection is `Numerics/atoms.md`'s `ProjectionRow`, never a `typeof` ladder here. `OutputBinding` is the RUNTIME-typed sibling of `AcceptResults` — a roster row declaring its published output as a `Type` column carries the test and the unbox on one value, so no consumer re-spells `typeof(TOut) == Output`.
+- Entry: `Value`/`Rows`/`Results` gate one value, lift into `Seq`, and bridge a same-type sequence, and `Text` is the boundary TRIM projection admitting a host string; an INPUT reading of the same oracle is `Admit.Value`, seated with the owner that mints `KernelFault.InvalidInput`, because a member here that only re-labels the refusal is a rename wrapper across the direction boundary; heterogeneous raw-to-typed projection is `Numerics/atoms.md`'s `ProjectionRow`, never a `typeof` ladder here. `OutputBinding` is the RUNTIME-typed sibling of `AcceptResults` — a roster row declaring its published output as a `Type` column carries the test and the unbox on one value, so no consumer re-spells `typeof(TOut) == Output`.
 - Law: `ValidityOf(object?)` is the single validity authority — it instruments only foreign material it cannot reach otherwise (Rhino geometry, host scalars screened against the unset sentinel, the Rhino value shapes) and routes every kernel-owned result through one `IValidityEvidence` arm.
 - Law: a kernel type reaches the oracle by implementing `IValidityEvidence` with a `ValidityClaim.All` fold (`results.md`), never by adding an oracle arm; that arm is probed AHEAD of every category default, so a result also inhabiting a blanket-admitted category answers through its own fold rather than the category, and an unknown type is rejected by `Value` — admitting a new result type is exactly one interface implementation.
 - Law: the value-shape table has ONE authority — every Rhino shape carrying a `Kind` row derives from `Kind.Items`, and the residual roster names only the value shapes no geometry kind claims. Shapes added to `Kind` reach the oracle with no edit here.
@@ -202,8 +202,6 @@ public static partial class Acceptance {
                 : Fin.Fail<TOut>(new KernelFault.InvalidResult())).As()),
         false => Fin.Fail<Seq<TOut>>(new KernelFault.Unsupported(InputType: typeof(TValue), OutputType: typeof(TOut))),
     };
-    public static Fin<T> Input<T>(T value) =>
-        Value(value: value).MapFail(static _ => (Error)new KernelFault.InvalidInput());
     public static Fin<T> Value<T>(T value) =>
         value switch {
             null => Fin.Fail<T>(error: new KernelFault.InvalidResult()),
@@ -235,8 +233,8 @@ public static partial class Acceptance {
 
 ## [04]-[FACTORY_ADMISSION]
 
-- Owner: this section holds the TWO DIRECTIONS across one boundary, never one owner read both ways: `FactoryValidation` mints a refusal from clauses INSIDE the generated `ValidateFactoryArguments` hook, and `FactoryBridge` reads that verdict OUTSIDE, at the call site, onto `Fin`. `FactoryBridge` carries `Accept`, the generated-owner admission rung across every raw width; `Row`, the one `SmartEnum` lookup discriminating on key, column, comparer, or host enum; and `Lift`/`Total`/`Vocabulary`, the one row-key-to-wire-enum correspondence — a package binds its tables through `Total` and proves them through `Vocabulary`, which forces the map BOTH ways so a wire value no row claims fails beside a row no value lifts.
-- Owner: `AdmissionProjection<TRaw, TModel>` holds a model-to-raw render delegate and a `Fin`-gated raw-to-model admit delegate; `Render` and `Admit` run through `Try.lift`, and `SmartEnum`'s false or nullable lookup lands a typed refusal there.
+- Owner: this section holds the TWO DIRECTIONS across one boundary, never one owner read both ways: `FactoryValidation` mints a refusal from clauses INSIDE the generated `ValidateFactoryArguments` hook, and `FactoryBridge` reads that verdict OUTSIDE, at the call site, onto `Fin`. `FactoryBridge` carries `Accept`, the generated-owner admission rung across every raw width; `Row`, the one `SmartEnum` lookup discriminating on key, column, comparer, or host enum; and `Lift`/`Total`/`Vocabulary`, the one row-key-to-wire-enum correspondence; `Lift(ValidationError?, object?)` is the type-erased sibling naming what it does — it lifts an ALREADY-RUN `Validate` out-pair, so it does not share the `Accept` name with the rows that admit a candidate — a package binds its tables through `Total` and proves them through `Vocabulary`, which forces the map BOTH ways so a wire value no row claims fails beside a row no value lifts.
+- Owner: `AdmissionProjection<TRaw, TModel>` holds a model-to-raw render delegate and a `Fin`-gated raw-to-model admit delegate; `Render` and `Admit` run through `Try.lift` and state no null guard of their own, because both delegates answer a non-nullable carrier. Each arm COMPOSES the bridge row it needs — `Generated` calls `Accept`, `SmartEnum` calls `Row` — so no second lookup body with a second refusal exists here.
 - Law: ONE `Validate` body serves every admission tier — the refusal is a policy value the caller hands in, so the numeric tier lands a `KernelFault.OutOfRange` carrying the saturated scalar and the general tier a `KernelFault.InvalidValue`, and both mint the whole payload at construction rather than rewriting a fault after the fact.
 - Law: one generic-math body over `TRaw : struct, INumber<TRaw>` admits every numeric width; `Validate` runs under `CultureInfo.InvariantCulture`.
 - Law: `Accept` spans two admission tiers and one type-erased outcome lifter, selected by input shape; the lifter exists because multi-member `[ComplexValueObject]` admission has no static `Validate` contract spanning its arities, so the caller spells `Validate` and this row owns the lift.
@@ -267,10 +265,8 @@ public sealed class AdmissionProjection<TRaw, TModel>
         from renderArm in Optional(render).ToFin(new KernelFault.InvalidInput())
         from admitArm in Optional(admit).ToFin(new KernelFault.InvalidInput())
         select new AdmissionProjection<TRaw, TModel>(render: renderArm, admit: admitArm);
-    public Fin<TRaw> Render(TModel model) =>
-        Try.lift(() => Optional(render(arg: model)).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner);
-    public Fin<TModel> Admit(TRaw raw) =>
-        Try.lift(() => Optional(admit(arg: raw)).ToFin(new KernelFault.InvalidResult()).Bind(static fin => fin)).Run().Bind(static inner => inner);
+    public Fin<TRaw> Render(TModel model) => Try.lift(() => render(arg: model)).Run();
+    public Fin<TModel> Admit(TRaw raw) => Try.lift(() => admit(arg: raw)).Run().Bind(static inner => inner);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -287,9 +283,7 @@ public static class AdmissionProjection {
         where TModel : class, ISmartEnum<TRaw, TModel, ValidationError>, IConvertible<TRaw> =>
         AdmissionProjection<TRaw, TModel>.Of(
             render: static model => model.ToValue(),
-            admit: static raw => TModel.TryGet(raw, out TModel? item) && item is TModel admitted
-                ? Fin.Succ(admitted)
-                : Fin.Fail<TModel>(error: new KernelFault.InvalidInput()));
+            admit: static raw => FactoryBridge.Row<TRaw, TModel>(candidate: raw));
 }
 
 public readonly record struct ValidationClause(string Requirement);
@@ -326,11 +320,7 @@ public static class FactoryBridge {
         Admitted<bool, TVO>(candidate: candidate, refuse: static refusal => InvalidValueOf<TVO>(refusal: refusal));
     public static Fin<TVO> Accept<TVO>(Guid candidate) where TVO : IObjectFactory<TVO, Guid, ValidationError> =>
         Admitted<Guid, TVO>(candidate: candidate, refuse: static refusal => InvalidValueOf<TVO>(refusal: refusal));
-    public static Fin<TVO> AcceptRaw<TRaw, TVO>(TRaw? candidate)
-        where TRaw : notnull
-        where TVO : IObjectFactory<TVO, TRaw, ValidationError> =>
-        Admitted<TRaw, TVO>(candidate: candidate, refuse: static refusal => InvalidValueOf<TVO>(refusal: refusal));
-    public static Fin<TVO> Accept<TVO>(ValidationError? fault, object? admitted) where TVO : notnull =>
+    public static Fin<TVO> Lift<TVO>(ValidationError? fault, object? admitted) where TVO : notnull =>
         (fault, admitted) switch {
             (null, TVO owner) => Fin.Succ(value: owner),
             (ValidationError refusal, _) => Fin.Fail<TVO>(error: InvalidValueOf<TVO>(refusal: refusal)),
@@ -397,15 +387,13 @@ public static class FactoryBridge {
 ## [05]-[ADMISSION_SLOTS]
 
 - Owner: `AdmissionSlots` is the kernel's one reusable applicative admission fold. It accumulates independent `Validation<Error, Unit>` slots, mints universal scalar and representation refusals as `KernelFault`, and defers package-semantic refusal construction to the package's typed family.
-- Entry: `Gate` lifts an already-owned refusal or invokes a typed package minter only on failure; `Accumulate` joins concrete and `K`-typed runs; `Indexed`, `In`, `InRange`, `Optional`, `Finite`, and `Bounded` cover universal scalar/shape admission; `Unpack` recursively flattens `ManyErrors` membership.
-- Law: no package re-cases finite, range, or bounded-interval refusals into its local fault family. A package-semantic rule supplies its typed fault through `Gate`; the kernel never accepts a detail string from which it would invent package meaning.
-- Packages: LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `ManyErrors`), NodaTime (`Interval`), and the kernel `Band` vocabulary.
+- Entry: `Gate` lifts an already-owned refusal or invokes a typed package minter only on failure; `Accumulate` joins concrete and `K`-typed runs; `Optional` admits an absent-or-banded scalar; `Unpack` recursively flattens `ManyErrors` membership.
+- Law: this owner holds the ACCUMULATION fold and nothing else — every scalar, range, count, and shape gate is `[09]`'s `Admit`, so no second range guard exists here to drift from `Band`. No package re-cases finite or range refusals into its local fault family. A package-semantic rule supplies its typed fault through `Gate`; the kernel never accepts a detail string from which it would invent package meaning.
+- Packages: LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `ManyErrors`) and the kernel `Band` vocabulary.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using System.Globalization;
 using LanguageExt.Traits;
-using NodaTime;
 using Rasm.Numerics;
 
 namespace Rasm.Domain;
@@ -428,64 +416,16 @@ public static class AdmissionSlots {
     public static Validation<Error, Unit> Accumulate(Seq<K<Validation<Error>, Unit>> slots) =>
         slots.Traverse(identity).As().Map(static _ => unit);
 
-    public static Validation<Error, Unit> Indexed(
-        ReadOnlySpan<double> values,
-        Func<double, bool> holds,
-        string label) {
-        Validation<Error, Unit> scan = Success<Error, Unit>(unit);
-        for (int index = 0; index < values.Length; index++) {
-            if (holds(values[index])) { continue; }
-            Validation<Error, Unit> miss = new KernelFault.OutOfRange(
-                Label: $"{label}[{index}]",
-                Scalar: values[index],
-                Requirement: "satisfy the declared scalar predicate");
-            scan = (scan, miss).Apply(static (_, _) => unit).As();
-        }
-        return scan;
-    }
-
-    public static Validation<Error, double> In(double value, Band band, string label) =>
+    private static Validation<Error, double> In(double value, Band band, string label) =>
         band.Admits(value)
             ? value
             : new KernelFault.OutOfRange(label, value, $"fall inside {band.Key}");
-
-    public static Validation<Error, double> InRange(
-        double value,
-        double floor,
-        double ceiling,
-        string label) =>
-        value >= floor && value <= ceiling
-            ? value
-            : new KernelFault.OutOfRange(
-                label,
-                value,
-                string.Create(CultureInfo.InvariantCulture, $"fall inside [{floor:R},{ceiling:R}]"));
 
     public static Validation<Error, Option<double>> Optional(
         Option<double> value,
         Band band,
         string label) =>
         value.TraverseM(scalar => In(scalar, band, label)).As();
-
-    public static Validation<Error, Unit> Finite(params ReadOnlySpan<(string Label, double Value)> ordinates) {
-        Validation<Error, Unit> scan = Success<Error, Unit>(unit);
-        foreach ((string label, double value) in ordinates) {
-            if (Band.Parameter.Admits(value)) { continue; }
-            Validation<Error, Unit> miss = new KernelFault.OutOfRange(
-                Label: label,
-                Scalar: value,
-                Requirement: "be finite");
-            scan = (scan, miss).Apply(static (_, _) => unit).As();
-        }
-        return scan;
-    }
-
-    public static Validation<Error, Interval> Bounded(Interval window) =>
-        window is { HasStart: true, HasEnd: true }
-            ? window
-            : new KernelFault.InvalidValue(
-                Label: nameof(Interval),
-                Requirement: "bounded start and end");
 
     public static Seq<Error> Unpack(Error fault) =>
         fault is ManyErrors many
@@ -658,10 +598,11 @@ public static class Evidence {
 
 ## [09]-[ADMISSION_VOCABULARY]
 
-- Owner: `Admit` static owns EVERY input guard from the scalar rung up — `Demand` the one claim-driven scalar gate with `Finite`/`Positive` its named rows, `Need`/`Confirm`/`Probe` the presence, outcome, and host-probe rungs, then count agreement, span and sequence gates, frames, cones, and the kernel-input guards, plus the ONE accumulating clause combinator `Claims` every multi-column entry across the kernel composes.
+- Owner: `Admit` static is ASSEMBLY-PUBLIC — four packages spell their boundary in this vocabulary — and owns EVERY input guard from the scalar rung up — `Demand` the one claim-driven scalar gate with `Finite`/`Positive` its named rows, `Need`/`Confirm`/`Probe` the presence, outcome, and host-probe rungs, then count agreement, span and sequence gates, frames, cones, and the kernel-input guards, plus the ONE accumulating clause combinator `Claims` every multi-column entry across the kernel composes.
 - Law: predicate policy has ONE owner and one guard per result. `ValidityClaim` rows (`results.md`) state every predicate; `Demand(claim, value, requirement)` is the ONE scalar guard, refusing as `KernelFault.OutOfRange` with the rejected number and its requirement on the payload, and `Finite`/`Positive` are its named rows — a third predicate composes `Demand` directly and this owner does not widen. `Admit` declares no scalar predicate and no bound of its own — it composes claim rows over shapes and collections and `Band` rows over every range, the ONE range guard, and refuses as `KernelFault.InvalidInput`. `Fin<Unit>` and `bool` restatements of a claim row are the deleted form.
 - Law: `Demand` is generic over the admitted carrier through `INumberBase<T>` — NAMED LOSS: `KernelFault.OutOfRange` carries a `double` scalar, so a carrier outside the double range saturates in the EVIDENCE payload while the returned value stays exact. Each named row forwards its own `[CallerMemberName]` label so the fault names the DEMANDING member rather than the guard it composed.
-- Law: `Need` stays three arms — generic-constraint overload resolution forces the class/struct split and `Option<T>` is a third input domain — and `Probe` pairs the `Fin` rung with `results.md`'s `HostEdge.Probe`, which answers `Option<T>` and states no requirement.
+- Law: `Need` stays three arms — generic-constraint overload resolution forces the class/struct split and `Option<T>` is a third input domain — and `Probe` owns the `bool`-plus-`out` crossing outright, `TryProbe` included, because a second holder for a ternary is a forwarding hop. `Value` is the oracle read from the input side; a second presence name over `Need`'s body is the deleted form.
+- Law: every refusal minted here names its DEMANDING member through `[CallerMemberName]` — `Need`/`Value` on `InvalidInput.Axis`, `Confirm` on `InvalidResult.Detail`, `Demand`'s rows on `OutOfRange.Label` — so no two of the thousand-odd guards in the corpus are indistinguishable in a log. A guard whose tail is a `params` span carries no label, which is the named cost of the span.
 - Law: emptiness is a count floor, never a flag — `All` takes the floor as data and composes `ValidityClaim.CountAtLeast`, so a caller admitting an empty sequence and one demanding at least one element differ by a number, not by a body.
 - Law: `HermitianDiagonalReal` derives its tolerance from the diagonal's own scale, never an absolute literal.
 - Law: a module spells its input gate as one `Admit` composition at its boundary, and a new admission shape is one member here composed everywhere.
@@ -682,53 +623,59 @@ using static LanguageExt.Prelude;
 namespace Rasm.Domain;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class Admit {
-    internal static Fin<double> Finite(double value, [CallerMemberName] string label = "") =>
+public static class Admit {
+    public delegate bool TryProbe<T>(out T value);
+
+    public static Fin<double> Finite(double value, [CallerMemberName] string label = "") =>
         Demand(claim: ValidityClaim.Finite(value: value), value: value, requirement: "finite", label: label);
-    internal static Fin<double> Positive(double value, [CallerMemberName] string label = "") =>
+    public static Fin<double> Positive(double value, [CallerMemberName] string label = "") =>
         Demand(claim: ValidityClaim.Positive(value: value), value: value, requirement: "finite and greater than zero", label: label);
-    internal static Fin<T> Demand<T>(ValidityClaim claim, T value, string requirement, [CallerMemberName] string label = "")
+    public static Fin<T> Demand<T>(ValidityClaim claim, T value, string requirement, [CallerMemberName] string label = "")
         where T : INumberBase<T> =>
         claim
             ? Fin.Succ(value: value)
             : Fin.Fail<T>(error: new KernelFault.OutOfRange(Label: label, Scalar: double.CreateSaturating(value: value), Requirement: requirement));
 
-    internal static Fin<T> Need<T>(T? value) where T : class => Optional(value).ToFin(new KernelFault.InvalidInput());
-    internal static Fin<T> Need<T>(T? value) where T : struct => Optional(value).ToFin(new KernelFault.InvalidInput());
-    internal static Fin<T> Need<T>(Option<T> value) => value.ToFin(new KernelFault.InvalidInput());
-    internal static Fin<Unit> Confirm(bool success) =>
-        success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: new KernelFault.InvalidResult());
+    public static Fin<T> Need<T>(T? value, [CallerMemberName] string label = "") where T : class =>
+        Optional(value).ToFin(new KernelFault.InvalidInput(Axis: Some(label)));
+    public static Fin<T> Need<T>(T? value, [CallerMemberName] string label = "") where T : struct =>
+        Optional(value).ToFin(new KernelFault.InvalidInput(Axis: Some(label)));
+    public static Fin<T> Need<T>(Option<T> value, [CallerMemberName] string label = "") =>
+        value.ToFin(new KernelFault.InvalidInput(Axis: Some(label)));
+    public static Fin<T> Value<T>(T value, [CallerMemberName] string label = "") =>
+        Acceptance.Value(value: value).MapFail(_ => (Error)new KernelFault.InvalidInput(Axis: Some(label)));
+    public static Fin<Unit> Confirm(bool success, [CallerMemberName] string label = "") =>
+        success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: new KernelFault.InvalidResult(Detail: Some(label)));
 
-    internal static Fin<T> Probe<T>(HostEdge.TryProbe<T> probe, string label) =>
-        HostEdge.Probe(probe).ToFin(new KernelFault.InvalidValue(Label: label, Requirement: "a host probe answering true"));
-    internal static Fin<T> Probe<T>(Func<(bool Ok, T Value)> probe, string label) =>
-        HostEdge.Probe(probe).ToFin(new KernelFault.InvalidValue(Label: label, Requirement: "a host probe answering true"));
-    internal static Fin<T> Probe<T>(HostEdge.TryProbe<T> probe, string label, string key) =>
-        HostEdge.Probe(probe).ToFin(new KernelFault.InvalidValue(Label: label, Requirement: $"a host probe answering true for '{key}'"));
+    public static Fin<T> Probe<T>(TryProbe<T> probe, string label) =>
+        probe(out T value) ? Fin.Succ(value) : Fin.Fail<T>(new KernelFault.InvalidValue(Label: label, Requirement: "a host probe answering true"));
+    public static Fin<T> Probe<T>(Func<(bool Ok, T Value)> probe, string label) =>
+        probe() is (true, var value) ? Fin.Succ(value) : Fin.Fail<T>(new KernelFault.InvalidValue(Label: label, Requirement: "a host probe answering true"));
+    public static Fin<T> Probe<T>(TryProbe<T> probe, string label, string key) =>
+        probe(out T value) ? Fin.Succ(value) : Fin.Fail<T>(new KernelFault.InvalidValue(Label: label, Requirement: $"a host probe answering true for '{key}'"));
 
-    internal static Fin<Unit> Claims(params (bool Held, string Axis)[] clauses) =>
+    public static Fin<Unit> Claims(params (bool Held, string Axis)[] clauses) =>
         AdmissionSlots.Accumulate(
             toSeq(clauses).Map(clause => AdmissionSlots.Gate(clause.Held, new KernelFault.InvalidInput(Axis: Some(clause.Axis)))))
             .ToFin();
 
-    internal static Fin<T> NotNull<T>(T? value) where T : class => Optional(value).ToFin(new KernelFault.InvalidInput());
-    internal static Fin<T> NotNull<T>(T? value, Error error) where T : class => Optional(value).ToFin(error);
-    internal static Fin<Unit> CountAtLeast(int count, int minimum) => guard(ValidityClaim.CountAtLeast(count: count, floor: minimum), new KernelFault.InvalidInput()).ToFin();
-    internal static Fin<Unit> SameCount(int expected, params ReadOnlySpan<int> counts) =>
+    public static Fin<Unit> CountAtLeast(int count, int minimum, [CallerMemberName] string label = "") =>
+        guard(ValidityClaim.CountAtLeast(count: count, floor: minimum), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
+    public static Fin<Unit> SameCount(int expected, params ReadOnlySpan<int> counts) =>
         guard(Holds(values: counts, claim: count => ValidityClaim.CountExactly(count: count, expected: expected)), new KernelFault.InvalidInput()).ToFin();
-    internal static Fin<Seq<T>> All<T>(Seq<T> values, Func<T, ValidityClaim> claim, int floor) =>
+    public static Fin<Seq<T>> All<T>(Seq<T> values, Func<T, ValidityClaim> claim, int floor) =>
         guard(ValidityClaim.All(ValidityClaim.CountAtLeast(count: values.Count, floor: floor), values.ForAll(value => claim(arg: value))), new KernelFault.InvalidInput()).ToFin().Map(_ => values);
-    internal static Fin<Unit> AllFinite(ReadOnlySpan<double> values) => guard(ValidityClaim.Finite(values), new KernelFault.InvalidInput()).ToFin();
-    internal static Fin<Unit> AllFinite(Seq<Point3d> points) => guard(points.ForAll(static point => ValidityClaim.Finite(point)), new KernelFault.InvalidInput()).ToFin();
-    internal static Fin<Unit> AllFinite(params ReadOnlySpan<Point3d> points) =>
+    public static Fin<Unit> AllFinite(ReadOnlySpan<double> values, [CallerMemberName] string label = "") => guard(ValidityClaim.Finite(values), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
+    public static Fin<Unit> AllFinite(Seq<Point3d> points, [CallerMemberName] string label = "") => guard(points.ForAll(static point => ValidityClaim.Finite(point)), new KernelFault.InvalidInput(Axis: Some(label))).ToFin();
+    public static Fin<Unit> AllFinite(params ReadOnlySpan<Point3d> points) =>
         guard(Holds(values: points, claim: static point => ValidityClaim.Finite(point)), new KernelFault.InvalidInput()).ToFin();
-    internal static Fin<Unit> AllFinite(params ReadOnlySpan<Vector3d> vectors) =>
+    public static Fin<Unit> AllFinite(params ReadOnlySpan<Vector3d> vectors) =>
         guard(Holds(values: vectors, claim: static vector => ValidityClaim.Finite(vector)), new KernelFault.InvalidInput()).ToFin();
-    internal static Fin<Unit> PositiveFiniteWeights(ReadOnlySpan<double> weights, int count) =>
+    public static Fin<Unit> PositiveFiniteWeights(ReadOnlySpan<double> weights, int count) =>
         guard(ValidityClaim.All(ValidityClaim.CountExactly(count: weights.Length, expected: count), ValidityClaim.Finite(weights), weights.IsEmpty || TensorPrimitives.Min(weights) > 0.0), new KernelFault.InvalidInput()).ToFin();
-    internal static bool FiniteComplexSpan(ReadOnlySpan<Complex> values) =>
+    public static bool FiniteComplexSpan(ReadOnlySpan<Complex> values) =>
         Holds(values: values, claim: static value => ValidityClaim.All(ValidityClaim.Finite(value: value.Real), ValidityClaim.Finite(value: value.Imaginary)));
-    internal static bool HermitianDiagonalRealSpan(ReadOnlySpan<Complex> diagonal) {
+    public static bool HermitianDiagonalRealSpan(ReadOnlySpan<Complex> diagonal) {
         double scale = 0.0;
         foreach (Complex entry in diagonal) {
             if (!ValidityClaim.All(ValidityClaim.Finite(value: entry.Real), ValidityClaim.Finite(value: entry.Imaginary))) { return false; }
@@ -737,7 +684,7 @@ internal static class Admit {
         double tolerance = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: scale * EpsilonPolicy.SqrtEpsilon);
         return Holds(values: diagonal, claim: entry => Math.Abs(value: entry.Imaginary) <= tolerance);
     }
-    internal static Fin<Plane> Plane(Plane basis) =>
+    public static Fin<Plane> Plane(Plane basis) =>
         guard(ValidityClaim.All(
             basis.IsValid,
             ValidityClaim.Finite(basis.Origin),
@@ -746,18 +693,18 @@ internal static class Admit {
             ValidityClaim.Finite(basis.ZAxis),
             Vector3d.AreOrthonormal(x: basis.XAxis, y: basis.YAxis, z: basis.ZAxis),
             Vector3d.AreRighthanded(x: basis.XAxis, y: basis.YAxis, z: basis.ZAxis)), new KernelFault.InvalidInput()).ToFin().Map(_ => basis);
-    internal static Fin<Vector3d> Directional(Vector3d value, double tolerance) =>
+    public static Fin<Vector3d> Directional(Vector3d value, double tolerance) =>
         guard(ValidityClaim.All(ValidityClaim.Finite(value), value.Length > tolerance), new KernelFault.InvalidInput()).ToFin().Map(_ => value);
-    internal static Fin<Unit> Cone(Point3d apex, Vector3d axis, double halfAngle) =>
+    public static Fin<Unit> Cone(Point3d apex, Vector3d axis, double halfAngle) =>
         from _ in AllFinite(apex)
         from direction in Directional(value: axis, tolerance: EpsilonPolicy.ZeroTolerance)
         from angle in guard(Band.HalfTurn.Admits(value: halfAngle), new KernelFault.InvalidInput())
         select unit;
-    internal static Fin<Unit> KernelInput(double distance, double radius) =>
+    public static Fin<Unit> KernelInput(double distance, double radius) =>
         guard(ValidityClaim.All(ValidityClaim.Nonnegative(value: distance), Band.Positive.Admits(value: radius)), new KernelFault.InvalidInput()).ToFin();
-    internal static Fin<Unit> FalloffInput(double distance, double distanceSquared, double tolerance) =>
+    public static Fin<Unit> FalloffInput(double distance, double distanceSquared, double tolerance) =>
         guard(ValidityClaim.All(ValidityClaim.Nonnegative(value: distance), ValidityClaim.Nonnegative(value: distanceSquared), ValidityClaim.Nonnegative(value: tolerance)), new KernelFault.InvalidInput()).ToFin();
-    internal static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency) =>
+    public static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency) =>
         guard(ValidityClaim.All(Band.Octave.Admits(value: octaves), ValidityClaim.Positive(value: frequency), Band.Ratio.Admits(value: persistence), Band.Growth.Admits(value: lacunarity)), new KernelFault.InvalidInput()).ToFin();
 
     private static bool Holds<T>(ReadOnlySpan<T> values, Func<T, ValidityClaim> claim) {

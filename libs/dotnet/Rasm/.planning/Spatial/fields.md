@@ -488,7 +488,7 @@ public abstract partial record TensorField {
             curvatureCase: static (s, c) => c.Space.Native.ClosestPoint(testPoint: s.Sample, u: out double u, v: out double v)
                 ? c.Space.Sample<SymmetricMatrix>(SurfaceProjection.ShapeOperator, u: u, v: v)
                 : Fin.Fail<SymmetricMatrix>(new KernelFault.InvalidResult()),
-            liftCase: static (s, c) => Try.lift(() => Fin.Succ(c.Source(s.Sample))).Run().Bind(static inner => inner)
+            liftCase: static (s, c) => Try.lift(() => c.Source(s.Sample)).Run()
                 .Bind(raw => guard(raw.IsValid && raw.Dimension.Value == 3, new KernelFault.InvalidResult()).ToFin().Map(_ => raw)),
             warpCase: static (s, c) => c.Map.TryGetInverse(out Transform inverse)
                 ? c.Source.SampleTensor(sample: inverse * s.Sample, context: s.Context)

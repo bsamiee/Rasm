@@ -366,7 +366,7 @@ public sealed partial class IdentityPolicy {
             : Fin<StoreKey>.Fail(new IdentityFault.KeyMalformed($"<key-width:{state.Row}:{state.Bytes.Length}>"));
 
     static Fin<StoreKey> Text((byte[] Bytes, string Row) state) =>
-        Try.lift(() => Fin.Succ((StoreKey)new StoreKey.Natural(StrictUtf8.GetString(state.Bytes)))).Run().Bind(static inner => inner);
+        Try.lift(() => (StoreKey)new StoreKey.Natural(StrictUtf8.GetString(state.Bytes))).Run();
     }
 
     static Guid NamespaceUuid(Guid ns, ReadOnlySpan<byte> name) {
@@ -511,7 +511,7 @@ public static class IdentityDispatch {
             : Fin<IdentityOpFacts>.Succ(op.Facts);
 
     static IO<Fin<IdentityOutcome>> Bracket(IdentityLease lease, IdentityOp op, IdentityOpFacts facts, ProjectionContext frame, CancellationToken cancellationToken) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async token => {
+        HostEdge.CapturedIO(async token => {
             await using IdentityContext store = await lease.Pool.CreateDbContextAsync(token).ConfigureAwait(false);
             store.ChangeTracker.QueryTrackingBehavior = lease.Codec.Tracking;
             store.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
@@ -521,7 +521,7 @@ public static class IdentityDispatch {
                 static (state, inner) => Execute(state.Store, state.Op, state.Facts, state.Profile, inner),
                 Probe(facts),
                 token).ConfigureAwait(false);
-        }, cancellationToken).ConfigureAwait(false));
+        }, cancellationToken);
 
     static Func<(IdentityContext Store, IdentityOp Op, IdentityOpFacts Facts, StoreProfile Profile), CancellationToken, Task<ExecutionResult<Fin<IdentityOutcome>>>>? Probe(IdentityOpFacts facts) =>
         facts.Verify.Match(
@@ -1088,17 +1088,17 @@ public static class SchemaGate {
     }
 
     static Fin<SchemaVerdict> Materialized(DbContext store) =>
-        Try.lift(() => Fin.Succ(fun(() => store.GetService<IRelationalDatabaseCreator>().CreateTables()))).Run().Bind(static inner => inner)
+        Try.lift(() => fun(() => store.GetService<IRelationalDatabaseCreator>().CreateTables())).Run()
             .Map(static _ => (SchemaVerdict)new SchemaVerdict.Serving())
             .MapFail(static error => new IdentityFault.ApplyFailed(error));
 
     public static IO<SchemaVerdict> AdmitMarten(IDocumentStore store, Placement placement) =>
         placement.Held.Admits(PlacementAxis.Materializes)
-            ? IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+            ? HostEdge.CapturedIO(async _ => {
                 await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync().ConfigureAwait(false);
                 await store.Advanced.ApplyRollingPartitionsAsync().ConfigureAwait(false);
                 return Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving());
-            }).ConfigureAwait(false))
+            })
                 .Bind(result => IO.lift(result.MapFail(static error => new IdentityFault.ApplyFailed(error))))
             : IO.pure<SchemaVerdict>(new SchemaVerdict.Serving());
 }

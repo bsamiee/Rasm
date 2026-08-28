@@ -59,7 +59,7 @@ public sealed partial class ComposeShape {
     [UseDelegateFromConstructor]
     private partial KeyFrameAnimation Create(Compositor compositor);
 
-    public Fin<KeyFrameAnimation> Mint(Compositor compositor) => Try.lift(() => Fin.Succ(Create(compositor))).Run().Bind(static inner => inner);
+    public Fin<KeyFrameAnimation> Mint(Compositor compositor) => Try.lift(() => Create(compositor)).Run();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -305,11 +305,11 @@ public static class ImplicitPlan {
             : Fin.Fail<ComposeSpan.Running>(new ComposeFault.DurationRefused(
                 $"{plan.Key}: a collapsed plan mounts no trigger map — the assignment lands directly"))
         from admitted in slots.Traverse(slot => Admitted(plan, slot).Bind(row => running.Admits(row.Axis).Map(_ => row))).As()
-        from map in Try.lift(() => Fin.Succ(compositor.CreateImplicitAnimationCollection())).Run().Bind(static inner => inner)
+        from map in Try.lift(() => compositor.CreateImplicitAnimationCollection()).Run()
         from seated in admitted
             .Traverse(slot => Trigger(compositor, slot, running).Map(animation => Seated(map, slot, animation))).As()
             .Map(_ => map)
-            .Rollback(() => Try.lift(map.Clear).Run().Bind(static inner => inner))
+            .Rollback(() => Try.lift(map.Clear).Run())
         select seated;
 
     static Fin<ComposeSlot> Admitted(MotionPlan plan, ComposeSlot slot) =>
@@ -455,7 +455,7 @@ public sealed class VfxSurface(VisualMount owner, CompositionCustomVisual visual
 
     public static Fin<VfxSurface> Mount(Visual element, VfxHandler handler, HostSink sink) =>
         from mount in VisualMount.Of(element)
-        from custom in Try.lift(() => Fin.Succ(mount.Compositor.CreateCustomVisual(handler))).Run().Bind(static inner => inner)
+        from custom in Try.lift(() => mount.Compositor.CreateCustomVisual(handler)).Run()
         from tracking in Tracking(element, custom, sink)
         from seated in Resized(custom, element.Bounds.Size).Bind(_ => mount.Attach(custom)).Rollback(tracking)
         select new VfxSurface(mount, custom, tracking, sink);

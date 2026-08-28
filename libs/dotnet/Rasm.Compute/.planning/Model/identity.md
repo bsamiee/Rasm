@@ -173,7 +173,7 @@ public sealed partial record ModelIdentity(
 
     public Fin<(string Name, OrtValue Value)> Initializer(string name, OrtValue value) {
         return value.OnnxType == OnnxValueType.ONNX_TYPE_TENSOR
-            ? Try.lift(() => Fin.Succ(value.GetTensorTypeAndShape())).Run().Bind(static inner => inner)
+            ? Try.lift(() => value.GetTensorTypeAndShape()).Run()
                 .Bind(info => Initializers.Find(slot => StringComparer.Ordinal.Equals(slot.Name, name)).Case is Slot slot
                     && slot.Shape is SlotShape.Tensor tensor
                     && tensor.Dtype == info.ElementDataType
@@ -389,13 +389,13 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
         .ToFin()
         .Bind(_ =>
             from root in archive.Group("bands")
-            from header in Try.lift(() => Fin.Succ((
+            from header in Try.lift(() => (
                 EvidenceKey: UInt128.Parse(root.Attribute("evidence-key").Read<string>(), NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                Children: toSeq(root.Children())))).Run().Bind(static inner => inner)
+                Children: toSeq(root.Children()))).Run()
             from bands in header.Children.Traverse(child =>
-                from row in Try.lift(() => Fin.Succ((
+                from row in Try.lift(() => (
                     Feature: child.Name,
-                    Kind: child.Attribute("kind").Read<string>()))).Run().Bind(static inner => inner)
+                    Kind: child.Attribute("kind").Read<string>())).Run()
                 from massSet in archive.Dataset($"bands/{row.Feature}/mass")
                 from mass in ReadDoubles(archive, massSet)
                 from band in StringComparer.Ordinal.Equals(row.Kind, "numeric")
@@ -562,7 +562,7 @@ public sealed partial record GraduationEvidence(string SchemaVersion, [property:
         .Apply(static (_, _, _) => unit).As();
 
     public Fin<ReadOnlyMemory<byte>> Bundle(JsonTypeInfo<GraduationEvidence> contract) =>
-        Try.lift(() => Fin.Succ((ReadOnlyMemory<byte>)JsonSerializer.SerializeToUtf8Bytes(this, contract))).Run().Bind(static inner => inner);
+        Try.lift(() => (ReadOnlyMemory<byte>)JsonSerializer.SerializeToUtf8Bytes(this, contract)).Run();
 
     static Fin<Unit> Resolvable(Seq<OwnerDescriptor> owners) {
         FrozenSet<string> declared = owners.Map(static owner => owner.Name).ToFrozenSet(StringComparer.Ordinal);

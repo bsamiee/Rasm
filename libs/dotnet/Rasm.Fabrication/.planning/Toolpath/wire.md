@@ -604,7 +604,7 @@ public static class WireEdm {
         from _ in Optional(project).ToFin(new KernelFault.InvalidValue("wire", "wire:projection"))
         from job in WireJob.Admit(raw)
         from program in Dispatch(job)
-        from projected in Try.lift(() => Fin.Succ(project(program))).Run().Bind(static inner => inner)
+        from projected in Try.lift(() => project(program)).Run()
         select projected;
 
     public static Fin<(Seq<Move> Moves, MotionDirective Directive)> Lower(WireProgram program) =>

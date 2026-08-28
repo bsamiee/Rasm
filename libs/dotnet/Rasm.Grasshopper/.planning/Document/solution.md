@@ -96,7 +96,7 @@ public static partial class SolutionControl {
         from onMarshal in UiThread.OnMarshal()
         from _ in guard(!onMarshal, (Error)new KernelFault.InvalidContext())
         from seat in DocumentGate.Resolve(graph: graph,
-            body: document => Try.lift(() => Fin.Succ((document.Identity, Server: document.Solution))).Run().Bind(static inner => inner))
+            body: document => Try.lift(() => (document.Identity, Server: document.Solution)).Run())
         from heralded in Heralded(hooks: hooks, subject: Some(seat.Identity))
         from run in Try.lift(() => {
             Task<Solution> task = seat.Server.Start(command.Bridle, command.Mode);
@@ -116,7 +116,7 @@ public static partial class SolutionControl {
             .Map(static _ => unit);
 
     private static Fin<GateOutcome> Settle(Func<GateOutcome> settle) =>
-        Try.lift(() => Fin.Succ(settle())).Run().Bind(static inner => inner);
+        Try.lift(() => settle()).Run();
 
     public static Fin<Lease<UiSubscription<GhFact>>> Watch(
         EvidenceDrain<GhFact> drain, Atomicity atomicity, Option<HostDocument> graph = default) {
@@ -193,14 +193,14 @@ public static partial class SolutionControl {
     public static Fin<RunPulse> Probe(Solution run, Guid document) {
         return Optional(run).ToFin(new KernelFault.InvalidInput())
             .Bind(live => UiThread.Run(
-                new UiDispatch<RunPulse>.Blocking(() => Try.lift(() => Fin.Succ(SolutionMap.Pulse(run: live))).Run().Bind(static inner => inner)),
+                new UiDispatch<RunPulse>.Blocking(() => Try.lift(() => SolutionMap.Pulse(run: live)).Run()),
                 DispatchLane.Interactive, active))
             .Bind(pulse => GhInstruments.Probed(document: document, pulse: pulse).Map(_ => pulse));
     }
 
     public static Fin<SolutionAudit> Audit(SolutionRecord record, Guid document) {
         return Optional(record).ToFin(new KernelFault.InvalidInput())
-            .Bind(done => Try.lift(() => Fin.Succ(SolutionMap.Audit(record: done))).Run().Bind(static inner => inner))
+            .Bind(done => Try.lift(() => SolutionMap.Audit(record: done)).Run())
             .Bind(audit => GhInstruments.Ran(document: document, audit: audit).Map(_ => audit));
     }
 

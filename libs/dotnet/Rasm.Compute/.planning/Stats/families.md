@@ -451,7 +451,7 @@ public static class EstimatorKernels {
         ctx.Supervised().Bind(y => {
             double[] x = ctx.Design.Features.Column(0).AsArray() ?? ctx.Design.Features.Column(0).ToArray();
             double[] observed = y.AsArray() ?? y.ToArray();
-            return Try.lift(() => Fin.Succ(spec.Form.Fit(spec, x, observed))).Run().Bind(static inner => inner)
+            return Try.lift(() => spec.Form.Fit(spec, x, observed)).Run()
                 .Bind(coefficients => coefficients.Length == spec.Terms && TensorPrimitives.IsFiniteAll<double>(coefficients)
                     ? Fin.Succ(Vector<double>.Build.DenseOfArray(coefficients))
                     : Fin.Fail<Vector<double>>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Count(coefficients.Length, spec.Terms)))))

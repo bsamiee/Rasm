@@ -1444,7 +1444,7 @@ public abstract partial record SolidOp {
         verb.Switch(
             state: (Working: working, Domain: domain),
             cap: static ctx => ModelGate.Owned(ctx.Working, () => ctx.Working.CapPlanarHoles(tolerance: ctx.Domain.Absolute.Value)),
-            joinNaked: static ctx => Try.lift(() => Fin.Succ(value: ctx.Working.JoinNakedEdges(tolerance: ctx.Domain.Absolute.Value))).Run().Bind(static inner => inner)
+            joinNaked: static ctx => Try.lift(() => ctx.Working.JoinNakedEdges(tolerance: ctx.Domain.Absolute.Value)).Run()
                 .Bind(_ => ModelGate.Kept(ctx.Working)),
             mergeCoplanar: static ctx =>
                 from _ in Admit.Confirm(success: ctx.Working.MergeCoplanarFaces(

@@ -99,7 +99,7 @@ public static class PgStatHarvest {
         });
 
     static IO<T> Captured<T>(string engine, Func<Task<T>> crossing) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
+        HostEdge.CapturedIO(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).Map(outcome => outcome
             .MapFail(error => StatFault.Lift(engine, error, static raised => raised is NpgsqlException)))
         .Bind(IO.lift);
 }
@@ -124,7 +124,7 @@ public sealed record DuckProfile(
 
 public static class DuckProfileHarvest {
     public static IO<DuckProfile> Profiled(DuckDBConnection connection, string sql, string outputPath, ProjectionContext context) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             var output = Path.GetFullPath(outputPath);
             var escapedOutput = output.Replace("'", "''", StringComparison.Ordinal);
             var armed = false;
@@ -152,7 +152,7 @@ public static class DuckProfileHarvest {
                     File.Delete(output);
                 }
             }
-        }).ConfigureAwait(false)).MapFail(error => StatFault.Lift("duckdb-profile", error,
+        }).Map(outcome => outcome.MapFail(error => StatFault.Lift("duckdb-profile", error,
             static raised => raised is DuckDBException or IOException or JsonException)))
         .Bind(IO.lift);
 
@@ -350,7 +350,7 @@ public static class PlanProfile {
         });
 
     static IO<T> Captured<T>(string engine, Func<Exception, bool> recognizes, Func<Task<T>> crossing) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
+        HostEdge.CapturedIO(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).Map(outcome => outcome
             .MapFail(error => StatFault.Lift(engine, error, recognizes)))
         .Bind(IO.lift);
 

@@ -976,7 +976,7 @@ public static class Discovery {
         });
 
     public static Fin<DiscoveryManifest> Read(ProfileRoots roots, int pid, JsonTypeInfo<DiscoveryManifest> contract) =>
-        Try.lift(() => Fin.Succ(Optional(JsonSerializer.Deserialize(File.ReadAllBytes(ManifestPath(roots, pid)), contract)))).Run().Bind(static inner => inner)
+        Try.lift(() => Optional(JsonSerializer.Deserialize(File.ReadAllBytes(ManifestPath(roots, pid)), contract))).Run()
             .MapFail(static error => HopFault.Of(error))
             .Bind(manifest => manifest.ToFin(new HopFault.StaleManifest($"empty manifest: {pid}")))
             .Bind(static manifest => Alive(manifest));
@@ -1019,7 +1019,7 @@ public static class Discovery {
         select new CompanionChild(child, manifest, cancel => drainFan(manifest, cancel));
 
     static IO<Process> Started(ProcessStartInfo spec) =>
-        IO.lift(() => Try.lift(() => Fin.Succ(Optional(Process.Start(spec)))).Run().Bind(static inner => inner)
+        IO.lift(() => Try.lift(() => Optional(Process.Start(spec))).Run()
                 .MapFail(static error => HopFault.Of(error))
                 .Bind(child => child.ToFin(new HopFault.SpawnRejected(spec.FileName))));
 
@@ -1059,7 +1059,7 @@ public static class Discovery {
     }
 
     static Fin<DiscoveryManifest> Alive(DiscoveryManifest manifest) =>
-        Try.lift(() => Fin.Succ(Process.GetProcessById(manifest.Pid))).Run().Bind(static inner => inner)
+        Try.lift(() => Process.GetProcessById(manifest.Pid)).Run()
             .MapFail(HopFault.Of)
             .Map(_ => manifest);
 }

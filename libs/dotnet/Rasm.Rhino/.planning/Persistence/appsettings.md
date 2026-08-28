@@ -314,11 +314,11 @@ public sealed partial class AppSettingsFamily {
                 .Filter(static row => row.Held)
                 .Map(static row => row.Verb)
                 .ToArray()),
-            capture: op => Try.lift(() => Fin.Succ(value: lift(arg: current()))).Run().Bind(static inner => inner),
+            capture: op => Try.lift(() => lift(arg: current())).Run(),
             fallback: preset is null
                 ? op => Fin.Fail<AppState>(error: new KernelFault.Unsupported(
                     InputType: typeof(AppSettingsFamily), OutputType: typeof(AppState)))
-                : op => Try.lift(() => Fin.Succ(value: lift(arg: preset()))).Run().Bind(static inner => inner),
+                : op => Try.lift(() => lift(arg: preset())).Run(),
             apply: update is null
                 ? static (_, op) => Fin.Fail<Unit>(error: new KernelFault.Unsupported(
                     InputType: typeof(AppState), OutputType: typeof(Unit)))
@@ -658,8 +658,8 @@ public static class AppSettings {
             .Bind(active => active.Switch< Fin<AppAnswer>>(captureCase: static (op, capture) => Error.New(op: op.Message)
                 .Map(static state => (AppAnswer)new AppAnswer.StateCase(State: state)),
             fallbackCase: static (fallback) => fallback.Theme.Match(
-                Some: theme => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.StateCase(
-                    State: new AppState.AppearanceCase(Value: theme.Preset())))).Run().Bind(static inner => inner),
+                Some: theme => Try.lift(() => (AppAnswer)new AppAnswer.StateCase(
+                    State: new AppState.AppearanceCase(Value: theme.Preset()))).Run(),
                 None: () => fallback.Family.Fallback()
                     .Map(static state => (AppAnswer)new AppAnswer.StateCase(State: state))),
             applyCase: static (apply) => Mutated(
@@ -671,9 +671,9 @@ public static class AppSettings {
             themeCase: static (theme) => Mutated(
                 family: AppSettingsFamily.Appearance,
                 write: () => Try.lift(() => Admit.Confirm(success: theme.Theme.Adopt())).Run().Bind(static inner => inner)),
-            themeProbeCase: static (op, probe) => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.ThemeCase(
+            themeProbeCase: static (op, probe) => Try.lift(() => (AppAnswer)new AppAnswer.ThemeCase(
                 Theme: probe.Theme,
-                Seated: probe.Theme.Seated()))).Run().Bind(static inner => inner),
+                Seated: probe.Theme.Seated())).Run(),
             swatchCase: static (op, swatch) => Try.lift(() => {
                 Color prior = swatch.Slot.Read();
                 swatch.Value.IfSome(swatch.Slot.Write);
@@ -959,13 +959,13 @@ public static class AppSettings {
             from roster in Roster()
             select roster);
 
-    private static Fin<AppAnswer> Roster() => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RepeatCase(
+    private static Fin<AppAnswer> Roster() => Try.lift(() => (AppAnswer)new AppAnswer.RepeatCase(
         Roster: new RepeatRoster(
             Enabled: NeverRepeatList.UseNeverRepeatList,
-            CommandNames: toSeq(NeverRepeatList.CommandNames()))))).Run().Bind(static inner => inner);
+            CommandNames: toSeq(NeverRepeatList.CommandNames())))).Run();
 
-    private static Fin<AppAnswer> Paths(PathEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
-            Names: toSeq(FileSettings.GetSearchPaths())))).Run().Bind(static inner => inner),
+    private static Fin<AppAnswer> Paths(PathEdit edit) => edit.Switch< Fin<AppAnswer>>(rosterCase: static (op, _) => Try.lift(() => (AppAnswer)new AppAnswer.RosterCase(
+            Names: toSeq(FileSettings.GetSearchPaths()))).Run(),
         addCase: static (op, add) => Try.lift(() => Admit.Confirm(
                 success: FileSettings.AddSearchPath(folder: add.Folder.Value, index: add.IndexAt) >= 0)
             .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.GetSearchPaths())))).Run().Bind(static inner => inner),
@@ -980,10 +980,10 @@ public static class AppSettings {
         autosaveCase: static (autosave) => autosave.Commands.Match(
             Some: commands => Try.lift(() => FileSettings.SetAutoSaveBeforeCommands(commands: commands.ToArray())).Run().Bind(static inner => inner)
                 .Map(_ => (AppAnswer)new AppAnswer.RosterCase(Names: toSeq(FileSettings.AutoSaveBeforeCommands()))),
-            None: () => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
-                Names: toSeq(FileSettings.AutoSaveBeforeCommands())))).Run().Bind(static inner => inner)),
-        recentCase: static (op, _) => Try.lift(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RosterCase(
-            Names: toSeq(FileSettings.RecentlyOpenedFiles())))).Run().Bind(static inner => inner),
+            None: () => Try.lift(() => (AppAnswer)new AppAnswer.RosterCase(
+                Names: toSeq(FileSettings.AutoSaveBeforeCommands()))).Run()),
+        recentCase: static (op, _) => Try.lift(() => (AppAnswer)new AppAnswer.RosterCase(
+            Names: toSeq(FileSettings.RecentlyOpenedFiles()))).Run(),
         dataFolderCase: static (op, data) => Try.lift(() => Optional(FileSettings.GetDataFolder(currentUser: data.CurrentUser))
             .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
             .Traverse(value => DocumentPath.Of(value: value))

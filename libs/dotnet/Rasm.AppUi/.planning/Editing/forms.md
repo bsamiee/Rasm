@@ -189,12 +189,12 @@ public sealed record FieldMeasure(MeasureRole Role, QuantityInfo Family, Option<
         !StringComparer.Ordinal.Equals(Family.Name, value.QuantityInfo.Name)
             ? Fin.Fail<IQuantity>(new FormFault.MeasureRejected(Role.Key, value.QuantityInfo.Name))
             : locale.Measures.Unit(Role) switch {
-                var unit => Try.lift(() => Fin.Succ(Quantity.From(
+                var unit => Try.lift(() => Quantity.From(
                         double.Clamp(
                             value.As(unit),
                             Floor.Map(edge => edge.As(unit)).IfNone(double.NegativeInfinity),
                             Ceiling.Map(edge => edge.As(unit)).IfNone(double.PositiveInfinity)),
-                        unit))).Run().Bind(static inner => inner),
+                        unit)).Run(),
             };
 }
 

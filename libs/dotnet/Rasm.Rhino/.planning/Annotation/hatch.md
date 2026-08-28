@@ -109,21 +109,21 @@ public sealed partial class PatternDef {
             admitted: admitted);
 
     internal Fin<HatchPattern> Mint() =>
-        from pattern in Try.lift(() => Fin.Succ(value: new HatchPattern())).Run().Bind(static inner => inner)
+        from pattern in Try.lift(() => new HatchPattern()).Run()
         from _ in Apply(pattern: pattern)
             .Rollback(release: () => Custody.Dispose(held: Seq(pattern)))
         select pattern;
 
     internal Fin<Unit> Apply(HatchPattern pattern) =>
         from lines in Lines.TraverseM(line => line.Mint()).As()
-        from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+        from _ in Try.lift(() => HostEdge.Side(() => {
             pattern.Name = Name.Value;
             pattern.Description = Description.IfNone(noneValue: string.Empty);
             pattern.FillType = Fill.Host;
             pattern.PatternUnitSystem = Units.System;
             pattern.AlwaysModelDistances = Distances.Key;
-        }))).Run().Bind(static inner => inner)
-        from seated in Try.lift(() => Fin.Succ(value: pattern.SetHatchLines(hatchLines: lines.AsIterable()))).Run().Bind(static inner => inner)
+        })).Run()
+        from seated in Try.lift(() => pattern.SetHatchLines(hatchLines: lines.AsIterable())).Run()
         from __ in Admit.Confirm(success: seated == lines.Count)
         from ___ in new TagEdit.Replace(Tags: Tags).Apply(owner: Surface(pattern))
         select unit;
@@ -375,18 +375,18 @@ public abstract partial record HatchProgram {
         Tags: PatternDef.Surface,
         Mint: static (_, def, key) => def.Mint(),
         Revise: static (_, copy, def, key) => def.Apply(pattern: copy),
-        Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
+        Retitle: static (copy, name, key) => Try.lift(() => HostEdge.Side(() => copy.Name = name.Value)).Run(),
         Modify: static (document, copy, index, interaction, key) => Admit.Confirm(success: document.HatchPatterns.Modify(
             hatchPattern: copy, hatchPatternIndex: index, quiet: interaction.IsQuiet)),
         Seat: static (document, pattern, key) => Try.lift(() => ResourceIndex.Admit(
             document.HatchPatterns.Add(pattern: pattern))).Run().Bind(static inner => inner),
         Retire: static (document, indices, interaction, key) =>
-            from removed in Try.lift(() => Fin.Succ(value: document.HatchPatterns.Delete(
-                hatchPatternIndices: indices.AsIterable(), quiet: interaction.IsQuiet))).Run().Bind(static inner => inner)
+            from removed in Try.lift(() => document.HatchPatterns.Delete(
+                hatchPatternIndices: indices.AsIterable(), quiet: interaction.IsQuiet)).Run()
             from _ in guard(removed == indices.Count, new KernelFault.InvalidResult())
             select unit,
-        Elect: static (document, index, _, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(
-            () => document.HatchPatterns.CurrentHatchPatternIndex = index))).Run().Bind(static inner => inner),
+        Elect: static (document, index, _, key) => Try.lift(() => HostEdge.Side(
+            () => document.HatchPatterns.CurrentHatchPatternIndex = index)).Run(),
         Ingest: static (path, interaction, key) =>
             from raw in Try.lift(() => Optional(HatchPattern.ReadFromFile(
                     filename: path.Value, quiet: interaction.IsQuiet))
@@ -403,7 +403,7 @@ public abstract partial record HatchProgram {
         document,
         table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context),
         authorDefault: static (context, edit) =>
-            from stock in Try.lift(() => Fin.Succ(value: toSeq(HatchPattern.GetDefaultHatchPatterns()).Strict())).Run().Bind(static inner => inner)
+            from stock in Try.lift(() => toSeq(HatchPattern.GetDefaultHatchPatterns()).Strict()).Run()
             from definition in stock
                 .Find(candidate => string.Equals(candidate.Name, edit.Name.Value, StringComparison.OrdinalIgnoreCase))
                 .ToFin(Fail: new KernelFault.MissingContext())
@@ -440,22 +440,22 @@ public abstract partial record HatchProgram {
         regrade: static (context, edit) => Reworked(
             document: context, target: edit.Target,
             change: (hatch, key) => edit.Fill.Mint()
-                .Bind(fill => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => hatch.SetGradientFill(fill: fill)))).Run().Bind(static inner => inner))),
+                .Bind(fill => Try.lift(() => HostEdge.Side(() => hatch.SetGradientFill(fill: fill))).Run())),
         rescale: static (context, edit) => Reworked(
             document: context, target: edit.Target,
             change: (hatch, key) => Acceptance.Rows(edit.Motion)
-                .Bind(_ => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => hatch.ScalePattern(xform: edit.Motion)))).Run().Bind(static inner => inner))));
+                .Bind(_ => Try.lift(() => HostEdge.Side(() => hatch.ScalePattern(xform: edit.Motion))).Run())));
 
     private static ListSurface<LineDef> Generators(HatchPattern pattern) => new(
         Count: () => pattern.HatchLineCount,
         Append: (row) =>
             from line in row.Mint()
-            from index in Try.lift(() => Fin.Succ(value: pattern.AddHatchLine(hatchLine: line))).Run().Bind(static inner => inner)
+            from index in Try.lift(() => pattern.AddHatchLine(hatchLine: line)).Run()
             from _ in guard(index >= 0, new KernelFault.InvalidResult())
             select unit,
         Remove: (index, key) => Admit.Confirm(success: pattern.RemoveHatchLine(hatchLineIndex: index)),
         Write: default,
-        Purge: Some<Func< Fin<Unit>>>(() => Try.lift(() => Fin.Succ(value: HostEdge.Side(pattern.RemoveAllHatchLines))).Run().Bind(static inner => inner)),
+        Purge: Some<Func< Fin<Unit>>>(() => Try.lift(() => HostEdge.Side(pattern.RemoveAllHatchLines)).Run()),
         Floor: 0);
 
     private sealed record HatchRevision(Guid Id, Hatch Original, Hatch Revised) {
@@ -499,7 +499,7 @@ public static class Hatches {
             apply: static (document, operation, key) => operation.Apply(document: document));
 
     public static Fin<HatchAnswer> Ask(DocumentSession session, HatchAsk request) {
-        return from admitted in Acceptance.Input(value: request)
+        return from admitted in Admit.Value(value: request)
                from answer in Admit.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
@@ -579,7 +579,7 @@ public abstract partial record HatchAsk {
             select (HatchAnswer)new HatchAnswer.Pattern(new PatternSnapshot(
                 ResourceId.Create(pattern.Id), ResourceIndex.Create(pattern.Index), pattern.InUse, definition)),
         defaults: static (context, _) =>
-            from stock in Try.lift(() => Fin.Succ(value: toSeq(HatchPattern.GetDefaultHatchPatterns()).Strict())).Run().Bind(static inner => inner)
+            from stock in Try.lift(() => toSeq(HatchPattern.GetDefaultHatchPatterns()).Strict()).Run()
             from definitions in stock.TraverseM(pattern => PatternDef.Read(pattern: pattern)).As()
                 .Rollback(release: () => Custody.Dispose(held: stock))
             from _ in Custody.Dispose(held: stock)
@@ -625,8 +625,8 @@ public abstract partial record HatchAsk {
                 Solid: solid.Bind(static handles => handles.Head))),
         loops: static (context, ask) =>
             from hatch in Single(document: context, target: ask.Target)
-            from curves in Try.lift(() => Fin.Succ(value: toSeq(
-                ask.Frame.Read(hatch: hatch.Geometry, kind: ask.Kind)))).Run().Bind(static inner => inner)
+            from curves in Try.lift(() => toSeq(
+                ask.Frame.Read(hatch: hatch.Geometry, kind: ask.Kind))).Run()
             from handles in DraftCrossing.Crossed(products: curves)
             select (HatchAnswer)new HatchAnswer.Boundary(handles),
         solid: static (context, ask) =>

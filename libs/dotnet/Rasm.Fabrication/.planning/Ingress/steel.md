@@ -539,7 +539,7 @@ public static class SteelImport {
         select new ImportedSteel(part, ContentKey.Of(EgressKind.Nc1, bytes));
 
     private static Fin<SteelHeader> Header(IDstvHeader source, NamingStandard drawings) =>
-        Try.lift(() => Fin.Succ(DstvMap.Header(source))).Run().Bind(static inner => inner)
+        Try.lift(() => DstvMap.Header(source)).Run()
             .Bind(row => SteelHeader.Admit(row, drawings));
 
     private static Fin<RegionTopology> TopologyOf(Seq<SteelFeature> features) {
@@ -580,7 +580,7 @@ public static class SteelImport {
         };
 
     private static Fin<SteelFeature> Capture(Func<SteelFeature> mapping, SteelBlockKind block, int line, SteelHeader header) =>
-        Try.lift(() => Fin.Succ(mapping())).Run().Bind(static inner => inner)
+        Try.lift(() => mapping()).Run()
             .Bind(feature => Valid(feature, block, line, header));
 
     private static Fin<SteelFeature> Valid(SteelFeature feature, SteelBlockKind block, int line, SteelHeader header) =>
@@ -606,7 +606,7 @@ public static class SteelImport {
         int line,
         SteelHeader header,
         SteelContourPolicy policy) =>
-        SteelFace.Of(contour.FlCode).ToFin(Fault(block.Key, line, "steel-contour:face")).Bind(face => Try.lift(() => Fin.Succ((
+        SteelFace.Of(contour.FlCode).ToFin(Fault(block.Key, line, "steel-contour:face")).Bind(face => Try.lift(() => (
             Face: face,
             Vertices: toSeq(contour.Points).Map(static point => point switch {
                 DstvSkewedPoint skew => DstvMap.Vertex(skew) with {
@@ -615,7 +615,7 @@ public static class SteelImport {
                         DstvMap.Degrees(skew.SecondAngle), DstvMap.Millimeters(skew.SecondBlunting))),
                 },
                 _ => DstvMap.Vertex(point),
-            }).ToArr()))).Run().Bind(static inner => inner)
+            }).ToArr())).Run()
         .Bind(active => Faced(header, active.Face)
             ? Rounded(active.Vertices, policy, block, line)
                 .Map(loop => block.TopologySign > 0 ? loop.AsCcw() : loop)

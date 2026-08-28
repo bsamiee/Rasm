@@ -75,7 +75,7 @@ public static partial class HistoryLedger {
 
     public static Fin<Record> Bank(ActionList actions, VerbNoun label) {
         return Optional(actions).ToFin(new KernelFault.InvalidInput())
-            .Bind(filled => Try.lift(() => Fin.Succ(filled.ToRecord(label))).Run().Bind(static inner => inner));
+            .Bind(filled => Try.lift(() => filled.ToRecord(label)).Run());
     }
 
     public static Fin<GateOutcome> Commit(
@@ -114,7 +114,7 @@ public static partial class HistoryLedger {
             .Map(static _ => unit);
 
     private static Fin<GateOutcome> Free(Func<Unit> act) =>
-        Try.lift(() => Fin.Succ((act(), (GateOutcome)new GateOutcome.SettledCase()).Item2)).Run().Bind(static inner => inner);
+        Try.lift(() => (act(), (GateOutcome)new GateOutcome.SettledCase()).Item2).Run();
 }
 ```
 

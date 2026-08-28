@@ -212,7 +212,7 @@ public readonly partial struct RibbonLaw : IValidityEvidence {
         rebuildPointCount: RebuildPointCount, surfaceMethod: SurfaceMethod);
 
     internal Fin<RibbonOffsetParameters> Rig(Context domain) =>
-        Try.lift(() => Fin.Succ(value: new RibbonOffsetParameters {
+        Try.lift(() => new RibbonOffsetParameters {
             OffsetDistance = Distance.Value,
             OffsetLocation = Location,
             OffsetTolerance = domain.Absolute.Value,
@@ -222,7 +222,7 @@ public readonly partial struct RibbonLaw : IValidityEvidence {
             RefitTolerance = Refit.Resolve(domain),
             AlignCrossSections = AlignCrossSections,
             RibbonSurfaceGenerationMethod = SurfaceMethod,
-        })).Run().Bind(static inner => inner);
+        }).Run();
 
     private static ValidityClaim Admits(
         Point3d location, RibbonRefit? refit, Option<Vector3d> planeVector,

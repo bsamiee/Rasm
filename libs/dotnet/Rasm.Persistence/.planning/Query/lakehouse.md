@@ -61,11 +61,11 @@ public sealed class BimOpenSchemaProjection : FlatTableProjection {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FlatTableEgress {
     public static IO<Duration> Materialize(IDocumentStore store) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await using IProjectionDaemon daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
             return Fin<Duration>.Succ(await ReadRouter.AwaitNonStale(daemon, QueryLane.Columnar).RunAsync().ConfigureAwait(false));
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Bind(IO.lift);
 
     public static IO<long> WriteFrames(ColumnarSession session, BimData frames) =>
         IO.lift(() => Try.lift(() => {
@@ -225,14 +225,14 @@ public static class FlatTableEgress {
             .SortingColumns(order);
 
     public static IO<Fin<long>> PublishDelta(TableOptions table, Seq<AddAction> files, Identifier appId, long asOfVersion) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             using DeltaEngine engine = new(EngineOptions.Default);
             using DeltaTable delta = await engine.LoadTableAsync(table, CancellationToken.None).ConfigureAwait(false);
             long? held = await delta.GetLatestTransactionVersionAsync((string)appId, CancellationToken.None).ConfigureAwait(false);
             if (held is { } committed && committed >= asOfVersion) { return Fin.Succ(committed); }
             await delta.CreateWriteTransactionAsync([.. files], new CommitOptions { AppId = (string)appId, TransactionVersion = asOfVersion }, CancellationToken.None).ConfigureAwait(false);
             return Fin.Succ(asOfVersion);
-        }).ConfigureAwait(false)).MapFail(static error => error.Exception.Case is DeltaLakeException
+        }).Map(outcome => outcome.MapFail(static error => error.Exception.Case is DeltaLakeException
             ? new ColumnarFault.DeltaRefused("<flat-table-generation>", error)
             : error));
 

@@ -212,7 +212,7 @@ public static partial class RunOps {
         public Fin<ModelSessions.WarmEvidence> WarmPulse(SessionPolicy policy, UInt128 sourceKey, DataClassification classification, CancelScope scope, Instant at, Func<Fin<Unit>> run) =>
             run()
                 .Bind(_ => session.Profile(policy, sourceKey, classification, scope, at))
-                .Bind(profiled => Try.lift(() => Fin.Succ(Partitions(profiled.Trace))).Run().Bind(static inner => inner)
+                .Bind(profiled => Try.lift(() => Partitions(profiled.Trace)).Run()
                 .Map(static partitions => new ModelSessions.WarmEvidence(Some(partitions)));
 
         static int Partitions(ReadOnlyMemory<byte> trace) {

@@ -90,8 +90,8 @@ public abstract partial record Division {
             from points in Optional(s.Curve.DivideEquidistant(row.Value.Value, out double[] _)).ToFin(new KernelFault.InvalidResult())
             select toSeq(points),
         contour: static (s, row) =>
-            from start in Acceptance.Input(row.Start)
-            from end in Acceptance.Input(row.End)
+            from start in Admit.Value(row.Start)
+            from end in Admit.Value(row.End)
             from _ in Above(row.Interval.Value, s.Context.For(ToleranceLane.Length), s.Key)
             from __ in guard(start.DistanceTo(end) > s.Context.For(ToleranceLane.Length).Value, new KernelFault.InvalidInput()).ToFin()
             from points in Optional(s.Curve.DivideAsContour(start, end, row.Interval.Value)).Filter(static values => values.Length > 0).ToFin(new KernelFault.InvalidResult())

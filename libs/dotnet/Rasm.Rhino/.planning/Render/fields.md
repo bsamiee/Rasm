@@ -521,7 +521,7 @@ public abstract partial record ParamScope {
     }
 
     public static Fin<ParamScope> Child(RenderMaterial.StandardChildSlots slot, string requirement) {
-        return from textureType in Try.lift(() => Fin.Succ(value: RenderMaterial.TextureTypeFromSlot(slot: slot))).Run().Bind(static inner => inner)
+        return from textureType in Try.lift(() => RenderMaterial.TextureTypeFromSlot(slot: slot)).Run()
                from name in PbrChannel.SlotOf(textureType: textureType)
                from admittedRequirement in Acceptance.Text(value: requirement)
                select (ParamScope)new ChildCase(ChildSlot: name, Requirement: admittedRequirement);

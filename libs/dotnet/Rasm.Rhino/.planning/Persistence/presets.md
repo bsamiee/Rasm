@@ -243,7 +243,7 @@ public sealed partial record CPlaneModel(
 
     internal Fin<ConstructionPlane> Native() {
         CPlaneModel self = this;
-        return from plane in Try.lift(() => Fin.Succ(value: new ConstructionPlane { Name = self.Name.Value, Plane = self.Plane })).Run().Bind(static inner => inner)
+        return from plane in Try.lift(() => new ConstructionPlane { Name = self.Name.Value, Plane = self.Plane }).Run()
                from _grid in self.Grid.Apply(target: plane)
                from _palette in self.Palette.Apply(target: plane)
                select plane;
@@ -621,7 +621,7 @@ public static class Presets {
             state: (document),
             putCPlaneCase: static (state, put) =>
                 from native in put.Model.Native()
-                from index in Try.lift(() => Fin.Succ(value: state.Document.NamedConstructionPlanes.Add(native))).Run().Bind(static inner => inner)
+                from index in Try.lift(() => state.Document.NamedConstructionPlanes.Add(native)).Run()
                 from _added in Landed(accepted: index >= 0, member: "NamedConstructionPlaneTable.Add", detail: put.Model.Name.Value)
                 select unit,
             deleteCPlaneCase: static (state, delete) => Confirmed(
@@ -629,9 +629,9 @@ public static class Presets {
                     member: "NamedConstructionPlaneTable.Delete",
                     detail: delete.Name.Value),
             savePositionCase: static (state, save) =>
-                from raw in Try.lift(() => Fin.Succ(value: state.Document.NamedPositions.Save(
+                from raw in Try.lift(() => state.Document.NamedPositions.Save(
                     save.Name.Value,
-                    save.ObjectIds.Map(static id => id.Value)))).Run().Bind(static inner => inner)
+                    save.ObjectIds.Map(static id => id.Value))).Run()
                 from _id in ResourceId.Admit(value: raw)
                 select unit,
             applyPositionCase: static (state, apply) =>
@@ -666,9 +666,9 @@ public static class Presets {
                     detail: name.Value)
                 select unit,
             saveLayerStateCase: static (state, save) =>
-                from index in Try.lift(() => Fin.Succ(value: save.ViewportId.Match(
+                from index in Try.lift(() => save.ViewportId.Match(
                     Some: viewport => state.Document.NamedLayerStates.Save(save.Name.Value, viewport),
-                    None: () => state.Document.NamedLayerStates.Save(save.Name.Value)))).Run().Bind(static inner => inner)
+                    None: () => state.Document.NamedLayerStates.Save(save.Name.Value))).Run()
                 from _saved in Landed(accepted: index >= 0, member: "NamedLayerStateTable.Save", detail: save.Name.Value)
                 select unit,
             restoreLayerStateCase: static (state, restore) => Confirmed(
@@ -686,7 +686,7 @@ public static class Presets {
                     member: "NamedLayerStateTable.Delete",
                     detail: delete.Name.Value),
             importLayerStatesCase: static (state, import) =>
-                from count in Try.lift(() => Fin.Succ(value: state.Document.NamedLayerStates.Import(import.Path.Value))).Run().Bind(static inner => inner)
+                from count in Try.lift(() => state.Document.NamedLayerStates.Import(import.Path.Value)).Run()
                 from _imported in Landed(accepted: count >= 0, member: "NamedLayerStateTable.Import", detail: import.Path.Value)
                 select unit);
 
@@ -726,15 +726,15 @@ public static class Presets {
         from candidate in position.Switch<(NamedPositionTable Table), Fin<Guid>>(
             state: (table),
             idCase: static (_, address) => Fin.Succ(address.Id.Value),
-            nameCase: static (state, named) => Try.lift(() => Fin.Succ(value: state.Table.Id(named.Name.Value))).Run().Bind(static inner => inner))
-        from present in Try.lift(() => Fin.Succ(value: table.Ids.Contains(candidate))).Run().Bind(static inner => inner)
+            nameCase: static (state, named) => Try.lift(() => state.Table.Id(named.Name.Value)).Run())
+        from present in Try.lift(() => table.Ids.Contains(candidate)).Run()
         from _member in guard(present,
             (Error)new PersistenceFault.AbsentEntry(Table: nameof(NamedPositionTable), Entry: candidate.ToString()))
         from admitted in ResourceId.Admit(value: candidate)
         select admitted;
 
     private static Fin<PresetName> Named(NamedPositionTable table, ResourceId id) =>
-        from raw in Try.lift(() => Fin.Succ(value: HostEdge.Text(value: table.Name(id.Value)))).Run().Bind(static inner => inner)
+        from raw in Try.lift(() => HostEdge.NonEmpty(value: table.Name(id.Value))).Run()
         from present in raw.ToFin(Fail: new PersistenceFault.AbsentEntry(Table: nameof(NamedPositionTable), Entry: id.Value.ToString()))
         from admitted in FactoryBridge.Accept<PresetName>(candidate: present)
         select admitted;
@@ -752,7 +752,7 @@ public static class Presets {
             .ToFin()).Run().Bind(static inner => inner);
 
     private static Fin<Unit> Confirmed(Func<bool> mutate, string member, string detail) =>
-        Try.lift(() => Fin.Succ(value: mutate())).Run().Bind(static inner => inner)
+        Try.lift(() => mutate()).Run()
             .Bind(accepted => Landed(accepted: accepted, member: member, detail: detail));
 
     private static Fin<Unit> Landed(bool accepted, string member, string detail) => accepted

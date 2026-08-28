@@ -235,7 +235,7 @@ public static class ColumnarLane {
     public static IO<ColumnarSession> Open(StoreProfile store, ColumnarProfile profile, StorePath dataSource, ExecutionThreads threads) =>
         !store.Admits(Lane)
         ? IO.fail<ColumnarSession>(new ColumnarFault.PolicyRefused("store-lane", store.Key))
-        : IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        : HostEdge.CapturedIO(async _ => {
             DuckDBConnection anchor = new(profile.ConnectionString(dataSource, threads));
             await anchor.OpenAsync().ConfigureAwait(false);
             await using (DuckDBCommand bootstrap = anchor.CreateCommand()) {
@@ -247,7 +247,7 @@ public static class ColumnarLane {
             Seq<string> loaded = Seq<string>();
             while (await reader.ReadAsync().ConfigureAwait(false)) loaded = loaded.Add(reader.GetString(0));
             return Fin<ColumnarSession>.Succ(new ColumnarSession(anchor, profile, loaded));
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Map(outcome => outcome.MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Bind(IO.lift)
         .Bind(static session => AdmitLoaded(session));
@@ -272,7 +272,7 @@ public static class ColumnarLane {
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))));
 
     public static IO<Seq<T>> Query<T>(ColumnarSession session, FormattableString sql, Func<DuckDBDataReader, T> shape) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             DuckDBConnection lane = session.Lane();
             await using (lane.ConfigureAwait(false)) {
                 await using DuckDBCommand command = lane.CreateCommand();
@@ -284,7 +284,7 @@ public static class ColumnarLane {
                 while (await reader.ReadAsync().ConfigureAwait(false)) rows.Add(shape(reader));
                 return Fin<Seq<T>>.Succ(toSeq(rows));
             }
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Map(outcome => outcome.MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Bind(IO.lift);
 
@@ -299,17 +299,17 @@ public static class ColumnarLane {
             (cause, engine) => new ColumnarFault.AppendRefused(table, engine.ErrorType, cause))));
 
     public static IO<Fin<Unit>> Mount(ColumnarSession session, Identifier alias, StorePath store, ColumnarExtension typed) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = $"ATTACH IF NOT EXISTS '{store}' AS {alias} (TYPE {typed.Key}, READ_ONLY)";
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Map(outcome => outcome.MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.MountRefused(alias, engine.ErrorType, cause))));
 
     public static IO<Fin<Unit>> Secret(ColumnarSession session, SecretScope scope, Identifier name, Seq<(Identifier Key, string Value)> config, SecretStorage storage) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
             string into = storage is SecretStorage.Persistent ? $" IN {scope.PersistInto}" : string.Empty;
@@ -317,16 +317,16 @@ public static class ColumnarLane {
             command.CommandText = $"CREATE OR REPLACE SECRET {name}{into} (TYPE {scope.Key}, PROVIDER {scope.Provider}, {string.Join(", ", rows)})";
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Map(outcome => outcome.MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.SecretRefused(name, engine.ErrorType, cause))));
 
     public static IO<T> ArrowStream<T>(AdbcConnection adbc, AdbcRequest request, Func<QueryResult, ValueTask<T>> drain) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             using AdbcStatement statement = adbc.CreateStatement();
             request.Apply(statement);
             QueryResult result = await statement.ExecuteQueryAsync().ConfigureAwait(false);
             return Fin<T>.Succ(await drain(result).ConfigureAwait(false));
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Bind(IO.lift);
 
     public static IO<Fin<ArrowPartitions>> ArrowPartitions(AdbcConnection adbc, AdbcRequest request) =>
         IO.lift<Fin<ArrowPartitions>>(() => Try.lift(() => {
@@ -339,7 +339,7 @@ public static class ColumnarLane {
 
 public sealed record ArrowPartitions(AdbcConnection Connection, Schema Schema, long AffectedRows, Seq<PartitionDescriptor> Descriptors) {
     public IO<Fin<IArrowArrayStream>> Redeem(PartitionDescriptor descriptor) =>
-        IO.lift<Fin<IArrowArrayStream>>(() => Try.lift(() => Fin.Succ(Connection.ReadPartition(descriptor))).Run().Bind(static inner => inner));
+        IO.lift<Fin<IArrowArrayStream>>(() => Try.lift(() => Connection.ReadPartition(descriptor)).Run());
 }
 
 [SmartEnum<string>]
@@ -500,23 +500,23 @@ public sealed partial class ArtifactClass {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ArtifactEgress {
     public static IO<Fin<Unit>> Publish(ColumnarSession session, ArtifactClass artifact, CopyBody body, StorePath destination, UInt128 stamp) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = artifact.Egress(body, destination, stamp);
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Map(outcome => outcome.MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.EgressRefused(destination, engine.ErrorType, cause))));
 
     public static IO<Fin<UInt128>> StampOf(ColumnarSession session, StorePath artifact) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
             command.CommandText = "SELECT decode(value) FROM parquet_kv_metadata($path) WHERE decode(key) = 'stamp'";
             command.Parameters.Add(new DuckDBParameter("path", (string)artifact));
             return Fin<Option<string>>.Succ(Optional(await command.ExecuteScalarAsync().ConfigureAwait(false)).Map(static held => (string)held));
-        }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
+        }).Map(outcome => outcome.MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Map(captured => captured.Bind(stamp => stamp
             .Bind(static held => ParseStamp(held))

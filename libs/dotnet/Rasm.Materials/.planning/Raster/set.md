@@ -620,8 +620,8 @@ public static class SetIngest {
                     }));
 
     public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire) =>
-        Try.lift(() => Fin.Succ(Wire.Set.Parser.ParseFrom(
-                CodedInputStream.CreateWithLimits(wire.AsStream(), WireLimits.Manifest.SizeLimit, WireLimits.Manifest.RecursionLimit)))).Run().Bind(static inner => inner)
+        Try.lift(() => Wire.Set.Parser.ParseFrom(
+                CodedInputStream.CreateWithLimits(wire.AsStream(), WireLimits.Manifest.SizeLimit, WireLimits.Manifest.RecursionLimit))).Run()
             .Bind(manifest => WireAdmission.Admit(manifest, WireBoundary.InboundPayload))
             .Bind(manifest => manifest.ProductCase == Wire.Set.ProductOneofCase.Pbr
                 ? Fin.Succ<IngestSource>(new IngestSource.Peer(manifest))

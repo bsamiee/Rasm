@@ -447,7 +447,7 @@ public static class Sparkline {
     public static Fin<SKImage> Render(Seq<double> values, ChartInk ink, ChartChrome stroke, SKImageInfo info) =>
         values.Count < 2
             ? Fin.Fail<SKImage>(new ChartFault.VisualEmpty("sparkline"))
-            : Try.lift(() => Fin.Succ(new SKCartesianChart {
+            : Try.lift(() => new SKCartesianChart {
                 Width = info.Width,
                 Height = info.Height,
                 Background = SKColors.Transparent,
@@ -463,7 +463,7 @@ public static class Sparkline {
                 }],
                 XAxes = [Suppressed()],
                 YAxes = [Suppressed()],
-            }.GetImage())).Run().Bind(static inner => inner);
+            }.GetImage()).Run();
 
     static Axis Suppressed() {
         Axis bare = new() { IsVisible = false, ShowSeparatorLines = false };

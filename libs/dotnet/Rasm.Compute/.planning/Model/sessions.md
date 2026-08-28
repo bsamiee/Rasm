@@ -121,7 +121,7 @@ public sealed record SessionPolicy(
     public static Fin<Seq<Initializer>> Pack(HdfHandle archive, ModelIdentity model) =>
         guard(archive.Exists("initializers"), (Error)new ComputeFault.Violation(ComputeArea.Model, new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.None())))
             .ToFin()
-            .Bind(_ => Try.lift(() => Fin.Succ(toSeq(archive.Group("initializers").Children()).Map(static child => child.Name))).Run().Bind(static inner => inner))
+            .Bind(_ => Try.lift(() => toSeq(archive.Group("initializers").Children()).Map(static child => child.Name)).Run())
             .Bind(names => names.Traverse(name => Packed(archive, model, name).ToValidation()).As().ToFin());
 
     static Fin<Initializer> Packed(HdfHandle archive, ModelIdentity model, string name) =>
@@ -604,7 +604,7 @@ public static class ModelSessions {
 
     static Option<ArtifactIndexRow> AdmitContext(WarmSite site, WarmKey resident, SessionPolicy policy, Instant at) =>
         from port in Blobs
-        from bytes in Try.lift(() => Fin.Succ((ReadOnlyMemory<byte>)File.ReadAllBytes(site.Path))).Run().Bind(static inner => inner).ToOption()
+        from bytes in Try.lift(() => (ReadOnlyMemory<byte>)File.ReadAllBytes(site.Path)).Run().ToOption()
         from address in port.Put(bytes).Try().Run().ToOption()
         select new ArtifactIndexRow(
             ArtifactKind.EpContext,

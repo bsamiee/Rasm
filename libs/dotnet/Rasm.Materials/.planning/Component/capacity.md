@@ -989,7 +989,7 @@ public abstract partial record SectionCapacity {
     // --- [BOUNDARIES]
     public static Fin<SectionCapacity> Resolve(CapacityBuild build) =>
         build.Switch(
-            hull: h => Try.lift(() => Fin.Succ(new ForceMomentEngine(h.Section.Section, h.Resolution.ToSettings()).Mesh)).Run().Bind(static inner => inner)
+            hull: h => Try.lift(() => new ForceMomentEngine(h.Section.Section, h.Resolution.ToSettings()).Mesh).Run()
                 .Map(mesh => (SectionCapacity)new RcInteraction(h.Subject, h.Resolution, mesh)),
             elastic: e =>
                 (e.Section.EffectiveDepthMm(SectionFace.Bottom).ToValidation((Error)new ComponentFault.EffectiveDepthUnavailable(e.Subject)),
@@ -1116,10 +1116,10 @@ public abstract partial record SectionCapacity {
         fckMpa <= 50.0 ? 0.30 * Math.Pow(fckMpa, 2.0 / 3.0) : 2.12 * Math.Log(1.0 + (fckMpa + 8.0) / 10.0);
 
     internal static Fin<string> Freeze(RcInteraction capacity) =>
-        Try.lift(() => Fin.Succ(capacity.Hull.ToJson())).Run().Bind(static inner => inner);
+        Try.lift(() => capacity.Hull.ToJson()).Run();
 
     internal static Fin<SectionCapacity> Thaw(ComponentId subject, DiagramResolution resolution, string json) =>
-        Try.lift(() => Fin.Succ(json.FromJson<IForceMomentMesh>())).Run().Bind(static inner => inner)
+        Try.lift(() => json.FromJson<IForceMomentMesh>()).Run()
             .Bind(mesh => mesh is null
                 ? Fin.Fail<SectionCapacity>(new ComponentFault.CapacityDocumentEmpty(subject))
                 : Fin.Succ((SectionCapacity)new RcInteraction(subject, resolution, mesh)));

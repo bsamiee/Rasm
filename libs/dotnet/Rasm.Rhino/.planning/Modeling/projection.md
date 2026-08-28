@@ -55,20 +55,20 @@ public abstract partial record ProjectionFrame : IValidityEvidence {
             snapshot: static (frame) => Seated(
                 pose: frame.Value.Pose, subject: frame.Value.Frustum.Bounds),
             pose: static (frame) =>
-                from _ in Acceptance.Input(value: frame.Subject)
+                from _ in Admit.Value(value: frame.Subject)
                 from rigged in Seated(pose: frame.Value, subject: frame.Subject)
                 select rigged,
             look: static (frame) =>
-                from plane in Acceptance.Input(value: frame.Frame)
-                from _ in Acceptance.Input(value: frame.Subject)
+                from plane in Admit.Value(value: frame.Frame)
+                from _ in Admit.Value(value: frame.Subject)
                 from rigged in Parallel(
                     eye: frame.Subject.Center + plane.ZAxis * frame.Subject.Diagonal.Length,
                     direction: -plane.ZAxis, up: plane.YAxis, subject: frame.Subject)
                 select rigged,
             directed: static (frame) =>
-                from direction in Acceptance.Input(value: frame.Direction)
-                from up in Acceptance.Input(value: frame.Up)
-                from _ in Acceptance.Input(value: frame.Subject)
+                from direction in Admit.Value(value: frame.Direction)
+                from up in Admit.Value(value: frame.Up)
+                from _ in Admit.Value(value: frame.Subject)
                 from rigged in Parallel(
                     eye: frame.Subject.Center - direction * frame.Subject.Diagonal.Length,
                     direction: direction, up: up, subject: frame.Subject)
@@ -376,7 +376,7 @@ public abstract partial record ProjectionOp {
             },
             draft: static (model, edit) => {
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Subject, body: native =>
-                    from pull in Acceptance.Input(value: edit.Pull)
+                    from pull in Admit.Value(value: edit.Pull)
                     from built in Captured(token: edit.Cancel, run: () =>
                         Silhouette.ComputeDraftCurve(
                             native, edit.Angle, pull, model.Absolute.Value, model.Angle.Value, edit.Cancel))
@@ -408,7 +408,7 @@ public abstract partial record ProjectionOp {
 
     internal static Fin<Seq<Plane>> AdmittedClips(Seq<Plane> clips) =>
         clips
-            .Traverse(clip => Acceptance.Input(value: clip).ToValidation())
+            .Traverse(clip => Admit.Value(value: clip).ToValidation())
             .As()
             .ToFin();
 

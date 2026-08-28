@@ -877,9 +877,9 @@ public abstract partial record LayerOp {
                 from _edited in Amended(document: context, index: index, edits: edit.Edits)
                 select unit,
             graftCase: static (context, edit) =>
-                from index in Try.lift(() => Fin.Succ(value: edit.Color.Match(
+                from index in Try.lift(() => edit.Color.Match(
                     Some: color => context.Layers.AddPath(layerPath: edit.Path.Value, layerColor: color),
-                    None: () => context.Layers.AddPath(layerPath: edit.Path.Value)))).Run().Bind(static inner => inner)
+                    None: () => context.Layers.AddPath(layerPath: edit.Path.Value))).Run()
                 from _ in guard(index >= 0, new KernelFault.InvalidResult())
                 from _stamped in Stamped(document: context, index: index)
                 select unit,
@@ -914,10 +914,10 @@ public abstract partial record LayerOp {
                 select unit,
             duplicateCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context, liveness: Liveness.ActiveOnly)
-                from minted in Try.lift(() => Fin.Succ(value: toSeq(context.Layers.Duplicate(
+                from minted in Try.lift(() => toSeq(context.Layers.Duplicate(
                     layerIndex: index.Value,
                     duplicateObjects: edit.Scope.Objects,
-                    duplicateSublayers: edit.Scope.Sublayers)))).Run().Bind(static inner => inner)
+                    duplicateSublayers: edit.Scope.Sublayers))).Run()
                 from _ in guard(!minted.IsEmpty, new KernelFault.InvalidResult())
                 from _stamped in minted
                     .Traverse(row => Stamped(document: context, index: row).ToValidation())
@@ -1252,10 +1252,10 @@ public static partial class Layers {
 
     private static Fin<UInt128> Address(LayerPath path) =>
         from chain in path.Segments()
-        from key in Try.lift(() => Fin.Succ(value: ContentHash.Of(
+        from key in Try.lift(() => ContentHash.Of(
             state: chain,
             chunks: static (labels, writer) =>
-                _ = writer.Rows(rows: labels, field: static (label, rows) => _ = rows.String(value: label.Value))))).Run().Bind(static inner => inner)
+                _ = writer.Rows(rows: labels, field: static (label, rows) => _ = rows.String(value: label.Value)))).Run()
         select key;
 }
 
@@ -1305,11 +1305,11 @@ public static partial class OrganizationCodec {
     public static Fin<ReadOnlyMemory<byte>> Encode(OrganizationFact fact) {
         return from offered in Admit.Need(fact)
                from admitted in OrganizationAdmit.Admit(offered)
-               from wire in Try.lift(() => Fin.Succ(Sealed(admitted))).Run().Bind(static inner => inner)
+               from wire in Try.lift(() => Sealed(admitted)).Run()
                from _ in Rules.Validate(wire).Count == 0
                    ? Fin.Succ(unit)
                    : Fin.Fail<Unit>(new KernelFault.InvalidInput(Axis: Some(nameof(Organization))))
-               from bytes in Try.lift(() => Fin.Succ(value: (ReadOnlyMemory<byte>)wire.ToByteArray())).Run().Bind(static inner => inner)
+               from bytes in Try.lift(() => (ReadOnlyMemory<byte>)wire.ToByteArray()).Run()
                select bytes;
     }
 

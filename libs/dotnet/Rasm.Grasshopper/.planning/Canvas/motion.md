@@ -170,7 +170,7 @@ public sealed partial class NoticeGlyph {
 
     public Fin<AnimatedPath> Mint(float size, Option<VectorAngle> angle = default) {
         return from span in Admit.Positive(value: size)
-               from path in Try.lift(() => Fin.Succ(MintRaw(size: (float)span, angle: angle.IfNone(VectorAngle.Create(value: 0d))))).Run().Bind(static inner => inner)
+               from path in Try.lift(() => MintRaw(size: (float)span, angle: angle.IfNone(VectorAngle.Create(value: 0d)))).Run()
                select path;
     }
 }
@@ -180,10 +180,10 @@ public static class GlyphPath {
     public static Fin<AnimatedPath> Custom(Seq<Option<PathSpec>> steps) {
         return Try.lift(() => steps.Fold(Fin.Succ(new AnimatedPath()), (held, step) => held.Bind(path => step.Match(
             Some: figure => figure switch {
-                PathSpec.LineCase line => Try.lift(() => Fin.Succ((HostEdge.Side(() => path.AddLine(line.From, line.To)), path).Item2)).Run().Bind(static inner => inner),
-                PathSpec.PolylineCase poly => Try.lift(() => Fin.Succ((HostEdge.Side(() => path.AddLines(poly.Points.ToArray())), path).Item2)).Run().Bind(static inner => inner),
-                PathSpec.EllipseCase ring => Try.lift(() => Fin.Succ((HostEdge.Side(() => path.AddCircle(new CircleF(ring.Frame))), path).Item2)).Run().Bind(static inner => inner),
-                PathSpec.ArcCase arc => Try.lift(() => Fin.Succ((HostEdge.Side(() => path.AddArc(new ArcF(arc.Frame, (float)arc.Start.Value, (float)arc.Sweep.Value))), path).Item2)).Run().Bind(static inner => inner),
+                PathSpec.LineCase line => Try.lift(() => (HostEdge.Side(() => path.AddLine(line.From, line.To)), path).Item2).Run(),
+                PathSpec.PolylineCase poly => Try.lift(() => (HostEdge.Side(() => path.AddLines(poly.Points.ToArray())), path).Item2).Run(),
+                PathSpec.EllipseCase ring => Try.lift(() => (HostEdge.Side(() => path.AddCircle(new CircleF(ring.Frame))), path).Item2).Run(),
+                PathSpec.ArcCase arc => Try.lift(() => (HostEdge.Side(() => path.AddArc(new ArcF(arc.Frame, (float)arc.Start.Value, (float)arc.Sweep.Value))), path).Item2).Run(),
                 _ => Fin.Fail<AnimatedPath>(new KernelFault.InvalidValue(
                     Label: figure.GetType().Name, Requirement: "a figure the host animated path strokes (line, polyline, circle, arc)")),
             },

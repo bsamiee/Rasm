@@ -520,7 +520,7 @@ public abstract partial record VoxelMorphologyStep {
         spectral: static (state, step) => SpectralMorphology.Filter(state.Held, step, state.Policy));
 
     private static Fin<Voxels> Provider(Voxels held, Func<Voxels, Voxels> body) =>
-        Try.lift(() => Fin.Succ(body(held))).Run().Bind(static inner => inner).Rollback(held);
+        Try.lift(() => body(held)).Run().Rollback(held);
 }
 
 [SmartEnum]
@@ -993,8 +993,7 @@ public static partial class Sdf {
         from calibration in FieldCalibration
             .Of(operation.Definition, operation.Cell, operation.Policy.Calibration)
             .Rollback(envelope)
-        from intersected in Try.lift(() => Fin.Succ(
-            envelope.voxIntersectImplicit(new PeriodicImplicit(
+        from intersected in Try.lift(() => envelope.voxIntersectImplicit(new PeriodicImplicit(
                 operation.Definition,
                 operation.Form,
                 operation.Cell,
@@ -1002,7 +1001,7 @@ public static partial class Sdf {
                 density,
                 scale,
                 axis,
-                calibration)))).Run().Bind(static inner => inner)
+                calibration))).Run()
             .Rollback(envelope, calibration)
         from morphed in Morph(intersected, operation.Morphology, operation.Policy)
             .Rollback(envelope, calibration)

@@ -129,8 +129,8 @@ public abstract partial record NeighborIndex {
                 from _ in guard(points.Length > 0, new KernelFault.InvalidInput())
                 let coordinates = points.Select(IReadOnlyList<double> (v) => [v.X, v.Y, v.Z]).ToArray()
                 let payloads = Enumerable.Range(0, points.Length).ToArray()
-                from trees in Try.lift(() => Fin.Succ(NeighborMetric.Items.ToFrozenDictionary(
-                    static row => row, row => KDTree.Create(coordinates, payloads, row.Metric)))).Run().Bind(static inner => inner)
+                from trees in Try.lift(() => NeighborMetric.Items.ToFrozenDictionary(
+                    static row => row, row => KDTree.Create(coordinates, payloads, row.Metric))).Run()
                 select (NeighborIndex)new PointsCase(points, trees),
             meshCase: static m =>
                 from valid in guard(m.Source.IsValid, new KernelFault.InvalidInput())

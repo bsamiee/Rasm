@@ -266,7 +266,7 @@ public sealed class ModelData {
         byte[] owned = bytes.ToArray();
         return overlayJson.Length is 0
             ? Fin.Succ(new ModelData(filename, owned, overlayJson, ContentHash.Of(owned)))
-            : Try.lift(() => Fin.Succ(JsonNode.Parse(overlayJson) is JsonObject)).Run().Bind(static inner => inner)
+            : Try.lift(() => JsonNode.Parse(overlayJson) is JsonObject).Run()
                 .Bind(valid => valid
                     ? Fin.Succ(new ModelData(filename, owned, overlayJson, ContentHash.Of(owned)))
                     : GenerativeRefusal.ModelOverlay.Fault<ModelData>());
@@ -283,10 +283,10 @@ public sealed class AdapterAsset {
     public static Fin<AdapterAsset> Admit(string name, string path) =>
         string.IsNullOrWhiteSpace(name) || !File.Exists(path)
             ? Fin.Fail<AdapterAsset>(new ComputeFault.ExtensionAssetMissing(path))
-            : Try.lift(() => Fin.Succ(new AdapterAsset(name, path, ContentHash.Of(File.ReadAllBytes(path))))).Run().Bind(static inner => inner);
+            : Try.lift(() => new AdapterAsset(name, path, ContentHash.Of(File.ReadAllBytes(path)))).Run();
 
     public Fin<Unit> Verify() =>
-        Try.lift(() => Fin.Succ(ContentHash.Of(File.ReadAllBytes(Path)))).Run().Bind(static inner => inner)
+        Try.lift(() => ContentHash.Of(File.ReadAllBytes(Path))).Run()
             .Bind(current => current == ContentKey
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new ComputeFault.ExtensionAssetMissing($"{Path}:content-changed")));
@@ -322,7 +322,7 @@ public sealed record ToolPolicy {
     public static Fin<ToolPolicy> Admit(string schemas, Set<string> names, Func<ToolRequest, CancellationToken, ValueTask<Fin<string>>> resolve, Duration deadline) =>
         names.IsEmpty || resolve is null || names.Exists(string.IsNullOrWhiteSpace) || deadline <= Duration.Zero
             ? GenerativeRefusal.ToolRoster.Fault<ToolPolicy>()
-            : Try.lift(() => Fin.Succ(JsonNode.Parse(schemas) is not null)).Run().Bind(static inner => inner)
+            : Try.lift(() => JsonNode.Parse(schemas) is not null).Run()
                 .Bind(valid => valid
                     ? Fin.Succ(new ToolPolicy(schemas, names, resolve, deadline))
                     : GenerativeRefusal.ToolSchemas.Fault<ToolPolicy>());
@@ -331,7 +331,7 @@ public sealed record ToolPolicy {
         int open = text.IndexOf('{', StringComparison.Ordinal);
         return Names.IsEmpty || open < 0
             ? Option<ToolRequest>.None
-            : Try.lift(() => Fin.Succ(JsonSerializer.Deserialize(text[open..], GenerativeWireContext.Default.ToolCallWire))).Run().Bind(static inner => inner).Match(
+            : Try.lift(() => JsonSerializer.Deserialize(text[open..], GenerativeWireContext.Default.ToolCallWire)).Run().Match(
                 Succ: call => call is { } wire && Names.Contains(wire.Name)
                     ? Some(new ToolRequest(wire.Name, wire.Arguments.GetRawText()))
                     : Option<ToolRequest>.None,
@@ -346,7 +346,7 @@ public readonly record struct StopOracle(Set<int> EosIds, Set<int> TurnIds, Froz
 
     static Set<int> Probe(Tokenizer tokenizer) =>
         Seq<Func<int>>(tokenizer.GetEotTokenId, tokenizer.GetEorTokenId)
-            .Fold(Set<int>(), static (ids, read) => Try.lift(() => Fin.Succ(read())).Run().Bind(static inner => inner).Match(Succ: ids.Add, Fail: static _ => ids));
+            .Fold(Set<int>(), static (ids, read) => Try.lift(() => read()).Run().Match(Succ: ids.Add, Fail: static _ => ids));
 
     public bool Reached(int token) => EosIds.Contains(token) || token == PadId;
     public bool Ends(int token) => Reached(token) || TurnIds.Contains(token);
@@ -455,7 +455,7 @@ public sealed partial record GenerationPolicy(
         Effective(input).Keys.ToFrozenDictionary(static key => key, key => key.Echo(parameters));
 
     public Fin<Config> OpenConfig(string modelDir) =>
-        Try.lift(() => Fin.Succ(new Config(modelDir))).Run().Bind(static inner => inner)
+        Try.lift(() => new Config(modelDir)).Run()
             .Bind(config =>
                 Try.lift(() => {
                     InMemory.Iter(data => {
@@ -702,7 +702,7 @@ public static partial class GenerativeRun {
 
     static Fin<GenerativeResident> Build(string modelDir, DirectoryWitness witness, GenerationPolicy policy) =>
         policy.OpenConfig(modelDir).Bind(config =>
-            Try.lift(() => Fin.Succ(new Model(config))).Run().Bind(static inner => inner)
+            Try.lift(() => new Model(config)).Run()
                 .Bind(session =>
                     from fresh in Unchanged(modelDir, witness)
                     from _ in guard(fresh, (Error)GenerativeRefusal.ResidentChanged.Fault())
@@ -1080,10 +1080,10 @@ public static partial class GenerativeRun {
         from _ in policy.Conforms(input)
         from lease in Lease(modelDir, policy, clock, scope)
         from opened in (
-            from parameters in Try.lift(() => Fin.Succ(new GeneratorParams(lease.Held.Session))).Run().Bind(static inner => inner)
+            from parameters in Try.lift(() => new GeneratorParams(lease.Held.Session)).Run()
             from applied in (
                 from __ in policy.Apply(parameters, input)
-                from generator in Try.lift(() => Fin.Succ(new Generator(lease.Held.Session, parameters))).Run().Bind(static inner => inner)
+                from generator in Try.lift(() => new Generator(lease.Held.Session, parameters)).Run()
                 from held in (
                     from ___ in Try.lift(() => {
                         policy.RuntimeOptions.Iter(option => generator.SetRuntimeOption(option.Key, option.Value));

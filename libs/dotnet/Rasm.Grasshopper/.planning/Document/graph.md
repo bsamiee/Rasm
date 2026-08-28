@@ -335,7 +335,7 @@ public static partial class GraphScope {
             .Map(static _ => unit);
 
     private static Fin<GateOutcome> Free(Func<GateOutcome> settle) =>
-        Try.lift(() => Fin.Succ(settle())).Run().Bind(static inner => inner);
+        Try.lift(() => settle()).Run();
 
     private static Fin<GateOutcome> Sealed(
         (HostDocument Graph, VerbNoun Label) frame, Func<ActionList, GateOutcome> act) =>

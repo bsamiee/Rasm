@@ -177,8 +177,8 @@ public static class Interpolant {
                 (TensorPrimitives.IsFiniteAll<double>(linear.AsSpan()), "linear-finite"),
                 (TensorPrimitives.IsFiniteAll<double>(quadratic.AsSpan()), "quadratic-finite"),
                 (Ascending(knots), "knots-ascending"))
-            .Bind(_ => Try.lift(() => Fin.Succ(new Interpolant<ICalculus>(new MathNet.Numerics.Interpolation.QuadraticSpline(
-                x: [.. knots.AsIterable()], c0: [.. constant.AsIterable()], c1: [.. linear.AsIterable()], c2: [.. quadratic.AsIterable()])))).Run().Bind(static inner => inner));
+            .Bind(_ => Try.lift(() => new Interpolant<ICalculus>(new MathNet.Numerics.Interpolation.QuadraticSpline(
+                x: [.. knots.AsIterable()], c0: [.. constant.AsIterable()], c1: [.. linear.AsIterable()], c2: [.. quadratic.AsIterable()]))).Run());
     }
     public static Fin<Interpolant<IEvaluable>> TransformedInterpolation(Func<double, double> transform, Func<double, double> inverse, Arr<double> points, Arr<double> values) =>
         Build<IEvaluable>(points, values, (p, v) => MathNet.Numerics.Interpolation.TransformedInterpolation.InterpolateSorted(transform: transform, transformInverse: inverse, x: p, y: v));
@@ -192,7 +192,7 @@ public static class Interpolant {
                 (slopes.Map(s => s.Count == points.Count).IfNone(true), "slopes-extent"),
                 (slopes.Map(s => TensorPrimitives.IsFiniteAll<double>(s.AsSpan())).IfNone(true), "slopes-finite"),
                 (Ascending(points), "points-ascending"))
-            .Bind(_ => Try.lift(() => Fin.Succ(new Interpolant<TCapability>(factory(arg1: [.. points.AsIterable()], arg2: [.. values.AsIterable()])))).Run().Bind(static inner => inner));
+            .Bind(_ => Try.lift(() => new Interpolant<TCapability>(factory(arg1: [.. points.AsIterable()], arg2: [.. values.AsIterable()]))).Run());
     private static bool Ascending(Arr<double> points) =>
         points.Count < 2 || Enumerable.Range(start: 1, count: points.Count - 1).All(index => points[index - 1] < points[index]);
     internal static Fin<double> AdmitFinite(double value) =>
@@ -407,7 +407,7 @@ internal static partial class MatrixKernel {
     internal static Fin<Arr<double>> SpectralPower(SpectralArena arena) =>
         arena is null || !arena.IsValid
             ? Fin.Fail<Arr<double>>(new KernelFault.InvalidInput())
-            : Try.lift(() => Fin.Succ(arena.Switch(
+            : Try.lift(() => arena.Switch(
                 interleaved: static a => PairPower(pairs: MemoryMarshal.Cast<Complex, double>(a.Values), bins: a.Values.Length),
                 split: static s => {
                     double[] power = new double[s.Real.Length];
@@ -421,7 +421,7 @@ internal static partial class MatrixKernel {
                     power[0] = r.Samples[0] * r.Samples[0];
                     for (int bin = 1; bin < power.Length; bin++) { double direct = r.Samples[bin], reflected = r.Samples[power.Length - bin]; power[bin] = 0.5 * ((direct * direct) + (reflected * reflected)); }
                     return new Arr<double>(power);
-                }))).Run().Bind(static inner => inner)
+                })).Run()
               .Bind(power => TensorPrimitives.IsFiniteAll<double>(power.AsSpan())
                   ? Fin.Succ(power)
                   : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()));

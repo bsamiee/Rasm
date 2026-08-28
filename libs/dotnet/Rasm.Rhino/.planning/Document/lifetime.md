@@ -103,13 +103,13 @@ internal sealed class LifecycleGate {
         reopenable: static row => new LeaseState.Reopenable(row.Claims - 1),
         closed: static row => row)).Switch(
             open: static _ => unit,
-            closing: static row => HostEdge.SideWhen(row.Claims == 0, () => row.Quiesced.TrySetResult(unit)),
+            closing: static row => row.Claims == 0 ? HostEdge.Side(() => row.Quiesced.TrySetResult(unit)) : unit,
             reopenable: static _ => unit,
             closed: static _ => unit);
 
     private Task<Fin<Unit>> Drain(LeaseState.Closing row, Func<Fin<Unit>> stop, Func<Fin<Unit>> settle) {
         Fin<Unit> stopped = Try.lift(stop).Run().Bind(static inner => inner);
-        _ = HostEdge.SideWhen(row.Claims == 0, () => ignore(row.Quiesced.TrySetResult(unit)));
+        if (row.Claims == 0) { ignore(row.Quiesced.TrySetResult(unit)); }
         return row.Quiesced.Task.WaitAsync(settleWithin).ContinueWith(
             drained => Conclude(
                 row,

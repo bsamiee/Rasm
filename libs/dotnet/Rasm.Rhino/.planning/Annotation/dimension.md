@@ -238,8 +238,8 @@ public abstract partial record DimAdjust {
             geometry,
             linear: static (ctx, fit) =>
                 from linear in Admit.Need(ctx as LinearDimension)
-                from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => linear.SetLocations(
-                    extensionLine1End: fit.Ext1End, extensionLine2End: fit.Ext2End, pointOnDimensionLine: fit.OnDimLine)))).Run().Bind(static inner => inner)
+                from _ in Try.lift(() => HostEdge.Side(() => linear.SetLocations(
+                    extensionLine1End: fit.Ext1End, extensionLine2End: fit.Ext2End, pointOnDimensionLine: fit.OnDimLine))).Run()
                 select unit,
             angularVertex: static (ctx, fit) =>
                 from angular in Admit.Need(ctx as AngularDimension)
@@ -331,13 +331,13 @@ public sealed partial class DimPose {
             admitted: admitted);
 
     internal Fin<Unit> Apply(Dimension geometry) =>
-        from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+        from _ in Try.lift(() => HostEdge.Side(() => {
             TextPosition.Iter(position => geometry.TextPosition = position);
             TextRotation.Iter(rotation => geometry.TextRotation = rotation);
             TextPoint.Iter(mode => geometry.UseDefaultTextPoint = mode.Key);
             PlainUserText.Iter(text => geometry.PlainUserText = text);
             DistanceScale.Iter(scale => geometry.DistanceScale = scale.Value);
-        }))).Run().Bind(static inner => inner)
+        })).Run()
         from __ in Detail.Traverse(edit => edit.Apply(dimension: geometry)).As()
         select unit;
 }
@@ -395,11 +395,11 @@ public abstract partial record DimOp {
         repose: static (ctx, edit) => Amended(ctx, edit.Target,
             (dimension, key) => edit.Pose.Apply(geometry: dimension)),
         restate: static (ctx, edit) => Amended(ctx, edit.Target,
-            (dimension, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => dimension.UpdateDimensionText(
+            (dimension, key) => Try.lift(() => HostEdge.Side(() => dimension.UpdateDimensionText(
                 dimension.DimensionStyle,
-                edit.Units.Map(static unit => unit.System).IfNone(ctx.ModelUnitSystem))))).Run().Bind(static inner => inner)),
+                edit.Units.Map(static unit => unit.System).IfNone(ctx.ModelUnitSystem)))).Run()),
         redisplay: static (ctx, edit) => Amended(ctx, edit.Target,
-            (dimension, key) => Try.lift(() => Fin.Succ(value: edit.Channel.Apply(dimension, edit.Display.Host))).Run().Bind(static inner => inner)),
+            (dimension, key) => Try.lift(() => edit.Channel.Apply(dimension, edit.Display.Host)).Run()),
         style: static (ctx, edit) => Amended(ctx, edit.Target,
             (dimension, key) => edit.Edit.Apply(annotation: dimension)));
 
@@ -419,7 +419,7 @@ public static class Dimensions {
             apply: static (document, operation, key) => operation.Apply(document: document));
 
     public static Fin<DimAnswer> Ask(DocumentSession session, DimAsk request) {
-        return from admitted in Acceptance.Input(value: request)
+        return from admitted in Admit.Value(value: request)
                from answer in Admit.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
@@ -660,7 +660,7 @@ public abstract partial record DimAsk {
                 .As()
             select (DimAnswer)new DimAnswer.State(new DimState(
                 annotation, kind, family, dimension.Geometry.NumericValue,
-                HostEdge.Text(dimension.Geometry.PlainUserText),
+                HostEdge.NonEmpty(dimension.Geometry.PlainUserText),
                 dimension.Geometry.TextPosition, dimension.Geometry.TextRotation, mode,
                 ResourceId.Maybe(dimension.Geometry.DetailMeasured),
                 scale, dimension.Geometry.DimensionScale,
@@ -679,9 +679,9 @@ public abstract partial record DimAsk {
             select (DimAnswer)new DimAnswer.Formatted(text),
         textTransform: static (ctx, ask) =>
             from dimension in Resolved(ctx, ask.Target)
-            from transform in Try.lift(() => Fin.Succ(value: dimension.Geometry.GetTextTransform(
+            from transform in Try.lift(() => dimension.Geometry.GetTextTransform(
                 viewport: ask.Viewport, style: dimension.Geometry.DimensionStyle,
-                textScale: ask.Scale.Value, drawForward: ask.Facing.Key))).Run().Bind(static inner => inner)
+                textScale: ask.Scale.Value, drawForward: ask.Facing.Key)).Run()
             select (DimAnswer)new DimAnswer.Transformed(transform),
         pieces: static (ctx, ask) =>
             from dimension in Resolved(ctx, ask.Target)

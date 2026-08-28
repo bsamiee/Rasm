@@ -181,7 +181,7 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
     internal static bool ScreenReachable => Anchor().IsSome;
 
     internal static Fin<MotionAttachment> Start(PaceBand pace, Action onTick, Action<Error> onFault) =>
-        from pacer in Try.lift(() => Fin.Succ(new MacPacer(onTick: onTick, onFault: onFault, pace: pace))).Run().Bind(static inner => inner)
+        from pacer in Try.lift(() => new MacPacer(onTick: onTick, onFault: onFault, pace: pace)).Run()
         from armed in Anchor().ToFin(Fail: new KernelFault.MissingContext())
             .Bind(screen => pacer.Arm(screen: screen))
             .Match(Succ: _ => Fin.Succ<MotionAttachment>(pacer), Fail: fault => { pacer.Dispose(); return Fin.Fail<MotionAttachment>(fault); })
@@ -193,7 +193,7 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
                 link = configured;
                 link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
                 screenObserver = NSApplication.Notifications.ObserveDidChangeScreenParameters((_, _) =>
-                    _ = Guarded(Try.lift(() => Fin.Succ(HostEdge.Side(Rebind))).Run().Bind(static inner => inner)));
+                    _ = Guarded(Try.lift(() => HostEdge.Side(Rebind)).Run()));
                 return unit;
             }))).Run().Bind(static inner => inner);
 
@@ -388,7 +388,7 @@ public static class MotionPump {
                 return done.Task.IsCompleted ? done.Task.Result : primary;
             }
             Fin<Unit> pause = mounted.Value.Match(
-                Some: held => Try.lift(() => Fin.Succ(held.Pause())).Run().Bind(static inner => inner),
+                Some: held => Try.lift(() => held.Pause()).Run(),
                 None: static () => Fin.Succ(unit));
             Fin<Unit> release = mounted.Value.Match(
                 Some: held => Try.lift(() => { held.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner),

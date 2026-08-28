@@ -577,7 +577,7 @@ public sealed class GraphCamera(ZoomBorder border) {
     }
 
     public IO<Fin<Unit>> Navigate(GraphNav verb) =>
-        IO.lift<Fin<Unit>>(() => Admit(verb).Bind(admitted => Try.lift(() => Fin.Succ(ignore(admitted.Switch(
+        IO.lift<Fin<Unit>>(() => Admit(verb).Bind(admitted => Try.lift(() => ignore(admitted.Switch(
                 state: this,
                 fit: static (camera, _) => fun(() => camera.Border.Uniform(false))(),
                 fitTo: static (camera, v) => fun(() => camera.Border.ZoomToRectangle(v.Content, null, true))(),
@@ -597,7 +597,7 @@ public sealed class GraphCamera(ZoomBorder border) {
                     restore: static s => fun(() => ignore(s.Camera.bookmarks.Value.Find(s.Name)
                         .Iter(state => s.Camera.Border.ImportState(state, animate: true))))(),
                     drop: static s => fun(() => ignore(s.Camera.bookmarks.Swap(roster => roster.Remove(s.Name))))()),
-                reset: static (camera, _) => fun(() => camera.Border.ResetMatrix())())))).Run().Bind(static inner => inner)));
+                reset: static (camera, _) => fun(() => camera.Border.ResetMatrix())()))).Run()));
 
     Fin<GraphNav> Admit(GraphNav verb) => verb.Switch(
         state: (Row: verb, Roster: bookmarks.Value),
@@ -827,7 +827,7 @@ public sealed record GraphView(GraphCamera Camera) {
 
     public Fin<Unit> Import(Option<string> state) =>
         state.Filter(static payload => !string.IsNullOrWhiteSpace(payload)).Match(
-            Some: payload => Try.lift(() => Fin.Succ(JsonSerializer.Deserialize<GraphViewport>(payload, EvidenceOps.Wire))).Run().Bind(static inner => inner)
+            Some: payload => Try.lift(() => JsonSerializer.Deserialize<GraphViewport>(payload, EvidenceOps.Wire)).Run()
                 .Bind(decoded => Optional(decoded)
                     .ToFin(Fail: (Error)new CanvasFault.CameraRejected("viewport state decoded to nothing"))
                     .Map(admitted => ViewportMap.FromWire(admitted) switch {

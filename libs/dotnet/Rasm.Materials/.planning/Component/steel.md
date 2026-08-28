@@ -159,7 +159,7 @@ public partial record GradeProperties {
                 Some: row => row.ProofMpa(StainlessRow.FormOf(origin)),
                 None: () => EnDesignation.Match(
                     Some: designation => EnSteelMaterial.TryCreateFromDesignition(designation, annex, out EnSteelMaterial material)
-                        ? Try.lift(() => Fin.Succ(EnSteelFactory.CreateLinearElastic(material, Length.FromMillimeters(bandThicknessMm)).Strength.Megapascals)).Run().Bind(static inner => inner)
+                        ? Try.lift(() => EnSteelFactory.CreateLinearElastic(material, Length.FromMillimeters(bandThicknessMm)).Strength.Megapascals).Run()
                         : Fin.Fail<double>(new ComponentFault.GradeBandMissing(ComponentFamily.Steel, typeof(EnSteelMaterial))),
                     None: () => Fin.Succ(NominalYieldMpa)));
     }

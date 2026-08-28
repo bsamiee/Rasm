@@ -337,9 +337,9 @@ public abstract class RasmCommand<TSelf, TState> : Command
     protected sealed override bool ReplayHistory(ReplayHistoryData replayData) {
         Option<CommandPolicy> policy = Optional(Policy);
         FaultNotice notice = policy.Map(static row => row.Notice).IfNone(FaultNotice.Announce);
-        return Try.lift(() => Fin.Succ(policy.Bind(static row => row.Replay).Match(
+        return Try.lift(() => policy.Bind(static row => row.Replay).Match(
                 Some: hook => hook.Regrow(arg: replayData),
-                None: static () => false))).Run().Bind(static inner => inner)
+                None: static () => false)).Run()
             .Match(
                 Succ: static accepted => accepted,
                 Fail: error => CommandFaults.Refused(error: error, notice: notice, native: false));
@@ -639,15 +639,15 @@ public static class Scripting {
                        macro: static (held, run) =>
                            from text in Acceptance.Text(value: run.Text)
                            from _ in guard(run.Echo is not null, new KernelFault.InvalidInput(Axis: Some(nameof(Macro.Echo))))
-                           from ok in Try.lift(() => Fin.Succ(value: run.Display.Case switch {
+                           from ok in Try.lift(() => run.Display.Case switch {
                                string display => RhinoApp.RunScript(documentSerialNumber: held.Serial, script: text, mruDisplayString: display, echo: run.Echo.Key),
                                _ => RhinoApp.RunScript(documentSerialNumber: held.Serial, script: text, echo: run.Echo.Key),
-                           })).Run().Bind(static inner => inner)
+                           }).Run()
                            select ok ? CommandVerdict.Completed : CommandVerdict.Failed,
                        named: static (held, run) =>
                            from name in Acceptance.Text(value: run.CommandName)
                            from _ in guard(Command.IsCommand(name: name), new KernelFault.InvalidInput(Axis: Some(nameof(Named.CommandName))))
-                           from native in Try.lift(() => Fin.Succ(value: RhinoApp.ExecuteCommand(document: held.Document, commandName: name))).Run().Bind(static inner => inner)
+                           from native in Try.lift(() => RhinoApp.ExecuteCommand(document: held.Document, commandName: name)).Run()
                            from result in CommandVerdict.OfNative(result: native)
                            select result),
                    needs: [SessionNeed.Acquire])

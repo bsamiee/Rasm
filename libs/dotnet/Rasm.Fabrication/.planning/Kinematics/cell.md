@@ -199,7 +199,7 @@ public abstract partial record CellTargetPlan : IValidityEvidence {
             : Fin.Fail<Seq<CellWaypoint>>(new KernelFault.InvalidValue("cell", "robot-cell:target-census")));
 
     private static Fin<Target> Capture(CellWaypoint waypoint, RobotCell cell, Move move, MotionDynamics dynamics) =>
-        Try.lift(() => Fin.Succ(waypoint.Project(cell, move, dynamics))).Run().Bind(static inner => inner);
+        Try.lift(() => waypoint.Project(cell, move, dynamics)).Run();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -229,7 +229,7 @@ public abstract partial record CellLibrary {
     public sealed record Remove(LibraryItem Item) : CellLibrary;
 
     public IO<CellCatalog> Run() =>
-        IO.lift(() => Try.lift(() => Fin.Succ(new OnlineLibrary())).Run().Bind(static inner => inner)).Bracket(
+        IO.lift(() => Try.lift(() => new OnlineLibrary()).Run()).Bracket(
             Use: library => Switch(
                 state: library,
                 refresh: static (source, verb) => IO.liftVAsync<Fin<CellCatalog>>(() =>
@@ -246,7 +246,7 @@ public abstract partial record CellLibrary {
                     source.RemoveDownloadedLibrary(verb.Item);
                     return Fin.Succ(Catalog(source, verb));
                 }).Run().Bind(static inner => inner)),
-            Fin: static library => IO.lift(() => Try.lift(library.Dispose).Run().Bind(static inner => inner)));
+            Fin: static library => IO.lift(() => Try.lift(library.Dispose).Run()));
 
     private static CellCatalog Catalog(OnlineLibrary source, CellLibrary verb) => new(verb, toSeq(source.Libraries.Keys));
 }
@@ -263,14 +263,14 @@ public abstract partial record CellDrive {
     public sealed record Pause : CellDrive;
 
     public IO<CellDelivery> Run(RobotSystem system) =>
-        IO.lift(() => Try.lift(() => Fin.Succ(Optional(system).Bind(static host => Optional(host.Remote)))).Run().Bind(static inner => inner))
+        IO.lift(() => Try.lift(() => Optional(system).Bind(static host => Optional(host.Remote))).Run())
             .Bind(channel => channel.Match(
                 Some: remote => Switch(
                     state: remote,
                     upload: static (drive, action) => action.Program is not null
                         && action.Artifact is { Kind: var kind } && kind == EgressKind.CutProgram
                         && action.Canonicalize is not null
-                            ? IO.lift(() => Try.lift(() => Fin.Succ(action.Canonicalize(action.Program))).Run().Bind(static inner => inner))
+                            ? IO.lift(() => Try.lift(() => action.Canonicalize(action.Program)).Run())
                                 .Bind(bytes => ContentKey.Of(EgressKind.CutProgram, bytes.Span) is var transferred
                                     && transferred.Digest == action.Artifact.Digest
                                         ? IO.lift(() => Try.lift(() => {
@@ -322,7 +322,7 @@ public sealed partial class RobotCell {
         embedded: static (state, row) => Capture(() => FileIO.ParseRobotSystem(row.Xml, state.Base, state.Post)));
 
     private static Fin<RobotSystem> Capture(Func<RobotSystem> load) =>
-        Try.lift(() => Fin.Succ(load())).Run().Bind(static inner => inner);
+        Try.lift(() => load()).Run();
 }
 
 [ComplexValueObject]
@@ -707,13 +707,13 @@ public static class RobotProgram {
         from _ in policy.MultiFileIndices.ForAll(index => index < targets.Count)
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue("cell", "robot-cell:partition-range"))
-        from program in Try.lift(() => Fin.Succ(new Program(
+        from program in Try.lift(() => new Program(
                 name: policy.ProgramName.Value,
                 robotSystem: system,
                 toolpaths: targets.Map(static target => (IToolpath)target).ToArray(),
                 initCommands: policy.Init.ValueUnsafe(),
                 multiFileIndices: policy.MultiFileIndices.IsEmpty ? null : policy.MultiFileIndices.ToArray(),
-                stepSize: policy.Dynamics.ChordTolerance))).Run().Bind(static inner => inner)
+                stepSize: policy.Dynamics.ChordTolerance)).Run()
         select program;
 
     private static Fin<Seq<RobotCell>> Samples(RobotCell cell, CellPlacementPolicy policy) =>
@@ -748,9 +748,9 @@ public static class RobotProgram {
         CellPlacementPolicy placement) =>
         from targets in policy.Targets.Resolve(candidate, moves, policy.Dynamics, policy.Inverse)
         from normalized in Rebase(system, candidate.BaseFrame)
-        from solutions in Try.lift(() => Fin.Succ(system.Kinematics(
+        from solutions in Try.lift(() => system.Kinematics(
                 targets.ToArray(),
-                placement.SeedJoints.Map(static seed => (IReadOnlyList<double[]?>)new double[]?[] { seed.ToArray() }).ValueUnsafe()))).Run().Bind(static inner => inner)
+                placement.SeedJoints.Map(static seed => (IReadOnlyList<double[]?>)new double[]?[] { seed.ToArray() }).ValueUnsafe())).Run()
             .Map(static rows => toSeq(rows))
         let joints = solutions.Map(static solution => solution.Joints.ToArr())
         let metrics = toSeq(CellPlacementMetric.Items).Fold(

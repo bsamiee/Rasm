@@ -578,7 +578,7 @@ public static class EnergyTranslate {
                         None: static () => Fin.Succ(unit))
                     .Bind(_ => Native(() => {
                         using Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
-                        return cross(path, () => Try.lift(() => Fin.Succ(File.ReadAllBytes(temp))).Run().Bind(static inner => inner));
+                        return cross(path, () => Try.lift(() => File.ReadAllBytes(temp)).Run());
                     }))),
                 Fin: temp => IO.lift(() => Try.lift(() => {
                     File.Delete(temp);

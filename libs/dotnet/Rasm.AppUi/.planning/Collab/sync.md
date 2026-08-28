@@ -333,7 +333,7 @@ public sealed class CollabDoc : IDisposable {
         Lift(mint).Bind(child => Custody.Bracket(() => write(child), child));
 
     internal static Fin<T> Lift<T>(Func<T> act) =>
-        Try.lift(() => Fin.Succ(act())).Run().Bind(static inner => inner);
+        Try.lift(() => act()).Run();
 
     private static Option<CollabFault> Classify(Error cause) =>
         cause.Exception is { IsSome: true, Case: Exception raised }

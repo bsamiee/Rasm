@@ -538,7 +538,7 @@ public static class SparseOps {
             : Lift(() => Build(csc, op.Kind, op.Ordering, pivotTol));
 
     static Fin<FactoredOp> Lift(Func<FactoredOp> build) =>
-        Try.lift(() => Fin.Succ(build())).Run().Bind(static inner => inner);
+        Try.lift(() => build()).Run();
 
     static FactoredOp Build(CompressedColumnStorage<double> csc, FactorKind kind, ColumnOrdering ordering, double pivotTol) {
         int[] permutation = AMD.Generate(csc, ordering);
@@ -860,7 +860,7 @@ public abstract partial record ShardDispatch {
         ContentHash address = plan.Provider.SolveDedupKey(Digest(request));
         return context.Reuse.Lookup(address).Bind(row => row.Match(
             Some: cached => context.FetchPayload(cached.Placement).Bind(bytes => bytes.Match(
-                Some: payload => IO.pure(Try.lift(() => Fin.Succ(SolveResponse.Parser.ParseFrom(payload.Span))).Run().Bind(static inner => inner)
+                Some: payload => IO.pure(Try.lift(() => SolveResponse.Parser.ParseFrom(payload.Span)).Run()
                     .Bind(response => Materialize(response, start, height, right.ColumnCount))),
                 None: () => DialAndStore(plan, context, request, address, start, height, right.ColumnCount))),
             None: () => DialAndStore(plan, context, request, address, start, height, right.ColumnCount)));
@@ -896,7 +896,7 @@ public abstract partial record ShardDispatch {
         if (cols <= 0 || response.Solution.Length != (long)height * cols * sizeof(double)) {
             return TensorReason.ShapeMismatch.Fail<ShardBlock>("solve-shape", $"height={height}", $"cols={cols}", $"bytes={response.Solution.Length}");
         }
-        return Try.lift(() => Fin.Succ(new ShardBlock(start, Restore(response, height, cols)))).Run().Bind(static inner => inner);
+        return Try.lift(() => new ShardBlock(start, Restore(response, height, cols))).Run();
     }
 
     static IO<Fin<SolveResponse>> Dial(ShardPlan plan, ShardContext context, SolveRequest request) =>

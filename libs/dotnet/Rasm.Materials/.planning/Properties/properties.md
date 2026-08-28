@@ -287,7 +287,7 @@ public static class MaterialPropertyCatalogue {
                     return Fin.Succ(EnSteelFactory.CreateBiLinear(material, Length.FromMillimeters(GradeThicknessMm)));
                 }).Run().Bind(static inner => inner)
                 .Map(law => Delegated(law, SteelTable)),
-            enRebar: static r => Try.lift(() => Fin.Succ(EnRebarFactory.CreateBiLinear(r.Grade))).Run().Bind(static inner => inner)
+            enRebar: static r => Try.lift(() => EnRebarFactory.CreateBiLinear(r.Grade)).Run()
                 .Map(law => Delegated(law, RebarTable)));
 
     static StrengthTriple Delegated(IBiLinearMaterial law, PropertyEvidence evidence) =>

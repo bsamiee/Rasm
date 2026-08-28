@@ -701,7 +701,7 @@ public static class HostAssets {
                 None: () => Bitmap(text: text, ask: ask))),
             meshPreview: static (held, ask) =>
                 from model in held.ToFin(Fail: new KernelFault.MissingContext())
-                from fallback in Try.lift(() => Fin.Succ(value: model.CreateDefaultAttributes().DrawColor(model))).Run().Bind(static inner => inner)
+                from fallback in Try.lift(() => model.CreateDefaultAttributes().DrawColor(model)).Run()
                 from neutral in PerceptualColor.OfHost(host: fallback)
                 let meshes = Rasm.Numerics.Dimension.Create(value: ask.Meshes.Count)
                 from hosted in ask.Ink.Spread(fallback: neutral, meshes: meshes)

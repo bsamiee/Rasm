@@ -308,16 +308,16 @@ public abstract partial record PickRule : ISlotted<PickSlot> {
     internal Fin<Unit> Apply(PickContext context) => Switch(
         state: context,
         inView: static (state, rule) => rule.Value.Live(state.Op)
-            .Bind(view => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.View = view))).Run().Bind(static inner => inner)),
-        along: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.PickLine = rule.Value))).Run().Bind(static inner => inner),
-        styled: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.PickStyle = rule.Value.Native))).Run().Bind(static inner => inner),
-        rendered: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.PickMode = rule.Value.Native))).Run().Bind(static inner => inner),
-        gates: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => {
+            .Bind(view => Try.lift(() => HostEdge.Side(() => state.View = view)).Run()),
+        along: static (state, rule) => Try.lift(() => HostEdge.Side(() => state.PickLine = rule.Value)).Run(),
+        styled: static (state, rule) => Try.lift(() => HostEdge.Side(() => state.PickStyle = rule.Value.Native)).Run(),
+        rendered: static (state, rule) => Try.lift(() => HostEdge.Side(() => state.PickMode = rule.Value.Native)).Run(),
+        gates: static (state, rule) => Try.lift(() => HostEdge.Side(() => {
             rule.Enabled.Held.Iter(row => row.Set(state, enabled: true));
             rule.Disabled.Held.Iter(row => row.Set(state, enabled: false));
-        }))).Run().Bind(static inner => inner),
-        transformed: static (state, rule) => Try.lift(() => Fin.Succ(HostEdge.Side(() => state.SetPickTransform(rule.Value)))).Run().Bind(static inner => inner),
-        refreshClipping: static (state, _) => Try.lift(() => Fin.Succ(HostEdge.Side(state.UpdateClippingPlanes))).Run().Bind(static inner => inner));
+        })).Run(),
+        transformed: static (state, rule) => Try.lift(() => HostEdge.Side(() => state.SetPickTransform(rule.Value))).Run(),
+        refreshClipping: static (state, _) => Try.lift(() => HostEdge.Side(state.UpdateClippingPlanes)).Run());
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -397,7 +397,7 @@ public static class Picks {
 
     public static Fin<PickOutcome> CaptureOwned(IEnumerable<ObjRef> references) {
         return from source in Admit.Need(references)
-               from owned in Try.lift(() => Fin.Succ(toSeq(source).Strict())).Run().Bind(static inner => inner)
+               from owned in Try.lift(() => toSeq(source).Strict()).Run()
                from _ in guard(
                    owned.ForAll(static reference => reference is not null),
                    new KernelFault.InvalidResult(Detail: Some(nameof(references))))
@@ -413,7 +413,7 @@ public static class Picks {
 
     private static Fin<Unit> Released(Seq<ObjRef> owned) => Custody.Release(
         held: owned,
-        release: reference => Try.lift(() => Fin.Succ(value: HostEdge.Side(reference.Dispose))).Run().Bind(static inner => inner));
+        release: reference => Try.lift(() => HostEdge.Side(reference.Dispose)).Run());
 
     public static Fin<TOut> Part<TOut>(ObjRef reference, PartKind ask, Func<Picked, Fin<TOut>> project)
         where TOut : notnull {
@@ -446,7 +446,7 @@ public static class Picks {
                        from projected in Try.lift(() => {
                            using PickContext context = new() { View = defaultView };
                            return active.Apply(target: context)
-                               .Bind(_ => Try.lift(() => Fin.Succ(document.Objects.PickObjects(pickContext: context))).Run().Bind(static inner => inner))
+                               .Bind(_ => Try.lift(() => document.Objects.PickObjects(pickContext: context)).Run())
                                .Bind(references => CaptureOwned(references: references)
                                    .Map(held => held with { Getter = Participant(context) }));
                        }).Run().Bind(static inner => inner)

@@ -321,7 +321,7 @@ public static class FaultSpine {
     public static IO<(Seq<FaultSource> Crashes, Option<PhaseTrigger> Upgrade)> ProbeMarkers(string supportRoot, Version current, JsonTypeInfo<BootMarker> codec, Seq<string> hostMarkers = default) =>
         from path in IO.pure(Path.Join(supportRoot, MarkerFile))
         from own in IO.lift(() => File.Exists(path)
-            ? Some(Try.lift(() => Fin.Succ(Optional(JsonSerializer.Deserialize(File.ReadAllText(path), codec)))).Run().Bind(static inner => inner)
+            ? Some(Try.lift(() => Optional(JsonSerializer.Deserialize(File.ReadAllText(path), codec))).Run()
                 .Match(Succ: marker => (Crash: (FaultSource)new FaultSource.HostCrashMarker(path, marker), Marker: marker),
                        Fail: cause => (Crash: new FaultSource.MarkerDrifted(path, FaultWire.Observe(cause)), Marker: Option<BootMarker>.None)))
             : Option<(FaultSource Crash, Option<BootMarker> Marker)>.None)

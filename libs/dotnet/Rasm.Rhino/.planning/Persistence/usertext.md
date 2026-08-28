@@ -443,7 +443,7 @@ public static class UserTexts {
                              None: () => plan.Owned)))
                     .Rollback(
                         held: plan.Owned,
-                        release: geometry => Try.lift(geometry.Dispose).Run().Bind(static inner => inner))));
+                        release: geometry => Try.lift(geometry.Dispose).Run())));
 
     private static HashMap<ResourceId, Seq<TextMutation>> Grouped(Seq<TextMutation> mutations, ObjectTextStore store) =>
         mutations
@@ -534,9 +534,9 @@ public static class UserTexts {
         Func<string, bool> delete,
         TextMutation mutation) =>
         from address in Addressed(address: mutation.Address)
-        from _accepted in Try.lift(() => Fin.Succ(value: mutation.Edit.Switch<bool>(
+        from _accepted in Try.lift(() => mutation.Edit.Switch<bool>(
             setCase: write => set(address.Key.Value, write.Value.Value),
-            deleteCase: _ => delete(address.Key.Value)))).Run().Bind(static inner => inner)
+            deleteCase: _ => delete(address.Key.Value))).Run()
         from current in Try.lift(() => Value(source: get(address.Key.Value))).Run().Bind(static inner => inner)
         from _settled in current == mutation.Edit.Result
             ? Fin.Succ(value: unit)
@@ -573,7 +573,7 @@ public static class UserTexts {
                     : Fin.Succ(value: (maps.Flat, maps.Sections.Add(address.Address, row.Value))),
                 objectCase: (_, _) => Fin.Fail<(HashMap<TextKey, UserTextValue>, HashMap<TextSection, UserTextValue>)>(
                     error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { "a document address off the string table" }))))))
-        from counts in Try.lift(() => Fin.Succ(value: (Flat: document.Strings.DocumentUserTextCount, Sections: document.Strings.DocumentDataCount))).Run().Bind(static inner => inner)
+        from counts in Try.lift(() => (Flat: document.Strings.DocumentUserTextCount, Sections: document.Strings.DocumentDataCount)).Run()
         from _proof in Proved(
             subject: nameof(DocumentTextSnapshot),
             expected: $"flat={counts.Flat}:sections={counts.Sections}",
@@ -582,7 +582,7 @@ public static class UserTexts {
         select new DocumentTextSnapshot(Flat: maps.Flat, Sections: maps.Sections);
 
     private static Fin<(string Raw, TextAddress Address, UserTextValue Value)> Row(RhinoDoc document, int index) =>
-        from raw in Try.lift(() => Fin.Succ(value: document.Strings.GetKey(index))).Run().Bind(static inner => inner)
+        from raw in Try.lift(() => document.Strings.GetKey(index)).Run()
         from value in FactoryBridge.Accept<UserTextValue>(candidate: document.Strings.GetValue(index))
         let separator = raw.IndexOf('\\', StringComparison.Ordinal)
         from address in separator < 0
@@ -598,7 +598,7 @@ public static class UserTexts {
             .Apply(static (attributes, geometry) => (Attributes: attributes, Geometry: geometry))
             .As()
             .ToFin()
-        from count in Try.lift(() => Fin.Succ(value: source.Attributes.UserStringCount)).Run().Bind(static inner => inner)
+        from count in Try.lift(() => source.Attributes.UserStringCount).Run()
         from _proof in Proved(
             subject: nameof(ObjectTextSnapshot),
             expected: count.ToString(),
@@ -627,7 +627,7 @@ public static class UserTexts {
         select matches;
 
     private static Fin<Seq<Guid>> Find(RhinoDoc document, TextSearch search, ObjectTextStore store) =>
-        from found in Try.lift(() => Fin.Succ(value: search.Filter.Switch<(RhinoDoc Document, TextSearch Search, ObjectTextStore Store), RhinoObject[]?>(
+        from found in Try.lift(() => search.Filter.Switch<(RhinoDoc Document, TextSearch Search, ObjectTextStore Store), RhinoObject[]?>(
             state: (document, search, store),
             kindsCase: static (state, kinds) => state.Document.Objects.FindByUserString(
                 state.Search.Key.Value,
@@ -642,7 +642,7 @@ public static class UserTexts {
                 state.Search.Policy.Comparison.Key,
                 state.Store == ObjectTextStore.Geometry,
                 state.Store == ObjectTextStore.Attributes,
-                enumerator.Settings)))).Run().Bind(static inner => inner)
+                enumerator.Settings))).Run()
         select toSeq(Optional(found).IfNone(System.Array.Empty<RhinoObject>())).Map(static value => value.Id);
 
     private static Fin<RhinoObject> Resolve(RhinoDoc document, ResourceId objectId) =>
@@ -650,7 +650,7 @@ public static class UserTexts {
             .ToFin(Fail: new PersistenceFault.AbsentEntry(Table: "objects", Entry: objectId.Value.ToString()))).Run().Bind(static inner => inner);
 
     private static Fin<HashMap<TextKey, UserTextValue>> Freeze(Func<NameValueCollection> read) =>
-        from source in Try.lift(() => Fin.Succ(value: read())).Run().Bind(static inner => inner)
+        from source in Try.lift(() => read()).Run()
         from rows in toSeq(source.AllKeys.OfType<string>())
             .Traverse(raw => (
                     FactoryBridge.Accept<TextKey>(candidate: raw).ToValidation(),

@@ -844,10 +844,10 @@ public static class InputDrivers {
         });
 
     private static Fin<Option<TDevice>> Named<TDevice>(Func<TDevice> resolve) =>
-        Try.lift(() => Fin.Succ(Optional(resolve()))).Run().Bind(static inner => inner);
+        Try.lift(() => Optional(resolve())).Run();
 
     private static Fin<T> Trapped<T>(Func<T> reach, DeviceClass kind) =>
-        Try.lift(() => Fin.Succ(reach())).Run().Bind(static inner => inner);
+        Try.lift(() => reach()).Run();
 
     private static Fin<T> Present<T>(Option<T> found, InputDriverFault absent) =>
         found.Match(Some: Fin.Succ, None: () => Fin.Fail<T>(absent));

@@ -921,7 +921,7 @@ public static class PrintArm {
 
     static Fin<T> Bracketed<TNative, T>(Func<TNative> acquire, Func<TNative, Fin<T>> project)
         where TNative : class, IDisposable =>
-        Try.lift(() => Fin.Succ(acquire())).Run().Bind(static inner => inner)
+        Try.lift(() => acquire()).Run()
             .Bind(native => Custody.Bracket(() => project(native), native));
 
     static Fin<T> Opened<T>(Context context, ReadOnlyMemory<byte> bytes, Func<Profile, Fin<T>> project) =>

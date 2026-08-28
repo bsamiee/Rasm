@@ -350,8 +350,8 @@ public interface IDualResidual {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Lm {
     public static Fin<LmResult> Minimize(ILmModel model, SolvePolicy policy) {
-        return from activeModel in Admit.NotNull(value: model)
-               from activePolicy in Admit.NotNull(value: policy).Bind(active => active.Admit())
+        return from activeModel in Admit.Need(value: model)
+               from activePolicy in Admit.Need(value: policy).Bind(active => active.Admit())
                from admitted in AdmitModel(model: activeModel)
                from norm in Objective(model: activeModel, parameters: admitted.Seed)
                from result in Iterate(model: activeModel, dof: admitted.Dof, policy: activePolicy,

@@ -227,13 +227,13 @@ public static class CanvasQuery {
 
     private static Fin<Picked> Resolve(
         HostCanvas surface, PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord) =>
-        from result in Try.lift(() => Fin.Succ(surface.ResolvePick(
+        from result in Try.lift(() => surface.ResolvePick(
                 at,
                 includeGrips: gates.Admits(PickAxis.Grips),
                 includeForeground: gates.Admits(PickAxis.Foreground),
                 includeBackground: gates.Admits(PickAxis.Background),
                 includeWires: gates.Admits(PickAxis.Wires),
-                recursive: gates.Admits(PickAxis.Recursive)))).Run().Bind(static inner => inner)
+                recursive: gates.Admits(PickAxis.Recursive))).Run()
             .Bind(active => Admit.Need(value: active))
         from hit in PickHit.Of(result: result)
         from picked in Acceptance.Value(value: CanvasMap.Picked(result: result, at: result.Point, hit: hit))

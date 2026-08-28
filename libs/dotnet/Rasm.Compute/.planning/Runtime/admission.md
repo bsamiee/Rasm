@@ -165,15 +165,15 @@ public sealed record AdmittedIntent {
             : Fin.Fail<long>(new ComputeFault.PayloadOverBounds($"<shape-axis-non-positive:{dimension}>")).ToValidation();
 
     private static Fin<(long Bytes, long Elements)> Counted(int bytes, Seq<long> axes) =>
-        Try.lift(() => Fin.Succ((
+        Try.lift(() => (
             Bytes: (long)bytes,
-            Elements: axes.Fold(1L, static (product, dimension) => checked(product * dimension))))).Run().Bind(static inner => inner)
+            Elements: axes.Fold(1L, static (product, dimension) => checked(product * dimension)))).Run()
             .MapFail(static _ => new ComputeFault.PayloadOverBounds("<shape-overflow>"));
 
     private static Fin<(long Bytes, long Elements)> Summed(Seq<(long Bytes, long Elements)> measured) =>
-        Try.lift(() => Fin.Succ(measured.Fold(
+        Try.lift(() => measured.Fold(
             (Bytes: 0L, Elements: 0L),
-            static (sum, next) => (checked(sum.Bytes + next.Bytes), checked(sum.Elements + next.Elements))))).Run().Bind(static inner => inner)
+            static (sum, next) => (checked(sum.Bytes + next.Bytes), checked(sum.Elements + next.Elements)))).Run()
             .MapFail(static _ => new ComputeFault.PayloadOverBounds("<pipeline-overflow>"));
 
     private static UInt128 Derived(ComputeIntent intent) =>

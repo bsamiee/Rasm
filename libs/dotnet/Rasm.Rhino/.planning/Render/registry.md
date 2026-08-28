@@ -94,7 +94,7 @@ public static class ContentUuidCatalog {
     }
 
     private static Fin<Seq<ContentUuidSeed>> Build() =>
-        from slots in Try.lift(() => Fin.Succ(toSeq(Slots()))).Run().Bind(static inner => inner)
+        from slots in Try.lift(() => toSeq(Slots())).Run()
         from _ in guard(!slots.IsEmpty, (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "at least one content identity"))
         from seeds in slots.TraverseM(slot => Seed(slot)).As()
         from __ in guard(
@@ -114,7 +114,7 @@ public static class ContentUuidCatalog {
     private static Fin<ContentUuidSeed> Seed((string Name, Func<Guid> Read) slot) =>
         from role in Role(slot.Name)
         from kind in Kind(slot.Name)
-        from raw in Try.lift(() => Fin.Succ(value: slot.Read())).Run().Bind(static inner => inner)
+        from raw in Try.lift(() => slot.Read()).Run()
         from id in ResourceId.Admit(value: raw)
         select new ContentUuidSeed(Name: slot.Name, Kind: kind, Role: role, Id: id);
 
@@ -345,7 +345,7 @@ public abstract partial record ShellRow {
             from panels in context.Registrar.IsPanels
                 ? Admit.Need(context.Registrar.AsPanels)
                 : Fin.Fail<RenderPanels>(error: new RenderFault.Unbound(Member: nameof(RenderPanels)))
-            from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => panels.RegisterPanel(
+            from _ in Try.lift(() => HostEdge.Side(() => panels.RegisterPanel(
                 plugin: context.Owner,
                 renderPanelType: row.Kind.Native,
                 panelType: row.Body,
@@ -353,18 +353,18 @@ public abstract partial record ShellRow {
                 caption: row.Caption,
                 alwaysShow: row.Visibility.Admits(capability: PanelTrait.AlwaysShow),
                 initialShow: row.Visibility.Admits(capability: PanelTrait.InitialShow),
-                pos: row.Place.Native)))).Run().Bind(static inner => inner)
+                pos: row.Place.Native))).Run()
             select unit,
         tabCase: static (context, row) =>
             from tabs in context.Registrar.IsTabs
                 ? Admit.Need(context.Registrar.AsTabs)
                 : Fin.Fail<RenderTabs>(error: new RenderFault.Unbound(Member: nameof(RenderTabs)))
-            from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => tabs.RegisterTab(
+            from _ in Try.lift(() => HostEdge.Side(() => tabs.RegisterTab(
                 plugin: context.Owner,
                 tabType: row.Body,
                 renderEngineId: row.Engine.IfNone(context.Owner.Id),
                 caption: row.Caption,
-                icon: row.Icon)))).Run().Bind(static inner => inner)
+                icon: row.Icon))).Run()
             select unit);
 
     private static Fin<Type> Keyed(Type body) =>
@@ -465,8 +465,8 @@ public sealed record EditorBridge {
     private Fin<TOut> Settle<TOut>(EditorProvider provider, Fin<TOut> outcome) {
         EditorBridge self = this;
         return outcome.Match(
-            Succ: value => Try.lift(() => Fin.Succ(value: (HostEdge.Side(() => self.Model.Commit(uuidDataType: provider.Key)), value).Item2)).Run().Bind(static inner => inner),
-            Fail: primary => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => self.Model.Discard(uuidDataType: provider.Key)))).Run().Bind(static inner => inner).Match(
+            Succ: value => Try.lift(() => (HostEdge.Side(() => self.Model.Commit(uuidDataType: provider.Key)), value).Item2).Run(),
+            Fail: primary => Try.lift(() => HostEdge.Side(() => self.Model.Discard(uuidDataType: provider.Key))).Run().Match(
                 Succ: static _ => Fin.Fail<TOut>(error: primary),
                 Fail: discard => Fin.Fail<TOut>(error: primary + discard)));
     }
@@ -503,9 +503,9 @@ public static class RenderShell {
                from program in Gate.Value.Declared.ToFin(Fail: new KernelFault.MissingContext())
                from row in program.Rows.Find(candidate => candidate.Body == typeof(TBody))
                    .ToFin(Fail: new RenderFault.SeatAbsent(Engine: Guid.Empty))
-               from found in Try.lift(() => Fin.Succ(value: Optional(row.Surface == ShellSurface.Panel
+               from found in Try.lift(() => Optional(row.Surface == ShellSurface.Panel
                    ? RenderPanels.FromRenderSessionId(plugIn: active, panelType: typeof(TBody), renderSessionId: session)
-                   : RenderTabs.FromRenderSessionId(plugIn: active, tabType: typeof(TBody), renderSessionId: session)))).Run().Bind(static inner => inner)
+                   : RenderTabs.FromRenderSessionId(plugIn: active, tabType: typeof(TBody), renderSessionId: session))).Run()
                from seat in found.Traverse(body => Try.lift(() =>
                    Optional(body as TBody).ToFin(Fail: new RenderFault.Unbound(Member: typeof(TBody).Name))
                        .Map(typed => new ShellSeat<TBody>(
@@ -598,7 +598,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
         RhinoDoc document, IEnumerable<string> paths, RenderContentKind kind, RenderContentSerializer.LoadMultipleFlags flags) {
         return (from activeDocument in Admit.Need(document)
                 from activePaths in Admit.Need(paths)
-                from files in Try.lift(() => Fin.Succ(toSeq(activePaths))).Run().Bind(static inner => inner)
+                from files in Try.lift(() => toSeq(activePaths)).Run()
                 from _0 in guard(
                     !files.IsEmpty && files.ForAll(static path => !string.IsNullOrWhiteSpace(path)),
                     (Error)new KernelFault.InvalidValue(nameof(paths), "a non-empty path set"))
@@ -625,10 +625,10 @@ public sealed class ContentSerializer : RenderContentSerializer {
          from transfer in Optional(active.Content).ToFin(Fail: new KernelFault.InvalidResult())
          from path in Acceptance.Text(active.Path)
          from content in transfer.Take()
-         from _ in Try.lift(() => Fin.Succ(value: active.Disposition.Fold(
+         from _ in Try.lift(() => active.Disposition.Fold(
                  loaded: () => HostEdge.Side(() => ReportContentAndFile(content, path, active.Index)),
-                 deferred: () => HostEdge.Side(() => ReportDeferredContentAndFile(content, path, active.Index))))).Run().Bind(static inner => inner)
-             .Rollback(release: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(content.Dispose))).Run().Bind(static inner => inner))
+                 deferred: () => HostEdge.Side(() => ReportDeferredContentAndFile(content, path, active.Index)))).Run()
+             .Rollback(release: () => Try.lift(() => HostEdge.Side(content.Dispose)).Run())
          select unit)
         .Settled(
             held: Seq(report),
@@ -746,7 +746,7 @@ public abstract partial record ContentAdmission {
              _ => expected.Attach(document: document, content: lease.Resource),
          }
          select transferred)
-        .Rollback(release: () => Try.lift(() => Fin.Succ(value: lease.Dispose())).Run().Bind(static inner => inner));
+        .Rollback(release: () => Try.lift(() => lease.Dispose()).Run());
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -774,7 +774,7 @@ public abstract partial record TreeMutation {
                 from _ in ChangeScope.Write(content: ctx.Parent, reason: reason,
                     body: live => slot.Case switch {
                         string name => Try.lift(() => Admit.Confirm(success: live.DeleteChild(name, reason.Native))).Run().Bind(static inner => inner),
-                        _ => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => live.DeleteAllChildren(reason.Native)))).Run().Bind(static inner => inner),
+                        _ => Try.lift(() => HostEdge.Side(() => live.DeleteAllChildren(reason.Native))).Run(),
                     })
                 select unit,
             slot: static (ctx, edit) =>
@@ -975,7 +975,7 @@ public abstract partial record ContentMutation {
          from _ in guard(targetKind == replacementKind, (Error)new KernelFault.InvalidValue(nameof(ContentKind), targetKind.ToString()))
          from __ in Try.lift(() => Admit.Confirm(success: target.Replace(newcontent: lease.Resource))).Run().Bind(static inner => inner)
          select unit)
-        .Rollback(release: () => Try.lift(() => Fin.Succ(value: lease.Dispose())).Run().Bind(static inner => inner));
+        .Rollback(release: () => Try.lift(() => lease.Dispose()).Run());
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1130,8 +1130,8 @@ public sealed record ContentCollectionProbe {
 
     public Fin<Unit> Release() => Custody.Release(
         releases: Seq<Func<Fin<Unit>>>(
-            () => Try.lift(() => Fin.Succ(value: Kinds.Dispose())).Run().Bind(static inner => inner),
-            () => Try.lift(() => Fin.Succ(value: Collection.Dispose())).Run().Bind(static inner => inner)));
+            () => Try.lift(() => Kinds.Dispose()).Run(),
+            () => Try.lift(() => Collection.Dispose()).Run()));
 
     public static Fin<ContentCollectionProbe> Of(
         Lease<RenderContentCollection> collection, Lease<RenderContentKindList> kinds) {
@@ -1146,8 +1146,8 @@ public sealed record ContentCollectionProbe {
                from list in Lease<RenderContentKindList>.Acquire(
                        mint: static () => new RenderContentKindList())
                    .Rollback(release: () => Fin.Succ(value: collection.Dispose()))
-               from probe in (from _ in Try.lift(() => Fin.Succ(value: kinds.Iter(
-                                      kind => list.Resource.Add(kind: (RenderContentKind)kind.Key)))).Run().Bind(static inner => inner)
+               from probe in (from _ in Try.lift(() => kinds.Iter(
+                                      kind => list.Resource.Add(kind: (RenderContentKind)kind.Key))).Run()
                               from admitted in Of(collection: collection, kinds: list)
                               select admitted)
                    .Rollback(
@@ -1200,7 +1200,7 @@ public static class ContentQuery {
     public static ContentQuery<ContentArchive> Archive { get; } =
         new(read: static (_, content) =>
             from xml in Acceptance.Text(value: content.Xml)
-            from embedded in Try.lift(() => Fin.Succ(value: toSeq(content.GetEmbeddedFilesList()))).Run().Bind(static inner => inner)
+            from embedded in Try.lift(() => toSeq(content.GetEmbeddedFilesList())).Run()
             select new ContentArchive(Xml: xml, EmbeddedFiles: embedded));
 
     public static ContentQuery<FieldCensus> Fields { get; } =
@@ -1274,14 +1274,14 @@ public static class ContentQuery {
         new(read: (document, content, op) =>
             from reference in Admit.Need(old)
             from prior in reference.Resolve(document: document)
-            from native in Try.lift(() => Fin.Succ(content.MatchData(oldContent: prior))).Run().Bind(static inner => inner)
+            from native in Try.lift(() => content.MatchData(oldContent: prior)).Run()
             from verdict in MatchVerdict.Of(native, op)
             select new MatchEvidence(Verdict: verdict));
 
     public static ContentQuery<CompatibilityEvidence> Compatible(Guid renderEngineId) =>
         new(read: (_, content, op) =>
             from _ in guard(renderEngineId != Guid.Empty, (Error)new KernelFault.InvalidValue(nameof(renderEngineId), "a non-empty render engine identity")).ToFin()
-            from compatible in Try.lift(() => Fin.Succ(value: content.IsCompatible(renderEngineId))).Run().Bind(static inner => inner)
+            from compatible in Try.lift(() => content.IsCompatible(renderEngineId)).Run()
             select new CompatibilityEvidence(RenderEngineId: renderEngineId, Compatible: compatible));
 
     public static ContentQuery<ContentCollectionEvidence> Collection(ContentCollectionProbe probe) =>
@@ -1291,25 +1291,25 @@ public static class ContentQuery {
             from kindLease in Admit.Need(active.Kinds)
             from result in collectionLease.Use(collection => kindLease.Use(kinds =>
                 from usage in Try.lift(() => ContentUsageFilter.Of(collection.GetFilterContentByUsage())).Run().Bind(static inner => inner)
-                from count in Try.lift(() => Fin.Succ(collection.Count())).Run().Bind(static inner => inner)
+                from count in Try.lift(() => collection.Count()).Run()
                 from members in toSeq(Enumerable.Range(0, count)).TraverseM(index => Try.lift(() =>
                     Optional(collection.ContentAt(index)).ToFin(Fail: new KernelFault.InvalidResult())
                         .Bind(row => ResourceId.Admit(value: row.Id))).Run().Bind(static inner => inner)).As()
                 from kind in ContentKind.Of(content, op)
                 from scope in KindScope.Of(kinds: kinds)
-                from traits in Try.lift(() => Fin.Succ(value: CapabilitySet<CollectionTrait>.Of(
+                from traits in Try.lift(() => CapabilitySet<CollectionTrait>.Of(
                     Seq((Trait: CollectionTrait.ForcedVaries, Held: collection.GetForcedVaries()),
                         (Trait: CollectionTrait.NeedsPreview, Held: collection.ContentNeedsPreviewThumbnail(c: content, includeChildren: false)),
                         (Trait: CollectionTrait.ContainsOwnKind, Held: kinds.Contains((RenderContentKind)kind.Key)))
                         .Filter(static row => row.Held)
                         .Map(static row => row.Trait)
-                        .ToArray()))).Run().Bind(static inner => inner)
-                from evidence in Try.lift(() => Fin.Succ(new ContentCollectionEvidence(
+                        .ToArray())).Run()
+                from evidence in Try.lift(() => new ContentCollectionEvidence(
                     Usage: usage,
                     Members: toSeq(members),
-                    SearchPattern: HostEdge.Text(collection.GetSearchPattern()),
+                    SearchPattern: HostEdge.NonEmpty(collection.GetSearchPattern()),
                     Kinds: scope,
-                    Traits: traits))).Run().Bind(static inner => inner)
+                    Traits: traits)).Run()
                 select evidence))
             select result);
 
@@ -1404,9 +1404,9 @@ public static class Registry {
         select facts;
 
     private static Fin<EditorFacts> Facts(RhinoSettings settings) =>
-        from renderer in Try.lift(() => Fin.Succ(value: settings.GetCurrentRenderer())).Run().Bind(static inner => inner)
-        from viewport in Try.lift(() => Fin.Succ(value: Optional(settings.RenderingView()).Map(static view => view.Viewport.Id))).Run().Bind(static inner => inner)
-        from sizes in Try.lift(() => Fin.Succ(value: toSeq(settings.GetCustomRenderSizes()))).Run().Bind(static inner => inner)
+        from renderer in Try.lift(() => settings.GetCurrentRenderer()).Run()
+        from viewport in Try.lift(() => Optional(settings.RenderingView()).Map(static view => view.Viewport.Id)).Run()
+        from sizes in Try.lift(() => toSeq(settings.GetCustomRenderSizes())).Run()
         from admitted in sizes.TraverseM(size => Size2i.Of(width: size.Width, height: size.Height)).As()
         select new EditorFacts(
             CurrentRenderer: renderer,
@@ -1822,8 +1822,7 @@ public sealed class ContentStream : IDisposable {
 
         internal Fin<Unit> Close() =>
             gate.Close(
-                stop: () => Try.lift(() => Fin.Succ(
-                    value: Cell.Take(cell: subscription).Current.Iter(static held => held.Dispose()))).Run().Bind(static inner => inner),
+                stop: () => Try.lift(() => Cell.Take(cell: subscription).Current.Iter(static held => held.Dispose())).Run(),
                 settle: () => Custody.Release(
                     held: failures.Parked,
                     release: static failure => Fin.Succ(value: HostEdge.Side(failure.Dispose))));
@@ -1851,10 +1850,10 @@ public sealed class ContentStream : IDisposable {
                     .Rollback(held: Seq(ctx.Original, ctx.Detached), release: r => Release(fact: r)));
 
         private static Fin<Unit> Release(ContentFact fact) =>
-            Try.lift(() => Fin.Succ(value: HostEdge.Side(fact.Dispose))).Run().Bind(static inner => inner);
+            Try.lift(() => HostEdge.Side(fact.Dispose)).Run();
 
         private static Fin<Unit> Release(Subscription held) =>
-            Try.lift(() => Fin.Succ(value: HostEdge.Side(held.Dispose))).Run().Bind(static inner => inner);
+            Try.lift(() => HostEdge.Side(held.Dispose)).Run();
     }
 }
 ```

@@ -537,7 +537,7 @@ public sealed partial class NativeKind {
             reader => rehydrate(reader),
             host => read((THost)host),
             (value, op) => Admitted<TValue>(value).Bind(held =>
-                Try.lift(() => Fin.Succ((Grasshopper2.Doc.IDocumentObject)seed(label.Value, held))).Run().Bind(static inner => inner)
+                Try.lift(() => (Grasshopper2.Doc.IDocumentObject)seed(label.Value, held)).Run()
                     .Bind(host => write((THost)host, held, op).Map(_ => host))),
             (host, value, op) => Pair<THost, TValue>(host, value).Bind(pair => write(pair.Host, pair.Value)));
     }
@@ -555,7 +555,7 @@ public sealed partial class NativeKind {
             reader => rehydrate(reader),
             host => read((THost)host),
             (value, op) => Admitted<TValue>(value).Bind(held =>
-                Try.lift(() => Fin.Succ((Grasshopper2.Doc.IDocumentObject)seed(label.Value, held))).Run().Bind(static inner => inner)),
+                Try.lift(() => (Grasshopper2.Doc.IDocumentObject)seed(label.Value, held)).Run()),
             (_, value, op) => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Object, new GhEvidence($"{key}:sealed:{value.GetType().Name}"))));
     }
 
@@ -628,7 +628,7 @@ public static class NativeObject {
         (kind, seed) switch {
             (null, _) or (_, null) => Fin.Fail<Grasshopper2.Doc.IDocumentObject>(
                 new GhFault.ContractRefused(GhContract.Object, new GhEvidence(nameof(Mint)))),
-            (var row, PersistedValue.Empty) => Try.lift(() => Fin.Succ(row.Create())).Run().Bind(static inner => inner),
+            (var row, PersistedValue.Empty) => Try.lift(() => row.Create()).Run(),
             var (row, value) => row.Mint(value),
         };
 
@@ -637,7 +637,7 @@ public static class NativeObject {
         (kind, reader) switch {
             (null, _) or (_, null) => Fin.Fail<Grasshopper2.Doc.IDocumentObject>(
                 new GhFault.ContractRefused(GhContract.Object, new GhEvidence(nameof(Rehydrate)))),
-            var (row, source) => Try.lift(() => Fin.Succ(row.Rehydrate(source))).Run().Bind(static inner => inner),
+            var (row, source) => Try.lift(() => row.Rehydrate(source)).Run(),
         };
 
     public static Fin<Unit> Persist(
@@ -649,7 +649,7 @@ public static class NativeObject {
 
     public static Fin<PersistedValue> ValueOf(Grasshopper2.Doc.IDocumentObject? host) =>
         Row(host, nameof(ValueOf))
-            .Bind(pair => Try.lift(() => Fin.Succ(pair.Row.Read(pair.Host))).Run().Bind(static inner => inner));
+            .Bind(pair => Try.lift(() => pair.Row.Read(pair.Host)).Run());
 
     public static Fin<Unit> Assign(Grasshopper2.Doc.IDocumentObject? host, PersistedValue? value) =>
         value is null
@@ -685,7 +685,7 @@ public static class NativeObject {
             : Reconcile(timer, toSeq(desired.Distinct()));
 
     private static Fin<Unit> Reconcile(Grasshopper2.Parameters.Special.TimerObject timer, Seq<Guid> desired) =>
-        Try.lift(() => Fin.Succ(toSeq(timer.TargetIds))).Run().Bind(static inner => inner)
+        Try.lift(() => toSeq(timer.TargetIds)).Run()
             .Bind(current => current.Filter(id => !desired.Contains(id))
                 .TraverseM(id => Target(timer, id, add: false))
                 .As()
@@ -722,7 +722,7 @@ public static class NativeObject {
 
     private static Fin<Unit> Target(
         Grasshopper2.Parameters.Special.TimerObject timer, Guid id, bool add) =>
-        Try.lift(() => Fin.Succ(add ? timer.AddTarget(id) : timer.RemoveTarget(id))).Run().Bind(static inner => inner)
+        Try.lift(() => add ? timer.AddTarget(id) : timer.RemoveTarget(id)).Run()
             .Bind(changed => Admit.Confirm(success: changed));
 
     internal static Fin<Unit> Select(
@@ -745,7 +745,7 @@ public static class NativeObject {
         Grasshopper2.Parameters.Special.ValueListObject list,
         PersistedValue.Listing desired) =>
         Try.lift(() => { list.Mode = desired.Mode; }).Run().Bind(static inner => inner)
-            .Bind(_ => Try.lift(() => Fin.Succ(toSeq(Enumerable.Range(0, list.ItemCount)))).Run().Bind(static inner => inner))
+            .Bind(_ => Try.lift(() => toSeq(Enumerable.Range(0, list.ItemCount))).Run())
             .Bind(indexes => indexes
                 .TraverseM(index => Try.lift(() => {
                     if (desired.Selected.Contains(index) == list.ItemSelected(index)) { return; }

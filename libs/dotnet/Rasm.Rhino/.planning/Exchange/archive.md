@@ -570,7 +570,7 @@ public abstract partial record ArchivePatch {
         from destination in ModelUnit.Of(value: target)
         from factor in source.ScaleTo(target: destination)
         from _scaled in policy.Apply(archive: archive, factor: factor)
-        from _written in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => write(arg1: archive, arg2: target)))).Run().Bind(static inner => inner)
+        from _written in Try.lift(() => HostEdge.Side(() => write(arg1: archive, arg2: target))).Run()
         select (ExchangeEvidence)new ExchangeEvidence.UnitCase(
             Surface: surface, Before: before, After: target, Policy: policy);
 }
@@ -943,7 +943,7 @@ public static class Archives {
             using EarthAnchorPoint held = archive.EarthAnchorPoint;
             return EarthAnchor.Located(anchor: held);
         }).Run().Bind(static inner => inner)
-        from outcome in Try.lift(() => Fin.Succ(value: ArchiveOutcome.Of(
+        from outcome in Try.lift(() => ArchiveOutcome.Of(
             yield: new ArchiveYield.MetadataCase(Metadata: ArchiveMetadata.Of(
                 notes: () => ArchiveMetadata.Text(value: archive.Notes.Notes),
                 archiveVersion: () => archive.ArchiveVersion,
@@ -958,7 +958,7 @@ public static class Archives {
                 preview: () => ArchiveMetadata.Previewed(bitmap: archive.GetPreviewImage()))),
             evidence: Seq<ExchangeEvidence>(new ExchangeEvidence.DegradedCase(
                 Surface: nameof(MetadataOf),
-                Detail: "Byte ingress projects the in-memory header; the layout roster is a path-only read."))))).Run().Bind(static inner => inner)
+                Detail: "Byte ingress projects the in-memory header; the layout roster is a path-only read.")))).Run()
         select outcome;
 
     private static Fin<ArchiveOutcome> Verify(File3dm archive, Seq<ExchangeEvidence> evidence) =>
@@ -1025,7 +1025,7 @@ public static class Archives {
         DocumentPath folder,
         OutputPolicy output,
         MutationTrace trace) =>
-        from target in Try.lift(() => Fin.Succ(value: DocumentPath.Create(value: System.IO.Path.Join(folder.Value, name)))).Run().Bind(static inner => inner)
+        from target in Try.lift(() => DocumentPath.Create(value: System.IO.Path.Join(folder.Value, name))).Run()
         from landed in output.Land(
             target: target,
             codec: None,

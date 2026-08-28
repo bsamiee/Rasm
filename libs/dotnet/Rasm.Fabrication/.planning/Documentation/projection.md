@@ -341,7 +341,7 @@ internal static class Hlr {
         MeshSpace model,
         ProjectionDir direction,
         ProjectionPolicy policy) =>
-        from bounds in Try.lift(() => Fin.Succ(model.Native.GetBoundingBox(accurate: false))).Run().Bind(static inner => inner)
+        from bounds in Try.lift(() => model.Native.GetBoundingBox(accurate: false)).Run()
         from _ in guard(bounds.IsValid, new KernelFault.InvalidInput())
         from forward in Direction.Of(direction.Forward, model.Tolerance, HlrOp)
         from pose in policy.Convention.Pose(bounds, Some(forward), model.Tolerance, HlrOp)

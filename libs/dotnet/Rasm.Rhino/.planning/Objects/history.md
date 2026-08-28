@@ -85,9 +85,9 @@ public abstract partial record SlotValue {
             count: static slot => Fin.Succ<SlotValue>(slot),
             scalar: static slot => guard(double.IsFinite(slot.Value), new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            point: static slot => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
-            direction: static slot => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
-            motion: static slot => Acceptance.Input(value: slot.Value).Map(_ => (SlotValue)slot),
+            point: static slot => Admit.Value(value: slot.Value).Map(_ => (SlotValue)slot),
+            direction: static slot => Admit.Value(value: slot.Value).Map(_ => (SlotValue)slot),
+            motion: static slot => Admit.Value(value: slot.Value).Map(_ => (SlotValue)slot),
             paint: static slot => Fin.Succ<SlotValue>(slot),
             id: static slot => Fin.Succ<SlotValue>(slot),
             text: static slot => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
@@ -102,15 +102,15 @@ public abstract partial record SlotValue {
             source: static slot => Admit.Need(slot.Value).Map(_ => (SlotValue)slot),
             pointOnSource: static (slot) =>
                 from source in Admit.Need(slot.Value)
-                from point in Acceptance.Input(value: slot.At)
+                from point in Admit.Value(value: slot.At)
                 select (SlotValue)new PointOnSource(Value: source, At: point),
             toggles: static slot => Fin.Succ<SlotValue>(slot),
             counts: static slot => Fin.Succ<SlotValue>(slot),
             scalars: static slot => guard(slot.Values.ForAll(double.IsFinite), new KernelFault.InvalidInput()).ToFin()
                 .Map(_ => (SlotValue)slot),
-            points: static slot => slot.Values.TraverseM(value => Acceptance.Input(value)).As()
+            points: static slot => slot.Values.TraverseM(value => Admit.Value(value)).As()
                 .Map(values => (SlotValue)new Points(Values: values)),
-            directions: static slot => slot.Values.TraverseM(value => Acceptance.Input(value)).As()
+            directions: static slot => slot.Values.TraverseM(value => Admit.Value(value)).As()
                 .Map(values => (SlotValue)new Directions(Values: values)),
             paints: static slot => Fin.Succ<SlotValue>(slot),
             ids: static slot => Fin.Succ<SlotValue>(slot),
@@ -300,7 +300,7 @@ public sealed class HistoryScript {
                        record.CopyOnReplaceObject = CopyOnReplace.Key;
                        return Fin.Succ(value: held);
                    }).Run().Bind(static inner => inner))
-                   .Rollback(release: () => Try.lift(() => Fin.Succ(value: held.Dispose())).Run().Bind(static inner => inner))
+                   .Rollback(release: () => Try.lift(() => held.Dispose()).Run())
                select lease;
     }
 }
@@ -321,7 +321,7 @@ public sealed class HistoryScript {
 - Law: clipping-plane arity collapses onto the plural overload. One viewport is a one-element sequence, and empty viewport rosters are refused at admission.
 - Law: raw-text emphasis is a SET. Bold and italic are independently held, their product is open, and a third emphasis axis lands as one row — so the pair rides `CapabilitySet<TextEmphasis>` and the host's two boolean arguments read their rows at the one call that takes them.
 - Growth: a host overload adds one `Regrown` case and the generator forces both admission and application arms; a new emphasis axis is one `TextEmphasis` row.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/results` (`Acceptance.Input`, `Acceptance.Text`, `Admit.Positive`, `Admit.Confirm`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/results` (`Admit.Value`, `Acceptance.Text`, `Admit.Positive`, `Admit.Confirm`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -367,20 +367,20 @@ public abstract partial record Regrown {
     public sealed record Instance(InstanceReferenceGeometry Value) : Regrown;
 
     public Fin<Regrown> Admit() {
-        return Switch(point: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+        return Switch(point: static value => Admit.Value(value.Value).Map(_ => (Regrown)value),
             dot: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
             line: static value =>
-                from start in Acceptance.Input(value.Value.From)
-                from end in Acceptance.Input(value.Value.To)
+                from start in Admit.Value(value.Value.From)
+                from end in Admit.Value(value.Value.To)
                 from _ in guard(start != end, new KernelFault.InvalidInput())
                 select (Regrown)new Line(new LineGrowth(start, end)),
             polyline: static value => guard(value.Values.Count >= 2, new KernelFault.InvalidInput()).ToFin()
                 .Bind(_ => AdmitPoints(value.Values))
                 .Map(points => (Regrown)new Polyline(points)),
-            arc: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
-            circle: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
-            ellipse: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
-            sphere: static value => Acceptance.Input(value.Value).Map(_ => (Regrown)value),
+            arc: static value => Admit.Value(value.Value).Map(_ => (Regrown)value),
+            circle: static value => Admit.Value(value.Value).Map(_ => (Regrown)value),
+            ellipse: static value => Admit.Value(value.Value).Map(_ => (Regrown)value),
+            sphere: static value => Admit.Value(value.Value).Map(_ => (Regrown)value),
             curve: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
             surface: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
             extrusion: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
@@ -392,7 +392,7 @@ public abstract partial record Regrown {
                 .Bind(_ => AdmitPoints(value.Values))
                 .Map(points => (Regrown)new PointCloudPoints(points)),
             clippingPlane: static value =>
-                from frame in Acceptance.Input(value.Value.Frame)
+                from frame in Admit.Value(value.Value.Frame)
                 from _ in guard(
                     double.IsFinite(value.Value.U) && value.Value.U > 0.0
                     && double.IsFinite(value.Value.V) && value.Value.V > 0.0
@@ -410,7 +410,7 @@ public abstract partial record Regrown {
             text: static value => AdmitGeometry(value.Value).Map(_ => (Regrown)value),
             rawText: static value =>
                 from text in Acceptance.Text(value.Value.Text)
-                from frame in Acceptance.Input(value.Value.Frame)
+                from frame in Admit.Value(value.Value.Frame)
                 from height in Admit.Positive(value.Value.Height)
                 from font in Acceptance.Text(value.Value.Font)
                 from emphasis in Admit.Need(value.Value.Emphasis)
@@ -469,7 +469,7 @@ public abstract partial record Regrown {
     }
 
     private static Fin<Seq<Point3d>> AdmitPoints(Seq<Point3d> values) =>
-        values.TraverseM(value => Acceptance.Input(value)).As();
+        values.TraverseM(value => Admit.Value(value)).As();
 
     private static Fin<Unit> AdmitGeometry(GeometryBase? value) =>
         guard(value is { IsValid: true }, new KernelFault.InvalidInput()).ToFin();

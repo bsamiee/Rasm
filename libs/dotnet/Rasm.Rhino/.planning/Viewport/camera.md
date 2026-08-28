@@ -288,13 +288,13 @@ public abstract partial record SpatialProbe {
     private static Fin<BoundingBox> Bounds(GeometryBase geometry) =>
         from held in Admit.Need(value: geometry)
         from _ in guard(held.IsValid, new KernelFault.InvalidInput())
-        from bounds in Try.lift(() => Fin.Succ(held.GetBoundingBox(accurate: false))).Run().Bind(static inner => inner)
+        from bounds in Try.lift(() => held.GetBoundingBox(accurate: false)).Run()
         from __ in guard(bounds.IsValid, new KernelFault.InvalidInput())
         select bounds;
 
     private static Fin<DepthExtent> Extent(bool hit, double near, double far) =>
         hit
-            ? FactoryBridge.Accept<DepthExtent>(fault: DepthExtent.Validate(near, far, out DepthExtent admitted), admitted: admitted)
+            ? FactoryBridge.Lift<DepthExtent>(fault: DepthExtent.Validate(near, far, out DepthExtent admitted), admitted: admitted)
             : Fin.Fail<DepthExtent>(new KernelFault.InvalidResult());
 }
 
@@ -462,7 +462,7 @@ public sealed partial class CameraDof {
 public sealed record CPlaneState(Option<string> Name, Plane Plane, CPlaneGrid Grid, CPlanePalette Palette) {
     public static Fin<CPlaneState> Read(ViewportLease lease) {
         return ViewportLease.Admit(lease: lease).Bind(owner => owner.Read(
-            project: row => Try.lift(() => Fin.Succ(row.Viewport.GetConstructionPlane())).Run().Bind(static inner => inner)
+            project: row => Try.lift(() => row.Viewport.GetConstructionPlane()).Run()
                 .Bind(cplane => Admitted(cplane: cplane))));
     }
 
@@ -473,7 +473,7 @@ public sealed record CPlaneState(Option<string> Name, Plane Plane, CPlaneGrid Gr
             .As()
             .ToFin()
             .Bind(held => guard(cplane.Plane.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => new CPlaneState(
-                Name: HostEdge.Text(cplane.Name),
+                Name: HostEdge.NonEmpty(cplane.Name),
                 Plane: cplane.Plane,
                 Grid: held.Grid,
                 Palette: held.Palette)));

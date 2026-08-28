@@ -161,8 +161,8 @@ public static class CdcIngress {
     static List<TopicPartitionOffset> Timed(IConsumer<string, byte[]> client, List<TopicPartition> held,
         Instant wall, TimeSpan budget) {
         Timestamp at = new(wall.ToDateTimeUtc(), TimestampType.CreateTime);
-        return Try.lift(() => Fin.Succ(client.OffsetsForTimes(
-                held.ConvertAll(partition => new TopicPartitionTimestamp(partition, at)), budget))).Run().Bind(static inner => inner)
+        return Try.lift(() => client.OffsetsForTimes(
+                held.ConvertAll(partition => new TopicPartitionTimestamp(partition, at)), budget)).Run()
             .IfFail(_ => Stored(held));
     }
 
@@ -241,7 +241,7 @@ public static class CdcIngress {
     static Fin<CloudEvent> Decoded(Message<string, byte[]> message) =>
         message.IsCloudEvent()
             ? from declared in EgressEventExtensions.Contract.Declarations()
-              from envelope in Try.lift(() => Fin.Succ(message.ToCloudEvent(EventFormat.Json.Formatter, declared))).Run().Bind(static inner => inner)
+              from envelope in Try.lift(() => message.ToCloudEvent(EventFormat.Json.Formatter, declared)).Run()
                   .Bind(admitted => EventEnvelope.Admit(admitted))
                   .MapFail(error => IngressFault.Lift(error,
                       static raised => raised is ArgumentException or JsonException,

@@ -227,30 +227,30 @@ public static class GardenData {
 
     public static Fin<Tree<T>> AsTree<T>(Transfer<T> payload) =>
         payload.Switch(
-            item: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromPears([Pear<T>.Create(row.Value, row.Meta)]))).Run().Bind(static inner => inner),
-            ofPear: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromPears([row.Pear]))).Run().Bind(static inner => inner),
-            ofTwig: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromTwigs([row.Twig]))).Run().Bind(static inner => inner),
+            item: static (row) => Try.lift(() => Garden.TreeFromPears([Pear<T>.Create(row.Value, row.Meta)])).Run(),
+            ofPear: static (row) => Try.lift(() => Garden.TreeFromPears([row.Pear])).Run(),
+            ofTwig: static (row) => Try.lift(() => Garden.TreeFromTwigs([row.Twig])).Run(),
             ofTree: static row => Fin.Succ(row.Tree));
 
     public static Fin<Tree<TOut>> Zip<TLeft, TRight, TOut>(
         Tree<TLeft> left, Tree<TRight> right, Func<TLeft, TRight, TOut> merge, CancellationToken cancel) =>
-        Try.lift(() => Fin.Succ(Garden.PairWiseOp(left, right, merge, cancel))).Run().Bind(static inner => inner);
+        Try.lift(() => Garden.PairWiseOp(left, right, merge, cancel)).Run();
 
     public static Fin<Tree<T>> Amend<T>(Tree<T> tree, Func<Pear<T>, Pear<T>> project, CancellationToken cancel) =>
-        Try.lift(() => Fin.Succ(Garden.PearWiseOp(tree, project, cancel))).Run().Bind(static inner => inner);
+        Try.lift(() => Garden.PearWiseOp(tree, project, cancel)).Run();
 
     public static Fin<(Twig<T> Twig, Grasshopper2.Data.IExpressionReport Report)> Evaluate<T>(
         Twig<T> twig,
         Grasshopper2.Expressions.Expression expression,
         Grasshopper2.Expressions.Resolver resolver) =>
-        Try.lift(() => Fin.Succ((
+        Try.lift(() => (
             Twig: twig.Apply(expression, resolver, out Grasshopper2.Data.IExpressionReport report),
-            Report: report))).Run().Bind(static inner => inner);
+            Report: report)).Run();
 
     public static Fin<Twig<TOut>> ConvertTwig<TIn, TOut>(
         Twig<TIn> twig, Grasshopper2.Types.Conversion.ConversionDelegate<TIn, TOut> convert,
         CancellationToken cancel, Grasshopper2.Data.ConversionRecord record) =>
-        Try.lift(() => Fin.Succ(twig.Convert(convert, cancel, record))).Run().Bind(static inner => inner);
+        Try.lift(() => twig.Convert(convert, cancel, record)).Run();
 
     private static Pear<T> Retag<T>(Pear<T> pear, Retention retention) =>
         pear is null ? pear : Pear<T>.Create(pear.Item, retention.Applied(pear.Meta));

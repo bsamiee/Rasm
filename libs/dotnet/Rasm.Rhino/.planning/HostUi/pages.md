@@ -390,9 +390,9 @@ public sealed class HostPage : IMount, IDisposable {
             work: new HostWork<Seq<Guid>>.Execute(Body: () => PropertiesLeaf
                 .ToFin(Fail: Absent(nameof(ObjectPropertiesPage.GetSelectedObjects)))
                 .Bind(page => Within(
-                    body: () => Try.lift(() => Fin.Succ(value: toSeq(page.GetSelectedObjects(filter.Mask))
+                    body: () => Try.lift(() => toSeq(page.GetSelectedObjects(filter.Mask))
                         .Map(static item => item.Id)
-                        .Strict())).Run().Bind(static inner => inner))))));
+                        .Strict()).Run())))));
     }
 
     public Fin<Unit> Modify(Func<Fin<Unit>> change) {
@@ -428,10 +428,10 @@ public sealed class HostPage : IMount, IDisposable {
     internal Fin<Unit> Retain(HostPage child, Action land, Action rollback) => Within(
         body: () => {
             PageOwner owner = new PageOwner.Parent(Value: this);
-            return child.Claim(owner: owner).Bind(_ => Try.lift(() => Fin.Succ(value: HostEdge.Side(land))).Run().Bind(static inner => inner)
+            return child.Claim(owner: owner).Bind(_ => Try.lift(() => HostEdge.Side(land)).Run()
                 .Match(
                     Succ: _ => Fin.Succ(value: Track(child)),
-                    Fail: primary => Try.lift(() => Fin.Succ(value: (HostEdge.Side(rollback), child.Unclaim(owner)).Item2)).Run().Bind(static inner => inner)
+                    Fail: primary => Try.lift(() => (HostEdge.Side(rollback), child.Unclaim(owner)).Item2).Run()
                         .Match(
                             Succ: _ => Fin.Fail<Unit>(error: primary),
                             Fail: cleanup => (Track(child), Fin.Fail<Unit>(error: primary + cleanup)).Item2)));
@@ -569,9 +569,9 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
     private Fin<Unit> Answer(PageSignal signal) => Try.lift(() => plan.Answer(signal)).Run().Bind(static inner => inner);
 
     private Fin<bool> Display(ObjectPropertiesPageEventArgs e) => WithEvidence(e, evidence =>
-        from included in Try.lift(() => Fin.Succ(value: e.IncludesObjectsType(
+        from included in Try.lift(() => e.IncludesObjectsType(
             objectTypes: plan.Scope.Kinds.Mask,
-            allMustMatch: plan.Scope.Reach.Admits(SelectionReach.Every)))).Run().Bind(static inner => inner)
+            allMustMatch: plan.Scope.Reach.Admits(SelectionReach.Every))).Run()
         from visible in included ? Try.lift(() => plan.Display(evidence)).Run().Bind(static inner => inner) : Fin.Succ(value: false)
         from shown in visible
             ? Answer(new PageSignal.SelectionShown(Evidence: evidence)).Map(static _ => true)
@@ -836,7 +836,7 @@ public static class PageMount {
             Registrations: Seq<PageRegistration>(),
             Fault: None);
         var state = foldWhile(
-            (held, landing) => Try.lift(() => Fin.Succ(value: HostEdge.Side(landing.Add))).Run().Bind(static inner => inner).Match(
+            (held, landing) => Try.lift(() => HostEdge.Side(landing.Add)).Run().Match(
                 Succ: _ => landing.Remove.Match(
                     Some: remove => held with {
                         Releasable = Rasm.Numerics.Dimension.Create(value: held.Releasable.Value + 1),

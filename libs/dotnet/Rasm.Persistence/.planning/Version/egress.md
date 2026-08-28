@@ -544,7 +544,7 @@ public static class EgressEventExtensions {
         row.Sequence < 0
             ? Fin.Fail<global::Rasm.Contracts.Event.Extensions>(
                 new KernelFault.InvalidInput(Axis: Some(nameof(OpLogEntry.Sequence))))
-            : Try.lift(() => Fin.Succ(Built(row, sink, framed, trace))).Run().Bind(static inner => inner);
+            : Try.lift(() => Built(row, sink, framed, trace)).Run();
 
     static global::Rasm.Contracts.Event.Extensions Built(
         OpLogEntry row, Subscription sink, PayloadFrame framed, TraceCarrier trace) {

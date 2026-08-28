@@ -247,7 +247,7 @@ public static class OperandGate {
     public static Fin<Cholesky<double>> Definite(Matrix<double> spd) =>
         spd.RowCount != spd.ColumnCount
             ? TensorReason.ShapeMismatch.Fail<Cholesky<double>>("non-square-spd", $"{spd.RowCount}x{spd.ColumnCount}")
-            : Try.lift(() => Fin.Succ(spd.Cholesky())).Run().Bind(static inner => inner)
+            : Try.lift(() => spd.Cholesky()).Run()
                 .Bind(static chol => double.IsFinite(chol.DeterminantLn)
                     ? Fin.Succ(chol)
                     : TensorReason.StructuralRank.Fail<Cholesky<double>>("spd-degenerate-logdet"));

@@ -677,7 +677,7 @@ internal static class SectionGeometry {
 
     static ProfileGeometry Solid(string @case, ProfileTopology topology, SectionProfile source, Func<IProfile> outline, Func<SectionSupplement> supplement) =>
         new(@case, topology,
-            key => Try.lift(() => Fin.Succ(outline())).Run().Bind(static inner => inner),
+            key => Try.lift(() => outline()).Run(),
             key => SectionSolver.Admit(outline, source, supplement));
 
     static ProfileGeometry Unsectioned(string @case) =>

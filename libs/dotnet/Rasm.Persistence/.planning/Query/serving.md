@@ -571,7 +571,7 @@ public static class BackendRead {
 
     static IO<Fin<BackendResult<T>>> Ado<T>(
         AdoLeg leg, Backend backend, string lowered, Func<BackendRow, Fin<T>> shape, ProjectionContext frame) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async token => {
+        HostEdge.CapturedIO(async token => {
             long mark = frame.Mark();
             (Seq<IAsyncDisposable> leases, DbCommand command) = await leg.Open(lowered).ConfigureAwait(false);
             try {
@@ -585,11 +585,11 @@ public static class BackendRead {
                 await command.DisposeAsync().ConfigureAwait(false);
                 foreach (IAsyncDisposable lease in leases.Rev()) { await lease.DisposeAsync().ConfigureAwait(false); }
             }
-        }).ConfigureAwait(false)).MapFail(backend.ReadRefused));
+        }).Map(outcome => outcome.MapFail(backend.ReadRefused));
 
     static IO<Fin<BackendResult<T>>> Arrow<T>(
         BackendReach.Flight leg, Backend backend, string lowered, Func<BackendRow, Fin<T>> shape, ProjectionContext frame) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             long mark = frame.Mark();
             FlightInfo info = await leg.Client.ExecuteAsync(lowered, Transaction.NoTransaction).ConfigureAwait(false);
             Fin<Seq<T>> rows = Fin.Succ(Seq<T>());
@@ -599,7 +599,7 @@ public static class BackendRead {
                 }
             }
             return rows.Map(held => new BackendResult<T>(backend, lowered, held, info.TotalRecords, frame.Elapsed(mark)));
-        }).ConfigureAwait(false));
+        });
 
     static async ValueTask<Fin<Seq<T>>> Drain<T>(DbDataReader reader, Func<BackendRow, Fin<T>> shape) {
         List<T> rows = [];
@@ -635,7 +635,7 @@ public static class BackendLanding {
         NpgsqlDataSource store, AnalyticsSchema schema, Seq<Seq<ColumnCell>> rows, ProjectionContext frame) =>
         (Conformed(schema, Supplied(schema), rows), Landed(schema))
             .Apply(static (bound, landed) => (Bound: bound, Landed: landed)).As().ToFin().Match(
-            Succ: proved => IO.liftAsync(async () => (await HostEdge.Captured(async token => {
+            Succ: proved => HostEdge.CapturedIO(async token => {
                 string columns = string.Join(", ",
                     (Seq(Backend.TenantColumn) + proved.Bound.Map(static entry => entry.Column.Name)
                         + proved.Landed.Map(static stamp => stamp.Name).ToSeq()).Map(Backend.Series.Quote));
@@ -657,7 +657,7 @@ public static class BackendLanding {
                 }
                 ulong staged = await importer.CompleteAsync(token).ConfigureAwait(false);
                 return Fin<BackendWrite>.Succ(new BackendWrite(schema.Dataset, (long)staged, landedAt, frame.Correlation));
-            }).ConfigureAwait(false)).MapFail(Backend.Series.IngestRefused)),
+            }).Map(outcome => outcome.MapFail(Backend.Series.IngestRefused)),
             Fail: error => IO.pure(Fin<BackendWrite>.Fail(error)));
 
     static Validation<Error, Seq<(ColumnRow Column, NpgsqlDbType Wire)>> Conformed(

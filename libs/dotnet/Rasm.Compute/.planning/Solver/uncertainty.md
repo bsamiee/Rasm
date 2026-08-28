@@ -371,7 +371,7 @@ public static class Uncertainty {
                     || !Enumerable.Range(0, dim).All(axis => Math.Abs(r[axis, axis] - 1.0) <= 1e-10
                         && Enumerable.Range(0, dim).All(other => Math.Abs(r[axis, other] - r[other, axis]) <= 1e-10))
                     ? Fin.Fail<Transform>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
-                    : Try.lift(() => Fin.Succ(r.Cholesky())).Run().Bind(static inner => inner)
+                    : Try.lift(() => r.Cholesky()).Run()
                         .Bind(cholesky => double.IsFinite(cholesky.DeterminantLn)
                             ? Fin.Succ(new Transform(Some(cholesky.Factor)))
                             : Fin.Fail<Transform>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence((long)dim * dim))))));

@@ -616,7 +616,7 @@ public sealed class MonotonicStamp : IValidityEvidence {
     internal Fin<TimeSpan> SpanTo(MonotonicStamp end) =>
         from active in Admit.Need(value: end)
         from owned in guard(IsValid && active.IsValid && SharesTimeline(other: active), new KernelFault.InvalidInput())
-        from elapsed in Try.lift(() => Fin.Succ(_provider.GetElapsedTime(startingTimestamp: _timestamp, endingTimestamp: active._timestamp))).Run().Bind(static inner => inner)
+        from elapsed in Try.lift(() => _provider.GetElapsedTime(startingTimestamp: _timestamp, endingTimestamp: active._timestamp)).Run()
         select elapsed;
 }
 

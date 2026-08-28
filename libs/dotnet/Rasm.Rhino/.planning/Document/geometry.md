@@ -149,7 +149,7 @@ public sealed class GeometryHandle : IDisposable {
             HandleState held = state.Value;
             return held.Release.Active
                 ? Admit.Need(project)
-                    .Bind(body => Try.lift(() => Acceptance.Input(value: held.Lease.Resource).Bind(body)).Run().Bind(static inner => inner))
+                    .Bind(body => Try.lift(() => Admit.Value(value: held.Lease.Resource).Bind(body)).Run().Bind(static inner => inner))
                 : Fin.Fail<TResult>(error: new KernelFault.InvalidInput());
         }
     }
@@ -169,8 +169,8 @@ public sealed class GeometryHandle : IDisposable {
                 HandleState right = other.state.Value;
                 return !left.Release.Active || !right.Release.Active
                     ? Fin.Fail<GeometryOutcome>(error: new KernelFault.InvalidInput())
-                    : from first in Acceptance.Input(value: left.Lease.Resource)
-                      from second in Acceptance.Input(value: right.Lease.Resource)
+                    : from first in Admit.Value(value: left.Lease.Resource)
+                      from second in Admit.Value(value: right.Lease.Resource)
                       let before = GeometryCrc.Of(geometry: first)
                       select new GeometryOutcome(
                           Result: new GeometryResult.Compared(Policy: policy, Equal: policy.Compare(left: first, right: second)),
@@ -200,7 +200,7 @@ public sealed class GeometryHandle : IDisposable {
             }
             return from _ in mode.Posture.AdmitMutation()
                    from prepared in Try.lift(() =>
-                       from active in Acceptance.Input(value: held.Lease.Resource)
+                       from active in Admit.Value(value: held.Lease.Resource)
                        let before = GeometryCrc.Of(geometry: active)
                        from working in CrossingMode.Copy(duplicate: active.Duplicate)
                        select (Working: working, Before: before)).Run().Bind(static inner => inner)
@@ -280,7 +280,7 @@ public sealed class GeometryHandle : IDisposable {
                 .Map(static value => (GeometryResult)new GeometryResult.Clipped(Value: value)));
 
     private static Fin<Unit> DisposeLease(Lease<GeometryBase> lease) =>
-        Try.lift(() => Fin.Succ(value: lease.Dispose())).Run().Bind(static inner => inner);
+        Try.lift(() => lease.Dispose()).Run();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -365,7 +365,7 @@ public sealed partial class GeometryBounds {
             : new ValidationError(message: "Bounds query requires a frame and a finite nonnegative inflation vector.");
 
     public static Fin<GeometryBounds> Of(BoundsFrame frame, Option<Vector3d> inflation = default) =>
-        FactoryBridge.Accept<GeometryBounds>(fault: Validate(frame, inflation, out GeometryBounds? admitted), value: admitted);
+        FactoryBridge.Lift<GeometryBounds>(fault: Validate(frame, inflation, out GeometryBounds? admitted), value: admitted);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -378,13 +378,13 @@ public sealed record BoundsEvidence(
     Arr<Line> Edges) {
     internal static Fin<BoundsEvidence> Of(BoundingBox value, Option<Vector3d> inflation) =>
         from bounds in Acceptance.Value(value: value)
-        from evidence in Try.lift(() => Fin.Succ(value: inflation.Match(
+        from evidence in Try.lift(() => inflation.Match(
             Some: amount => {
                 BoundingBox expanded = bounds;
                 expanded.Inflate(xAmount: amount.X, yAmount: amount.Y, zAmount: amount.Z);
                 return Capture(raw: bounds, value: expanded);
             },
-            None: () => Capture(raw: bounds, value: bounds)))).Run().Bind(static inner => inner)
+            None: () => Capture(raw: bounds, value: bounds))).Run()
         select evidence;
 
     private static BoundsEvidence Capture(BoundingBox raw, BoundingBox value) => new(
@@ -409,14 +409,14 @@ public abstract partial record NativeBounds {
         from result in frame.Switch(
             (Geometry: geometry, Inflation: request.Inflation),
             axisAligned: static (state, bounds) =>
-                from value in Try.lift(() => Fin.Succ(value: state.Geometry.GetBoundingBox(accurate: bounds.Fidelity.Host))).Run().Bind(static inner => inner)
+                from value in Try.lift(() => state.Geometry.GetBoundingBox(accurate: bounds.Fidelity.Host)).Run()
                 from evidence in BoundsEvidence.Of(value, state.Inflation)
                 select (NativeBounds)new World(Evidence: evidence, Fidelity: bounds.Fidelity),
             transformed: static (state, bounds) =>
                 from domain in Optional(bounds.Domain).ToFin(Fail: new KernelFault.MissingContext())
                 from spec in Admit.Need(bounds.Motion)
                 from motion in Placement.Build(spec: spec, context: Some(domain))
-                from value in Try.lift(() => Fin.Succ(value: state.Geometry.GetBoundingBox(xform: motion))).Run().Bind(static inner => inner)
+                from value in Try.lift(() => state.Geometry.GetBoundingBox(xform: motion)).Run()
                 from evidence in BoundsEvidence.Of(value, state.Inflation)
                 let inverse = motion.TryGetInverse(inverse: out global::Rhino.Geometry.Transform reversed)
                     ? Some(reversed)
@@ -660,7 +660,7 @@ public sealed record GeometryFacts(
             Traits: CapabilitySet<GeometryTrait>.Of()
                 .Apply(held => geometry.IsDocumentControlled ? held.With(capability: GeometryTrait.DocumentControlled) : held)
                 .Apply(held => geometry.IsShallowDuplicate ? held.With(capability: GeometryTrait.Shallow) : held),
-            Invalidity: valid ? Option<string>.None : HostEdge.Text(log),
+            Invalidity: valid ? Option<string>.None : HostEdge.NonEmpty(log),
             Content: GeometryCrc.Of(geometry: geometry),
             Tags: TagOp.Snapshot(geometry.GetUserStrings()));
     }
@@ -742,7 +742,7 @@ public sealed partial class ClipSet {
     }
 
     public static Fin<ClipSet> Of(Seq<Guid> objects, Seq<int> layers) =>
-        FactoryBridge.Accept<ClipSet>(fault: Validate(objects, layers, out ClipSet? admitted), value: admitted);
+        FactoryBridge.Lift<ClipSet>(fault: Validate(objects, layers, out ClipSet? admitted), value: admitted);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -755,7 +755,7 @@ public abstract partial record ClippingPlaneSeed {
             from _ in guard(seed.Value.IsValid, new KernelFault.InvalidInput(Axis: Some(nameof(Plane)))).ToFin()
             select (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: new ClippingPlaneSurface(plane: seed.Value)),
         surface: static (seed) =>
-            from plane in Acceptance.Input(value: seed.Value)
+            from plane in Admit.Value(value: seed.Value)
             select (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: new ClippingPlaneSurface(planeSurface: plane)));
 }
 

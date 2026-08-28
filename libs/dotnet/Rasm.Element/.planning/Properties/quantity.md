@@ -337,7 +337,7 @@ public sealed record MeasureValue {
  static Fin<MeasureValue> Coerce(IQuantity quantity) =>
   SiUnit(quantity.QuantityInfo)
    .ToFin(new KernelFault.InvalidValue("measure-si-unit", $"resolve a coherent unit for {quantity.QuantityInfo.Name}"))
-   .Bind(unit => Try.lift(() => Fin.Succ(quantity.ToUnit(unit))).Run().Bind(static inner => inner).Bind(si => Admit(si)));
+   .Bind(unit => Try.lift(() => quantity.ToUnit(unit)).Run().Bind(si => Admit(si)));
 
  static Fin<MeasureValue> Admit(IQuantity si) =>
   double.IsFinite((double)si.Value)

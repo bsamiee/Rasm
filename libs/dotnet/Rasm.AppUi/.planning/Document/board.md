@@ -637,7 +637,7 @@ public static class BoardPublish {
             .Map(static blocks => blocks.Bind(static block => block));
 
     static Fin<byte[]> Structure(Board board) =>
-        Try.lift(() => Fin.Succ(JsonSerializer.SerializeToUtf8Bytes(board, EvidenceOps.Wire))).Run().Bind(static inner => inner);
+        Try.lift(() => JsonSerializer.SerializeToUtf8Bytes(board, EvidenceOps.Wire)).Run();
 }
 ```
 

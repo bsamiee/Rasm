@@ -366,8 +366,8 @@ public sealed partial class BasemapSurface {
 
     static Fin<Map> Mount(Map map, BasemapLayerRow row) => row.Switch(
         state: map,
-        tile: static (m, t) => Try.lift(() => Fin.Succ((ILayer)new TileLayer(
-                    t.Source.Source(t.Policy), minTiles: t.Policy.MinTiles, maxTiles: t.Policy.MaxTiles) { Name = t.Key })).Run().Bind(static inner => inner)
+        tile: static (m, t) => Try.lift(() => (ILayer)new TileLayer(
+                    t.Source.Source(t.Policy), minTiles: t.Policy.MinTiles, maxTiles: t.Policy.MaxTiles) { Name = t.Key }).Run()
             .Map(layer => { m.Layers.Add(layer); return m; }),
         features: static (m, f) => GeoOverlay.Layer(f).Map(layer => { m.Layers.Add(layer); return m; }),
         widget: static (m, w) => Widgeted(m, w.Row.Key, () => m.Widgets.Add(w.Row.Mint(m))));
@@ -600,12 +600,12 @@ public sealed class MercatorFilter(Func<double, double, (double X, double Y)> pr
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GeoOverlay {
     public static Fin<ILayer> Layer(BasemapLayerRow.Features row) =>
-        Source(row.Source).Bind(source => Try.lift(() => Fin.Succ((ILayer)new Mapsui.Layers.Layer(row.Key) {
+        Source(row.Source).Bind(source => Try.lift(() => (ILayer)new Mapsui.Layers.Layer(row.Key) {
                 DataSource = source,
                 Style = new ThemeStyle(row.Symbology.Select),
                 MinVisible = row.MinVisible,
                 MaxVisible = row.MaxVisible,
-            })).Run().Bind(static inner => inner));
+            }).Run());
 
     static Fin<IProvider> Source(FeatureSource source) => source.Switch(
         resident: static row => row.Rows
@@ -979,7 +979,7 @@ public sealed class RedlineSurface(
     static IO<Fin<Option<RedlineCommit>>> Local() => IO.pure(Fin.Succ(Option<RedlineCommit>.None));
 
     Fin<RedlineSession> Opened(RedlineVerb verb) =>
-        Try.lift(() => Fin.Succ(verb.Switch(
+        Try.lift(() => verb.Switch(
                 state: Manager,
                 beginMark: static (manager, begin) => RedlineSession.Open(manager, begin.Kind.Mode),
                 modify: static (manager, _) => RedlineSession.Open(manager, EditMode.Modify),
@@ -988,7 +988,7 @@ public sealed class RedlineSurface(
                     state: (Manager: manager, commit.TargetId),
                     session: static (s, _) => RedlineSession.Seal(s.Manager, s.TargetId),
                     stroke: static (s, _) => RedlineSession.Snapshot(s.Manager, s.TargetId)),
-                discard: static (manager, _) => RedlineSession.Empty with { Authored = RedlineSession.Close(manager) }))).Run().Bind(static inner => inner);
+                discard: static (manager, _) => RedlineSession.Empty with { Authored = RedlineSession.Close(manager) })).Run();
 
     IO<Fin<Option<RedlineCommit>>> Durable(
         RedlineLane lane, MonotonicTimeline line, Func<Fin<EditIntent>> seal,

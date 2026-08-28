@@ -71,7 +71,7 @@ public sealed partial class CandidateRow {
 
     private static CandidateRow Row<TCase>(int key, Func<TCase, SnappingAction> mint) where TCase : CandidatePayload =>
         new(mintOn: (payload, op) => payload is TCase matched
-            ? Try.lift(() => Fin.Succ(mint(matched))).Run().Bind(static inner => inner)
+            ? Try.lift(() => mint(matched)).Run()
             : Fin.Fail<SnappingAction>(new KernelFault.InvalidValue(
                 Label: typeof(TCase).Name, Requirement: "the payload case this row mints from")));
 }
@@ -167,16 +167,13 @@ public sealed class SnapField {
     public static Fin<SnapField> Of(Document graph, SnapScope scope) {
         return Admit.Need(value: scope).Bind(valid => valid.Switch(
             state: graph,
-            excludingCase: static (s, c) => Try.lift(() => Fin.Succ(
-                new SnapField(constraints: SnappingConstraints.CreateFromDocument(s, c.Dragged.ToArray())))).Run().Bind(static inner => inner),
-            selectionCase: static (s, c) => SelectionSide.Law.Admit(held: c.Sides).Bind(sides => Try.lift(() => Fin.Succ(
-                new SnapField(constraints: SnappingConstraints.CreateFromDocument(
+            excludingCase: static (s, c) => Try.lift(() => new SnapField(constraints: SnappingConstraints.CreateFromDocument(s, c.Dragged.ToArray()))).Run(),
+            selectionCase: static (s, c) => SelectionSide.Law.Admit(held: c.Sides).Bind(sides => Try.lift(() => new SnapField(constraints: SnappingConstraints.CreateFromDocument(
                     s,
                     sides.Admits(SelectionSide.Selected),
                     sides.Admits(SelectionSide.Unselected),
-                    HostEdge.Slot(c.Filter))))).Run().Bind(static inner => inner)),
-            boxesCase: static (s, c) => Try.lift(() => Fin.Succ(
-                new SnapField(constraints: new SnappingConstraints(c.Frames.ToArray())))).Run().Bind(static inner => inner)));
+                    HostEdge.Slot(c.Filter)))).Run()),
+            boxesCase: static (s, c) => Try.lift(() => new SnapField(constraints: new SnappingConstraints(c.Frames.ToArray()))).Run()));
     }
 
     public Fin<SnapPair> Solve(RectangleF target, RectangleF visibleLimit, SnappingSettings settings) {
@@ -210,7 +207,7 @@ public static class StretchPlan {
             StretchLayoutSolver solver = new();
             admitted.Iter(row => solver.Add(row.Min, row.Max, row.Ideal));
             _ = solver.Solve(target);
-            HostEdge.SideWhen(condition: rounding.Rounds, action: () => solver.Round());
+            if (rounding.Rounds) { solver.Round(); }
             return Fin.Succ(new StretchVerdict(
                 Lengths: toSeq(Enumerable.Range(0, solver.Count).Select(index => solver[index])).Strict()));
         }).Run().Bind(static inner => inner)

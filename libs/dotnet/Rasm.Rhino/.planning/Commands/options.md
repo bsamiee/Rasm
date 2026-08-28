@@ -285,18 +285,18 @@ public sealed class TypedEnumBinding<TEnum> : IEnumBinding where TEnum : struct,
             .Find(entry => entry.item.Equals(current.Value))
             .Map(static entry => entry.index)
             .ToFin(Fail: new KernelFault.InvalidResult())
-            .Bind(index => Try.lift(() => Fin.Succ(value: getter.AddOptionEnumSelectionList(
+            .Bind(index => Try.lift(() => getter.AddOptionEnumSelectionList(
                 englishOptionName: name.English,
                 enumSelection: rows,
-                listCurrentIndex: index))).Run().Bind(static inner => inner)),
-        None: () => Try.lift(() => Fin.Succ(value: getter.AddOptionEnumList(
+                listCurrentIndex: index)).Run()),
+        None: () => Try.lift(() => getter.AddOptionEnumList(
             englishOptionName: name.English,
-            defaultValue: current.Value))).Run().Bind(static inner => inner));
+            defaultValue: current.Value)).Run());
 
     public Fin<IEnumBinding> Read(GetBaseClass getter) =>
-        Try.lift(() => Fin.Succ(value: selection.Match(
+        Try.lift(() => selection.Match(
                 Some: rows => getter.GetSelectedEnumValueFromSelectionList(selectionList: rows),
-                None: getter.GetSelectedEnumValue<TEnum>))).Run().Bind(static inner => inner)
+                None: getter.GetSelectedEnumValue<TEnum>)).Run()
             .Bind(value => Seated(value: value));
 
     public Fin<IEnumBinding> Decode(string token) =>
@@ -336,13 +336,13 @@ public abstract partial record OptionValue {
         CapabilitySet<OptionTrait> traits,
         OptionLease lease) => Switch(
         state: (Getter: getter, Name: name, Traits: traits, Lease: lease),
-        verb: static (held, row) => Try.lift(() => Fin.Succ(new BoundOption(
+        verb: static (held, row) => Try.lift(() => new BoundOption(
             Index: row.Display.Case switch {
                 OptionName display => held.Getter.AddOption(
                     held.Name.Native, display.Native, held.Traits.Admits(capability: OptionTrait.Hidden)),
                 _ => held.Getter.AddOption(held.Name.Native),
             },
-            Current: () => Fin.Succ<OptionValue>(value: row)))).Run().Bind(static inner => inner),
+            Current: () => Fin.Succ<OptionValue>(value: row))).Run(),
         toggle: static (held, row) => Try.lift(() => {
             OptionToggle native = new(initialValue: row.Current, offValue: row.Off.Native, onValue: row.On.Native);
             held.Lease.Own(native);
@@ -409,12 +409,12 @@ public abstract partial record OptionValue {
                         .Map(shade => (OptionValue)(row with { Current = shade }))));
             }).Run().Bind(static inner => inner)
             select bound,
-        pick: static (held, row) => Try.lift(() => Fin.Succ(new BoundOption(
+        pick: static (held, row) => Try.lift(() => new BoundOption(
             Index: held.Getter.AddOptionList(
                 optionName: held.Name.Native,
                 listValues: row.Values.Values.Map(static value => value.Native).AsIterable(),
                 listCurrentIndex: row.Current),
-            Current: () => Fin.Succ<OptionValue>(value: row)))).Run().Bind(static inner => inner),
+            Current: () => Fin.Succ<OptionValue>(value: row))).Run(),
         enumChoice: static (held, row) => row.Binding.Seat(getter: held.Getter, name: held.Name)
             .Map(index => new BoundOption(
                 Index: index,
@@ -645,7 +645,7 @@ public sealed class OptionLease : IDisposable {
             });
         return Custody.Release(
             held: settled.Draining,
-            release: resource => Try.lift(() => Fin.Succ(value: HostEdge.Side(resource.Dispose))).Run().Bind(static inner => inner));
+            release: resource => Try.lift(() => HostEdge.Side(resource.Dispose)).Run());
     }
 
     public Seq<Error> Faults => books.Value.Faults;

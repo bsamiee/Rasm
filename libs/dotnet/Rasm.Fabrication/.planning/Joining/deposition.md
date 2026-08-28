@@ -613,7 +613,7 @@ internal sealed partial class WeldAccess : IWeldAccess {
     }
 
     public K<Validation<Error>, Unit> Check(WeldJoint joint, Seq<WeldPass> passes) =>
-        Try.lift(() => Fin.Succ(Constraint(joint, passes))).Run().Bind(static inner => inner).Match(
+        Try.lift(() => Constraint(joint, passes)).Run().Match(
             Succ: static result => result,
             Fail: static error => AdmissionSlots.Gate(false, error));
 }

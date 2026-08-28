@@ -296,7 +296,7 @@ public abstract partial record TypefaceOp {
                     newName: document.DimStyles.GetUnusedStyleName(), newId: Guid.NewGuid(), newParentId: Guid.Empty))
             .Bind(lease => lease.Use(
                 body: owned =>
-                    from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => owned.Font = font))).Run().Bind(static inner => inner)
+                    from _ in Try.lift(() => HostEdge.Side(() => owned.Font = font)).Run()
                     from __ in Try.lift(() => ResourceIndex.Admit(
                         document.DimStyles.Add(dimstyle: owned, reference: false))).Run().Bind(static inner => inner)
                     select unit));
@@ -305,7 +305,7 @@ public abstract partial record TypefaceOp {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Typefaces {
     public static Fin<FaceResolution> Resolve(FaceQuery query) {
-        return from admitted in Acceptance.Input(value: query)
+        return from admitted in Admit.Value(value: query)
                from font in admitted.Mint()
                from face in FaceInfo.Of(font: font)
                from substitute in face.Traits.Admits(capability: FaceTrait.Installed)
@@ -316,19 +316,19 @@ public static class Typefaces {
     }
 
     public static Fin<FaceCensusAnswer> Census(FaceCensus request) {
-        return Acceptance.Input(value: request).Bind(admitted => admitted.Switch(
+        return Admit.Value(value: request).Bind(admitted => admitted.Switch(
             installed: static query =>
-                from fonts in Try.lift(() => Fin.Succ(value: toSeq(query.Family.Match(
+                from fonts in Try.lift(() => toSeq(query.Family.Match(
                     Some: static family => Font.InstalledFonts(familyName: family.Value),
-                    None: static () => Font.InstalledFonts())))).Run().Bind(static inner => inner)
+                    None: static () => Font.InstalledFonts()))).Run()
                 from faces in fonts.TraverseM(font => FaceInfo.Of(font: font)).As()
                 select (FaceCensusAnswer)new FaceCensusAnswer.Faces(Items: faces),
             quartets: static _ =>
-                from rows in Try.lift(() => Fin.Succ(value: toSeq(Font.InstalledFontsAsQuartets()))).Run().Bind(static inner => inner)
+                from rows in Try.lift(() => toSeq(Font.InstalledFontsAsQuartets())).Run()
                 from items in rows.TraverseM(row => QuartetInfo.Of(quartet: row)).As()
                 select (FaceCensusAnswer)new FaceCensusAnswer.Quartets(Items: items),
             names: static _ =>
-                from names in Try.lift(() => Fin.Succ(value: toSeq(Font.AvailableFontFaceNames()))).Run().Bind(static inner => inner)
+                from names in Try.lift(() => toSeq(Font.AvailableFontFaceNames())).Run()
                 from items in names.TraverseM(name =>
                     FactoryBridge.Accept<ResourceName>(candidate: name)).As()
                 select (FaceCensusAnswer)new FaceCensusAnswer.Names(Items: items)));
@@ -525,7 +525,7 @@ public abstract partial record SectionStroke {
                 field: SectionField.BoundaryLinetypeIndex,
                 value: new StyleValue.Whole(Value: live.LinetypeIndex))
             from _ in SectionField.Apply(style: context.Style, run: Seq(seated))
-            from __ in Try.lift(() => Fin.Succ(value: HostEdge.Side(context.Style.RemoveBoundaryLinetype))).Run().Bind(static inner => inner)
+            from __ in Try.lift(() => HostEdge.Side(context.Style.RemoveBoundaryLinetype)).Run()
             select unit,
         embedded: static (context, row) =>
             from _ in Detach(style: context.Style)
@@ -540,7 +540,7 @@ public abstract partial record SectionStroke {
     internal static Fin<Unit> Detach(SectionStyle style) =>
         from row in FactoryBridge.Row(field: SectionField.BoundaryLinetypeIndex)
         from _ in SectionField.Apply(style: style, run: Seq(row))
-        from __ in Try.lift(() => Fin.Succ(value: HostEdge.Side(style.RemoveBoundaryLinetype))).Run().Bind(static inner => inner)
+        from __ in Try.lift(() => HostEdge.Side(style.RemoveBoundaryLinetype)).Run()
         select unit;
 }
 
@@ -675,13 +675,13 @@ public abstract partial record SectionOp {
             Drop: static _ => false,
             Clear: static () => { }),
         Mint: static (document, def, key) =>
-            from shaped in Try.lift(() => Fin.Succ(value: new SectionStyle())).Run().Bind(static inner => inner)
+            from shaped in Try.lift(() => new SectionStyle()).Run()
             from _ in def.Apply(style: shaped, document: document)
                 .Rollback(
                     release: () => Custody.Dispose(held: Seq(shaped)))
             select shaped,
         Revise: static (document, copy, def, key) => def.Apply(style: copy, document: document),
-        Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
+        Retitle: static (copy, name, key) => Try.lift(() => HostEdge.Side(() => copy.Name = name.Value)).Run(),
         Modify: static (document, copy, index, interaction, key) => Admit.Confirm(success: document.SectionStyles.Modify(
             sectionstyle: copy, index: index, quiet: interaction.IsQuiet)),
         Seat: static (document, style, key) => Try.lift(() => ResourceIndex.Admit(
@@ -691,8 +691,8 @@ public abstract partial record SectionOp {
                 from usage in SectionUsage.Read(document: document, index: index)
                 from __ in guard(!usage.Bound, new KernelFault.InvalidInput())
                 select unit).As()
-            from removed in Try.lift(() => Fin.Succ(value: document.SectionStyles.Delete(
-                sectionStyleIndices: indices.AsIterable(), quiet: interaction.IsQuiet))).Run().Bind(static inner => inner)
+            from removed in Try.lift(() => document.SectionStyles.Delete(
+                sectionStyleIndices: indices.AsIterable(), quiet: interaction.IsQuiet)).Run()
             from __ in guard(removed == indices.Count, new KernelFault.InvalidResult())
             select unit,
         Elect: static (_, _, _, key) => Fin.Fail<Unit>(error: new KernelFault.Unsupported(
@@ -774,12 +774,12 @@ public abstract partial record SectionOp {
         from bySource in Keyed(rows: patterns, key: static row => row.Source)
         from __ in Keyed(rows: patterns, key: static row => ResourceName.Create(row.Pattern.Name))
         from styles in spoil.Styles.Traverse(style => (
-            from value in Acceptance.Input(value: style)
+            from value in Admit.Value(value: style)
             from name in FactoryBridge.Accept<ResourceName>(candidate: value.Name)
             from seat in Optional(document.SectionStyles.FindName(name: name.Value))
                 .TraverseM(held =>
                     from index in Try.lift(() => ResourceIndex.Admit(document.SectionStyles.Find(name: held.Name))).Run().Bind(static inner => inner)
-                    from original in Try.lift(() => Fin.Succ(value: new SectionStyle(held))).Run().Bind(static inner => inner)
+                    from original in Try.lift(() => new SectionStyle(held)).Run()
                     select new ImportSeat(Index: index, Original: original))
                 .As()
             select new SectionIntent(Style: value, Name: name, Seat: seat)).ToValidation()).As().ToFin()
@@ -823,7 +823,7 @@ public abstract partial record SectionOp {
             ? Fin.Succ(value: intent.Style.HatchIndex)
             : targets.Find(intent.Style.HatchIndex).Map(static index => index.Value)
                 .ToFin(Fail: new KernelFault.MissingContext())
-        from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => intent.Style.HatchIndex = hatch))).Run().Bind(static inner => inner)
+        from _ in Try.lift(() => HostEdge.Side(() => intent.Style.HatchIndex = hatch)).Run()
         from landed in intent.Seat.Match(
             Some: seat =>
                 from __ in Admit.Confirm(success: document.SectionStyles.Modify(
@@ -959,7 +959,7 @@ public static class Sections {
             apply: static (document, operation) => operation.Apply(document: document));
 
     public static Fin<SectionAnswer> Ask(DocumentSession session, SectionAsk request) {
-        return from admitted in Acceptance.Input(value: request)
+        return from admitted in Admit.Value(value: request)
                from answer in session.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;

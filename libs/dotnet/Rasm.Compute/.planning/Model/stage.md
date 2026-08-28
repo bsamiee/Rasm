@@ -263,7 +263,7 @@ public static partial class StageWireMap {
         ParseGuard.Read(StageRequestWire.Parser, payload, WireLimits.Inbound).Bind(Lowered).Bind(StageRequest.Admit);
 
     static Fin<StageRequest> Lowered(StageRequestWire wire) =>
-        Try.lift(() => Fin.Succ(ToDomain(wire))).Run().Bind(static inner => inner)
+        Try.lift(() => ToDomain(wire)).Run()
             .MapFail(static _ => (Error)StageRefusal.Extent.Fault());
 
     [MapProperty(nameof(StageRequestWire.Stage), nameof(StageRequest.Stage), Use = nameof(StageKey))]
@@ -285,7 +285,7 @@ public static partial class StageWireMap {
 
     // --- [RESULT_EGRESS]
     public static Fin<StageResultWire> Result(StageResult result) =>
-        Try.lift(() => Fin.Succ(ToWire(result))).Run().Bind(static inner => inner)
+        Try.lift(() => ToWire(result)).Run()
             .MapFail(static _ => (Error)StageRefusal.Vocabulary.Fault());
 
     [MapProperty(nameof(StageResult.Stage), nameof(StageResultWire.Stage), Use = nameof(StageRow))]

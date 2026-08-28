@@ -321,7 +321,7 @@ public readonly partial struct VariationalLaw : IValidityEvidence {
         maxRefinements: MaxRefinements, edges: Edges, initialSurface: InitialSurface);
 
     internal Fin<Brep.VariationalPatchSettings> Rig(Context domain, Option<Surface> initial) =>
-        Try.lift(() => Fin.Succ(value: new Brep.VariationalPatchSettings {
+        Try.lift(() => new Brep.VariationalPatchSettings {
             Tolerance = domain.Absolute.Value,
             AngleToleranceRadians = domain.Angle.Value,
             InternalTolerance = domain.Absolute.Value,
@@ -339,7 +339,7 @@ public readonly partial struct VariationalLaw : IValidityEvidence {
             MaxRefinements = MaxRefinements,
             InitialSurface = HostEdge.Slot(value: initial),
             PreserveEdges = Edges.Native,
-        })).Run().Bind(static inner => inner);
+        }).Run();
 
     private static ValidityClaim Admits(
         RhinoVariationalDomain domain,

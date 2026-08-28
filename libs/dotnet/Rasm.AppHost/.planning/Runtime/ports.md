@@ -224,7 +224,7 @@ public static class WireAdmission {
     public static Fin<Validation<Seq<BadRequest.Types.FieldViolation>, T>> Validate<T>(T message)
         where T : IMessage =>
         Messages.ContainsKey(message.Descriptor.FullName)
-            ? Try.lift(() => Fin.Succ(Admission(message))).Run().Bind(static inner => inner)
+            ? Try.lift(() => Admission(message)).Run()
             : Fin.Fail<Validation<Seq<BadRequest.Types.FieldViolation>, T>>(new HopFault.Malformed(
                 WireBoundary.ContractAdmission,
                 new WireViolation.UnrosteredMessage(message.Descriptor.FullName)));
@@ -304,7 +304,7 @@ public static class WireJson {
     }
 
     public static Fin<T> Read<T>(TextReader source) where T : IMessage<T>, new() =>
-        Try.lift(() => Fin.Succ(Parser.Parse<T>(source))).Run().Bind(static inner => inner)
+        Try.lift(() => Parser.Parse<T>(source)).Run()
             .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload));
 
     public static Fin<T> Read<T>(Stream source) where T : IMessage<T>, new() {
@@ -318,7 +318,7 @@ public static class WireJson {
     }
 
     public static Fin<T> Read<T>(JsonElement payload) where T : IMessage<T>, new() =>
-        Try.lift(() => Fin.Succ(Parser.Parse<T>(payload.GetRawText()))).Run().Bind(static inner => inner)
+        Try.lift(() => Parser.Parse<T>(payload.GetRawText())).Run()
             .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload));
 }
 
@@ -461,7 +461,7 @@ public static partial class FaultWire {
 
     // --- [DECODE]
     public static Fin<Option<RemoteFault>> Decode(RpcException raised) =>
-        Try.lift(() => Fin.Succ(Optional(raised.GetRpcStatus()))).Run().Bind(static inner => inner)
+        Try.lift(() => Optional(raised.GetRpcStatus())).Run()
             .MapFail(captured => (Error)new HopFault.Malformed(
                 WireBoundary.RemoteStatus, new WireViolation.Captured(captured)))
             .Bind(status => status.Match(
@@ -471,7 +471,7 @@ public static partial class FaultWire {
     static Fin<Option<RemoteFault>> Recognized(Google.Rpc.Status status) =>
         toSeq(status.Details).Filter(static any => any.Is(Fault.FaultDetail.Descriptor)) switch {
             { IsEmpty: true } => Fin.Succ(Option<RemoteFault>.None),
-            { Count: 1 } one => Try.lift(() => Fin.Succ(one.Head.Unpack<Fault.FaultDetail>())).Run().Bind(static inner => inner)
+            { Count: 1 } one => Try.lift(() => one.Head.Unpack<Fault.FaultDetail>()).Run()
                 .MapFail(captured => (Error)new HopFault.Malformed(
                     WireBoundary.RemoteDetail, new WireViolation.Captured(captured)))
                 .Bind(detail => Admit(detail, status.Message))

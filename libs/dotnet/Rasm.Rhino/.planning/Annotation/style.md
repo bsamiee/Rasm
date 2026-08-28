@@ -79,14 +79,14 @@ public abstract partial record TagEdit {
         set: static (context, edit) =>
             Admit.Confirm(success: context.Set(edit.Tag.Key.Value, edit.Tag.Value)),
         delete: static (context, edit) => Admit.Confirm(success: context.Drop(edit.Key.Value)),
-        clear: static (context, _) => Try.lift(context.Clear).Run().Bind(static inner => inner),
+        clear: static (context, _) => Try.lift(context.Clear).Run(),
         replace: static (context, edit) =>
             from admitted in toSeq(edit.Tags.AsIterable()).Traverse(pair =>
                 (from name in Acceptance.Text(value: pair.Key)
                  from value in Acceptance.Text(value: pair.Value)
                  select (Name: name, Value: value)).ToValidation()).As().ToFin()
-            from original in Try.lift(() => Fin.Succ(value: TagOp.Snapshot(context.Read()))).Run().Bind(static inner => inner)
-            from _ in Try.lift(context.Clear).Run().Bind(static inner => inner)
+            from original in Try.lift(() => TagOp.Snapshot(context.Read())).Run()
+            from _ in Try.lift(context.Clear).Run()
             from __ in DocumentCommit.Compensated(
                 source: admitted,
                 land: pair => Admit.Confirm(success: context.Set(pair.Name, pair.Value)).Map(_ => pair.Name),
@@ -94,7 +94,7 @@ public abstract partial record TagEdit {
             select unit);
 
     private static Fin<Unit> Replay(Seq<KeyValuePair<string, string>> rows, TagSurface owner) =>
-        from _ in Try.lift(owner.Clear).Run().Bind(static inner => inner)
+        from _ in Try.lift(owner.Clear).Run()
         from __ in rows.Traverse(pair => Admit.Confirm(success: owner.Set(pair.Key, pair.Value)).ToValidation()).As().ToFin()
         select unit;
 }
@@ -164,7 +164,7 @@ public sealed record TableGrip<TComponent, TDef>(
         Func<TComponent, Fin<Unit>> revise) =>
         from live in target.Resolve(document: document, lens: Lens)
         let index = Index(live)
-        from copy in Try.lift(() => Fin.Succ(value: Duplicate(live))).Run().Bind(static inner => inner)
+        from copy in Try.lift(() => Duplicate(live)).Run()
         from _ in Bracketed(copy: copy, revise: revise)
             .Rollback(release: () => Custody.Dispose(held: Seq(copy)))
         from __ in Modify(document, copy, index, interaction)
@@ -488,7 +488,7 @@ public static class FieldTable<TOwner, THostEnum>
                 select value,
             Write: (owner, value, key) =>
                 from typed in unwrap(value, key)
-                from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => set(owner, typed)))).Run().Bind(static inner => inner)
+                from _ in Try.lift(() => HostEdge.Side(() => set(owner, typed))).Run()
                 select unit);
 
     public static Fin<TRow> Row<TRow>(THostEnum field)
@@ -667,7 +667,7 @@ public sealed record StylePatch {
         Of(run: LanguageExt.Iterable<StyleEdit>.FromSpan(edits).ToSeq());
 
     public static Fin<StylePatch> Of(Seq<StyleEdit> run) {
-        return from admitted in run.Traverse(edit => Acceptance.Input(value: edit).ToValidation()).As().ToFin()
+        return from admitted in run.Traverse(edit => Admit.Value(value: edit).ToValidation()).As().ToFin()
                from _ in guard(!admitted.IsEmpty, new KernelFault.InvalidInput())
                select new StylePatch(edits: admitted);
     }
@@ -680,8 +680,8 @@ public sealed record StylePatch {
 
     internal Fin<DimensionStyle> Overlay(AnnotationBase annotation) =>
         from parent in Optional(annotation.ParentDimensionStyle).ToFin(Fail: new KernelFault.MissingContext())
-        from child in Try.lift(() => Fin.Succ(value: parent.Duplicate(
-            newName: string.Empty, newId: Guid.Empty, newParentId: annotation.DimensionStyleId))).Run().Bind(static inner => inner)
+        from child in Try.lift(() => parent.Duplicate(
+            newName: string.Empty, newId: Guid.Empty, newParentId: annotation.DimensionStyleId)).Run()
         from _ in Apply(style: child)
             .Rollback(release: () => Custody.Dispose(held: Seq(child)))
         from attached in Admit.Confirm(success: annotation.SetOverrideDimStyle(overrideStyle: child))
@@ -749,9 +749,9 @@ public sealed partial class StyleDef {
     public Option<ResourceId> Parent { get; }
 
     internal Fin<Unit> Apply(DimensionStyle style) =>
-        from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => style.Name = Name.Value))).Run().Bind(static inner => inner)
-        from __ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() =>
-            style.ParentId = Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty)))).Run().Bind(static inner => inner)
+        from _ in Try.lift(() => HostEdge.Side(() => style.Name = Name.Value)).Run()
+        from __ in Try.lift(() => HostEdge.Side(() =>
+            style.ParentId = Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty))).Run()
         from ___ in Patch.Apply(style: style)
         select unit;
 }
@@ -782,12 +782,12 @@ public abstract partial record StyleOp {
         Tags: static style => new TagSurface(
             style.GetUserStrings, style.SetUserString, style.DeleteUserString, style.DeleteAllUserStrings),
         Mint: static (_, def, key) =>
-            from shaped in Try.lift(() => Fin.Succ(value: new DimensionStyle())).Run().Bind(static inner => inner)
+            from shaped in Try.lift(() => new DimensionStyle()).Run()
             from _ in def.Apply(style: shaped)
                 .Rollback(release: () => Custody.Dispose(held: Seq(shaped)))
             select shaped,
         Revise: static (_, copy, def, key) => def.Apply(style: copy),
-        Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
+        Retitle: static (copy, name, key) => Try.lift(() => HostEdge.Side(() => copy.Name = name.Value)).Run(),
         Modify: static (document, copy, index, interaction, key) => Admit.Confirm(success: document.DimStyles.Modify(
             newSettings: copy, dimstyleIndex: index, quiet: interaction.IsQuiet)),
         Seat: static (document, style, key) => Try.lift(() => ResourceIndex.Admit(
@@ -806,15 +806,15 @@ public abstract partial record StyleOp {
                 from source in edit.Source.Resolve(document: context, lens: Lens)
                 from _ in Grip.Revised(target: edit.Target, document: context,
                     interaction: edit.Interaction,
-                    revise: (style, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => style.CopyFrom(source)))).Run().Bind(static inner => inner))
+                    revise: (style, key) => Try.lift(() => HostEdge.Side(() => style.CopyFrom(source))).Run())
                 select unit,
             clearOverrides: static (context, edit) =>
                 Grip.Revised(target: edit.Target, document: context,
                     interaction: edit.Interaction,
                     revise: (style) => edit.Fields.IsEmpty
-                        ? Try.lift(() => Fin.Succ(value: HostEdge.Side(style.ClearAllFieldOverrides))).Run().Bind(static inner => inner)
-                        : edit.Fields.TraverseM(field => Try.lift(() => Fin.Succ(value: HostEdge.Side(
-                            () => style.ClearFieldOverride(field: field.Host)))).Run().Bind(static inner => inner)).As().Map(static _ => unit)),
+                        ? Try.lift(() => HostEdge.Side(style.ClearAllFieldOverrides)).Run()
+                        : edit.Fields.TraverseM(field => Try.lift(() => HostEdge.Side(
+                            () => style.ClearFieldOverride(field: field.Host))).Run()).As().Map(static _ => unit)),
             absorb: static (context, edit) =>
                 from style in edit.Target.Resolve(document: context, lens: Lens)
                 from row in edit.Annotation.Only<AnnotationObjectBase>(document: context)
@@ -827,20 +827,20 @@ public abstract partial record StyleOp {
             reparent: static (context, edit) =>
                 Grip.Revised(target: edit.Target, document: context,
                     interaction: edit.Interaction,
-                    revise: (style, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() =>
-                        style.ParentId = edit.Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty)))).Run().Bind(static inner => inner)),
+                    revise: (style, key) => Try.lift(() => HostEdge.Side(() =>
+                        style.ParentId = edit.Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty))).Run()),
             scaleLengths: static (context, edit) =>
                 Grip.Revised(target: edit.Target, document: context,
                     interaction: edit.Interaction,
-                    revise: (style, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(
-                        () => style.ScaleLengthValues(scale: edit.Factor.Value)))).Run().Bind(static inner => inner)),
+                    revise: (style, key) => Try.lift(() => HostEdge.Side(
+                        () => style.ScaleLengthValues(scale: edit.Factor.Value))).Run()),
             pageScale: static (context, edit) =>
                 Grip.Revised(target: edit.Target, document: context,
                     interaction: edit.Interaction,
-                    revise: (style, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+                    revise: (style, key) => Try.lift(() => HostEdge.Side(() => {
                         style.ScaleLeftLengthMillimeters = edit.Left.Value;
                         style.ScaleRightLengthMillimeters = edit.Right.Value;
-                    }))).Run().Bind(static inner => inner)));
+                    })).Run()));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -876,7 +876,7 @@ public sealed record DraftPlan<TOp> where TOp : class {
 
     public static Fin<DraftPlan<TOp>> Of(string name, DraftMode mode, params ReadOnlySpan<TOp> operations) {
         return from label in Acceptance.Text(value: name)
-               from admittedMode in Acceptance.Input(value: mode)
+               from admittedMode in Admit.Value(value: mode)
                from admittedRun in Acceptance.Rows(values: operations)
                from _ in guard(!admittedRun.IsEmpty, new KernelFault.InvalidInput())
                select new DraftPlan<TOp>(name: label, mode: admittedMode, operations: admittedRun);
@@ -890,7 +890,7 @@ public static class Styles {
             apply: static (document, operation, key) => operation.Apply(document: document));
 
     public static Fin<StyleAnswer> Ask(DocumentSession session, StyleAsk request) {
-        return from admitted in Acceptance.Input(value: request)
+        return from admitted in Admit.Value(value: request)
                from answer in session.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
@@ -1027,7 +1027,7 @@ public sealed record StyleSnapshot(
             value: active.DimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber))
         from alternateLengthUnit in ModelUnit.Of(
             value: active.AlternateDimensionLengthDisplayUnit(modelSerialNumber: document.RuntimeSerialNumber))
-        from snapshot in Try.lift(() => Fin.Succ(value: new StyleSnapshot(
+        from snapshot in Try.lift(() => new StyleSnapshot(
             Key: ResourceId.Create(active.Id),
             Index: ResourceIndex.Create(active.Index),
             Name: ResourceName.Create(active.Name),
@@ -1044,7 +1044,7 @@ public sealed record StyleSnapshot(
             Current: document.DimStyles.CurrentId == active.Id,
             ScaleValue: active.DimensionScaleValue,
             LengthUnit: lengthUnit,
-            AlternateLengthUnit: alternateLengthUnit))).Run().Bind(static inner => inner)
+            AlternateLengthUnit: alternateLengthUnit)).Run()
         select snapshot;
 }
 ```

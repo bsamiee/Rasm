@@ -25,7 +25,7 @@
 - Law: history linkage is presence evidence — `ObjectTrait.HistoryRecord` carries `HasHistoryRecord()`, and every linkage read or mutation lives on the history page's `Chronicle`.
 - Law: the snapshot carries no open discriminant. `ObjectType` decomposes through `ObjectKinds.OfMask` because a host row's type word is a MASK, `ActiveSpace` and `ObjectMaterialSource` read their spine and attribute owners, the layer index takes `ResourceIndex.Admit` and the material index takes `ResourceIndex.Maybe` — a live object always holds a layer, while the host's `-1` material spells the ordinary by-layer absence — and the closed-status integer takes the `ClosedStatus` rows — so no consumer re-derives a host contract from a bare number and an unmapped value refuses at the read.
 - Growth: a new host object fact is one snapshot field read in the same pass, or one `ObjectTrait` row where the fact is a condition; a named native grade enters only after its values verify.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`/`TraverseM`, `Fold`, `BindFail`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `FactoryBridge.Accept`), `Domain/results` (`HostEdge.Text`, `Try.lift`), `Domain/context` (`Context`, `ToleranceLane`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`, `session.Demand`), `Document/commit` (`DocumentCommit.Sealed`, `UndoSerial`, `RedrawPolicy`), `Document/tables` (`TableTarget`, `ResourceIndex`, `SelectionAxis`), `Document/layers` (`Layers.Ask`, `LayerTree`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`), `Commands/selection` (`PartIndex`), `Blocks` (`BlockGraph`, `GraphSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:35,57-62,81-91,138-144` — the mode word, the state and structural discriminants, selection and grip reads, the dynamic-transform and history probes) and `Rhino.UI.Gumball` (`api-rhino-ui.md` — `GumballFrame`, `GumballScaleMode`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`/`TraverseM`, `Fold`, `BindFail`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `FactoryBridge.Accept`), `Domain/results` (`HostEdge.NonEmpty`, `Try.lift`), `Domain/context` (`Context`, `ToleranceLane`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`, `session.Demand`), `Document/commit` (`DocumentCommit.Sealed`, `UndoSerial`, `RedrawPolicy`), `Document/tables` (`TableTarget`, `ResourceIndex`, `SelectionAxis`), `Document/layers` (`Layers.Ask`, `LayerTree`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`), `Commands/selection` (`PartIndex`), `Blocks` (`BlockGraph`, `GraphSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:35,57-62,81-91,138-144` — the mode word, the state and structural discriminants, selection and grip reads, the dynamic-transform and history probes) and `Rhino.UI.Gumball` (`api-rhino-ui.md` — `GumballFrame`, `GumballScaleMode`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -145,19 +145,19 @@ public sealed record ObjectSnapshot(
     ClosedStatus ClosedStatus) : IDetachedDocumentResult {
     internal static Fin<ObjectSnapshot> Of(RhinoObject native) =>
         from grade in Try.lift(() => FactoryBridge.Row<int, SelectionGrade>(native.IsSelected(checkSubObjects: true))).Run().Bind(static inner => inner)
-        from closed in Try.lift(() => Fin.Succ(value: (
+        from closed in Try.lift(() => (
             Text: native.ShortDescriptionWithClosedStatus(prepend: false, plural: false, status: out int status),
-            Status: status))).Run().Bind(static inner => inner)
+            Status: status)).Run()
         from closure in FactoryBridge.Row<int, ClosedStatus>(closed.Status)
         from kind in ObjectKinds.OfMask(mask: native.ObjectType)
         from layer in ResourceIndex.Admit(value: native.Attributes.LayerIndex)
         let material = ResourceIndex.Maybe(value: native.Attributes.MaterialIndex)
         from highlight in Try.lift(() => HighlightState.Of(native: native)).Run().Bind(static inner => inner)
         from grips in Try.lift(() => GripStance.Of(native: native)).Run().Bind(static inner => inner)
-        from snapshot in Try.lift(() => Fin.Succ(value: new ObjectSnapshot(
+        from snapshot in Try.lift(() => new ObjectSnapshot(
             Id: native.Id,
             Serial: native.RuntimeSerialNumber,
-            Name: HostEdge.Text(native.Name),
+            Name: HostEdge.NonEmpty(native.Name),
             Kind: kind,
             Space: ActiveSpaceUse.Get(key: native.Attributes.Space),
             Layer: layer,
@@ -172,7 +172,7 @@ public sealed record ObjectSnapshot(
             MemoryBytes: native.MemoryEstimate(),
             Description: native.ShortDescription(plural: false),
             ClosedDescription: closed.Text,
-            ClosedStatus: closure))).Run().Bind(static inner => inner)
+            ClosedStatus: closure)).Run()
         select snapshot;
 }
 ```
@@ -365,7 +365,7 @@ public abstract partial record Touch {
                         context.Highlight(enable: touch.Signal.On) == touch.Signal.On,
                         new KernelFault.InvalidResult()).ToFin()).Run().Bind(static inner => inner)
                     .Bind(_ => Highlighted(native: context)),
-                Reach.EveryPart => Try.lift(() => Fin.Succ(value: context.UnhighlightAllSubObjects())).Run().Bind(static inner => inner)
+                Reach.EveryPart => Try.lift(() => context.UnhighlightAllSubObjects()).Run()
                     .Bind(_ => Highlighted(native: context)),
                 var scoped => scoped.Roster.TraverseM(component => Try.lift(() => guard(
                         context.HighlightSubObject(componentIndex: component, highlight: touch.Signal.On) == touch.Signal.On,
@@ -465,13 +465,13 @@ public abstract partial record SectionCut {
     private sealed record FillCase(Seq<Guid> ClippingPlanes, FillSpan Fills) : SectionCut;
 
     public static Fin<SectionCut> Profile(Plane plane, string name) {
-        return from frame in Acceptance.Input(value: plane)
+        return from frame in Admit.Value(value: plane)
                from label in Acceptance.Text(value: name)
                select (SectionCut)new ProfileCase(Plane: frame, Name: label);
     }
 
     public static Fin<SectionCut> Slab(Plane center, string name, double thickness) {
-        return from frame in Acceptance.Input(value: center)
+        return from frame in Admit.Value(value: center)
                from label in Acceptance.Text(value: name)
                from depth in Admit.Positive(value: thickness)
                select (SectionCut)new SlabCase(Center: frame, Name: label, Thickness: depth);
@@ -537,7 +537,7 @@ public sealed class ObjectPiece {
 
     internal static Fin<ObjectPiece> Detach(GeometryBase geometry, Option<ObjectAttributes> attributes) =>
         from handle in GeometryCrossing.Cross(source: geometry, mode: CrossingMode.Detach)
-        from metadata in Try.lift(() => Fin.Succ(value: attributes.Map(static value => value.Duplicate()))).Run().Bind(static inner => inner)
+        from metadata in Try.lift(() => attributes.Map(static value => value.Duplicate())).Run()
             .Rollback(handle)
         select new ObjectPiece(geometry: handle, attributes: metadata);
 
@@ -571,10 +571,10 @@ public sealed class ObjectPiece {
             releases: Seq<Func<Fin<Unit>>>(
                 () => Custody.Release(
                     held: Optional(attributes).Map(static rows => toSeq(rows).Choose(static row => Optional(row))).IfNone(Seq<ObjectAttributes>()),
-                    release: metadata => Try.lift(() => Fin.Succ(value: HostEdge.Side(metadata.Dispose))).Run().Bind(static inner => inner)),
+                    release: metadata => Try.lift(() => HostEdge.Side(metadata.Dispose)).Run()),
                 () => Custody.Release(
                     held: Optional(geometry).Map(static rows => toSeq(rows).Choose(static row => Optional(row))).IfNone(Seq<GeometryBase>()),
-                    release: shape => Try.lift(() => Fin.Succ(value: HostEdge.Side(shape.Dispose))).Run().Bind(static inner => inner))));
+                    release: shape => Try.lift(() => HostEdge.Side(shape.Dispose)).Run())));
 
     internal static Fin<Unit> Release(Seq<ObjectPiece> pieces) =>
         Custody.Release(held: pieces, release: piece => piece.Release(key));
@@ -589,8 +589,8 @@ public sealed class ObjectPiece {
         if (Interlocked.Exchange(location1: ref released, value: 1) is not 0) { return Fin.Succ(unit); }
         return Custody.Release(
             releases: Seq<Func<Fin<Unit>>>(
-                () => Try.lift(() => Fin.Succ(value: HostEdge.Side(Geometry.Dispose))).Run().Bind(static inner => inner),
-                () => Attributes.TraverseM(value => Try.lift(() => Fin.Succ(HostEdge.Side(value.Dispose))).Run().Bind(static inner => inner))
+                () => Try.lift(() => HostEdge.Side(Geometry.Dispose)).Run(),
+                () => Attributes.TraverseM(value => Try.lift(() => HostEdge.Side(value.Dispose)).Run())
                     .As().Map(static _ => unit)));
     }
 
@@ -635,7 +635,7 @@ public abstract partial record StateAsk {
             components: static ask => Admit.Need(ask.Scope)
                 .Bind(scope => scope.Admit())
                 .Bind(scope => guard(scope is Reach.Part or Reach.Parts, new KernelFault.InvalidInput()).ToFin().Map(_ => (StateAsk)new Components(scope))),
-            extent: static ask => ask.Frame.Traverse(frame => Acceptance.Input(value: frame)).As()
+            extent: static ask => ask.Frame.Traverse(frame => Admit.Value(value: frame)).As()
                 .Map(frame => (StateAsk)new Extent(Frame: frame)),
             members: static ask => Fin.Succ<StateAsk>(ask),
             cut: static ask => Admit.Need(ask.Section).Map(_ => (StateAsk)ask));
@@ -752,18 +752,18 @@ public static class Objects {
                                    Fin.Succ(value: (native.Id, ask.Frame.Read(native: native)))).Run().Bind(static inner => inner)).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.Posed(Rows: rows)),
                            selectedParts: static (ctx, _) => ctx.Natives
-                               .TraverseM(native => Try.lift(() => Fin.Succ(value: (
+                               .TraverseM(native => Try.lift(() => (
                                    native.Id,
                                    Optional(native.GetSelectedSubObjects())
                                        .Map(static rows => toSeq(rows))
-                                       .IfNone(Seq<ComponentIndex>())))).Run().Bind(static inner => inner)).As()
+                                       .IfNone(Seq<ComponentIndex>()))).Run()).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.PartRoster(Rows: rows)),
                            highlightedParts: static (ctx, _) => ctx.Natives
-                               .TraverseM(native => Try.lift(() => Fin.Succ(value: (
+                               .TraverseM(native => Try.lift(() => (
                                    native.Id,
                                    Optional(native.GetHighlightedSubObjects())
                                        .Map(static rows => toSeq(rows))
-                                       .IfNone(Seq<ComponentIndex>())))).Run().Bind(static inner => inner)).As()
+                                       .IfNone(Seq<ComponentIndex>()))).Run()).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.PartRoster(Rows: rows)),
                            components: static (ctx, ask) => ctx.Natives
                                .Bind(native => ask.Scope.Roster.Map(component => (Native: native, Component: component)))
@@ -832,7 +832,7 @@ public static class Objects {
                from usage in answer is StateAnswer.States states
                    ? Fin.Succ(value: states.Rows.Strict())
                    : Fin.Fail<Seq<ObjectSnapshot>>(error: new KernelFault.InvalidResult())
-               from path in Try.lift(() => Fin.Succ(value: HostEdge.Text(document.Path))).Run().Bind(static inner => inner)
+               from path in Try.lift(() => HostEdge.NonEmpty(document.Path)).Run()
                from tree in Layers.Ask(session: session)
                let topology = new GraphSource.Live(Session: session)
                from definitions in BlockGraph.Ask(source: topology, question: new BlockGraphAsk.Definitions())
@@ -902,7 +902,7 @@ public static class Objects {
             .Bind(rows => ObjectPiece.DetachAll(rows: rows));
         return result.Settled(
             held: toSeq(members),
-            release: member => Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(member is not null, member.Dispose))).Run().Bind(static inner => inner));
+            release: member => Try.lift(() => member is not null ? HostEdge.Side(member.Dispose) : unit).Run());
     }
 }
 

@@ -319,7 +319,7 @@ public sealed record HashProbe {
 
     internal Fin<HashWitness> Read(RenderContent content, Option<LinearWorkflow> workflow) {
         HashProbe self = this;
-        return Try.lift(() => Fin.Succ(value: new HashWitness(
+        return Try.lift(() => new HashWitness(
             Axes: self.Axes,
             Excluded: self.ExcludedParameters,
             Scope: HashScope.Of(documented: workflow.IsSome),
@@ -330,7 +330,7 @@ public sealed record HashProbe {
                 _ => content.RenderHashExclude(
                     flags: HashAxis.Flags(axes: self.Axes),
                     excludeParameterNames: string.Join(separator: ';', values: self.ExcludedParameters)),
-            }))).Run().Bind(static inner => inner);
+            })).Run();
     }
 }
 
@@ -371,9 +371,9 @@ public sealed record ContentSnapshot(
                 DisplayName: active.DisplayName,
                 TypeName: active.TypeName,
                 TypeDescription: active.TypeDescription,
-                Notes: HostEdge.Text(active.Notes),
-                Tags: HostEdge.Text(active.Tags),
-                Category: HostEdge.Text(active.Category),
+                Notes: HostEdge.NonEmpty(active.Notes),
+                Tags: HostEdge.NonEmpty(active.Tags),
+                Category: HostEdge.NonEmpty(active.Category),
                 Styles: styles,
                 Proxy: proxy,
                 Units: units,
@@ -381,7 +381,7 @@ public sealed record ContentSnapshot(
                 DocumentOwner: Optional(active.DocumentOwner).Map(static document => document.RuntimeSerialNumber),
                 DocumentAssociation: Optional(active.DocumentAssoc).Map(static document => document.RuntimeSerialNumber),
                 Parent: Optional(active.Parent).Map(static parent => parent.Id),
-                SlotInParent: HostEdge.Text(active.ChildSlotName),
+                SlotInParent: HostEdge.NonEmpty(active.ChildSlotName),
                 Slots: SlotsOf(parent: active),
                 UseCount: active.UseCount())).Run().Bind(static inner => inner));
 

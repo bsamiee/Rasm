@@ -224,7 +224,7 @@ public abstract partial record MeshBatch : IDetachedDocumentResult {
                 select (MeshBatch)new Dialog(Policy: policy, Prompt: prompt),
             styled: static (batch) =>
                 from policy in Admit.Need(batch.Policy)
-                from motion in Acceptance.Input(value: batch.Motion)
+                from motion in Admit.Value(value: batch.Motion)
                 select (MeshBatch)new Styled(Policy: policy, Style: batch.Style, Motion: motion));
 
     internal Fin<MeshRun> Run(Seq<RhinoObject> natives) =>
@@ -315,7 +315,7 @@ public static partial class MaterialMap {
     private static partial MaterialStamp Stamp(RenderMaterial native);
 
     [UserMapping]
-    private static Option<string> Label(string value) => HostEdge.Text(value);
+    private static Option<string> Label(string value) => HostEdge.NonEmpty(value);
 }
 ```
 
@@ -372,9 +372,9 @@ public static class MaterialAsk {
 
     public static MaterialAsk<Seq<(Guid Id, Seq<ComponentIndex> Components)>> PartCensus { get; } = Free(
         read: static (natives, op) => natives
-            .TraverseM(native => Try.lift(() => Fin.Succ(value: (native.Id, native.HasSubobjectMaterials
+            .TraverseM(native => Try.lift(() => (native.Id, native.HasSubobjectMaterials
                 ? toSeq(native.SubobjectMaterialComponents)
-                : Seq<ComponentIndex>()))).Run().Bind(static inner => inner)).As());
+                : Seq<ComponentIndex>())).Run()).As());
 
     public static MaterialAsk<Seq<(Guid Id, Seq<MappingStamp> Values)>> MappingRoster { get; } = Free(
         read: static (natives, op) => natives
@@ -395,8 +395,8 @@ public static class MaterialAsk {
             select CacheCensus(kind: row, policy: admitted),
         read: (natives, op) => policy.Use(
             parameters => natives
-                .TraverseM(native => Try.lift(() => Fin.Succ(value: (native.Id, native.MeshCount(
-                    meshType: kind.Host, parameters: parameters)))).Run().Bind(static inner => inner)).As()));
+                .TraverseM(native => Try.lift(() => (native.Id, native.MeshCount(
+                    meshType: kind.Host, parameters: parameters))).Run()).As()));
 
     public static MaterialAsk<MeshPieces> CachedMeshes(MeshKind kind) => new(
         admit: op => Admit.Need(kind).Map(row => CachedMeshes(kind: row)),
@@ -510,7 +510,7 @@ public abstract partial record MaterialEdit {
                 from channel in Admit.Need(edit.Channel)
                 from spec in Admit.Need(edit.Spec)
                 from profile in Admit.Need(edit.Profile)
-                from motion in edit.Motion.Traverse(value => Acceptance.Input(value: value)).As()
+                from motion in edit.Motion.Traverse(value => Admit.Value(value: value)).As()
                 select (MaterialEdit)new SetMapping(
                     Channel: channel, Spec: spec, Profile: profile, Motion: motion),
             buildCache: static (edit) =>
@@ -533,17 +533,17 @@ public abstract partial record MaterialEdit {
             setMapping: static (context, edit) => edit.Spec.Mint(edit.Profile.Cap)
                 .Bind(mapping => mapping.Use(value =>
                     from _ in edit.Profile.Apply(value)
-                    from __ in Try.lift(() => Fin.Succ(value: edit.Motion.Case switch {
+                    from __ in Try.lift(() => edit.Motion.Case switch {
                         Transform motion => context.SetTextureMapping(
                             channel: edit.Channel.Value, tm: value, objectTransform: motion),
                         _ => context.SetTextureMapping(channel: edit.Channel.Value, tm: value),
-                    })).Run().Bind(static inner => inner)
+                    }).Run()
                     select unit)),
             buildCache: static (context, edit) => edit.Policy.Use(
-                parameters => Try.lift(() => Fin.Succ(value: context.CreateMeshes(
+                parameters => Try.lift(() => context.CreateMeshes(
                     meshType: edit.Kind.Host,
                     parameters: parameters,
-                    ignoreCustomParameters: edit.IgnoreCustom.Key))).Run().Bind(static inner => inner).Map(static _ => unit)),
+                    ignoreCustomParameters: edit.IgnoreCustom.Key)).Run().Map(static _ => unit)),
             dropCache: static (context, edit) => Try.lift(() => {
                 context.DestroyMeshes(meshType: edit.Kind.Host);
                 return Fin.Succ(unit);

@@ -113,12 +113,12 @@ public abstract partial record RenderAspect {
             return draw();
         }).Run().Bind(static inner => inner);
         Fin<Unit> cleanup = acquired
-            ? Try.lift(() => Fin.Succ(Switch(
+            ? Try.lift(() => Switch(
                 pipeline,
                 toggle: static (p, row) => row.Target.Pop(p),
                 cull: static (p, _) => HostEdge.Side(p.PopCullFaceMode),
                 model: static (p, _) => HostEdge.Side(p.PopModelTransform),
-                screen: static (p, _) => HostEdge.Side(p.PopProjection)))).Run().Bind(static inner => inner)
+                screen: static (p, _) => HostEdge.Side(p.PopProjection))).Run()
             : Fin.Succ(unit);
         return primary.Match(
             Succ: _ => cleanup,
@@ -527,10 +527,10 @@ public sealed class ConduitLease : IDisposable {
             gate,
             static held => held is LeaseGate.Live ? Some<LeaseGate>(new LeaseGate.Released()) : None,
             new KernelFault.InvalidContext());
-        _ = HostEdge.SideWhen(claimed is Transition<LeaseGate>.Committed, () => adapter.Release(key).IfFail(cause => {
+        if (claimed is Transition<LeaseGate>.Committed) { adapter.Release(key).IfFail(cause => {
             _ = Cell.Step(gate, static held => held is LeaseGate.Released ? Some<LeaseGate>(new LeaseGate.Live()) : None, Errors.None);
             _ = faults.Park(point: HookId.Create(value: "rasm.rhino.display.conduit"), cause: cause);
-        }));
+        }); }
     }
 }
 
@@ -543,10 +543,10 @@ public static class Conduits {
                from admitted in Optional(program).ToFin(new KernelFault.InvalidInput())
                from faults in Fin.Succ(DisplayFaults.Cell())
                from adapter in Fin.Succ(new ConduitAdapter(admitted, faults))
-               from lease in (from __ in Try.lift(() => Fin.Succ(admitted.Criteria
-                                  .Fold(unit, static (_, criterion) => criterion.Apply(adapter)))).Run().Bind(static inner => inner)
+               from lease in (from __ in Try.lift(() => admitted.Criteria
+                                  .Fold(unit, static (_, criterion) => criterion.Apply(adapter))).Run()
                               from ___ in Bind(owner, adapter, admitted.Binding)
-                              from ____ in Try.lift(() => Fin.Succ((adapter.Enabled = true, unit).Item2)).Run().Bind(static inner => inner)
+                              from ____ in Try.lift(() => (adapter.Enabled = true, unit).Item2).Run()
                               select new ConduitLease(adapter, faults))
                                   .Rollback(release: adapter.Release)
                select lease;
@@ -557,7 +557,7 @@ public static class Conduits {
         global: static (_, _) => Fin.Succ(unit),
         viewport: static (ctx, row) => ViewportLease.Of(ctx.Session, row.Target)
             .Bind(lease => lease.Use(
-                borrow => Try.lift(() => Fin.Succ((row.Use.Bind(ctx.Adapter, borrow.Viewport), unit).Item2)).Run().Bind(static inner => inner))));
+                borrow => Try.lift(() => (row.Use.Bind(ctx.Adapter, borrow.Viewport), unit).Item2).Run())));
 }
 
 public sealed record ConduitVetoAsk(DocumentSession Session, ConduitProgram Program);
@@ -700,7 +700,7 @@ internal sealed class AnalysisOverlay : AnalysisMode {
     }
 
     protected override AnalysisProgram Program => new(
-        Attributes: (_, attributes) => Try.lift(() => Fin.Succ((HostEdge.Side(() => attributes.ShadeVertexColors = true), unit).Item2)).Run().Bind(static inner => inner),
+        Attributes: (_, attributes) => Try.lift(() => (HostEdge.Side(() => attributes.ShadeVertexColors = true), unit).Item2).Run(),
         Colors: (subject, meshes) => Held(subject).Bind(held =>
             toSeq(meshes ?? []).Filter(static mesh => mesh is not null).TraverseM(mesh => Paint(mesh, held.Law, held.Context)).As().Map(static _ => unit)),
         Draw: None);
@@ -717,10 +717,10 @@ internal sealed class AnalysisOverlay : AnalysisMode {
             .ToFin()
         from band in held.Scale.Band(values: samples.Map(static row => row.Value).Strict())
         from cold in held.Cold.ToDrawing()
-        from _sized in Try.lift(() => Fin.Succ((HostEdge.Side(() => {
+        from _sized in Try.lift(() => (HostEdge.Side(() => {
             mesh.VertexColors.Clear();
             mesh.VertexColors.CreateMonotoneMesh(cold);
-        }), unit).Item2)).Run().Bind(static inner => inner)
+        }), unit).Item2).Run()
         from painted in samples.TraverseM(sample => Ink(mesh, sample, held, band)).As()
         select unit;
 
@@ -769,7 +769,7 @@ public sealed class RetainedOverlay : IDisposable {
     private RetainedOverlay(CustomDisplay display) => (this.display, this.key) = (display);
 
     public static Fin<RetainedOverlay> Of(OverlayVisibility visibility) {
-        return Try.lift(() => Fin.Succ(new RetainedOverlay(new CustomDisplay(visibility.Key)))).Run().Bind(static inner => inner);
+        return Try.lift(() => new RetainedOverlay(new CustomDisplay(visibility.Key))).Run();
     }
 
     public Seq<IsolatedFault> Faults => faults.Parked;
@@ -795,15 +795,15 @@ public sealed class RetainedOverlay : IDisposable {
                             .Rollback(
                                 release: () => ctx.Restore(prior));
                     },
-                    visibility: static (ctx, row) => Try.lift(() => Fin.Succ((
+                    visibility: static (ctx, row) => Try.lift(() => (
                         ctx.display.Enabled = row.Value.Key,
-                        new RetainedState(row.Value, Rasm.Numerics.Dimension.Create(value: ctx.journal.Count))).Item2)).Run().Bind(static inner => inner),
-                    clear: static (ctx, _) => Try.lift(() => Fin.Succ((
+                        new RetainedState(row.Value, Rasm.Numerics.Dimension.Create(value: ctx.journal.Count))).Item2).Run(),
+                    clear: static (ctx, _) => Try.lift(() => (
                         HostEdge.Side(ctx.display.Clear),
                         ctx.journal = Seq<WorldMark>(),
                         new RetainedState(
                             ctx.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
-                            Rasm.Numerics.Dimension.Create(value: 0))).Item3)).Run().Bind(static inner => inner),
+                            Rasm.Numerics.Dimension.Create(value: 0))).Item3).Run(),
                     inspect: static (ctx, _) => Fin.Succ(new RetainedState(
                         ctx.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
                         Rasm.Numerics.Dimension.Create(value: ctx.journal.Count)))));

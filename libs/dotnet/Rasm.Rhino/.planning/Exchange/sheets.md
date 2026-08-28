@@ -101,12 +101,12 @@ public readonly record struct DetailSelect(
 
     internal Fin<Seq<DetailViewObject>> Resolve(RhinoPageView page) {
         DetailSelect self = this;
-        return Try.lift(() => Fin.Succ(value: toSeq(page.GetDetailViews())
+        return Try.lift(() => toSeq(page.GetDetailViews())
             .Filter(detail =>
                 self.Id.Map(id => detail.Id == id || detail.Viewport.Id == id).IfNone(noneValue: true)
                 && self.Name.Map(name => NameOf(detail: detail).Map(found =>
                     string.Equals(a: found, b: name, comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(noneValue: false)).IfNone(noneValue: true)
-                && self.Projection.Map(form => ProjectionForm.Of(detail: detail) == form).IfNone(noneValue: true)))).Run().Bind(static inner => inner);
+                && self.Projection.Map(form => ProjectionForm.Of(detail: detail) == form).IfNone(noneValue: true))).Run();
     }
 
     internal Fin<DetailViewObject> Single(RhinoPageView page) =>
@@ -976,21 +976,21 @@ public sealed record NumberRule(NamingStandard Standard, Seq<(NamingField Field,
         let selected = toHashSet(pages.Map(static page => page.MainViewport.Id))
         let untouched = all.Filter(page => !selected.Contains(page.MainViewport.Id))
         let maximum = all.Map(static page => page.PageNumber).Fold(-1, static (highest, value) => Math.Max(highest, value))
-        from temporaryBase in Try.lift(() => Fin.Succ(value: checked(
-            Math.Max(maximum, checked(Start.Value + pages.Count - 2)) + 1))).Run().Bind(static inner => inner)
+        from temporaryBase in Try.lift(() => checked(
+            Math.Max(maximum, checked(Start.Value + pages.Count - 2)) + 1)).Run()
         from seats in pages.Map(static (page, index) => (Page: page, Index: index)).TraverseM(row =>
-            from ordinal in Try.lift(() => Fin.Succ(value: checked(Start.Value + row.Index))).Run().Bind(static inner => inner)
+            from ordinal in Try.lift(() => checked(Start.Value + row.Index)).Run()
             from number in SheetNumber.Of(
                 standard: Standard,
                 fields: Fields.Map(pair => pair.Field.Equals(Seat) ? (pair.Field, Rendered(ordinal: ordinal)) : pair))
-            from seat in Try.lift(() => Fin.Succ(value: new NumberSeat(
+            from seat in Try.lift(() => new NumberSeat(
                 Page: row.Page,
                 Number: number,
                 Name: number.Text,
                 Ordinal: ordinal,
                 PageNumber: checked(ordinal - 1),
                 TemporaryName: $"{TemporaryPrefix}{row.Page.MainViewport.Id:N}",
-                TemporaryPageNumber: checked(temporaryBase + row.Index)))).Run().Bind(static inner => inner)
+                TemporaryPageNumber: checked(temporaryBase + row.Index))).Run()
             select seat).As()
         from _names in guard(
             seats.Map(static seat => seat.Name.ToUpperInvariant()).Distinct().Count == seats.Count,
@@ -1238,7 +1238,7 @@ public static class Sheets {
             spawnCase: static (ctx, edit) =>
                 from page in edit.Sheet.Single(document: ctx)
                 from name in edit.Spec.Validate(document: ctx)
-                from prior in Try.lift(() => Fin.Succ(Optional(ctx.Views.ActiveView))).Run().Bind(static inner => inner)
+                from prior in Try.lift(() => Optional(ctx.Views.ActiveView)).Run()
                 from _spawned in Try.lift(() => {
                         ctx.Views.ActiveView = page;
                         page.SetPageAsActive();
@@ -1259,7 +1259,7 @@ public static class Sheets {
                     }).Run().Bind(static inner => inner)
                     .Settled(
                         held: prior.ToSeq(),
-                        release: view => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => ctx.Views.ActiveView = view))).Run().Bind(static inner => inner))
+                        release: view => Try.lift(() => HostEdge.Side(() => ctx.Views.ActiveView = view)).Run())
                 select unit,
             stateCase: static (ctx, edit) =>
                 from _rows in PerDetail(document: ctx, sheets: edit.Sheets, details: edit.Details, row: (page, detail, _, _) =>

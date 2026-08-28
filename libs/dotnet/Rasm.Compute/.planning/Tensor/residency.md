@@ -88,10 +88,10 @@ public readonly record struct DeviceMemory(OrtEpDevice Device, OrtDeviceMemoryTy
     public OrtMemoryInfo Info => Device.GetMemoryInfo(MemoryType);
 
     public Fin<OrtAllocator> Shared() =>
-        Try.lift(() => Fin.Succ(ModelSessions.SharedAllocator(Device, MemoryType))).Run().Bind(static inner => inner);
+        Try.lift(() => ModelSessions.SharedAllocator(Device, MemoryType)).Run();
 
     public Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(TensorDtype row, long[] shape) =>
-        Shared().Bind(allocator => Try.lift(() => Fin.Succ((allocator, OrtValue.CreateAllocatedTensorValue(allocator, row.Element, shape)))).Run().Bind(static inner => inner));
+        Shared().Bind(allocator => Try.lift(() => (allocator, OrtValue.CreateAllocatedTensorValue(allocator, row.Element, shape))).Run());
 }
 
 public sealed class PinnedPlane<T> : IDisposable where T : unmanaged {
@@ -139,7 +139,7 @@ public sealed class PinnedPlane<T> : IDisposable where T : unmanaged {
                 .Rollback(rent.Buffer));
 
     static Fin<PinnedPlane<T>> Rooted(TensorDtype row, Func<PinnedPlane<T>> root) =>
-        Try.lift(() => Fin.Succ(root())).Run().Bind(static inner => inner);
+        Try.lift(() => root()).Run();
 
     public void Dispose() {
         if (disposed) { return; }
@@ -204,11 +204,11 @@ public static class TensorBridge {
         long[] admitted = shape.ToArray();
         return admitted.Length > 0 && TensorPrimitives.Min<long>(admitted) < 0
             ? TensorReason.ShapeMismatch.Fail<(long[], long)>("ingress-shape", TensorPrimitives.Min<long>(admitted).ToString(CultureInfo.InvariantCulture))
-            : Try.lift(() => Fin.Succ((admitted, admitted.Length == 0 ? 1L : checked(TensorPrimitives.Product<long>(admitted))))).Run().Bind(static inner => inner);
+            : Try.lift(() => (admitted, admitted.Length == 0 ? 1L : checked(TensorPrimitives.Product<long>(admitted)))).Run();
     }
 
     private static Fin<OrtValue> Minted(Func<OrtValue> mint) =>
-        Try.lift(() => Fin.Succ(mint())).Run().Bind(static inner => inner);
+        Try.lift(() => mint()).Run();
 
     private static Fin<TensorDtype> Projected<T>(OrtValue value, long destinationElements, bool dense) where T : unmanaged =>
         TensorVocabulary.Admit(value.GetTensorTypeAndShape().ElementDataType).Bind(row =>
@@ -345,9 +345,9 @@ public sealed class BoundFlow : IDisposable {
             .Bind(input => Minted(s, e.Tensor.WireExtents).Map(pair => Bound.Values(input, pair.Output))));
 
     private static Fin<(OrtValue Input, OrtValue Output)> Minted((OrtAllocator Arena, TensorDtype Row) s, long[] shape) =>
-        Try.lift(() => Fin.Succ((
+        Try.lift(() => (
             OrtValue.CreateAllocatedTensorValue(s.Arena, s.Row.Element, shape),
-            OrtValue.CreateAllocatedTensorValue(s.Arena, s.Row.Element, shape)))).Run().Bind(static inner => inner);
+            OrtValue.CreateAllocatedTensorValue(s.Arena, s.Row.Element, shape))).Run();
 
     private void Adopt(BindingSource source, Bound next) {
         OrtValue priorBound = bound, priorSink = sink;
@@ -497,8 +497,8 @@ public sealed record EncodedTensor(
 
     private Fin<Tensor<float>> Interleaved(Seq<ReadOnlyMemory<byte>> admitted, AllocationRequest staging) {
         int width = FeatureWidth, widest = Descriptors.Max(static d => d.Channel.Arity);
-        return Try.lift(() => Fin.Succ((
-                Plane: checked(Count * width), Lane: checked(Count * widest)))).Run().Bind(static inner => inner)
+        return Try.lift(() => (
+                Plane: checked(Count * width), Lane: checked(Count * widest))).Run()
             .Bind(sizes => AllocationClass.PooledMemory
                 .Rent<float>(staging with { RequestedBytes = (long)sizes.Plane * sizeof(float), Mode = AllocationMode.Default }, sizes.Plane)
                 .Bind(plane => AllocationClass.PooledMemory

@@ -330,11 +330,11 @@ public sealed partial class NumericKind {
             : Fin<Unit>.Fail(new ControlFault.RecyclingViolation(typeof(TControl).Name));
 
     static Fin<(T Min, T Max, T Step)> Narrow<T>(NumericRange range) where T : INumberBase<T> =>
-        Try.lift(() => Fin.Succ(range.Switch(
+        Try.lift(() => range.Switch(
                 integral: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)),
                 unsigned: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)),
                 real: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)),
-                precise: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step))))).Run().Bind(static inner => inner);
+                precise: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)))).Run();
 }
 ```
 

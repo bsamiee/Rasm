@@ -109,9 +109,9 @@ public sealed partial class ConfigSource {
             var ranked => ranked.Filter(static row => (row.Reload == ReloadClass.Transition) != row.Rereads) is { IsEmpty: false } mismatched
                 ? Fin.Fail<IConfigurationManager>(Error.Many(mismatched.Map(static row =>
                     (Error)new ConfigError.SourceRejected(row.Key, $"reload={row.Reload.Key} rereads={row.Rereads}"))))
-                : Try.lift(() => Fin.Succ(ranked.Fold(
+                : Try.lift(() => ranked.Fold(
                         layer.ParentSnapshot.Map(parent => ((IConfigurationBuilder)manager).AddConfiguration(parent)).IfNone(manager),
-                        (builder, row) => row.Mount(builder, layer)))).Run().Bind(static inner => inner)
+                        (builder, row) => row.Mount(builder, layer))).Run()
                     .Map(_ => manager),
         };
 
@@ -191,8 +191,8 @@ public abstract partial record ConfigError : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PolicyBinding {
     public static Validation<Error, T> Bind<T>(IConfigurationRoot root, string section) where T : notnull =>
-        Try.lift(() => Fin.Succ(Optional(
-                root.GetSection(section).Get<T>(static binder => binder.ErrorOnUnknownConfiguration = true)))).Run().Bind(static inner => inner)
+        Try.lift(() => Optional(
+                root.GetSection(section).Get<T>(static binder => binder.ErrorOnUnknownConfiguration = true))).Run()
             .MapFail(error => (Error)new ConfigError.BindRejected(section, error))
             .Bind(configured => configured.ToFin((Error)new ConfigError.SectionAbsent(section)))
             .ToValidation();

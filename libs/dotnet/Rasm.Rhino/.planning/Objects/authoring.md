@@ -846,9 +846,9 @@ public abstract partial record GripMove {
     public sealed record Back : GripMove;
 
     internal Fin<GripMove> Admit() =>
-        Switch(to: static move => Acceptance.Input(value: move.Location).Map(_ => (GripMove)move),
-            by: static move => Acceptance.Input(value: move.Delta).Map(_ => (GripMove)move),
-            via: static move => Acceptance.Input(value: move.Motion).Map(_ => (GripMove)move),
+        Switch(to: static move => Admit.Value(value: move.Location).Map(_ => (GripMove)move),
+            by: static move => Admit.Value(value: move.Delta).Map(_ => (GripMove)move),
+            via: static move => Admit.Value(value: move.Motion).Map(_ => (GripMove)move),
             back: static move => Fin.Succ<GripMove>(move));
 
     internal Fin<Unit> Apply(GripObject grip) =>
@@ -943,8 +943,8 @@ public static class Grips {
                                return Fin.Succ(value: ctx.Id);
                            }).Run().Bind(static inner => inner),
                            move: static (ctx, edit) =>
-                               from roster in Try.lift(() => Fin.Succ(value: Optional(ctx.GetGrips())
-                                   .Map(static held => toSeq(held)).IfNone(Seq<GripObject>()))).Run().Bind(static inner => inner)
+                               from roster in Try.lift(() => Optional(ctx.GetGrips())
+                                   .Map(static held => toSeq(held)).IfNone(Seq<GripObject>())).Run()
                                from chosen in edit.Index.Case switch {
                                    int at => roster.Filter(grip => grip.Index == at) switch {
                                        [var only] => Fin.Succ(value: Seq(only)),

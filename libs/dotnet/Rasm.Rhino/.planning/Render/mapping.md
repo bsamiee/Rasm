@@ -93,8 +93,8 @@ public abstract partial record MappingRecovery {
 
     internal Fin<Unit> Release() => Switch(
         bareCase: static _ => Fin.Succ(unit),
-        valuesCase: static (held) => Try.lift(() => Fin.Succ(value: HostEdge.Side(held.Spec.Dispose))).Run().Bind(static inner => inner),
-        coordinatesCase: static (held) => Try.lift(() => Fin.Succ(value: HostEdge.Side(held.Coordinates.Dispose))).Run().Bind(static inner => inner));
+        valuesCase: static (held) => Try.lift(() => HostEdge.Side(held.Spec.Dispose)).Run(),
+        coordinatesCase: static (held) => Try.lift(() => HostEdge.Side(held.Coordinates.Dispose)).Run());
 }
 
 [SmartEnum<string>]
@@ -668,11 +668,11 @@ public static class Mappings {
                         from _ in profile.Apply(mapping)
                         from _ in ids.TraverseM(id =>
                             from native in Optional(document.Objects.FindId(id)).ToFin(Fail: new KernelFault.MissingContext())
-                            from code in Try.lift(() => Fin.Succ(command.ObjectMotion switch {
+                            from code in Try.lift(() => command.ObjectMotion switch {
                                 { IsSome: true, Case: Transform motion } =>
                                     native.SetTextureMapping(command.Channel.Value, mapping, motion),
                                 _ => native.SetTextureMapping(command.Channel.Value, mapping),
-                            })).Run().Bind(static inner => inner)
+                            }).Run()
                             from __ in guard(code != 0, new KernelFault.InvalidResult())
                             select unit).As()
                         select unit)

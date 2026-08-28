@@ -53,12 +53,12 @@ public readonly partial struct PanelKey {
     public static Fin<PanelKey> Of(Type panelType) {
         return Admit.Need(panelType).Bind(declared => Try.lift(() => Optional(declared.GetCustomAttribute<GuidAttribute>())
                 .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(declared.FullName ?? declared.Name)))
-                .Bind(marked => Try.lift(() => Fin.Succ(value: new Guid(marked.Value))).Run().Bind(static inner => inner))).Run().Bind(static inner => inner)
+                .Bind(marked => Try.lift(() => new Guid(marked.Value)).Run())).Run().Bind(static inner => inner)
             .Bind(value => Of(value: value)));
     }
 
     public static Fin<PanelKey> Of(Guid value) {
-        return FactoryBridge.Accept<PanelKey>(fault: Validate(value: value, provider: null, out PanelKey? admitted), admitted: admitted);
+        return FactoryBridge.Lift<PanelKey>(fault: Validate(value: value, provider: null, out PanelKey? admitted), admitted: admitted);
     }
 }
 
@@ -68,7 +68,7 @@ public readonly partial struct DockBarKey {
         validationError = value == Guid.Empty ? new ValidationError(message: "Dock-bar identity is empty.") : null;
 
     public static Fin<DockBarKey> Of(Guid value) {
-        return FactoryBridge.Accept<DockBarKey>(fault: Validate(value: value, provider: null, out DockBarKey? admitted), admitted: admitted);
+        return FactoryBridge.Lift<DockBarKey>(fault: Validate(value: value, provider: null, out DockBarKey? admitted), admitted: admitted);
     }
 }
 
@@ -181,7 +181,7 @@ public abstract class HostPanel : Panel, IPanel {
                         Succ: outcome => Seq<Func<Fin<Unit>>>(() => outcome.Use(seated => seated.Release())),
                         Fail: static _ => Seq<Func<Fin<Unit>>>())
                     + fallback.Match(
-                        Some: control => Seq<Func<Fin<Unit>>>(() => Try.lift(() => Fin.Succ(value: HostEdge.Side(control.Dispose))).Run().Bind(static inner => inner)),
+                        Some: control => Seq<Func<Fin<Unit>>>(() => Try.lift(() => HostEdge.Side(control.Dispose)).Run()),
                         None: static () => Seq<Func<Fin<Unit>>>()))
             .IfFail(failure => ignore(faults.Park(item: failure)))
         : Fin.Succ(value: unit);
@@ -707,7 +707,7 @@ public abstract partial record RuiFileRef {
 
     internal static Fin<string> PathOf(string candidate) =>
         from text in Acceptance.Text(value: candidate)
-        from path in Try.lift(() => Fin.Succ(value: System.IO.Path.GetFullPath(text))).Run().Bind(static inner => inner)
+        from path in Try.lift(() => System.IO.Path.GetFullPath(text)).Run()
         from _ in guard(flag: System.IO.Path.IsPathFullyQualified(path), False: new KernelFault.InvalidInput())
         select path;
 }
@@ -820,7 +820,7 @@ public static class Rui {
             select HostEdge.Side(() => group.Visible = work.Visibility.Key),
         sidebar: static work => Fin.Succ(value: work.Target.Apply(visible: work.Visibility)),
         barSize: static work => toSeq(work.Size.Values)
-            .TraverseM(size => Try.lift(() => Fin.Succ(value: size.Key.Apply(size.Value))).Run().Bind(static inner => inner))
+            .TraverseM(size => Try.lift(() => size.Key.Apply(size.Value)).Run())
             .As()
             .Map(static _ => unit));
 
@@ -1079,7 +1079,7 @@ public sealed class PanelSectionMount : IDisposable {
         ? HostThread.Release(
                 releases: contents.Rev()
                     .Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))
-                    .Add(() => Try.lift(() => Fin.Succ(value: HostEdge.Side(Host.Dispose))).Run().Bind(static inner => inner)))
+                    .Add(() => Try.lift(() => HostEdge.Side(Host.Dispose)).Run()))
             .IfFail(failure => ignore(faults.Park(item: failure)))
         : Fin.Succ(value: unit);
 
@@ -1139,16 +1139,14 @@ public static class PanelSections {
                     content: pair.Item2.Host,
                     report: failure => ignore(faults.Park(item: failure)));
                 owned.Add(section: leaf);
-                _ = HostEdge.SideWhen(
-                    pair.Item1.Features.Admits(PanelSectionFeature.FullHeight),
-                    () => owned.SetFullHeightSection(sec: leaf));
+                if (pair.Item1.Features.Admits(PanelSectionFeature.FullHeight)) { owned.SetFullHeightSection(sec: leaf); }
             });
             return Fin.Succ(value: new PanelSectionMount(host: owned, contents: contents, faults: faults));
         }).Run().Bind(static inner => inner).Rollback(
             release: () => HostThread.Release(
                 releases: contents.Rev()
                     .Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))
-                    .Add(() => Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(holder is not null, () => holder!.Dispose()))).Run().Bind(static inner => inner))));
+                    .Add(() => Try.lift(() => holder is not null ? HostEdge.Side(() => holder!.Dispose()) : unit).Run())));
     }
 }
 ```
@@ -1395,16 +1393,15 @@ public abstract partial record HostControl {
         addRemove: static (held, row) =>
             from add in held.Intents.Verb(row.Add)
             from remove in held.Intents.Verb(row.Remove)
-            from control in Try.lift(() => Fin.Succ(value: ControlMint.Leaf(
-                host: new AddRemoveButton { AddCommand = add, RemoveCommand = remove }))).Run().Bind(static inner => inner)
+            from control in Try.lift(() => ControlMint.Leaf(
+                host: new AddRemoveButton { AddCommand = add, RemoveCommand = remove })).Run()
             select control,
-        actionRow: static (held, row) => Try.lift(() => Fin.Succ(value: new RhinoButtonRow {
+        actionRow: static (held, row) => Try.lift(() => new RhinoButtonRow {
                 Spacing = row.Gap.Stacked(axis: Orientation.Horizontal),
-            })).Run().Bind(static inner => inner)
+            }).Run()
             .Bind(bar => row.Rows
                 .TraverseM(entry => Button(row: entry, runtime: held)
-                    .Bind(button => Try.lift(() => Fin.Succ(
-                        value: (HostEdge.Side(() => bar.AddButton(button)), ControlMint.Leaf(host: button)).Item2)).Run().Bind(static inner => inner)))
+                    .Bind(button => Try.lift(() => (HostEdge.Side(() => bar.AddButton(button)), ControlMint.Leaf(host: button)).Item2).Run()))
                 .As()
                 .Map(children => ControlMint.Leaf(host: bar) with { Children = children.Strict() })),
         gridWrap: static (held, row) => row.Items
@@ -1420,9 +1417,9 @@ public abstract partial record HostControl {
                 _ = children.Iter(child => HostEdge.Side(() => grid.Items.Add(child.Host.Resource)));
                 return Fin.Succ(value: ControlMint.Leaf(grid) with { Children = children.Strict() });
             }).Run().Bind(static inner => inner)),
-        labelRow: static (held, row) => row.Field.Mint(runtime: held).Bind(field => Try.lift(() => Fin.Succ(value: ControlMint.Leaf(host: RhinoLayout.LabelTableLayout(
+        labelRow: static (held, row) => row.Field.Mint(runtime: held).Bind(field => Try.lift(() => ControlMint.Leaf(host: RhinoLayout.LabelTableLayout(
                     row.Caption.Resolve(), field.Host.Resource, true, row.Gap.Key))
-                with { Children = Seq(field) })).Run().Bind(static inner => inner)),
+                with { Children = Seq(field) }).Run()),
         dividerLine: static (held, row) => row.Colour
             .Traverse(colour => colour.ToEto())
             .As()
@@ -1431,26 +1428,26 @@ public abstract partial record HostControl {
                 _ = ink.Iter(colour => line.Color = colour);
                 return Fin.Succ(value: ControlMint.Leaf(host: line));
             }).Run().Bind(static inner => inner)),
-        captionRule: static (held, row) => Try.lift(() => Fin.Succ(value: ControlMint.Leaf(
-            host: new LabelSeparator { Text = row.Caption.Resolve() }))).Run().Bind(static inner => inner),
-        pinnedLabel: static (held, row) => Try.lift(() => Fin.Succ(value: ControlMint.Leaf(
-            host: new StaticAlignedLabel(row.Alignment) { Text = row.Text.Resolve() }))).Run().Bind(static inner => inner),
+        captionRule: static (held, row) => Try.lift(() => ControlMint.Leaf(
+            host: new LabelSeparator { Text = row.Caption.Resolve() })).Run(),
+        pinnedLabel: static (held, row) => Try.lift(() => ControlMint.Leaf(
+            host: new StaticAlignedLabel(row.Alignment) { Text = row.Text.Resolve() })).Run(),
         outputColour: static (held, row) =>
             from display in row.Display.ToEto()
             from print in row.Print.ToEto()
-            from picker in Try.lift(() => Fin.Succ(value: new DisplayAndPrintColorPicker {
+            from picker in Try.lift(() => new DisplayAndPrintColorPicker {
                 PickerMode = row.Mode,
                 LinkPrintToDisplay = row.Link.Key,
                 DisplayColor = display,
                 PrintColor = print,
-            })).Run().Bind(static inner => inner)
+            }).Run()
             select ControlMint.Editor(
                 host: picker,
                 pick: () => PaintColor.OfHost(host: picker.DisplayColor)
                     .Map<FieldValue>(static value => new FieldValue.Colour(Value: value))),
-        viewportView: static (held, row) => Try.lift(() => Fin.Succ(value: ControlMint.Leaf(host: row.Title.Match(
+        viewportView: static (held, row) => Try.lift(() => ControlMint.Leaf(host: row.Title.Match(
             Some: static title => new ViewportControl(viewportTitle: title.Resolve()),
-            None: static () => new ViewportControl())))).Run().Bind(static inner => inner));
+            None: static () => new ViewportControl()))).Run());
 
     private static Fin<ImageButton> Button(HostCommandRow row, ElementRuntime runtime) =>
         runtime.Intents.Verb(row.Intent).Bind(command => Try.lift(() => {

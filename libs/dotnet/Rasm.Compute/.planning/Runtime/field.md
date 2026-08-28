@@ -359,9 +359,9 @@ public static class FieldPack {
                 : Fail<Error, ulong[]>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(declared.Station + declared.Stations, 0d, extent[0])))));
 
     static Validation<Error, float[]> Read(NativeDataset source, H5DatasetAccess access, Option<FieldWindow> window, ChunkGrid grid, FieldElement element) =>
-        Try.lift(() => Fin.Succ(element == FieldElement.Double
+        Try.lift(() => element == FieldElement.Double
                 ? Narrowed(Slabbed<double>(source, access, window, grid))
-                : Slabbed<float>(source, access, window, grid))).Run().Bind(static inner => inner)
+                : Slabbed<float>(source, access, window, grid)).Run()
             .ToValidation<Error>();
 
     static T[] Slabbed<T>(NativeDataset source, H5DatasetAccess access, Option<FieldWindow> window, ChunkGrid grid) where T : unmanaged {
@@ -661,9 +661,9 @@ public static class InterchangeIo {
                 .Bind(admitted => {
                     int channels = (int)extent[1];
                     int frames = window.Frames(admitted.Samples);
-                    return Try.lift(() => Fin.Succ(admitted.Element == FieldElement.Double
+                    return Try.lift(() => admitted.Element == FieldElement.Double
                             ? FieldPack.Narrowed(Windowed<double>(source, handle.Access, window, frames, channels))
-                            : Windowed<float>(source, handle.Access, window, frames, channels))).Run().Bind(static inner => inner)
+                            : Windowed<float>(source, handle.Access, window, frames, channels)).Run()
                         .ToValidation<Error>()
                         .Map(values => new WaveformCorpus(formatKey, dataset, channels, admitted.Samples, admitted.Rate, window, frames, values, at));
                 });

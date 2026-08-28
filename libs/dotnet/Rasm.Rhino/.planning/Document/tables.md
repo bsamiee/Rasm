@@ -325,11 +325,11 @@ public abstract partial record TablePredicate {
                from predicate in (
                 Admit.Need(match).ToValidation(),
                 Admit.Need(context).ToValidation(),
-                Try.lift(() => Fin.Succ(value: toSeq(region.GetCorners()))).Run().Bind(static inner => inner)
+                Try.lift(() => toSeq(region.GetCorners())).Run()
                     .Bind(corners =>
                         from counted in guard(corners.Count is 8, new KernelFault.InvalidInput()).ToFin()
                         from admitted in corners
-                            .Traverse(point => Acceptance.Input(value: point).ToValidation())
+                            .Traverse(point => Admit.Value(value: point).ToValidation())
                             .As()
                             .ToFin()
                         select admitted)
@@ -367,7 +367,7 @@ public abstract partial record TablePredicate {
 
     private static BoundingBox Inflated(BoundingBox region, double amount) {
         BoundingBox expanded = region;
-        _ = HostEdge.SideWhen(amount > 0.0, () => expanded.Inflate(xAmount: amount, yAmount: amount, zAmount: amount));
+        if (amount > 0.0) { expanded.Inflate(xAmount: amount, yAmount: amount, zAmount: amount); }
         return expanded;
     }
 
@@ -1029,7 +1029,7 @@ public abstract partial record TableOp {
     public static Fin<TableOp> Transform(TableTarget target, Transform motion, TransformPolicy policy) {
         return (
                 Admit.Need(target).ToValidation(),
-                Acceptance.Input(value: motion).ToValidation(),
+                Admit.Value(value: motion).ToValidation(),
                 Admit.Need(policy).ToValidation())
             .Apply(static (address, transform, mode) => (TableOp)new TransformCase(
                 Target: address,
@@ -1112,7 +1112,7 @@ public abstract partial record TableOp {
                     && x.Value <= int.MaxValue / y.Value / z.Value,
                     new KernelFault.InvalidInput()).ToFin().ToValidation(),
                 box.AsIterable().ToSeq()
-                    .Traverse(point => Acceptance.Input(value: point).ToValidation())
+                    .Traverse(point => Admit.Value(value: point).ToValidation())
                     .As())
             .Apply((policy, _, _) => (TableOp)new CloudCase(
                 X: x,
@@ -1143,7 +1143,7 @@ public abstract partial record TableOp {
     public static Fin<TableOp> ImportPage(DocumentPath path, Guid mainViewportId, string pageName) {
         return (
                 guard(path != default, new KernelFault.InvalidInput()).ToFin().ToValidation(),
-                Acceptance.Input(value: mainViewportId).ToValidation(),
+                Admit.Value(value: mainViewportId).ToValidation(),
                 Acceptance.Text(value: pageName).ToValidation())
             .Apply((_, viewport, name) => (TableOp)new ImportPageCase(
                 Path: path,

@@ -292,7 +292,7 @@ public sealed partial record OutputPolicy {
     private static string Folder(DocumentPath path) => System.IO.Path.GetDirectoryName(path.Value) ?? string.Empty;
 
     private static Fin<byte[]> ReadNonempty(DocumentPath target, string path) =>
-        Try.lift(() => Fin.Succ(value: System.IO.File.ReadAllBytes(path: path))).Run().Bind(static inner => inner)
+        Try.lift(() => System.IO.File.ReadAllBytes(path: path)).Run()
             .Bind(bytes => guard(
                 bytes.Length > 0,
                 new ExchangeFault.Staging(Target: target, Stage: nameof(ReadNonempty))).ToFin().Map(_ => bytes));
@@ -1092,7 +1092,7 @@ public static class Exchanges {
             .ToFin(Fail: new ExchangeFault.CodecUnknown(Requested: path.Value));
 
     internal static Fin<UInt128> Keyed(string path) =>
-        Try.lift(() => Fin.Succ(value: ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: path)))).Run().Bind(static inner => inner);
+        Try.lift(() => ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: path))).Run();
 
     private static Fin<ExchangeOutcome> Dispatch(RhinoDoc document, DocumentOp operation, bool dirty) =>
         operation.Switch(

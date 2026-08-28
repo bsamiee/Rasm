@@ -512,7 +512,7 @@ public readonly record struct EndUseCell(double AnnualGj, Option<double> PeakW) 
 public static partial class EnergySimulation {
 
     static Fin<(A Value, Seq<AssessmentFact> Notes)> Leased<A>(string prefix, Func<string, WriterT<ReadLog, Fin, A>> use) =>
-        Try.lift(() => Fin.Succ(Directory.CreateTempSubdirectory(prefix).FullName)).Run().Bind(static inner => inner)
+        Try.lift(() => Directory.CreateTempSubdirectory(prefix).FullName).Run()
             .Bind(scratch => {
                 Fin<(A Value, ReadLog Log)> outcome = Try.lift(() => Reads.Run(use(scratch))).Run().Bind(static inner => inner);
                 Seq<AssessmentFact> release = Try.lift(() => { Directory.Delete(scratch, recursive: true); return Fin.Succ(unit); }).Run().Bind(static inner => inner)

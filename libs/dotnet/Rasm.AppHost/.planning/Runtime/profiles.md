@@ -503,7 +503,7 @@ public static class ProfileBoot {
 
     public static Fin<Unit> Notify(ISystemdNotifier notifier, ServiceState state) =>
         notifier.IsEnabled
-            ? Try.lift(() => Fin.Succ(fun(() => notifier.Notify(state))())).Run().Bind(static inner => inner)
+            ? Try.lift(() => fun(() => notifier.Notify(state))()).Run()
                 .MapFail(cause => new ProfileFault.NotifyRefused(state.ToString(), cause))
             : Fin.Succ(unit);
 
@@ -1026,7 +1026,7 @@ public static class LinuxPower {
         Node(directory, node).Bind(static text => long.TryParse(text, CultureInfo.InvariantCulture, out var value) ? Some(value) : None);
 
     static Option<string> Text(string path) =>
-        Try.lift(() => Fin.Succ(File.ReadAllText(path).Trim())).Run().Bind(static inner => inner).ToOption().Filter(static text => text.Length > 0);
+        Try.lift(() => File.ReadAllText(path).Trim()).Run().ToOption().Filter(static text => text.Length > 0);
 }
 ```
 

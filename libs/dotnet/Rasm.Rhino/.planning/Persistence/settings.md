@@ -235,7 +235,7 @@ public sealed partial class SettingKind {
         .ToArray();
 
     private static Fin<Option<ArchiveValue>> ReadEnum(PersistentSettings source, SettingKey key) =>
-        Try.lift(() => Fin.Succ(value: Admit.Probe<Type>((out Type value) => source.TryGetSettingType(key.Value, out value)))).Run().Bind(static inner => inner)
+        Try.lift(() => Admit.Probe<Type>((out Type value) => source.TryGetSettingType(key.Value, out value))).Run()
             .Bind(seated => seated.Match(
                 Some: type => type.IsEnum
                     ? EnumReader(type).Bind(read => Try.lift(() => read(source, key.Value)).Run().Bind(static inner => inner))
@@ -255,9 +255,9 @@ public sealed partial class SettingKind {
             Some: static held => Fin.Succ(value: held),
             None: () => EnumReaderTemplate
                 .ToFin(Fail: new KernelFault.MissingContext())
-                .Bind(open => Try.lift(() => Fin.Succ(value: open
+                .Bind(open => Try.lift(() => open
                     .MakeGenericMethod(enumType)
-                    .CreateDelegate<Func<PersistentSettings, string, Fin<Option<ArchiveValue>>>>())).Run().Bind(static inner => inner))
+                    .CreateDelegate<Func<PersistentSettings, string, Fin<Option<ArchiveValue>>>>()).Run())
                 .Map(minted => Cell.Claim(cell: EnumReaders, key: enumType, mint: () => minted).Current[enumType]));
 
     private static Fin<Option<ArchiveValue>> ReadEnumTyped<T>(PersistentSettings source, string key)
@@ -595,10 +595,10 @@ public static class SettingStore {
                from receiver in Admit.Need(sink)
                let handler = new EventHandler<PersistentSettingsSavedEventArgs>((_, args) => ignore(Try.lift(() =>
                    Fin.Succ(value: HostEdge.Side(() => receiver(
-                       from node in Try.lift(() => Fin.Succ(value: root.Switch<PersistentSettingsSavedEventArgs, PersistentSettings>(
+                       from node in Try.lift(() => root.Switch<PersistentSettingsSavedEventArgs, PersistentSettings>(
                            state: args,
                            plugInCase: static (state, _) => state.PlugInSettings,
-                           commandCase: static (state, command) => state.CommandSettings(command.EnglishCommandName)))).Run().Bind(static inner => inner)
+                           commandCase: static (state, command) => state.CommandSettings(command.EnglishCommandName))).Run()
                        from tree in Snapshot(node, location, DepthBudget.Value)
                        select new SettingsSaved(tree, (SaveOrigin)args.SavedByThisRhino))))).Run().Bind(static inner => inner))
                from subscription in Subscription.Attach(
@@ -739,7 +739,7 @@ public static class SettingStore {
             readCase: static (s, read) => from adopted in Adopted(s.Node, read.Legacy)
                                           from value in read.Kind.Read(s.Node, read.Legacy)
                                           select (SettingAnswer)new SettingAnswer.ValueCase(value, adopted),
-            clampCase: static (s, clamp) => Try.lift(() => Fin.Succ(value: clamp.Bound.Clamped(s.Node, clamp.Key, clamp.Fallback))).Run().Bind(static inner => inner)
+            clampCase: static (s, clamp) => Try.lift(() => clamp.Bound.Clamped(s.Node, clamp.Key, clamp.Fallback)).Run()
                 .Bind(resolved => ArchiveValue.Of(resolved))
                 .Map<SettingAnswer>(static value => new SettingAnswer.ValueCase(Some(value), None)),
             putCase: static (s, put) => AdmitTarget(s.Node, put.Value).Bind(kind => Mutate(
@@ -773,10 +773,10 @@ public static class SettingStore {
 
     private static Fin<PersistentSettings> Resolve(SettingPath path, ChildPolicy children) =>
         path.Root.Switch< Fin<PersistentSettings>>(
-            applicationCase: static (_) => Try.lift(() => Fin.Succ(value: PersistentSettings.RhinoAppSettings)).Run().Bind(static inner => inner),
+            applicationCase: static (_) => Try.lift(() => PersistentSettings.RhinoAppSettings).Run(),
             plugInCase: static (plugIn) => plugIn.Plugin.Admit(op)
-                .Bind(_ => Try.lift(() => Fin.Succ(value: PersistentSettings.FromPlugInId(plugIn.Plugin.ToValue()))).Run().Bind(static inner => inner)),
-            commandCase: static (command) => Try.lift(() => Fin.Succ(value: command.Owner.Settings)).Run().Bind(static inner => inner))
+                .Bind(_ => Try.lift(() => PersistentSettings.FromPlugInId(plugIn.Plugin.ToValue())).Run()),
+            commandCase: static (command) => Try.lift(() => command.Owner.Settings).Run())
         .Bind(root => path.Children.Fold(
             Fin.Succ(value: root),
             (state, child) => state.Bind(parent => Try.lift(() =>
@@ -824,16 +824,16 @@ public static class SettingStore {
     private static Fin<Option<SettingKey>> Adopted(PersistentSettings node, SettingKey key, Seq<SettingKey> legacy) =>
         legacy.IsEmpty
             ? Fin.Succ(value: Option<SettingKey>.None)
-            : Try.lift(() => Fin.Succ(value: SeatedType(node).IsSome
+            : Try.lift(() => SeatedType(node).IsSome
                 ? Option<SettingKey>.None
-                : legacy.Find(row => SeatedType(node, row).IsSome))).Run().Bind(static inner => inner);
+                : legacy.Find(row => SeatedType(node, row).IsSome)).Run();
 
     private static Option<Type> SeatedType(PersistentSettings node, SettingKey key) =>
         Admit.Probe<Type>((out Type value) => node.TryGetSettingType(key.Value, out value));
 
     private static Fin<SettingKind> AdmitTarget(PersistentSettings node, SettingKey key, ArchiveValue value) =>
         from kind in SettingKind.For(value)
-        from existing in Try.lift(() => Fin.Succ(value: SeatedType(node))).Run().Bind(static inner => inner)
+        from existing in Try.lift(() => SeatedType(node)).Run()
         from _compatible in existing
             .TraverseM(found => guard(kind.Accepts(found, value), new KernelFault.InvalidInput()).ToFin())
             .As()
@@ -847,7 +847,7 @@ public static class SettingStore {
     };
 
     private static Fin<SettingAnswer> Delete(PersistentSettings node, SettingOperation.DeleteCase request) =>
-        from type in Try.lift(() => Fin.Succ(value: SeatedType(node, request.Key))).Run().Bind(static inner => inner)
+        from type in Try.lift(() => SeatedType(node, request.Key)).Run()
         from prior in type.Match(
             Some: found => SettingKind.For(found)
                 .Bind(kind => kind.Read(node, Seq<SettingKey>())),
@@ -887,17 +887,17 @@ public static class SettingStore {
         select (SettingAnswer)new SettingAnswer.NodeCase(new NodeMutation(request.Path, None, before, after));
 
     private static Fin<SettingsVisibility> Visibility(PersistentSettings node) =>
-        Try.lift(() => Fin.Succ(value: (SettingsVisibility)node.HiddenFromUserInterface)).Run().Bind(static inner => inner);
+        Try.lift(() => (SettingsVisibility)node.HiddenFromUserInterface).Run();
 
     private static Option<PersistentSettings> Child(PersistentSettings node, SettingKey key) =>
         Admit.Probe<PersistentSettings>((out PersistentSettings found) => node.TryGetChild(key.Value, out found));
 
     private static Fin<SettingMetadata> Metadata(PersistentSettings node, SettingKey key) =>
-        Try.lift(() => Fin.Succ(value: (
+        Try.lift(() => (
                 Runtime: node.GetSettingType(key.Value),
                 Traits: Held(
                     (node.GetSettingIsReadOnly(key.Value), SettingTrait.ReadOnly),
-                    (node.GetSettingIsHiddenFromUserInterface(key.Value), SettingTrait.Hidden))))).Run().Bind(static inner => inner)
+                    (node.GetSettingIsHiddenFromUserInterface(key.Value), SettingTrait.Hidden)))).Run()
             .Map(read => new SettingMetadata(read.Runtime, SettingKind.For(read.Runtime).ToOption(), read.Traits));
 
     private static CapabilitySet<SettingTrait> Held(params ReadOnlySpan<(bool Holds, SettingTrait Trait)> rows) =>
@@ -922,9 +922,9 @@ public static class SettingStore {
             Some: static held => Fin.Succ(value: held),
             None: () => ValidatorTemplate
                 .ToFin(Fail: new KernelFault.MissingContext())
-                .Bind(open => Try.lift(() => Fin.Succ(value: open
+                .Bind(open => Try.lift(() => open
                     .MakeGenericMethod(hostType)
-                    .CreateDelegate<Func<PersistentSettings, string, ISettingGuard, Fin<Unit>>>())).Run().Bind(static inner => inner))
+                    .CreateDelegate<Func<PersistentSettings, string, ISettingGuard, Fin<Unit>>>()).Run())
                 .Map(minted => Cell.Claim(cell: ValidatorWriters, key: hostType, mint: () => minted).Current[hostType]));
 
     private static Fin<SettingAnswer> Register(PersistentSettings node, SettingOperation.GuardCase request) {
@@ -991,8 +991,8 @@ public static class SettingStore {
     private static Fin<SettingAnswer> Changed(PersistentSettings node, SettingOperation.ChangedCase request) =>
         request.CompareWith.Match(
             Some: path => Resolve(path, ChildPolicy.Require)
-                .Bind(other => Try.lift(() => Fin.Succ(value: node.ContainsModifiedValues(other))).Run().Bind(static inner => inner)),
-            None: () => Try.lift(() => Fin.Succ(value: node.ContainsChangedValues())).Run().Bind(static inner => inner))
+                .Bind(other => Try.lift(() => node.ContainsModifiedValues(other)).Run()),
+            None: () => Try.lift(() => node.ContainsChangedValues()).Run())
         .Map<SettingAnswer>(static changed => new SettingAnswer.ChangedCase((ChangeVerdict)changed));
 
     private static readonly Rasm.Numerics.Dimension DepthBudget = Rasm.Numerics.Dimension.Create(value: 32);
@@ -1016,7 +1016,7 @@ public static class SettingStore {
                     .Traverse(static value => value)
                     .Map(static keys => toSeq(keys.OrderBy(static key => key.Value, StringComparer.Ordinal)))
                 from children in childKeys
-                    .Map(admitted => from child in Try.lift(() => Fin.Succ(value: node.GetChild(admitted.Value))).Run().Bind(static inner => inner)
+                    .Map(admitted => from child in Try.lift(() => node.GetChild(admitted.Value)).Run()
                                      from tree in Snapshot(
                                          child,
                                          path with { Children = path.Children.Add(admitted) },

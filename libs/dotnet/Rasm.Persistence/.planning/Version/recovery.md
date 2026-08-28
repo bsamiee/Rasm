@@ -123,7 +123,7 @@ public static class RecoveryRoutes {
         select gauged;
 
     static IO<(RecoveryPoint Point, Duration Rpo)> PgPitr(RecoveryContext ctx, ProjectionContext frame) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await using LogicalReplicationConnection replication = new(ctx.Dsn);
             await replication.Open().ConfigureAwait(false);
             ReplicationSystemIdentification system = await replication.IdentifySystem().ConfigureAwait(false);
@@ -137,7 +137,7 @@ public static class RecoveryRoutes {
             ulong lagBytes = system.XLogPos >= ctx.ArchiveFlushed ? (ulong)system.XLogPos - (ulong)ctx.ArchiveFlushed : 0UL;
             return Fin<(RecoveryPoint, Duration)>.Succ(
                 (RecoveryPoint.Of(system, head, frame.Now()), Duration.FromSeconds(lagBytes / double.Max(ctx.WalBytesPerSecond, 1d))));
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Bind(IO.lift);
 
     static IO<(RecoveryPoint Point, Duration Rpo)> ObjectReplica(RecoveryContext ctx, ProjectionContext frame) =>
         ctx.ReplicaManifest.TraverseM(entry => ctx.BlobStore.Head(ctx.BlobClient, entry.Key).Map(present => (entry.Key, entry.SealedAt, Present: present.IsSome))).As()
@@ -148,7 +148,7 @@ public static class RecoveryRoutes {
 
     static IO<(RecoveryPoint Point, Duration Rpo)> SnapshotFloor(RecoveryContext ctx, ProjectionContext frame) =>
         toSeq(ctx.Checkpoints.OrderByDescending(static c => c.WrittenAt)).Head.Match(
-            Some: newest => IO.lift(() => Try.lift(() => Fin.Succ(ReadSealed(ctx.ArchiveRoot, newest.Id))).Run().Bind(static inner => inner))
+            Some: newest => IO.lift(() => Try.lift(() => ReadSealed(ctx.ArchiveRoot, newest.Id)).Run())
                 .Bind(bytes => Snapshots.Verify(bytes, ctx.SchemaFingerprint, ctx.Epoch).Match(
                     Succ: _ => IO.pure((RecoveryPoint.Floor(newest.WrittenAt), frame.Now() - newest.WrittenAt)),
                     Fail: IO.fail<(RecoveryPoint, Duration)>)),
@@ -253,7 +253,7 @@ public static class PointInTimeRestore {
 
     static Fin<string> Verify(RecoveryRoute route, RecoveryContext ctx, RecoveryPoint target) =>
         ctx.Checkpoints.Traverse(row =>
-            Try.lift(() => Fin.Succ(RecoveryRoutes.ReadSealed(ctx.ArchiveRoot, row.Id))).Run().Bind(static inner => inner)
+            Try.lift(() => RecoveryRoutes.ReadSealed(ctx.ArchiveRoot, row.Id)).Run()
                 .Bind(bytes => Snapshots.Verify(bytes, ctx.SchemaFingerprint, ctx.Epoch).Map(static _ => unit))
                 .ToValidation()).As().ToFin()
         .Bind(verified => target.Continues(ctx.ArchiveTimeline)

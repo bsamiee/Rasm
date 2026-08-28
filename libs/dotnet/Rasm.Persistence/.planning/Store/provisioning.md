@@ -517,10 +517,10 @@ public static class ClusterProvision {
                 : Some(new ServerFault.Ungated(extension.Key)));
 
     public static IO<Unit> Reload(NpgsqlDataSource source) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             await source.ReloadTypesAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }).ConfigureAwait(false)).MapFail(ServerFault.Lift))
+        }).Map(outcome => outcome.MapFail(ServerFault.Lift))
         .Bind(IO.lift);
 
     public static IO<Fin<Unit>> Register(StoreProfile profile, IDocumentSession session, MaintenanceJob job, ProvisionVerdict.Provisioned cluster) =>
@@ -532,11 +532,11 @@ public static class ClusterProvision {
     static IO<Fin<Unit>> Queued(IDocumentSession session, string sql, Option<ServerFault> refusal) =>
         refusal.Match(
             Some: fault => IO.pure(Fin<Unit>.Fail(fault)),
-            None: () => IO.liftAsync(async () => (await HostEdge.Captured(async token => {
+            None: () => HostEdge.CapturedIO(async token => {
                 session.QueueSqlCommand(sql);
                 await session.SaveChangesAsync(token).ConfigureAwait(false);
                 return Fin<Unit>.Succ(unit);
-            }).ConfigureAwait(false)).MapFail(ServerFault.Lift)));
+            }).Map(outcome => outcome.MapFail(ServerFault.Lift)));
 
     public static NpgsqlDataSource Source(string dsn, string name, SourceWire wire) {
         NpgsqlDataSourceBuilder builder = new(dsn) { Name = name };
@@ -561,7 +561,7 @@ public static class ClusterProvision {
             : schema.Parsed.Evaluate(instance, new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid);
 
     internal static Fin<T> Lifted<T>(Func<T> crossing) =>
-        Try.lift(() => Fin.Succ(crossing())).Run().Bind(static inner => inner).MapFail(static error => ServerFault.Lift(error));
+        Try.lift(() => crossing()).Run().MapFail(static error => ServerFault.Lift(error));
 
     static async Task<Seq<T>> Next<T>(NpgsqlDataReader reader, Func<NpgsqlDataReader, T> read) {
         await reader.NextResultAsync().ConfigureAwait(false);
@@ -1075,7 +1075,7 @@ public static class HandleBridge {
         store.Handle is { } handle ? Fin.Succ(handle) : Fin.Fail<sqlite3>(new EmbeddedFault.Refused("<no-handle>"));
 
     public static Fin<T> Lifted<T>(Func<T> crossing) =>
-        Try.lift(() => Fin.Succ(crossing())).Run().Bind(static inner => inner).MapFail(static error => EmbeddedFault.Lift(error));
+        Try.lift(() => crossing()).Run().MapFail(static error => EmbeddedFault.Lift(error));
 
     public static Fin<T> Crossed<T>(SqliteConnection store, Func<sqlite3, Fin<T>> crossing) =>
         Of(store).Bind(handle => Lifted(() => crossing(handle)).Bind(static held => held));
@@ -1384,7 +1384,7 @@ public static class KvFloor {
         EmbeddedFault.OfLmdb(status).Match(Some: Fin.Fail<Unit>, None: static () => Fin.Succ(unit));
 
     static Fin<T> Guarded<T>(Func<T> call) =>
-        Try.lift(() => Fin.Succ(call())).Run().Bind(static inner => inner).MapFail(EmbeddedFault.Lift);
+        Try.lift(() => call()).Run().MapFail(EmbeddedFault.Lift);
 }
 ```
 

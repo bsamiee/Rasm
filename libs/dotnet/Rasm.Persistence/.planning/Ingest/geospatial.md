@@ -315,7 +315,7 @@ public static class GeoSource {
     static string Text(Origin source) => source.Read(path: File.ReadAllText, stream: static s => new StreamReader(s).ReadToEnd());
 
     internal static Validation<Error, TValue> Capture<TValue>(GeoFormat format, Func<TValue> codec) =>
-        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner).MapFail(e => GeoIngestFault.Lift(format, e)).ToValidation();
+        Try.lift(() => codec()).Run().MapFail(e => GeoIngestFault.Lift(format, e)).ToValidation();
 }
 
 public static class GeoCells {

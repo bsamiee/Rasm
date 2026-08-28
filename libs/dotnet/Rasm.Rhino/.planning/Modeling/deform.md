@@ -453,7 +453,7 @@ public abstract partial record DeformOp {
                                 active.ExplodeSpacing = edit.Law.Spacing;
                                 active.AbsoluteTolerance = model.Absolute.Value;
                                 active.RelativeTolerance = model.Fractional;
-                                _ = HostEdge.SideWhen(!followers.IsEmpty, () => active.AddFollowingGeometry(curves: followers.AsIterable()));
+                                if (!followers.IsEmpty) { active.AddFollowingGeometry(curves: followers.AsIterable()); }
                                 Brep[] flatBreps = active.PerformUnroll(
                                     unrolledCurves: out Curve[] flatCurves,
                                     unrolledPoints: out _,

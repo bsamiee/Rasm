@@ -174,8 +174,8 @@ public sealed class ChromeCell {
     public Option<ChannelReader<UiEvent<ChromeTrace>>> Traced => trace.Map(static drain => drain.Reader);
 
     public ChromeDecision Decide(ChromeEvent happening, Grasshopper2.Doc.IAttributes host) {
-        ChromeDecision decision = Try.lift(() => Fin.Succ(chrome.Respond(
-                happening, new ChromeState(host.Bounds, host.Pivot, skinShape.Value)))).Run().Bind(static inner => inner)
+        ChromeDecision decision = Try.lift(() => chrome.Respond(
+                happening, new ChromeState(host.Bounds, host.Pivot, skinShape.Value))).Run()
             .IfFail(cause => (Park(cause), ChromeDecision.Pass).Item2);
         trace.Iter(drain => drain.Publish(
             source: ChromeSource.Row,

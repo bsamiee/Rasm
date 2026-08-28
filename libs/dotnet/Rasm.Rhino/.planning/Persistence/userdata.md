@@ -127,7 +127,7 @@ public static class ArchiveIo {
                    }).Run().Bind(static inner => inner);
                    return body.Settled(
                            held: Seq<Func<Fin<Unit>>>(
-                               () => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => writer.EnableCRCCalculation(priorCrc)))).Run().Bind(static inner => inner),
+                               () => Try.lift(() => HostEdge.Side(() => writer.EnableCRCCalculation(priorCrc))).Run(),
                                () => Try.lift(() => Admit.Confirm(success: writer.EndWrite3dmChunk())).Run().Bind(static inner => inner)),
                            release: static settle => settle())
                        .Map(_ => new ArchiveIntegrity.WrittenCase(
@@ -162,12 +162,12 @@ public static class ArchiveIo {
                    }
 
                    bool priorCrc = reader.EnableCRCCalculation(true);
-                   Fin<(ArchivableDictionary Native, bool Checksum)> body = Try.lift(() => Fin.Succ(value: (
+                   Fin<(ArchivableDictionary Native, bool Checksum)> body = Try.lift(() => (
                        Native: reader.ReadDictionary(),
-                       Checksum: reader.ReadCheckSum()))).Run().Bind(static inner => inner);
+                       Checksum: reader.ReadCheckSum())).Run();
                    return body.Settled(
                            held: Seq<Func<Fin<Unit>>>(
-                               () => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => reader.EnableCRCCalculation(priorCrc)))).Run().Bind(static inner => inner),
+                               () => Try.lift(() => HostEdge.Side(() => reader.EnableCRCCalculation(priorCrc))).Run(),
                                () => Try.lift(() => Admit.Confirm(
                                    success: reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: false))).Run().Bind(static inner => inner)),
                            release: static settle => settle())
@@ -510,11 +510,11 @@ public static class Custody {
     private static Fin<Unit> Land(CustodyStep step) => step.Switch< Fin<Unit>>(
         attachCase: static (attach) => Try.lift(() => Admit.Confirm(success: attach.Target.UserData.Add(attach.Value))).Run().Bind(static inner => inner),
         removeCase: static (remove) => Try.lift(() => Admit.Confirm(success: remove.Target.UserData.Remove(remove.Value))).Run().Bind(static inner => inner)
-            .Bind(_ => remove.Disposal.Key ? Try.lift(remove.Value.Dispose).Run().Bind(static inner => inner) : Fin.Succ(value: unit)),
+            .Bind(_ => remove.Disposal.Key ? Try.lift(remove.Value.Dispose).Run() : Fin.Succ(value: unit)),
         purgeCase: static (purge) => Try.lift(() => purge.Target.UserData.Purge()).Run().Bind(static inner => inner),
         copyCase: static (copy) => Try.lift(() => UserData.Copy(copy.Source, copy.Destination)).Run().Bind(static inner => inner),
         moveCase: static (move) =>
-            from id in Try.lift(() => Fin.Succ(value: UserData.MoveUserDataFrom(move.Source))).Run().Bind(static inner => inner)
+            from id in Try.lift(() => UserData.MoveUserDataFrom(move.Source)).Run()
             from _present in guard(id != Guid.Empty, new KernelFault.InvalidResult(Detail: Some("User-data move found no transferable custody.")))
             from _placed in Try.lift(() => UserData.MoveUserDataTo(move.Destination, id, move.Placement.Key)).Run().Bind(static inner => inner)
             select unit,
@@ -531,7 +531,7 @@ public static class Custody {
         from prior in ArchiveMap.Detach(opened.Dictionary)
         from _schema in prior.Diff(payload).Map(static _ => unit)
         from settled in (
-            from _clear in Try.lift(opened.Dictionary.Clear).Run().Bind(static inner => inner)
+            from _clear in Try.lift(opened.Dictionary.Clear).Run()
             from _write in payload.WriteTo(opened.Dictionary)
             from current in ArchiveMap.Detach(opened.Dictionary)
             from _proof in guard(
@@ -546,9 +546,9 @@ public static class Custody {
         ArchiveMap prior) => opened.Origin.Key
         ? from parent in Optional(opened.Dictionary.ParentUserData).ToFin(Fail: new KernelFault.InvalidResult(Detail: Some("Created shared user dictionary has no attached custody owner.")))
           from _removed in Try.lift(() => Admit.Confirm(success: opened.Target.UserData.Remove(parent))).Run().Bind(static inner => inner)
-          from _released in Try.lift(parent.Dispose).Run().Bind(static inner => inner)
+          from _released in Try.lift(parent.Dispose).Run()
           select unit
-        : Try.lift(opened.Dictionary.Clear).Run().Bind(static inner => inner).Bind(_ => prior.WriteTo(opened.Dictionary));
+        : Try.lift(opened.Dictionary.Clear).Run().Bind(_ => prior.WriteTo(opened.Dictionary));
 
     private static Fin<(CommonObject Target, ArchivableDictionary Dictionary, SharedOrigin Origin)> Open(
         CommonObject target) =>

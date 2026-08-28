@@ -695,8 +695,7 @@ public static class MachineTool {
         Arr<AxisMotion> limits = joints.Map(static joint => joint.Motion);
         Arr<double> seed = previous.Count == joints.Count ? previous : limits.Map(static limit => limit.Home);
         Vector<double> zero = CreateVector.Dense<double>(TaskRank);
-        return Try.lift(() => Fin.Succ(
-            new LevenbergMarquardtMinimizer(maximumIterations: kinematics.Inverse.RootIterations)
+        return Try.lift(() => new LevenbergMarquardtMinimizer(maximumIterations: kinematics.Inverse.RootIterations)
                 .FindMinimum(
                     ObjectiveFunction.NonlinearModel(
                         (parameters, _) => Residual(kinematics, joints, parameters, pose),
@@ -708,7 +707,7 @@ public static class MachineTool {
                     upperBound: limits.Map(static limit => limit.Max).ToArray(),
                     scales: limits.Map(static limit => limit.Max - limit.Min).ToArray(),
                     isFixed: null)
-                .MinimizingPoint)).Run().Bind(static inner => inner)
+                .MinimizingPoint).Run()
             .Bind(fitted => Try.lift(() => {
                 Matrix<double> jacobian = Jacobian(kinematics, joints, fitted, pose);
                 Matrix<double> scaled = CreateMatrix.Dense<double>(TaskRank, joints.Count,

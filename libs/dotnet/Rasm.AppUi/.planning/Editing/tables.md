@@ -165,7 +165,7 @@ public sealed record TableColumnMeasure<TRow>(
 
     public double Select(TRow row, ResolvedLocale locale) => Measure.Switch(
         state: (Row: row, Locale: locale),
-        quantity: static (s, q) => Try.lift(() => Fin.Succ(q.Value(s.Row).ToUnit(s.Locale.Measures.Unit(q.Role)).Value)).Run().Bind(static inner => inner)
+        quantity: static (s, q) => Try.lift(() => q.Value(s.Row).ToUnit(s.Locale.Measures.Unit(q.Role)).Value).Run()
             .Match(Succ: static value => value, Fail: static _ => double.NaN),
         scalar: static (s, n) => n.Value(s.Row));
 

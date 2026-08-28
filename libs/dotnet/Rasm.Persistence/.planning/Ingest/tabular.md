@@ -327,7 +327,7 @@ public static class TabularSource {
                 stream: s => s.Query(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()))));
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner).MapFail(TabularFault.Lift).ToValidation();
+        Try.lift(() => codec()).Run().MapFail(TabularFault.Lift).ToValidation();
 
     static object Redact(object value, RedactionPlan plan) => value switch {
         DataTable table => table.Rows.Cast<DataRow>().Select(row => table.Columns.Cast<DataColumn>()
@@ -358,8 +358,8 @@ public static class TabularWire {
         Contract<T>(rows).Bind(_ => rows.Traverse(Bind<T>).As());
 
     public static Validation<Error, T> Bind<T>(TabularRow row) =>
-        Try.lift(() => Fin.Succ(JsonSerializer.Deserialize<T>(
-                JsonSerializer.SerializeToUtf8Bytes(row.Cells.ToDictionary(static cell => cell.Key, static cell => cell.Value), Options), Options))).Run().Bind(static inner => inner)
+        Try.lift(() => JsonSerializer.Deserialize<T>(
+                JsonSerializer.SerializeToUtf8Bytes(row.Cells.ToDictionary(static cell => cell.Key, static cell => cell.Value), Options), Options)).Run()
             .MapFail(TabularFault.Lift)
             .ToValidation()
             .Bind(bound => Optional(bound).ToValidation(
@@ -552,8 +552,8 @@ public static class TabularBulk {
         new(BulkCopyType: BulkCopyType.ProviderSpecific, KeepIdentity: true, MaxBatchSize: batch.ToNullable());
 
     static IO<Validation<Error, BulkCopyRowsCopied>> Copied(Func<Task<BulkCopyRowsCopied>> copy) =>
-        IO.liftAsync(async () => (await HostEdge.Captured(async _ =>
-            Fin.Succ(await copy().ConfigureAwait(false))).ConfigureAwait(false))
+        HostEdge.CapturedIO(async _ =>
+            Fin.Succ(await copy().ConfigureAwait(false))).Map(outcome => outcome
             .MapFail(static error => new TabularFault.BulkRefused(error))
             .ToValidation());
 }

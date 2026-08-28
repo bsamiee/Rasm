@@ -159,7 +159,7 @@ public sealed class FederationPlan {
             ? Fin.Fail<FederationPlan>(new FederationFault.SourceUncapable(source.Identity))
             : wire is PlanWire.Json { Body.Length: > WireLimits.Plan.SizeLimit } oversize
             ? Fin.Fail<FederationPlan>(new FederationFault.InvalidPlan($"<plan-size:{oversize.Body.Length}>"))
-            : Try.lift(() => Fin.Succ(wire.Switch<(Plan Ir, AdbcQuery Wire, UInt128 Digest)>(
+            : Try.lift(() => wire.Switch<(Plan Ir, AdbcQuery Wire, UInt128 Digest)>(
                     protobuf: static p => {
                         WirePlan parsed = WirePlan.Parser.ParseFrom(CodedInputStream.CreateWithLimits(
                             p.Bytes.AsStream(), WireLimits.Plan.SizeLimit, WireLimits.Plan.RecursionLimit));
@@ -179,7 +179,7 @@ public sealed class FederationPlan {
                                 w.String(door.Text).Sorted(door.Tables, static table => (string)table.Table, StringComparer.Ordinal,
                                     static (table, x) => { x.String((string)table.Table).Rows(toSeq(table.Schema.Names), static (name, y) => { y.String(name); }); });
                             }));
-                    }))).Run().Bind(static inner => inner)
+                    })).Run()
                 .MapFail(static error => error.Exception.Case is SubstraitParseException or InvalidProtocolBufferException or InvalidJsonException
                     ? (Error)new FederationFault.SubstraitParse(error)
                     : error)
@@ -318,7 +318,7 @@ public static class SetLowering {
         scope.Models is [var model]
             ? toSeq(literal.Values.Expressions)
                 .TraverseM(row => row.Fields is [StringLiteral key, ..]
-                    ? Try.lift(() => Fin.Succ(new SetKey(model, NodeId.Create(key.Value)))).Run().Bind(static inner => inner)
+                    ? Try.lift(() => new SetKey(model, NodeId.Create(key.Value))).Run()
                     : Fin.Fail<SetKey>(new FederationFault.InvalidPlan("<virtual-key>")))
                 .As()
             : Fin.Fail<Seq<SetKey>>(new FederationFault.InvalidPlan("<literal-model-ambiguous>"));
@@ -412,11 +412,11 @@ public static class Federation {
             Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault))));
 
     static IO<Fin<FederatedResult>> Materialized(FederationPlan plan, FederationMode.Materialized mode, TimeCut cut, StalenessWatermark watermark, FederationPorts ports) =>
-        IO.lift<Fin<Plan>>(() => Try.lift(() => Fin.Succ(SubstraitToDifferentialCompute.Convert(
+        IO.lift<Fin<Plan>>(() => Try.lift(() => SubstraitToDifferentialCompute.Convert(
                 plan.Ir,
                 addWriteRelation: true,
                 (string)mode.View,
-                [.. mode.Keys.Map(static key => (string)key)]))).Run().Bind(static inner => inner)
+                [.. mode.Keys.Map(static key => (string)key)])).Run()
             .MapFail(static error => error.Exception.Case is SubstraitParseException
                 ? (Error)new FederationFault.SubstraitParse(error)
                 : error))

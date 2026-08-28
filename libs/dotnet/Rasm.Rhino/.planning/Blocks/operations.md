@@ -328,11 +328,11 @@ public abstract partial record BlockOp {
                 from _ in Admit.Confirm(success: context.Document.InstanceDefinitions.Purge(idefIndex: definition.Index))
                 select unit,
             purgeUnused: static (context, _) =>
-                from _ in Try.lift(() => Fin.Succ(value: context.Document.InstanceDefinitions.PurgeUnused())).Run().Bind(static inner => inner)
+                from _ in Try.lift(() => context.Document.InstanceDefinitions.PurgeUnused()).Run()
                 select unit,
             compact: static (context, edit) =>
-                from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() =>
-                    context.Document.InstanceDefinitions.Compact(ignoreUndoReferences: edit.Policy.IgnoreUndoReferences)))).Run().Bind(static inner => inner)
+                from _ in Try.lift(() => HostEdge.Side(() =>
+                    context.Document.InstanceDefinitions.Compact(ignoreUndoReferences: edit.Policy.IgnoreUndoReferences))).Run()
                 select unit,
             export: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document)
@@ -477,21 +477,18 @@ public abstract partial record FieldSource {
             context: document,
             text: static (ctx, source) =>
                 from text in Acceptance.Text(value: source.Value)
-                from descriptors in Try.lift(() => Fin.Succ(
-                    value: Described(descriptors: TextFields.GetInstanceAttributeFields(str: text)))).Run().Bind(static inner => inner)
+                from descriptors in Try.lift(() => Described(descriptors: TextFields.GetInstanceAttributeFields(str: text))).Run()
                 select (BlockAnswer)new BlockAnswer.Fields(Descriptors: descriptors),
             @object: static (ctx, source) =>
                 from ids in source.Target.Resolve(document: ctx)
                 from id in ids.Head.Filter(_ => ids.Count == 1).ToFin(Fail: new KernelFault.InvalidInput())
                 from native in Optional(ctx.Objects.FindId(id)).ToFin(Fail: new KernelFault.MissingContext())
                 from text in Admit.Need(native as TextObject)
-                from descriptors in Try.lift(() => Fin.Succ(
-                    value: Described(descriptors: TextFields.GetInstanceAttributeFields(text: text)))).Run().Bind(static inner => inner)
+                from descriptors in Try.lift(() => Described(descriptors: TextFields.GetInstanceAttributeFields(text: text))).Run()
                 select (BlockAnswer)new BlockAnswer.Fields(Descriptors: descriptors),
             definition: static (ctx, source) =>
                 from definition in Definitions.Resolve(target: source.Target, document: ctx)
-                from descriptors in Try.lift(() => Fin.Succ(
-                    value: Described(descriptors: TextFields.GetInstanceAttributeFields(idef: definition)))).Run().Bind(static inner => inner)
+                from descriptors in Try.lift(() => Described(descriptors: TextFields.GetInstanceAttributeFields(idef: definition))).Run()
                 select (BlockAnswer)new BlockAnswer.Fields(Descriptors: descriptors),
             token: static (ctx, source) =>
                 from key in Acceptance.Text(value: source.Key)
@@ -563,8 +560,8 @@ public sealed class ExplodedPiece {
         ? Fin.Succ(unit)
         : Custody.Release(
             releases: Seq<Func<Fin<Unit>>>(
-                () => Try.lift(() => Fin.Succ(value: HostEdge.Side(Geometry.Dispose))).Run().Bind(static inner => inner),
-                () => Try.lift(() => Fin.Succ(value: HostEdge.Side(Attributes.Dispose))).Run().Bind(static inner => inner)));
+                () => Try.lift(() => HostEdge.Side(Geometry.Dispose)).Run(),
+                () => Try.lift(() => HostEdge.Side(Attributes.Dispose)).Run()));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

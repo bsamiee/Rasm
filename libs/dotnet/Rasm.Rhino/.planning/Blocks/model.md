@@ -203,9 +203,8 @@ public abstract partial record BlockDependency {
         definition: static (context, probe) => Definitions.Resolve(
                 target: probe.Target,
                 document: context.Document)
-            .Bind(nested => Try.lift(() => Fin.Succ(
-                value: (BlockDependencyAnswer)new BlockDependencyAnswer.Nesting(
-                    Levels: context.Owner.UsesDefinition(otherIdefIndex: nested.Index)))).Run().Bind(static inner => inner)));
+            .Bind(nested => Try.lift(() => (BlockDependencyAnswer)new BlockDependencyAnswer.Nesting(
+                    Levels: context.Owner.UsesDefinition(otherIdefIndex: nested.Index))).Run()));
 
     private static Fin<BlockDependencyAnswer> MeasureTable(
         int index,
@@ -364,14 +363,14 @@ public sealed partial record BlockSnapshot(
                    from mode in SourceMode.Of(update: active.UpdateType)
                    from link in LinkState.Of(definition: active)
                    from usage in BlockUsage.Of(total: total, topLevel: topLevel, nested: nested)
-                   let description = HostEdge.Text(active.Description)
+                   let description = HostEdge.NonEmpty(active.Description)
                    from content in Identity(
                        state: new BlockIdentityState(
                            Name: active.Name,
                            Description: description,
                            Mode: mode,
                            Style: active.LayerStyle,
-                           Source: HostEdge.Text(active.SourceArchive),
+                           Source: HostEdge.NonEmpty(active.SourceArchive),
                            SkipNested: active.SkipNestedLinkedDefinitions,
                            ObjectCount: active.ObjectCount,
                            Members: projected))
@@ -400,7 +399,7 @@ public sealed partial record BlockSnapshot(
         ResourceRef.Of(id: Key).Bind(target => Definitions.Resolve(target: target, document: document));
 
     private static Fin<UInt128> Identity(BlockIdentityState state) =>
-        Try.lift(() => Fin.Succ(value: ContentHash.Of(
+        Try.lift(() => ContentHash.Of(
             state: state,
             chunks: static (held, writer) => {
                 _ = writer
@@ -414,7 +413,7 @@ public sealed partial record BlockSnapshot(
                     .Rows(held.Members, static (member, rows) => _ = rows
                         .I64(member.Geometry.DataCRC(currentRemainder: 0u))
                         .I64(member.Attributes.DataCRC(currentRemainder: 0u)));
-            }))).Run().Bind(static inner => inner);
+            })).Run();
 
     private sealed record BlockIdentityState(
         string Name,

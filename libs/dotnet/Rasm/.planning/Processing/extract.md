@@ -107,7 +107,7 @@ public abstract partial record ExtractionDomain {
     public static Fin<ExtractionDomain> Mesh(MeshSpace value) =>
         Admit.Need(value.Native).Map(_ => (ExtractionDomain)new MeshCase(value: value));
     public static Fin<ExtractionDomain> Cloud(VectorCloud value) =>
-        Admit.NotNull(value).Map(static cloud => (ExtractionDomain)new CloudCase(cloud));
+        Admit.Need(value).Map(static cloud => (ExtractionDomain)new CloudCase(cloud));
     public static Fin<ExtractionDomain> Lattice(CellLattice value) =>
         Acceptance.Value(value: (ExtractionDomain)new LatticeCase(value: value));
     public static Fin<ExtractionDomain> Of(object? value, Context context) {
@@ -342,7 +342,7 @@ public abstract partial record Extraction {
                select create(field, point);
     }
     public static Fin<Extraction> Contour(ExtractionDomain domain, ContourPolicy policy) {
-        return from validDomain in Admit.NotNull(value: domain)
+        return from validDomain in Admit.Need(value: domain)
                from validPolicy in Optional(policy).ToFin(new KernelFault.InvalidInput()).Bind(active => active.Admit())
                select (Extraction)new ContourCase(Domain: validDomain, Policy: validPolicy);
     }
@@ -354,30 +354,30 @@ public abstract partial record Extraction {
                select (Extraction)new IsoSurfaceCase(Field: validField, Bounds: bounds, Resolution: cells, MaxRootSteps: steps);
     }
     public static Fin<Extraction> Glyph(VectorField field, double scale, ExtractionDomain domain, SampleKind seeds) {
-        return from source in Admit.NotNull(value: field)
+        return from source in Admit.Need(value: field)
                from magnitude in FactoryBridge.Accept<PositiveMagnitude>(candidate: scale)
-               from validDomain in Admit.NotNull(value: domain)
+               from validDomain in Admit.Need(value: domain)
                from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new GlyphCase(Field: source, Scale: magnitude, Domain: validDomain, Seeds: validSeeds);
     }
     public static Fin<Extraction> Grid(ScalarField field, ExtractionDomain domain, SampleKind seeds) {
-        return from source in Admit.NotNull(value: field)
-               from validDomain in Admit.NotNull(value: domain)
+        return from source in Admit.Need(value: field)
+               from validDomain in Admit.Need(value: domain)
                from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new GridCase(Field: source, Domain: validDomain, Seeds: validSeeds);
     }
     public static Fin<Extraction> Drape(Vector3d direction, ExtractionDomain domain, SampleKind seeds) {
         return from _ in guard(ValidityClaim.Finite(direction) && direction.Length > 0.0, new KernelFault.InvalidInput()).ToFin()
-               from validDomain in Admit.NotNull(value: domain)
+               from validDomain in Admit.Need(value: domain)
                from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new DrapeCase(Direction: direction, Domain: validDomain, Seeds: validSeeds);
     }
     public static Fin<Extraction> StreamBundle(VectorField field, double initialStep, Termination termination, ExtractionDomain domain, SampleKind seeds, Option<RungeKuttaIntegrator> integrator = default) {
-        return from source in Admit.NotNull(value: field)
+        return from source in Admit.Need(value: field)
                from step in FactoryBridge.Accept<PositiveMagnitude>(candidate: initialStep)
                from stop in Termination.Admit(value: termination)
                from active in RungeKuttaIntegrator.AdmitOrFixed(value: integrator)
-               from validDomain in Admit.NotNull(value: domain)
+               from validDomain in Admit.Need(value: domain)
                from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new StreamBundleCase(Field: source, InitialStep: step, Integrator: active, Termination: stop, Domain: validDomain, Seeds: validSeeds);
     }

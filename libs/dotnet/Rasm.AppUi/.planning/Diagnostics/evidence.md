@@ -273,8 +273,8 @@ public static partial class EvidenceMap {
         (row.Source.Domain == AppUiPoint.Domain
             ? row.Data switch {
                 Wire.EvidenceWire held => Fin.Succ(held),
-                ReadOnlyMemory<byte> bytes => Try.lift(() => Fin.Succ(Wire.EvidenceWire.Parser.ParseFrom(bytes.Span))).Run().Bind(static inner => inner),
-                byte[] bytes => Try.lift(() => Fin.Succ(Wire.EvidenceWire.Parser.ParseFrom(bytes))).Run().Bind(static inner => inner),
+                ReadOnlyMemory<byte> bytes => Try.lift(() => Wire.EvidenceWire.Parser.ParseFrom(bytes.Span)).Run(),
+                byte[] bytes => Try.lift(() => Wire.EvidenceWire.Parser.ParseFrom(bytes)).Run(),
                 _ => Fin.Fail<Wire.EvidenceWire>(new KernelFault.InvalidValue(Label: row.Type.ToString(), Requirement: "EvidenceWire event data")),
             }
             : Fin.Fail<Wire.EvidenceWire>(new KernelFault.InvalidValue(Label: row.Source.ToString(), Requirement: $"the {AppUiPoint.Domain} domain")))
@@ -846,7 +846,7 @@ public sealed record StateSeal(StateKey Key, int Generation, StateResidue Residu
     public Restored<T> Read<T>(string blob, Func<T, Fin<T>> admit) =>
         (blob.Length > Ceiling
             ? Option<T>.None
-            : Try.lift(() => Fin.Succ(JsonSerializer.Deserialize<StateParcel<T>>(blob, EvidenceOps.Wire))).Run().Bind(static inner => inner)
+            : Try.lift(() => JsonSerializer.Deserialize<StateParcel<T>>(blob, EvidenceOps.Wire)).Run()
                 .ToOption()
                 .Bind(Optional)
                 .Filter(parcel => parcel.Generation == Generation)

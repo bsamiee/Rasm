@@ -877,7 +877,7 @@ public static class ShapingSurface {
             });
 
     public static Fin<Unit> DrawLabel(SKCanvas canvas, ShapedText text, SKPaint paint, float x, float y) =>
-        Try.lift(() => Fin.Succ(text.Runs.Iter(run => canvas.DrawText(run.Blob, x + run.Origin.X, y + run.Origin.Y, paint)))).Run().Bind(static inner => inner);
+        Try.lift(() => text.Runs.Iter(run => canvas.DrawText(run.Blob, x + run.Origin.X, y + run.Origin.Y, paint))).Run();
 
     public static string Evidence(string text, RunSpec spec, TextSegment segment) {
         using Buffer buffer = new();

@@ -550,7 +550,7 @@ public static class RadialFit {
             : OperandGate.Admit(design)
                 .Bind(_ => OperandGate.Admit(response))
                 .Bind(_ => DenseOps.Decompose(design, FactorizationKind.Svd))
-                .Bind(factor => Try.lift(() => Fin.Succ(factor.Solve(response))).Run().Bind(static inner => inner))
+                .Bind(factor => Try.lift(() => factor.Solve(response)).Run())
                 .Bind(solution => (design.Multiply(solution) - response).FrobeniusNorm() / Math.Max(1.0, response.FrobeniusNorm()) is var residual
                     && tol.Admits(residual)
                         ? Fin.Succ(solution)

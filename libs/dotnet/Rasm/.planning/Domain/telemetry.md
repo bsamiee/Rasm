@@ -174,10 +174,10 @@ public sealed class SpanBand : IDisposable, IHookSpan {
         !sources.TryGetValue(scope, out ActivitySource? source)
             ? IO.fail<T>(Unadmitted(scope))
             : !source.HasListeners()
-            ? IO.lift(() => Try.lift(() => Fin.Succ(body(null))).Run().Bind(static inner => inner)).Bind(static effect => effect)
+            ? IO.lift(() => Try.lift(() => body(null)).Run()).Bind(static effect => effect)
             : IO.lift(() => source.StartActivity(key.ToString(), edge.Kind, edge.Context, tags: null, links: edge.Edges))
                 .Bracket(
-                    Use: span => (IO.lift(() => Try.lift(() => Fin.Succ(body(span))).Run().Bind(static inner => inner)).Bind(static effect => effect) | @catch<IO, T>(static _ => true, error => IO.fail<T>(Marked(span, error)))).As(),
+                    Use: span => (IO.lift(() => Try.lift(() => body(span)).Run()).Bind(static effect => effect) | @catch<IO, T>(static _ => true, error => IO.fail<T>(Marked(span, error)))).As(),
                     Fin: static span => IO.lift(() => ignore(span?.Dispose())));
 
     public void Dispose() {

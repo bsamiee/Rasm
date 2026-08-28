@@ -400,14 +400,14 @@ internal abstract partial record PortBinding {
         outputCase: static _ => CapabilitySet<PinSide>.Of(PinSide.Output));
 
     public Fin<IParameter> Bind(ModularInputAdder adder, PinPlan plan) => Switch(
-        bothCase: row => Try.lift(() => Fin.Succ(row.Input(adder, plan))).Run().Bind(static inner => inner),
-        inputCase: row => Try.lift(() => Fin.Succ(row.Value(adder, plan))).Run().Bind(static inner => inner),
+        bothCase: row => Try.lift(() => row.Input(adder, plan)).Run(),
+        inputCase: row => Try.lift(() => row.Value(adder, plan)).Run(),
         outputCase: _ => Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(nameof(PinSide.Input)))));
 
     public Fin<IParameter> Bind(ModularOutputAdder adder, PinPlan plan) => Switch(
-        bothCase: row => Try.lift(() => Fin.Succ(row.Output(adder, plan))).Run().Bind(static inner => inner),
+        bothCase: row => Try.lift(() => row.Output(adder, plan)).Run(),
         inputCase: _ => Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(nameof(PinSide.Output)))),
-        outputCase: row => Try.lift(() => Fin.Succ(row.Value(adder, plan))).Run().Bind(static inner => inner));
+        outputCase: row => Try.lift(() => row.Value(adder, plan)).Run());
 }
 
 [SmartEnum<string>]

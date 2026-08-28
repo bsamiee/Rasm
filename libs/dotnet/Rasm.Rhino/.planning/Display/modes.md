@@ -447,7 +447,7 @@ public abstract partial record Appearance {
             && row.RealtimePasses > 0);
 
     internal static Fin<Unit> Write(Seq<Appearance> concerns, DisplayPipelineAttributes target) =>
-        concerns.TraverseM(concern => Try.lift(() => Fin.Succ(concern.Write(target))).Run().Bind(static inner => inner)).As()
+        concerns.TraverseM(concern => Try.lift(() => concern.Write(target)).Run()).As()
             .Map(static _ => unit);
 
     internal static Fin<Seq<Appearance>> Of(DisplayPipelineAttributes source) =>
@@ -799,7 +799,7 @@ public abstract partial record ModePolicy {
             HostEdge.Side(() => trait.Write(target, row.Held.Admits(trait)))));
 
     internal static Fin<Unit> Write(Seq<ModePolicy> policies, DisplayModeDescription mode) =>
-        policies.TraverseM(policy => Try.lift(() => Fin.Succ(policy.Write(mode))).Run().Bind(static inner => inner)).As().Map(static _ => unit);
+        policies.TraverseM(policy => Try.lift(() => policy.Write(mode)).Run()).As().Map(static _ => unit);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -840,7 +840,7 @@ internal abstract partial record ModeOp {
     internal sealed record ExportCase(ModeId Mode, string Path) : ModeOp;
 
     internal Fin<Seq<DisplayModeDescription>> Apply() {
-        return Switch(censusCase: static _ => Try.lift(() => Fin.Succ(toSeq(DisplayModeDescription.GetDisplayModes()))).Run().Bind(static inner => inner),
+        return Switch(censusCase: static _ => Try.lift(() => toSeq(DisplayModeDescription.GetDisplayModes())).Run(),
             findCase: static row => Resolve(row.Mode).Map(static mode => Seq(mode)),
             namedCase: static row => Try.lift(() =>
                 Optional(DisplayModeDescription.FindByName(row.Name)).ToFin(new KernelFault.InvalidInput()).Map(static mode => Seq(mode))).Run().Bind(static inner => inner),
@@ -1043,7 +1043,7 @@ public static class Modes {
                             release: () => new ModeOp.DeleteCase(ModeId.Create(mode.Id)).Apply(held.Op).Map(static _ => unit))),
             bind: static row => Resolve(row.Mode)
                 .Bind(mode => ViewportLease.Of(row.Session, row.Target)
-                    .Bind(lease => lease.Use(borrow => Try.lift(() => Fin.Succ((borrow.Viewport.DisplayMode = mode, unit).Item2)).Run().Bind(static inner => inner))))
+                    .Bind(lease => lease.Use(borrow => Try.lift(() => (borrow.Viewport.DisplayMode = mode, unit).Item2).Run())))
                 .Map(_ => (ModeOutcome)new ModeOutcome.Bound(row.Mode)),
             inspect: static row => ViewportLease.Of(row.Session, row.Target)
                 .Bind(lease => lease.Use(borrow => Try.lift(() => Optional(borrow.Viewport.DisplayMode).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
@@ -1079,7 +1079,7 @@ public static class Modes {
 
     private static Fin<ModeOutcome> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns) =>
         from prior in Appearance.Of(mode.DisplayAttributes)
-        from band in Try.lift(() => Fin.Succ(ModeTrait.Sweep(mode))).Run().Bind(static inner => inner)
+        from band in Try.lift(() => ModeTrait.Sweep(mode)).Run()
         from outcome in (from _ in Appearance.Write(concerns, mode.DisplayAttributes)
                          from __ in ModePolicy.Write(policies, mode)
                          from ___ in new ModeOp.UpdateCase(mode).Apply()
@@ -1107,12 +1107,12 @@ public static class Modes {
             [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Dialog]),
         userInterface: static (ctx, row) => Admit.Demand(
             _ => Analysis(row.Kind)
-                .Bind(mode => Try.lift(() => Fin.Succ((
+                .Bind(mode => Try.lift(() => (
                     HostEdge.Side(() => mode.EnableUserInterface(row.Panel.Key)),
-                    (ModeOutcome)new ModeOutcome.AnalysisInterface(AnalysisId.Create(mode.Id), row.Panel)).Item2)).Run().Bind(static inner => inner)),
+                    (ModeOutcome)new ModeOutcome.AnalysisInterface(AnalysisId.Create(mode.Id), row.Panel)).Item2).Run()),
             [SessionNeed.Dialog]),
         range: static (ctx, row) => Admit.Demand(
-            _ => Try.lift(() => Fin.Succ((row.Value.Apply(key), (ModeOutcome)new ModeOutcome.AnalysisRange(row.Value)).Item2)).Run().Bind(static inner => inner),
+            _ => Try.lift(() => (row.Value.Apply(key), (ModeOutcome)new ModeOutcome.AnalysisRange(row.Value)).Item2).Run(),
             [SessionNeed.Dialog]),
         overlay: static (ctx, row) => AnalysisMode.Register<AnalysisOverlay>()
             .Bind(mode => ((AnalysisOverlay)mode).Bind(row.Law)

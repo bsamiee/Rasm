@@ -587,11 +587,11 @@ public abstract partial record RcCapacityIntent {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EnGrade {
     public static Fin<EnConcreteMaterial> Concrete(EnConcreteGrade grade, NationalAnnex annex) =>
-        Try.lift(() => Fin.Succ(new EnConcreteMaterial(grade, annex))).Run().Bind(static inner => inner);
+        Try.lift(() => new EnConcreteMaterial(grade, annex)).Run();
 
     public static Fin<EnRebarMaterial> Rebar(MaterialGrade grade, NationalAnnex annex) =>
         grade.RebarArm.Bind(static arm => arm.En).Match(
-            Some: g => Try.lift(() => Fin.Succ(new EnRebarMaterial(g, annex))).Run().Bind(static inner => inner),
+            Some: g => Try.lift(() => new EnRebarMaterial(g, annex)).Run(),
             None: () => Fin.Fail<EnRebarMaterial>(new ComponentFault.GradeBodyMissing(grade, ComponentFamily.Reinforcement)));
 
     internal static Option<ComponentFault.GradeDerivation> GradeRefusal(Error cause) =>
@@ -610,7 +610,7 @@ public static class RcSectionBuilder {
         from linkAdmitted in guard(barGrade.Admits(link), new KernelFault.InvalidValue(nameof(link), "a link admitted by its grade system"))
         from admittedLayout in layout.Traverse(item => ValidateLayout(item, barGrade, key)).As()
         from profile in SectionSolver.ProfileOf(concrete.Profile, key)
-        from built in Try.lift(() => Fin.Succ(Build(profile, concreteMaterial, rebarMaterial, link, admittedLayout, coverMm))).Run().Bind(static inner => inner)
+        from built in Try.lift(() => Build(profile, concreteMaterial, rebarMaterial, link, admittedLayout, coverMm)).Run()
         from properties in Try.lift(() => { ConcreteSectionProperties p = new(built); _ = p.TotalReinforcementArea; return Fin.Succ(p); }).Run().Bind(static inner => inner)
         select new RcSection(built, properties, concreteMaterial, rebarMaterial, arm.CharacteristicYieldMpa, coverMm, concrete,
             admittedLayout.Choose(static item => item.Face).ToFrozenSet());
@@ -665,8 +665,8 @@ public static class RcSectionBuilder {
     public static Fin<double> MinimumBarSpacingMm(NationalAnnex annex, BarRow bar, double maxAggregateMm) =>
         from aggregate in guard(double.IsFinite(maxAggregateMm) && maxAggregateMm > 0.0,
             new KernelFault.OutOfRange(nameof(maxAggregateMm), maxAggregateMm, "finite and positive"))
-        from spacing in Try.lift(() => Fin.Succ(new MinimumReinforcementSpacing(annex) { MaximumAggregateSize = Length.FromMillimeters(maxAggregateMm) }
-            .GetMinimumReinforcementSpacing(Length.FromMillimeters(bar.NominalDiameterMm)).Millimeters)).Run().Bind(static inner => inner)
+        from spacing in Try.lift(() => new MinimumReinforcementSpacing(annex) { MaximumAggregateSize = Length.FromMillimeters(maxAggregateMm) }
+            .GetMinimumReinforcementSpacing(Length.FromMillimeters(bar.NominalDiameterMm)).Millimeters).Run()
         select spacing;
 }
 ```

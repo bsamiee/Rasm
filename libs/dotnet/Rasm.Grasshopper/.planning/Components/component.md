@@ -270,7 +270,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 
     public Fin<string[]> Emit(Grasshopper2.Bake.BakeContext context) {
         return from row in spec.Bakeable.ToFin(new KernelFault.Unsupported(InputType: GetType(), OutputType: typeof(string[])))
-               from shapes in Try.lift(() => Fin.Succ(BakeShapes(context: context, mode: row.Update))).Run().Bind(static inner => inner)
+               from shapes in Try.lift(() => BakeShapes(context: context, mode: row.Update)).Run()
                select shapes;
     }
 
@@ -369,7 +369,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
             spec.Outputs.Map(static output => output.Plan).Strict()).ToFin());
 
     private Unit HostIterations(IDataAccess[] iterations, CancellationToken token) =>
-        Try.lift(() => Fin.Succ(HostEdge.Side(() => ProcessHost(iterations, token)))).Run().Bind(static inner => inner)
+        Try.lift(() => HostEdge.Side(() => ProcessHost(iterations, token))).Run()
             .IfFail(fault => Capture(fault, None));
 
     private void ProcessHost(IDataAccess[] iterations, CancellationToken token) => base.Process(iterations, token);

@@ -484,10 +484,10 @@ public abstract partial record PointRule : ISlotted<PointSlot> {
     internal Fin<Unit> Apply(GetPoint getter) => Switch(
         state: getter,
         constrained: static (held, rule) => rule.Value.Apply(held),
-        snaps: static (held, rule) => Try.lift(() => Fin.Succ(ignore(
-            held.AddSnapPoints(points: [.. rule.Values])))).Run().Bind(static inner => inner),
-        constructionPoints: static (held, rule) => Try.lift(() => Fin.Succ(ignore(
-            held.AddConstructionPoints(points: [.. rule.Values])))).Run().Bind(static inner => inner),
+        snaps: static (held, rule) => Try.lift(() => ignore(
+            held.AddSnapPoints(points: [.. rule.Values]))).Run(),
+        constructionPoints: static (held, rule) => Try.lift(() => ignore(
+            held.AddConstructionPoints(points: [.. rule.Values]))).Run(),
         basedAt: static (held, rule) => Try.lift(() => {
             bool distance = rule.Traits.Admits(capability: BaseTrait.ShowDistance);
             held.SetBasePoint(rule.Value, distance);
@@ -1111,7 +1111,7 @@ public static class Acquisition {
         create: static () => new GetObject(),
         prepare: getter => plan.Plan.Apply(
             target: getter, apply: static (rule, target, k) => rule.Apply(target, k)),
-        receive: (getter, _) => Try.lift(() => Fin.Succ(getter.GetMultiple(plan.Minimum, plan.Maximum))).Run().Bind(static inner => inner),
+        receive: (getter, _) => Try.lift(() => getter.GetMultiple(plan.Minimum, plan.Maximum)).Run(),
         project: (getter, raw) => raw is GetResult.Object
             ? Picks.CaptureOwned(references: getter.Objects())
                 .Map(static picked => (Acquired)new Acquired.Objects(Picked: picked))
@@ -1123,7 +1123,7 @@ public static class Acquisition {
         request: request,
         create: () => new TransformGetter(calculate),
         prepare: static _ => Fin.Succ(unit),
-        receive: (getter, _) => Try.lift(() => Fin.Succ(getter.GetXform())).Run().Bind(static inner => inner),
+        receive: (getter, _) => Try.lift(() => getter.GetXform()).Run(),
         project: (getter, raw) => getter.Fault.Match(
             Some: Fin.Fail<Acquired>,
             None: () => getter.Calculated
@@ -1342,15 +1342,15 @@ internal sealed class DragBuffer : IDisposable {
             .Rollback(release: () => Try.lift(() => { buffer.Dispose(); return Fin.Succ(unit); }).Run().Bind(static inner => inner));
     }
 
-    internal Fin<Unit> Bind(GetBaseClass getter) => Try.lift(() => Fin.Succ(getter switch {
+    internal Fin<Unit> Bind(GetBaseClass getter) => Try.lift(() => getter switch {
         GetTransform target => HostEdge.Side(() => target.AddTransformObjects(buffer)),
         _ => HostEdge.Side(() => buffer.DisplayFeedbackEnabled = true),
-    })).Run().Bind(static inner => inner);
+    }).Run();
 
     internal Fin<Unit> Pose(Transform xform) => Admit.Confirm(buffer.UpdateDisplayFeedbackTransform(xform))
         .Map(_ => ignore(Cell.Commit(poses, static held => held + 1)));
 
-    internal Fin<DragCensus> Census() => Try.lift(() => Fin.Succ(new DragCensus(
+    internal Fin<DragCensus> Census() => Try.lift(() => new DragCensus(
         Objects: toSeq(buffer.ObjectArray()).Map(static row => row.Id),
         Grips: toSeq(buffer.GripArray()).Map(static row => row.Id),
         GripOwners: toSeq(buffer.GripOwnerArray()).Map(static row => row.Id),
@@ -1358,7 +1358,7 @@ internal sealed class DragBuffer : IDisposable {
         GripCount: buffer.GripCount,
         GripOwnerCount: buffer.GripOwnerCount,
         Extent: buffer.GetBoundingBox(regularObjects: true, grips: scope.Grips),
-        Poses: poses.Value))).Run().Bind(static inner => inner);
+        Poses: poses.Value)).Run();
 
     public void Dispose() => buffer.Dispose();
 }
@@ -1426,7 +1426,7 @@ internal sealed class PointFeedbackLease : IDisposable {
         _ = Try.lift(effect).Run().Bind(static inner => inner).Match(
             Succ: static _ => unit,
             Fail: error => {
-                Fin<Unit> interrupted = Try.lift(() => Fin.Succ(ignore(getter.InterruptMouseMove()))).Run().Bind(static inner => inner);
+                Fin<Unit> interrupted = Try.lift(() => ignore(getter.InterruptMouseMove())).Run();
                 Error seated = interrupted.Match(
                     Succ: _ => error,
                     Fail: interrupt => error + interrupt);
@@ -1455,7 +1455,7 @@ internal sealed class TransformGetter(Func<RhinoViewport, Point3d, Transform> ca
 
     public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) {
         if (Fault.IsSome) return Transform.Unset;
-        return Try.lift(() => Fin.Succ(calculate(viewport, point))).Run().Bind(static inner => inner).Match(
+        return Try.lift(() => calculate(viewport, point)).Run().Match(
             Succ: value => {
                 if (!value.IsValid) {
                     Fault = Some(new KernelFault.InvalidResult(Detail: Some(nameof(Transform))));

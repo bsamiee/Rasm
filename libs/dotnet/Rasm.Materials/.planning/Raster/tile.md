@@ -102,8 +102,7 @@ public static class TileSynth {
         return from _ in guard(set.Layers.Value is 1, new RasterFault.Tile($"<layered-set-has-no-shared-boundary:{set.Law.Key}:{set.Layers.Value}>"))
                from guide in set.Channels.Find(policy.Guide).ToFin(new RasterFault.Tile($"<tile-guide-absent:{policy.Guide.Key}>"))
                from image in guide.AsImage()
-               from plan in Try.lift(() => Fin.Succ(
-                   policy.Strategy.Solve(image.Levels[0], policy, policy.Seed))).Run().Bind(static inner => inner)
+               from plan in Try.lift(() => policy.Strategy.Solve(image.Levels[0], policy, policy.Seed)).Run()
                from channels in PairingOrder(set.Channels)
                    .FoldM(HashMap<TextureChannel, TexturePyramid>(), (map, row) =>
                        set.Channels.Find(row).ToFin(new RasterFault.Tile($"<tile-channel-lost:{row.Key}>"))

@@ -502,9 +502,9 @@ public sealed record CholeskySparse : IValidityEvidence {
         symmetric.Rows.Value != symmetric.Cols.Value
             ? Fin.Fail<CholeskySparse>(error: new KernelFault.InvalidInput())
             : from csc in MatrixKernel.ToCSparseSymmetric(s: symmetric)
-              from factor in Try.lift(() => Fin.Succ(progress.Match(
+              from factor in Try.lift(() => progress.Match(
                   Some: report => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, progress: report),
-                  None: () => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA)))).Run().Bind(static inner => inner)
+                  None: () => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA))).Run()
               select new CholeskySparse(source: symmetric, factor: factor, order: symmetric.Rows);
     public SparseMatrix Source { get; private set; }
     internal CSparse.Double.Factorization.SparseCholesky Factor { get; }
@@ -534,8 +534,8 @@ public sealed record CholeskySparse : IValidityEvidence {
         !IsValid || column.Rows.Value != Order.Value || column.Cols.Value != 1
             ? Fin.Fail<CholeskySparse>(error: new KernelFault.InvalidInput())
             : from moved in MatrixKernel.RankOneMoved(source: Source, column: column, scale: scale)
-              from carrier in Try.lift(() => Fin.Succ(CSparse.Double.SparseMatrix.OfIndexed(
-                  rows: Order.Value, columns: 1, enumerable: MatrixKernel.SparseTripletsOf(matrix: column)))).Run().Bind(static inner => inner)
+              from carrier in Try.lift(() => CSparse.Double.SparseMatrix.OfIndexed(
+                  rows: Order.Value, columns: 1, enumerable: MatrixKernel.SparseTripletsOf(matrix: column))).Run()
               from committed in Try.lift(() => {
                   lock (solveLock) {
                       if (!move(arg1: Factor, arg2: carrier)) return Fin.Fail<CholeskySparse>(new KernelFault.InvalidResult());
@@ -1191,7 +1191,7 @@ internal static partial class MatrixKernel {
         double floor = EpsilonPolicy.SqrtEpsilon * Math.Max(val1: EpsilonPolicy.SqrtEpsilon,
             val2: gram.Diagonal().Enumerate().Aggregate(0.0, static (acc, value) => Math.Max(acc, Math.Abs(value))));
         (MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> factor, double shift) =
-            Try.lift(() => Fin.Succ(gram.Cholesky())).Run().Bind(static inner => inner).ToOption().Match(
+            Try.lift(() => gram.Cholesky()).Run().ToOption().Match(
                 Some: chol => (Factor: chol, Shift: 0.0),
                 None: () => (Factor: (gram + (DenseMatrixD.CreateIdentity(order: gram.RowCount) * floor)).Cholesky(), Shift: floor));
         return (Coords: factor.Solve(rhs), shift, NumericRank: factor.Factor.Diagonal().Enumerate().Count(value => value * value > floor));
@@ -1362,7 +1362,7 @@ internal static partial class MatrixKernel {
             if (survivors.Length < k) return Solved(iter: iter, X: X, stop: EigenSolveStop.IterativeExhausted);
             Matrix<T> Sr = Matrix<T>.Build.DenseOfColumnVectors([.. survivors.Select(S.Column)]);
             Matrix<T> STr = adjoint(arg: Sr);
-            return Try.lift(() => Fin.Succ(solveGeneralised(arg1: STr * (A * Sr), arg2: STr * Sr))).Run().Bind(static inner => inner).Bind(solution => {
+            return Try.lift(() => solveGeneralised(arg1: STr * (A * Sr), arg2: STr * Sr)).Run().Bind(solution => {
                 Matrix<T> Z = ScatterRows(reduced: TakeSmallest(eigVals: solution.Vals, eigVecs: solution.Vecs, k: k, key: eigenvalue), rows: S.ColumnCount, sourceRows: survivors);
                 Matrix<T> previous = hasPrevious ? P * Z.SubMatrix(2 * k, k, 0, k) : Matrix<T>.Build.Dense(n, k);
                 return Iterate(iter: iter + 1, X: orthonormalise(arg: S * Z), P: (W * Z.SubMatrix(k, k, 0, k)) + previous);

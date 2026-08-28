@@ -578,7 +578,7 @@ public sealed record ImportedSolid(
 
 public static partial class SolidImport {
     public static Eff<ImportedSolid> Read(SolidSource source) => Eff.lift(() =>
-        from raw in Try.lift(() => Fin.Succ(File.ReadAllBytes(source.Path.Value))).Run().Bind(static inner => inner)
+        from raw in Try.lift(() => File.ReadAllBytes(source.Path.Value)).Run()
             .MapFail(error => Classify(source.Path, error))
         from format in SolidFormat.Admit(source.Path)
         from detached in format.Read(source, raw)

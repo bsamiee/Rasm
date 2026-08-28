@@ -386,7 +386,7 @@ public static class ScheduleSource {
     static Option<string> Dialect(Seq<ScheduleProject> rows) => rows.Head.Bind(static r => r.Anchor.Dialect);
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner).MapFail(ScheduleFault.Lift).ToValidation();
+        Try.lift(() => codec()).Run().MapFail(ScheduleFault.Lift).ToValidation();
 }
 ```
 

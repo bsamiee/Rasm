@@ -347,7 +347,7 @@ public static partial class EventEnvelope {
             new KernelFault.InvalidValue(
                 Label: nameof(CloudEvent.Time),
                 Requirement: "an instant aligned to the CloudEvents SDK's 100-nanosecond precision")).ToFin()).As()
-        from envelope in Try.lift(() => Fin.Succ(new CloudEvent(
+        from envelope in Try.lift(() => new CloudEvent(
             CloudEventsSpecVersion.V1_0,
             request.Extensions.Map(static field => field.Attribute)) {
             Id = request.Id,
@@ -358,14 +358,14 @@ public static partial class EventEnvelope {
             DataSchema = HostEdge.Slot(request.DataSchema),
             DataContentType = HostEdge.Slot(request.DataContentType),
             Data = request.Data,
-        })).Run().Bind(static inner => inner)
+        }).Run()
         from _extensions in request.Extensions.TraverseM(field => Try.lift(() =>
             Fin.Succ(envelope[field.Attribute] = field.Value)).Run().Bind(static inner => inner).Map(static _ => unit)).As()
-        from validated in Try.lift(() => Fin.Succ(envelope.Validate())).Run().Bind(static inner => inner)
+        from validated in Try.lift(() => envelope.Validate()).Run()
         select validated;
 
     public static Fin<CloudEvent> Admit(CloudEvent envelope) =>
-        Try.lift(() => Fin.Succ(envelope.Validate())).Run().Bind(static inner => inner);
+        Try.lift(() => envelope.Validate()).Run();
 
     public static Fin<CloudEvent> Raise(
         Seq<(string Name, string Value)> attributes,
@@ -481,7 +481,7 @@ public static class EventCarrier {
             .Bind(attribute => Optional(envelope[attribute]).Map(attribute.Format));
 
     public static Option<CloudEventAttribute> Write(CloudEvent envelope, string field, string value) =>
-        Optional(envelope.GetAttribute(field)).Bind(attribute => Try.lift(() => Fin.Succ(envelope[attribute] = attribute.Parse(value))).Run().Bind(static inner => inner)
+        Optional(envelope.GetAttribute(field)).Bind(attribute => Try.lift(() => envelope[attribute] = attribute.Parse(value)).Run()
             .ToOption()
             .Map(_ => attribute));
 }
@@ -585,9 +585,9 @@ public static partial class EventEnvelope {
     public static Fin<Seq<CloudEvent>> Decode(EventFrame frame, Seq<CloudEventAttribute> declared) =>
         EventFormat.Of(frame.Framing)
             .ToFin(new KernelFault.InvalidValue(Label: frame.Framing.MediaType, Requirement: "an admitted event format"))
-            .Bind(format => Try.lift(() => Fin.Succ(string.Equals(frame.Framing.MediaType, format.Batch, StringComparison.OrdinalIgnoreCase)
+            .Bind(format => Try.lift(() => string.Equals(frame.Framing.MediaType, format.Batch, StringComparison.OrdinalIgnoreCase)
                     ? toSeq(format.Formatter.DecodeBatchModeMessage(frame.Body, frame.Framing, declared))
-                    : Seq(format.Formatter.DecodeStructuredModeMessage(frame.Body, frame.Framing, declared)))).Run().Bind(static inner => inner)
+                    : Seq(format.Formatter.DecodeStructuredModeMessage(frame.Body, frame.Framing, declared))).Run()
                 .Bind(rows => rows.TraverseM(envelope => Admit(envelope)).As()));
 
     public static Fin<Seq<RasmEvent<TExtensions>>> Decode<TExtensions>(
@@ -613,8 +613,7 @@ public static partial class EventEnvelope {
 
     public static Fin<CloudEvent> FromProtobuf(
         ProtoCloudEvent wire,
-        Seq<CloudEventAttribute> declared) => Try.lift(() => Fin.Succ(
-            ((ProtobufEventFormatter)EventFormat.Protobuf.Formatter).ConvertFromProto(wire, declared))).Run().Bind(static inner => inner)
+        Seq<CloudEventAttribute> declared) => Try.lift(() => ((ProtobufEventFormatter)EventFormat.Protobuf.Formatter).ConvertFromProto(wire, declared)).Run()
             .Bind(envelope => Admit(envelope: envelope));
 
     public static Fin<Seq<CloudEvent>> FromProtobuf(

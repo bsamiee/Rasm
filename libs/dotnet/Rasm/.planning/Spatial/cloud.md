@@ -596,7 +596,7 @@ public readonly record struct CloudVoronoiResult(
 
     public static Fin<CloudVoronoiResult> Of(
         VectorCloud source, Option<PositiveMagnitude> tolerance = default) {
-        return from cloud in Admit.NotNull(value: source)
+        return from cloud in Admit.Need(value: source)
                from cluster in cloud is VectorCloud.ClusterCase active
                    ? Fin.Succ(active)
                    : Fin.Fail<VectorCloud.ClusterCase>(new KernelFault.Unsupported(InputType: cloud.GetType(), OutputType: typeof(CloudVoronoiResult)))

@@ -239,12 +239,12 @@ public abstract partial record ChromeOutcome {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Painters {
     public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Shortcut(string lead, Either<Keys, char> chord, string tail) =>
-        Try.lift(() => Fin.Succ(chord.Match(
+        Try.lift(() => chord.Match(
             Left: keys => Frame.CreateShortcutPainter(lead, keys, tail),
-            Right: glyph => Frame.CreateShortcutPainter(lead, glyph, tail)))).Run().Bind(static inner => inner);
+            Right: glyph => Frame.CreateShortcutPainter(lead, glyph, tail))).Run();
 
     public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Composite(object[] parts) =>
-        Try.lift(() => Fin.Succ(Frame.CreateTextAndIconPainter(parts))).Run().Bind(static inner => inner);
+        Try.lift(() => Frame.CreateTextAndIconPainter(parts)).Run();
 }
 
 public static class Chrome {
@@ -270,7 +270,7 @@ public static class Chrome {
                         p.RowHeight.Iter(value => s.Bar.ElementHeight = value);
                         p.Style.Iter(value => s.Bar.Style = value);
                     }),
-                    findCase: static p => Try.lift(() => Fin.Succ(Optional(s.Bar[(string)p.Name]))).Run().Bind(static inner => inner)
+                    findCase: static p => Try.lift(() => Optional(s.Bar[(string)p.Name])).Run()
                         .Map(static item => (ChromeOutcome)new ChromeOutcome.FoundItemCase(Value: item)))),
             barMutateCase: static c => c.Change.Switch(
                 radioSwing: static (m) => Try.lift(() => m.Target.Match(
@@ -392,13 +392,13 @@ public static class Chrome {
         moveCase: static (s, c) => Try.lift(() =>
                 s.ModifyAnchor((string)c.Name, c.At, c.Pace.Immediate)).Run().Bind(static inner => inner)
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase()),
-        probeCase: static (s, c) => Try.lift(() => Fin.Succ(c.Key.Match(
+        probeCase: static (s, c) => Try.lift(() => c.Key.Match(
                 Left: name => Optional(s.FindByName((string)name)),
-                Right: at => Optional(s.FindByPoint(at))))).Run().Bind(static inner => inner)
+                Right: at => Optional(s.FindByPoint(at)))).Run()
             .Map(static found => (ChromeOutcome)new ChromeOutcome.FoundFloatCase(Value: found)),
-        rosterCase: static (s, c) => Try.lift(() => Fin.Succ(toSeq(c.VisibleOnly ? s.VisibleButtons : s.Buttons))).Run().Bind(static inner => inner)
+        rosterCase: static (s, c) => Try.lift(() => toSeq(c.VisibleOnly ? s.VisibleButtons : s.Buttons)).Run()
             .Map(static held => (ChromeOutcome)new ChromeOutcome.RosterCase(Buttons: held)),
-        tallyCase: static (s, c) => Try.lift(() => Fin.Succ(s.StateCount(c.State))).Run().Bind(static inner => inner)
+        tallyCase: static (s, c) => Try.lift(() => s.StateCount(c.State)).Run()
             .Map(static count => (ChromeOutcome)new ChromeOutcome.CountCase(Value: count)),
         bindCase: static (s, c) => Try.lift(() =>
                 Optional(s.FindByName((string)c.Name)).ToFin((Error)new UiFault.HostRejected(Detail: (string)c.Name))).Run().Bind(static inner => inner)

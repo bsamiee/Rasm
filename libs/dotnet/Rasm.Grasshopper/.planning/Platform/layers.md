@@ -316,14 +316,14 @@ namespace Rasm.Grasshopper.Platform;
 public static class WideColor {
     public static Fin<Lease<CGColor>> ToLayer(PerceptualColor colour, Option<GamutPolicy> gamut = default) {
         return from _ in MacGate.Demand()
-               from channels in Try.lift(() => Fin.Succ(colour.ToRgb(profile: RgbProfile.DisplayP3, gamut: HostEdge.Slot(gamut)))).Run().Bind(static inner => inner)
+               from channels in Try.lift(() => colour.ToRgb(profile: RgbProfile.DisplayP3, gamut: HostEdge.Slot(gamut))).Run()
                from space in Try.lift(() => Optional(CGColorSpace.CreateWithName(name: CGColorSpaceNames.DisplayP3)).ToFin(new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
-               from lease in Try.lift(() => Fin.Succ((Lease<CGColor>)new Lease<CGColor>.Owned(Value: new CGColor(
+               from lease in Try.lift(() => (Lease<CGColor>)new Lease<CGColor>.Owned(Value: new CGColor(
                    colorspace: space,
                    components: [
                        NFloat.CreateChecked(channels.Red), NFloat.CreateChecked(channels.Green),
                        NFloat.CreateChecked(channels.Blue), NFloat.CreateChecked(channels.Alpha),
-                   ])))).Run().Bind(static inner => inner)
+                   ]))).Run()
                select lease;
     }
 }

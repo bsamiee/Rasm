@@ -571,7 +571,7 @@ public sealed partial class ComponentTransition {
     internal static Fin<T> Named<T, TEvent>(TEvent value)
         where T : class, ISmartEnum<string, T, ValidationError>
         where TEvent : struct, Enum {
-        return HostEdge.Text(Enum.GetName(value: value)).ToFin(Fail: new KernelFault.InvalidResult()).Bind(key => FactoryBridge.Row<string, T>());
+        return HostEdge.NonEmpty(Enum.GetName(value: value)).ToFin(Fail: new KernelFault.InvalidResult()).Bind(key => FactoryBridge.Row<string, T>());
     }
 }
 
@@ -1457,7 +1457,7 @@ public readonly partial struct PluginKey {
 
     internal Fin<Unit> Admit() {
         ValidationError? fault = Validate(value: ToValue(), provider: null, out PluginKey? admitted);
-        return FactoryBridge.Accept<PluginKey>(fault: fault, admitted: admitted).Map(static _ => unit);
+        return FactoryBridge.Lift<PluginKey>(fault: fault, admitted: admitted).Map(static _ => unit);
     }
 }
 

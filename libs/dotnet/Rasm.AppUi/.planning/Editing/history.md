@@ -336,8 +336,8 @@ public readonly record struct RevertRow(OpLogEntry Entry, RevertPayload Payload)
         .ToFin();
 
     static Validation<Error, RevertPayload> Decoded(OpLogEntry entry) =>
-        Try.lift(() => Fin.Succ(Optional(
-                JsonSerializer.Deserialize<RevertPayload>(entry.Payload.Span, EvidenceOps.Wire)))).Run().Bind(static inner => inner)
+        Try.lift(() => Optional(
+                JsonSerializer.Deserialize<RevertPayload>(entry.Payload.Span, EvidenceOps.Wire))).Run()
             .Bind(payload => payload.ToFin(
                 new HistoryFault.PayloadUndecodable($"{entry.EntityKey}@{entry.Sequence}")))
             .ToValidation();

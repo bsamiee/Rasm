@@ -172,7 +172,7 @@ public static class BoundaryActivation {
 
     extension(IServiceProvider provider) {
         public Fin<T> Activate<T>(params object[] dependencies) where T : notnull =>
-            Try.lift(() => Fin.Succ(dependencies.Length == 0
+            Try.lift(() => dependencies.Length == 0
                 ? ActivatorUtilities.GetServiceOrCreateInstance<T>(provider)
                 : (T)Plans.GetOrAdd(
                         typeof(T),
@@ -180,7 +180,7 @@ public static class BoundaryActivation {
                             typeof(T),
                             [.. supplied.Select(static value => value.GetType())]),
                         dependencies)
-                    .Invoke(provider, dependencies)!)).Run().Bind(static inner => inner)
+                    .Invoke(provider, dependencies)!).Run()
                 .MapFail(error => (Error)new LifecycleFault.ActivationRejected(typeof(T).Name, error));
 
         public bool Available<T>(Option<object> key = default) where T : notnull =>
@@ -808,8 +808,8 @@ public static class CompositionRoot {
             KeyedLane.Proven(provider.GetRequiredService<ResiliencePipelineProvider<string>>())),
 
         new RootBinding.Proven("hop-checkpoint", static (provider, _) =>
-            Try.lift(() => Fin.Succ(provider.GetRequiredService<ILatencyContextTokenIssuer>()
-                    .GetCheckpointToken(LatencyCheckpoint.Hop.Key))).Run().Bind(static inner => inner)
+            Try.lift(() => provider.GetRequiredService<ILatencyContextTokenIssuer>()
+                    .GetCheckpointToken(LatencyCheckpoint.Hop.Key)).Run()
                 .Bind(static token => token.Position >= 0
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>(new KernelFault.InvalidValue(

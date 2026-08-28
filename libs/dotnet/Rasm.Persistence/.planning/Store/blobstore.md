@@ -429,10 +429,10 @@ public static class ObjectIo {
 
     public static IO<T> Drain<T>(Stream source, Func<ReadOnlySequence<byte>, IO<T>> use) =>
         IO.lift(static () => new ArrayPoolBufferWriter<byte>()).Bracket(
-            Use: writer => IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+            Use: writer => HostEdge.CapturedIO(async _ => {
                 await source.CopyToAsync(writer.AsStream()).ConfigureAwait(false);
                 return Fin<ReadOnlySequence<byte>>.Succ(new ReadOnlySequence<byte>(writer.WrittenMemory));
-            }).ConfigureAwait(false)).Bind(IO.lift).Bind(use),
+            }).Bind(IO.lift).Bind(use),
             Fin: writer => IO.lift(() => Try.lift(() => {
                 writer.Dispose();
                 source.Dispose();
@@ -441,7 +441,7 @@ public static class ObjectIo {
 
     internal static IO<T> Bound<T>(ObjectClient client, string provider, ObjectVerb verb, ContentAddress key, Func<Task<T>> call) =>
         client.Redrive.Carry(new StoreHop.Object(verb), provider,
-            IO.liftAsync(async () => (await HostEdge.Captured(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).ConfigureAwait(false))
+            HostEdge.CapturedIO(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).Map(outcome => outcome
                 .MapFail(error => RemoteStoreFault.Lift(provider, verb, key, error)))
             .Bind(IO.lift));
 
@@ -608,8 +608,8 @@ public static class ObjectIo {
                 using HttpRequestMessage request = new(HttpMethod.Get, grant.Url);
                 _ = range.Map(w => request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(w.Start, w.End));
                 return r.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            })).Bind(static response => IO.liftAsync(async () => await HostEdge.Captured(async _ =>
-                Fin<Stream>.Succ(await response.Content.ReadAsStreamAsync().ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.lift)),
+            })).Bind(static response => HostEdge.CapturedIO(async _ =>
+                Fin<Stream>.Succ(await response.Content.ReadAsStreamAsync().ConfigureAwait(false))).Bind(IO.lift)),
         Head: (store, key) => r.Roster().Map(rows =>
             rows.Find(s => s.Key == key.Key).Map(s => BlobPlacement.From(Extent.Passthrough(s.Length), new Rung.Assumed(store.Tier), ObjectCodec.Identity))),
         Erase: key => r.Minter(new GrantRequest.Erase()).Bind(grant =>

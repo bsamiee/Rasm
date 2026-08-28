@@ -182,21 +182,21 @@ public static class IconSurface {
             vector: static (s, c) => s.Runtime.Bindings.TryGetValue(c.Key, out HostGlyph? bound)
                 ? Glyphed(s.Runtime, bound, s.Pose, s.Paint)
                 : Quantized(s.Paint).Bind(colour => s.Runtime.Svg.Image(c.Key, colour)).Map(image => Posed(image, s.Pose)),
-            source: static (s, c) => Try.lift(() => Fin.Succ((Geometry)StreamGeometry.Parse(c.Text))).Run().Bind(static inner => inner).Bind(geometry => Drawn(geometry, s.Paint, s.Pose)),
+            source: static (s, c) => Try.lift(() => (Geometry)StreamGeometry.Parse(c.Text)).Run().Bind(geometry => Drawn(geometry, s.Paint, s.Pose)),
             render: static (s, _) => Fin.Fail<IImage>(new AssetFault.MaterializeRejected($"{s.Key}/{nameof(AssetOrigin.Render)}"))));
 
     static Fin<IImage> Glyphed(AssetRuntime runtime, HostGlyph bound, IconPose pose, GlyphPaint paint) =>
         Quantized(paint).Bind(colour => bound.Switch(
             state: (Runtime: runtime, Pose: pose, Paint: paint, Brush: new SolidColorBrush(colour)),
             symbolic: static (s, c) => c.Glyph.IsAvailable(c.Variant)
-                ? Try.lift(() => Fin.Succ((IImage)new SymbolImage {
+                ? Try.lift(() => (IImage)new SymbolImage {
                     Symbol = c.Glyph, IconVariant = c.Variant, FontSize = Dip(s.Pose), FlowDirection = Planed(s.Pose), Foreground = s.Brush,
-                })).Run().Bind(static inner => inner).Map(image => Rotated(image, s.Pose))
+                }).Run().Map(image => Rotated(image, s.Pose))
                 : Fin.Fail<IImage>(new AssetFault.GlyphUnavailable($"{c.Glyph}/{c.Variant}")),
             sized: static (s, c) => Elected(c.Glyph, c.Variant, Dip(s.Pose))
-                .Bind(size => Try.lift(() => Fin.Succ((IImage)new FluentImage {
+                .Bind(size => Try.lift(() => (IImage)new FluentImage {
                     Icon = c.Glyph, IconVariant = c.Variant, IconSize = size, FontSize = Dip(s.Pose), FlowDirection = Planed(s.Pose), Foreground = s.Brush,
-                })).Run().Bind(static inner => inner))
+                }).Run())
                 .Map(image => Rotated(image, s.Pose)),
             shipped: static (s, c) => Shipped(s.Runtime.Glyphs, c.Glyph).Bind(geometry => Drawn(geometry, s.Paint, s.Pose))));
 
@@ -303,7 +303,7 @@ public static class IconSurface {
 
     static Fin<IImage> Decoded(Func<Option<System.IO.Stream>> open, AssetKey key) =>
         open().ToFin(Fail: new AssetFault.MaterializeRejected($"{key}: origin opened no stream"))
-            .Bind(scoped => Custody.Bracket(() => Try.lift(() => Fin.Succ((IImage)new Bitmap(scoped))).Run().Bind(static inner => inner), scoped));
+            .Bind(scoped => Custody.Bracket(() => Try.lift(() => (IImage)new Bitmap(scoped)).Run(), scoped));
 
     static Fin<IImage> Uploaded(AssetRaster.Pixels frame) =>
         Try.lift(() => {
@@ -405,7 +405,7 @@ public static class PointerCatalog {
     public static Fin<Cursor> Resolve(AssetRuntime runtime, PointerRow row, double scale, ResolvedTheme resolved) =>
         row.Origin.Switch(
             state: (Runtime: runtime, Row: row, Scale: scale, Resolved: resolved),
-            platform: static (s, c) => s.Runtime.Cache.Platform(s.Row, () => Try.lift(() => Fin.Succ(new Cursor(c.Type))).Run().Bind(static inner => inner)),
+            platform: static (s, c) => s.Runtime.Cache.Platform(s.Row, () => Try.lift(() => new Cursor(c.Type)).Run()),
             drawn: static (s, c) => IconSurface
                 .Resolve(s.Runtime, new AssetRequest(c.Key, PointerStep, s.Scale, FlowDirection.LeftToRight, new GlyphForm.Pointer(c.HotX, c.HotY)), s.Resolved)
                 .Bind(static product => product.Cursor));
@@ -708,7 +708,7 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
             None: () => retained.Value.Find().ToFin(Fail: new AssetFault.UnknownKey(key.ToString()))
                 .Bind(document => Try.lift(() => { lock (document.Sync) { return Fin.Succ(Optional(document.SourceDocument)); } }).Run().Bind(static inner => inner)
                     .Bind(source => source.ToFin(Fail: new AssetFault.MaterializeRejected($"svg document {key}")))
-                    .Bind(source => Try.lift(() => Fin.Succ(new SvgImage { Source = SvgSource.LoadFromSvgDocument(source), CurrentColor = tint })).Run().Bind(static inner => inner)))
+                    .Bind(source => Try.lift(() => new SvgImage { Source = SvgSource.LoadFromSvgDocument(source), CurrentColor = tint }).Run()))
                 .Map(candidate => Cell.Claim(images, (key, tint), () => candidate) switch {
                     Transition<HashMap<(AssetKey, Color), SvgImage>>.Committed => candidate,
                     var ceded => (candidate.Source?.Dispose(), ceded.Current[(key, tint)]).Item2,
@@ -911,7 +911,7 @@ public static class AssetCatalog {
         from bytes in admitted.Declared.Kind == AssetKind.Glyph
             ? Fin.Fail<Unit>(new AssetFault.MaterializeRejected($"{key}: glyph row ships no bytes"))
             : Fin.Succ(unit)
-        from stream in Try.lift(() => Fin.Succ(AssetLoader.Open(RasterAssets.Pick(admitted.Declared.Row, admitted.Scale.Value).Source))).Run().Bind(static inner => inner)
+        from stream in Try.lift(() => AssetLoader.Open(RasterAssets.Pick(admitted.Declared.Row, admitted.Scale.Value).Source)).Run()
         select stream;
 
     public static Fin<Unit> Preload(
@@ -923,7 +923,7 @@ public static class AssetCatalog {
                 .Filter(row => row.Partitions.Any(elected.Contains))
                 .Traverse(row => Open(row.Asset, scale)
                     .Bind(payload => Custody.Bracket(
-                        () => Try.lift(() => Fin.Succ(ContentHash.Of(payload))).Run().Bind(static inner => inner), payload))
+                        () => Try.lift(() => ContentHash.Of(payload)).Run(), payload))
                     .Bind(digest => RasterAssets.Pick(row.Row, scale) switch {
                         var source => hooks.Fire(
                             at: AppUiPoint.Asset,

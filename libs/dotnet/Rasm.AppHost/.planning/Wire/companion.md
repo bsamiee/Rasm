@@ -788,7 +788,7 @@ public static partial class SystemdActivation {
         int.TryParse(BootVariable.ListenOwner.Read().IfNone(string.Empty), CultureInfo.InvariantCulture, out int pid) && pid == Environment.ProcessId
         && int.TryParse(BootVariable.ListenCount.Read().IfNone(string.Empty), CultureInfo.InvariantCulture, out int count) && count >= 1
             ? NameRun(BootVariable.ListenNames.Read(), activationName, count).Match(
-                Some: run => Try.lift(() => Fin.Succ(toSeq(Enumerable.Range(ListenFdsStart + run.Offset, run.Length)).Map(Cloexec).Strict())).Run().Bind(static inner => inner)
+                Some: run => Try.lift(() => toSeq(Enumerable.Range(ListenFdsStart + run.Offset, run.Length)).Map(Cloexec).Strict()).Run()
                     .MapFail(static error => (Error)CompanionFault.Of(error)),
                 None: () => Fin.Fail<Seq<SafeSocketHandle>>(new CompanionFault.Activation($"no systemd fd run: {activationName}")))
             : Fin.Fail<Seq<SafeSocketHandle>>(new CompanionFault.Activation($"no systemd socket activation: {activationName}"));
@@ -1025,7 +1025,7 @@ public sealed class IngressBody {
         request.ContentType is not { Length: > 0 } media
             ? Fin.Fail<ContentType>(new CompanionFault.Handshake(
                 HeaderNames.ContentType, StatusCodes.Status415UnsupportedMediaType))
-            : Try.lift(() => Fin.Succ(new ContentType(media))).Run().Bind(static inner => inner)
+            : Try.lift(() => new ContentType(media)).Run()
                 .MapFail(_ => (Error)new CompanionFault.Handshake(
                     HeaderNames.ContentType, StatusCodes.Status415UnsupportedMediaType))
                 .Bind(framing => EventFormat.Of(framing).IsSome

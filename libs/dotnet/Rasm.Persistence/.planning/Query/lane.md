@@ -123,16 +123,16 @@ public static class ReadRouter {
 
     public static IO<Duration> AwaitNonStale(IProjectionDaemon daemon, QueryLane lane) =>
         lane.WaitBudget.Match(
-            Some: budget => IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+            Some: budget => HostEdge.CapturedIO(async _ => {
                 long start = Stopwatch.GetTimestamp();
                 await daemon.WaitForNonStaleData(budget.ToTimeSpan()).ConfigureAwait(false);
                 return Fin<Duration>.Succ(Duration.FromTimeSpan(Stopwatch.GetElapsedTime(start)));
-            }).ConfigureAwait(false)).Bind(IO.lift),
+            }).Bind(IO.lift),
             None: static () => IO.pure(Duration.Zero));
 
     public static IO<T> Observed<T>(ILatencyContextProvider pool, ILatencyDataExporter drain, ReadLedger ledger,
                                     IProjectionDaemon daemon, ReadRequest request, Func<QueryLane, IO<T>> read) =>
-        IO.lift(() => Try.lift(() => Fin.Succ(pool.CreateContext())).Run().Bind(static inner => inner)).Bracket(
+        IO.lift(() => Try.lift(() => pool.CreateContext()).Run()).Bracket(
             Use: cell => Phased(cell, drain, ledger, daemon, Route(request), read),
             Fin: static cell => Captured(() => { cell.Dispose(); return unit; }));
 
@@ -151,10 +151,10 @@ public static class ReadRouter {
 
     static IO<Unit> Sealed(ILatencyContext cell, ILatencyDataExporter drain) =>
         Captured(() => { cell.Freeze(); return unit; })
-            .Bind(_ => IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+            .Bind(_ => HostEdge.CapturedIO(async _ => {
                 await drain.ExportAsync(cell.LatencyData, CancellationToken.None).ConfigureAwait(false);
                 return Fin<Unit>.Succ(unit);
-            }).ConfigureAwait(false)).Bind(IO.lift));
+            }).Bind(IO.lift));
 
     static IO<T> Captured<T>(Func<T> crossing) =>
         IO.lift(() => Try.lift(() => Fin<T>.Succ(crossing())).Run().Bind(static inner => inner));
@@ -170,20 +170,20 @@ public static class ReadRouter {
                     static (worst, next) => next.Gap > worst.Gap ? next : worst);
 
     public static IO<StalenessWatermark> Measure(IDocumentStore store, ShardName shard) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async _ => {
+        HostEdge.CapturedIO(async _ => {
             EventStoreStatistics stats = await store.Advanced.FetchEventStoreStatistics().ConfigureAwait(false);
             IReadOnlyList<ShardState> progress = await store.Advanced.AllProjectionProgress().ConfigureAwait(false);
             return Fin<StalenessWatermark>.Succ(toSeq(progress).Find(s => s.ShardName == shard.Identity).Match(
                 Some: state => Measure(stats, state),
                 None: () => new StalenessWatermark(stats.EventSequenceNumber, 0L)));
-        }).ConfigureAwait(false)).Bind(IO.lift);
+        }).Bind(IO.lift);
 }
 
 public static class ReflectedRead {
     const string ReadRole = "rasm_graphql_read";
 
     public static IO<Fin<JsonElement>> Resolve(NpgsqlDataSource store, GraphQlDocument query, JsonElement variables, Option<string> operation, ProjectionContext frame) =>
-        IO.liftAsync(async () => await HostEdge.Captured(async token => {
+        HostEdge.CapturedIO(async token => {
             await using NpgsqlConnection lane = await store.OpenConnectionAsync(token).ConfigureAwait(false);
             await using NpgsqlTransaction scope = await lane.BeginTransactionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = lane.CreateBatch();
@@ -207,7 +207,7 @@ public static class ReflectedRead {
             return parsed.RootElement.TryGetProperty("errors", out JsonElement errors) && errors.GetArrayLength() > 0
                 ? Fin<JsonElement>.Fail(new SelectionFault.Reflected(errors[0].GetRawText()))
                 : Fin<JsonElement>.Succ(parsed.RootElement.TryGetProperty("data", out JsonElement data) ? data.Clone() : default);
-        }).ConfigureAwait(false));
+        });
 }
 ```
 

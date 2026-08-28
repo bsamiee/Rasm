@@ -312,7 +312,7 @@ public sealed class UtilizationCell : IDisposable {
 
     public Fin<Utilization> Read() => source.Switch(
         state: this,
-        metered: static (held, _) => Try.lift(() => Fin.Succ(held.Pulled())).Run().Bind(static inner => inner).Bind(static usage => usage.ToFin(Unobserved)),
+        metered: static (held, _) => Try.lift(() => held.Pulled()).Run().Bind(static usage => usage.ToFin(Unobserved)),
         runtime: static (held, _) => held.Counted());
 
     public void Dispose() => listener.Dispose();

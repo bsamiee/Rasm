@@ -500,7 +500,7 @@ public static class GeoGdal {
                     using var dataset = OSGeo.GDAL.Gdal.Open(source, OSGeo.GDAL.Access.GA_ReadOnly);
                     return run(dataset);
                 }).Run().Bind(static inner => inner)),
-                Fin: source => IO.lift(() => Try.lift(() => Fin.Succ(GdalSink.Memory.Release(source))).Run().Bind(static inner => inner)))
+                Fin: source => IO.lift(() => Try.lift(() => GdalSink.Memory.Release(source)).Run()))
             .Try().runFin.As().Run()
             ;
 
@@ -516,7 +516,7 @@ public static class GeoGdal {
                     using var data = OSGeo.OGR.Ogr.Open(source, 0);
                     return run(data);
                 }).Run().Bind(static inner => inner)),
-                Fin: source => IO.lift(() => Try.lift(() => Fin.Succ(GdalSink.Memory.Release(source))).Run().Bind(static inner => inner)))
+                Fin: source => IO.lift(() => Try.lift(() => GdalSink.Memory.Release(source)).Run()))
             .Try().runFin.As().Run()
             ;
 
@@ -524,7 +524,7 @@ public static class GeoGdal {
         IO.lift(() => Try.lift(() => { Bootstrap(); return Fin.Succ(sink.Mint(suffix)); }).Run().Bind(static inner => inner))
             .Bracket(
                 Use: path => IO.lift(() => Try.lift(() => run(path)).Run().Bind(static inner => inner)),
-                Fin: path => IO.lift(() => Try.lift(() => Fin.Succ(sink.Release(path))).Run().Bind(static inner => inner)))
+                Fin: path => IO.lift(() => Try.lift(() => sink.Release(path)).Run()))
             .Try().runFin.As().Run()
             ;
 }

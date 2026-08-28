@@ -98,7 +98,7 @@ public abstract partial record LightAttenuation {
     internal Fin<LightAttenuation> Admit() =>
         Switch(
             named: static law => Fin.Succ<LightAttenuation>(law),
-            free: static (law) => Acceptance.Input(value: law.Coefficients).Map(_ => (LightAttenuation)law));
+            free: static (law) => Admit.Value(value: law.Coefficients).Map(_ => (LightAttenuation)law));
 
     internal Unit Apply(Light working) {
         Vector3d seat = Coefficients;
@@ -142,8 +142,8 @@ public abstract partial record ConeEvidence {
 
 public readonly record struct AreaShape(Vector3d Length, Option<Vector3d> Width = default) {
     internal Fin<AreaShape> Admit() =>
-        from length in Acceptance.Input(value: Length)
-        from width in Width.Traverse(value => Acceptance.Input(value: value)).As()
+        from length in Admit.Value(value: Length)
+        from width in Width.Traverse(value => Admit.Value(value: value)).As()
         select new AreaShape(Length: length, Width: width);
 
     internal Fin<AreaShape> Scaled(double scale) =>
@@ -193,7 +193,7 @@ public sealed record LightStamp(
             select new LightStamp(
                 Id: native.Id,
                 Index: index,
-                Name: HostEdge.Text(light.Name),
+                Name: HostEdge.NonEmpty(light.Name),
                 Kind: kind,
                 Enabled: light.IsEnabled,
                 Location: light.Location,
@@ -289,20 +289,20 @@ public abstract partial record LightSeed {
     internal Fin<LightSeed> Admit() =>
         Switch(
             point: static (seed) =>
-                from location in Acceptance.Input(value: seed.Location)
+                from location in Admit.Value(value: seed.Location)
                 select (LightSeed)new Point(Location: location),
             spot: static (seed) => seed.Shape.Admit()
                 .Map(shape => (LightSeed)new Spot(Shape: shape)),
             directional: static (seed) =>
-                from location in Acceptance.Input(value: seed.Location)
-                from direction in Acceptance.Input(value: seed.Direction)
+                from location in Admit.Value(value: seed.Location)
+                from direction in Admit.Value(value: seed.Direction)
                 select (LightSeed)new Directional(Location: location, Direction: direction),
             linear: static (seed) =>
-                from location in Acceptance.Input(value: seed.Location)
+                from location in Admit.Value(value: seed.Location)
                 from area in new AreaShape(Length: seed.Length).Admit()
                 select (LightSeed)new Linear(Location: location, Length: area.Length),
             rectangular: static (seed) =>
-                from corner in Acceptance.Input(value: seed.Corner)
+                from corner in Admit.Value(value: seed.Corner)
                 from area in new AreaShape(Length: seed.Length, Width: Some(seed.Width)).Admit()
                 from width in area.Width.ToFin(Fail: new KernelFault.InvalidResult())
                 select (LightSeed)new Rectangular(Corner: corner, Length: area.Length, Width: width));
@@ -339,9 +339,9 @@ public abstract partial record LightSeed {
         LightSeed seed = this;
         return Lease<Light>.Acquire(
                 mint: () => new Light { LightStyle = seed.Kind.Style, IsEnabled = true })
-            .Bind(lease => Try.lift(() => Fin.Succ(value: seed.Seat(working: lease.Resource))).Run().Bind(static inner => inner)
+            .Bind(lease => Try.lift(() => seed.Seat(working: lease.Resource)).Run()
                 .Map(_ => lease)
-                .Rollback(release: () => Try.lift(() => Fin.Succ(value: lease.Dispose())).Run().Bind(static inner => inner)));
+                .Rollback(release: () => Try.lift(() => lease.Dispose()).Run()));
     }
 }
 
@@ -386,9 +386,9 @@ public abstract partial record LightEdit {
                 .Map(shape => (LightEdit)new Cone(Value: shape)),
             area: static (edit) => edit.Value.Admit()
                 .Map(area => (LightEdit)new Area(Value: area)),
-            place: static (edit) => Acceptance.Input(value: edit.Location)
+            place: static (edit) => Admit.Value(value: edit.Location)
                 .Map(location => (LightEdit)new Place(Location: location)),
-            aim: static (edit) => Acceptance.Input(value: edit.Direction)
+            aim: static (edit) => Admit.Value(value: edit.Direction)
                 .Map(direction => (LightEdit)new Aim(Direction: direction)),
             attenuate: static (edit) => Admit.Need(edit.Value)
                 .Bind(law => law.Admit()).Map(law => (LightEdit)new Attenuate(Value: law)));
@@ -485,12 +485,11 @@ public abstract partial record LightSelect {
     internal Fin<Seq<(ResourceIndex Index, LightObject Native)>> Resolve(RhinoDoc document) =>
         Switch(
             context: document,
-            every: static (context, _) => Try.lift(() => Fin.Succ(value:
-                context.Lights.AsIterable().ToSeq()
+            every: static (context, _) => Try.lift(() => context.Lights.AsIterable().ToSeq()
                     .Filter(static native => !native.IsDeleted)
                     .Choose(native => ResourceIndex
                         .Maybe(value: context.Lights.Find(native.Id, ignoreDeleted: true))
-                        .Map(index => (Index: index, Native: native))))).Run().Bind(static inner => inner),
+                        .Map(index => (Index: index, Native: native)))).Run(),
             at: static (context, address) => Try.lift(() => Row(
                 document: context, index: address.Index)).Run().Bind(static inner => inner),
             of: static (context, address) => Try.lift(() => Row(
@@ -783,12 +782,11 @@ public static class Lights {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class SceneMap {
     internal static Fin<UInt128> ContentKey(SceneCapture capture) =>
-        Try.lift(() => Fin.Succ(ContentHash.Of(Descriptor(capture: capture, includeKey: false).ToByteArray()))).Run().Bind(static inner => inner);
+        Try.lift(() => ContentHash.Of(Descriptor(capture: capture, includeKey: false).ToByteArray())).Run();
 
     public static Fin<ReadOnlyMemory<byte>> Encode(SceneCapture capture) {
         return from admitted in Admit.Need(capture)
-               from bytes in Try.lift(() => Fin.Succ(
-                   value: (ReadOnlyMemory<byte>)Descriptor(capture: admitted, includeKey: true).ToByteArray())).Run().Bind(static inner => inner)
+               from bytes in Try.lift(() => (ReadOnlyMemory<byte>)Descriptor(capture: admitted, includeKey: true).ToByteArray()).Run()
                select bytes;
     }
 

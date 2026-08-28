@@ -169,8 +169,9 @@ internal static partial class CaptureLog {
 
 internal sealed class FrameSink(Action<CMSampleBuffer> deliver) : NSObject, ISCStreamOutput {
     [Export("stream:didOutputSampleBuffer:ofType:")]
-    public void DidOutputSampleBuffer(SCStream stream, CMSampleBuffer sampleBuffer, SCStreamOutputType type) =>
-        HostEdge.SideWhen(condition: type == SCStreamOutputType.Screen, action: () => deliver(obj: sampleBuffer));
+    public void DidOutputSampleBuffer(SCStream stream, CMSampleBuffer sampleBuffer, SCStreamOutputType type) {
+        if (type == SCStreamOutputType.Screen) { deliver(obj: sampleBuffer); }
+    }
 }
 
 internal sealed class StreamStop(Action<Error> record) : NSObject, ISCStreamDelegate {
@@ -231,8 +232,7 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                 SessionCapture? session = null;
                 StreamStop stop = new(record: error => {
                     SessionCapture? live = session;
-                    HostEdge.SideWhen(condition: live is not null, action: () =>
-                        ignore(live!.Park(error: error, emit: static (logger, detail) => CaptureLog.StreamFault(logger: logger, detail: detail))));
+                    if (live is not null) { ignore(live!.Park(error: error, emit: static (logger, detail) => CaptureLog.StreamFault(logger: logger, detail: detail))); }
                 });
                 FrameSink sink = new(deliver: buffer => session?.Deliver(buffer: buffer));
                 SCStream? candidate = null;
@@ -290,8 +290,8 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
             select (row, bound, clock);
         return await admitted.Match(
             Succ: async row => {
-                Fin<SCShareableContent> content = await Try.lift(static async _ => Fin.Succ(await SCShareableContent.GetShareableContentAsync(
-                        excludeDesktopWindows: true, onScreenWindowsOnly: true).ConfigureAwait(false))).Run().Bind(static inner => inner);
+                Fin<SCShareableContent> content = await HostEdge.Captured(cancel, static async _ => Fin.Succ(await SCShareableContent.GetShareableContentAsync(
+                        excludeDesktopWindows: true, onScreenWindowsOnly: true).ConfigureAwait(false))).ConfigureAwait(false);
                 return content.Bind(shareable => Filter(shareable: shareable, subject: row.Subject)).Bind(minted => {
                     Fin<SCStreamConfiguration> configured = Configure(plan: row.Plan);
                     return configured.Match(
@@ -319,7 +319,7 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                         from bearing in pane.ToFin(new KernelFault.InvalidResult())
                         from _ in bearing.Raster.ToFin(new KernelFault.InvalidResult())
                         select new CaptureStill(Pane: bearing, Captured: stamp);
-                    Fin<Unit> released = Try.lift(buffer.Dispose).Run().Bind(static inner => inner);
+                    Fin<Unit> released = Try.lift(buffer.Dispose).Run();
                     return projected.Settled(release: () => released);
                 });
                 Fin<Unit> released = ReleaseAll(streamConfig.Dispose, minted.Dispose);
@@ -441,11 +441,11 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
             displayCase: static (s, c) => toSeq(s.Displays)
                 .Find(display => display.DisplayId == c.DisplayId)
                 .ToFin(new KernelFault.MissingContext())
-                .Bind(display => Try.lift(() => Fin.Succ(new SCContentFilter(display, [], SCContentFilterOption.Exclude))).Run().Bind(static inner => inner)),
+                .Bind(display => Try.lift(() => new SCContentFilter(display, [], SCContentFilterOption.Exclude)).Run()),
             windowCase: static (s, c) => toSeq(s.Windows)
                 .Find(window => window.WindowId == c.WindowId)
                 .ToFin(new KernelFault.MissingContext())
-                .Bind(window => Try.lift(() => Fin.Succ(new SCContentFilter(window))).Run().Bind(static inner => inner)));
+                .Bind(window => Try.lift(() => new SCContentFilter(window)).Run()));
         Fin<Unit> released = ReleaseAll(shareable.Dispose);
         return minted.Match(
             Succ: filter => released.Map(_ => filter)
@@ -514,14 +514,14 @@ public static class CaptureScout {
     public static async Task<Fin<CaptureInventory>> Survey() {
         Fin<Unit> gate = MacGate.Demand();
         if (gate.IsFail) return gate.Map(static _ => default(CaptureInventory)!);
-        Fin<SCShareableContent> content = await Try.lift(static async _ => Fin.Succ(await SCShareableContent.GetShareableContentAsync(
+        Fin<SCShareableContent> content = await HostEdge.Captured(cancel, static async _ => Fin.Succ(await SCShareableContent.GetShareableContentAsync(
                 excludeDesktopWindows: true,
-                onScreenWindowsOnly: true).ConfigureAwait(false))).Run().Bind(static inner => inner);
+                onScreenWindowsOnly: true).ConfigureAwait(false))).ConfigureAwait(false);
         return content.Bind(shareable => {
-            Fin<CaptureInventory> projected = Try.lift(() => Fin.Succ(new CaptureInventory(
+            Fin<CaptureInventory> projected = Try.lift(() => new CaptureInventory(
                 Displays: toSeq(shareable.Displays).Map(CaptureMap.Display).Strict(),
-                Windows: toSeq(shareable.Windows).Map(CaptureMap.Window).Strict()))).Run().Bind(static inner => inner);
-            Fin<Unit> released = Try.lift(shareable.Dispose).Run().Bind(static inner => inner);
+                Windows: toSeq(shareable.Windows).Map(CaptureMap.Window).Strict())).Run();
+            Fin<Unit> released = Try.lift(shareable.Dispose).Run();
             return projected.Settled(release: () => released);
         });
     }
@@ -551,7 +551,7 @@ internal static partial class CaptureMap {
 public static class PaintProof {
     public static Fin<Option<CaptureBreach>> Judge(
         UiEvent<CaptureFrame> frame, PaintPass pass, MonotonicTimeline timeline, CapturePace pace) {
-        return from claim in Acceptance.Input(value: pass)
+        return from claim in Admit.Value(value: pass)
                from clock in Admit.Need(timeline)
                from rate in Admit.Finite(value: (double)pace)
                from lag in clock.Elapsed(start: claim.Settled, end: frame.Fact.Stamp)

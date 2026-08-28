@@ -204,7 +204,7 @@ public sealed record Stroke {
         _ = halo.Iter(row => (pen.HaloColor, pen.HaloThickness) = (row.Ink, (float)row.Row.Width.Value));
         _ = Decoration.Taper.Iter(row => pen.SetTaper((float)row.Start.Value, (float)row.End.Value, new Point2f((float)row.At.X, (float)row.At.Y)));
         Seq<float> gaps = PenRhythm.Table(dash: Dash);
-        _ = HostEdge.SideWhen(!gaps.IsEmpty, () => {
+        if (!gaps.IsEmpty) {
             pen.SetPattern(gaps.Map(gap => gap * (float)Width.Value).AsEnumerable());
             (pen.PatternAutoscale, pen.PatternScale, pen.PatternOffset, pen.PatternBySegment, pen.PatternLengthInWorldUnits) = (
                 Pattern.Traits.Admits(PatternTrait.Autoscale),
@@ -212,7 +212,7 @@ public sealed record Stroke {
                 Pattern.Offset,
                 Pattern.Traits.Admits(PatternTrait.BySegment),
                 Pattern.Traits.Admits(PatternTrait.WorldLength));
-        });
+        }
         return pen;
     }
 
@@ -588,24 +588,24 @@ public sealed class SpriteSheet : IDisposable {
                     held: toSeq(context.cache.Values)
                         .Filter(static bitmap => bitmap.IsValueCreated)
                         .Choose(static bitmap => bitmap.Value.ToOption()),
-                    release: bitmap => Try.lift(() => Fin.Succ(value: HostEdge.Side(bitmap.Dispose))).Run().Bind(static inner => inner)).Map(_ => HostEdge.Side(context.cache.Clear)),
+                    release: bitmap => Try.lift(() => HostEdge.Side(bitmap.Dispose)).Run()).Map(_ => HostEdge.Side(context.cache.Clear)),
                 ceded: static (_, _) => Fin.Succ(unit),
                 refused: static (_, _) => Fin.Succ(unit),
                 contended: static (_, _) => Fin.Succ(unit));
 
     private static Fin<DisplayBitmap> Load(SpriteRef sprite, BlendPair blend) =>
-        Try.lift(() => Fin.Succ(value: new System.IO.MemoryStream(sprite.Content.ToArray()))).Run().Bind(static inner => inner)
+        Try.lift(() => new System.IO.MemoryStream(sprite.Content.ToArray())).Run()
             .Bind(stream => new Lease<System.IO.MemoryStream>.Owned(Value: stream).Use(
-                body: input => Try.lift(() => Fin.Succ(value: new System.Drawing.Bitmap(input))).Run().Bind(static inner => inner)
+                body: input => Try.lift(() => new System.Drawing.Bitmap(input)).Run()
                     .Bind(encoded => new Lease<System.Drawing.Bitmap>.Owned(Value: encoded).Use(
-                        body: source => Try.lift(() => Fin.Succ(value: new System.Drawing.Bitmap(source))).Run().Bind(static inner => inner)
+                        body: source => Try.lift(() => new System.Drawing.Bitmap(source)).Run()
                             .Bind(bitmap => new Lease<System.Drawing.Bitmap>.Owned(Value: bitmap).Use(
-                                body: copy => Try.lift(() => Fin.Succ(value: new DisplayBitmap(copy))).Run().Bind(static inner => inner)
-                                    .Bind(loaded => Try.lift(() => Fin.Succ(value: HostEdge.Side(() =>
-                                            loaded.SetBlendFunction(blend.Source.Native, blend.Destination.Native)))).Run().Bind(static inner => inner)
+                                body: copy => Try.lift(() => new DisplayBitmap(copy)).Run()
+                                    .Bind(loaded => Try.lift(() => HostEdge.Side(() =>
+                                            loaded.SetBlendFunction(blend.Source.Native, blend.Destination.Native))).Run()
                                         .Map(_ => loaded)
                                         .Rollback(
-                                            release: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(loaded.Dispose))).Run().Bind(static inner => inner)))))))));
+                                            release: () => Try.lift(() => HostEdge.Side(loaded.Dispose)).Run()))))))));
 
     public Fin<Unit> Release() {
         Transition<SheetGate> closing = Cell.Step(
@@ -796,20 +796,20 @@ public static class Marks {
                  join: StrokeJoin.For(row.Stroke.Join),
                  dash: row.Stroke.Dash)
              from pen in stroke.Mint()
-             from drawn in Try.lift(() => Fin.Succ(primitives.Iter(primitive => {
+             from drawn in Try.lift(() => primitives.Iter(primitive => {
                  using global::Rhino.Geometry.Curve curve = primitive.Mint();
                  frame.Pipeline.DrawCurve(curve, pen);
-             }))).Run().Bind(static inner => inner)
+             })).Run()
              select Either.Right<Error, Outcome>(Outcome.Drawn)),
         Mark.TextCase { Face.Source: TypeSource.FamilyCase family } row =>
             from ink in row.Ink.ToDrawing()
-            from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() => frame.Pipeline.Draw2dText(
+            from drawn in Try.lift(() => HostEdge.Side(() => frame.Pipeline.Draw2dText(
                 row.Text,
                 ink,
                 new Point2d(row.At.X, row.At.Y),
                 row.Block.Map(static block => block.Align == Eto.Drawing.FormattedTextAlignment.Center).IfNone(false),
                 (int)row.Face.Size.Map(static size => size.Value).IfNone(12d),
-                family.Family.Value)))).Run().Bind(static inner => inner)
+                family.Family.Value))).Run()
             select Either.Right<Error, Outcome>(Outcome.Drawn),
         _ => Fin.Succ(Either.Left<Error, Outcome>(new KernelFault.Unsupported(mark.GetType(), typeof(DisplayPipeline)))),
     };
@@ -817,14 +817,14 @@ public static class Marks {
     private static Fin<Either<Error, Outcome>> SpritePipeline(ConduitFrame frame, SpriteSheet sprites, SpriteMark mark) =>
         sprites.Use(mark.Sprite, mark.Blend, bitmap => mark.Anchor.Switch(
             (Frame: frame, Bitmap: bitmap),
-            screen: static (ctx, row) => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
-                ctx.Frame.Pipeline.DrawSprite(ctx.Bitmap, new Point2d(row.At.X, row.At.Y), row.Extent.Width, row.Extent.Height)))).Run().Bind(static inner => inner),
+            screen: static (ctx, row) => Try.lift(() => HostEdge.Side(() =>
+                ctx.Frame.Pipeline.DrawSprite(ctx.Bitmap, new Point2d(row.At.X, row.At.Y), row.Extent.Width, row.Extent.Height))).Run(),
             world: static (ctx, row) =>
                 from tint in row.Tint.Traverse(colour => colour.ToDrawing()).As()
-                from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() => ctx.Frame.Pipeline.DrawSprite(
+                from drawn in Try.lift(() => HostEdge.Side(() => ctx.Frame.Pipeline.DrawSprite(
                     ctx.Bitmap, row.At, (float)row.Size.Value,
                     tint.IfNone(System.Drawing.Color.White),
-                    row.Sizing == WidthSpace.World)))).Run().Bind(static inner => inner)
+                    row.Sizing == WidthSpace.World))).Run()
                 select drawn,
             cloud: static (ctx, row) =>
                 from inks in row.Colours.Traverse(colours => colours.Traverse(colour => colour.ToDrawing()).As()).As()
@@ -848,7 +848,7 @@ public static class Marks {
         meshBanded: static (ctx, row) =>
             from ink in row.Colour.ToDrawing()
             from effect in row.Banding.Mint()
-            from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() => ctx.Pipeline.DrawMeshShaded(row.Value, ink, effect)))).Run().Bind(static inner => inner)
+            from drawn in Try.lift(() => HostEdge.Side(() => ctx.Pipeline.DrawMeshShaded(row.Value, ink, effect))).Run()
             select drawn,
         meshFalseColors: static (ctx, row) => Try.lift(() => ctx.Pipeline.DrawMeshFalseColors(row.Value)).Run().Bind(static inner => inner),
         subDShaded: static (ctx, row) => row.Material.Use(
@@ -880,48 +880,48 @@ public static class Marks {
         draft: static (ctx, row) => row.Colour.ToDrawing()
             .Bind(ink => Try.lift(() => ctx.Pipeline.DrawDraftAnglePreview(row.Value, ink)).Run().Bind(static inner => inner)),
         points: static (ctx, row) => row.Colour.ToDrawing()
-            .Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
-                ctx.Pipeline.DrawPoints(row.Values.AsEnumerable(), row.Style.Native, row.Radius.Value, ink)))).Run().Bind(static inner => inner)),
+            .Bind(ink => Try.lift(() => HostEdge.Side(() =>
+                ctx.Pipeline.DrawPoints(row.Values.AsEnumerable(), row.Style.Native, row.Radius.Value, ink))).Run()),
         vector: static (ctx, row) => row.Colour.ToDrawing()
-            .Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() => {
+            .Bind(ink => Try.lift(() => HostEdge.Side(() => {
                 ctx.Pipeline.DrawArrow(new Line(row.Anchor, row.Anchor + row.Span), ink);
-                _ = HostEdge.SideWhen(row.Tip.Dot, () => ctx.Pipeline.DrawPoint(row.Anchor, ink));
-            }))).Run().Bind(static inner => inner)),
+                if (row.Tip.Dot) { ctx.Pipeline.DrawPoint(row.Anchor, ink); }
+            })).Run()),
         polygon: static (ctx, row) =>
             from fill in row.Fill.ToDrawing()
             from edge in row.Edge.ToDrawing()
-            from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() => {
-                _ = HostEdge.SideWhen(row.Paint.Fill, () => ctx.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), fill, filled: true));
-                _ = HostEdge.SideWhen(row.Paint.Edge, () => ctx.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), edge, filled: false));
-            }))).Run().Bind(static inner => inner)
+            from drawn in Try.lift(() => HostEdge.Side(() => {
+                if (row.Paint.Fill) { ctx.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), fill, filled: true); }
+                if (row.Paint.Edge) { ctx.Pipeline.DrawPolygon(row.Ring.AsEnumerable(), edge, filled: false); }
+            })).Run()
             select drawn,
         label3d: static (ctx, row) => row.Colour.ToDrawing()
-            .Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() => ctx.Pipeline.Draw3dText(row.Value, ink)))).Run().Bind(static inner => inner)));
+            .Bind(ink => Try.lift(() => HostEdge.Side(() => ctx.Pipeline.Draw3dText(row.Value, ink))).Run()));
 
     // --- [RETAINED_ARM]
     private static Fin<Either<Error, Outcome>> RetainedArm(CustomDisplay display, DisplayMark mark) => mark switch {
         DisplayMark.World { Value: WorldMark.Points row } =>
-            row.Colour.ToDrawing().Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
-                display.AddPoints(row.Values.AsEnumerable(), ink, row.Style.Native, row.Radius.Value)))).Run().Bind(static inner => inner))
+            row.Colour.ToDrawing().Bind(ink => Try.lift(() => HostEdge.Side(() =>
+                display.AddPoints(row.Values.AsEnumerable(), ink, row.Style.Native, row.Radius.Value))).Run())
             .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
         DisplayMark.World { Value: WorldMark.Vector row } =>
-            row.Colour.ToDrawing().Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
-                display.AddVector(row.Anchor, row.Span, ink, row.Tip.Dot)))).Run().Bind(static inner => inner))
+            row.Colour.ToDrawing().Bind(ink => Try.lift(() => HostEdge.Side(() =>
+                display.AddVector(row.Anchor, row.Span, ink, row.Tip.Dot))).Run())
             .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
         DisplayMark.World { Value: WorldMark.Polygon row } =>
             from fill in row.Fill.ToDrawing()
             from edge in row.Edge.ToDrawing()
-            from drawn in Try.lift(() => Fin.Succ(HostEdge.Side(() =>
-                display.AddPolygon(row.Ring.AsEnumerable(), fill, edge, row.Paint.Fill, row.Paint.Edge)))).Run().Bind(static inner => inner)
+            from drawn in Try.lift(() => HostEdge.Side(() =>
+                display.AddPolygon(row.Ring.AsEnumerable(), fill, edge, row.Paint.Fill, row.Paint.Edge))).Run()
             select Either.Right<Error, Outcome>(Outcome.Drawn),
         DisplayMark.World { Value: WorldMark.Curve { Stroke.Decoration: var decoration } row }
             when decoration == PenDecoration.Bare =>
-            row.Stroke.Colour.ToDrawing().Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
-                display.AddCurve(row.Value, ink, (int)Math.Max(1d, row.Stroke.Width.Value))))).Run().Bind(static inner => inner))
+            row.Stroke.Colour.ToDrawing().Bind(ink => Try.lift(() => HostEdge.Side(() =>
+                display.AddCurve(row.Value, ink, (int)Math.Max(1d, row.Stroke.Width.Value)))).Run())
             .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
         DisplayMark.World { Value: WorldMark.Label3d row } =>
-            row.Colour.ToDrawing().Bind(ink => Try.lift(() => Fin.Succ(HostEdge.Side(() =>
-                display.AddText(row.Value, ink)))).Run().Bind(static inner => inner))
+            row.Colour.ToDrawing().Bind(ink => Try.lift(() => HostEdge.Side(() =>
+                display.AddText(row.Value, ink))).Run())
             .Map(static _ => Either.Right<Error, Outcome>(Outcome.Drawn)),
         _ => Fin.Succ(Either.Left<Error, Outcome>(new KernelFault.Unsupported(mark.GetType(), typeof(CustomDisplay)))),
     };

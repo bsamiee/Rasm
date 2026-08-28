@@ -136,9 +136,9 @@ internal static partial class WireCodec {
  }
 
  static Fin<TemporalValue> ToTemporal(TemporalWire w) => w.ValueCase switch {
-  TemporalWire.ValueOneofCase.Date => Try.lift(() => Fin.Succ((TemporalValue)new TemporalValue.Date(w.Date.ToLocalDate()))).Run().Bind(static inner => inner),
+  TemporalWire.ValueOneofCase.Date => Try.lift(() => (TemporalValue)new TemporalValue.Date(w.Date.ToLocalDate())).Run(),
   TemporalWire.ValueOneofCase.Moment => ToMoment(w.Moment).Map(static v => (TemporalValue)new TemporalValue.Moment(v)),
-  TemporalWire.ValueOneofCase.Time => Try.lift(() => Fin.Succ((TemporalValue)new TemporalValue.Time(w.Time.ToLocalTime()))).Run().Bind(static inner => inner),
+  TemporalWire.ValueOneofCase.Time => Try.lift(() => (TemporalValue)new TemporalValue.Time(w.Time.ToLocalTime())).Run(),
   TemporalWire.ValueOneofCase.Span => Iso(NodaTime.Text.PeriodPattern.Roundtrip, w.Span).Map(static v => (TemporalValue)new TemporalValue.Span(v)),
   TemporalWire.ValueOneofCase.Stamp => Fin.Succ((TemporalValue)new TemporalValue.Stamp(w.Stamp.ToInstant())),
   _ => new KernelFault.InvalidValue("element-wire.temporal", "one temporal arm is required"),
@@ -156,9 +156,9 @@ internal static partial class WireCodec {
 
  static Fin<NodaTime.LocalDateTime> ToMoment(Google.Type.DateTime value) =>
   value.TimeOffsetCase == Google.Type.DateTime.TimeOffsetOneofCase.None
-   ? Try.lift(() => Fin.Succ(new NodaTime.LocalDateTime(
+   ? Try.lift(() => new NodaTime.LocalDateTime(
       value.Year, value.Month, value.Day, value.Hours, value.Minutes, value.Seconds)
-     .PlusNanoseconds(value.Nanos))).Run().Bind(static inner => inner)
+     .PlusNanoseconds(value.Nanos)).Run()
    : Fin.Fail<NodaTime.LocalDateTime>(new KernelFault.InvalidValue(
     "element-wire.temporal.moment", "carry a local moment without an offset or time zone"));
 

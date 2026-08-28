@@ -602,7 +602,7 @@ public static class RecomputeGraph {
             ignore(builder.AddVertexRange(nodes.Map(static node => node.Hash)));
             ignore(builder.AddVerticesAndEdgeRange(nodes.SelectMany(static node =>
                 node.Inputs.Map(input => new SEquatableEdge<ChainHash>(input, node.Hash)))));
-            return Try.lift(() => Fin.Succ(toSeq(builder.TopologicalSort()))).Run().Bind(static inner => inner)
+            return Try.lift(() => toSeq(builder.TopologicalSort())).Run()
                 .Map(order => new Graph(
                     nodes.Fold(HashMap<ChainHash, RecomputeNode>(), static (map, node) => map.Add(node.Hash, node)),
                     builder.ToArrayAdjacencyGraph(),

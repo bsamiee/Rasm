@@ -731,40 +731,40 @@ One carriage law rules every kernel page; no page re-decides it.
 
 - Law: `Eff<Env>` is the runtime CARRIAGE — a pipeline needing tolerance context, progress, or cancellation is `Eff<Env, T>` composing `Env.Asks`/`Env.EnvAsks`.
 - Law: below the `Eff` floor the synchronous owners thread `Context` and `CancellationToken` as explicit parameters (`Requirement.Apply(context, value, cancel)` is the canonical shape); at the floor and above, `Env` carries both. One operation is written in exactly one paradigm — a `Fin`/`Validation` body, or an `Eff<Env, T>` pipeline.
-- Owner: `HostEdge` is the ONE crossing vocabulary between kernel carriers and a host that speaks `null`, `void`, `out`, and `ref`, plus `Captured`, the ASYNCHRONOUS funnel LanguageExt's `Try` has no twin for. `Slot`/`Nullable` project `Option<T>` onto a host reference or nullable slot, `Text` admits a host string back as `Option<string>`, `Side`/`SideWhen` lift a void host call onto `Unit` so a statement composes as an expression, `Probe` folds the host try-pattern onto `Option<T>`, and `Settle` writes a `Fin` success into a host `ref` slot and answers whether it landed.
+- Owner: `HostEdge` is the ONE crossing vocabulary between kernel carriers and a host that speaks `null`, `void`, and `ref`, plus `Captured`/`CapturedIO`, the ASYNCHRONOUS funnel LanguageExt's `Try` has no twin for. `Slot`/`Nullable` project `Option<T>` onto a host reference or nullable slot — `Slot` IS `ValueUnsafe`, which answers `null` only for a reference element, so the struct arm keeps its own `Match` — `NonEmpty` admits a host string back as `Option<string>` under a LENGTH predicate and no trim, which is what separates it from `validation.md`'s trimming `Acceptance.Text`; `Side` lifts a void host call onto `Unit` so a statement composes as an expression, and `Settle` writes a `Fin` success into a host `ref` slot and answers whether it landed. A conditional side effect spells `condition ? Side(f) : unit` at the site or an `if` at statement position — a second member for a ternary is the deleted form, and the `bool`-plus-`out` crossing belongs to `validation.md`'s `Admit.Probe`, which states a requirement this owner cannot.
 - Law: optional context is `Option<T> x = default` consumed through `IfNone` against its policy owner's canonical row; `T? x = null` optional tails are the deleted form kernel-wide. `HostEdge.Slot`/`Nullable` are the ONE place `null` is a legal spelling — a host slot the domain never reads back — so no host-facing page hand-spells the `Option` → `null` projection.
-- Law: `Try.lift(f).Run()` funnels a SYNCHRONOUS host call and `Captured` its awaited twin, and every other exception stays the exact captured `Exceptional` so a classifier composes AFTER the funnel and never inside it. `Captured` lands a PROVEN cancellation on `KernelFault.Cancelled` carrying the raised exception, because an unrequested or tokenless cancel is a library's own and never the caller's; `Try.lift` has no token to prove it with and normalizes onto the package `Errors.Cancelled` identity instead, so a recovery predicate reads the case and the code alike. The capture widens the caught exception to `Exception` before `Error.New`, which the two-argument overload requires statically.
-- Boundary: every other `HostEdge` member converts SHAPE, never outcome — it mints no fault and reads no policy; a crossing that can fail returns `Option<T>` and its refusal is the caller's own typed fault.
+- Law: `Captured` takes its token FIRST and REQUIRED — an optional tail defaults to `CancellationToken.None`, which silently retires the cancel arm and the deadline above it, and the corpus spells the token-carrying lift once as `CapturedIO`, reading `EnvIO.Token` itself so no consumer re-writes the two-lift sandwich or drops the token on the way through. `Try.lift(f).Run()` funnels a SYNCHRONOUS host call and `Captured` its awaited twin, and every other exception stays the exact captured `Exceptional` so a classifier composes AFTER the funnel and never inside it. `Captured` lands a PROVEN cancellation on `KernelFault.Cancelled` carrying the raised exception, because an unrequested or tokenless cancel is a library's own and never the caller's; `Try.lift` has no token to prove it with and normalizes onto the package `Errors.Cancelled` identity instead, so a recovery predicate reads the case and the code alike. The capture widens the caught exception to `Exception` before `Error.New`, which the two-argument overload requires statically.
+- Boundary: this owner holds TWO rungs, and the second is named rather than exempted. The SHAPE rung — `Slot`, `Nullable`, `NonEmpty`, `Side`, `Settle` — is total, mints no fault, reads no policy, and answers `Option<T>` where a crossing can be absent, its refusal the caller's own typed fault. The CAPTURE rung — `Captured`/`CapturedIO` — mints `KernelFault.Cancelled`, reads the token, and lands `Fin`, because an awaited host call has no other place to become a carrier.
 - Law: telemetry is a TAP, never a result — the `TelemetrySink` (`telemetry.md`) rides `Env` at the `Eff` floor or enters a synchronous gate point as one explicit trailing parameter beside `Context`/`CancellationToken`; facts publish through its one `Tap`, and an observe-side subscriber fault isolates onto the tap's own cell, never failing the tapped operation.
 - Boundary: `Env` is `Analysis/query.md`'s frozen record — this page legislates the carriage law, that page owns the record and the pipeline shape.
 - Packages: LanguageExt.Core (`Option`, `Fin`, `Unit`); BCL inbox.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
+using LanguageExt.UnsafeValueAccess;
+
 namespace Rasm.Domain;
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class HostEdge {
-    public delegate bool TryProbe<T>(out T value);
-
-    public static T? Slot<T>(Option<T> value) where T : class => value.Match(Some: static held => held, None: static () => (T?)null);
+    public static T? Slot<T>(Option<T> value) where T : class => value.ValueUnsafe();
     public static T? Nullable<T>(Option<T> value) where T : struct => value.Match(Some: static held => (T?)held, None: static () => (T?)null);
-    public static Option<string> Text(string? value) => Optional(value).Filter(static text => text.Length > 0);
+    public static Option<string> NonEmpty(string? value) => Optional(value).Filter(static text => text.Length > 0);
     public static Unit Side(Action action) { action(); return unit; }
-    public static Unit SideWhen(bool condition, Action action) => condition ? Side(action: action) : unit;
-    public static Option<T> Probe<T>(TryProbe<T> probe) => probe(out T value) ? Some(value) : None;
-    public static Option<T> Probe<T>(Func<(bool Ok, T Value)> probe) => probe() is (true, var value) ? Some(value) : None;
 
     public static bool Settle<T>(ref T slot, Fin<T> outcome) {
         if (outcome.Case is T value) { slot = value; return true; }
         return false;
     }
 
-    public static async ValueTask<Fin<T>> Captured<T>(Func<CancellationToken, ValueTask<Fin<T>>> body, CancellationToken token = default) {
+    public static async ValueTask<Fin<T>> Captured<T>(CancellationToken token, Func<CancellationToken, ValueTask<Fin<T>>> body) {
         try { return await body(token).ConfigureAwait(false); }
         catch (OperationCanceledException raised) when (token.IsCancellationRequested) { return Fin.Fail<T>(new KernelFault.Cancelled(Error.New(raised.Message, (Exception)raised))); }
         catch (Exception raised) { return Fin.Fail<T>(Error.New(raised.Message, raised)); }
     }
+
+    public static IO<Fin<T>> CapturedIO<T>(Func<CancellationToken, ValueTask<Fin<T>>> body) =>
+        IO.liftVAsync(env => Captured(env.Token, body));
 }
 ```
 
@@ -887,7 +887,7 @@ One substrate floor; growth is a case, a band row, a claim row, or a carrier row
 |  [04]   | Resource ownership     | `Lease<T>` + `Custody`                | `[Union]` Owned/Borrowed + release fold | `Lease<T>.Use → TResult`    |
 |  [05]   | Transition verdict     | `Transition<TState>` + `Cell`         | `[Union]` verdict + four CAS shapes     | `Atom<T> → Transition<T>`   |
 |  [06]   | Result validity        | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold             | `ValidityClaim.All → bool`  |
-|  [07]   | Host crossing          | `HostEdge`                            | shape-only boundary projections         | `Option<T> → T?`/`void → Unit` |
+|  [07]   | Host crossing          | `HostEdge`                            | shape projection + awaited capture      | `Option<T> → T?`/`void → Unit`/`await → Fin` |
 |  [08]   | Carrier codec          | `LanguageExtJsonConverterFactory`     | closed carrier-to-converter table       | mint registers, wire rides  |
 
 ## [10]-[RESEARCH]

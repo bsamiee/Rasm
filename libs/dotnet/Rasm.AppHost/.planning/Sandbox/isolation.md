@@ -197,7 +197,7 @@ public static class SandboxRows {
         plugin.Vehicle.Switch(
             state: (Body: call, Plugin: plugin),
             wasmCase: static (seat, wasm) =>
-                from held in IO.lift<Fin<T>>(() => Try.lift(() => Fin.Succ(seat.Body(wasm.Capsule.Instance))).Run().Bind(static inner => inner))
+                from held in IO.lift<Fin<T>>(() => Try.lift(() => seat.Body(wasm.Capsule.Instance)).Run())
                 from result in held.Match(
                     Succ: IO.pure,
                     Fail: error => error.Exception is { IsSome: true, Case: TrapException trap }

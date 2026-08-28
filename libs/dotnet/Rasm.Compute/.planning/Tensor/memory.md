@@ -377,20 +377,20 @@ public sealed class StreamPool : IDisposable {
                 Fail: static error => IO.pure(Fin<RecyclableMemoryStream>.Fail(error))));
 
     public Fin<T> Read<T>(RecyclableMemoryStream stream, MessageParser<T> parser, WireLimits limits) where T : IMessage<T> =>
-        Try.lift(() => Fin.Succ(parser.ParseFrom(
-            CodedInputStream.CreateWithLimits(stream, limits.SizeLimit, limits.RecursionLimit)))).Run().Bind(static inner => inner);
+        Try.lift(() => parser.ParseFrom(
+            CodedInputStream.CreateWithLimits(stream, limits.SizeLimit, limits.RecursionLimit))).Run();
 
     static Fin<long> Framed(IMessage message) =>
-        Try.lift(() => Fin.Succ((long)message.CalculateSize())).Run().Bind(static inner => inner);
+        Try.lift(() => (long)message.CalculateSize()).Run();
 
     Fin<RecyclableMemoryStream> Rent(CorrelationId correlation, (Option<long> Size, bool Contiguous) shape) =>
         shape.Size.Match(
-            None: () => Try.lift(() => Fin.Succ(manager.GetStream(correlation, AllocationClass.RecyclableStream.Key))).Run().Bind(static inner => inner),
+            None: () => Try.lift(() => manager.GetStream(correlation, AllocationClass.RecyclableStream.Key)).Run(),
             Some: size =>
                 size <= 0 ? TensorReason.StagingOverBound.Fail<RecyclableMemoryStream>("stream-size", size.ToString(CultureInfo.InvariantCulture))
                 : shape.Contiguous && size > policy.MaximumBufferSize ? TensorReason.StagingOverBound.Fail<RecyclableMemoryStream>("stream-contiguous-cap", $"{size}>{policy.MaximumBufferSize}")
                 : size > policy.MaximumStreamCapacity ? TensorReason.StagingOverBound.Fail<RecyclableMemoryStream>("stream-cap", $"{size}>{policy.MaximumStreamCapacity}")
-                : Try.lift(() => Fin.Succ(manager.GetStream(correlation, AllocationClass.RecyclableStream.Key, size, shape.Contiguous))).Run().Bind(static inner => inner));
+                : Try.lift(() => manager.GetStream(correlation, AllocationClass.RecyclableStream.Key, size, shape.Contiguous)).Run());
 
     public void Dispose() {
         if (disposed) { return; }

@@ -332,7 +332,7 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
             Admitted(value: lease, source: source, reversed: reversed, detachedSingleFace: false));
     private static Fin<TopologyProjection> Admitted(Lease<GeometryBase> value, ComponentIndex source, bool reversed, bool detachedSingleFace) {
         TopologyProjection projection = new(value: value, source: source, reversed: reversed, detachedSingleFace: detachedSingleFace);
-        return Acceptance.Input(value: projection).Rollback(projection);
+        return Admit.Value(value: projection).Rollback(projection);
     }
     public GeometryBase Value => value.Resource;
     public ComponentIndex Source { get; }
@@ -413,14 +413,14 @@ internal static class Normalization {
         }
         public Fin<Lease<GeometryBase>> GeometryForm() =>
             Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(source => Kind.Of(type: source.GetType()).Case switch {
-                Kind kind => Acceptance.Input(value: source).Bind(value => kind.Topology.Recover(source: value)),
+                Kind kind => Admit.Value(value: source).Bind(value => kind.Topology.Recover(source: value)),
                 _ => source is GeometryBase native
-                    ? Acceptance.Input(value: native).Map(static admitted => (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(Value: admitted))
+                    ? Admit.Value(value: native).Map(static admitted => (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(Value: admitted))
                     : UnsupportedGeometry(source: source),
             });
         public Fin<BoundingBox> BoundsOf() =>
             Optional(geometry).ToFin(new KernelFault.InvalidInput()).Bind(source =>
-                Acceptance.Input(value: source).Bind(admitted => Kind.Of(type: admitted.GetType()).Case switch {
+                Admit.Value(value: source).Bind(admitted => Kind.Of(type: admitted.GetType()).Case switch {
                     Kind kind => kind.Bounds(value: admitted),
                     _ => admitted is GeometryBase native
                         ? Fin.Succ(native.GetBoundingBox(accurate: true))

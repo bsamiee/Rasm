@@ -107,7 +107,7 @@ public abstract partial record ValueMatch {
   public string Expression { get; }
 
   public static Fin<ValueMatch> Of(string expression) =>
-   Try.lift(() => Fin.Succ(Compiled(expression))).Run().Bind(static inner => inner)
+   Try.lift(() => Compiled(expression)).Run()
     .Map(_ => (ValueMatch)new Pattern(expression));
 
   internal static readonly Func<string, Regex> Compiled = memo(static pattern =>

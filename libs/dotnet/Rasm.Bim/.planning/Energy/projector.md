@@ -176,7 +176,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     // --- [HONEYBEE_ARM]
     Fin<RaiseState> Honeybee(ProjectionContext ctx) =>
-        Try.lift(() => Fin.Succ(Hb.Model.FromJson(doc.Text))).Run().Bind(static inner => inner)
+        Try.lift(() => Hb.Model.FromJson(doc.Text)).Run()
             .Bind(model => model is null
                 ? Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:type-mismatch"))
                 : RaiseRooms(Seeded(ctx, model.Identifier), Library(model), Rows(model.Rooms), ctx)
@@ -310,7 +310,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     // --- [DRAGONFLY_ARM]
     Fin<RaiseState> Dragonfly(ProjectionContext ctx) =>
-        Try.lift(() => Fin.Succ(Df.Model.FromJson(doc.Text))).Run().Bind(static inner => inner)
+        Try.lift(() => Df.Model.FromJson(doc.Text)).Run()
             .Bind(model => model is null
                 ? Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:type-mismatch"))
                 : Library(model) is var library

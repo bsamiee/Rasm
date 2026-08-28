@@ -875,7 +875,7 @@ public static class Optimizer {
                 [.. Adjoint(problem, [.. theta]).IfFail([.. theta.Select(static _ => 0.0)])]))
             : ObjectiveFunction.Value(Value);
         return Probe(problem, oracle, start).Bind(baseline =>
-            Try.lift(() => Fin.Succ(row.Minimize(objective, Vector<double>.Build.DenseOfArray([.. start]), lower, upper, policy))).Run().Bind(static inner => inner)
+            Try.lift(() => row.Minimize(objective, Vector<double>.Build.DenseOfArray([.. start]), lower, upper, policy)).Run()
                 .Bind(result => result.ReasonForExit is ExitCondition.InvalidValues or ExitCondition.None
                     ? Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Converged, new ContractEvidence.Status((int)result.ReasonForExit))))
                     : Probe(problem, oracle, problem.Clamp(result.MinimizingPoint.AsArray()))

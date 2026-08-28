@@ -251,7 +251,7 @@ public static class ScanSource {
         (payload.IsSingleSegment ? payload.First : new ReadOnlyMemory<byte>(payload.ToArray())).AsStream();
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner).ToValidation();
+        Try.lift(() => codec()).Run().ToValidation();
 }
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------

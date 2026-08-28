@@ -313,12 +313,12 @@ public sealed record ArchiveValue {
     private static Fin<MethodInfo> Minter(MintKey row) =>
         Minters.Value.Find(row).Match(
             Some: static held => Fin.Succ(value: held),
-            None: () => Try.lift(() => Fin.Succ(value: row.Host
+            None: () => Try.lift(() => row.Host
                     .GetMethods()
                     .Single(candidate => candidate.Name == row.Method
                         && candidate.IsGenericMethodDefinition
                         && candidate.GetParameters().Length == 2)
-                    .MakeGenericMethod(row.EnumType))).Run().Bind(static inner => inner)
+                    .MakeGenericMethod(row.EnumType)).Run()
                 .Map(minted => Cell.Claim(cell: Minters, key: row, mint: () => minted).Current[row]));
 
     public Fin<T> Project<T>() {

@@ -154,7 +154,7 @@ public sealed record LeaderSpec {
     public LeaderPath Path { get; }
 
     public static Fin<LeaderSpec> Of(TextSeed seed, params ReadOnlySpan<Point3d> points) {
-        return from admitted in Acceptance.Input(value: seed)
+        return from admitted in Admit.Value(value: seed)
                from path in LeaderPath.Of(points)
                select new LeaderSpec(seed: admitted, path: path);
     }
@@ -255,10 +255,10 @@ public abstract partial record RunEdit {
         formatCase: static (context, edit) => edit.Changes
             .TraverseM(change => change.Apply(annotation: context)).As()
             .Map(static _ => unit),
-        wrapCase: static (context, edit) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+        wrapCase: static (context, edit) => Try.lift(() => HostEdge.Side(() => {
             context.FormatWidth = edit.Width.Value;
             context.WrapText();
-        }))).Run().Bind(static inner => inner));
+        })).Run());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -278,7 +278,7 @@ public static class TextRtf {
                            Decorations = carried.Decorations.AddOrUpdate(edit.Row, edit.Value),
                        },
                        face: static (carried, edit) => carried with { Face = Some(edit.Value) }))
-               from formatted in Try.lift(() => Fin.Succ(value: AnnotationBase.FormatRtfString(
+               from formatted in Try.lift(() => AnnotationBase.FormatRtfString(
                    rtfIn: source,
                    clearBold: Clears(delta.Decorations, FaceDecoration.Bold),
                    setBold: Sets(delta.Decorations, FaceDecoration.Bold),
@@ -288,7 +288,7 @@ public static class TextRtf {
                    setUnderline: Sets(delta.Decorations, FaceDecoration.Underline),
                    clearFacename: delta.Face.Exists(static change => change.Named.IsNone),
                    setFacename: delta.Face.Exists(static change => change.Named.IsSome),
-                   facename: delta.Face.Bind(static change => change.Named).IfNone(string.Empty)))).Run().Bind(static inner => inner)
+                   facename: delta.Face.Bind(static change => change.Named).IfNone(string.Empty))).Run()
                select formatted;
     }
 
@@ -671,12 +671,12 @@ public sealed partial class OutlineSpec {
         Seq<Seq<TGeometry>> geometry,
         Func<Seq<Seq<GeometryEvidence<TGeometry>>>, Seq<GeometryBase>, OutlineProduct> project) where TGeometry : GeometryBase {
         Seq<TGeometry> custody = geometry.Bind(static group => group).Strict();
-        return Try.lift(() => Fin.Succ(value: project(
+        return Try.lift(() => project(
                 geometry.Map(group => group.Map(item => new GeometryEvidence<TGeometry>(
                     Geometry: item,
                     Crc: item.DataCRC(currentRemainder: 0u),
                     Bounds: item.GetBoundingBox(accurate: true))).Strict()).Strict(),
-                custody.Map(static item => (GeometryBase)item)))).Run().Bind(static inner => inner)
+                custody.Map(static item => (GeometryBase)item))).Run()
             .Rollback(release: () => Custody.Dispose(held: custody));
     }
 }
@@ -789,14 +789,14 @@ public abstract partial record TextOp {
                 .TraverseM(item => item.Apply(annotation: annotation)).As().Map(static _ => unit)),
         reformulaCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
-            change: (annotation, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => annotation.SetRichText(
-                rtfText: edit.Program.Compose(), dimstyle: annotation.DimensionStyle)))).Run().Bind(static inner => inner)),
+            change: (annotation, key) => Try.lift(() => HostEdge.Side(() => annotation.SetRichText(
+                rtfText: edit.Program.Compose(), dimstyle: annotation.DimensionStyle))).Run()),
         repointCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
             change: (annotation) =>
                 from leader in Admit.Need(annotation as Leader)
-                from _ in Try.lift(() => Fin.Succ(value: HostEdge.Side(
-                    () => leader.Points3D = edit.Path.Points.ToArray()))).Run().Bind(static inner => inner)
+                from _ in Try.lift(() => HostEdge.Side(
+                    () => leader.Points3D = edit.Path.Points.ToArray())).Run()
                 select unit),
         styleCase: static (context, edit) => Reworked(
             document: context, target: edit.Target,
@@ -1178,8 +1178,8 @@ public abstract partial record TextAsk {
         scale: static (context, ask) =>
             from style in ask.Style.Resolve(document: context, lens: StyleOp.Lens)
             from viewport in ask.Target.ResolveViewport(document: context)
-            from factor in Try.lift(() => Fin.Succ(value: AnnotationBase.GetDimensionScale(
-                doc: context, dimstyle: style, vport: viewport))).Run().Bind(static inner => inner)
+            from factor in Try.lift(() => AnnotationBase.GetDimensionScale(
+                doc: context, dimstyle: style, vport: viewport)).Run()
             select (TextAnswer)new TextAnswer.Scaled(Factor: factor));
 
     internal static Fin<AnnotationObjectBase> Single(RhinoDoc document, TableTarget target) =>
@@ -1215,7 +1215,7 @@ public static class Texts {
             apply: static (document, operation) => operation.Apply(document: document));
 
     public static Fin<TextAnswer> Ask(DocumentSession session, TextAsk request) {
-        return from admitted in Acceptance.Input(value: request)
+        return from admitted in Admit.Value(value: request)
                from answer in Admit.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;

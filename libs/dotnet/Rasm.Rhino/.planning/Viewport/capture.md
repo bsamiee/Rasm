@@ -90,7 +90,7 @@ public readonly partial struct Size2i : IDisallowDefaultValue {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(Size2i), "positive pixel extents whose area fits an int" }));
 
     public static Fin<Size2i> Of(int width, int height) =>
-        FactoryBridge.Accept<Size2i>(fault: Validate(width, height, out Size2i admitted), admitted: admitted);
+        FactoryBridge.Lift<Size2i>(fault: Validate(width, height, out Size2i admitted), admitted: admitted);
 
     internal System.Drawing.Size Native => new(Width, Height);
 }
@@ -108,7 +108,7 @@ public readonly partial struct Offset2i {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(Offset2i), "nonnegative pixel coordinates" }));
 
     public static Fin<Offset2i> Of(int x, int y) =>
-        FactoryBridge.Accept<Offset2i>(fault: Validate(x, y, out Offset2i admitted), admitted: admitted);
+        FactoryBridge.Lift<Offset2i>(fault: Validate(x, y, out Offset2i admitted), admitted: admitted);
 
     internal System.Drawing.Rectangle Window(Size2i extent) => new(X, Y, extent.Width, extent.Height);
 }
@@ -316,7 +316,7 @@ public sealed partial class CaptureCrop {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(CaptureCrop), "a crop window inside the media extent" }));
 
     public static Fin<CaptureCrop> Of(Size2i media, Offset2i origin, Size2i extent) =>
-        FactoryBridge.Accept<CaptureCrop>(fault: Validate(media, origin, extent, out CaptureCrop? admitted), admitted: admitted);
+        FactoryBridge.Lift<CaptureCrop>(fault: Validate(media, origin, extent, out CaptureCrop? admitted), admitted: admitted);
 }
 
 [ComplexValueObject]
@@ -341,7 +341,7 @@ public sealed partial class CaptureOffset {
                 nameof(CaptureOffset), "a non-custom unit regime and finite nonnegative offsets" }));
 
     public static Fin<CaptureOffset> Of(ModelUnit units, OffsetOrigin origin, double x, double y) =>
-        FactoryBridge.Accept<CaptureOffset>(fault: Validate(units, origin, x, y, out CaptureOffset? admitted), admitted: admitted);
+        FactoryBridge.Lift<CaptureOffset>(fault: Validate(units, origin, x, y, out CaptureOffset? admitted), admitted: admitted);
 }
 
 [ComplexValueObject]
@@ -362,7 +362,7 @@ public sealed partial class CaptureBanner {
     }
 
     public static Fin<CaptureBanner> Of(string header, string footer) =>
-        FactoryBridge.Accept<CaptureBanner>(fault: Validate(header, footer, out CaptureBanner? admitted), admitted: admitted);
+        FactoryBridge.Lift<CaptureBanner>(fault: Validate(header, footer, out CaptureBanner? admitted), admitted: admitted);
 }
 
 [ComplexValueObject]
@@ -679,10 +679,10 @@ public abstract partial record DepthProjection {
         samplesCase: static (ctx, projection) => projection.Pixels
             .TraverseM(pixel => guard(pixel.X < ctx.Extent.Width && pixel.Y < ctx.Extent.Height, new KernelFault.InvalidInput())
                 .ToFin()
-                .Bind(_ => Try.lift(() => Fin.Succ(new DepthSample(
+                .Bind(_ => Try.lift(() => new DepthSample(
                     Pixel: pixel,
                     Z: ctx.Capture.ZValueAt(x: pixel.X, y: pixel.Y),
-                    World: ctx.Capture.WorldPointAt(x: pixel.X, y: pixel.Y)))).Run().Bind(static inner => inner)))
+                    World: ctx.Capture.WorldPointAt(x: pixel.X, y: pixel.Y))).Run()))
             .As()
             .Map(static rows => (DepthPayload)new DepthPayload.SamplesCase(Rows: rows.Strict())),
         grayscaleCase: static (ctx, _) => Try.lift(() => Optional(ctx.Capture.GrayscaleDib()).ToFin(Fail: new ViewportFault.HostRefused(Member: nameof(ZBufferCapture.GrayscaleDib), Detail: "returned no bitmap"))).Run().Bind(static inner => inner)
@@ -1309,7 +1309,7 @@ public static class Captures {
 
     private static Fin<CaptureArtifact> Transparent(RhinoDoc document, TransparentCaptureSpec spec) =>
         from row in spec.Target.ResolveOne(document: document)
-        from facade in Try.lift(() => Fin.Succ(value: spec.Facade())).Run().Bind(static inner => inner)
+        from facade in Try.lift(() => spec.Facade()).Run()
         from artifact in CaptureArtifact.Raster(
             mint: () => facade.CaptureToBitmap(sourceView: row.View),
             extent: spec.Extent,
@@ -1318,13 +1318,13 @@ public static class Captures {
 
     private static Fin<CaptureArtifact> Depth(RhinoDoc document, DepthCaptureSpec spec) =>
         from viewport in spec.Target.ResolveViewport(document: document)
-        from extent in Try.lift(() => Fin.Succ(value: viewport.Size)).Run().Bind(static inner => inner)
+        from extent in Try.lift(() => viewport.Size).Run()
             .Bind(size => Size2i.Of(width: size.Width, height: size.Height))
         from capture in Lease<ZBufferCapture>.Acquire(mint: () => new ZBufferCapture(viewport: viewport))
         from field in capture.Use(
-            body: held => Try.lift(() => Fin.Succ(value: Configured(capture: held, spec: spec))).Run().Bind(static inner => inner)
+            body: held => Try.lift(() => Configured(capture: held, spec: spec)).Run()
                 .Bind(_ => spec.Projection.Project(capture: held, extent: extent))
-                .Bind(payload => Try.lift(() => Fin.Succ(value: Field(capture: held, payload: payload))).Run().Bind(static inner => inner)))
+                .Bind(payload => Try.lift(() => Field(capture: held, payload: payload)).Run()))
         select (CaptureArtifact)new CaptureArtifact.DepthCase(Field: field);
 
     private static Unit Configured(ZBufferCapture capture, DepthCaptureSpec spec) {
@@ -1373,7 +1373,7 @@ public static class Captures {
             .Bind(native => native.Use(
                 body: held => from mode in FactoryBridge.Row<AnimationProperties.CaptureTypes, SequenceMode>(
                                   candidate: held.CaptureType, ordinal: static value => (int)value)
-                              from echo in Try.lift(() => Fin.Succ(value: SequenceMap.Read(host: held))).Run().Bind(static inner => inner)
+                              from echo in Try.lift(() => SequenceMap.Read(host: held)).Run()
                               select new SequenceOutcome(Mode: mode, Echo: echo)));
 }
 ```

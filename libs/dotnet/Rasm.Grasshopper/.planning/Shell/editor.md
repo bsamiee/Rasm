@@ -114,12 +114,12 @@ public sealed partial class ShellToggle : ICapability<ShellToggle> {
     [UseDelegateFromConstructor] internal partial Fin<Unit> Write(GhScope scope, bool value);
 
     private static ShellToggle EditorRow(string key, Func<Editor, bool> read, Action<Editor, bool> write) =>
-        new(read: (scope, op) => scope.Editor.ToFin(new KernelFault.MissingContext()).Bind(shell => Try.lift(() => Fin.Succ(read(arg: shell))).Run().Bind(static inner => inner)),
+        new(read: (scope, op) => scope.Editor.ToFin(new KernelFault.MissingContext()).Bind(shell => Try.lift(() => read(arg: shell)).Run()),
             write: (scope, value, op) => scope.Editor.ToFin(new KernelFault.MissingContext()).Bind(shell => Try.lift(() =>
                 Fin.Succ(HostEdge.Side(action: () => write(arg1: shell, arg2: value)))).Run().Bind(static inner => inner)));
 
     private static ShellToggle CanvasRow(string key, Func<Canvas, bool> read, Action<Canvas, bool> write) =>
-        new(read: (scope, op) => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => Try.lift(() => Fin.Succ(read(arg: surface))).Run().Bind(static inner => inner)),
+        new(read: (scope, op) => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => Try.lift(() => read(arg: surface)).Run()),
             write: (scope, value, op) => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => Try.lift(() =>
                 Fin.Succ(HostEdge.Side(action: () => write(arg1: surface, arg2: value)))).Run().Bind(static inner => inner)));
 }
@@ -181,10 +181,10 @@ public static class EditorShell {
             (acc, row) => acc.Bind(held => row.Read(scope: scope)
                 .BindFail(cause => cause is KernelFault.MissingContext ? Fin.Succ(false) : Fin.Fail<bool>(cause))
                 .Map(engaged => engaged ? held.With(row) : held)))
-        from facts in Try.lift(() => Fin.Succ(new ShellFacts(
+        from facts in Try.lift(() => new ShellFacts(
             Shown: shown,
             HasDocument: shell.Documents.Current is not null,
-            RecentCount: shell.MostRecentCount))).Run().Bind(static inner => inner)
+            RecentCount: shell.MostRecentCount)).Run()
         select facts;
 }
 ```

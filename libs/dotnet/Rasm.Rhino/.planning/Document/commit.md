@@ -50,22 +50,27 @@ public sealed partial class RedrawPolicy {
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 internal static class RedrawScope {
     internal static Fin<TOut> Within<TOut>(RhinoDoc document, RedrawPolicy redraw, Func<Fin<TOut>> body) =>
-        from prior in Try.lift(() => Fin.Succ(value: document.Views.RedrawEnabled)).Run().Bind(static inner => inner)
+        from prior in Try.lift(() => document.Views.RedrawEnabled).Run()
         let suppress = redraw.Traits.Admits(capability: RedrawAxis.Suppress)
-        let outcome = Try.lift(() =>
-            HostEdge.SideWhen(suppress, () => document.Views.EnableRedraw(
+        let outcome = Try.lift(() => {
+                if (suppress) {
+                    document.Views.EnableRedraw(
                         enable: false,
                         redrawDocument: redraw.Traits.Admits(capability: RedrawAxis.RepaintsDocument),
-                        redrawLayers: redraw.Traits.Admits(capability: RedrawAxis.RepaintsLayers)))
-                .Bind(_ => Try.lift(body).Run().Bind(static inner => inner))).Run().Bind(static inner => inner)
-        let restored = Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(suppress, () => document.Views.EnableRedraw(
-            enable: prior,
-            redrawDocument: redraw.Traits.Admits(capability: RedrawAxis.RepaintsDocument),
-            redrawLayers: redraw.Traits.Admits(capability: RedrawAxis.RepaintsLayers))))).Run().Bind(static inner => inner)
+                        redrawLayers: redraw.Traits.Admits(capability: RedrawAxis.RepaintsLayers));
+                }
+                return body();
+            }).Run().Bind(static inner => inner)
+        let restored = Try.lift(() => suppress
+            ? HostEdge.Side(() => document.Views.EnableRedraw(
+                enable: prior,
+                redrawDocument: redraw.Traits.Admits(capability: RedrawAxis.RepaintsDocument),
+                redrawLayers: redraw.Traits.Admits(capability: RedrawAxis.RepaintsLayers)))
+            : unit).Run()
         from value in outcome.Settled(release: () => restored)
-        from _ in Try.lift(() => Fin.Succ(value: HostEdge.SideWhen(
-            redraw.Traits.Admits(capability: RedrawAxis.Enabled),
-            () => document.Views.Redraw(deferred: redraw.Traits.Admits(capability: RedrawAxis.Defers))))).Run().Bind(static inner => inner)
+        from _ in Try.lift(() => redraw.Traits.Admits(capability: RedrawAxis.Enabled)
+            ? HostEdge.Side(() => document.Views.Redraw(deferred: redraw.Traits.Admits(capability: RedrawAxis.Defers)))
+            : unit).Run()
         select value;
 }
 ```
@@ -214,7 +219,7 @@ internal ref struct UndoBracket {
         static Fin<TResult> Stamped(
             (TResult Result, Func<TResult, uint, TResult> Stamp) held, UndoSerial serial) =>
             from fold in Admit.Need(held.Stamp)
-            from stamped in Try.lift(() => Fin.Succ(value: fold(held.Result, serial.Value))).Run().Bind(static inner => inner)
+            from stamped in Try.lift(() => fold(held.Result, serial.Value)).Run()
             select stamped;
     }
 

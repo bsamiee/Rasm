@@ -436,8 +436,8 @@ public sealed partial class ExecutionProvider {
     public Fin<Option<OrtCompiledModelCompatibility>> Compatible(string compiledModelPath, Seq<OrtEpDevice> devices) =>
         devices.IsEmpty
             ? Fin.Succ(Option<OrtCompiledModelCompatibility>.None)
-            : Try.lift(() => Fin.Succ(Some(OrtEnv.Instance().GetModelCompatibilityForEpDevices(
-                devices.ToList(), OrtEnv.Instance().GetCompatibilityInfoFromModel(compiledModelPath, ProviderName))))).Run().Bind(static inner => inner);
+            : Try.lift(() => Some(OrtEnv.Instance().GetModelCompatibilityForEpDevices(
+                devices.ToList(), OrtEnv.Instance().GetCompatibilityInfoFromModel(compiledModelPath, ProviderName)))).Run();
 
     public Fin<WarmVerdict> Warmth(string warmPath, Seq<OrtEpDevice> devices) =>
         !Warm.Present(warmPath)

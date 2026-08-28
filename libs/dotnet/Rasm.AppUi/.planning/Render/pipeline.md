@@ -452,11 +452,11 @@ public sealed class RenderGraph {
 
     private static Fin<Seq<RenderPass>> Ordered(Seq<RenderPass> roster) =>
         roster.ToHashMap(static pass => pass.Key, static pass => pass) switch {
-            var byKey => Try.lift(() => Fin.Succ(toSeq(
+            var byKey => Try.lift(() => toSeq(
                     GraphExtensions.ToAdjacencyGraph<string, SEdge<string>>(
                         roster.Map(static pass => pass.Key),
                         key => Downstream(byKey[key], roster))
-                    .TopologicalSort()))).Run().Bind(static inner => inner)
+                    .TopologicalSort())).Run()
                 .Map(order => order.Choose(byKey.Find)),
         };
 
@@ -875,7 +875,7 @@ public static class ResidencyMap {
             from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row)).As()
             from at in Optional(wire.At)
                 .ToFin(new ViewportFault.ContextUnavailable("viewpoint/decode: timestamp is absent"))
-                .Bind(value => Try.lift(() => Fin.Succ(value.ToInstant())).Run().Bind(static inner => inner))
+                .Bind(value => Try.lift(() => value.ToInstant()).Run())
             from view in Viewpoint.Capture(
                 wire.Key,
                 checked((int)wire.Version),

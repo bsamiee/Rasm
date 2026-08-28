@@ -275,7 +275,7 @@ public static class TilePartition {
 
     static Fin<ComputeArtifact> Tileset(StreamPool pool, CorrelationId correlation, TileSet tiles, TilePolicy policy, IClock clock) =>
         pool.Get(correlation, new StreamGrant.Open())
-            .Bind(staged => Try.lift(() => Fin.Succ(Manifested(staged, tiles.Root, policy, clock))).Run().Bind(static inner => inner));
+            .Bind(staged => Try.lift(() => Manifested(staged, tiles.Root, policy, clock)).Run());
 
     static ComputeArtifact Manifested(RecyclableMemoryStream staged, TileNode root, TilePolicy policy, IClock clock) {
         using (staged) {

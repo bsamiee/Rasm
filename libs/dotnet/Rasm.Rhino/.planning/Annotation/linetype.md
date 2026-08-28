@@ -143,10 +143,10 @@ public sealed partial class TaperRow {
             fault: Validate(startWidth, mid, endWidth, out TaperRow? admitted), admitted: admitted);
 
     internal Fin<Unit> Apply(Linetype linetype) => Mid.Match(
-        Some: point => Try.lift(() => Fin.Succ(value: HostEdge.Side(
-            () => linetype.SetTaper(startWidth: StartWidth, taperPoint: point, endWidth: EndWidth)))).Run().Bind(static inner => inner),
-        None: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(
-            () => linetype.SetTaper(startWidth: StartWidth, endWidth: EndWidth)))).Run().Bind(static inner => inner));
+        Some: point => Try.lift(() => HostEdge.Side(
+            () => linetype.SetTaper(startWidth: StartWidth, taperPoint: point, endWidth: EndWidth))).Run(),
+        None: () => Try.lift(() => HostEdge.Side(
+            () => linetype.SetTaper(startWidth: StartWidth, endWidth: EndWidth))).Run());
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -216,12 +216,12 @@ public sealed partial class StrokeDef {
 
     internal Fin<Unit> Apply(RhinoDoc document, Linetype linetype) =>
         from segments in Admit.Confirm(success: linetype.SetSegments(segments: SignedRun.AsIterable()))
-        from cleared in Try.lift(() => Fin.Succ(value: HostEdge.Side(linetype.RemoveAllShapes))).Run().Bind(static inner => inner)
+        from cleared in Try.lift(() => HostEdge.Side(linetype.RemoveAllShapes)).Run()
         from shapes in Shapes.TraverseM(shape => shape.Apply(document: document, linetype: linetype)).As()
         from taper in Taper.Match(
             Some: row => row.Apply(linetype: linetype),
-            None: () => Try.lift(() => Fin.Succ(value: HostEdge.Side(linetype.RemoveTaper))).Run().Bind(static inner => inner))
-        from configured in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => {
+            None: () => Try.lift(() => HostEdge.Side(linetype.RemoveTaper)).Run())
+        from configured in Try.lift(() => HostEdge.Side(() => {
             linetype.Name = Name.Value;
             linetype.LineCapStyle = Cap.Host;
             linetype.LineJoinStyle = Join.Host;
@@ -229,7 +229,7 @@ public sealed partial class StrokeDef {
             linetype.WidthUnits = WidthUnits.System;
             linetype.AlwaysModelDistances = Distances.Key;
             linetype.IsPatternLocked = Lock.Key;
-        }))).Run().Bind(static inner => inner)
+        })).Run()
         from tags in new TagEdit.Replace(Tags: Tags).Apply(owner: Surface(linetype))
         select unit;
 
@@ -361,13 +361,13 @@ public abstract partial record LinetypeOp {
         Duplicate: static live => new Linetype(other: live),
         Tags: StrokeDef.Surface,
         Mint: static (document, def, key) =>
-            from shaped in Try.lift(() => Fin.Succ(value: new Linetype())).Run().Bind(static inner => inner)
+            from shaped in Try.lift(() => new Linetype()).Run()
             from _ in def.Apply(document: document, linetype: shaped)
                 .Rollback(
                     release: () => Custody.Dispose(held: Seq(shaped)))
             select shaped,
         Revise: static (document, copy, def, key) => def.Apply(document: document, linetype: copy),
-        Retitle: static (copy, name, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.Name = name.Value))).Run().Bind(static inner => inner),
+        Retitle: static (copy, name, key) => Try.lift(() => HostEdge.Side(() => copy.Name = name.Value)).Run(),
         Modify: static (document, copy, index, interaction, key) => Admit.Confirm(success: document.Linetypes.Modify(
             linetype: copy, index: index, quiet: interaction.IsQuiet)),
         Seat: static (document, linetype, key) => Try.lift(() => ResourceIndex.Admit(
@@ -380,7 +380,7 @@ public abstract partial record LinetypeOp {
             bool locked = copy.IsPatternLocked;
             copy.IsPatternLocked = false;
             return Fin.Succ<Func< Fin<Unit>>>(value: exit =>
-                Try.lift(() => Fin.Succ(value: HostEdge.Side(() => copy.IsPatternLocked = locked))).Run().Bind(static inner => inner));
+                Try.lift(() => HostEdge.Side(() => copy.IsPatternLocked = locked)).Run());
         }).Run().Bind(static inner => inner),
         Ingest: static (path, _, key) => Try.lift(() => Optional(Linetype.ReadFromFile(path: path.Value))
             .Map(static values => toSeq(values).Strict())
@@ -395,7 +395,7 @@ public abstract partial record LinetypeOp {
                     patternString: edit.Pattern.Value, millimeters: edit.Measure.Key))
                 .ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)
             from __ in new Lease<Linetype>.Owned(Value: built).Use(owned =>
-                from ___ in Try.lift(() => Fin.Succ(value: HostEdge.Side(() => owned.Name = edit.Name.Value))).Run().Bind(static inner => inner)
+                from ___ in Try.lift(() => HostEdge.Side(() => owned.Name = edit.Name.Value)).Run()
                 from ____ in new TagEdit.Replace(Tags: edit.Tags).Apply(owner: StrokeDef.Surface(owned))
                 from _____ in Grip.Seat(context, owned)
                 select unit)
@@ -422,22 +422,22 @@ public abstract partial record LinetypeOp {
         reset: static (context, edit) =>
             Grip.Revised(target: edit.Target, document: context,
                 interaction: edit.Interaction,
-                revise: static (copy, key) => Try.lift(() => Fin.Succ(value: HostEdge.Side(copy.Default))).Run().Bind(static inner => inner)),
+                revise: static (copy, key) => Try.lift(() => HostEdge.Side(copy.Default)).Run()),
         undelete: static (context, edit) =>
             from linetype in edit.Target.Resolve(document: context, lens: ReviveLens)
             from _ in Admit.Confirm(success: context.Linetypes.Undelete(index: linetype.LinetypeIndex))
             select unit,
         loadDefaults: static (context, edit) =>
-            from count in Try.lift(() => Fin.Succ(value: context.Linetypes.LoadDefaultLinetypes(
-                ignoreDeleted: edit.Policy.Key))).Run().Bind(static inner => inner)
+            from count in Try.lift(() => context.Linetypes.LoadDefaultLinetypes(
+                ignoreDeleted: edit.Policy.Key)).Run()
             from _ in guard(count >= 0, new KernelFault.InvalidResult())
             select unit);
 
     private static ListSurface<SegmentRow> Run(Linetype linetype) => new(
         Count: () => linetype.SegmentCount,
         Append: (row, key) =>
-            from index in Try.lift(() => Fin.Succ(value: linetype.AppendSegment(
-                length: row.Length, isSolid: row.Role == DashRole.Dash))).Run().Bind(static inner => inner)
+            from index in Try.lift(() => linetype.AppendSegment(
+                length: row.Length, isSolid: row.Role == DashRole.Dash)).Run()
             from _ in guard(index >= 0, new KernelFault.InvalidResult())
             select unit,
         Remove: (index, key) => Admit.Confirm(success: linetype.RemoveSegment(index: index)),
@@ -454,7 +454,7 @@ public static class Linetypes {
             apply: static (document, operation, key) => operation.Apply(document: document));
 
     public static Fin<LinetypeAnswer> Ask(DocumentSession session, LinetypeAsk request) {
-        return from admitted in Acceptance.Input(value: request)
+        return from admitted in Admit.Value(value: request)
                from answer in Admit.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
@@ -572,8 +572,8 @@ public abstract partial record LinetypeAsk {
                 byParent)),
         forObject: static (context, ask) =>
             from row in ask.Target.Only<RhinoObject>(document: context)
-            from index in Try.lift(() => Fin.Succ(value: context.Linetypes.LinetypeIndexForObject(
-                rhinoObject: row.Native))).Run().Bind(static inner => inner)
+            from index in Try.lift(() => context.Linetypes.LinetypeIndexForObject(
+                rhinoObject: row.Native)).Run()
             from address in ResourceRef.Of(index: index)
             select (LinetypeAnswer)new LinetypeAnswer.Resolved(address),
         mintName: static (context, _) =>

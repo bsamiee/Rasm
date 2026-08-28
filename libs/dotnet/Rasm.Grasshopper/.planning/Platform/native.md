@@ -242,7 +242,7 @@ public sealed record WorkspaceWatch(MacAnchor Anchor, Action<WorkspaceFact> Publ
     internal Fin<Unit> Refresh() =>
         from concessions in NativeLayer.ReadConcessions(key: Operation)
         from bounds in NativeLayer.ReadPace(anchor: Anchor, key: Operation)
-        from appearance in Try.lift(() => Fin.Succ(AppearanceRow.Of(dark: Anchor.View.HasDarkTheme()))).Run().Bind(static inner => inner)
+        from appearance in Try.lift(() => AppearanceRow.Of(dark: Anchor.View.HasDarkTheme())).Run()
         from emitted in Try.lift(() =>
             Publish(obj: new WorkspaceFact(Concessions: concessions, Pace: bounds, Appearance: appearance))).Run().Bind(static inner => inner)
         select emitted;
@@ -340,7 +340,7 @@ public static class NativeLayer {
                     },
                     unwind: () => recognizer is { } minted
                         ? Custody.Release(Seq<Func<Fin<Unit>>>(
-                            () => { HostEdge.SideWhen(condition: attached, action: () => active.View.RemoveGestureRecognizer(gestureRecognizer: minted)); return Fin.Succ(unit); },
+                            () => { if (attached) { active.View.RemoveGestureRecognizer(gestureRecognizer: minted); } return Fin.Succ(unit); },
                             () => { minted.Dispose(); return Fin.Succ(unit); }))
                         : Fin.Succ(unit))
                 select lease);
@@ -375,9 +375,9 @@ public static class NativeLayer {
     public static Fin<CGPoint> Convert(MacAnchor anchor, CGPoint point, Option<NSView> source) {
         return from _ in MacGate.Demand()
                from view in Admit.Need(anchor).Map(static active => active.View)
-               from projected in UiThread.Run(new UiDispatch<CGPoint>.Blocking(() => Try.lift(() => Fin.Succ(view.ConvertPointFromView(
+               from projected in UiThread.Run(new UiDispatch<CGPoint>.Blocking(() => Try.lift(() => view.ConvertPointFromView(
                    point: point,
-                   view: HostEdge.Slot(source)!))).Run().Bind(static inner => inner)), DispatchLane.Interactive)
+                   view: HostEdge.Slot(source)!)).Run()), DispatchLane.Interactive)
                select projected;
     }
 
@@ -385,7 +385,7 @@ public static class NativeLayer {
         return from _ in MacGate.Demand()
                from active in Admit.Need(anchor)
                from row in UiThread.Run(new UiDispatch<AppearanceRow>.Blocking(() =>
-                   Try.lift(() => Fin.Succ(AppearanceRow.Of(dark: active.View.HasDarkTheme()))).Run().Bind(static inner => inner)), DispatchLane.Interactive)
+                   Try.lift(() => AppearanceRow.Of(dark: active.View.HasDarkTheme())).Run()), DispatchLane.Interactive)
                select row;
     }
 

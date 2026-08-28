@@ -22,7 +22,7 @@
 - Boundary: `FileWriteOptions.RhinoDoc` is not detached into the intent — the crossing already carries the document as a `DocKey`, and a second document coordinate could disagree with it.
 - Boundary: `GetFileName()` is not detached either; `DestinationFileName` is the declared target and the host's derived name is a presentation of it.
 - Boundary: `SuppressDialogBoxes`, `SuppressAllInput`, and `AllowUserInterfaceWithHeadlessDocument` are host FILE-OPTIONS facts read at a save or open boundary, not interaction policy — they stay rows on this boundary and reach no kernel interaction owner.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Admit.Need`, `Try.lift`, `HostEdge.Text`); `Persistence/dictionary` (`ArchiveMap.Detach`); RhinoCommon file I/O (`Rasm.Rhino/.api/api-rhinocommon-fileio.md` — the seventeen `FileWriteOptions` and eight `FileReadOptions` reads, `ArchivableDictionary`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Admit.Need`, `Try.lift`, `HostEdge.NonEmpty`); `Persistence/dictionary` (`ArchiveMap.Detach`); RhinoCommon file I/O (`Rasm.Rhino/.api/api-rhinocommon-fileio.md` — the seventeen `FileWriteOptions` and eight `FileReadOptions` reads, `ArchivableDictionary`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -92,7 +92,7 @@ public sealed record WriteIntent(
     internal static Fin<WriteIntent> Detach(FileWriteOptions options) =>
         from row in Admit.Need(options)
         from payload in Try.lift(() => ArchiveMap.Detach(row.OptionsDictionary)).Run().Bind(static inner => inner)
-        from intent in Try.lift(() => Fin.Succ(value: new WriteIntent(
+        from intent in Try.lift(() => new WriteIntent(
             Toggles: CapabilitySet<WriteToggle>.Of(toSeq(WriteToggle.Items)
                 .Filter(toggle => toggle.Reads(value: row))
                 .ToArray()),
@@ -100,10 +100,10 @@ public sealed record WriteIntent(
             Rhino3dmVersion: row.Rhino3dmVersion,
             TypeIndex: row.FileTypeIndex,
             TypeId: Held(row.FileTypeId),
-            Destination: HostEdge.Text(row.DestinationFileName),
-            BackupFolder: HostEdge.Text(row.BackupFileFolder),
+            Destination: HostEdge.NonEmpty(row.DestinationFileName),
+            BackupFolder: HostEdge.NonEmpty(row.BackupFileFolder),
             Placement: row.Xform,
-            Options: payload))).Run().Bind(static inner => inner)
+            Options: payload)).Run()
         select intent;
 
     internal static Option<Guid> Held(Guid value) => Optional(value).Filter(static id => id != Guid.Empty);
@@ -118,14 +118,14 @@ public sealed record ReadIntent(
     internal static Fin<ReadIntent> Detach(FileReadOptions options) =>
         from row in Admit.Need(options)
         from payload in Try.lift(() => ArchiveMap.Detach(row.OptionsDictionary)).Run().Bind(static inner => inner)
-        from intent in Try.lift(() => Fin.Succ(value: new ReadIntent(
+        from intent in Try.lift(() => new ReadIntent(
             Toggles: CapabilitySet<ReadToggle>.Of(toSeq(ReadToggle.Items)
                 .Filter(toggle => toggle.Reads(value: row))
                 .ToArray()),
             WorkSessionReference: row.WorkSessionReferenceModelSerialNumber,
             LinkedDefinition: row.LinkedInstanceDefinitionSerialNumber,
             ReferenceGrandParentLayer: WriteIntent.Held(row.ReferenceModelGrandParentLayerId),
-            Options: payload))).Run().Bind(static inner => inner)
+            Options: payload)).Run()
         select intent;
 }
 ```

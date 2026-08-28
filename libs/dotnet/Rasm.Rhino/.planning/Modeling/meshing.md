@@ -60,14 +60,14 @@ public abstract partial record MeshFidelity : IValidityEvidence {
         custom: static fidelity => (ValidityClaim)fidelity.Law.IsValid);
 
     internal Fin<MeshingParameters> Rig(Context domain) =>
-        Try.lift(() => Fin.Succ(value: Switch(
+        Try.lift(() => Switch(
             domain,
             preset: static (_, fidelity) => fidelity.Row.Mint(),
             density: static (_, fidelity) => fidelity.Value.MinimumEdgeLength.Case switch {
                 double minimum => new MeshingParameters(density: fidelity.Value.Value, minimumEdgeLength: minimum),
                 _ => new MeshingParameters(density: fidelity.Value.Value),
             },
-            custom: static (model, fidelity) => fidelity.Law.Mint(domain: model)))).Run().Bind(static inner => inner);
+            custom: static (model, fidelity) => fidelity.Law.Mint(domain: model))).Run();
 }
 
 [ComplexValueObject]
@@ -255,7 +255,7 @@ public readonly partial struct QuadLaw : IValidityEvidence {
             ValidityClaim.Nonnegative(value: adaptiveSize), adaptiveSize <= 100.0);
 
     internal Fin<QuadRemeshParameters> Rig() =>
-        Try.lift(() => Fin.Succ(value: new QuadRemeshParameters {
+        Try.lift(() => new QuadRemeshParameters {
             TargetQuadCount = TargetQuadCount,
             TargetEdgeLength = TargetEdgeLength,
             AdaptiveSize = AdaptiveSize,
@@ -264,7 +264,7 @@ public readonly partial struct QuadLaw : IValidityEvidence {
             GuideCurveInfluence = GuideCurveInfluence,
             PreserveMeshArrayEdgesMode = PreserveMeshArrayEdgesMode,
             SymmetryAxis = Symmetry,
-        })).Run().Bind(static inner => inner);
+        }).Run();
 }
 
 [ComplexValueObject]
@@ -298,7 +298,7 @@ public readonly partial struct WrapLaw : IValidityEvidence {
             ValidityClaim.CountAtLeast(count: polygonOptimization, floor: 0));
 
     internal Fin<ShrinkWrapParameters> Rig() =>
-        Try.lift(() => Fin.Succ(value: new ShrinkWrapParameters {
+        Try.lift(() => new ShrinkWrapParameters {
             TargetEdgeLength = TargetEdgeLength,
             Offset = Offset,
             SmoothingIterations = SmoothingIterations,
@@ -306,7 +306,7 @@ public readonly partial struct WrapLaw : IValidityEvidence {
             PolygonOptimization = PolygonOptimization,
             InflateVerticesAndPoints = Features.Admits(capability: WrapFeature.InflatePoints),
             PreserveColors = Features.Admits(capability: WrapFeature.PreserveColors),
-        })).Run().Bind(static inner => inner);
+        }).Run();
 }
 
 [ComplexValueObject]
@@ -342,7 +342,7 @@ public readonly partial struct ReduceLaw : IValidityEvidence {
                 allowEmpty: true));
 
     internal Fin<ReduceMeshParameters> Rig(ModelRuntime runtime) =>
-        Try.lift(() => Fin.Succ(value: new ReduceMeshParameters {
+        Try.lift(() => new ReduceMeshParameters {
             DesiredPolygonCount = DesiredPolygonCount,
             AllowDistortion = Features.Admits(capability: ReduceFeature.AllowDistortion),
             Accuracy = Accuracy,
@@ -351,7 +351,7 @@ public readonly partial struct ReduceLaw : IValidityEvidence {
             LockedComponents = LockedComponents.ToArray(),
             CancelToken = runtime.Cancellation,
             ProgressReporter = runtime.ScalarReporter,
-        })).Run().Bind(static inner => inner);
+        }).Run();
 }
 
 [ComplexValueObject]
