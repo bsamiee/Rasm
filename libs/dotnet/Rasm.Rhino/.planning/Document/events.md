@@ -1711,8 +1711,7 @@ public static class RhinoInstruments {
             "modeling bench allocation by operation and input scale", Seq(OperationSlot, ScaleSlot), None, None, None));
 
     public static TelemetryContributorPort Telemetry(string version) =>
-        new(Scope: Scope, Version: version, Instruments: Rows, Classifications: Sensitivity.Values,
-            Keyed: toSeq(Items).Map(static row => (row.Key, row.Row.Name)));
+        new(Scope: Scope, Version: version, Instruments: Rows, Classifications: Sensitivity.Values);
 }
 ```
 

@@ -920,12 +920,14 @@ public static class CompositionRoot {
 
     public static Fin<IServiceProvider> Arm(
         ServiceCollection services, RootInputs inputs, ServiceProviderOptions options,
-        params ReadOnlySpan<ModuleContribution> modules) =>
-        FaultBand.Proof([.. Iterable<ModuleContribution>.FromSpan(modules).Map(static module => module.Assembly)])
+        params ReadOnlySpan<ModuleContribution> modules) {
+        Seq<ModuleContribution> carried = Iterable<ModuleContribution>.FromSpan(modules).ToSeq().Strict();
+        return FaultBand.Proof([.. carried.Map(static module => module.Assembly)])
             .Bind(_ => Seated(services, inputs))
-            .Bind(seated => seated.Compose(modules))
+            .Bind(seated => seated.Compose(carried.ToArray()))
             .Map(_ => (IServiceProvider)services.BuildServiceProvider(options))
             .Bind(provider => Built(provider, inputs).Map(_ => provider));
+    }
 
     static Fin<ServiceCollection> Seated(ServiceCollection services, RootInputs inputs) =>
         Ledger.Traverse(row => row.Switch(

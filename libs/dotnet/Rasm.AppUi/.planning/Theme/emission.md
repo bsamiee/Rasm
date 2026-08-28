@@ -190,7 +190,7 @@ public sealed class ThemeCell {
                 $"unrebuilt rows: {string.Join(", ", unbound.Map(static row => row.Key))}")),
         };
 
-    IO<Unit> Rebuilt() =>
+    public IO<Unit> Rebuilt() =>
         toSeq(Rematerialize.Items).Fold(IO.pure(unit), (io, row) => io.Bind(_ => rebuild.Find(row).IfNone(IO.pure(unit))));
 
     public IO<Fin<ResolvedTheme>> Swap(ThemeRequest request, PreferenceCell preferences) =>

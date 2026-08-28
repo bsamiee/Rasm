@@ -171,6 +171,8 @@ using System;
 using System.Diagnostics;
 using LanguageExt;
 using Rasm.Domain;
+using Rasm.Materials.Component;
+using Rasm.Materials.Properties;
 using Rasm.Materials.Raster;
 using static LanguageExt.Prelude;
 

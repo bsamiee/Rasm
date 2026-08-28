@@ -17,14 +17,14 @@
 
 [CLI_TOOLING]: All tools are installed on machine from the `Parametric_Forge` project, use over standard Unix tooling where applicable
 
-| [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                                 |
-| :-----: | :-------- | :------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `tree`    | `tree <dir>` list directory and all files, `-D` lists dirs only                                                            |
-|  [02]   | `loc`     | `loc <dir>` for true LOC count not bytes with complexity score, folder total + per file(s)                                 |
-|  [03]   | `fd`      | `--hidden` is baked in `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored          |
-|  [04]   | `rg`      | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding |
-|  [05]   | `jq`/`yq` | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays         |
-|  [06]   | `gh`      | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`                     |
+| [INDEX] | [TOOL]    | [GUIDANCE]                                                                                  |
+| :-----: | :-------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `tree`    | `tree <dir>` list directory and all files, `-D` lists dirs only                             |
+|  [02]   | `loc`     | `loc <dir>` for true LOC count not bytes with complexity score, folder total + per file(s)  |
+|  [03]   | `fd`      | `--hidden` is baked in `-H` is noise                                                        |
+|  [04]   | `rg`      | `--smart-case --hidden`                                                                     |
+|  [05]   | `jq`/`yq` | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays |
+|  [06]   | `gh`      | Non-TTY prints nothing when empty, count through `--json <fields> \| jq length`             |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

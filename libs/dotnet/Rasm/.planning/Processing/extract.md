@@ -79,9 +79,9 @@ public abstract partial record ContourPolicy {
     public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels) =>
         new MeshScalarCase(Values: values, Levels: levels).Admit();
     internal Fin<ContourPolicy> Admit() => Switch(
-        planeCase: static (policy) => Rasm.Domain.Admit.Plane(basis: policy.Section).Map(_ => (ContourPolicy)policy),
+        planeCase: static (policy) => Admit.Plane(basis: policy.Section).Map(_ => (ContourPolicy)policy),
         axisCase: static (policy) =>
-            from _ in Rasm.Domain.Admit.AllFinite(policy.Start, policy.End)
+            from _ in Admit.AllFinite(policy.Start, policy.End)
             from __ in guard((policy.End - policy.Start).Length > 0.0, new KernelFault.InvalidInput())
             select (ContourPolicy)policy,
         surfaceIsoCase: static (policy) => (policy.Status, policy.Parameter) switch {
@@ -90,8 +90,8 @@ public abstract partial record ContourPolicy {
             _ => Fin.Fail<ContourPolicy>(new KernelFault.InvalidInput()),
         },
         meshScalarCase: static (policy) =>
-            from scalars in Rasm.Domain.Admit.All(toSeq(policy.Values.AsIterable()), static value => ValidityClaim.Finite(value: value), floor: 1)
-            from levels in Rasm.Domain.Admit.All(policy.Levels, static value => ValidityClaim.Finite(value: value), floor: 1)
+            from scalars in Admit.All(toSeq(policy.Values.AsIterable()), static value => ValidityClaim.Finite(value: value), floor: 1)
+            from levels in Admit.All(policy.Levels, static value => ValidityClaim.Finite(value: value), floor: 1)
             select (ContourPolicy)policy);
 }
 

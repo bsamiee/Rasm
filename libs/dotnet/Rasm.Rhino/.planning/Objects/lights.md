@@ -123,7 +123,7 @@ public sealed partial class LightFrame {
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SpotShape(VectorCone Cone, UnitInterval HotSpot) {
     internal Fin<SpotShape> Admit() =>
-        from _ in Rasm.Domain.Admit.Cone(
+        from _ in Admit.Cone(
             apex: Cone.Apex,
             axis: Cone.Axis.Value,
             halfAngle: Cone.HalfAngle.Value)

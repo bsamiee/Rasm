@@ -174,7 +174,7 @@ public abstract partial record AnglePivot {
     public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
     internal Fin<AnglePivot> Admit() => Switch(
         worldCase: static pivot => Fin.Succ<AnglePivot>(pivot),
-        frameCase: static (pivot) => Rasm.Domain.Admit.Plane(basis: pivot.Value).Map(_ => (AnglePivot)pivot),
+        frameCase: static (pivot) => Admit.Plane(basis: pivot.Value).Map(_ => (AnglePivot)pivot),
         normalCase: static (pivot) => guard(pivot.Value.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (AnglePivot)pivot));
     internal double Compute(Vector3d a, Vector3d b) => Switch(
         state: (A: a, B: b),

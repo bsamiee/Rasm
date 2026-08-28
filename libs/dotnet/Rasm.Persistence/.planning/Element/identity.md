@@ -493,8 +493,8 @@ public static class IdentityDispatch {
         static e => new IdentityView(e.Model, e.Tenant, e.Cell, e.ZMin, e.ZMax, e.Classification, e.At);
 
     public static IO<Fin<IdentityOutcome>> Run(IdentityLease lease, IdentityOp op, ProjectionContext frame, CancellationToken cancellationToken) {
-        return Admit(lease).Match(
-            Succ: facts => Bracket(lease, facts, frame, cancellationToken),
+        return Admit(lease, op).Match(
+            Succ: facts => Bracket(lease, op, facts, frame, cancellationToken),
             Fail: error => IO.pure(Fin<IdentityOutcome>.Fail(error)));
     }
 
@@ -511,7 +511,7 @@ public static class IdentityDispatch {
             : Fin<IdentityOpFacts>.Succ(op.Facts);
 
     static IO<Fin<IdentityOutcome>> Bracket(IdentityLease lease, IdentityOp op, IdentityOpFacts facts, ProjectionContext frame, CancellationToken cancellationToken) =>
-        HostEdge.CapturedIO(async token => {
+        IO.liftVAsync(_ => HostEdge.Captured(cancellationToken, async token => {
             await using IdentityContext store = await lease.Pool.CreateDbContextAsync(token).ConfigureAwait(false);
             store.ChangeTracker.QueryTrackingBehavior = lease.Codec.Tracking;
             store.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
@@ -521,7 +521,7 @@ public static class IdentityDispatch {
                 static (state, inner) => Execute(state.Store, state.Op, state.Facts, state.Profile, inner),
                 Probe(facts),
                 token).ConfigureAwait(false);
-        }, cancellationToken);
+        })).Map(outcome => outcome.MapFail(error => (Error)IdentityFault.Rejected(facts.Verb, error)));
 
     static Func<(IdentityContext Store, IdentityOp Op, IdentityOpFacts Facts, StoreProfile Profile), CancellationToken, Task<ExecutionResult<Fin<IdentityOutcome>>>>? Probe(IdentityOpFacts facts) =>
         facts.Verify.Match(

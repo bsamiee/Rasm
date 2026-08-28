@@ -283,36 +283,36 @@ public static class GraphStore {
         ProjectAsOf(session, model, cut, cancellationToken).Map(o => o.Map(static p => p.Graph));
 
     static IO<Option<GraphProjection>> ProjectAsOf(IQuerySession session, ModelId model, TimeCut cut, CancellationToken cancellationToken) =>
-        HostEdge.CapturedIO(async token => Fin<Option<GraphProjection>>.Succ(Optional(await session.Events.AggregateStreamAsync<GraphProjection>(
+        IO.liftVAsync(_ => HostEdge.Captured(cancellationToken, async token => Fin<Option<GraphProjection>>.Succ(Optional(await session.Events.AggregateStreamAsync<GraphProjection>(
                 model.Value,
                 version: cut.StreamVersion.Match<long?>(Some: static version => version, None: static () => null),
                 timestamp: cut.StreamVersion.IsSome ? (DateTimeOffset?)null : cut.At.ToDateTimeOffset(),
-                token: token).ConfigureAwait(false))), cancellationToken).Bind(IO.lift);
+                token: token).ConfigureAwait(false))))).Bind(IO.lift);
 
     static IO<Fin<StreamHead>> Stage(IDocumentSession session, ElementIdentity identity, GraphWriteStamp stamp, ModelId model, GraphDelta delta, long expected, Option<NameLineage> lineage, Func<Unit, StreamAction> stage, ProjectionContext frame, CancellationToken cancellationToken) =>
-        HostEdge.CapturedIO(async token => {
+        IO.liftVAsync(_ => HostEdge.Captured(cancellationToken, async token => {
             Blame(session, stamp, frame);
             StreamAction action = stage(unit);
             IdentityStore.Stamp(session, identity, stamp.Identity);
             lineage.IfSome(rows => session.Store(rows with { Version = action.Version }));
             await session.SaveChangesAsync(token).ConfigureAwait(false);
             return Fin.Succ(new StreamHead(model, Some(action.Version), Some(delta.NodeCount), Some(delta.EdgeCount)));
-        }, cancellationToken).Bind(captured => captured.Match(
+        })).Bind(captured => captured.Match(
             Succ: IO.pure,
             Fail: error => Lift(session, model, Some(expected), error, cancellationToken)));
 
     static IO<Fin<StreamHead>> StageLinks(IDocumentSession session, GraphStoreOp.Link op, ProjectionContext frame, CancellationToken cancellationToken) =>
-        HostEdge.CapturedIO(async token => {
+        IO.liftVAsync(_ => HostEdge.Captured(cancellationToken, async token => {
             Blame(session, op.Stamp with { Project = Some(op.Project) }, frame);
             op.Links.Iter(link => session.Store(link));
             await session.SaveChangesAsync(token).ConfigureAwait(false);
             return Fin.Succ(new StreamHead(op.Model, None, None, Some(op.Links.Count)));
-        }, cancellationToken).Bind(captured => captured.Match(
+        })).Bind(captured => captured.Match(
             Succ: IO.pure,
             Fail: error => Lift(session, op.Model, None, error, cancellationToken)));
 
     static IO<Fin<StreamHead>> StageExclusive(IDocumentSession session, ElementIdentity identity, GraphWriteStamp stamp, ModelId model, GraphDelta delta, Option<NameLineage> lineage, ProjectionContext frame, CancellationToken cancellationToken) =>
-        HostEdge.CapturedIO(async token => {
+        IO.liftVAsync(_ => HostEdge.Captured(cancellationToken, async token => {
             Blame(session, stamp, frame);
             IEventStream<GraphProjection> stream = await session.Events.FetchForExclusiveWriting<GraphProjection>(model.Value, token).ConfigureAwait(false);
             stream.AppendOne(new GraphEvent.GraphRevised(delta));
@@ -321,7 +321,7 @@ public static class GraphStore {
             lineage.IfSome(rows => session.Store(rows with { Version = next }));
             await session.SaveChangesAsync(token).ConfigureAwait(false);
             return Fin.Succ(new StreamHead(model, Some(next), Some(delta.NodeCount), Some(delta.EdgeCount)));
-        }, cancellationToken).Bind(captured => captured.Match(
+        })).Bind(captured => captured.Match(
             Succ: IO.pure,
             Fail: error => Lift(session, model, None, error, cancellationToken)));
 
@@ -333,8 +333,8 @@ public static class GraphStore {
     }
 
     static IO<Fin<StreamHead>> ReadGraph(IDocumentSession session, ModelId model, ProjectionContext frame, CancellationToken cancellationToken) =>
-        HostEdge.CapturedIO(async token => Fin<Option<GraphProjection>>.Succ(Optional(
-            await session.Events.FetchLatest<GraphProjection>(model.Value, token).ConfigureAwait(false))), cancellationToken)
+        IO.liftVAsync(_ => HostEdge.Captured(cancellationToken, async token => Fin<Option<GraphProjection>>.Succ(Optional(
+            await session.Events.FetchLatest<GraphProjection>(model.Value, token).ConfigureAwait(false)))))
             .Bind(IO.lift)
             .Map(p => Received(model, p,
                 static g => (Some(g.Version), Some(g.Graph.Nodes.Count), Some(g.Graph.Edges.Length))));
@@ -345,8 +345,8 @@ public static class GraphStore {
                 static g => (Some(g.Version), Some(g.Graph.Nodes.Count), Some(g.Graph.Edges.Length))));
 
     static IO<Fin<StreamHead>> ReadState(IDocumentSession session, ModelId model, ProjectionContext frame, CancellationToken cancellationToken) =>
-        HostEdge.CapturedIO(async token => Fin<Option<StreamState>>.Succ(Optional(
-            await session.Events.FetchStreamStateAsync(model.Value, token).ConfigureAwait(false))), cancellationToken)
+        IO.liftVAsync(_ => HostEdge.Captured(cancellationToken, async token => Fin<Option<StreamState>>.Succ(Optional(
+            await session.Events.FetchStreamStateAsync(model.Value, token).ConfigureAwait(false)))))
             .Bind(IO.lift)
             .Map(s => Received(model, s, static state => (Some(state.Version), Option<int>.None, Option<int>.None)));
 
