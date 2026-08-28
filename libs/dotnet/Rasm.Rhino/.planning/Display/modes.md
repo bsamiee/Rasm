@@ -128,7 +128,7 @@ public abstract partial record Fill {
     internal static Fin<Fill> Of(DisplayPipelineAttributes source) => Try.lift(() => {
         source.GetFill(out System.Drawing.Color topLeft, out System.Drawing.Color bottomLeft, out System.Drawing.Color topRight, out System.Drawing.Color bottomRight);
         return (Mode: source.FillMode, Colors: toSeq([topLeft, bottomLeft, topRight, bottomRight]));
-    }).Run().Bind(static inner => inner).Bind(row => row.Colors.TraverseM(color => PerceptualColor.OfRgb(color.R, color.G, color.B, color.A)).As()
+    }).Run().Bind(row => row.Colors.TraverseM(color => PerceptualColor.OfRgb(color.R, color.G, color.B, color.A)).As()
         .Bind(colors => row.Mode switch {
             DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor => Fin.Succ<Fill>(new Default()),
             DisplayPipelineAttributes.FrameBufferFillMode.SolidColor => Fin.Succ<Fill>(new Solid(colors[0])),
@@ -1121,7 +1121,7 @@ public static class Modes {
             .Map(lease => (ModeOutcome)new ModeOutcome.Retained(lease)));
 
     private static Fin<ModeOutcome> Set(DocumentSession session, Seq<Guid> objects, AnalysisKind kind, AnalysisState state) =>
-        Admit.Demand(
+        session.Demand(
             document => Analysis(kind).Bind(mode => objects.TraverseM(id => Try.lift(() =>
                     from subject in Optional(document.Objects.FindId(id)).ToFin(new KernelFault.InvalidInput())
                     from _ in guard(mode.ObjectSupportsAnalysisMode(subject), new KernelFault.InvalidInput())

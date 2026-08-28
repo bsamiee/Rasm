@@ -247,7 +247,7 @@ public static class FaultGate {
         Try.lift(body).Run().Bind(static inner => inner);
 
     public static Unit Isolate(FaultCell faults, Action publish) =>
-        Try.lift(publish).Run().Bind(static inner => inner).Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Point, cause: cause)));
+        Try.lift(publish).Run().Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Point, cause: cause)));
 }
 ```
 

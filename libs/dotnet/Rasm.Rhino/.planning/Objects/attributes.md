@@ -30,7 +30,7 @@ Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes
 - Law: decal removal keys on `Decal.CRC` — the host removes by decal identity, so retract carries the snapshot's `Crc` column and the arm removes every live decal whose `CRC` matches; face-material removal keys on the plug-in guid the dictionary indexes.
 - Law: host quirks cross verbatim — `DecalCreateParams.StartLatitude`/`EndLatitude` carry the horizontal sweep and `StartLongitude`/`EndLongitude` the vertical (the host inverts the names), and `MaterialRefs.Create` swaps front and back values across its native boundary; neither is locally corrected, so a host repair never double-swaps.
 - Growth: a new writable axis adds one edit case, one admission arm, one apply arm, and its detached read projection when the page owns that read.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`HostEdge.NonEmpty`, `Try.lift`, `Admit.Confirm`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `Admit.Confirm`), `Domain/results` (`HostEdge.NonEmpty`, `Try.lift`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -478,54 +478,54 @@ public abstract partial record AttributeEdit {
             identity: static (context, edit) => Try.lift(() => {
                 _ = edit.Name.Iter(name => context.Name = name);
                 _ = edit.Url.Iter(url => context.Url = url);
-            }).Run().Bind(static inner => inner),
-            layer: static (context, edit) => Try.lift(() => context.LayerIndex = edit.Index.Value).Run().Bind(static inner => inner),
+            }).Run(),
+            layer: static (context, edit) => Try.lift(() => context.LayerIndex = edit.Index.Value).Run(),
             paint: static (context, edit) => Try.lift(() => {
                 context.ColorSource = edit.Source.Key;
                 _ = edit.Value.Iter(shade => context.ObjectColor = AttributeShade.Rgb(shade: shade));
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             plot: static (context, edit) => Try.lift(() => {
                 context.PlotColorSource = edit.Source.Key;
                 _ = edit.Value.Iter(shade => context.PlotColor = AttributeShade.Rgb(shade: shade));
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             plotWeight: static (context, edit) => Try.lift(() => {
                 context.PlotWeightSource = edit.Source.Key;
                 _ = edit.Pen.Iter(pen => context.PlotWeight = pen.ToHost());
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             linePattern: static (context, edit) => Try.lift(() => {
                 context.LinetypeSource = edit.Source.Key;
                 _ = edit.Index.Iter(index => context.LinetypeIndex = index.Value);
                 _ = edit.PatternScale.Iter(scale => context.LinetypePatternScale = scale);
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             customLine: static (context, edit) => Try.lift(() => {
                 edit.Pattern.Match(
                     Some: pattern => context.SetCustomLinetype(linetype: pattern),
                     None: () => context.RemoveCustomLinetype());
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             materialBind: static (context, edit) => Try.lift(() => {
                 context.MaterialSource = edit.Source.Key;
                 _ = edit.Index.Iter(index => context.MaterialIndex = index.Value);
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             shadows: static (context, edit) => Try.lift(() => {
                 context.CastsShadows = edit.Roles.Admits(capability: ShadowRole.Cast);
                 context.ReceivesShadows = edit.Roles.Admits(capability: ShadowRole.Receive);
-            }).Run().Bind(static inner => inner),
-            wires: static (context, edit) => Try.lift(() => context.WireDensity = edit.Density).Run().Bind(static inner => inner),
-            drawOrder: static (context, edit) => Try.lift(() => context.DisplayOrder = edit.Rank).Run().Bind(static inner => inner),
-            decorate: static (context, edit) => Try.lift(() => context.ObjectDecoration = edit.Ends.Key).Run().Bind(static inner => inner),
+            }).Run(),
+            wires: static (context, edit) => Try.lift(() => context.WireDensity = edit.Density).Run(),
+            drawOrder: static (context, edit) => Try.lift(() => context.DisplayOrder = edit.Rank).Run(),
+            decorate: static (context, edit) => Try.lift(() => context.ObjectDecoration = edit.Ends.Key).Run(),
             realm: static (context, edit) => Try.lift(() => {
                 context.Space = edit.Space.Key;
                 context.ViewportId = edit.Viewport.IfNone(noneValue: Guid.Empty);
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             groups: static (context, edit) => edit.Move switch {
                 RosterMove<int, int>.Impose(var indices) => Try.lift(() => {
                     context.RemoveFromAllGroups();
                     _ = indices.Iter(index => context.AddToGroup(groupIndex: index));
-                }).Run().Bind(static inner => inner),
+                }).Run(),
                 RosterMove<int, int>.Extend(var indices) => Try.lift(() =>
-                    _ = indices.Iter(index => context.AddToGroup(groupIndex: index))).Run().Bind(static inner => inner),
+                    _ = indices.Iter(index => context.AddToGroup(groupIndex: index))).Run(),
                 RosterMove<int, int>.Retract(var indices) => Try.lift(() =>
-                    _ = indices.Iter(index => context.RemoveFromGroup(groupIndex: index))).Run().Bind(static inner => inner),
+                    _ = indices.Iter(index => context.RemoveFromGroup(groupIndex: index))).Run(),
                 _ => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             },
             modeOverride: static (context, edit) => edit.Mode
@@ -542,7 +542,7 @@ public abstract partial record AttributeEdit {
             detailHide: static (context, edit) => Admit.Confirm(success: edit.Signal.On
                 ? context.AddHideInDetailOverride(detailId: edit.Detail)
                 : context.RemoveHideInDetailOverride(detailId: edit.Detail)),
-            detailBackground: static (context, edit) => Try.lift(() => context.DetailBackgroundVisible = edit.Signal.On).Run().Bind(static inner => inner),
+            detailBackground: static (context, edit) => Try.lift(() => context.DetailBackgroundVisible = edit.Signal.On).Run(),
             activity: static (context, edit) => edit.Move switch {
                 RosterMove<Guid, Guid>.Impose(var viewports) => Admit.Confirm(
                     success: context.SetActiveInViewportOverrides(viewportIds: viewports.ToArray(), active: edit.Signal.On)),
@@ -554,19 +554,19 @@ public abstract partial record AttributeEdit {
                     .Map(static _ => unit),
                 _ => Fin.Fail<Unit>(error: new KernelFault.InvalidInput()),
             },
-            sectionSource: static (context, edit) => Try.lift(() => context.SectionAttributesSource = edit.Source.Key).Run().Bind(static inner => inner),
+            sectionSource: static (context, edit) => Try.lift(() => context.SectionAttributesSource = edit.Source.Key).Run(),
             sectionIndex: static (context, edit) => Try.lift(() =>
-                context.SectionStyleIndex = edit.Index.Map(static index => index.Value).IfNone(noneValue: ResourceIndex.Absent)).Run().Bind(static inner => inner),
+                context.SectionStyleIndex = edit.Index.Map(static index => index.Value).IfNone(noneValue: ResourceIndex.Absent)).Run(),
             sectionFace: static (context, edit) => Try.lift(() => {
                 edit.Style.Match(
                     Some: style => context.SetCustomSectionStyle(sectionStyle: style),
                     None: () => context.RemoveCustomSectionStyle());
-            }).Run().Bind(static inner => inner),
-            label: static (context, edit) => Try.lift(() => context.ClippingPlaneLabelStyle = edit.Style.Key).Run().Bind(static inner => inner),
+            }).Run(),
+            label: static (context, edit) => Try.lift(() => context.ClippingPlaneLabelStyle = edit.Style.Key).Run(),
             hatchFill: static (context, edit) => Try.lift(() => {
                 _ = edit.Fill.Iter(shade => context.HatchBackgroundFillColor = AttributeShade.Rgb(shade: shade));
                 _ = edit.Print.Iter(shade => context.HatchBackgroundFillPrintColor = AttributeShade.Rgb(shade: shade));
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             hatchBoundary: static (context, edit) => Try.lift(() => {
                 _ = edit.Visible.Iter(signal => context.HatchBoundaryVisible = signal.On);
                 _ = edit.Color.Iter(shade => context.HatchBoundaryColor = AttributeShade.Rgb(shade: shade));
@@ -574,7 +574,7 @@ public abstract partial record AttributeEdit {
                 _ = edit.ColorSource.Iter(source => context.HatchBoundaryColorSource = source.Key);
                 _ = edit.PlotColorSource.Iter(source => context.HatchBoundaryPlotColorSource = source.Key);
                 _ = edit.Pen.Iter(pen => context.HatchBoundaryPlotWeightMillimeters = pen.ToHost());
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             anchorFrame: static (context, edit) => Try.lift(() => context.SetObjectFrame(plane: edit.Frame)).Run().Bind(static inner => inner),
             anchorMove: static (context, edit) => Try.lift(() => context.SetObjectFrame(xform: edit.Motion)).Run().Bind(static inner => inner),
             meshing: static (context, edit) => Try.lift(() => {
@@ -636,7 +636,7 @@ public abstract partial record AttributeEdit {
         seeds.TraverseM(seed => Try.lift(() => {
                 using MaterialRef minted = attributes.MaterialRefs.Create(createParams: seed.Build());
                 attributes.MaterialRefs.Add(key: seed.PlugIn, value: minted);
-            }).Run().Bind(static inner => inner)).As()
+            }).Run()).As()
             .Map(static _ => unit);
 }
 ```

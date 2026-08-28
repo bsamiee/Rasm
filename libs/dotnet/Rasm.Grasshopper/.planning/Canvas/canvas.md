@@ -410,9 +410,9 @@ public abstract partial record CanvasOp : IValidityEvidence {
         navigateCase: static (state, command) => command.Target.Steer(surface: state)
 ,
         projectionCase: static (state, command) => Try.lift(() =>
-            state.Projection = command.Next).Run().Bind(static inner => inner),
+            state.Projection = command.Next).Run(),
         dwellCase: static (state, command) => Try.lift(() =>
-            state.MouseDwellDelay = command.Delay).Run().Bind(static inner => inner),
+            state.MouseDwellDelay = command.Delay).Run(),
         sparkleCase: static (state, command) => Try.lift(() =>
             state.AddSparkle(command.Spec.Mint())).Run().Bind(static inner => inner),
         marqueeOpenCase: static (state, _) => Try.lift(state.BeginWindowSelect).Run().Bind(static inner => inner),
@@ -421,7 +421,7 @@ public abstract partial record CanvasOp : IValidityEvidence {
                 state.WindowSelectObjects = command.Gates.Admits(SelectAxis.Objects);
                 state.WindowSelectWires = command.Gates.Admits(SelectAxis.Wires);
                 state.WindowSelectGroups = command.Gates.Admits(SelectAxis.Groups);
-            }).Run().Bind(static inner => inner),
+            }).Run(),
         policyCase: static (state, command) => Try.lift(() => {
                 CanvasActions actions = state.AllowedActions;
                 toSeq(ActionGate.Items).Iter(gate => gate.Write(actions: actions, allowed: command.Allowed.Admits(gate)));
@@ -429,7 +429,7 @@ public abstract partial record CanvasOp : IValidityEvidence {
                     actions.MakeWireFilter = HostEdge.Slot(filters.Make);
                     actions.DeleteWireFilter = HostEdge.Slot(filters.Delete);
                 });
-            }).Run().Bind(static inner => inner),
+            }).Run(),
         editCase: static (state, command) => Try.lift(() =>
             state.ShowInlineEditor(
                 command.Prompt.Frame,
@@ -464,7 +464,7 @@ public sealed record InlinePrompt(
             error: error.Message, underlying: text, start: 0, after: text.Length));
 
     internal Option<Action> Cancellation() => Cancel.Map(callback =>
-        (Action)(() => Try.lift(callback).Run().Bind(static inner => inner)
+        (Action)(() => Try.lift(callback).Run()
             .IfFail(cause => ignore(Faults.Park(point: Hook, cause: cause)))));
 }
 

@@ -495,7 +495,7 @@ internal sealed class JobAsync : AsyncRenderContext {
             _ = Custody.Release(
                     releases: Seq<Func<Fin<Unit>>>(
                         () => Try.lift(halt.Cancel).Run(),
-                        () => Try.lift(JoinRenderThread).Run().Bind(static inner => inner),
+                        () => Try.lift(JoinRenderThread).Run(),
                         () => Try.lift(() => prior.Switch(
                             idle: static _ => unit,
                             running: static row => row.Port.Close(),
@@ -643,7 +643,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
         lock (lifecycle) {
             return guard(!phase.Value.Closes, new KernelFault.InvalidContext()).ToFin()
                 .Bind(_ => guard(request is not null && request.IsValid, new KernelFault.InvalidInput()).ToFin())
-                .Bind(_ => Admit.Demand(
+                .Bind(_ => session.Demand(
                     use: document => Current(document).Bind(current => Apply(current, request)),
                     needs: request.Needs.ToArray()));
         }
@@ -1340,7 +1340,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     private RealtimeSignal Signal() {
         RealtimeEngine self = this;
         return new RealtimeSignal(
-            redraw: () => self.Observe(Try.lift(self.SignalRedraw).Run().Bind(static inner => inner)),
+            redraw: () => self.Observe(Try.lift(self.SignalRedraw).Run()),
             step: ordinal => self.Step(held => ordinal.Match(
                 Some: pass => held is RealtimeLifecycle.Live row
                     ? Some<RealtimeLifecycle>(row with { Pass = pass })
@@ -1525,7 +1525,7 @@ public abstract class LightAuthorityHost : LightManagerSupport {
 - Law: the GPU frame buffer is post-effect territory alone — `PostEffectChannel.GPU()` is the one managed producer of a texture handle, so `EffectPass.Handle` reads it inside the execute window under `GpuAllowed`, closes it on that window, and `CopyDown` is the only route from a texture back to per-pixel values. `Advance` reports row progress and a refused report is the user's cancel, which halts the pixel loop through the carrier.
 - Law: live-versus-baked is the union's discriminant, selected by the texture's own capability — a consumer asks for live first and falls to the baked case on refusal, and the fallback is a case transition, never a silent quality change. A live evaluator is INITIALIZED before the body sees it, because the host publishes `Initialize` as a separate verdict and an uninitialized evaluator answers colours no sampler measured; the bake takes the host's RETURN-shaped `SimulatedTexture` sibling, so the `ref`-fill and its `null!` seed have no spelling left.
 - Boundary: `PostEffectPipeline`, `PostEffectChannel`, `RenderWindow.Channel`, and `RenderWindow.ChannelGPU` stay inside `EffectPass`; an authored body BORROWS a `ChannelView` or `GpuHandle` for the length of the host bracket and only its own computed value crosses out — a texture id or pixel port that outlives the bracket names freed native memory, so neither port is a detached result. `TextureBake.Evaluate` disposes evaluator or simulation before detached egress.
-- Packages: `api-rhinocommon-render.md` (`PostEffect`, `PostEffectPipeline`, `PostEffectChannel`, `PostEffectState`, `PostEffectUI`, `CustomPostEffectAttribute`, `PostEffectUuids`, `PostEffectExecutionControl`, `RenderTexture`, `TextureEvaluator`, `RenderWindow.Channel`/`ChannelGPU`); `api-rhinocommon-rendersettings.md` (`PostEffectCollection`, `PostEffectData` cursor semantics); `api-rhinocommon-rendercontent.md` (`SimulatedTexture`, `RenderContent.ChangeContexts`); `api-rhinocommon-display.md` (`DisplayTechnology`); kernel `Numerics/atoms` (`PerceptualColor`, `RgbTransfer`, `GamutPolicy`, `UnitInterval`, `Dimension`), `Domain/validation` (`CapabilitySet`, `FactoryBridge.Row`, `HostEdge.Settle`), `Domain/results` (`Lease`); `Render/content.md` (`ContentRef`, `ChangeReason`); kernel `Domain/results` (`Custody`); NodaTime (`Duration`).
+- Packages: `api-rhinocommon-render.md` (`PostEffect`, `PostEffectPipeline`, `PostEffectChannel`, `PostEffectState`, `PostEffectUI`, `CustomPostEffectAttribute`, `PostEffectUuids`, `PostEffectExecutionControl`, `RenderTexture`, `TextureEvaluator`, `RenderWindow.Channel`/`ChannelGPU`); `api-rhinocommon-rendersettings.md` (`PostEffectCollection`, `PostEffectData` cursor semantics); `api-rhinocommon-rendercontent.md` (`SimulatedTexture`, `RenderContent.ChangeContexts`); `api-rhinocommon-display.md` (`DisplayTechnology`); kernel `Numerics/atoms` (`PerceptualColor`, `RgbTransfer`, `GamutPolicy`, `UnitInterval`, `Dimension`), `Domain/validation` (`CapabilitySet`, `FactoryBridge.Row`), `Domain/results` (`HostEdge.Settle`, `Lease`); `Render/content.md` (`ContentRef`, `ChangeReason`); kernel `Domain/results` (`Custody`); NodaTime (`Duration`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1777,7 +1777,7 @@ public abstract partial record TextureBake : IValidityEvidence {
         where TOut : IDetachedDocumentResult {
         TextureBake self = this;
         return guard(session is not null && live is not null && baked is not null && IsValid, new KernelFault.InvalidInput()).ToFin()
-            .Bind(_ => Admit.Demand(
+            .Bind(_ => session.Demand(
                 use: document => self.Switch(
                     state: (Document: document, Live: live, Baked: baked),
                     liveCase: static (ctx, bake) =>
@@ -1947,14 +1947,14 @@ public sealed class EffectPass {
                    from target in Optional(sink).ToFin(Fail: new KernelFault.MissingContext())
                    from texture in Optional(live.GPU()).ToFin(Fail: new KernelFault.InvalidResult())
                    from pixels in Optional(target.CPU()).ToFin(Fail: new KernelFault.InvalidResult())
-                   from _copied in Try.lift(() => HostEdge.Side(() => { using (texture) using (pixels) { texture.CopyTo(channel: pixels); } })).Run().Bind(static inner => inner)
-                   from _committed in Try.lift(() => HostEdge.Side(target.Commit)).Run().Bind(static inner => inner)
+                   from _copied in Try.lift(() => HostEdge.Side(() => { using (texture) using (pixels) { texture.CopyTo(channel: pixels); } })).Run()
+                   from _committed in Try.lift(() => HostEdge.Side(target.Commit)).Run()
                    select unit;
         }).Run().Bind(static inner => inner));
     }
 
     public Fin<Unit> Advance(Rasm.Numerics.Dimension rows) {
-        return Try.lift(() => HostEdge.Side(() => ((IProgress<int>)pipeline).Report(value: rows.Value))).Run().Bind(static inner => inner);
+        return Try.lift(() => HostEdge.Side(() => ((IProgress<int>)pipeline).Report(value: rows.Value))).Run();
     }
 
     private Fin<TOut> Borrowed<TOut>(RenderChannel channel, ChannelLease lease, Func<ChannelView, Fin<TOut>> borrow) =>
@@ -1968,7 +1968,7 @@ public sealed class EffectPass {
                 return Optional(pixels).ToFin(Fail: new KernelFault.InvalidResult())
                     .Bind(view => borrow(new ChannelView(channel: view, extent: frame, order: channel.Order())))
                     .Bind(done => lease is ChannelLease.Writing
-                        ? Try.lift(() => HostEdge.Side(active.Commit)).Run().Bind(static inner => inner).Map(_ => done)
+                        ? Try.lift(() => HostEdge.Side(active.Commit)).Run().Map(_ => done)
                         : Fin.Succ(value: done));
             });
         }).Run().Bind(static inner => inner));
@@ -2034,12 +2034,12 @@ public abstract class EffectHost : PostEffects.PostEffect {
         None: static () => false);
 
     private Fin<Unit> Amended(ChangeReason reason, Func<Fin<Unit>> body) =>
-        from _ in Try.lift(() => HostEdge.Side(() => BeginChange(changeContext: reason.Native))).Run().Bind(static inner => inner)
-        from settled in body().Rollback(() => Try.lift(() => HostEdge.Side(() => ignore(EndChange()))).Run().Bind(static inner => inner))
+        from _ in Try.lift(() => HostEdge.Side(() => BeginChange(changeContext: reason.Native))).Run()
+        from settled in body().Rollback(() => Try.lift(() => HostEdge.Side(() => ignore(EndChange()))).Run())
         from closed in Custody.Release(
             Seq<Func<Fin<Unit>>>(
-                () => Try.lift(() => HostEdge.Side(() => ignore(EndChange()))).Run().Bind(static inner => inner),
-                () => Try.lift(() => HostEdge.Side(Changed)).Run().Bind(static inner => inner)))
+                () => Try.lift(() => HostEdge.Side(() => ignore(EndChange()))).Run(),
+                () => Try.lift(() => HostEdge.Side(Changed)).Run()))
         select closed;
 
     private Fin<System.Drawing.Rectangle> Frame(PostEffects.PostEffectPipeline pipeline) =>
@@ -2086,7 +2086,7 @@ public static class Effects {
         return from source in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
                from admitted in guard(
                    !ops.IsEmpty && ops.ForAll(static row => row is { IsValid: true }), new KernelFault.InvalidInput(Axis: Some(nameof(ops))))
-               from roster in Admit.Demand(
+               from roster in source.Demand(
                    use: document => Try.lift(() => {
                        using PostEffects.PostEffectCollection collection = document.RenderSettings.PostEffects;
                        return ops.TraverseM(row => row.Apply(collection: collection)).As()

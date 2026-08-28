@@ -328,7 +328,7 @@ public sealed class BlockVault {
 
     internal Fin<PreviewGrant> Lease(DocumentSession owner, ResourceRef address, BlockPreview request) =>
         from seal in Engage(session: owner, policy: RefreshPolicy.Lazy)
-        from key in Admit.Demand(
+        from key in owner.Demand(
             use: document => Definitions.Resolve(target: address, document: document)
                 .Map(definition => new PreviewKey(
                     seal: seal,
@@ -440,7 +440,7 @@ public sealed class BlockVault {
                 .Filter(pair => pair.Key.Document == document)
                 .Map(pair => (pair.Key.Definition, requested))
                 .ToHashMap()),
-            Some: active => Admit.Demand(
+            Some: active => active.Demand(
                 use: held => vault.Value.Live.AsIterable()
                     .Filter(pair => pair.Key.Document == document)
                     .Map(static pair => pair.Key.Definition)

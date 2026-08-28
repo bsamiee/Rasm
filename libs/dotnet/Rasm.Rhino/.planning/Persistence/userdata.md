@@ -1,23 +1,23 @@
 # [RASM_RHINO_PERSISTENCE_USERDATA]
 
-`ArchiveIo` owns schema and integrity framing for every `ArchiveMap` crossing, and `IArchiveCodec` is the ONE codec root every archive participant conforms — `TypedUserData<TSelf>` on the host's `UserData` boundary and `ParticipantSpec.Codec` on the snapshot boundary. `Custody` answers detached snapshots and moves attached user data inside `DocumentCommit.Sealed`. Every fallible host crossing rides the kernel `Try.lift` funnel onto typed faults.
+`ArchiveIo` owns schema and integrity framing for every `ArchiveMap` crossing, and `IArchiveCodec` is the ONE codec root every archive participant conforms — `TypedUserData<TSelf>` on the host's `UserData` boundary and `ParticipantSpec.Codec` on the snapshot boundary. `UserDataCustody` answers detached snapshots and moves attached user data inside `DocumentCommit.Sealed` — it carries the boundary prefix because the kernel already owns `Custody`, and an unqualified static call inside this namespace binds the local type ahead of the imported one. Every fallible host crossing rides the kernel `Try.lift` funnel onto typed faults.
 
 ## [01]-[INDEX]
 
 - [02]-[ARCHIVE_FRAME]: `ArchiveVersion`, `ArchiveSchema`, `ArchiveIntegrity`, `ArchiveEnvelope`, `ArchiveIo`, `IArchiveCodec` — the chunk frame, its integrity evidence, the direction-typed crossings, and the codec root.
 - [03]-[TYPED_PARTICIPATION]: `TypedUserData<TSelf>` — the sealed `UserData` override lifecycle over one linearized payload cell.
-- [04]-[CUSTODY_ALGEBRA]: `DisposalPolicy`, `TransferPlacement`, `WritePosture`, `SharedOrigin`, `CustodyPresence`, `UserDataSnapshot`, `CustodyQuery`, `CustodyAnswer`, `CustodyStep`, `CustodyProgram`, `Custody` — the roster reads and custody mutations.
+- [04]-[CUSTODY_ALGEBRA]: `DisposalPolicy`, `TransferPlacement`, `WritePosture`, `SharedOrigin`, `CustodyPresence`, `UserDataSnapshot`, `CustodyQuery`, `CustodyAnswer`, `CustodyStep`, `CustodyProgram`, `UserDataCustody` — the roster reads and custody mutations.
 
 ## [02]-[ARCHIVE_FRAME]
 
 - Owner: `ArchiveSchema` — the chunk typecode with its current and readable versions; `ArchiveIntegrity` — the crossing's own evidence, closed over the write and read cases and answering the kernel validity fold; `ArchiveIo` — the two direction-typed crossings; `IArchiveCodec` — the schema-plus-upgrade contract every archive participant realizes.
 - Entry: `ArchiveIo.Cross` discriminates on the HOST HANDLE, so a write hands a `BinaryArchiveWriter` with its payload and reads back written integrity, and a read hands a `BinaryArchiveReader` and reads back an envelope. One name, one owner, forward and inverse together.
 - Law: the caller's request already determines direction, so the crossing answers that direction's product and no consumer folds a union solely to recover the case it selected.
-- Law: the chunk bracket is total on both crossings — CRC enabled inside the frame, close and policy restoration settle through `Custody` on both paths, and the version gate refuses BEFORE any payload is detached, so an unreadable frame never reaches `ArchiveMap.Detach` and cleanup cannot replace the primary fault.
+- Law: the chunk bracket is total on both crossings — CRC enabled inside the frame, close and policy restoration settle through the kernel `Custody.Settled` on both paths, and the version gate refuses BEFORE any payload is detached, so an unreadable frame never reaches `ArchiveMap.Detach` and cleanup cannot replace the primary fault.
 - Law: integrity is EVIDENCE, not a pair of hand gates — `ArchiveIntegrity` carries the shared typecode, host archive version, and schema trio on its base and answers `IValidityEvidence` through one total fold, so both crossings gate on `IsValid` and neither re-spells its own predicate.
 - Law: `IArchiveCodec` is an INTERFACE, not a base class: `TypedUserData<TSelf>` already derives the host's `Rhino.DocObjects.Custom.UserData`, which forecloses a second base, so the crossing defaults ride default interface members and both conformers inherit them for one declaration each.
 - Growth: a new participant is one `IArchiveCodec` conformer; a new integrity dimension is one column on the owning case with every reader loudly broken.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[ComplexValueObject]`, `[Union]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `HashSet`); kernel `Domain/results` (`Try.lift`, `Admit.Need`, `KernelFault.InvalidResult`), `Domain/validation` (`IValidityEvidence`, `ValidityClaim`); `Persistence/presets` (`PersistenceFault`), `Persistence/dictionary` (`ArchiveMap`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[ARCHIVE_IO]` — `WriteDictionary`, `ReadDictionary`, `BeginWrite3dmChunk`/`EndWrite3dmChunk`, `BeginRead3dmChunk`/`EndRead3dmChunk`, `EnableCRCCalculation`, `WriteEmptyCheckSum`, `ReadCheckSum`, `WriteErrorOccured`, `ReadErrorOccured`, `Archive3dmVersion`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[ComplexValueObject]`, `[Union]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `HashSet`); kernel `Domain/results` (`Try.lift`, `KernelFault.InvalidResult`, `ValidityClaim`), `Domain/validation` (`Admit.Need`, `IValidityEvidence`); `Persistence/presets` (`PersistenceFault`), `Persistence/dictionary` (`ArchiveMap`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[ARCHIVE_IO]` — `WriteDictionary`, `ReadDictionary`, `BeginWrite3dmChunk`/`EndWrite3dmChunk`, `BeginRead3dmChunk`/`EndRead3dmChunk`, `EnableCRCCalculation`, `WriteEmptyCheckSum`, `ReadCheckSum`, `WriteErrorOccured`, `ReadErrorOccured`, `Archive3dmVersion`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -304,8 +304,8 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
 
 ## [04]-[CUSTODY_ALGEBRA]
 
-- Owner: `Custody` — the one attached-user-data entry, split by custody side: `Ask` answers detached roster snapshots and shared payloads, while `Commit` runs a `CustodyProgram` inside the document's sealed record.
-- Entry: a mutation program names its steps and its redraw posture; `Custody.Commit` demands the session's mutation capability and opens one `DocumentCommit.Sealed` record.
+- Owner: `UserDataCustody` — the one attached-user-data entry, split by custody side: `Ask` answers detached roster snapshots and shared payloads, while `Commit` runs a `CustodyProgram` inside the document's sealed record.
+- Entry: a mutation program names its steps and its redraw posture; `UserDataCustody.Commit` demands the session's mutation capability and opens one `DocumentCommit.Sealed` record.
 - Law: user-data custody is a document mutation, so every step runs on the host-mutation path and a failure remains on the typed result for the commit envelope to settle.
 - Law: `DisposalPolicy` belongs to removal alone. Decompile-proven: `UserDataList.Purge` is `ON_UserData_PurgeUserData` on the parent, and the native delete fires `UserData.OnDelete` — it zeroes `m_native_pointer`, suppresses the finalizer, and drops the runtime-list entry, so `UserData.Dispose(true)` early-returns on the zero pointer and a purge-side policy names a choice the host does not publish. `Remove` does not release, because `ON_Object_DetachUserData` hands custody back to the caller.
 - Law: the attach gate is ACCESSIBILITY, not nesting — `Type.IsPublic` is FALSE for a nested public type, so testing it refuses a participant the host itself accepts; `IsVisible` is the whole gate, public and publicly enclosed at every level, beside the parameterless-constructor requirement `UserDataList.Add` enforces by throwing.
@@ -313,7 +313,7 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
 - Law: an id-keyed containment probe answers a typed `CustodyPresence`, never a fact, because `UserDataList.Contains(Guid)` answers `bool` and `UserData` publishes no readable id — the type-keyed `Describe` is the arm that can answer a description.
 - Boundary: custody on geometry that has not entered the document belongs to the Modeling lease (`ModelGate`), not this owner — this owner moves custody on document-resident objects under the record that makes it undoable.
 - Growth: a new custody verb is one `CustodyStep` case and one interpreter arm.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` accumulation, `TraverseM`); kernel `Domain/results` (`Try.lift`, `Admit.Need`, `Admit.Confirm`, `Custody.Rollback`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`); `Persistence/dictionary` (`ArchiveMap`, `ArchiveMerge`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserDataList.Add`/`Remove`/`Find`/`Contains`/`Purge`, `UserData.Copy`/`MoveUserDataFrom`/`MoveUserDataTo`/`Dispose`, `CommonObject.UserData`/`UserDictionary`, `ArchivableDictionary.ParentUserData`/`Clear`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` accumulation, `TraverseM`); kernel `Domain/results` (`Try.lift`, `Custody.Rollback`), `Domain/validation` (`Admit.Need`, `Admit.Confirm`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`); `Persistence/dictionary` (`ArchiveMap`, `ArchiveMerge`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserDataList.Add`/`Remove`/`Find`/`Contains`/`Purge`, `UserData.Copy`/`MoveUserDataFrom`/`MoveUserDataTo`/`Dispose`, `CommonObject.UserData`/`UserDictionary`, `ArchivableDictionary.ParentUserData`/`Clear`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -404,7 +404,7 @@ public abstract partial record CustodyStep {
 public sealed record CustodyProgram(Seq<CustodyStep> Steps, RedrawPolicy Redraw, Option<string> RecordName);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Custody {
+public static class UserDataCustody {
     public static Fin<CustodyAnswer> Ask(CustodyQuery query) {
         return Admit.Need(query)
             .Bind(active => Admit(active))
@@ -428,7 +428,7 @@ public static class Custody {
             .Bind(admitted => session.Demand(
                 use: document => DocumentCommit.Sealed(
                     document: document,
-                    name: admitted.RecordName.IfNone(nameof(Custody)),
+                    name: admitted.RecordName.IfNone(nameof(UserDataCustody)),
                     recordsUndo: true,
                     redraw: admitted.Redraw,
                     run: () => admitted.Steps

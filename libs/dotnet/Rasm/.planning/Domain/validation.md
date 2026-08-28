@@ -149,7 +149,7 @@ public sealed partial record Requirement {
 
 ## [03]-[ACCEPTANCE_ORACLE]
 
-- Owner: `Acceptance` static is the validity oracle and result-acceptance gate, routed directly by `Analysis/query.md`. Its name is frozen, keyed by the repository analyzer's docID.
+- Owner: `Acceptance` static is the validity oracle and result-acceptance gate, routed directly by `Analysis/query.md` — it answers about a RESULT, where `[09]`'s `Admit` gates an INPUT, and the two names carry that direction so no member re-labels a refusal across it.
 - Entry: `Value`/`Rows`/`Results` gate one value, lift into `Seq`, and bridge a same-type sequence, and `Text` is the boundary TRIM projection admitting a host string; an INPUT reading of the same oracle is `Admit.Value`, seated with the owner that mints `KernelFault.InvalidInput`, because a member here that only re-labels the refusal is a rename wrapper across the direction boundary; heterogeneous raw-to-typed projection is `Numerics/atoms.md`'s `ProjectionRow`, never a `typeof` ladder here. `OutputBinding` is the RUNTIME-typed sibling of `AcceptResults` — a roster row declaring its published output as a `Type` column carries the test and the unbox on one value, so no consumer re-spells `typeof(TOut) == Output`.
 - Law: `ValidityOf(object?)` is the single validity authority — it instruments only foreign material it cannot reach otherwise (Rhino geometry, host scalars screened against the unset sentinel, the Rhino value shapes) and routes every kernel-owned result through one `IValidityEvidence` arm.
 - Law: a kernel type reaches the oracle by implementing `IValidityEvidence` with a `ValidityClaim.All` fold (`results.md`), never by adding an oracle arm; that arm is probed AHEAD of every category default, so a result also inhabiting a blanket-admitted category answers through its own fold rather than the category, and an unknown type is rejected by `Value` — admitting a new result type is exactly one interface implementation.
@@ -387,13 +387,15 @@ public static class FactoryBridge {
 ## [05]-[ADMISSION_SLOTS]
 
 - Owner: `AdmissionSlots` is the kernel's one reusable applicative admission fold. It accumulates independent `Validation<Error, Unit>` slots, mints universal scalar and representation refusals as `KernelFault`, and defers package-semantic refusal construction to the package's typed family.
-- Entry: `Gate` lifts an already-owned refusal or invokes a typed package minter only on failure; `Accumulate` joins concrete and `K`-typed runs; `Optional` admits an absent-or-banded scalar; `Unpack` recursively flattens `ManyErrors` membership.
-- Law: this owner holds the ACCUMULATION fold and nothing else — every scalar, range, count, and shape gate is `[09]`'s `Admit`, so no second range guard exists here to drift from `Band`. No package re-cases finite or range refusals into its local fault family. A package-semantic rule supplies its typed fault through `Gate`; the kernel never accepts a detail string from which it would invent package meaning.
-- Packages: LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `ManyErrors`) and the kernel `Band` vocabulary.
+- Entry: `Gate` lifts an already-owned refusal or invokes a typed package minter only on failure; `Accumulate` joins concrete and `K`-typed runs; `Indexed`, `In`, `InRange`, `Optional`, `Finite`, and `Bounded` cover universal scalar and shape admission on the applicative side; `Unpack` recursively flattens `ManyErrors` membership.
+- Law: the split against `[09]`'s `Admit` is by CARRIER, never by concern. A guard whose verdict fans applicatively beside its siblings answers `Validation` and lives here; a guard whose verdict sequences answers `Fin` and lives on `Admit`. Twenty-two consuming pages import this owner `using static` and spell its members bare, so a member here reads as one clause of an accumulating admission rather than as a call. No package re-cases finite, range, or bounded-interval refusals into its local fault family. A package-semantic rule supplies its typed fault through `Gate`; the kernel never accepts a detail string from which it would invent package meaning.
+- Packages: LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `ManyErrors`), NodaTime (`Interval`), and the kernel `Band` vocabulary.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
+using System.Globalization;
 using LanguageExt.Traits;
+using NodaTime;
 using Rasm.Numerics;
 
 namespace Rasm.Domain;
@@ -416,16 +418,64 @@ public static class AdmissionSlots {
     public static Validation<Error, Unit> Accumulate(Seq<K<Validation<Error>, Unit>> slots) =>
         slots.Traverse(identity).As().Map(static _ => unit);
 
-    private static Validation<Error, double> In(double value, Band band, string label) =>
+    public static Validation<Error, Unit> Indexed(
+        ReadOnlySpan<double> values,
+        Func<double, bool> holds,
+        string label) {
+        Validation<Error, Unit> scan = Success<Error, Unit>(unit);
+        for (int index = 0; index < values.Length; index++) {
+            if (holds(values[index])) { continue; }
+            Validation<Error, Unit> miss = new KernelFault.OutOfRange(
+                Label: $"{label}[{index}]",
+                Scalar: values[index],
+                Requirement: "satisfy the declared scalar predicate");
+            scan = (scan, miss).Apply(static (_, _) => unit).As();
+        }
+        return scan;
+    }
+
+    public static Validation<Error, double> In(double value, Band band, string label) =>
         band.Admits(value)
             ? value
             : new KernelFault.OutOfRange(label, value, $"fall inside {band.Key}");
+
+    public static Validation<Error, double> InRange(
+        double value,
+        double floor,
+        double ceiling,
+        string label) =>
+        value >= floor && value <= ceiling
+            ? value
+            : new KernelFault.OutOfRange(
+                label,
+                value,
+                string.Create(CultureInfo.InvariantCulture, $"fall inside [{floor:R},{ceiling:R}]"));
 
     public static Validation<Error, Option<double>> Optional(
         Option<double> value,
         Band band,
         string label) =>
         value.TraverseM(scalar => In(scalar, band, label)).As();
+
+    public static Validation<Error, Unit> Finite(params ReadOnlySpan<(string Label, double Value)> ordinates) {
+        Validation<Error, Unit> scan = Success<Error, Unit>(unit);
+        foreach ((string label, double value) in ordinates) {
+            if (Band.Parameter.Admits(value)) { continue; }
+            Validation<Error, Unit> miss = new KernelFault.OutOfRange(
+                Label: label,
+                Scalar: value,
+                Requirement: "be finite");
+            scan = (scan, miss).Apply(static (_, _) => unit).As();
+        }
+        return scan;
+    }
+
+    public static Validation<Error, Interval> Bounded(Interval window) =>
+        window is { HasStart: true, HasEnd: true }
+            ? window
+            : new KernelFault.InvalidValue(
+                Label: nameof(Interval),
+                Requirement: "bounded start and end");
 
     public static Seq<Error> Unpack(Error fault) =>
         fault is ManyErrors many

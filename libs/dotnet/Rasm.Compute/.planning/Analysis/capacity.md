@@ -456,7 +456,7 @@ public static partial class StructuralAnalysis {
             select new MemberCapacity(tension, compression, flexureMajor, flexureMinor);
         return toSeq(LimitState.Items).Filter(state => state.Applies(code)).Map(state => {
             Option<double> capacity = Capacity(code, state, ctx);
-            Option<double> demand = Admit.Demand(response);
+            Option<double> demand = state.Demand(response);
             Option<double> util =
                 state == LimitState.Combined ? caps.Map(operands => Math.Max(
                     code.Interaction(response.TensionCorner, operands, ctx), code.Interaction(response.CompressionCorner, operands, ctx)))

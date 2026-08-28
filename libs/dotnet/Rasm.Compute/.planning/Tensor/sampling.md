@@ -509,11 +509,11 @@ public sealed record RbfFit(Matrix<double> Centres, KernelKind Kernel, double Ra
             ? TensorReason.ShapeMismatch.Fail<Matrix<double>>("rbf-query-shape", $"{queries.RowCount}x{queries.ColumnCount}")
             : OperandGate.Admit(queries).Bind(admitted => Try.lift(() => {
                 Matrix<double> phi = Matrix<double>.Build.Dense(admitted.RowCount, Centres.RowCount,
-                    (i, j) => Kernel.Weight(TensorPrimitives.Distance<double>(FactoryBridge.Row(i).AsArray(), Centres.Row(j).AsArray()), Radius));
+                    (i, j) => Kernel.Weight(TensorPrimitives.Distance<double>(admitted.Row(i).AsArray(), Centres.Row(j).AsArray()), Radius));
                 Matrix<double> field = phi.Multiply(Weights);
                 if (PolynomialOrder <= 0) { return Fin.Succ(field); }
                 Seq<int[]> terms = RadialFit.Monomials(admitted.ColumnCount, PolynomialOrder - 1);
-                Matrix<double> poly = Matrix<double>.Build.Dense(admitted.RowCount, terms.Count, (i, t) => RadialFit.Evaluate(FactoryBridge.Row(i), terms[t]));
+                Matrix<double> poly = Matrix<double>.Build.Dense(admitted.RowCount, terms.Count, (i, t) => RadialFit.Evaluate(admitted.Row(i), terms[t]));
                 return Fin.Succ(field + poly.Multiply(PolynomialCoefficients));
             }).Run().Bind(static inner => inner))
             .Bind(static field => TensorPrimitives.IsFiniteAll<double>(field.AsColumnMajorArray())

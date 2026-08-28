@@ -165,13 +165,13 @@ public static class GhSession {
                     styleCase: static c =>
                         from surface in Admit.Need(c.Surface)
                         from styled in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
-                            Try.lift(surface.UseRhinoStyle).Run().Bind(static inner => inner)),
+                            Try.lift(surface.UseRhinoStyle).Run()),
                             DispatchLane.Interactive)
                         select false,
                     focusCase: static c =>
                         from surface in Admit.Need(c.Surface)
                         from focused in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
-                            Try.lift(surface.Focus).Run().Bind(static inner => inner)),
+                            Try.lift(surface.Focus).Run()),
                             DispatchLane.Interactive)
                         select false,
                     releaseCase: static c =>

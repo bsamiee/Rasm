@@ -401,23 +401,23 @@ public abstract partial record LightEdit {
     private Fin<Unit> Seat(Light working) =>
         Switch(
             context: working,
-            rename: static (context, edit) => Try.lift(() => context.Name = edit.Name).Run().Bind(static inner => inner),
-            toggle: static (context, edit) => Try.lift(() => context.IsEnabled = edit.Signal.On).Run().Bind(static inner => inner),
+            rename: static (context, edit) => Try.lift(() => context.Name = edit.Name).Run(),
+            toggle: static (context, edit) => Try.lift(() => context.IsEnabled = edit.Signal.On).Run(),
             power: static (context, edit) => Try.lift(() => edit.Value.Apply(working: context)).Run().Bind(static inner => inner),
             shade: static (context, edit) => edit.Value.Seat(working: context),
-            shadow: static (context, edit) => Try.lift(() => context.ShadowIntensity = (double)edit.Value).Run().Bind(static inner => inner),
+            shadow: static (context, edit) => Try.lift(() => context.ShadowIntensity = (double)edit.Value).Run(),
             cone: static (context, edit) => Try.lift(() => {
                 context.Location = edit.Value.Cone.Apex;
                 context.Direction = edit.Value.Cone.Axis.Value;
                 context.SpotAngleRadians = edit.Value.Cone.HalfAngle.Value;
                 context.HotSpot = (double)edit.Value.HotSpot;
-            }).Run().Bind(static inner => inner),
+            }).Run(),
             area: static (context, edit) => Try.lift(() => {
                 context.Length = edit.Value.Length;
                 _ = edit.Value.Width.Iter(width => context.Width = width);
-            }).Run().Bind(static inner => inner),
-            place: static (context, edit) => Try.lift(() => context.Location = edit.Location).Run().Bind(static inner => inner),
-            aim: static (context, edit) => Try.lift(() => context.Direction = edit.Direction).Run().Bind(static inner => inner),
+            }).Run(),
+            place: static (context, edit) => Try.lift(() => context.Location = edit.Location).Run(),
+            aim: static (context, edit) => Try.lift(() => context.Direction = edit.Direction).Run(),
             attenuate: static (context, edit) => Try.lift(() => edit.Value.Apply(working: context)).Run().Bind(static inner => inner));
 }
 
@@ -440,7 +440,7 @@ public sealed record LightShade(
             working.Diffuse = diffuse;
             _ = ambient.Iter(shade => working.Ambient = shade);
             _ = specular.Iter(shade => working.Specular = shade);
-        }).Run().Bind(static inner => inner)
+        }).Run()
         select unit;
 }
 ```

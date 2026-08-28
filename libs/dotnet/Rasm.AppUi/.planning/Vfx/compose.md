@@ -92,24 +92,24 @@ public abstract partial record ComposeValue {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ComposeSlot {
     public static readonly ComposeSlot Opacity = new("Opacity", ComposeShape.Scalar, MotionAxis.Opacity,
-        static (visual, value) => Try.lift(() => visual.Opacity = ((ComposeValue.Scalar)value).Value).Run().Bind(static inner => inner));
+        static (visual, value) => Try.lift(() => visual.Opacity = ((ComposeValue.Scalar)value).Value).Run());
     public static readonly ComposeSlot Offset = new("Offset", ComposeShape.Vector3, MotionAxis.Transform,
-        static (visual, value) => Try.lift(() => visual.Offset = ((ComposeValue.Vector3)value).Value).Run().Bind(static inner => inner));
+        static (visual, value) => Try.lift(() => visual.Offset = ((ComposeValue.Vector3)value).Value).Run());
     public static readonly ComposeSlot Translation = new("Translation", ComposeShape.Vector3, MotionAxis.Transform,
-        static (visual, value) => Try.lift(() => visual.Translation = ((ComposeValue.Vector3)value).Value).Run().Bind(static inner => inner));
+        static (visual, value) => Try.lift(() => visual.Translation = ((ComposeValue.Vector3)value).Value).Run());
     public static readonly ComposeSlot Scale = new("Scale", ComposeShape.Vector3, MotionAxis.Transform,
-        static (visual, value) => Try.lift(() => visual.Scale = ((ComposeValue.Vector3)value).Value).Run().Bind(static inner => inner));
+        static (visual, value) => Try.lift(() => visual.Scale = ((ComposeValue.Vector3)value).Value).Run());
     public static readonly ComposeSlot CenterPoint = new("CenterPoint", ComposeShape.Vector3, MotionAxis.Transform,
-        static (visual, value) => Try.lift(() => visual.CenterPoint = ((ComposeValue.Vector3)value).Value).Run().Bind(static inner => inner));
+        static (visual, value) => Try.lift(() => visual.CenterPoint = ((ComposeValue.Vector3)value).Value).Run());
     public static readonly ComposeSlot RotationAngle = new("RotationAngle", ComposeShape.Scalar, MotionAxis.Transform,
-        static (visual, value) => Try.lift(() => visual.RotationAngle = ((ComposeValue.Scalar)value).Value).Run().Bind(static inner => inner));
+        static (visual, value) => Try.lift(() => visual.RotationAngle = ((ComposeValue.Scalar)value).Value).Run());
     public static readonly ComposeSlot Orientation = new("Orientation", ComposeShape.Turn, MotionAxis.Transform,
-        static (visual, value) => Try.lift(() => visual.Orientation = ((ComposeValue.Turn)value).Value).Run().Bind(static inner => inner));
+        static (visual, value) => Try.lift(() => visual.Orientation = ((ComposeValue.Turn)value).Value).Run());
     public static readonly ComposeSlot Size = new("Size", ComposeShape.Vector, MotionAxis.Extent,
-        static (visual, value) => Try.lift(() => visual.Size = ((ComposeValue.Vector)value).Value).Run().Bind(static inner => inner));
+        static (visual, value) => Try.lift(() => visual.Size = ((ComposeValue.Vector)value).Value).Run());
     public static readonly ComposeSlot Color = new("Color", ComposeShape.Colour, MotionAxis.Colour,
         static (visual, value) => visual is CompositionSolidColorVisual fill
-            ? Try.lift(() => fill.Color = ((ComposeValue.Colour)value).Value).Run().Bind(static inner => inner)
+            ? Try.lift(() => fill.Color = ((ComposeValue.Colour)value).Value).Run()
             : Fin.Fail<Unit>(new ComposeFault.SlotMismatch("Color drives a CompositionSolidColorVisual alone")));
 
     public ComposeShape Shape { get; }
@@ -256,7 +256,7 @@ public sealed partial class ComposeTrack {
             animation.StopBehavior = Settle;
             animation.Target = Slot.Key;
             mount.Backing.StartAnimation(Slot.Key, animation);
-        }).Run().Bind(static inner => inner);
+        }).Run();
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref ComposeSlot slot, ref Seq<(float Cue, ComposeValue Value)> frames) {
@@ -324,7 +324,7 @@ public static class ImplicitPlan {
             animation.InsertExpressionKeyFrame(1f, FinalValue, easing);
             animation.Duration = span.Span;
             animation.Target = slot.Key;
-        }).Run().Bind(static inner => inner).Map(_ => animation));
+        }).Run().Map(_ => animation));
 
     static ImplicitAnimationCollection Seated(ImplicitAnimationCollection map, ComposeSlot slot, KeyFrameAnimation animation) {
         map[slot.Key] = animation;
@@ -443,7 +443,7 @@ public sealed class VfxHandler(VfxState seed, MonotonicTimeline line, HostSink s
     Fin<Unit> Armed() => Try.lift(() => {
         Invalidate(GetRenderBounds());
         if (state.Run.IsSome) { RegisterForNextAnimationFrameUpdate(); }
-    }).Run().Bind(static inner => inner);
+    }).Run();
 
     SKRect Extent() => new(0f, 0f, (float)EffectiveSize.X, (float)EffectiveSize.Y);
 
@@ -465,7 +465,7 @@ public sealed class VfxSurface(VisualMount owner, CompositionCustomVisual visual
             .Subscribe(bounds => sink.Collapse(IO.lift(Resized(visual, bounds.Size)))))).Run().Bind(static inner => inner);
 
     static Fin<Unit> Resized(CompositionCustomVisual visual, Size size) =>
-        Try.lift(() => visual.Size = new Vector(size.Width, size.Height)).Run().Bind(static inner => inner);
+        Try.lift(() => visual.Size = new Vector(size.Width, size.Height)).Run();
 
     public Fin<Unit> Send(VfxMessage message) => Try.lift(() => visual.SendHandlerMessage(message)).Run().Bind(static inner => inner);
 

@@ -640,7 +640,7 @@ public sealed record IdsSpecification(
             BufferingLogger sink = new();
             global::IdsLib.Audit.Status status = global::IdsLib.Audit.Run(stream, new SingleAuditOptions { IdsVersion = IdsVersion.Ids1_0 }, sink);
             return new IdsFileAudit(status, LibraryInformation.AssemblyVersion, sink.Drain());
-        }).Run().Bind(static inner => inner);
+        }).Run();
 }
 
 public sealed record IdsResolved {

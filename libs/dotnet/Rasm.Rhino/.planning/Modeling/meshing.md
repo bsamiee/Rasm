@@ -177,7 +177,7 @@ public readonly partial struct MeshLaw : IValidityEvidence {
 - Law: a row vocabulary is earned, never reflexive — a `[SmartEnum]` stands where its rows carry a column beyond the bit (a writer, a native factory, or a correlated host tuple such as `MeshExtrusionFrame`, `MeshSplitPolicy`, and `MeshCountMode`), a set of INDEPENDENT host bits is a `CapabilitySet` because they reach the native as adjacent arguments a call site transposes in silence, and a two-state modality that is the whole fact travels as a named `bool` on its owning case.
 - Law: `SmoothLaw` is the shared owner — `Curve.Smooth` and `Mesh.Smooth` take the identical five knobs, so `Modeling/curves.md` composes this page's law instead of respelling it and the mesh-only pass count and vertex selection ride the mesh cases.
 - Growth: a new native surface is one policy value with its `Rig`; a new host bit is one row on the owning capability vocabulary.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `QuadRemeshParameters`, `ShrinkWrapParameters`, `ReduceMeshParameters`, `MeshExtruder`, `QuadRemeshSymmetryAxis`, `MeshExtruderParameterMode`, `MeshExtruderFaceDirectionMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Fin`), `Modeling/solids.md` (`ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `QuadRemeshParameters`, `ShrinkWrapParameters`, `ReduceMeshParameters`, `MeshExtruder`, `QuadRemeshSymmetryAxis`, `MeshExtruderParameterMode`, `MeshExtruderFaceDirectionMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `IValidityEvidence`), kernel `Domain/results` (`ValidityClaim`, `Fin`), `Modeling/solids.md` (`ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -394,7 +394,7 @@ Frozen capability sets carry fidelity, remesh, wrap, reduction, shut-line, smoot
 
 - Law: struct policies share one owner-local predicate between generated factories and outer operation admission; factory creation rejects invalid values, and the outer boundary rejects default ghosts without duplicating rules.
 - Growth: a new policy surface is one value object beside the ones here; the mutation and operation sections read it with zero new surface.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Fin`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`, `IValidityEvidence`), kernel `Domain/results` (`ValidityClaim`, `Fin`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -597,7 +597,7 @@ public readonly partial struct MeshMatchLaw : IValidityEvidence {
 - Law: the edit algebra owns its own dispatch, so `MeshOp.Edit` hands the working copy to `MeshEditIntent.Apply` and holds no per-verb knowledge — a new verb lands as one case with its arm and the construction pipeline is untouched.
 - Law: the entry family renames at the boundary — the kernel owns `MeshEdit` (`Rasm/Meshing/edit.md`, the single-writer SoA build arena), so this host mutation roster is `MeshEditIntent` under the branch rule that a boundary declaration whose simple name matches a kernel owner renames on the host side.
 - Growth: a new edit verb is one case with its arm; a new policy surface is one value object beside the ones here.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` weld, offset, heal, collapse, normal, shut-lining, and displacement members; `MeshDisplacementInfo`, `ShutLiningCurveInfo`, `Polyline`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` weld, offset, heal, collapse, normal, shut-lining, and displacement members; `MeshDisplacementInfo`, `ShutLiningCurveInfo`, `Polyline`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`, `IValidityEvidence`), kernel `Domain/results` (`ValidityClaim`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

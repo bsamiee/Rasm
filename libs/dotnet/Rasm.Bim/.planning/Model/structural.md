@@ -411,7 +411,7 @@ public static class StructuralProjection {
         Try.lift(() => {
                 stamp();
                 return names.Fold(attrs, static (residue, name) => residue.Remove(name)).Keys.ToSeq();
-            }).Run().Bind(static inner => inner);
+            }).Run();
 
     internal static Option<LoadFamily> LoadTypeOf(Map<PropertyName, PropertyValue> attrs) =>
         attrs.Find(StructuralRow.LoadType.Name)

@@ -116,7 +116,7 @@ public sealed class SessionJournal : IDisposable {
                                .IfFail(journal.Park);
                        }
                        return Fin.Succ(unit);
-                   })).IfFail(journal.Park))).Run().Bind(static inner => inner)
+                   })).IfFail(journal.Park))).Run()
                select (Lease<SessionJournal>)new Lease<SessionJournal>.Owned(Value: journal);
     }
 

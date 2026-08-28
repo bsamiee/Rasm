@@ -108,7 +108,7 @@ public sealed class ViewportLease : IDetachedDocumentResult {
         ViewportBorrowMode mode,
         ViewportCardinality cardinality) =>
         UiThread.Run(
-            new UiDispatch<Seq<TOut>>.Blocking(() => Admit.Demand(
+            new UiDispatch<Seq<TOut>>.Blocking(() => session.Demand(
                 use: document =>
                     from rows in target.Resolve(document: document)
                     from _ in cardinality.Admit(count: rows.Count)

@@ -280,7 +280,7 @@ public static class Chrome {
                     m.OnText.Iter(value => m.Item.OnText = value);
                     m.OffText.Iter(value => m.Item.OffText = value);
                     m.Optional.Iter(value => m.Item.Optional = value);
-                }).Run().Bind(static inner => inner),
+                }).Run(),
                 fieldWrite: static (m) => Try.lift(() => m.Item.SetText(text: m.Text)).Run().Bind(static inner => inner),
                 fieldDress: static (m) => Try.lift(() =>
                     m.Placeholder.Iter(value => m.Item.Placeholder = value)).Run().Bind(static inner => inner)
@@ -303,7 +303,7 @@ public static class Chrome {
     public static Fin<Lease<ChromeSeat>> Mount(Seq<ChromeIntent> standing);
 
     private static Fin<ChromeOutcome> Passed(Action action) =>
-        Try.lift(action).Run().Bind(static inner => inner)
+        Try.lift(action).Run()
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: verb));
 
     private static Unit Append(Bar bar, BarItemSpec item) => item.Switch(
@@ -381,13 +381,13 @@ public static class Chrome {
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase()),
         closeCase: static (s, c) => Try.lift(() => {
                 if (c.Names.IsEmpty) { s.CloseAll(); } else { s.Close([.. c.Names.Map(static n => (string)n)]); }
-            }).Run().Bind(static inner => inner)
+            }).Run()
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase()),
         dressCase: static (s, c) => Try.lift(() => {
                 c.Dress.Info.Iter(value => s.ModifyInfo((string)c.Name, value));
                 c.Dress.Icon.Iter(value => s.ModifyIcon((string)c.Name, value));
                 c.Dress.Tint.Iter(value => s.ModifyColour((string)c.Name, value));
-            }).Run().Bind(static inner => inner)
+            }).Run()
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase()),
         moveCase: static (s, c) => Try.lift(() =>
                 s.ModifyAnchor((string)c.Name, c.At, c.Pace.Immediate)).Run().Bind(static inner => inner)

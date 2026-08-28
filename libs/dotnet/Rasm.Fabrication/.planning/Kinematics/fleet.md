@@ -229,7 +229,7 @@ internal sealed record FleetDemand(
 - Law: station validity reaches the kernel oracle. `ProcessEnvelope` implements `IValidityEvidence` and composes `ValidityClaim` rows, so `Acceptance.ValidityOf` answers on the envelope's own fold; the page-local `double.IsFinite && > 0` predicate it replaces was a hand twin of `ValidityClaim.Positive` sitting beside an admitted kernel.
 - Auto: `SpindleWindow.Required` composes `Process/physics#BUDGET_FOLD` `SurfaceSpeed.Rpm` over the CUTTING diameter — the one forward cutting-speed relation in the package — so no arm re-derives `vc * 1000 / (pi * D)`.
 - Growth: a new station modality is one `ProcessEnvelope` case with its three base columns and one assessment arm; a new capacity dimension is one `StationCapacity` case over an existing `CapacityAxis` row.
-- Packages: `Rasm/Domain/results#VALIDITY_FOLD` supplies `IValidityEvidence` and every `ValidityClaim` row the envelope fold composes; UnitsNet owns the typed capacities; Thinktecture.Runtime.Extensions owns the closed families.
+- Packages: `Rasm/Domain/validation#ACCEPTANCE_ORACLE` supplies `IValidityEvidence` and `Rasm/Domain/results#VALIDITY_FOLD` every `ValidityClaim` row the envelope fold composes; UnitsNet owns the typed capacities; Thinktecture.Runtime.Extensions owns the closed families.
 - Boundary: `Process/family` `MachineCapacity` is the machine CLASS operating envelope admitted with the equipment; `ProcessEnvelope` is the INSTALLED station a program runs on, so the two never mirror and a station absent from the shop floor cannot be inferred from the class.
 
 ```csharp

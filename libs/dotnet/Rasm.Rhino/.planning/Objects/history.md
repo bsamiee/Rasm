@@ -22,7 +22,7 @@
 - Law: `HistoryScript.Mint` answers a `Lease<HistoryRecord>` the host copies out of, `ReplayProgram` mutates host-owned `ReplayHistoryData` inside its callback, and `Chronicle.Bind` alone rides `ObjectSpine.Commit` because linkage mutates document state.
 - Law: payload bools are HOST SLOTS, not policy. `Toggle` and `Toggles` transcribe `SetBool`/`SetBools`, whose two states are the datum a caller stores, so no vocabulary stands between them and the record — while every bool this page authored about its own conduct carries a named row instead.
 - Growth: a new payload kind is one `SlotValue` case whose write and read arms are compiler-coupled; write-only cases return typed unreadable failure.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/results` (`Try.lift`, `Admit.Confirm`, `KernelFault.Unsupported`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/results` (`Try.lift`, `KernelFault.Unsupported`), `Domain/validation` (`Admit.Confirm`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -321,7 +321,7 @@ public sealed class HistoryScript {
 - Law: clipping-plane arity collapses onto the plural overload. One viewport is a one-element sequence, and empty viewport rosters are refused at admission.
 - Law: raw-text emphasis is a SET. Bold and italic are independently held, their product is open, and a third emphasis axis lands as one row — so the pair rides `CapabilitySet<TextEmphasis>` and the host's two boolean arguments read their rows at the one call that takes them.
 - Growth: a host overload adds one `Regrown` case and the generator forces both admission and application arms; a new emphasis axis is one `TextEmphasis` row.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/results` (`Admit.Value`, `Acceptance.Text`, `Admit.Positive`, `Admit.Confirm`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`, `Admit.Value`, `Acceptance.Text`, `Admit.Positive`, `Admit.Confirm`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

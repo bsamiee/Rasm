@@ -229,16 +229,16 @@ public abstract partial record CaptureArea {
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings) => Switch(
         settings,
-        fullViewCase: static (ctx, _) => Try.lift(() => ctx.ViewArea = ViewCaptureSettings.ViewAreaMapping.View).Run().Bind(static inner => inner),
-        extentsCase: static (ctx, _) => Try.lift(() => ctx.ViewArea = ViewCaptureSettings.ViewAreaMapping.Extents).Run().Bind(static inner => inner),
+        fullViewCase: static (ctx, _) => Try.lift(() => ctx.ViewArea = ViewCaptureSettings.ViewAreaMapping.View).Run(),
+        extentsCase: static (ctx, _) => Try.lift(() => ctx.ViewArea = ViewCaptureSettings.ViewAreaMapping.Extents).Run(),
         screenWindowCase: static (ctx, area) => Try.lift(() => {
             ctx.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
             ctx.SetWindowRect(screenPoint1: area.A, screenPoint2: area.B);
-        }).Run().Bind(static inner => inner),
+        }).Run(),
         worldWindowCase: static (ctx, area) => Try.lift(() => {
             ctx.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
             ctx.SetWindowRect(worldPoint1: area.A, worldPoint2: area.B);
-        }).Run().Bind(static inner => inner));
+        }).Run());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1263,7 +1263,7 @@ public static class Captures {
         (string Operation, long Scale) identity,
         Func<RhinoDoc, Fin<CaptureArtifact>> body) =>
         UiThread.Run(
-            new UiDispatch<CaptureArtifact>.Blocking(() => Admit.Demand(
+            new UiDispatch<CaptureArtifact>.Blocking(() => session.Demand(
                 use: document => Measured(timeline: timeline, identity: identity, run: () => body(document)),
                 needs: needs.ToArray())),
             DispatchLane.Immediate);
@@ -1287,7 +1287,7 @@ public static class Captures {
                from body in Admit.Need(value: consume)
                from _rows in guard(!requested.IsEmpty, new KernelFault.InvalidInput())
                from output in UiThread.Run(
-                   new UiDispatch<TOut>.Blocking(() => Admit.Demand(
+                   new UiDispatch<TOut>.Blocking(() => owner.Demand(
                        use: document => Prepared(document: document, plans: requested, body: body),
                        needs: [SessionNeed.Redraw])),
                    DispatchLane.Immediate)

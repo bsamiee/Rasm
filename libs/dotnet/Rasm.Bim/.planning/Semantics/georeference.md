@@ -350,10 +350,10 @@ public static class GeoTransform {
                     using CoordinateTransformation inverse = pipeline.GetInverse();
                     inverse.TransformPoints(1, rx, ry, rz);
                     return Hypot(rx[0] - ox, ry[0] - oy, rz[0] - oz);
-                }).Run().Bind(static inner => inner).ToOption();
+                }).Run().ToOption();
                 var (scale, convergence) = Distortion((x, y) => { double[] p = [x, y, oz]; pipeline.TransformPoint(p); return (p[0], p[1]); }, ox, oy);
                 return (roundTrip, scale, convergence, epoch);
-            }).Run().Bind(static inner => inner);
+            }).Run();
             bool outOfDomain = outcome.IsSucc && !AllFinite(xs, ys, zs, count);
             if (outcome.IsFail || outOfDomain) {
                 return Fin.Fail<Reprojection>(outOfDomain
@@ -382,7 +382,7 @@ public static class GeoTransform {
             (double x, double y, double z) = (sx, sy, sz);
             forward.Inverse().Transform(ref x, ref y, ref z);
             return Hypot(x - ox, y - oy, z - oz);
-        }).Run().Bind(static inner => inner).ToOption();
+        }).Run().ToOption();
     }
 
     static (Option<double> Scale, Option<double> Convergence) Distortion(Func<double, double, (double X, double Y)> map, double ox, double oy) =>
@@ -394,7 +394,7 @@ public static class GeoTransform {
             return double.IsFinite(det) && det != 0.0
                 ? (Scale: Some(Math.Sqrt(Math.Abs(det))), Convergence: Some(Math.Atan2(dYdx, dXdx)))
                 : (Scale: Option<double>.None, Convergence: Option<double>.None);
-        }).Run().Bind(static inner => inner).IfFail((Option<double>.None, Option<double>.None));
+        }).Run().IfFail((Option<double>.None, Option<double>.None));
 
     static bool AllFinite(ReadOnlySpan<double> ordinates, int stride, int count) {
         for (int i = 0, o = 0; i < count; i++, o += stride) {

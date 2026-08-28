@@ -25,7 +25,7 @@ Recency and fingerprint admission are the settled `Rasm.Persistence` `Query/cach
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using static Rasm.Element.Projection.AdmissionSlots;
+using static Rasm.Domain.AdmissionSlots;
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

@@ -482,7 +482,7 @@ public static class GeoTiles {
                 tile.Write(buffer, MapboxTileWriter.DefaultMinLinealExtent, MapboxTileWriter.DefaultMinPolygonalExtent,
                     policy.Extent, policy.IdAttributeName);
                 return buffer.ToArray();
-            }).Run().Bind(static inner => inner));
+            }).Run());
 
     public static Fin<Seq<(string Layer, GeoFeature Feature)>> Decode(ReadOnlyMemory<byte> bytes, int x, int y, int zoom) =>
         Try.lift(() => {

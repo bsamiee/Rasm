@@ -557,7 +557,7 @@ public sealed record CholeskySparse : IValidityEvidence {
 - Law: a failure is a FAILED RESULT, never a success-shaped solution — no `NumericalBreakdown` column and no `PositiveInfinity` residual exist, because a magnitude sentinel is a measurement no producer took and every consumer that gates on magnitude reads it as one.
 - Entry: solutions mint only at the `MatrixKernel` exits (`SolveSuccess`, `EigenSolutionOf`) under the two-tier evidence law — hard numerical garbage never mints and fails typed, a usable-stop solution is gated valid before release, and a non-usable-stop solution (`RankDeficient`, `IterativeExhausted`, `ResidualRejected`) is the witnessed refusal the caller reads off `Stop.IsUsable` before consuming the vector. Consuming a minted solution without reading its stop is the named consumer defect.
 - Auto: each `IsValid` conjoins the mechanical field-shape gates with the semantic couplings — residual within the route's own recorded cap, iterations within budget, and the length pair read off the SENSED operator so a transposed solve is validated against `A'`'s extent — one claim row per invariant; the sense-versus-capability coupling refuses a transposed solution on a route whose trait set omits `Transposed`, so a mislabelled direction cannot mint.
-- Packages: `Domain/results` (`IValidityEvidence` and `ValidityClaim`, the validity floor), LanguageExt.Core (`Option`, `Seq`, `Arr`).
+- Packages: `Domain/validation` (`IValidityEvidence`), `Domain/results` (`ValidityClaim`, the validity floor), LanguageExt.Core (`Option`, `Seq`, `Arr`).
 - Law: `GaugeFix` carries `PinIndices` and no separate `PinnedIndex` slot — NAMED LOSS of the former single-pin accessor, derivable as `PinIndices.Head` and never a second stored copy free to disagree with the roster.
 - Growth: new evidence is one `PathEvidence` case or one field with at most one claim row; a new outcome family is one result type only when its evidence shape is disjoint (the eigen/solve/gauge split), never per-algorithm result clones.
 - Boundary: `Option<T>` carries absence of evidence, never a sentinel; `InputNonZeros` is the one structurally-absent slot — a dense operator has no nonzero census to take — and the stored residual is always recomputed against the original operator, a preconditioned or factor-reconstructed residual being the named lying witness.
@@ -1403,7 +1403,7 @@ internal static partial class MatrixKernel {
     private static Matrix<T> ScatterRows<T>(Matrix<T> reduced, int rows, int[] sourceRows)
         where T : struct, IEquatable<T>, IFormattable {
         Matrix<T> full = Matrix<T>.Build.Dense(rows: rows, columns: reduced.ColumnCount);
-        for (int i = 0; i < sourceRows.Length; i++) full.SetRow(rowIndex: sourceRows[i], row: FactoryBridge.Row(i));
+        for (int i = 0; i < sourceRows.Length; i++) full.SetRow(rowIndex: sourceRows[i], row: reduced.Row(i));
         return full;
     }
     private static LinearVector DiagonalInverse(Matrix<double> a) =>
@@ -1421,7 +1421,7 @@ internal static partial class MatrixKernel {
     private static Matrix<T> ApplyJacobi<T>(Matrix<T> R, MathNet.Numerics.LinearAlgebra.Vector<T> invDiag)
         where T : struct, IEquatable<T>, IFormattable {
         Matrix<T> scaled = R.Clone();
-        for (int i = 0; i < R.RowCount; i++) scaled.SetRow(rowIndex: i, row: FactoryBridge.Row(i).Multiply(scalar: invDiag[i]));
+        for (int i = 0; i < R.RowCount; i++) scaled.SetRow(rowIndex: i, row: R.Row(i).Multiply(scalar: invDiag[i]));
         return scaled;
     }
     private static Matrix<T> TakeSmallest<T>(MathNet.Numerics.LinearAlgebra.Vector<T> eigVals, Matrix<T> eigVecs, int k, Func<T, double> key)

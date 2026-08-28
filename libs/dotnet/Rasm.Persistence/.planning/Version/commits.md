@@ -718,7 +718,7 @@ public static class CrdtOpMapper {
     };
 
     static Fin<CrdtOp> Mapped(Func<CrdtOp> map) =>
-        Try.lift(map).Run().Bind(static inner => inner).MapFail(static error => new CommitFault.DecodeDrift(error));
+        Try.lift(map).Run().MapFail(static error => new CommitFault.DecodeDrift(error));
 
     public static bool Ordered(CrdtOpWire wire) => wire.ArmCase switch {
         CrdtOpWire.ArmOneofCase.Write => Ordered(wire.Write.Context),

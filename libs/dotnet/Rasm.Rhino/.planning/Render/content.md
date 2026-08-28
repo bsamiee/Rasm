@@ -19,7 +19,7 @@
 - Law: host begin/end windows are CUSTODY, never a `finally` — `ChangeScope` and `TableScope` are `IDisposable` windows carried on `Lease<T>`, so the kernel `Use` fold aggregates an `EndChange`/`EndChange` refusal INTO the body's own fault. Wrapping the same pair in `try/finally` silently replaces the body's fault with the release's, which is the deleted form.
 - Law: `ContentKind` columns are the only site naming `RenderMaterials`/`RenderEnvironments`/`RenderTextures`; every content operation reaches a table through its kind row.
 - Growth: a new change context is one `ChangeReason` row; a new content kind is one `ContentKind` row whose columns close its table behavior.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/results` (`Try.lift`, `Admit.Confirm`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`ICapability`, `CapabilitySet`, `FactoryBridge.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/results` (`Try.lift`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`Admit.Confirm`, `ICapability`, `CapabilitySet`, `FactoryBridge.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -198,7 +198,7 @@ internal static class Bridge {
 - Law: resolution reads live per call — the content graph mutates under UI edits, undo, and linked events, so no resolved handle is cached on a value; a consumer holding a `ContentRef` re-resolves at each use inside the owning operation.
 - Law: every public factory admits at its own boundary, so a refusal names the factory that refused rather than the operation that asked, so the fault loses the call site it came from.
 - Boundary: `Resolve` is the only site naming `RenderContent.FromId` and `FindChild`; every sibling page addresses through this union.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/results` (`Acceptance.Text`, `KernelFault.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/results` (`KernelFault.MissingContext`), `Domain/validation` (`Acceptance.Text`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -405,7 +405,7 @@ public sealed record ContentSnapshot(
 - Law: `Lease<RenderContent>` disposes every untransferred mint; successful table attachment transfers custody to the document.
 - Law: XML and archive cases preserve the host's two serialized ingress routes; XML/file egress and embedded-file evidence belong to registry programs because those operations start from addressed live content.
 - Boundary: factory-registry minting (`RenderContent.Create` by type id) is the registry page's; this union owns only the serialized-form ingress.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/results` (`Lease<T>.Owned`, `Acceptance.Text`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/results` (`Lease<T>.Owned`), `Domain/validation` (`Acceptance.Text`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

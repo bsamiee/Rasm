@@ -366,7 +366,7 @@ public static class NativeLayer {
             unwind: () => configuration is { } minted
                 ? Custody.Release(Seq<Func<Fin<Unit>>>(
                     () => ReferenceEquals(active.View.PressureConfiguration, minted)
-                        ? Try.lift(() => active.View.PressureConfiguration = HostEdge.Slot(prior)!).Run().Bind(static inner => inner)
+                        ? Try.lift(() => active.View.PressureConfiguration = HostEdge.Slot(prior)!).Run()
                         : Fin.Succ(unit),
                     () => { minted.Dispose(); return Fin.Succ(unit); }))
                 : Fin.Succ(unit)));

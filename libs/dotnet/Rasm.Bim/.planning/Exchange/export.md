@@ -607,7 +607,7 @@ public static partial class BimExport {
         };
 
     static Fin<byte[]> Encoded(Func<byte[]> encode, string detail) =>
-        Try.lift(encode).Run().Bind(static inner => inner);
+        Try.lift(encode).Run();
 
     static Fin<ModelRoot> Container(ExportPayload payload, InterchangePolicy policy) =>
         payload.Switch(
@@ -1284,7 +1284,7 @@ public static class CobieEmit {
             return new CobieHandover(
                 BimExport.Sealed(InterchangeFormat.Cobie, stream.ToArray(), InterchangePolicy.Canonical, at),
                 report.Length > 0 ? degrades.Add(new CobieDegrade(CobieReason.TemplateUnmapped, report)) : degrades);
-        }).Run().Bind(static inner => inner);
+        }).Run();
 
     static Seq<CobieDegrade> Author(CobieModel model, ElementGraph graph) =>
         graph.ObjectNodes.Find(static o => o.Classification.Code == IfcClass.Building.Key).Match(

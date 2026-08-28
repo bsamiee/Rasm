@@ -261,7 +261,7 @@ public sealed partial class NativeKind {
     public static readonly NativeKind Toggle = Of<Grasshopper2.Parameters.Special.ToggleObject, PersistedValue.Flag>(
         "toggle", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Flag(host.ToggleState),
-        static (host, held, key) => Try.lift(() => { host.ToggleState = held.Value; }).Run().Bind(static inner => inner));
+        static (host, held, key) => Try.lift(() => { host.ToggleState = held.Value; }).Run());
     public static readonly NativeKind Button = Of<Grasshopper2.Parameters.Special.ButtonObject, PersistedValue.Momentary>(
         "button", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Momentary(
@@ -275,21 +275,21 @@ public sealed partial class NativeKind {
             host.DownColour = ObjectMap.Tinted(held.DownColour);
             host.UpText = held.UpText;
             host.DownText = held.DownText;
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind Value = Of<Grasshopper2.Parameters.Special.ValueObject, PersistedValue.Parsed>(
         "value", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Parsed(host.Text, host.Notations),
         static (host, held, key) => Try.lift(() => {
             host.Notations = held.Notations;
             host.AssignTextAndValue(held.Source);
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind TextInput = Of<Grasshopper2.Parameters.Special.TextInputObject, PersistedValue.Text>(
         "text-input", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Text(host.Contents, host.OneEntryPerLine, host.Escaping),
         static (host, held, key) => Try.lift(() => {
             host.Escaping = held.Escaping;
             host.Contents = held.Value;
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind ColourSwatch = Of<Grasshopper2.Parameters.Special.ColourSwatchObject, PersistedValue.Swatch>(
         "colour-swatch", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Swatch(ObjectMap.Lifted(host.Colour), Apply: false),
@@ -308,7 +308,7 @@ public sealed partial class NativeKind {
             host.BackRotation = held.Back;
             host.IdenticalForeAndBack = held.Identical;
             host.Material = held.Value;
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind Histogram = Of<Grasshopper2.Parameters.Special.HistogramObject, PersistedValue.Histogram>(
         "histogram", ObjectFamily.Editor, static reader => new(reader),
         static host => new PersistedValue.Histogram(host.Style, host.Palette, host.BucketCount, host.BucketRange),
@@ -334,7 +334,7 @@ public sealed partial class NativeKind {
             host.DrawSamples = held.Flags.Admits(SamplerFlag.DrawSamples);
             host.LimitBehaviour = held.LimitBehaviour;
             host.ImageUri = held.ImageUri;
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind PresetPicker = Of<Grasshopper2.Parameters.Special.PresetPickerObject, PersistedValue.Selection>(
         "preset-picker", ObjectFamily.Picker, static reader => new(reader),
         static host => new PersistedValue.Selection(
@@ -347,11 +347,11 @@ public sealed partial class NativeKind {
     public static readonly NativeKind ConstantPicker = Of<Grasshopper2.Parameters.Special.ConstantPickerObject, PersistedValue.Constant>(
         "constant-picker", ObjectFamily.Picker, static reader => new(reader),
         static host => new PersistedValue.Constant(host.Constant),
-        static (host, held, key) => Try.lift(() => { host.Constant = held.Value; }).Run().Bind(static inner => inner));
+        static (host, held, key) => Try.lift(() => { host.Constant = held.Value; }).Run());
     public static readonly NativeKind MetaNamePicker = Of<Grasshopper2.Parameters.Special.MetaNamePickerObject, PersistedValue.MetaKey>(
         "meta-name-picker", ObjectFamily.Picker, static reader => new(reader),
         static host => new PersistedValue.MetaKey(host.MetaKey),
-        static (host, held, key) => Try.lift(() => { host.MetaKey = held.Value; }).Run().Bind(static inner => inner));
+        static (host, held, key) => Try.lift(() => { host.MetaKey = held.Value; }).Run());
     public static readonly NativeKind TemporalPicker = Sealed<Grasshopper2.Parameters.Special.TemporalPickerObject, PersistedValue.Moment>(
         "temporal-picker", ObjectFamily.Picker, static reader => new(reader),
         static host => new PersistedValue.Moment(host.Date),
@@ -374,7 +374,7 @@ public sealed partial class NativeKind {
             host.WarnAboutPaths = held.Flags.Admits(MappingFlag.WarnPaths);
             host.WarnAboutSites = held.Flags.Admits(MappingFlag.WarnSites);
             host.Notation = held.Notation;
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind DataPanel = Of<Grasshopper2.Parameters.Special.DataPanelObject, PersistedValue.PanelDisplay>(
         "data-panel", ObjectFamily.Data, static reader => new(reader),
         static host => new PersistedValue.PanelDisplay(
@@ -392,7 +392,7 @@ public sealed partial class NativeKind {
                 held.Shown.Admits(PanelFacet.Indices), held.Shown.Admits(PanelFacet.Types),
                 held.Shown.Admits(PanelFacet.Items), held.Shown.Admits(PanelFacet.Metas));
             host.VerticalOffset = held.VerticalOffset;
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind DataRecorder = Of<Grasshopper2.Parameters.Special.DataRecorderObject, PersistedValue.Recording>(
         "data-recorder", ObjectFamily.Data, static reader => new(reader),
         static host => new PersistedValue.Recording(
@@ -404,7 +404,7 @@ public sealed partial class NativeKind {
             host.MergeTrees = held.Flags.Admits(RecorderFlag.MergeTrees);
             host.FrameLimit = held.FrameLimit;
             host.Paused = held.Flags.Admits(RecorderFlag.Paused);
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind TreeViewer = Of<Grasshopper2.Parameters.Special.TreeViewerObject, PersistedValue.TreeDisplay>(
         "tree-viewer", ObjectFamily.Data, static reader => new(reader),
         static host => new PersistedValue.TreeDisplay(host.CanvasDisplay, host.ViewportDisplay, host.DisplayGradient),
@@ -417,7 +417,7 @@ public sealed partial class NativeKind {
             host.Delay = held.Delay;
             host.Running = held.Mode.RunningHost;
             host.Manual = held.Mode.ManualHost;
-        }).Run().Bind(static inner => inner)));
+        }).Run()));
     public static readonly NativeKind Shout = Of<Grasshopper2.Parameters.Special.Shout, PersistedValue.Routing>(
         "shout", ObjectFamily.Routing, static reader => new(reader),
         static host => new PersistedValue.Routing(
@@ -431,7 +431,7 @@ public sealed partial class NativeKind {
             host.StreamPath = held.StreamPath;
             host.StreamBackup = held.Flags.Admits(RoutingFlag.Backup);
             host.StreamData = held.Flags.Admits(RoutingFlag.Stream);
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind Listen = Of<Grasshopper2.Parameters.Special.Listen, PersistedValue.Listener>(
         "listen", ObjectFamily.Routing, static reader => new(reader),
         static host => new PersistedValue.Listener(
@@ -448,11 +448,11 @@ public sealed partial class NativeKind {
             host.DependencyIndex = held.Index;
             host.ClusterInput = held.Flags.Admits(ListenerFlag.ClusterInput);
             host.ClusterIndex = held.Flags.Admits(ListenerFlag.ClusterIndex);
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind Relay = Of<Grasshopper2.Parameters.Special.Relay, PersistedValue.Flag>(
         "relay", ObjectFamily.Routing, static reader => new(reader),
         static host => new PersistedValue.Flag(host.Frozen),
-        static (host, held, key) => Try.lift(() => { host.Frozen = held.Value; }).Run().Bind(static inner => inner));
+        static (host, held, key) => Try.lift(() => { host.Frozen = held.Value; }).Run());
     public static readonly NativeKind Cluster = Of<Grasshopper2.Components.Standard.Cluster, PersistedValue.Grouping>(
         "cluster", ObjectFamily.Composite, static reader => new(reader),
         static host => new PersistedValue.Grouping(
@@ -462,7 +462,7 @@ public sealed partial class NativeKind {
         static (host, held, key) => Try.lift(() => {
             host.LoopSolution = held.Flags.Admits(ClusterFlag.LoopSolution);
             host.RelayMessages = held.Flags.Admits(ClusterFlag.RelayMessages);
-        }).Run().Bind(static inner => inner));
+        }).Run());
     public static readonly NativeKind Chain = Inert<Grasshopper2.Components.Standard.Chain>(
         "chain", ObjectFamily.Composite, static reader => new(reader));
     public static readonly NativeKind Scribble = Of<Grasshopper2.SpecialObjects.ScribbleObject, PersistedValue.Annotation>(
@@ -476,7 +476,7 @@ public sealed partial class NativeKind {
             host.TextColour = held.Colour;
             host.TextAlign = held.Align;
             host.Text = held.Value;
-        }).Run().Bind(static inner => inner));
+        }).Run());
 
     public ObjectFamily Family { get; }
 
@@ -744,7 +744,7 @@ public static class NativeObject {
     internal static Fin<Unit> Reselect(
         Grasshopper2.Parameters.Special.ValueListObject list,
         PersistedValue.Listing desired) =>
-        Try.lift(() => { list.Mode = desired.Mode; }).Run().Bind(static inner => inner)
+        Try.lift(() => { list.Mode = desired.Mode; }).Run()
             .Bind(_ => Try.lift(() => toSeq(Enumerable.Range(0, list.ItemCount))).Run())
             .Bind(indexes => indexes
                 .TraverseM(index => Try.lift(() => {

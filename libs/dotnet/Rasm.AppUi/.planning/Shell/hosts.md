@@ -563,7 +563,7 @@ public sealed class EmbedCapsule : EmbeddableControlRoot {
                 : SurfaceAttach.Named(handle).Map(descriptor =>
                     new RetainedHandle(handle.Handle.ToInt64(), descriptor, Retained: false)));
 
-    public Fin<Unit> Start() => Try.lift(StartRendering).Run().Bind(static inner => inner);
+    public Fin<Unit> Start() => Try.lift(StartRendering).Run();
 
     private static IDisposable Release(RetainedHandle view, Func<long, IO<Unit>> releaseRetained) =>
         view.Retained

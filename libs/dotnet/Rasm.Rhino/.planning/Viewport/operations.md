@@ -122,7 +122,7 @@ public abstract partial record GestureRequest {
 }
 ```
 
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `guard`); `Rasm/Domain/results` (`Admit.Confirm`, `Admit.Finite`, `ValidityClaim`); `Rasm.Rhino/.api/api-rhinocommon-display.md` (`RhinoViewport` keyboard and mouse verb rosters).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `guard`); `Rasm/Domain/validation` (`Admit.Confirm`, `Admit.Finite`), `Rasm/Domain/results` (`ValidityClaim`); `Rasm.Rhino/.api/api-rhinocommon-display.md` (`RhinoViewport` keyboard and mouse verb rosters).
 - Growth: a new host gesture is one row on its own arity's roster; a new payload arity is one `GestureRequest` case with both folds loudly broken.
 
 ## [03]-[PROJECTION_AND_STACK]
@@ -496,7 +496,7 @@ public sealed partial class RestoreScope {
 }
 ```
 
-- Packages: Thinktecture.Runtime.Extensions; LanguageExt.Core (`Traverse`, `Validation`, `Choose`, `Seq`); `Rasm/Domain/results` (`Lease<T>`, `Admit.Confirm`, `ValidityClaim`); `Rasm.Rhino/Document/tables` (`ResourceId`, `ResourceIndex`, `ResourceName`); `Rasm.Rhino/.api/api-rhinocommon-document-state.md` (`NamedViewTable`); `Rasm.Rhino/.api/api-rhinocommon-appsettings.md` (`ViewSettings.DefinedViewSet*`); `Rasm.Rhino/.api/api-rhinocommon-objects.md` (`ClippingPlaneObject`).
+- Packages: Thinktecture.Runtime.Extensions; LanguageExt.Core (`Traverse`, `Validation`, `Choose`, `Seq`); `Rasm/Domain/results` (`Lease<T>`, `ValidityClaim`), `Rasm/Domain/validation` (`Admit.Confirm`); `Rasm.Rhino/Document/tables` (`ResourceId`, `ResourceIndex`, `ResourceName`); `Rasm.Rhino/.api/api-rhinocommon-document-state.md` (`NamedViewTable`); `Rasm.Rhino/.api/api-rhinocommon-appsettings.md` (`ViewSettings.DefinedViewSet*`); `Rasm.Rhino/.api/api-rhinocommon-objects.md` (`ClippingPlaneObject`).
 - Growth: a new named-view verb is one `NamedViewOp` case; a new pacing posture is one `RestorePace` case or one `RestoreCadence` row; a new defined-view facet is one `RestoreFacet` row and no fold edit.
 
 ## [05]-[OPERATION_PIPELINE]

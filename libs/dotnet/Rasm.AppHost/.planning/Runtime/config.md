@@ -300,7 +300,7 @@ public static class OptionsAdmission {
             ? Error.Many(faults)
             : (Validation<Error, T>)policy;
 
-    public static Fin<Unit> Sweep(IStartupValidator validator) => Try.lift(validator.Validate).Run().Bind(static inner => inner);
+    public static Fin<Unit> Sweep(IStartupValidator validator) => Try.lift(validator.Validate).Run();
 
     public static Unit Invalidate<T>(IOptionsMonitorCache<T> cache, Option<string> name = default) where T : class =>
         name is { IsSome: true, Case: string named } ? ignore(cache.TryRemove(named)) : (cache.Clear(), unit).Item2;

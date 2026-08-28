@@ -19,13 +19,12 @@
 
 | [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                                 |
 | :-----: | :-------- | :------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `tree`    | `tree <dir>`; hidden files and gitignore are baked in, `-a` is noise; `-L n` sets depth (default 4); `-D` lists dirs only  |
-|  [02]   | `loc`     | `loc <dir>` to read; `--json \| jq` over `.folders[].rows[]` is the only cross-folder rank; rows carry `folder`+`file`     |
-|  [03]   | `fmt`     | `fmt --check <dir>` verifies, `fmt <dir>` writes, routes each file to its formatter by extension; `.cs` has no lane        |
-|  [04]   | `fd`      | `--hidden` is baked in `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored          |
-|  [05]   | `rg`      | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding |
-|  [06]   | `jq`/`yq` | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays         |
-|  [07]   | `gh`      | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`                     |
+|  [01]   | `tree`    | `tree <dir>` list directory and all files, `-D` lists dirs only                                                            |
+|  [02]   | `loc`     | `loc <dir>` for true LOC count not bytes with complexity score, folder total + per file(s)                                 |
+|  [03]   | `fd`      | `--hidden` is baked in `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored          |
+|  [04]   | `rg`      | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding |
+|  [05]   | `jq`/`yq` | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays         |
+|  [06]   | `gh`      | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`                     |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

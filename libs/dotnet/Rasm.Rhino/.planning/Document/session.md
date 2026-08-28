@@ -526,7 +526,7 @@ public static class SessionWorksession {
     extension(DocumentSession session) {
         public Fin<WorksessionSnapshot> Worksession(params ReadOnlySpan<uint> modelSerials) {
             Seq<uint> serials = toSeq(modelSerials.ToArray());
-            return Admit.Need(session).Bind(scope => Admit.Demand(
+            return Admit.Need(session).Bind(scope => scope.Demand(
                 use: document => WorksessionSnapshot.Of(document: document, modelSerials: serials),
                 needs: [SessionNeed.Read]));
         }

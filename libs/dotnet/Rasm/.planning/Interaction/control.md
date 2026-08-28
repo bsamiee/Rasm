@@ -645,7 +645,7 @@ public sealed class GridPlan<TRow>(
 - Law: colour captures as `PerceptualColor` and typeface as the paint owner's `TypeFace`, so a captured value carries the kernel's own colour and type identity rather than a host struct a consumer must convert.
 - Law: a pick never raises — every pick closure runs under the operation's catch inside the harvest, so a released or host-rejected read lands as a typed refusal rather than an exception crossing the event pump.
 - Output: `FieldReport` carries the raising operation beside the tag-keyed values; the accumulated refusal is the failure arm, never a partial report.
-- Packages: LanguageExt.Core for `Validation`, `Fin`, `HashMap`, `Seq`; `Domain/results` for `ValidityClaim` and `IValidityEvidence`.
+- Packages: LanguageExt.Core for `Validation`, `Fin`, `HashMap`, `Seq`; `Domain/results` for `ValidityClaim` and `Domain/validation` for `IValidityEvidence`.
 - Growth: a new capture shape is one `FieldValue` case with the pick arm on the owning role row or case; the guard, port, and report shapes never widen.
 - Boundary: Rhino carried NO capture algebra — values left only through bindings, so a modal that never bound could not read its own fields. Both boundaries gain this owner whole.
 

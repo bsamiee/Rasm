@@ -365,7 +365,7 @@ public sealed partial class GeometryBounds {
             : new ValidationError(message: "Bounds query requires a frame and a finite nonnegative inflation vector.");
 
     public static Fin<GeometryBounds> Of(BoundsFrame frame, Option<Vector3d> inflation = default) =>
-        FactoryBridge.Lift<GeometryBounds>(fault: Validate(frame, inflation, out GeometryBounds? admitted), value: admitted);
+        FactoryBridge.Lift<GeometryBounds>(fault: Validate(frame, inflation, out GeometryBounds? admitted), admitted: admitted);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -454,7 +454,7 @@ public abstract partial record GeometryMotion {
     public static Fin<GeometryMotion> Scale(double factor, Context context) {
         return from admitted in Admit.Finite(value: factor)
                from domain in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
-               from _ in guard(Math.Abs(value: admitted) > domain.For(lane: ToleranceLane.Neglect).Value, new KernelFault.InvalidInput(Axis: Some(nameof(factor))))
+               from _ in guard(Math.Abs(admitted: admitted) > domain.For(lane: ToleranceLane.Neglect).Value, new KernelFault.InvalidInput(Axis: Some(nameof(factor))))
                select (GeometryMotion)new UniformScale(factor: admitted);
     }
 
@@ -742,7 +742,7 @@ public sealed partial class ClipSet {
     }
 
     public static Fin<ClipSet> Of(Seq<Guid> objects, Seq<int> layers) =>
-        FactoryBridge.Lift<ClipSet>(fault: Validate(objects, layers, out ClipSet? admitted), value: admitted);
+        FactoryBridge.Lift<ClipSet>(fault: Validate(objects, layers, out ClipSet? admitted), admitted: admitted);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

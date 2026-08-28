@@ -548,7 +548,7 @@ public abstract partial record PresetOperation {
 - Law: every host mutation settles on EVIDENCE, never on the returned `bool` alone: `Add` and `Save` refuse a negative index or an empty guid, the `bool` results go through `Admit.Confirm`, and the `ref`-parameter transform read rides `Admit.Probe` so the host's seed-and-check idiom appears once. A member that answers `-1` or `Guid.Empty` on rejection is exactly a member whose success value is indistinguishable from its failure value, which is why the admission is typed at the boundary.
 - Law: name resolution is TOTAL for both address forms — an id resolves by membership in `Ids` and a name resolves through `Id(name)` and then by the same membership test — so an absent preset is a typed `AbsentEntry` naming the table and the entry, and the host's empty-guid miss never reaches a mutation.
 - Boundary: Rhino's table mutation, its `ref`-parameter transform read, and its undo and redraw calls form the platform-forced statement block. `Presets` composes `DocumentSession` and `DocumentCommit` directly and holds no host handle beyond the demand window.
-- Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.NamedConstructionPlanes`/`NamedPositions`/`NamedLayerStates`, `NamedPositionTable.ObjectXform(Guid, Guid, ref Transform)`, `NamedConstructionPlaneTable.Add(ConstructionPlane)` answering `-1` on rejection); `Document/session` (`DocumentSession.Demand`, `SessionNeed`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); kernel `Domain/results` (`Try.lift`, `Admit.Confirm`, `Admit.Probe`); LanguageExt.Core (`Fin`, `Validation` applicative, `TraverseM`).
+- Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.NamedConstructionPlanes`/`NamedPositions`/`NamedLayerStates`, `NamedPositionTable.ObjectXform(Guid, Guid, ref Transform)`, `NamedConstructionPlaneTable.Add(ConstructionPlane)` answering `-1` on rejection); `Document/session` (`DocumentSession.Demand`, `SessionNeed`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); kernel `Domain/results` (`Try.lift`), `Domain/validation` (`Admit.Confirm`, `Admit.Probe`); LanguageExt.Core (`Fin`, `Validation` applicative, `TraverseM`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -598,7 +598,7 @@ public static class Presets {
                from _nonempty in guard(!program.IsEmpty,
                    (Error)new KernelFault.InvalidValue(nameof(operations), string.Join(" | ", new object?[] { "at least one persistence operation" })))
                let posture = PresetExecution.Strongest(postures: program.Map(static value => value.Execution))
-               from completed in Admit.Demand(
+               from completed in owner.Demand(
                    use: document => DocumentCommit.Sealed(
                        document: document,
                        name: nameof(Commit),

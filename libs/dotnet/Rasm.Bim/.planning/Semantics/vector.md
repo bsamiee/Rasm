@@ -209,7 +209,7 @@ public static class GeoKml {
             using var output = new MemoryStream();
             KmlFile.Create(new KmlDom.Kml { Feature = Build(features) }, duplicates: false).Save(output);
             return output.ToArray();
-        }).Run().Bind(static inner => inner);
+        }).Run();
 
     internal static Fin<byte[]> WriteKmz(Seq<GeoFeature> features) =>
         Try.lift(() => {
@@ -217,7 +217,7 @@ public static class GeoKml {
             using var output = new MemoryStream();
             kmz.Save(output);
             return output.ToArray();
-        }).Run().Bind(static inner => inner);
+        }).Run();
 
     public static Fin<byte[]> Site(
         Seq<GeoFeature> features,
@@ -246,7 +246,7 @@ public static class GeoKml {
                 using var output = new MemoryStream();
                 kmz.Save(output);
                 return output.ToArray();
-            }).Run().Bind(static inner => inner));
+            }).Run());
 
     static KmlDom.GroundOverlay Drape(OrthoDrape ortho) {
         var overlay = new KmlDom.GroundOverlay {
@@ -383,7 +383,7 @@ public static class GeoVector {
     internal static Fin<Seq<GeoFeature>> Planar(GeoWindow window, string source, Func<Seq<GeoFeature>> decode) =>
         window.Where.IsSome
             ? Fin.Fail<Seq<GeoFeature>>(new BimFault.Refused(BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", source, "attribute-pushdown-unsupported" })))
-            : Try.lift(decode).Run().Bind(static inner => inner);
+            : Try.lift(decode).Run();
 
     static Seq<GeoFeature> Clipped(Seq<GeoFeature> features, GeoWindow window) =>
         window.Clip.Match(None: () => features, Some: env => features.Filter(f => f.Bounds.Intersects(env)));
@@ -504,7 +504,7 @@ public static class GeoVector {
                             return buffer.ToArray();
                         });
                 return (Shp: Entry(".shp"), Dbf: Entry(".dbf"), Prj: Entry(".prj").Map(Encoding.UTF8.GetString).IfNone(""));
-            }).Run().Bind(static inner => inner)
+            }).Run()
             .Bind(parts => parts.Shp
                 .ToFin(new BimFault.Refused(BimScope.Semantics, BimReason.Codec,
                     string.Join(':', new object?[] { "geo-format-lane", "vector", "shapefile", "zip-missing-shp" })))
@@ -571,7 +571,7 @@ public static class GeoVector {
             global::FlatGeobuf.NTS.FeatureCollectionConversions.Serialize(
                 output, features.Map(static f => (IFeature)new Feature(f.Geometry, f.Attributes)), kind, dimensions: 3, columns: null);
             return output.ToArray();
-        }).Run().Bind(static inner => inner);
+        }).Run();
 
     internal static Fin<byte[]> WriteGeoParquet(Seq<GeoFeature> features) =>
         Try.lift(() => {
@@ -596,7 +596,7 @@ public static class GeoVector {
             using var output = new MemoryStream();
             GISBlox.IO.GeoParquet.GeoParquetWriter.Write(output, table, geoColumn);
             return output.ToArray();
-        }).Run().Bind(static inner => inner);
+        }).Run();
 
     internal static Fin<byte[]> WriteShapefile(Seq<GeoFeature> features, Option<ProjectedCrs> crs) =>
         Try.lift(() => {
@@ -617,14 +617,14 @@ public static class GeoVector {
                     });
             }
             return output.ToArray();
-        }).Run().Bind(static inner => inner);
+        }).Run();
 
     internal static Fin<byte[]> WriteGeoJson(Seq<GeoFeature> features) =>
         Try.lift(() => {
             var collection = new FeatureCollection();
             features.Iter(f => collection.Add(new Feature(f.Geometry, f.Attributes)));
             return JsonSerializer.SerializeToUtf8Bytes(collection, GeoWire.Json);
-        }).Run().Bind(static inner => inner);
+        }).Run();
 
     internal static Fin<byte[]> WriteUniversal(string ogrDriver, Seq<GeoFeature> features, Option<ProjectedCrs> crs) =>
         GeoGdal.Author(GdalSink.Temp, "", path => Try.lift(() => {
@@ -654,7 +654,7 @@ public static class GeoVector {
                 });
             }
             return File.ReadAllBytes(path);
-        }).Run().Bind(static inner => inner),
+        }).Run(),
         "ogr-write");
 
     static OSGeo.OGR.FieldType OgrType(Option<object> sample) => sample.Match(

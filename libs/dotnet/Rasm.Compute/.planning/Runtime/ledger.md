@@ -51,7 +51,7 @@ public readonly partial record struct CostVector(
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using static Rasm.Element.Projection.AdmissionSlots;
+using static Rasm.Domain.AdmissionSlots;
 
 [ComplexValueObject]
 public sealed partial class CostPolicy {

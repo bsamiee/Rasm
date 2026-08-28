@@ -67,7 +67,7 @@ public static class EtoTimer {
                        EventHandler<EventArgs>? handler = null;
                        Fin<(UITimer Timer, EventHandler<EventArgs> Handler)> opened = Try.lift(() => {
                            native = new UITimer { Interval = (double)cadence };
-                           handler = (_, _) => Try.lift(body).Run().Bind(static inner => inner)
+                           handler = (_, _) => Try.lift(body).Run()
                                .IfFail(fault => ignore(faults.Park(point: Hook, cause: fault)));
                            native.Elapsed += handler;
                            native.Start();

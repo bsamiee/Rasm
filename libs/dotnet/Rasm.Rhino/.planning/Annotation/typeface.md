@@ -538,7 +538,7 @@ public abstract partial record SectionStroke {
             select unit);
 
     internal static Fin<Unit> Detach(SectionStyle style) =>
-        from row in FactoryBridge.Row(field: SectionField.BoundaryLinetypeIndex)
+        from row in SectionDefaults.Row(field: SectionField.BoundaryLinetypeIndex)
         from _ in SectionField.Apply(style: style, run: Seq(row))
         from __ in Try.lift(() => HostEdge.Side(style.RemoveBoundaryLinetype)).Run()
         select unit;

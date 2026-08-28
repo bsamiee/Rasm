@@ -34,7 +34,7 @@ Composition is downward: `Fin`, `Cell`/`Transition`, `Lease<T>`, `Custody`, `Rin
 - Law: the gauged set is every crossing that can queue — `Execute` and `Guarded` when marshalled, `Posted` always, and `Session` whole (its `Demand` marshals inside the host) — while `Required` never crosses, its off-thread arm being a refusal rather than a queue.
 - Law: the lane is the kernel `DispatchLane` and the budget is its own. `Execute` and `Guarded` ride `Immediate` (one frame), `Posted` rides `Deferred` (six), and `Session` rides `Interactive` (four) — the exact multiples this boundary carried before the roster existed, so the collapse loses no budget and seats no local pace. Breach is DERIVED off `GaugedSpan` and lands as a measure on the ledger; a second retained pulse beside it would be one fact in two places, and `UiThread.LastPulse` answers the Eto marshal, which is a different boundary.
 - Exemption: a gauge failure fails the crossing. `MonotonicTimeline.Gauged` runs the body INSIDE its own carrier and states that only a gauge failure fails the outer one, so a broken capture surfaces rather than publishing a crossing whose evidence does not exist.
-- Packages: `Rasm/Domain/results` (`Cell`, `Transition`, `Ring<T>`), `Domain/validation` (`ValidityClaim`), `Domain/frame`; `Rasm/Interaction/dispatch` (`UiFault`, `DispatchLane`); `Rasm/Parametric/projections` (`MonotonicTimeline`, `GaugedSpan`); `Rasm.Rhino/Document/session` (`DocumentSession`, `SessionNeed`, `IDetachedDocumentResult`), kernel `Domain/results` (`Custody`); `libs/dotnet/.api/api-telemetry-abstractions.md` (`ILatencyContext`, `ILatencyContextProvider`, `ILatencyContextTokenIssuer`, `CheckpointToken`, `MeasureToken`, `TagToken`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`RhinoApp.IsOnMainThread`/`InvokeAndWait`/`InvokeOnUiThread`, `Localization`), `api-rhinocommon-runtime.md` (`RiskyAction`).
+- Packages: `Rasm/Domain/results` (`Cell`, `Transition`, `Ring<T>`, `ValidityClaim`), `Domain/frame`; `Rasm/Interaction/dispatch` (`UiFault`, `DispatchLane`); `Rasm/Parametric/projections` (`MonotonicTimeline`, `GaugedSpan`); `Rasm.Rhino/Document/session` (`DocumentSession`, `SessionNeed`, `IDetachedDocumentResult`), kernel `Domain/results` (`Custody`); `libs/dotnet/.api/api-telemetry-abstractions.md` (`ILatencyContext`, `ILatencyContextProvider`, `ILatencyContextTokenIssuer`, `CheckpointToken`, `MeasureToken`, `TagToken`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`RhinoApp.IsOnMainThread`/`InvokeAndWait`/`InvokeOnUiThread`, `Localization`), `api-rhinocommon-runtime.md` (`RiskyAction`).
 - Growth: a new crossing modality is one `HostWork<T>` case and one `Run` arm; a new gauged coordinate is one measure token the seat resolves once.
 - Boundary: `HostThread` owns Rhino command-thread affinity while the kernel `UiThread` owns Eto control-tree affinity — two marshals, two boundaries, one lane roster and one pace band between them.
 
@@ -1748,7 +1748,7 @@ public sealed partial class NamedKind {
     private static Fin<Seq<Func<Fin<Unit>>>> Transfer<T>(Seq<T> values, Action write) where T : IDisposable {
         Seq<Func<Fin<Unit>>> releases = values.Rev()
             .Map(value => (Func<Fin<Unit>>)(() => Fin.Succ(value: ignore(fun(value.Dispose)()))));
-        return Try.lift(write).Run().Bind(static inner => inner)
+        return Try.lift(write).Run()
             .Map(_ => releases)
             .Rollback(release: () => HostThread.Release(releases: releases));
     }

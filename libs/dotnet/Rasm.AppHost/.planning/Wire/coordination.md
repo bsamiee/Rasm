@@ -215,7 +215,7 @@ public static class Membership {
                 .Bind(seats => Reseated(runtime, seats)));
 
     public static ScheduleEntry Cadence(Runtime runtime) =>
-        new(Key: Admit.Probe(runtime.Group).Value,
+        new(Key: LeaseKey.Probe(runtime.Group).Value,
             Spec: new OccurrenceSpec.Every(runtime.Cadence),
             Deadline: DeadlineClass.HealthProbe,
             Lease: None,

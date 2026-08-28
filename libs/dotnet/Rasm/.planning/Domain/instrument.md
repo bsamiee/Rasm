@@ -478,7 +478,7 @@ public sealed class InstrumentTally : IDisposable {
 
     public Fin<Seq<InstrumentReading>> Read() {
         TallyState settled = plane.Value;
-        return Try.lift(listener.RecordObservableInstruments).Run().Bind(static inner => inner)
+        return Try.lift(listener.RecordObservableInstruments).Run()
             .MapFail(cause => (ignore(plane.Swap(_ => settled)), cause).Item2)
             .Map(_ => {
                 TallyState held = plane.Value;

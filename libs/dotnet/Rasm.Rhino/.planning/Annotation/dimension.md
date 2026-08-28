@@ -607,7 +607,7 @@ public sealed partial class DimFamily {
     internal partial Fin<string> Text(Dimension geometry, UnitSystem units);
 
     internal static Fin<DimFamily> Of(Dimension geometry) =>
-        toSeq(Items).Find(row => Admit.Probe(geometry: geometry))
+        toSeq(Items).Find(row => row.Probe(geometry: geometry))
             .ToFin(Fail: new KernelFault.Unsupported(valueType: geometry.GetType(), OutputType: typeof(DimFamily)));
 
     private delegate bool TextRectProbe(out Point3d[] corners);

@@ -470,7 +470,7 @@ public static class InputFabric {
         (string Key, CommandPayload Payload) invocation,
         CommandDeck deck,
         CommandRow.Availability availability) =>
-        FactoryBridge.Row(invocation.Key).Match(
+        deck.Row(invocation.Key).Match(
             Some: row => row.Admits(availability)
                 ? (IntentRoute)new IntentRoute.Raised(new DeviceInvocation(row, invocation.Payload))
                 : new IntentRoute.Denied(new InputDriverFault.IntentDenied($"{device.Id}:{invocation.Key}")),

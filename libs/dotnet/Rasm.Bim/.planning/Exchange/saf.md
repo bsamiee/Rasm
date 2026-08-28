@@ -756,7 +756,7 @@ public static class SafCodec {
             restraint.Rotations[0].Rotational(), restraint.Rotations[1].Rotational(), restraint.Rotations[2].Rotational());
 
     private static Fin<A> Boundary<A>(Func<A> author) =>
-        Try.lift(author).Run().Bind(static inner => inner);
+        Try.lift(author).Run();
 
     // --- [ADMISSION]
 

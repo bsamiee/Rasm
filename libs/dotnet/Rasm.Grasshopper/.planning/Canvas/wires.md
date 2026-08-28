@@ -69,7 +69,7 @@ public static class RouteStyle {
                        faults: faults)));
                }).Run().Bind(static inner => inner).Rollback(
                    release: () => ReferenceEquals(WireShape.ShapeType, candidate)
-                       ? Try.lift(static () => WireShape.ShapeType = null).Run().Bind(static inner => inner)
+                       ? Try.lift(static () => WireShape.ShapeType = null).Run()
                        : Fin.Succ(unit))
                select seated;
     }

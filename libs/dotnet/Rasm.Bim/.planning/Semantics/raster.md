@@ -435,20 +435,20 @@ public static class GeoRaster {
                 ["-t_srs", target.Wkt.Length > 0 ? target.Wkt : target.Name, "-r", "bilinear"]);
             using (OSGeo.GDAL.Gdal.Warp(sink, [src], options, null, null)) { }
             return File.ReadAllBytes(sink);
-        }).Run().Bind(static inner => inner), "warp");
+        }).Run(), "warp");
 
     public static Fin<byte[]> DemProcess(ReadOnlyMemory<byte> demBytes, DemMode mode) =>
         GeoGdal.Derive(demBytes, GdalSink.Temp, ".tif", (dem, sink) => Try.lift(() => {
             var options = new OSGeo.GDAL.GDALDEMProcessingOptions(["-of", "GTiff", "-co", "COMPRESS=DEFLATE"]);
             using (OSGeo.GDAL.Gdal.wrapper_GDALDEMProcessing(sink, dem, mode.Key, null, options, null, null)) { }
             return File.ReadAllBytes(sink);
-        }).Run().Bind(static inner => inner), "dem");
+        }).Run(), "dem");
 
     static Fin<byte[]> Translated(ReadOnlyMemory<byte> bytes, string[] arguments, string lane) =>
         GeoGdal.Derive(bytes, GdalSink.Temp, ".tif", (src, sink) => Try.lift(() => {
             using (OSGeo.GDAL.Gdal.wrapper_GDALTranslate(sink, src, new OSGeo.GDAL.GDALTranslateOptions(arguments), null, null)) { }
             return File.ReadAllBytes(sink);
-        }).Run().Bind(static inner => inner), lane);
+        }).Run(), lane);
 }
 ```
 

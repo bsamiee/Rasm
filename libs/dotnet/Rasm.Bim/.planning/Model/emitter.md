@@ -510,7 +510,7 @@ public static class VocabularyRegeneration {
                     string spliced = string.Concat(source[..open], region, source[(close + Close.Length)..]);
                     File.WriteAllText(path, spliced);
                     return region;
-                }).Run().Bind(static inner => inner),
+                }).Run(),
             _ => Fin.Fail<string>(new BimFault.Refused(BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "region-marker-miss", path }))),
         };
 

@@ -351,7 +351,7 @@ public sealed record PinPlan {
             .As()
             .Bind(_ => Persistent
                 .TraverseM(held => Kind is not null && Kind.Family.Accepts(Kind.Carrier, held.Type)
-                    ? Try.lift(() => { parameter.PersistentDataWeak = held; }).Run().Bind(static inner => inner)
+                    ? Try.lift(() => { parameter.PersistentDataWeak = held; }).Run()
                     : Fin.Fail<Unit>(new GhFault.ContractRefused(
                         GhContract.Pin,
                         new GhEvidence($"{nameof(Persistent)}:{held.Type.Name}"))))

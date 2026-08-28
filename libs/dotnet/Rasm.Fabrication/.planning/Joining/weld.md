@@ -24,7 +24,7 @@ Bead placement is a two-dimensional lattice, not a vertical stack: `FillProfile`
 - Exemption: `FillProfile.Built` is the interpolant-assembly kernel; every other body on this cluster is expression-shaped.
 - Boundary: a value owner whose arguments are already canonical scalars and generated owners carries NO hand `Admit` — the generated `Validate`/`TryCreate` is the branch-law boundary form, so only an owner performing a real unit conversion or built by this page's own fold declares one.
 - Entry: `WeldJoint.Admit(WeldJointIngress)` is the ONE construction. The ingress carries `UnitsNet` length, angle, temperature, and duration quantities and one keyed identity per catalogue axis; admission converts once into canonical millimetre, degree, Celsius, and minute fields and accumulates every violated invariant through `AdmissionSlots`, so a malformed joint reports its whole defect set rather than the first clause that tripped.
-- Packages: Thinktecture.Runtime.Extensions supplies `[Union]`, `[SmartEnum<string>]`, `[ValueObject<string>]`, `[ComplexValueObject]`, and `[ValidationError]`; LanguageExt.Core supplies `Fin`, `Validation`, `Option`, `Map`, `Set`, `Seq`, `Traverse`, `Apply`, and `Fold`; MathNet.Numerics supplies `Interpolate.Linear` and `IInterpolation`; UnitsNet supplies typed boundary quantities; RhinoCommon supplies `Point3d` and `Vector3d`; `Rasm.Element` supplies `AdmissionSlots`; `Rasm.Fabrication.Process` supplies `ConsumableKey`, `ProcessBudget.Joining`, `Admission`, `FabricationFault`, and `FabConcern.Joining`.
+- Packages: Thinktecture.Runtime.Extensions supplies `[Union]`, `[SmartEnum<string>]`, `[ValueObject<string>]`, `[ComplexValueObject]`, and `[ValidationError]`; LanguageExt.Core supplies `Fin`, `Validation`, `Option`, `Map`, `Set`, `Seq`, `Traverse`, `Apply`, and `Fold`; MathNet.Numerics supplies `Interpolate.Linear` and `IInterpolation`; UnitsNet supplies typed boundary quantities; RhinoCommon supplies `Point3d` and `Vector3d`; the kernel `Rasm.Domain` supplies `AdmissionSlots`; `Rasm.Fabrication.Process` supplies `ConsumableKey`, `ProcessBudget.Joining`, `Admission`, `FabricationFault`, and `FabConcern.Joining`.
 - Boundary: `Rasm.Materials` supplies material, penetration, and qualification identities; callers resolve preparation geometry into the local `FillProfile`. Containment, area, and interpolation are defined only over the admitted station range, so a station outside it clamps to the terminal section rather than extrapolating a spline past its data.
 
 ```csharp
@@ -1450,7 +1450,7 @@ public static class Weld {
                 .Weave(pass.Weave).Lineage(pass.Lineage).Deposit(pass.Deposit).Arc(pass.Arc)
                 .Rows(pass.Segments, static (row, segment) => row.Segment(segment)))
             .Rows(actions, static (sink, action) => sink.Action(action))
-            .Rows(demands, static (sink, demand) => Admit.Demand(demand));
+            .Rows(demands, static (sink, demand) => sink.Demand(demand));
 
     extension(CanonicalWriter sink) {
         internal CanonicalWriter Segment(DepositSegment segment) => sink

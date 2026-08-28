@@ -441,7 +441,7 @@ public static class Gumballs {
                                 pipe.SetBaseGumball(ball, look.Native());
                                 pipe.Enabled = true;
                                 return unit;
-                            }).Run().Bind(static inner => inner)
+                            }).Run()
                             select rig).Rollback(release: () => rig.Release(op));
                 })));
     }
@@ -852,7 +852,7 @@ public sealed class WidgetHost : IDisposable {
                            from retire in scope.Switch(
                                widget,
                                allDocuments: static (ctx, _) => Admit.Confirm(ctx.RegisterForAllDocuments())
-                                   .Map(_ => (Func<Fin<Unit>>)(() => Try.lift(ctx.Unregister).Run().Bind(static inner => inner))),
+                                   .Map(_ => (Func<Fin<Unit>>)(() => Try.lift(ctx.Unregister).Run())),
                                document: static (ctx, row) => Admit.Demand(
                                    use: doc => Admit.Confirm(doc.ViewUserInterface.Add(ctx, row.Group)).Map(static _ => unit),
                                    needs: [SessionNeed.Mutate])
