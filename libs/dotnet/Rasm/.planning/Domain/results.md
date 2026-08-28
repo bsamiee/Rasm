@@ -19,9 +19,9 @@ Kernel ROP substrate (`Rasm.Domain`). Every fallible kernel surface fails throug
 
 - Owner: `FaultBand` the branch-wide fault-code registry whose rows partition the WHOLE code space; `Fault` the abstract `Error` base sealing the expected protocol over generated identity and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException`; `FaultId` the cached identity one `[FaultCase]` leaf mints against its family's band row — the transported code beside the generated case token; `ICausedFault` the mandatory cause projection `Inner` folds; `KernelFault` the closed `[Union]` of every kernel-substrate failure; and `FaultExtensions` the `extension(Error)` block deriving allocating owner off the ledger.
 - Cases: a `FaultBand` row is one allocated range — base `Key`, `Span`, `Kind` separating log-event allocation from fault allocation, and `Owner` the typed `TelemetrySource` package. Each `KernelFault` case carries its typed payload, renders its own `Message`, and states its identity as ONE `[FaultCase]` ordinal.
-- Law: ONE registry holds every band in the branch. Total disjointness and span containment are FORCED by `Proof`, the one registry audit a host runs before it serves, so a folder cannot collide by forgetting to pin a foreign neighborhood — the failure mode a per-folder registry with `Mirror` rows carries by construction, and a deferred proof no path touches runs never. NAMED LOSS accepted: a folder-local band mint becomes a kernel row, so a folder adding a band edits a kernel page; the gain is one `Proof` over the whole code space instead of five hand-mirrored registries that agree only by inspection. `Mirror` and `Page` columns both delete: one registry cannot collide with itself, and the `Owner` row already routes the provenance.
+- Law: ONE registry holds every band in the branch. Disjointness, span containment, and the log-const mirror are FORCED by `Proof`, the one registry audit a host seats before it serves — it takes the assemblies whose `[FaultCase]` leaves it censuses, so a family reaches the proof by being loaded rather than by remembering to register, so a folder cannot collide by forgetting to pin a foreign neighborhood — the failure mode a per-folder registry with `Mirror` rows carries by construction, and a deferred proof no path touches runs never. NAMED LOSS accepted: a folder-local band mint becomes a kernel row, so a folder adding a band edits a kernel page; the gain is one `Proof` over the whole code space instead of five hand-mirrored registries that agree only by inspection. `Mirror` and `Page` columns both delete: one registry cannot collide with itself, and the `Owner` row already routes the provenance.
 - Law: a row name is its bare concern; where two owners claim one concern the row takes the owner prefix on BOTH sides, so no reader resolves `Command` or `Identity` by neighborhood arithmetic. A fault row's `Span` equals its direct union leaf count and ordinals fill `0..Span-1`; `Proof` refuses a row whose declared `Span` cannot seat its family.
-- Law: a `[LoggerMessage] EventId` argument must be a compile-time CONST while a registry row is an instance, so a log-event band publishes `public const int <Name>Base` beside its row with the SAME value — the dual-owner invariant states at both and they move as one edit; an attribute literal computed from nothing is the drifting form. Row names never shadow a TYPE their consumers hold in scope; a shadowing concern renames with its owner prefix (`UiContext`, `UiSurface`, `StoreSchedule`, `StoreTopology`).
+- Law: a `[LoggerMessage] EventId` argument must be a compile-time CONST while a registry row is an instance, so a log-event band publishes `public const int <Name>Base` beside its row with the SAME value — `Proof` reads the `<Name>Base` naming rule to pair the two and forces their agreement, so no log owner restates that half; an attribute literal computed from nothing is the drifting form. Row names never shadow a TYPE their consumers hold in scope; a shadowing concern renames with its owner prefix (`UiContext`, `UiSurface`, `StoreSchedule`, `StoreTopology`).
 - Law: every kernel case carries one compact explicit ordinal. Recovery predicates match on the case or its numeric identity, never on rendered text.
 - Law: payloads are evidence, never live resources — `InvalidGeometry` carries the failing `Type`, not the geometry reference, because coercion leases dispose before a fault surfaces, so a live payload hands consumers a disposed native object and retains host memory inside accumulating `Validation` results. A payload is the WHOLE of what a case transports: the label, the measured scalar, the requirement it missed, the failing type. `OutOfRange` is the one scalar-range refusal across the kernel and carries the rejected number beside its requirement; a range rejection never degrades to `InvalidInput`, which drops both. `InvalidValue` is its non-scalar sibling, the generated-factory rejection carrying the owner label and generated requirement text.
 - Law: `InvalidContext` names an execution-context refusal — a main-thread-affinity guard, a released lease, a dead conduit or live-state gate — distinct from `MissingContext` (no model context supplied) and `InvalidInput` (the value itself is unsound); recovery differs by case (marshal or re-acquire versus repair the argument), so host thread and lifecycle gates raise `InvalidContext`.
@@ -36,6 +36,7 @@ Kernel ROP substrate (`Rasm.Domain`). Every fallible kernel surface fails throug
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System.Globalization;
+using System.Reflection;
 using System.Text.Json.Serialization;
 using Rhino;
 
@@ -207,8 +208,8 @@ public sealed partial class FaultBand {
 
     public static Option<FaultBand> OwnerOf(BandKind kind, int code) => toSeq(Items).Find(band => band.Kind == kind && code >= band.Key && code < band.Key + band.Span);
 
-    public static Fin<Unit> Proof(Seq<(FaultBand Band, int Leaves)> families) =>
-        Overlaps().Append(Undersized(families: families)) is { IsEmpty: false } faults
+    public static Fin<Unit> Proof(params ReadOnlySpan<Assembly> carried) =>
+        Overlaps().Append(Mirrors()).Append(Undersized(carried: Iterable.FromSpan(carried).ToSeq())) is { IsEmpty: false } faults
             ? Fin.Fail<Unit>(error: Error.Many(faults))
             : Fin.Succ(value: unit);
 
@@ -224,11 +225,34 @@ public sealed partial class FaultBand {
                 : Seq<Error>())
             .Strict();
 
-    static Seq<Error> Undersized(Seq<(FaultBand Band, int Leaves)> families) =>
-        families
+    static Seq<Error> Mirrors() =>
+        toSeq(typeof(FaultBand).GetFields(BindingFlags.Public | BindingFlags.Static))
+            .Filter(static field => field.IsLiteral && field.FieldType == typeof(int) && field.Name.EndsWith("Base", StringComparison.Ordinal))
+            .Choose(static field => TryGet(field.Name[..^"Base".Length], out FaultBand? row) && row is { } band
+                ? (int)field.GetRawConstantValue()! == band.Key
+                    ? Option<Error>.None
+                    : Some((Error)new KernelFault.OutOfRange(
+                        Label: field.Name,
+                        Scalar: (int)field.GetRawConstantValue()!,
+                        Requirement: string.Create(provider: CultureInfo.InvariantCulture, $"the {band.Key} its own row allocates")))
+                : Some((Error)new KernelFault.InvalidValue(
+                    Label: field.Name,
+                    Requirement: "a band row named by the const it mirrors")))
+            .Strict();
+
+    static Seq<Error> Undersized(Seq<Assembly> carried) =>
+        carried
+            .Bind(static assembly => toSeq(assembly.GetTypes()))
+            .Filter(static type => type.IsSealed && typeof(Fault).IsAssignableFrom(type) && type.IsDefined(typeof(FaultCaseAttribute), inherit: false))
+            .Choose(static leaf => Optional(leaf.BaseType).Map(root => (Root: root, Leaf: leaf)))
+            .GroupBy(static pair => pair.Root)
+            .Choose(static family => Optional(family.Key
+                    .GetField("FamilyBand", BindingFlags.NonPublic | BindingFlags.Static)?
+                    .GetValue(obj: null) as FaultBand)
+                .Map(band => (Band: band, Root: family.Key, Leaves: family.Count())))
             .Filter(static family => family.Leaves > family.Band.Span)
             .Map(static family => (Error)new KernelFault.OutOfRange(
-                Label: string.Create(provider: CultureInfo.InvariantCulture, $"{family.Band.Owner.Key}@{family.Band.Key}"),
+                Label: string.Create(provider: CultureInfo.InvariantCulture, $"{family.Root.Name}@{family.Band.Key}"),
                 Scalar: family.Band.Span,
                 Requirement: string.Create(provider: CultureInfo.InvariantCulture, $"a span seating {family.Leaves} leaves")))
             .Strict();
@@ -709,7 +733,7 @@ One carriage law rules every kernel page; no page re-decides it.
 - Law: below the `Eff` floor the synchronous owners thread `Context` and `CancellationToken` as explicit parameters (`Requirement.Apply(context, value, cancel)` is the canonical shape); at the floor and above, `Env` carries both. One operation is written in exactly one paradigm — a `Fin`/`Validation` body, or an `Eff<Env, T>` pipeline.
 - Owner: `HostEdge` is the ONE crossing vocabulary between kernel carriers and a host that speaks `null`, `void`, `out`, and `ref`, plus `Captured`, the ASYNCHRONOUS funnel LanguageExt's `Try` has no twin for. `Slot`/`Nullable` project `Option<T>` onto a host reference or nullable slot, `Text` admits a host string back as `Option<string>`, `Side`/`SideWhen` lift a void host call onto `Unit` so a statement composes as an expression, `Probe` folds the host try-pattern onto `Option<T>`, and `Settle` writes a `Fin` success into a host `ref` slot and answers whether it landed.
 - Law: optional context is `Option<T> x = default` consumed through `IfNone` against its policy owner's canonical row; `T? x = null` optional tails are the deleted form kernel-wide. `HostEdge.Slot`/`Nullable` are the ONE place `null` is a legal spelling — a host slot the domain never reads back — so no host-facing page hand-spells the `Option` → `null` projection.
-- Law: `Try.lift(f).Run()` funnels a SYNCHRONOUS host call and `Captured` its awaited twin; both normalize a requested cancellation onto `Errors.Cancelled` and keep every other exception as the exact captured `Exceptional`, so a classifier composes AFTER the funnel and never inside it.
+- Law: `Try.lift(f).Run()` funnels a SYNCHRONOUS host call and `Captured` its awaited twin, and every other exception stays the exact captured `Exceptional` so a classifier composes AFTER the funnel and never inside it. `Captured` lands a PROVEN cancellation on `KernelFault.Cancelled` carrying the raised exception, because an unrequested or tokenless cancel is a library's own and never the caller's; `Try.lift` has no token to prove it with and normalizes onto the package `Errors.Cancelled` identity instead, so a recovery predicate reads the case and the code alike. The capture widens the caught exception to `Exception` before `Error.New`, which the two-argument overload requires statically.
 - Boundary: every other `HostEdge` member converts SHAPE, never outcome — it mints no fault and reads no policy; a crossing that can fail returns `Option<T>` and its refusal is the caller's own typed fault.
 - Law: telemetry is a TAP, never a result — the `TelemetrySink` (`telemetry.md`) rides `Env` at the `Eff` floor or enters a synchronous gate point as one explicit trailing parameter beside `Context`/`CancellationToken`; facts publish through its one `Tap`, and an observe-side subscriber fault isolates onto the tap's own cell, never failing the tapped operation.
 - Boundary: `Env` is `Analysis/query.md`'s frozen record — this page legislates the carriage law, that page owns the record and the pipeline shape.
@@ -738,7 +762,7 @@ public static class HostEdge {
 
     public static async ValueTask<Fin<T>> Captured<T>(Func<CancellationToken, ValueTask<Fin<T>>> body, CancellationToken token = default) {
         try { return await body(token).ConfigureAwait(false); }
-        catch (OperationCanceledException raised) when (token.IsCancellationRequested) { return Fin.Fail<T>(Errors.Cancelled + Error.New(raised.Message, raised)); }
+        catch (OperationCanceledException raised) when (token.IsCancellationRequested) { return Fin.Fail<T>(new KernelFault.Cancelled(Error.New(raised.Message, (Exception)raised))); }
         catch (Exception raised) { return Fin.Fail<T>(Error.New(raised.Message, raised)); }
     }
 }

@@ -4,7 +4,7 @@
 
 - [02]-[PROTO_VOCABULARY]: consumes the corpus-owned compute, progress, stage, control, artifact, fault, clock, scan, and event families, rosters the surviving generated services, seats the bounded `ParseGuard` beside `WireServices`, and holds the one enum-to-key lowering every interior roster reads.
 - [03]-[FAULT_PROJECTION]: the total `StatusCode`→`WireFault` client fold and the `RemoteFault` admission composed off AppHost `FaultWire`.
-- [04]-[JSON_CONTEXT]: `InvariantTextJsonConverter<T>`, `ComputeWireContext` — the one Strict STJ context every JSON-crossing Compute value rides.
+- [04]-[JSON_CONTEXT]: `ComputeWireContext` — the one Strict STJ context every JSON-crossing Compute value rides.
 - [05]-[TS_PROJECTION]: the browser consumes the generated `@rasm\/contracts` schemas and service descriptors; this page mints no TS shape.
 
 ## [02]-[PROTO_VOCABULARY]
@@ -291,7 +291,7 @@ public abstract partial record WireFault : Fault {
 
 ## [04]-[JSON_CONTEXT]
 
-- Owner: `ComputeWireContext` — the package's one source-generated `JsonSerializerContext`, the Strict resolver every JSON-crossing Compute value rides: the `Charge` event `data`, the `Model/identity#GRADUATION_EVIDENCE` `GraduationEvidence` bundle Python decodes, and the `Runtime/claims#PROFILE_EVIDENCE` `ProfileArtifact` union; `InvariantTextJsonConverter<T>` — the culture-invariant text codec for the 64-bit and 128-bit integers JSON cannot carry as numbers.
+- Owner: `ComputeWireContext` — the package's one source-generated `JsonSerializerContext`, the Strict resolver every JSON-crossing Compute value rides: the `Charge` event `data`, the `Model/identity#GRADUATION_EVIDENCE` `GraduationEvidence` bundle Python decodes, and the `Runtime/claims#PROFILE_EVIDENCE` `ProfileArtifact` union. A wide integer JSON cannot carry as a number crosses as the text its OWNER mints — the context registers no numeric text codec, because a converter-level parse would re-admit a value the owner already derives.
 - Entry: `ComputeWireContext.Default` — the composition-bound options handle; a `.Default` type-info elsewhere is the deleted form (branch `RULINGS` `[02]`).
 - Auto: the Thinktecture key-scalar resolver rides the `TypeInfoResolverChain` merge so every `[SmartEnum]`/`[ValueObject]` spine field round-trips as its key scalar; `LanguageExtJsonConverterFactory` keeps every `Option<T>` PRESENT on the wire as an explicit null, the `| null` unions the Python and TS mirrors spell; `UnmappedMemberHandling.Disallow` refuses drift at the consuming edge.
 - Packages: System.Text.Json, Thinktecture.Runtime.Extensions.Json, Rasm (project — `LanguageExtJsonConverterFactory`), BCL inbox
@@ -299,30 +299,12 @@ public abstract partial record WireFault : Fault {
 - Boundary: ABSENCE is an `Option<T>` column and never a nullable slot — the context declines the suite's `OmitAbsent` modifier, and a nullable column past this boundary is the deleted form.
 
 ```csharp
-public sealed class InvariantTextJsonConverter<T>(NumberStyles styles, string format) : JsonConverter<T>
-    where T : ISpanParsable<T>, ISpanFormattable, INumberBase<T> {
-    public static readonly InvariantTextJsonConverter<T> Decimal = new(NumberStyles.Integer, "G");
-    public static readonly InvariantTextJsonConverter<T> Hex32 = new(NumberStyles.HexNumber, "x32");
-
-    public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
-        reader.TokenType == JsonTokenType.String
-        && T.TryParse(reader.GetString(), styles, CultureInfo.InvariantCulture, out T? value)
-        && value is { } admitted
-            ? admitted
-            : throw new JsonException($"<invariant-text-expected:{typeof(T).Name}:{format}>");
-
-    public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) =>
-        writer.WriteStringValue(value.ToString(format, CultureInfo.InvariantCulture));
-}
-
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     RespectNullableAnnotations = true,
     RespectRequiredConstructorParameters = true,
-    Converters = [
-        typeof(ThinktectureJsonConverterFactory), typeof(LanguageExtJsonConverterFactory),
-        typeof(InvariantTextJsonConverter<long>), typeof(InvariantTextJsonConverter<UInt128>)])]
+    Converters = [typeof(ThinktectureJsonConverterFactory), typeof(LanguageExtJsonConverterFactory)])]
 [JsonSerializable(typeof(Charge))]
 [JsonSerializable(typeof(GraduationEvidence))]
 [JsonSerializable(typeof(ProfileArtifact))]

@@ -8,7 +8,7 @@ Validation composes `normalization.md`'s `Kind` roster, `Capability` rows, and `
 
 - [02]-[READINESS_ALGEBRA]: `Requirement` + `Check` — the composable readiness matrix, `ForKind` topology dispatch, lease-aware execution.
 - [03]-[ACCEPTANCE_ORACLE]: `Acceptance` — the single validity oracle and result-acceptance gate, `IValidityEvidence` registration law.
-- [04]-[FACTORY_BRIDGE]: `FactoryBridge` + `AdmissionProjection` — generated factory admission, row lookup, bidirectional projection.
+- [04]-[FACTORY_ADMISSION]: `FactoryValidation` + `FactoryBridge` + `AdmissionProjection` — the two directions across the generated-factory boundary, and the bidirectional projection over them.
 - [05]-[ADMISSION_SLOTS]: `AdmissionSlots` — the reusable applicative slot fold, scalar-band gates, and recursive accumulated-error reader.
 - [06]-[PAIR_COMBINATOR]: `RequirementContext.Pair` — the two-operand kind-resolve-then-validate combinator.
 - [07]-[CAPABILITY]: `ICapability` + `CapabilitySet` + `CapabilityLaw` — the one combinable-capability column and its legal-corner admission.
@@ -233,9 +233,9 @@ public static partial class Acceptance {
 }
 ```
 
-## [04]-[FACTORY_BRIDGE]
+## [04]-[FACTORY_ADMISSION]
 
-- Owner: `FactoryBridge` carries `Accept`, the generated-owner admission rung across every raw width, and `Row`, the one `SmartEnum` lookup discriminating on key, column, comparer, or host enum.
+- Owner: this section holds the TWO DIRECTIONS across one boundary, never one owner read both ways: `FactoryValidation` mints a refusal from clauses INSIDE the generated `ValidateFactoryArguments` hook, and `FactoryBridge` reads that verdict OUTSIDE, at the call site, onto `Fin`. `FactoryBridge` carries `Accept`, the generated-owner admission rung across every raw width; `Row`, the one `SmartEnum` lookup discriminating on key, column, comparer, or host enum; and `Lift`/`Total`/`Vocabulary`, the one row-key-to-wire-enum correspondence — a package binds its tables through `Total` and proves them through `Vocabulary`, which forces the map BOTH ways so a wire value no row claims fails beside a row no value lifts.
 - Owner: `AdmissionProjection<TRaw, TModel>` holds a model-to-raw render delegate and a `Fin`-gated raw-to-model admit delegate; `Render` and `Admit` run through `Try.lift`, and `SmartEnum`'s false or nullable lookup lands a typed refusal there.
 - Law: ONE `Validate` body serves every admission tier — the refusal is a policy value the caller hands in, so the numeric tier lands a `KernelFault.OutOfRange` carrying the saturated scalar and the general tier a `KernelFault.InvalidValue`, and both mint the whole payload at construction rather than rewriting a fault after the fact.
 - Law: one generic-math body over `TRaw : struct, INumber<TRaw>` admits every numeric width; `Validate` runs under `CultureInfo.InvariantCulture`.
@@ -245,6 +245,8 @@ public static partial class Acceptance {
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
+using System.Collections.Frozen;
+using System.Linq;
 using System.Numerics;
 
 namespace Rasm.Domain;
@@ -352,6 +354,32 @@ public static class FactoryBridge {
         Enum.IsDefined(candidate)
             ? Row<int, TRow>(ordinal(arg: candidate))
             : Fin.Fail<TRow>(error: new KernelFault.InvalidResult(Detail: Some($"{typeof(THostEnum).Name} {candidate}")));
+
+    public static Option<TEnum> Lift<TEnum>(string key) where TEnum : struct, Enum =>
+        Enum.TryParse(key.Replace("_", string.Empty).Replace("-", string.Empty), ignoreCase: true, out TEnum value)
+        && !EqualityComparer<TEnum>.Default.Equals(value, default)
+            ? Some(value)
+            : None;
+
+    public static Lazy<FrozenDictionary<TRow, TEnum>> Total<TRow, TEnum>(Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
+        where TRow : notnull where TEnum : struct, Enum =>
+        new(() => rows().ToFrozenDictionary(static row => row, row => Lift<TEnum>(key(row)).IfNone(default(TEnum))));
+
+    public static Fin<Unit> Vocabulary<TRow, TEnum>(Func<IReadOnlyList<TRow>> rows, Func<TRow, string> key)
+        where TRow : notnull where TEnum : struct, Enum {
+        Seq<(string Key, Option<TEnum> Value)> mapped = toSeq(rows()).Map(row => (Key: key(row), Value: Lift<TEnum>(key(row)))).Strict();
+        FrozenSet<TEnum> declared = Enum.GetValues<TEnum>()
+            .Where(static value => !EqualityComparer<TEnum>.Default.Equals(value, default))
+            .ToFrozenSet();
+        FrozenSet<TEnum> lifted = mapped.Choose(static row => row.Value).ToFrozenSet();
+        return mapped.Map(static row => row.Key).Distinct(StringComparer.Ordinal).Count() == mapped.Count
+            && lifted.Count == mapped.Count
+            && lifted.SetEquals(declared)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
+                Label: $"{typeof(TRow).Name}->{typeof(TEnum).Name}",
+                Requirement: "one wire value per row and one row per wire value"));
+    }
 
     internal static Error InvalidValueOf<TVO>(ValidationError refusal) =>
         new KernelFault.InvalidValue(Label: typeof(TVO).Name, Requirement: refusal.Message);

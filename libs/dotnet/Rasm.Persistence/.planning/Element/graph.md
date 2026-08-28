@@ -246,14 +246,15 @@ public sealed record ProjectGraph(Guid Id, ImmutableHashSet<Guid> Models, long E
 
 public sealed class ProjectRollup : MultiStreamProjection<ProjectGraph, Guid> {
     public ProjectRollup() => CustomGrouping(new ProjectHeaderGrouper());
-    public static ProjectGraph Create(IEvent<GraphEvent> e) => new(HeaderProject(e), [e.StreamId], 1L);
-    public ProjectGraph Apply(IEvent<GraphEvent> e, ProjectGraph view) => view with { Models = view.Models.Add(e.StreamId), Events = view.Events + 1L };
-    static Guid HeaderProject(IEvent e) => ProjectHeaderGrouper.ProjectOf(e)
-        .IfNone(() => throw new InvalidDataException("<project-rollup-header-missing>"));
+
+    public override ProjectGraph Evolve(ProjectGraph? snapshot, Guid id, IEvent e) =>
+        snapshot is null
+            ? new ProjectGraph(id, [e.StreamId], 1L)
+            : snapshot with { Models = snapshot.Models.Add(e.StreamId), Events = snapshot.Events + 1L };
 }
 
 file sealed class ProjectHeaderGrouper : IAggregateGrouper<Guid> {
-    internal static Option<Guid> ProjectOf(IEvent e) =>
+    static Option<Guid> ProjectOf(IEvent e) =>
         e.Headers is { } headers && headers.TryGetValue("project", out object? raw) && raw is string project && Guid.TryParse(project, out Guid id)
             ? Some(id) : None;
 

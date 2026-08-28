@@ -859,12 +859,12 @@ public static class WireVocabulary {
         var p when p == PlanePrimaries.Xyz => Wire.Primaries.Ciexyz,
         _ => Wire.Primaries.None,
     };
-    public static Wire.Depth Depth(ChannelDtype row) => row switch {
-        var d when d == ChannelDtype.Unorm8 => Wire.Depth.U8,
-        var d when d == ChannelDtype.Unorm16 => Wire.Depth.U16,
-        var d when d == ChannelDtype.Float16 => Wire.Depth.F16,
-        var d when d == ChannelDtype.Float32 => Wire.Depth.F32,
-        _ => Wire.Depth.Unspecified,
+    public static Fin<Wire.Depth> Depth(ChannelDtype row) => row switch {
+        var d when d == ChannelDtype.Unorm8 => Fin.Succ(Wire.Depth.U8),
+        var d when d == ChannelDtype.Unorm16 => Fin.Succ(Wire.Depth.U16),
+        var d when d == ChannelDtype.Float16 => Fin.Succ(Wire.Depth.F16),
+        var d when d == ChannelDtype.Float32 => Fin.Succ(Wire.Depth.F32),
+        _ => new MaterialFault.Parameter($"<wire-depth-unrostered:{row.Key}>"),
     };
     public static Fin<Wire.Container> Container(RasterFormat row) =>
         Containers.Value.TryGetValue(row, out Wire.Container container)

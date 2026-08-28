@@ -460,7 +460,7 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
 - Law: kind literals are the DECODE contract. Its companion projector selects each leaf case on the `kind` discriminator alone, and the union generator emits no JSON support of any kind — no converter, no derived-type roster — so a case crossing without its `[JsonDerivedType]` row serializes as the abstract base, one empty object per case, with no decode refusal on either end. Hand-declaration on the union declaration freezes the literals: renaming a case is free, renaming a literal is a wire break.
 - Law: the bundle is OFFLINE at rest and reaches no gRPC leg. It crosses as bytes the app root writes through the Persistence object lane exactly as a warm artifact does, so the `Runtime/wire#PROTO_VOCABULARY` roster never grows a message for it and the corpus gate has nothing to police here — a wire the channel never carries cannot drift a channel contract.
 - Law: admission proves what the far end can only fail on. `Nested.Ref` names a declared owner and the owner graph is ACYCLIC, because the projector builds each struct against already-registered siblings — an unresolved reference is an unbound name at class creation there and a back edge is a topological refusal, both after the bytes already shipped. `UnionCase.Members` is non-empty for the same reason: the projector's member fold reduces from its first element.
-- Entry: `public static Fin<GraduationEvidence> Admit(Seq<OwnerDescriptor> owners)` — the caller supplies the roster and the bundle mints its own `SchemaVersion` and `BundleKey`, so neither is a claim a caller can spell wrong. `public Fin<ReadOnlyMemory<byte>> Bundle(JsonTypeInfo<GraduationEvidence> contract)` writes the canonical UTF-8 payload under an injected contract; on the wire `BundleKey` crosses as its bare 32-hex render (`$"{BundleKey:x32}"`, decoded `NumberStyles.HexNumber` — the solution content-key text law; a raw `UInt128` JSON number breaks double-precision consumers), and the scalar leaf's payload property pins `"scalar"` because CamelCase would seat it on the `"kind"` discriminator STJ refuses.
+- Entry: `public static Fin<GraduationEvidence> Admit(Seq<OwnerDescriptor> owners)` — the caller supplies the roster and the bundle mints its own `SchemaVersion` and `BundleKey`, so neither is a claim a caller can spell wrong. `public Fin<ReadOnlyMemory<byte>> Bundle(JsonTypeInfo<GraduationEvidence> contract)` writes the canonical UTF-8 payload under an injected contract; on the wire `BundleKey` IS its bare 32-hex text — the solution content-key text law, minted once at admission where the roster is in hand, so the numeric `Key` stays an in-process read and no decode re-admits what `Admit` already derived (a raw `UInt128` JSON number breaks double-precision consumers), and the scalar leaf's payload property pins `"scalar"` because CamelCase would seat it on the `"kind"` discriminator STJ refuses.
 - Auto: `Admit` refuses an empty roster, a blank or duplicated owner name, a blank or duplicated field name within one owner, an unsound node anywhere in a tree, an unresolvable `Nested.Ref`, and a cyclic owner graph proved by peeling every reference-free owner until either the graph empties or a pass settles nothing. `Render` is the one catamorphism over the tree: it feeds the length-framed preimage `ContentHash.Of` keys, so bundle identity and the shape it describes cannot disagree, and a field-order or scalar-row change re-keys the bundle the companion pins its round-trip against.
 - Result: none — the bundle is an artifact, not a measured run, and its content key is the identity the writing composition indexes it under.
 - Packages: System.Text.Json, System.IO.Hashing, Generator.Equals (`[Equatable]` diff surface — `BundleKey` ignored as derived, the gate stays the content key), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`), BCL inbox
@@ -537,8 +537,10 @@ public abstract partial record FieldNode(string Name) {
 public sealed record OwnerDescriptor(string Name, Seq<FieldNode> Fields);
 
 [Equatable]
-public sealed partial record GraduationEvidence(string SchemaVersion, [property: OrderedEquality] Seq<OwnerDescriptor> Owners, [property: IgnoreEquality] UInt128 BundleKey) {
+public sealed partial record GraduationEvidence(string SchemaVersion, [property: OrderedEquality] Seq<OwnerDescriptor> Owners, [property: IgnoreEquality] string BundleKey) {
     public const string Schema = "1";
+
+    [JsonIgnore] public UInt128 Key => KeyOf(Owners);
 
     public static Fin<GraduationEvidence> Admit(Seq<OwnerDescriptor> owners) =>
         (guard(!owners.IsEmpty, (Error)IdentityRefusal.OwnerRosterMalformed.Fault()),
@@ -548,7 +550,7 @@ public sealed partial record GraduationEvidence(string SchemaVersion, [property:
          owners.Traverse(static owner => Wellformed(owner)).As())
         .Apply(static (_, _, _) => unit).As().ToFin()
         .Bind(_ => Resolvable(owners))
-        .Map(_ => new GraduationEvidence(Schema, owners, KeyOf(owners)));
+        .Map(_ => new GraduationEvidence(Schema, owners, $"{KeyOf(owners):x32}"));
 
     static Validation<Error, Unit> Wellformed(OwnerDescriptor owner) =>
         (guard(!string.IsNullOrWhiteSpace(owner.Name), (Error)IdentityRefusal.OwnerRosterMalformed.Fault()),

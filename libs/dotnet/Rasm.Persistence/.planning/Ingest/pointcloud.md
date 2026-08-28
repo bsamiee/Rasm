@@ -11,7 +11,7 @@ Rasm.Persistence ingests reality-capture scans through ONE `ScanSource` owner ov
 
 ## [02]-[SCAN_SOURCE]
 
-- Owner: `ScanFormat` is the capture-wire axis owning `Sniff`; `ScanCapability` is the per-opened-source decode reach; `ScanStore` is the two-arrow blob port; `ScanSpec` fixes format, origin, region resolution, and that port; `ScanOp`/`ScanYield` close dispatch; `ScanBatch` is the ONE streaming point currency both codecs fold into; `[FaultCase]` closes the fault roster with `ScanFault` the accumulating `Fault` family above it; `ScanSource` owns `Run`; `E57Codec`/`LasCodec` are the two decode legs.
+- Owner: `ScanFormat` is the capture-wire axis owning `Sniff`; `ScanCapability` is the per-opened-source decode reach; `ScanStore` is the two-arrow blob port; `ScanSpec` fixes format, origin, region resolution, and that port; `ScanOp`/`ScanYield` close dispatch; `ScanBatch` is the ONE streaming point currency both codecs fold into, yielded as `Fin<ScanBatch>` so a mid-stream codec refusal reaches the consumer as an element rather than as an unwind; `[FaultCase]` closes the fault roster with `ScanFault` the accumulating `Fault` family above it; `ScanSource` owns `Run`; `E57Codec`/`LasCodec` are the two decode legs.
 - Cases: `ScanOp.Ingest` chunks the raw bytes, sweeps the point stream, and yields `Landed`; `ScanHost.Probe` reads metadata and yields `Probed`; `ScanOp.Window` fetches the resident blob and yields `Points`. `ScanFault` is `CodecReject | CrsUnsupported | RegionUnresolvable | WindowMiss`; independent failures accumulate as `Error.Many`.
 - Entry: `Run(ScanOp, ProjectionContext)` is the ONE polymorphic entry; blob read and write remain on `ScanSpec.Blob`, so provider selection stays at the composition root.
 - Auto: ingest streams the codec's points through ONE fold that simultaneously cuts `ChunkPolicy.Artifact` FastCDC chunks over the RAW bytes and folds each point's cell at `ScanSpec.RegionResolution` into a `HashMap` accumulating `(count, zmin, zmax)` per cell — a streaming fold with no materialized point set at any instant, the manifest handed to `ScanStore.Land` and thence `MultipartTransfer.Upload`. Extent and region rows derive from the DECODED positions rather than the declared header extrema, because a writer's extrema can disagree with its own points and a region row keyed on that disagreement strands every windowed read; the header's point count stays the codec's declared total, which is exactly what a probe answers without a stream. Both legs read position, class, and colour alone — the LAS leg masks the arithmetic decoder through `decompress_selective`, the E57 leg excludes the unread semantics at `StreamPointsFull` so the bit-unpacker skips them. `LasCodec` settles ONE `CapabilitySet<ScanCapability>` at open — colour lanes, extended classes, a usable spatial index — and every step reads that set; E57 channel presence is per-`Data3D` chunk rather than per file, so its lanes settle at the batch and it declares no per-open reach. `Window` folds the codec's OWN spatial access: the laszip `.lax` `inside_rectangle`/`read_inside_point` path when `has_spatial_index` reports one and the full filtered stream otherwise, and the E57 leg prefilters per-`Data3D` cartesian bounds before streaming a setup at all.
@@ -79,6 +79,8 @@ public sealed partial class ScanSpec {
     }
 }
 
+public readonly record struct ScanMeta(long Points, Option<string> Wkt, Option<Instant> Captured, Option<string> Sensor);
+
 public readonly record struct ScanBatch(
     int Count,
     ReadOnlyMemory<double> Positions,
@@ -123,8 +125,6 @@ public abstract partial record ScanFault : Fault {
         windowMiss:         static c => $"<scan-window-miss:{c.Scan}>");
 }
 
-public sealed class ScanRefusal(ScanFault fault) : Exception(fault.Message) { public ScanFault Fault { get; } = fault; }
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ScanSource {
@@ -147,10 +147,12 @@ public static class ScanSource {
     }
 
     static Validation<Error, (ScanHeader Header, Seq<ScanRegion> Regions)> Sweep(ScanSpec spec, ReadOnlySequence<byte> bytes, ContentAddress scan, Instant now) {
-        (long Points, Option<string> Wkt, Option<Instant> Captured, Option<string> Sensor) meta = Meta(spec, bytes);
+        Fin<ScanMeta> read = Meta(spec, bytes);
+        if (read.Case is not ScanMeta meta) { return read.Map(static _ => (default(ScanHeader)!, Seq<ScanRegion>())).ToValidation(); }
         HashMap<H3Cell, (long Count, double ZMin, double ZMax)> regions = HashMap<H3Cell, (long, double, double)>();
         ScanExtent extent = ScanExtent.Empty;
-        foreach (ScanBatch batch in Batches(spec, bytes, None)) {
+        foreach (Fin<ScanBatch> step in Batches(spec, bytes, None)) {
+            if (step.Case is not ScanBatch batch) { return step.Map(static _ => (default(ScanHeader)!, Seq<ScanRegion>())).ToValidation(); }
             ReadOnlySpan<double> xyz = batch.Positions.Span;
             for (int at = 0; at < batch.Count; at++) {
                 (double x, double y, double z) = (xyz[at * 3], xyz[(at * 3) + 1], xyz[(at * 3) + 2]);
@@ -171,21 +173,22 @@ public static class ScanSource {
 
     static IO<Validation<Error, ScanYield>> Probed(ScanSpec spec, ReadOnlyMemory<byte> header, ProjectionContext frame) =>
         from now in IO.lift(frame.Now)
-        from read in IO.lift(() => Sniffed(spec, header.Span).Bind(_ => Capture(() => {
-            ReadOnlySequence<byte> payload = Source(spec.Origin);
-            (long Points, Option<string> Wkt, Option<Instant> Captured, Option<string> Sensor) meta = Meta(spec, payload);
-            return (ScanYield)new ScanYield.Probed(
-                new ScanHeader(ContentChunker.Chunk(ChunkPolicy.Artifact, payload).WholeArtifact, spec.Format,
-                    meta.Points, meta.Wkt, ScanExtent.Empty, meta.Captured, meta.Sensor, now));
-        })))
+        from read in IO.lift(() => Sniffed(spec, header.Span)
+            .Bind(_ => Capture(() => Source(spec.Origin)))
+            .Bind(payload => Meta(spec, payload).ToValidation()
+                .Map(meta => (ScanYield)new ScanYield.Probed(
+                    new ScanHeader(ContentChunker.Chunk(ChunkPolicy.Artifact, payload).WholeArtifact, spec.Format,
+                        meta.Points, meta.Wkt, ScanExtent.Empty, meta.Captured, meta.Sensor, now)))))
         select read;
 
     static IO<Validation<Error, ScanYield>> Windowed(ScanSpec spec, ContentAddress scan, Seq<H3Cell> cells) =>
         from fetched in spec.Blob.Fetch(scan)
         from read in IO.lift(() => fetched.Match(
-            Some: payload => Capture(() => (ScanYield)new ScanYield.Points(toSeq(Batches(spec, payload, Some(Bounds(cells))))
-                .Map(batch => Selected(batch, spec.RegionResolution, toHashSet(cells)))
-                .Filter(static batch => batch.Count > 0))),
+            Some: payload => toSeq(Batches(spec, payload, Some(Bounds(cells)))).Traverse(static batch => batch).As()
+                .Map(batches => (ScanYield)new ScanYield.Points(batches
+                    .Map(batch => Selected(batch, spec.RegionResolution, toHashSet(cells)))
+                    .Filter(static batch => batch.Count > 0)))
+                .ToValidation(),
             None: () => (Validation<Error, ScanYield>)new ScanFault.WindowMiss(scan)))
         select read;
 
@@ -226,14 +229,14 @@ public static class ScanSource {
                 : new ScanFault.CodecReject($"<sniff:{found.Key}!={spec.Format.Key}>"),
             None: static () => new ScanFault.CodecReject("<no-capture-magic>"));
 
-    static (long Points, Option<string> Wkt, Option<Instant> Captured, Option<string> Sensor) Meta(ScanSpec spec, ReadOnlySequence<byte> payload) =>
+    static Fin<ScanMeta> Meta(ScanSpec spec, ReadOnlySequence<byte> payload) =>
         spec.Format.Switch(
             payload,
             e57: static p => E57Codec.Meta(p),
             las: static p => LasCodec.Meta(p),
             laz: static p => LasCodec.Meta(p));
 
-    static IEnumerable<ScanBatch> Batches(ScanSpec spec, ReadOnlySequence<byte> payload, Option<Envelope> window) =>
+    static IEnumerable<Fin<ScanBatch>> Batches(ScanSpec spec, ReadOnlySequence<byte> payload, Option<Envelope> window) =>
         spec.Format.Switch(
             (payload, window),
             e57: static s => E57Codec.Batches(s.payload, s.window),
@@ -248,9 +251,7 @@ public static class ScanSource {
         (payload.IsSingleSegment ? payload.First : new ReadOnlyMemory<byte>(payload.ToArray())).AsStream();
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner)
-            .MapFail(static e => e.Exception.Case is ScanRefusal refusal ? refusal.Fault : e)
-            .ToValidation();
+        Try.lift(() => Fin.Succ(codec())).Run().Bind(static inner => inner).ToValidation();
 }
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
@@ -270,24 +271,24 @@ static class E57Codec {
     static Seq<ASTM_E57.E57Data3D> Setups(ASTM_E57.E57Root root) =>
         Optional(root.Data3D).Match(Some: toSeq, None: Seq<ASTM_E57.E57Data3D>);
 
-    public static (long Points, Option<string> Wkt, Option<Instant> Captured, Option<string> Sensor) Meta(ReadOnlySequence<byte> payload) {
+    public static Fin<ScanMeta> Meta(ReadOnlySequence<byte> payload) {
         using Stream source = ScanSource.Seekable(payload);
         ASTM_E57.E57Root root = ASTM_E57.E57FileHeader.Parse(source, payload.Length, verbose: false).E57Root;
         Seq<ASTM_E57.E57Data3D> setups = Setups(root);
-        return (
+        return Fin.Succ(new ScanMeta(
             setups.Sum(static setup => setup.Points.RecordCount),
             Optional(root.CoordinateMetadata),
             setups.Choose(static setup => Optional(setup.AcquisitonStart)).Head.Map(static stamp => Instant.FromDateTimeOffset(stamp.DateTime)),
-            setups.Choose(static setup => Optional(setup.SensorModel)).Head);
+            setups.Choose(static setup => Optional(setup.SensorModel)).Head));
     }
 
-    public static IEnumerable<ScanBatch> Batches(ReadOnlySequence<byte> payload, Option<Envelope> window) {
+    public static IEnumerable<Fin<ScanBatch>> Batches(ReadOnlySequence<byte> payload, Option<Envelope> window) {
         using Stream source = ScanSource.Seekable(payload);
         ASTM_E57.E57FileHeader header = ASTM_E57.E57FileHeader.Parse(source, payload.Length, verbose: false);
         foreach (ASTM_E57.E57Data3D setup in Setups(header.E57Root)) {
             if (window.Map(bbox => !Touches(setup, bbox)).IfNone(false)) { continue; }
             foreach ((V3d[] positions, ImmutableDictionary<PointPropertySemantics, Array> channels) in setup.StreamPointsFull(ChunkPoints, verbose: false, Unread)) {
-                yield return Batch(positions, channels);
+                yield return Fin.Succ(Batch(positions, channels));
             }
         }
     }
@@ -339,62 +340,66 @@ static class LasCodec {
         LASZIP_DECOMPRESS_SELECTIVE.CHANNEL_RETURNS_XY | LASZIP_DECOMPRESS_SELECTIVE.Z
         | LASZIP_DECOMPRESS_SELECTIVE.CLASSIFICATION | LASZIP_DECOMPRESS_SELECTIVE.RGB;
 
-    public static (long Points, Option<string> Wkt, Option<Instant> Captured, Option<string> Sensor) Meta(ReadOnlySequence<byte> payload) {
+    public static Fin<ScanMeta> Meta(ReadOnlySequence<byte> payload) {
         using Stream source = ScanSource.Seekable(payload);
-        laszip codec = Opened(source);
+        Fin<laszip> opened = Opened(source);
+        if (opened.Case is not laszip codec) { return opened.Map(static _ => default(ScanMeta)!); }
         try {
-            _ = Checked(codec, codec.get_number_of_point(out long points));
-            return (points, Crs(codec.get_header_pointer()), None, None);
+            Fin<Unit> counted = Checked(codec, codec.get_number_of_point(out long points));
+            return counted.Map(_ => new ScanMeta(points, Crs(codec.get_header_pointer()), None, None));
         } finally { _ = codec.close_reader(); }
     }
 
-    public static IEnumerable<ScanBatch> Batches(ReadOnlySequence<byte> payload, Option<Envelope> window) {
+    public static IEnumerable<Fin<ScanBatch>> Batches(ReadOnlySequence<byte> payload, Option<Envelope> window) {
         using Stream source = ScanSource.Seekable(payload);
-        laszip codec = Opened(source);
+        Fin<laszip> opened = Opened(source);
+        if (opened.Case is not laszip codec) { yield return opened.Map(static _ => default(ScanBatch)!); yield break; }
         try {
             laszip_header header = codec.get_header_pointer();
             laszip_point point = codec.get_point_pointer();
-            CapabilitySet<ScanCapability> reach = Reach(codec, header, window);
+            Fin<CapabilitySet<ScanCapability>> reached = Reach(codec, header, window);
+            if (reached.Case is not CapabilitySet<ScanCapability> reach) { yield return reached.Map(static _ => default(ScanBatch)!); yield break; }
             double[] coordinates = new double[3];
             List<double> xyz = new(BatchPoints * 3);
             List<byte> classes = new(BatchPoints);
             List<ushort> colors = new(BatchPoints * 3);
-            while (Next(codec, reach)) {
-                _ = Checked(codec, codec.get_coordinates(coordinates));
+            while (true) {
+                Fin<bool> step = Next(codec, reach);
+                if (step.Case is not bool more) { yield return step.Map(static _ => default(ScanBatch)!); yield break; }
+                if (!more) { break; }
+                Fin<Unit> lifted = Checked(codec, codec.get_coordinates(coordinates));
+                if (lifted.IsFail) { yield return lifted.Map(static _ => default(ScanBatch)!); yield break; }
                 xyz.AddRange(coordinates);
                 classes.Add(reach.Admits(ScanCapability.ExtendedClass) ? point.extended_classification : point.classification);
                 if (reach.Admits(ScanCapability.Color)) { colors.AddRange([point.rgb[0], point.rgb[1], point.rgb[2]]); }
-                if (classes.Count == BatchPoints) { yield return Batch(xyz, classes, colors, reach); }
+                if (classes.Count == BatchPoints) { yield return Fin.Succ(Batch(xyz, classes, colors, reach)); }
             }
-            if (classes.Count > 0) { yield return Batch(xyz, classes, colors, reach); }
+            if (classes.Count > 0) { yield return Fin.Succ(Batch(xyz, classes, colors, reach)); }
         } finally { _ = codec.close_reader(); }
     }
 
-    static CapabilitySet<ScanCapability> Reach(laszip codec, laszip_header header, Option<Envelope> window) =>
-        CapabilitySet<ScanCapability>.Of([
+    static Fin<CapabilitySet<ScanCapability>> Reach(laszip codec, laszip_header header, Option<Envelope> window) =>
+        Indexed(codec, window).Map(indexed => CapabilitySet<ScanCapability>.Of([
             .. (Colored(header.point_data_format) ? Seq(ScanCapability.Color) : Seq<ScanCapability>()),
             .. (header.point_data_format >= ExtendedFormat ? Seq(ScanCapability.ExtendedClass) : Seq<ScanCapability>()),
-            .. (Indexed(codec, window) ? Seq(ScanCapability.SpatialIndex) : Seq<ScanCapability>()),
-        ]);
+            .. (indexed ? Seq(ScanCapability.SpatialIndex) : Seq<ScanCapability>()),
+        ]));
 
-    static bool Indexed(laszip codec, Option<Envelope> window) =>
-        window.IsSome
-        && Checked(codec, codec.has_spatial_index(out bool present, out _)) is 0 && present
-        && Window(codec, window);
+    static Fin<bool> Indexed(laszip codec, Option<Envelope> window) {
+        if (window.IsNone) { return Fin.Succ(false); }
+        Fin<Unit> probed = Checked(codec, codec.has_spatial_index(out bool present, out _));
+        return probed.Bind(_ => present ? Window(codec, window) : Fin.Succ(false));
+    }
 
-    static bool Window(laszip codec, Option<Envelope> window) => window.Match(
-        Some: bbox => Checked(codec, codec.inside_rectangle(bbox.MinX, bbox.MinY, bbox.MaxX, bbox.MaxY, out bool empty)) is 0
-            && !empty
-            && Checked(codec, codec.exploit_spatial_index(true)) is 0,
-        None: static () => false);
+    static Fin<bool> Window(laszip codec, Option<Envelope> window) => window.Match(
+        Some: bbox => Checked(codec, codec.inside_rectangle(bbox.MinX, bbox.MinY, bbox.MaxX, bbox.MaxY, out bool empty))
+            .Bind(_ => empty ? Fin.Succ(false) : Checked(codec, codec.exploit_spatial_index(true)).Map(static _ => true)),
+        None: static () => Fin.Succ(false));
 
-    static bool Next(laszip codec, CapabilitySet<ScanCapability> reach) {
-        if (reach.Admits(ScanCapability.SpatialIndex)) {
-            _ = Checked(codec, codec.read_inside_point(out bool done));
-            return !done;
-        }
-        _ = Checked(codec, codec.read_point());
-        return true;
+    static Fin<bool> Next(laszip codec, CapabilitySet<ScanCapability> reach) {
+        if (!reach.Admits(ScanCapability.SpatialIndex)) { return Checked(codec, codec.read_point()).Map(static _ => true); }
+        Fin<Unit> read = Checked(codec, codec.read_inside_point(out bool done));
+        return read.Map(_ => !done);
     }
 
     static ScanBatch Batch(List<double> xyz, List<byte> classes, List<ushort> colors, CapabilitySet<ScanCapability> reach) {
@@ -406,11 +411,11 @@ static class LasCodec {
         return batch;
     }
 
-    static laszip Opened(Stream source) {
+    static Fin<laszip> Opened(Stream source) {
         laszip codec = laszip.create();
-        _ = Checked(codec, codec.decompress_selective(Read));
-        _ = Checked(codec, codec.open_reader_stream(source, out _, leaveOpen: true));
-        return codec;
+        return Checked(codec, codec.decompress_selective(Read))
+            .Bind(_ => Checked(codec, codec.open_reader_stream(source, out _, leaveOpen: true)))
+            .Map(_ => codec);
     }
 
     static Option<string> Crs(laszip_header header) =>
@@ -419,9 +424,8 @@ static class LasCodec {
 
     static bool Colored(byte format) => format is 2 or 3 or 5 or 7 or 8 or 10;
 
-    static int Checked(laszip codec, int status) => status is 0
-        ? status
-        : throw new ScanRefusal(new ScanFault.CodecReject(codec.get_error()));
+    static Fin<Unit> Checked(laszip codec, int status) =>
+        status is 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(new ScanFault.CodecReject(codec.get_error()));
 }
 ```
 

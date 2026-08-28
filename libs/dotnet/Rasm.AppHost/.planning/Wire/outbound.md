@@ -996,14 +996,14 @@ public static class Discovery {
                 KeepAlivePingTimeout = policy.KeepAlivePingTimeout,
                 EnableMultipleHttp2Connections = policy.EnableMultipleHttp2Connections,
                 ConnectCallback = async (_, cancel) => {
-                    var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+                    Socket socket = new(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+                    NetworkStream? transport = null;
                     try {
-                        await socket.ConnectAsync(new UnixDomainSocketEndPoint(peer.SocketPath), cancel);
-                        return new NetworkStream(socket, ownsSocket: true);
+                        await socket.ConnectAsync(new UnixDomainSocketEndPoint(peer.SocketPath), cancel).ConfigureAwait(false);
+                        return transport = new NetworkStream(socket, ownsSocket: true);
                     }
-                    catch {
-                        socket.Dispose();
-                        throw;
+                    finally {
+                        if (transport is null) { socket.Dispose(); }
                     }
                 },
             },

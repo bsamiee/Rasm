@@ -720,14 +720,6 @@ public readonly record struct MeasureSlot(LatencyWrite Write, MeasureToken Token
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static partial class MaterialsLog {
-    public static Fin<Unit> Proof() =>
-        FaultBand.MaterialsLogBase == FaultBand.MaterialsLog.Code(0)
-        && FaultBand.MaterialsLogBase + 1 == FaultBand.MaterialsLog.Code(1)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
-                Label: nameof(MaterialsLog),
-                Requirement: $"event ids allocated from {FaultBand.MaterialsLog.Key}"));
-
     [LoggerMessage(EventId = FaultBand.MaterialsLogBase, EventName = "MaterialsRefused", Level = LogLevel.Warning, Message = "materials refused")]
     public static partial void Refused(ILogger logger, int? faultCode, [LogProperties] Error fault);
 
