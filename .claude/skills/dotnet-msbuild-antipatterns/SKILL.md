@@ -81,14 +81,7 @@ RULE: Always quote both sides of `==` and `!=` comparisons with single quotes.
 <Import Project="$(RepoRoot)eng\common.props" />
 ```
 
-Preferred path properties:
-
-| [INDEX] | [PROPERTY]                                       | [MEANING]                                     |
-| :-----: | :----------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `$(MSBuildThisFileDirectory)`                    | Directory of the current .props/.targets file |
-|  [02]   | `$(MSBuildProjectDirectory)`                     | Directory of the .csproj                      |
-|  [03]   | `$([MSBuild]::GetDirectoryNameOfFileAbove(...))` | Walk up to find a marker file                 |
-|  [04]   | `$([MSBuild]::NormalizePath(...))`               | Combine and normalize path segments           |
+See `dotnet-msbuild-evaluation` skill for Path normalization.
 
 ## [AP-04]-[RESTATING_SDK_DEFAULTS]
 
@@ -156,7 +149,7 @@ Preferred path properties:
 </Project>
 ```
 
-See `directory-build-organization` skill for full guidance on structuring `Directory.Build.props` / `Directory.Build.targets`.
+See `dotnet-msbuild-evaluation` skill for full guidance on structuring `Directory.Build.props` / `Directory.Build.targets`.
 
 ## [AP-07]-[MONOLITHIC_TARGETS]
 
@@ -222,7 +215,7 @@ Key points:
 - `FileWrites` registration ensures `dotnet clean` removes the generated file
 - `Compile` inclusion adds the generated file to compilation without requiring it at evaluation time
 
-See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, and up-to-date checks.
+See `dotnet-msbuild-execution` skill for full guidance on Inputs/Outputs, FileWrites, and up-to-date checks.
 
 ## [AP-09]-[SETTING_DEFAULTS_IN_TARGETS_INSTEAD_OF_PROPS]
 
@@ -274,9 +267,9 @@ Exception — NuGet package forwarders: `.props`/`.targets` files inside a NuGet
 - A custom `.nuspec` with per-TFM `<file>` entries — e.g. `<file src="buildTransitive\common\MyAdapter.props" target="buildTransitive\net8.0\MyAdapter.props" />` — that copy files from a single source folder (such as `buildTransitive/common/`) into per-TFM subfolders at pack time, or
 - `<None Update="...">` / `<Content Include="...">` items in the `.csproj` with a per-TFM `<PackagePath>` (e.g. `<PackagePath>buildTransitive/net8.0/</PackagePath>`), declared once per target TFM, or SDK conventions (e.g. `IncludeBuildOutput`, `BuildOutputTargetFolder`) that place built outputs under `build/<tfm>/`.
 
-Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, resolve it against the packed layout — read every `*.nuspec` in the project directory and its immediate parent directory (shared nuspecs are common in mono-repos; do not walk further up), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from both the source tree and the projected package layout. The `dotnet-msbuild/extension-points` skill — Source tree vs packed layout — documents the full cross-check procedure.
+Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, resolve it against the packed layout — read every `*.nuspec` in the project directory and its immediate parent directory (shared nuspecs are common in mono-repos; do not walk further up), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from both the source tree and the projected package layout. The `dotnet-msbuild-evaluation` skill — Source tree vs packed layout — documents the full cross-check procedure.
 
-Forwarding `buildTransitive/` → `build/`: forward through the sibling `build/*.props` / `build/*.targets` file (not directly to `buildMultiTargeting/`); when `build/` is per-TFM (`build/<tfm>/`), include the TFM segment derived from the file's own folder (not `$(TargetFramework)`), or transitive consumers hit `MSB4019`. See the `extension-points` skill — Forwarding chain — for the rule and derivation expression.
+Forwarding `buildTransitive/` → `build/`: forward through the sibling `build/*.props` / `build/*.targets` file (not directly to `buildMultiTargeting/`); when `build/` is per-TFM (`build/<tfm>/`), include the TFM segment derived from the file's own folder (not `$(TargetFramework)`), or transitive consumers hit `MSB4019`. See the `dotnet-msbuild-evaluation` skill for Forwarding chain rule and derivation expression.
 
 ## [AP-11]-[BACKSLASHES_IN_PATHS]
 
@@ -432,9 +425,7 @@ Verification rule: Before flagging a backslash path as [ERROR], ask "does this s
 ## [AP-18]-[PROPERTY_CONDITIONED_ON_TARGETFRAMEWORK_IN_PROPS_FILES]
 
 - SMELL: `<PropertyGroup Condition="'$(TargetFramework)' == '...'">` or `<Property Condition="'$(TargetFramework)' == '...'">` in `Directory.Build.props` or any `.props` file imported before the project body.
-- WHY: `$(TargetFramework)` is NOT reliably available in `Directory.Build.props` or any `.props` file imported before the project body. It is only set that early for multi-targeting projects, which receive `TargetFramework` as a global property from the outer build. Single-targeting projects (using singular `<TargetFramework>`) set it in the project body, which is evaluated after `.props`. This means property conditions on `$(TargetFramework)` in `.props` files silently fail for single-targeting projects — the condition never matches because the property is empty. This applies to both `<PropertyGroup Condition="...">` and individual `<Property Condition="...">` elements.
-
-For a detailed explanation of MSBuild's evaluation and execution phases, see [Build process overview](https://learn.microsoft.com/en-us/visualstudio/msbuild/build-process-overview).
+- WHY: Single-targeting projects set `TargetFramework` in the project body, after `.props` evaluation, so the condition compares an empty string and silently never matches. Only multi-targeting inner builds receive it early, as a global property. See `dotnet-msbuild-evaluation` skill — Nested conditional groups.
 
 ```xml
 <!-- BAD: In Directory.Build.props — TargetFramework may be empty here -->
@@ -459,9 +450,9 @@ For a detailed explanation of MSBuild's evaluation and execution phases, see [Bu
 </PropertyGroup>
 ```
 
-[CAUTION] Item and Target conditions are NOT affected. This restriction applies ONLY to property conditions (`<PropertyGroup Condition="...">` and `<Property Condition="...">`). Item conditions (`<ItemGroup Condition="...">`) and Target conditions in `.props` files are SAFE because items and targets evaluate after all properties (including those set in the project body) have been evaluated. This includes `PackageVersion` items in `Directory.Packages.props`, `PackageReference` items in `Directory.Build.props`, and any other item types.
+[CAUTION] Only property conditions are affected. Items and targets evaluate after every property, including those set in the project body, so `ItemGroup`, item, and `Target` conditions on `$(TargetFramework)` in `.props` files are correct — including `PackageVersion` items in `Directory.Packages.props`.
 
-Do NOT flag the following patterns — they are correct:
+Do NOT flag the following patterns, they are correct:
 
 ```xml
 <!-- OK in Directory.Build.props — ItemGroup conditions evaluate late -->

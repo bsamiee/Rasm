@@ -7,6 +7,7 @@ description: >-
     Use when authoring, editing, or reviewing markdown of any kind and comments in
     source files; when designing a document schema or marker vocabulary; when pruning code
     comments; or on "clean up this doc", "tighten the prose", "this doc is stale".
+disable-model-invocation: true
 ---
 
 # [DOCGEN]
