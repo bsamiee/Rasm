@@ -43,6 +43,13 @@
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
     </PropertyGroup>
 
+    <!-- MPXJ.Net compiles its Java dependencies through IKVM at build time. The owning project is named here because item-list conditions cannot run in an evaluation-time PropertyGroup. -->
+    <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
+        <IkvmCacheDir>$(RasmRepoRoot).cache/ikvm/</IkvmCacheDir>
+        <IkvmExportCacheDir>$(RasmRepoRoot).cache/ikvm/expcache/</IkvmExportCacheDir>
+        <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
+    </PropertyGroup>
+
     <ItemGroup Label="Workspace Analyzers">
         <PackageReference Include="ErrorProne.NET.CoreAnalyzers" PrivateAssets="all" />
         <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />

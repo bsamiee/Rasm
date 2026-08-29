@@ -27,7 +27,7 @@
 
     <ItemGroup Label="Rhino Host Assemblies" Condition="'$(HostCommon)' == 'true'">
         <_RhinoHostAssembly Include="RhinoCommon" />
-        <_RhinoHostAssembly Include="Eto;System.Drawing.Common" Condition="'$(HostUi)' == 'true'" />
+        <_RhinoHostAssembly Include="Eto" Condition="'$(HostUi)' == 'true'" />
         <_RhinoHostAssembly Include="Eto.macOS;Microsoft.macOS;Rhino.UI" Condition="'$(HostPlatform)' == 'true'" />
         <Reference Include="@(_RhinoHostAssembly)" HintPath="$(RhinoResourcesPath)%(Identity).dll" Private="false" />
         <Reference Include="Grasshopper2;GrasshopperIO" HintPath="$(Grasshopper2PluginPath)%(Identity).dll" Private="false" Condition="'$(HostGrasshopper)' == 'true'" />
@@ -41,13 +41,6 @@
             <_Parameter1>macos</_Parameter1>
         </AssemblyAttribute>
     </ItemGroup>
-
-    <!-- MPXJ.Net compiles its Java dependencies through IKVM at build time. Item-list conditions cannot run in an evaluation-time PropertyGroup, so this setting uses the project name. -->
-    <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
-        <IkvmCacheDir>$(RasmRepoRoot).cache/ikvm/</IkvmCacheDir>
-        <IkvmExportCacheDir>$(RasmRepoRoot).cache/ikvm/expcache/</IkvmExportCacheDir>
-        <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
-    </PropertyGroup>
 
     <Target Name="VerifyRhinoHostBundle" BeforeTargets="ResolveAssemblyReferences" Condition="'$(HostCommon)' == 'true'">
         <ItemGroup>

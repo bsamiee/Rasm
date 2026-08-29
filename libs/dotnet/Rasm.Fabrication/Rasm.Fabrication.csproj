@@ -29,6 +29,7 @@
 
     <ItemGroup Label="Vendored Natives" Condition="Exists('vendor')">
         <!-- lib3mf + OpenCAMLib ship no NuGet artifact; RID-keyed LFS natives ride vendor/runtimes, the ACT binding source stages compile-excluded at vendor/sdk until realization. -->
+        <!-- TODO: this copy preserves the vendor/ prefix, so natives land at bin/vendor/runtimes where no probe reaches; on realization pack them into a local NuGet package carrying runtimes/<rid>/native so deps.json runtimeTargets drives RID selection, or Link them onto runtimes/%(RecursiveDir) and resolve through NativeLibrary.SetDllImportResolver from a [ModuleInitializer]. -->
         <Content Include="vendor/runtimes/**" CopyToOutputDirectory="PreserveNewest" />
         <Compile Remove="vendor/**/*.cs" />
     </ItemGroup>
