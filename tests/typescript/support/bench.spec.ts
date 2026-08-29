@@ -147,7 +147,10 @@ layer(NodeContext.layer)('benchmark regression check', (it) => {
             Effect.scoped(
                 Effect.gen(function* () {
                     const home = yield* _seededDirectory(
-                        _run('test support benchmarks::summarize', [60, 59, 61, 60, 58, 61]),
+                        _run(
+                            'test support benchmarks::summarize',
+                            [60, 59, 61, 60, 58, 61],
+                        ),
                     );
                     const report = yield* Effect.provideService(
                         Benchmark.checkRegression(),
@@ -195,23 +198,21 @@ layer(NodeContext.layer)('benchmark regression check', (it) => {
             ),
     );
 
-    it.effect(
-        'a missing autosave returns a typed unreadable error',
-        () =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const fs = yield* FileSystem.FileSystem;
-                    const home = yield* fs.makeTempDirectoryScoped();
-                    const error = yield* Effect.flip(
-                        Effect.provideService(
-                            Benchmark.checkRegression(),
-                            BenchmarkDirectory,
-                            home,
-                        ),
-                    );
-                    expect(error.reason).toBe('unreadable');
-                }),
-            ),
+    it.effect('a missing autosave returns a typed unreadable error', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const home = yield* fs.makeTempDirectoryScoped();
+                const error = yield* Effect.flip(
+                    Effect.provideService(
+                        Benchmark.checkRegression(),
+                        BenchmarkDirectory,
+                        home,
+                    ),
+                );
+                expect(error.reason).toBe('unreadable');
+            }),
+        ),
     );
 
     it.effect(

@@ -25,41 +25,34 @@ const _metricChange = (
 ) => Array.findFirst(changes, (row) => row.name === name);
 
 describe('metric changes', () => {
-    it.effect(
-        'a changed counter records its previous and current values',
-        () =>
-            Effect.gen(function* () {
-                yield* Metric.increment(_reuse);
-                const capture = yield* Telemetry.capture(
-                    Effect.zipRight(
-                        Metric.increment(_reuse),
-                        Metric.increment(_reuse),
-                    ),
-                );
-                const row = yield* _metricChange(
-                    capture.metricChanges,
-                    'test_support_token_reuse',
-                );
-                expect(row.value - row.before).toBe(2);
-                expect(Exit.isSuccess(capture.exit)).toBe(true);
-            }),
+    it.effect('a changed counter records its previous and current values', () =>
+        Effect.gen(function* () {
+            yield* Metric.increment(_reuse);
+            const capture = yield* Telemetry.capture(
+                Effect.zipRight(
+                    Metric.increment(_reuse),
+                    Metric.increment(_reuse),
+                ),
+            );
+            const row = yield* _metricChange(
+                capture.metricChanges,
+                'test_support_token_reuse',
+            );
+            expect(row.value - row.before).toBe(2);
+            expect(Exit.isSuccess(capture.exit)).toBe(true);
+        }),
     );
 
-    it.effect(
-        'an unchanged metric is absent from the change set',
-        () =>
-            Effect.gen(function* () {
-                yield* Metric.increment(_inert);
-                const capture = yield* Telemetry.capture(Effect.void);
-                expect(
-                    Option.isNone(
-                        _metricChange(
-                            capture.metricChanges,
-                            'test_support_inert',
-                        ),
-                    ),
-                ).toBe(true);
-            }),
+    it.effect('an unchanged metric is absent from the change set', () =>
+        Effect.gen(function* () {
+            yield* Metric.increment(_inert);
+            const capture = yield* Telemetry.capture(Effect.void);
+            expect(
+                Option.isNone(
+                    _metricChange(capture.metricChanges, 'test_support_inert'),
+                ),
+            ).toBe(true);
+        }),
     );
 
     it.effect('a tagged counter keeps its tag rows on the reading', () =>
@@ -145,19 +138,17 @@ describe('span capture', () => {
             }),
     );
 
-    it.effect(
-        'a failing span records the failure outcome',
-        () =>
-            Effect.gen(function* () {
-                const capture = yield* Telemetry.capture(
-                    Effect.withSpan(Effect.fail('rejected' as const), 'operation'),
-                );
-                const span = yield* Array.findFirst(
-                    capture.spans,
-                    (row) => row.name === 'operation',
-                );
-                expect(span.outcome).toBe('failure');
-            }),
+    it.effect('a failing span records the failure outcome', () =>
+        Effect.gen(function* () {
+            const capture = yield* Telemetry.capture(
+                Effect.withSpan(Effect.fail('rejected' as const), 'operation'),
+            );
+            const span = yield* Array.findFirst(
+                capture.spans,
+                (row) => row.name === 'operation',
+            );
+            expect(span.outcome).toBe('failure');
+        }),
     );
 
     it.effect(
@@ -190,16 +181,18 @@ describe('span capture', () => {
 });
 
 describe('metric snapshot', () => {
-    it.effect('the snapshot includes the current reading for a registered metric', () =>
-        Effect.gen(function* () {
-            yield* Metric.increment(_inert);
-            const snapshot = yield* Telemetry.snapshot;
-            const row = yield* Array.findFirst(
-                snapshot,
-                (reading) => reading.name === 'test_support_inert',
-            );
-            expect(row.kind).toBe('counter');
-            expect(row.value).toBeGreaterThan(0);
-        }),
+    it.effect(
+        'the snapshot includes the current reading for a registered metric',
+        () =>
+            Effect.gen(function* () {
+                yield* Metric.increment(_inert);
+                const snapshot = yield* Telemetry.snapshot;
+                const row = yield* Array.findFirst(
+                    snapshot,
+                    (reading) => reading.name === 'test_support_inert',
+                );
+                expect(row.kind).toBe('counter');
+                expect(row.value).toBeGreaterThan(0);
+            }),
     );
 });

@@ -40,10 +40,11 @@ const _POLICY = {
 } as const;
 
 const _FILES = { latest: 'latest.json', history: 'history.ndjson' } as const;
-const _SEVERITY = { pass: 0, noisy: 1, regression: 2 } as const satisfies Record<
-    Benchmark.Verdict,
-    number
->;
+const _SEVERITY = {
+    pass: 0,
+    noisy: 1,
+    regression: 2,
+} as const satisfies Record<Benchmark.Verdict, number>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -260,8 +261,7 @@ const Benchmark = {
                           Array.max(
                               Array.map(
                                   benchmarks,
-                                  (benchmark) =>
-                                      _SEVERITY[benchmark.verdict],
+                                  (benchmark) => _SEVERITY[benchmark.verdict],
                               ),
                               Order.number,
                           ),

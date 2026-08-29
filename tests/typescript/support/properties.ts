@@ -53,12 +53,16 @@ declare namespace Property {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class PropertyViolationError extends Data.TaggedError('PropertyViolationError')<{
+class PropertyViolationError extends Data.TaggedError(
+    'PropertyViolationError',
+)<{
     readonly property: string;
     readonly args: unknown;
 }> {}
 
-class InvalidPropertyCounterexampleError extends Data.TaggedError('InvalidPropertyCounterexampleError')<{
+class InvalidPropertyCounterexampleError extends Data.TaggedError(
+    'InvalidPropertyCounterexampleError',
+)<{
     readonly property: string;
     readonly counterexample: string;
 }> {}
@@ -81,7 +85,11 @@ const _succeeds = <A, E, R>(
 const Property = {
     verifyCounterexample: <S, A extends Property.Arbitraries, E, R>(
         definition: Property.Definition<S, A, E, R>,
-    ): Effect.Effect<void, InvalidPropertyCounterexampleError, R | TestServices.TestServices> =>
+    ): Effect.Effect<
+        void,
+        InvalidPropertyCounterexampleError,
+        R | TestServices.TestServices
+    > =>
         Effect.flatMap(
             Effect.exit(
                 definition.predicate(
@@ -154,7 +162,10 @@ const Property = {
             counterexample: options.counterexample,
         }),
     commutative: <A>(
-        options: Property.Options<Property.Binary<A>, { readonly a: A; readonly b: A }> & {
+        options: Property.Options<
+            Property.Binary<A>,
+            { readonly a: A; readonly b: A }
+        > & {
             readonly arb: FastCheck.Arbitrary<A>;
             readonly equals?: Property.Equals<A>;
         },
@@ -250,7 +261,10 @@ const Property = {
             counterexample: options.counterexample,
         }),
     inverse: <A, B>(
-        options: Property.Options<Property.Isomorphism<A, B>, { readonly a: A }> & {
+        options: Property.Options<
+            Property.Isomorphism<A, B>,
+            { readonly a: A }
+        > & {
             readonly arb: FastCheck.Arbitrary<A>;
             readonly equals?: Property.Equals<A>;
         },
@@ -366,7 +380,9 @@ const Property = {
                 FastCheck.Arbitrary<FastCheck.Command<Model, Real>>
             >;
         },
-    ): Property.Registered<() => { readonly model: Model; readonly real: Real }> =>
+    ): Property.Registered<
+        () => { readonly model: Model; readonly real: Real }
+    > =>
         Property.define({
             name: options.name ?? 'system conforms to its model',
             arbitraries: { run: FastCheck.commands([...options.commands]) },
@@ -383,7 +399,9 @@ const Property = {
                 FastCheck.Arbitrary<FastCheck.AsyncCommand<Model, Real>>
             >;
         },
-    ): Property.Registered<() => { readonly model: Model; readonly real: Real }> =>
+    ): Property.Registered<
+        () => { readonly model: Model; readonly real: Real }
+    > =>
         Property.define({
             name: options.name ?? 'asynchronous system conforms to its model',
             arbitraries: { run: FastCheck.commands([...options.commands]) },
@@ -400,7 +418,9 @@ const Property = {
             (schedule: FastCheck.Scheduler) => Promise<boolean>,
             { readonly schedule: FastCheck.Scheduler }
         >,
-    ): Property.Registered<(schedule: FastCheck.Scheduler) => Promise<boolean>> =>
+    ): Property.Registered<
+        (schedule: FastCheck.Scheduler) => Promise<boolean>
+    > =>
         Property.define({
             name: options.name ?? 'holds under every interleaving',
             arbitraries: { schedule: FastCheck.scheduler() },

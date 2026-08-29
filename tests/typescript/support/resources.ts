@@ -67,7 +67,9 @@ declare namespace ObjectStore {
         readonly list: (
             prefix: string,
         ) => Effect.Effect<ReadonlyArray<string>, TestResourceError>;
-        readonly remove: (key: string) => Effect.Effect<void, TestResourceError>;
+        readonly remove: (
+            key: string,
+        ) => Effect.Effect<void, TestResourceError>;
         readonly url: (
             key: string,
             ttlSeconds: number,
@@ -127,7 +129,10 @@ const _fromPromise = <A>(
     resource: TestResourceError['resource'],
     run: () => Promise<A>,
 ): Effect.Effect<A, TestResourceError> =>
-    Effect.tryPromise({ try: run, catch: TestResourceError.operation(resource) });
+    Effect.tryPromise({
+        try: run,
+        catch: TestResourceError.operation(resource),
+    });
 
 const _utf8 = new TextEncoder();
 const _byKeyBytes: Order.Order<string> = (self, that) => {
@@ -166,7 +171,9 @@ const _database = (
 });
 
 const _rollbackTransaction =
-    (exec: TestDatabase.Service['exec']): TestDatabase.Service['rollbackTransaction'] =>
+    (
+        exec: TestDatabase.Service['exec'],
+    ): TestDatabase.Service['rollbackTransaction'] =>
     (work) =>
         Effect.acquireUseRelease(
             exec('BEGIN'),
@@ -299,11 +306,11 @@ const LoopbackServers = {
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export {
-    TestResourceError,
     Loopback,
     LoopbackServers,
     ObjectStore,
     ObjectStoreDoubles,
     TestDatabase,
     TestDatabases,
+    TestResourceError,
 };

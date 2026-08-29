@@ -208,22 +208,22 @@ def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.S
             multiple_of = leaf.get("multiple_of")
             return _multiples(lower if lower is not None else -_NUM_CEILING, upper if upper is not None else _NUM_CEILING, multiple_of, int) if isinstance(multiple_of, int) else st.integers(min_value=lower, max_value=upper)
         case "float":
-            lower, exclude_lower = _numeric_bound(leaf, "ge", "gt")
-            upper, exclude_upper = _numeric_bound(leaf, "le", "lt")
+            float_lower, exclude_lower = _numeric_bound(leaf, "ge", "gt")
+            float_upper, exclude_upper = _numeric_bound(leaf, "le", "lt")
             multiple_of = leaf.get("multiple_of")
             return (
-                _multiples(lower if lower is not None else -float(_NUM_CEILING), upper if upper is not None else float(_NUM_CEILING), multiple_of, float, exclude_lower=exclude_lower, exclude_upper=exclude_upper)
+                _multiples(float_lower if float_lower is not None else -float(_NUM_CEILING), float_upper if float_upper is not None else float(_NUM_CEILING), multiple_of, float, exclude_lower=exclude_lower, exclude_upper=exclude_upper)
                 if isinstance(multiple_of, int | float)
-                else st.floats(min_value=lower, max_value=upper, exclude_min=exclude_lower, exclude_max=exclude_upper, allow_nan=False, allow_infinity=False)
+                else st.floats(min_value=float_lower, max_value=float_upper, exclude_min=exclude_lower, exclude_max=exclude_upper, allow_nan=False, allow_infinity=False)
             )
         case "decimal":
-            lower, exclude_lower = _numeric_bound(leaf, "ge", "gt")
-            upper, exclude_upper = _numeric_bound(leaf, "le", "lt")
+            decimal_lower, exclude_lower = _numeric_bound(leaf, "ge", "gt")
+            decimal_upper, exclude_upper = _numeric_bound(leaf, "le", "lt")
             places, digits = leaf.get("decimal_places"), leaf.get("max_digits")
             dp = places if isinstance(places, int) else (0 if isinstance(digits, int) else None)
             digit_max = _decimal_max(digits, dp)
-            effective_lower = lower if lower is not None else (-digit_max if digit_max is not None else None)
-            effective_upper = upper if upper is not None else digit_max
+            effective_lower = decimal_lower if decimal_lower is not None else (-digit_max if digit_max is not None else None)
+            effective_upper = decimal_upper if decimal_upper is not None else digit_max
             multiple_of = leaf.get("multiple_of")
             if isinstance(multiple_of, int | float | Decimal):
                 return _multiples(effective_lower if effective_lower is not None else -_NUM_CEILING, effective_upper if effective_upper is not None else _NUM_CEILING, multiple_of, lambda value: value, exclude_lower=exclude_lower, exclude_upper=exclude_upper)
@@ -336,7 +336,7 @@ def strategy_for[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
             node = _mi.type_info(subject)
         except TypeError:
             return st.from_type(subject)  # ty: ignore[invalid-argument-type]
-        return _msgspec_strategy(node)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+        return _msgspec_strategy(node)   # type: ignore[return-value]  # ty: ignore[invalid-return-type]
     if subject not in _REGISTERED:
         _REGISTERED.add(subject)
         if (cases := _tagged_cases(subject)) is not None:

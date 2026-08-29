@@ -157,17 +157,15 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
             }),
     );
 
-    it.effect(
-        'an unavailable extension returns a typed database error',
-        () =>
-            Effect.gen(function* () {
-                const database = yield* TestDatabase;
-                const error = yield* Effect.flip(
-                    database.exec('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'),
-                );
-                expect(error).toBeInstanceOf(TestResourceError);
-                expect(error.resource).toBe('database');
-            }),
+    it.effect('an unavailable extension returns a typed database error', () =>
+        Effect.gen(function* () {
+            const database = yield* TestDatabase;
+            const error = yield* Effect.flip(
+                database.exec('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'),
+            );
+            expect(error).toBeInstanceOf(TestResourceError);
+            expect(error.resource).toBe('database');
+        }),
     );
 });
 
@@ -177,30 +175,34 @@ layer(
         seed: 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";',
     }),
 )('PGlite extension configuration', (it) => {
-    it.effect(
-        'a configured extension exposes its SQL function',
-        () =>
-            Effect.gen(function* () {
-                const database = yield* TestDatabase;
-                const rows = yield* database.decoded(
-                    Schema.Struct({ id: Schema.UUID }),
-                )('SELECT uuid_generate_v4()::text AS id');
-                expect(rows).toHaveLength(1);
-            }),
+    it.effect('a configured extension exposes its SQL function', () =>
+        Effect.gen(function* () {
+            const database = yield* TestDatabase;
+            const rows = yield* database.decoded(
+                Schema.Struct({ id: Schema.UUID }),
+            )('SELECT uuid_generate_v4()::text AS id');
+            expect(rows).toHaveLength(1);
+        }),
     );
 });
 
 layer(ObjectStoreDoubles.memory)('in-memory object store', (it) => {
-    it.effect('put, get, list, and remove implement the object-store contract', () =>
-        Effect.gen(function* () {
-            const store = yield* ObjectStore;
-            yield* store.put('objects/one', _BYTES);
-            expect(yield* store.get('objects/one')).toEqual(Option.some(_BYTES));
-            expect(yield* store.get('objects/absent')).toEqual(Option.none());
-            expect(yield* store.list('objects/')).toEqual(['objects/one']);
-            yield* store.remove('objects/one');
-            expect(yield* store.get('objects/one')).toEqual(Option.none());
-        }),
+    it.effect(
+        'put, get, list, and remove implement the object-store contract',
+        () =>
+            Effect.gen(function* () {
+                const store = yield* ObjectStore;
+                yield* store.put('objects/one', _BYTES);
+                expect(yield* store.get('objects/one')).toEqual(
+                    Option.some(_BYTES),
+                );
+                expect(yield* store.get('objects/absent')).toEqual(
+                    Option.none(),
+                );
+                expect(yield* store.list('objects/')).toEqual(['objects/one']);
+                yield* store.remove('objects/one');
+                expect(yield* store.get('objects/one')).toEqual(Option.none());
+            }),
     );
 
     it.effect(
@@ -249,16 +251,14 @@ layer(
         ),
     ),
 )('loopback HTTP server', (it) => {
-    it.effect(
-        'the server exposes a live endpoint and configured client',
-        () =>
-            Effect.gen(function* () {
-                const loop = yield* Loopback;
-                expect(loop.url).toMatch(/^http:\/\/.+:\d+$/);
-                const reply = yield* Effect.scoped(loop.client.get('/ping'));
-                expect(reply.status).toBe(200);
-                expect(yield* reply.text).toBe('pong');
-            }),
+    it.effect('the server exposes a live endpoint and configured client', () =>
+        Effect.gen(function* () {
+            const loop = yield* Loopback;
+            expect(loop.url).toMatch(/^http:\/\/.+:\d+$/);
+            const reply = yield* Effect.scoped(loop.client.get('/ping'));
+            expect(reply.status).toBe(200);
+            expect(yield* reply.text).toBe('pong');
+        }),
     );
 
     it.effect('an unrouted path returns 404 over the loopback socket', () =>

@@ -10,7 +10,7 @@ import anyio
 import msgspec
 import pytest
 
-from tests.python.support.doubles import Async, autojump_backend, Batch, Factory, NdjsonOracle, CallProbe, Sync, VariantWriter
+from tests.python.support.doubles import Async, autojump_backend, Batch, CallProbe, Factory, NdjsonOracle, Sync, VariantWriter
 
 if TYPE_CHECKING:
     from pathlib import Path

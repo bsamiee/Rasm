@@ -5,10 +5,10 @@ namespace Rasm.TestSupport;
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class MatrixNorm {
-    public static readonly MatrixNorm MaxAbsoluteEntry = new(static (rows, columns, at) => NumericOracles.MatrixIndices(rows, columns).Max(index => Math.Abs(at(index.Row, index.Column))));
+    public static readonly MatrixNorm MaxAbsoluteEntry = new(static (rows, columns, at) => NumericOracles.MatrixIndices(rows, columns).Max(index => Math.Abs(at(index.Row, index.Col))));
     public static readonly MatrixNorm L1 = new(static (rows, columns, at) => Enumerable.Range(0, columns).Max(column => Enumerable.Range(0, rows).Sum(row => Math.Abs(at(row, column)))));
     public static readonly MatrixNorm LInfinity = new(static (rows, columns, at) => Enumerable.Range(0, rows).Max(row => Enumerable.Range(0, columns).Sum(column => Math.Abs(at(row, column)))));
-    public static readonly MatrixNorm Frobenius = new(static (rows, columns, at) => Math.Sqrt(NumericOracles.MatrixIndices(rows, columns).Sum(index => at(index.Row, index.Column) * at(index.Row, index.Column))));
+    public static readonly MatrixNorm Frobenius = new(static (rows, columns, at) => Math.Sqrt(NumericOracles.MatrixIndices(rows, columns).Sum(index => at(index.Row, index.Col) * at(index.Row, index.Col))));
 
     [UseDelegateFromConstructor]
     public partial double Evaluate(int rows, int columns, Func<int, int, double> at);

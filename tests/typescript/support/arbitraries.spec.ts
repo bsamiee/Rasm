@@ -5,7 +5,9 @@ import { Arbitraries } from './arbitraries.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class OptionalFieldsRecord extends Schema.Class<OptionalFieldsRecord>('OptionalFieldsRecord')({
+class OptionalFieldsRecord extends Schema.Class<OptionalFieldsRecord>(
+    'OptionalFieldsRecord',
+)({
     version: Schema.Int,
     label: Schema.optionalWith(Schema.String, { as: 'Option' }),
     note: Schema.optionalWith(Schema.String, { as: 'Option', exact: true }),
@@ -21,7 +23,10 @@ const _decode = Schema.decodeUnknownEither(OptionalFieldsRecord);
 
 describe('optional field generation', () => {
     it('varies optional-key presence across the encoded samples', () => {
-        const samples = FastCheck.sample(Arbitraries.optionalFields(OptionalFieldsRecord), _SEED);
+        const samples = FastCheck.sample(
+            Arbitraries.optionalFields(OptionalFieldsRecord),
+            _SEED,
+        );
         const present = Array.filter(samples, (sample) =>
             Object.hasOwn(sample, 'label'),
         );
@@ -30,17 +35,23 @@ describe('optional field generation', () => {
     });
 
     it('every generated encoded value decodes successfully', () => {
-        const samples = FastCheck.sample(Arbitraries.optionalFields(OptionalFieldsRecord), _SEED);
+        const samples = FastCheck.sample(
+            Arbitraries.optionalFields(OptionalFieldsRecord),
+            _SEED,
+        );
         expect(
             Array.every(samples, (sample) => Either.isRight(_decode(sample))),
         ).toBe(true);
     });
 
     it('explicit undefined is generated only for encoded fields that accept it', () => {
-        const samples = FastCheck.sample(Arbitraries.optionalFields(OptionalFieldsRecord), {
-            ..._SEED,
-            numRuns: 256,
-        });
+        const samples = FastCheck.sample(
+            Arbitraries.optionalFields(OptionalFieldsRecord),
+            {
+                ..._SEED,
+                numRuns: 256,
+            },
+        );
         const unset = Array.filter(
             samples,
             (sample) =>
@@ -58,7 +69,10 @@ describe('optional field generation', () => {
 
     it('an empty optional-key list preserves every generated field', () => {
         const base = FastCheck.record({ version: FastCheck.integer() });
-        const samples = FastCheck.sample(Arbitraries.optionalFields(base, []), _SEED);
+        const samples = FastCheck.sample(
+            Arbitraries.optionalFields(base, []),
+            _SEED,
+        );
         expect(
             Array.every(samples, (sample) => Object.hasOwn(sample, 'version')),
         ).toBe(true);

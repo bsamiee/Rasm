@@ -34,7 +34,10 @@ const _associativity = Property.define<Combine, typeof _ARGS>({
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const _VersionedRecord = Schema.Struct({ label: Schema.String, version: Schema.Int });
+const _VersionedRecord = Schema.Struct({
+    label: Schema.String,
+    version: Schema.Int,
+});
 
 const _TruncatingLabelSchema = Schema.Struct({
     label: Schema.transform(Schema.String, Schema.String, {
@@ -190,20 +193,24 @@ describe('order property', () => {
 });
 
 describe('inverse property', () => {
-    Property.register(it, { to: (value: number) => String(value), from: Number }, [
-        Property.inverse({
-            arb: _INTS,
-            equals: _SAME,
-            counterexample: {
-                label: 'sign-erasing isomorphism',
-                implementation: {
-                    to: (value: number) => String(Math.abs(value)),
-                    from: Number,
+    Property.register(
+        it,
+        { to: (value: number) => String(value), from: Number },
+        [
+            Property.inverse({
+                arb: _INTS,
+                equals: _SAME,
+                counterexample: {
+                    label: 'sign-erasing isomorphism',
+                    implementation: {
+                        to: (value: number) => String(Math.abs(value)),
+                        from: Number,
+                    },
+                    args: { a: -1 },
                 },
-                args: { a: -1 },
-            },
-        }),
-    ]);
+            }),
+        ],
+    );
 });
 
 describe('deterministic property', () => {
@@ -342,26 +349,32 @@ describe('counterexample verification', () => {
         ),
     );
 
-    it.effect('an implementation satisfying the property is rejected as a counterexample', () =>
-        Effect.gen(function* () {
-            const error = yield* Effect.flip(
-                Property.verifyCounterexample({
-                    name: 'invalid counterexample registration',
-                    arbitraries: _ARGS,
-                    predicate: (combine: Combine, { x, y, z }) =>
-                        Effect.succeed(
-                            combine(combine(x, y), z) ===
-                                combine(x, combine(y, z)),
-                        ),
-                    counterexample: {
-                        label: 'valid implementation',
-                        implementation: Math.min,
-                        args: { x: 1, y: 2, z: 3 },
-                    },
-                }),
-            );
-            expect(error).toBeInstanceOf(InvalidPropertyCounterexampleError);
-            expect(error.property).toBe('invalid counterexample registration');
-        }),
+    it.effect(
+        'an implementation satisfying the property is rejected as a counterexample',
+        () =>
+            Effect.gen(function* () {
+                const error = yield* Effect.flip(
+                    Property.verifyCounterexample({
+                        name: 'invalid counterexample registration',
+                        arbitraries: _ARGS,
+                        predicate: (combine: Combine, { x, y, z }) =>
+                            Effect.succeed(
+                                combine(combine(x, y), z) ===
+                                    combine(x, combine(y, z)),
+                            ),
+                        counterexample: {
+                            label: 'valid implementation',
+                            implementation: Math.min,
+                            args: { x: 1, y: 2, z: 3 },
+                        },
+                    }),
+                );
+                expect(error).toBeInstanceOf(
+                    InvalidPropertyCounterexampleError,
+                );
+                expect(error.property).toBe(
+                    'invalid counterexample registration',
+                );
+            }),
     );
 });

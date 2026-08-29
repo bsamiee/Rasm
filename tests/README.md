@@ -20,10 +20,11 @@ tests/
 [CASING]:
 - Tier, grouping, and shared infrastructure directories are lowercase.
 - PascalCase begins at a C# project boundary and continues through source folders inside it; grouping directories above a project stay lowercase.
-- Test files follow the owning language's naming conventions.
+- Python test modules use `test_<module>.py`; TypeScript test files use `<module>.spec.ts`; C# test source files use `<Subject>.Tests.cs`.
 
 [SHARED_TEST_CODE]:
 - Each language area centralizes reusable fixtures, generators, assertions, and test harness code in its `support/` directory.
+- Each test-support source with repository-owned executable behavior carries its test beside it.
 - Production packages under `libs/` contain no shared test support.
 
 ## [02]-[TEST_CLASSIFICATION]

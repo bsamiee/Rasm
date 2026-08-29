@@ -21,10 +21,10 @@ import msgspec
 import pytest
 
 from tests.python.support import properties as properties_module
-from tests.python.support.bench import _series_from_storage, pytest_benchmark_update_json
-from tests.python.support.properties import assert_property_coverage, is_automatically_exempt, PackageUnderTest, PROPERTY_TESTS, PropertyRecord, property_test, record_coverage_declarations, register_package_tree, uncollected_test_modules
-from tests.python.support.runtime import PROFILE_DEFAULT, PROFILE_STATEFUL, REPO_ROOT
 from tests.python.support.assertions import capability_matrix
+from tests.python.support.bench import _series_from_storage, pytest_benchmark_update_json
+from tests.python.support.properties import assert_property_coverage, is_automatically_exempt, PackageUnderTest, property_test, PROPERTY_TESTS, PropertyRecord, record_coverage_declarations, register_package_tree, uncollected_test_modules
+from tests.python.support.runtime import PROFILE_DEFAULT, PROFILE_STATEFUL, REPO_ROOT
 
 if TYPE_CHECKING:
     from unittest.mock import Mock
@@ -420,7 +420,7 @@ def test_sustained_regression_check_fails_on_step_change_and_accepts_flat_histor
 @pytest.mark.subprocess
 def test_observability_flag_writes_hypothesis_observations_to_artifacts() -> None:
     """``TESTS_OBSERVABILITY`` writes decodable observations; without it, the artifact is unchanged."""
-    test_node = "tests/python/support/test_strategies.py::test_literal_form_stays_inside_its_vocabulary"
+    test_node = "tests/python/support/test_strategies.py::test_literal_form_generates_only_declared_values"
     artifact = REPO_ROOT / ".artifacts" / "python" / "hypothesis" / f"{datetime.now(tz=UTC).date().isoformat()}_testcases.jsonl"
 
     def child(*, observed: bool) -> int:

@@ -64,9 +64,7 @@ const _varyOptionalFields = <A>(
                     key.undefinable ? Option.some(key.name) : Option.none(),
                 ),
             ),
-        ).map(([dropped, unset]) =>
-            _withOptionalFields(value, dropped, unset),
-        ),
+        ).map(([dropped, unset]) => _withOptionalFields(value, dropped, unset)),
     );
 
 function optionalFields<S extends Schema.Schema.Any>(

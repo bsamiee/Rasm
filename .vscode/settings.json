@@ -1,0 +1,61 @@
+{
+    // --- [EXPLORER_VISIBILITY] —--------------------------------------------------------
+    "explorer.compactFolders": false,  // Single-child folder chains render as their own rows
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/__pycache__": true,
+        "**/.artifacts": true,
+        "**/.cache": true,
+        "**/.mypy_cache": true,
+        "**/.nx": true,
+        "**/.pytest_cache": true,
+        "**/.rollup.cache": true,
+        "**/.ruff_cache": true,
+        "**/.stryker-tmp": true,
+        "**/.ty_cache": true,
+        "**/.venv": true,
+        "**/bin": true,
+        "**/coverage": true,
+        "**/dist": true,
+        "**/obj": true,
+        "**/*.tsbuildinfo": true
+    },
+
+    // --- [FILE_NESTING] —---------------------------------------------------------------
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.expand": false,
+    "explorer.fileNesting.patterns": {
+        "CLAUDE.md": ".coderabbit.yaml, AGENTS.md",
+        "README.md": "LICENSE",
+        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, stryker-config.json, Workspace.slnx",
+        "*.cs": "${capture}.Tests.cs",
+        "*.csproj": "packages.lock.json",
+        "*.cts": "${capture}.spec.cts, ${capture}.test.cts",
+        "*.mts": "${capture}.spec.mts, ${capture}.test.mts",
+        "*.py": "test_${capture}.py, ${capture}_test.py",
+        "*.ts": "${capture}.spec.ts, ${capture}.test.ts",
+        "*.tsx": "${capture}.spec.tsx, ${capture}.test.tsx",
+        ".gitignore": ".gitattributes",
+        "buf.gen.yaml": "buf.yaml, buf.lock",
+        "pyproject.toml": "uv.lock",
+        "package.json": "biome.json, nx.json, playwright.config.ts, pnpm-workspace.yaml, pnpm-lock.yaml, stryker.config.json, tsconfig.json, vite.config.ts, vitest.config.ts",
+        "*.json": "${capture}.schema.json"
+    },
+
+    // --- [PYTHON] —---------------------------------------------------------------------
+    // uv.lock. ruff and ty resolve fromEnvironment by default; mypy defaults to a bundled copy, so its strategy is pinned here to keep the lockfile version authoritative.
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+
+    // --- [TYPESCRIPT] ------------------------------------------------------------------
+    // bundled TS service stays; Biome (auto-discovered from node_modules) formats every surface biome.json owns.
+    "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": {
+        "editor.defaultFormatter": "biomejs.biome"
+    },
+
+    // --- [DOTNET] —---------------------------------------------------------------------
+    "csharp.suppressBuildAssetsNotification": true
+}
