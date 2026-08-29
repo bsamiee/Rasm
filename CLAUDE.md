@@ -24,14 +24,14 @@ Never use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 
 [CLI_TOOLING]: All tools are available from `Parametric_Forge`; prefer them to standard Unix tools where applicable
 
-| [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                          |
-| :-----: | :-------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `tree`    | `tree <dir>` lists all directory and files, `-D` for dirs only                                                      |
-|  [02]   | `loc`     | `loc <dir>` for true LOC count with complexity score, folder total + per file                                       |
-|  [03]   | `fd`      | Use for ALL normal filesystem queries/actions, trumped by language specialized skills/mcp depending on context      |
-|  [04]   | `rg`      | REPLACES `grep`, NEVER use for code surface search, trumped by language specialized skills/mcp depending on context |
-|  [05]   | `gh`      | Non-TTY prints nothing when empty, count through `--json <fields> \| jq length`                                     |
-|  [06]   | `jq`/`yq` | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                         |
+| [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                 |
+| :-----: | :-------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `tree`    | `tree <dir>` lists all directory and files, `-D` for dirs only                                             |
+|  [02]   | `loc`     | `loc <dir>` for true LOC count with complexity score, folder total + per file                              |
+|  [03]   | `fd`      | Use for ALL normal filesystem queries/actions, superseded by specialized skills/mcp depending on context   |
+|  [04]   | `rg`      | REPLACES `grep`, NEVER use for code surface search, superseded by language skills/mcp depending on context |
+|  [05]   | `gh`      | Non-TTY prints nothing when empty, count through `--json <fields> \| jq length`                            |
+|  [06]   | `jq`/`yq` | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
