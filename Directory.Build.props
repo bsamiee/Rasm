@@ -1,11 +1,11 @@
 <Project>
     <PropertyGroup Label="Workspace">
         <RasmRepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</RasmRepoRoot>
-        <ArtifactsPath>$(RasmRepoRoot).artifacts/dotnet/</ArtifactsPath>
-        <RasmLibsRoot>$(RasmRepoRoot)libs/</RasmLibsRoot>
-        <RasmToolsRoot>$(RasmRepoRoot)tools/</RasmToolsRoot>
-        <RasmTestsRoot>$(RasmRepoRoot)tests/</RasmTestsRoot>
-        <RasmAppsRoot>$(RasmRepoRoot)apps/</RasmAppsRoot>
+        <ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
+        <RasmLibsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'libs'))</RasmLibsRoot>
+        <RasmToolsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'tools'))</RasmToolsRoot>
+        <RasmTestsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'tests'))</RasmTestsRoot>
+        <RasmAppsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'apps'))</RasmAppsRoot>
     </PropertyGroup>
 
     <PropertyGroup Label="Package Metadata">
@@ -45,8 +45,8 @@
 
     <!-- MPXJ.Net compiles its Java dependencies through IKVM at build time. The owning project is named here because item-list conditions cannot run in an evaluation-time PropertyGroup. -->
     <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
-        <IkvmCacheDir>$(RasmRepoRoot).cache/ikvm/</IkvmCacheDir>
-        <IkvmExportCacheDir>$(RasmRepoRoot).cache/ikvm/expcache/</IkvmExportCacheDir>
+        <IkvmCacheDir>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', '.cache', 'ikvm'))</IkvmCacheDir>
+        <IkvmExportCacheDir>$([MSBuild]::NormalizeDirectory('$(IkvmCacheDir)', 'expcache'))</IkvmExportCacheDir>
         <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
     </PropertyGroup>
 
@@ -62,8 +62,9 @@
         <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and Exists('/Applications/Rhino 9.app')">/Applications/Rhino 9.app</RhinoAppPath>
         <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and Exists('/Applications/RhinoBETA.app')">/Applications/RhinoBETA.app</RhinoAppPath>
         <RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath>
-        <RhinoAppPath>$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</RhinoAppPath>
-        <RhinoResourcesPath>$(RhinoAppPath)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
+        <!-- Derived, never assigned back: a command-line -p:RhinoAppPath is a global property that project XML cannot rewrite, so the trailing slash has to land on a separate name. -->
+        <_RhinoAppDir>$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</_RhinoAppDir>
+        <RhinoResourcesPath>$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
         <Grasshopper2PluginPath>$(RhinoResourcesPath)ManagedPlugIns/Grasshopper2Plugin.rhp/</Grasshopper2PluginPath>
     </PropertyGroup>
 </Project>
