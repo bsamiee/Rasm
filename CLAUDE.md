@@ -1,25 +1,25 @@
-# [CLAUDE_MANIFEST]
+# [MONOREPO_STANDARDS]
 
 @README.md
 
-- Every language in project runs functional (FP), and pure expressions, imperative code is only allowed at boundary
-- Dependency picks composition: dependent steps bind and short-circuit, independent steps combine and accumulate every failure
-- Idiom varies per language, law never does; a language lacking a carrier authors one rather than a second failure path
-- NEVER coin or invent terminology for anything (code files, folder, code value naming, prose in any context), use contextually appropriate domain terminology
+- Every language uses functional programming: domain logic stays pure and expression-oriented; imperative code remains at system boundaries
+- Data dependency determines composition: dependent operations bind and short-circuit; independent operations combine and accumulate every error
+- Language-specific idioms may differ, but the composition rules do not; define a result type when a language has no suitable one instead of introducing another error mechanism
+- Use established, context-appropriate domain terminology in file names, directory names, identifiers, and prose
 
-## [01]-[STANDARDS_ROUTING]
+## [01]-[LANGUAGE_STANDARDS]
 
-Read the `docs/stacks/<language>/README.md` of a language when targeting a file owned by it, reading beyond that is scope of task driven
+Read `docs/stacks/<language>/README.md` before changing a file owned by that language; let the task scope determine any additional reading
 
 [TOOL_ROUTING]:
 - ALWAYS use `exa` MCP to start open-web search with neural discovery
 - ALWAYS use `search-tavily` skill on known targets, extract or crawl a site, or run a multi-source report, REPLACES `WebFetch` entirely
 - ALWAYS use `search-context7` skill when working with external dependencies; never use training data, never guess SDK/framework/API capabilities
-- ALWAYS use `nuget` MCP to validate the existence of a dotnet package, and for finding the newest version available
+- ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
 - ALWAYS use `binlog` MCP for all `.binlog` related work such as build failures, target/property/import questions, and timing, NEVER direct searching
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex usage, config, harness work, and understanding
 
-[CLI_TOOLING]: All tools are available on machine from `Parametric_Forge`, use over standard Unix tooling where applicable
+[CLI_TOOLING]: All tools are available from `Parametric_Forge`; prefer them to standard Unix tools where applicable
 
 | [INDEX] | [TOOL]    | [GUIDANCE]                                                                                  |
 | :-----: | :-------- | :------------------------------------------------------------------------------------------ |
@@ -32,47 +32,47 @@ Read the `docs/stacks/<language>/README.md` of a language when targeting a file 
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
-[TOTALITY]: NEVER use a wrapper, extraction, abstraction, or indirection for signature names or returns, they must be named in body and derivable
-- ALWAYS give a failure value a case a consumer matches; recovery reads the case, never a rendered message or substring, failure values must be matchable
-- ALWAYS name the failure vocabulary at the package that raises it; a consumer widens at the seam, never against one global list
+[TOTALITY]: Function signatures name parameter and return types directly; function bodies construct every return case explicitly
+- ALWAYS define error variants that consumers pattern match; recovery reads a variant instead of a rendered message or substring
+- ALWAYS define error types in the package that raises them; consumers map those errors at the package boundary instead of extending one global error list
 - ALWAYS map every input to a value in the return type; a function that cannot answer returns the reason it cannot
-- ALWAYS spell absence as an option-shaped value the consumer unwraps; null, sentinel, and magic defaults die at the admission gate
-- ALWAYS make an invalid state unrepresentable at construction, every consumer reads one validated shape and re-validates nothing
-- ALWAYS reserve exceptions for faults the process cannot continue past; an expected failure rides the outcome carrier
+- ALWAYS represent absence with an option type the consumer unwraps; reject nulls, sentinels, and magic defaults at the input boundary
+- ALWAYS make invalid states unrepresentable at construction; every consumer receives one validated value without re-validating it
+- ALWAYS reserve exceptions for unexpected defects the process cannot continue past; expected errors use the result type
 
-[FLOW]: Dependent steps sequence through one carrier that short-circuits on first failure
-- ALWAYS chain a step that consumes the previous step's value by binding the carrier; the failure case skips the rest of the chain
-- ALWAYS shape recovery as a function from failure to carrier, seated at the owner that names the fault, never at each call site
-- ALWAYS choose the outcome carrier at admission, thread it unchanged through the interior, and collapse it only at the host edge
-- ALWAYS branch by matching the carrier's cases; a status flag, out-parameter, or nullable companion field never selects the path
-- ALWAYS hold one carrier per expression, lifting a call that returns a different carrier into the ambient one at the call site
-- ALWAYS stack asynchrony onto the carrier rather than beside it, one bind chains an awaited step and a synchronous one alike
+[FLOW]: Dependent operations use one result type that short-circuits on the first error
+- ALWAYS bind an operation that consumes the previous operation's value; the error case skips the remaining operations
+- ALWAYS implement recovery as a function from an error to the same result type, owned by the package that defines the error
+- ALWAYS choose the result type at the input boundary, preserve it through domain logic, and translate it only at the host boundary
+- ALWAYS select control flow by pattern matching the result cases; status flags, out parameters, and nullable companion fields do not select the path
+- ALWAYS use one result type per expression; adapt a call returning a different result type at the call site
+- ALWAYS compose asynchrony with the result type so the same bind chains asynchronous and synchronous operations
 
-[INDEPENDENCE]: Results that do not consume each other combine in one step that collects every failure
-- ALWAYS spell the failure value so two or more failures append into one, append order never changes the result
-- ALWAYS combine independent results applicatively so the answer carries every failure, not the first one encountered
-- ALWAYS fold a collection through one carrier-returning function into a single carrier, accumulating when the elements are independent.
-- ALWAYS derive concurrency from independence: operands that do not consume each other evaluate together
+[INDEPENDENCE]: Results that do not consume each other combine in one step that collects every error
+- ALWAYS define a non-empty error type with associative combination so independent errors accumulate deterministically
+- ALWAYS combine independent results applicatively so the result carries every error instead of only the first one encountered
+- ALWAYS traverse a collection with one result-returning function and accumulate errors when the elements are independent
+- ALWAYS derive concurrency from independence: operands that do not consume each other may evaluate concurrently while result ordering remains deterministic
 
-[PURITY]: Interior functions read only their arguments and write only their return value
-- ALWAYS pass the clock, randomness, environment, and configuration as arguments; interior code reads no ambient source
-- ALWAYS pair acquisition and release in one bracket, so release runs unchanged on the failure path
-- ALWAYS carry changing context forward as a returned value; so a shared mutable state never coordinates two steps
+[PURITY]: Domain functions read only their arguments and write only their return value
+- ALWAYS pass the clock, randomness, environment, and configuration as arguments; domain code reads no ambient source
+- ALWAYS pair acquisition and release in one resource scope so release also runs on the error path
+- ALWAYS carry changing context forward as a returned value; shared mutable state does not coordinate operations
 - ALWAYS confine mutation to a scope that owns it and publishes an immutable value; a buffer that never escapes stays pure
 
-[BOUNDARY]: Boundaries own every conversion between foreign values and domain values
-- ALWAYS emit logs, traces, and metrics from the collapsed outcome at the boundary; interior expressions stay pure and silent
-- ALWAYS publish a `libs/` package surface already carrier-typed, a consuming package composes it without unwrapping
-- ALWAYS admit host, wire, and file content once at the boundary into validated domain values; the interior sees no raw shape
-- ALWAYS map foreign vocabulary to canonical names at the gate that validates, one owner holds both directions
-- ALWAYS collapse the carrier at the boundary into the host's own vocabulary — exit code, status, host exception, UI state
+[BOUNDARY]: Boundaries own every conversion between external values and domain values
+- ALWAYS emit logs, traces, and metrics when translating the result at the boundary; domain expressions stay pure and silent
+- ALWAYS publish `libs/` package APIs that return the shared result type so consumers compose them without unwrapping
+- ALWAYS validate host, protocol, and file input once at the boundary into domain values; domain logic receives no raw input
+- ALWAYS map external names to canonical domain names at the validating boundary; one module owns both directions
+- ALWAYS translate the result at the boundary into the host's vocabulary: exit code, status, host exception, or UI state
 
 ## [03]-[DEPENDENCY_POLICY]
 
-[IMPORTANT] - External dependencies, SDK's, and APIs are first-class sources:
-- ALWAYS keep C# MSBuild/NuGet manifests label-grouped by owner, cluster-sorted, with a precise and concise one-line maintenance comments at most
-- ALWAYS align the package touch-point set both ways: central manager row and branch/folder `README.md` registries
-- ALWAYS repair an orphaned touch-point member at its owner, never by removal
+[DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
+- ALWAYS keep .NET MSBuild and NuGet manifests grouped by responsibility, order entries consistently within each group, and limit maintenance notes to one precise line
+- ALWAYS record each package in both the central package manager and the owning language or package `README.md` dependency list
+- ALWAYS add a missing dependency record to its owning manifest or `README.md` dependency list instead of deleting the corresponding record
 - ALWAYS assume the newest stable release
 - ALWAYS spell ALL Python dependency rows as bare unpinned names, `uv.lock` alone fixes versions
-- ALWAYS use `pnpm-workspace.yaml` for Typescript versioning, and align `package.json` with a catalog entry
+- ALWAYS use `pnpm-workspace.yaml` for TypeScript dependency versions and align each `package.json` entry with its catalog entry

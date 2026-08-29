@@ -4,20 +4,23 @@ import { defineConfig, type ViteUserConfig } from 'vitest/config';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type ProjectTest = NonNullable<ViteUserConfig['test']>;
+type VitestProjectOptions = NonNullable<ViteUserConfig['test']>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const rootDir = import.meta.dirname;
-const _CI = process.env['CI'] === 'true';
-const _ARTIFACTS = {
-    bench: path.resolve(rootDir, '.artifacts/typescript/bench'),
-    coverage: path.resolve(rootDir, '.artifacts/typescript/coverage'),
-    results: path.resolve(rootDir, '.artifacts/typescript/test-results'),
+const rootDirectory = import.meta.dirname;
+const isCI = process.env['CI'] === 'true';
+const artifacts = {
+    benchmarks: path.resolve(
+        rootDirectory,
+        '.artifacts/typescript/bench',
+    ),
+    coverage: path.resolve(rootDirectory, '.artifacts/typescript/coverage'),
+    results: path.resolve(rootDirectory, '.artifacts/typescript/test-results'),
 } as const;
-const _CONFIG = {
+const defaults = {
     cacheDir: '.cache/vitest',
-    deps: { interopDefault: true },
+    dependencies: { interopDefault: true },
     fakeTimers: {
         loopLimit: 10_000,
         shouldClearNativeTimers: true,
@@ -32,14 +35,14 @@ const _CONFIG = {
         },
         diff: { expand: true, truncateThreshold: 0 },
         outputFile: {
-            blob: path.resolve(_ARTIFACTS.results, '.vitest-reports'),
-            json: path.resolve(_ARTIFACTS.results, 'results.json'),
-            junit: path.resolve(_ARTIFACTS.results, 'junit.xml'),
+            blob: path.resolve(artifacts.results, '.vitest-reports'),
+            json: path.resolve(artifacts.results, 'results.json'),
+            junit: path.resolve(artifacts.results, 'junit.xml'),
         },
     },
     patterns: {
-        benchExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
-        benchInclude: ['**/*.bench.{ts,tsx}'],
+        benchmarkExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
+        benchmarkInclude: ['**/*.bench.{ts,tsx}'],
         coverageExclude: [
             '**/*.config.*',
             '**/*.d.ts',
@@ -57,11 +60,13 @@ const _CONFIG = {
     },
     reporters: {
         coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
-        test: _CI
+        test: isCI
             ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const)
             : (['tree'] as const),
     },
-    setupFiles: [path.resolve(rootDir, 'tests/typescript/testkit/setup.ts')],
+    setupFiles: [
+        path.resolve(rootDirectory, 'tests/typescript/support/setup.ts'),
+    ],
     snapshot: { format: { printBasicPrototype: false } },
     timeouts: { hook: 10_000, slow: 5_000, test: 10_000 },
     workers: { max: '50%' },
@@ -69,34 +74,36 @@ const _CONFIG = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const createProject = (dir: string): { test: ProjectTest } => ({
+const createVitestProject = (
+    directory: string,
+): { test: VitestProjectOptions } => ({
     test: {
         benchmark: {
-            exclude: [..._CONFIG.patterns.benchExclude],
-            include: [..._CONFIG.patterns.benchInclude],
+            exclude: [...defaults.patterns.benchmarkExclude],
+            include: [...defaults.patterns.benchmarkInclude],
             outputJson: path.resolve(
-                _ARTIFACTS.bench,
-                `${path.basename(dir)}.json`,
+                artifacts.benchmarks,
+                `${path.basename(directory)}.json`,
             ),
         },
-        deps: { ..._CONFIG.deps },
+        deps: { ...defaults.dependencies },
         environment: 'node',
-        exclude: [..._CONFIG.patterns.testExclude],
+        exclude: [...defaults.patterns.testExclude],
         fakeTimers: {
-            ..._CONFIG.fakeTimers,
-            toFake: [..._CONFIG.fakeTimers.toFake],
+            ...defaults.fakeTimers,
+            toFake: [...defaults.fakeTimers.toFake],
         },
-        hookTimeout: _CONFIG.timeouts.hook,
-        include: [..._CONFIG.patterns.testInclude],
+        hookTimeout: defaults.timeouts.hook,
+        include: [...defaults.patterns.testInclude],
         isolate: true,
-        name: path.basename(dir),
+        name: path.basename(directory),
         pool: 'threads',
         restoreMocks: true,
-        sequence: { concurrent: false, hooks: 'stack', shuffle: _CI },
-        setupFiles: [..._CONFIG.setupFiles],
-        slowTestThreshold: _CONFIG.timeouts.slow,
-        snapshotFormat: { ..._CONFIG.snapshot.format },
-        testTimeout: _CONFIG.timeouts.test,
+        sequence: { concurrent: false, hooks: 'stack', shuffle: isCI },
+        setupFiles: [...defaults.setupFiles],
+        slowTestThreshold: defaults.timeouts.slow,
+        snapshotFormat: { ...defaults.snapshot.format },
+        testTimeout: defaults.timeouts.test,
         unstubEnvs: true,
         unstubGlobals: true,
     },
@@ -104,22 +111,22 @@ const createProject = (dir: string): { test: ProjectTest } => ({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-const config: ViteUserConfig = defineConfig({
-    cacheDir: _CONFIG.cacheDir,
-    optimizeDeps: { include: [..._CONFIG.optimizeDeps] },
+const rootConfig: ViteUserConfig = defineConfig({
+    cacheDir: defaults.cacheDir,
+    optimizeDeps: { include: [...defaults.optimizeDeps] },
     test: {
-        allowOnly: !_CI,
-        chaiConfig: { ..._CONFIG.output.chaiConfig },
+        allowOnly: !isCI,
+        chaiConfig: { ...defaults.output.chaiConfig },
         coverage: {
             clean: true,
             cleanOnRerun: true,
             enabled: false,
-            exclude: [..._CONFIG.patterns.coverageExclude],
-            include: [..._CONFIG.patterns.coverageInclude],
+            exclude: [...defaults.patterns.coverageExclude],
+            include: [...defaults.patterns.coverageInclude],
             provider: 'v8',
-            reporter: [..._CONFIG.reporters.coverage],
+            reporter: [...defaults.reporters.coverage],
             reportOnFailure: true,
-            reportsDirectory: _ARTIFACTS.coverage,
+            reportsDirectory: artifacts.coverage,
             skipFull: true,
             thresholds: {
                 branches: 95,
@@ -129,17 +136,17 @@ const config: ViteUserConfig = defineConfig({
                 statements: 95,
             },
         },
-        diff: { ..._CONFIG.output.diff },
+        diff: { ...defaults.output.diff },
         fileParallelism: true,
         forceRerunTriggers: [
             '**/package.json/**',
             '**/{vitest,vite}.config.*/**',
             '**/tsconfig*.json',
         ],
-        hideSkippedTests: _CI,
-        maxWorkers: _CONFIG.workers.max,
+        hideSkippedTests: isCI,
+        maxWorkers: defaults.workers.max,
         onConsoleLog: (log) => !log.includes('Download the React DevTools'),
-        outputFile: { ..._CONFIG.output.outputFile },
+        outputFile: { ...defaults.output.outputFile },
         passWithNoTests: false,
         printConsoleTrace: false,
         projects: [
@@ -148,11 +155,11 @@ const config: ViteUserConfig = defineConfig({
             'libs/typescript/ui/*/vitest.config.ts',
             'apps/*/*/vitest.config.ts',
         ],
-        reporters: [..._CONFIG.reporters.test],
-        retry: _CI ? 2 : 0,
+        reporters: [...defaults.reporters.test],
+        retry: isCI ? 2 : 0,
         silent: 'passed-only',
     },
 });
 
-export default config;
-export { createProject };
+export default rootConfig;
+export { createVitestProject };

@@ -11,7 +11,7 @@ storeDir: .cache/pnpm/store
 minimumReleaseAge: 1440
 
 catalog:
-  # substrate
+  # Effect runtime
   effect: 3.22.1
   '@effect/platform': 0.97.1
   '@effect/platform-node': 0.108.1

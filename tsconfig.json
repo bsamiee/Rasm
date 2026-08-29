@@ -7,7 +7,7 @@
         "types": ["node"],
         "allowImportingTsExtensions": true
     },
-    "include": ["*.config.ts", "tests/typescript/testkit/vitest.config.ts"],
+    "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts"],
     "references": [
         {
             "path": "./libs/typescript/core"
@@ -31,7 +31,7 @@
             "path": "./libs/typescript/iac"
         },
         {
-            "path": "./tests/typescript/testkit"
+            "path": "./tests/typescript/support"
         }
     ],
     "watchOptions": {

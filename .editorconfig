@@ -8,7 +8,7 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-# BuildCheck (`dotnet build -check`): property reads inside conditions are the props-to-targets handshake, not defects. The two values must match or MSBuild refuses the config.
+# BuildCheck (`dotnet build -check`): these properties allow condition reads shared by .props and .targets files. Both values must match or MSBuild rejects the project.
 [*.csproj]
 build_check.BC0201.AllowUninitializedPropertiesInConditions = true
 build_check.BC0202.AllowUninitializedPropertiesInConditions = true
@@ -144,34 +144,34 @@ csharp_space_between_square_brackets = false                                  # 
 dotnet_diagnostic.IDE0055.severity = error                                    # Enforce formatter compliance in CI/build.
 
 # --- [QUALITY_ANALYZERS] -----------------------------------------------------
-# AnalysisLevel latest-all enables every CA rule as a warning and TreatWarningsAsErrors promotes it; only carves and the rules latest-all leaves off earn a row here.
+# AnalysisLevel latest-all enables every CA rule as a warning and TreatWarningsAsErrors promotes it; only explicit exemptions and rules omitted by latest-all belong here.
 dotnet_diagnostic.CA1034.severity = none                                      # Nested types are intentional for Thinktecture regular unions.
 dotnet_diagnostic.CA1720.severity = none                                      # Grasshopper parameter SmartEnum items are named after the CLR type they adapt (Integer, Boolean); the name is the mapping.
 dotnet_diagnostic.MA0008.severity = none                                      # Roslyn already emits Sequential for structs, and host interop needs Sequential; restating the layout per type is noise.
 dotnet_diagnostic.MA0048.severity = none                                      # Allow intentionally consolidated domain/type modules.
-dotnet_diagnostic.MA0051.severity = none                                      # Allow dense expression-owned dispatch; repo standards police real bloat.
+dotnet_diagnostic.MA0051.severity = none                                      # Allow dense expression-based dispatch; repository standards govern method complexity.
 dotnet_diagnostic.CS0169.severity = error                                     # Remove private fields that are never used.
 dotnet_diagnostic.CA1516.severity = error                                     # Switched off by latest-all: cross-platform intrinsics over the per-ISA variants.
-dotnet_diagnostic.CA1021.severity = error                                     # Left off by latest-all: out parameters; an outcome rides the return carrier.
+dotnet_diagnostic.CA1021.severity = error                                     # Left off by latest-all: return results instead of using out parameters.
 dotnet_diagnostic.CA1045.severity = error                                     # Left off by latest-all: ref parameters; changing context returns as a value.
 dotnet_diagnostic.CS0649.severity = error                                     # Assign every field through validated construction.
 
 # --- [THREADING_ANALYZERS] ---------------------------------------------------
-dotnet_diagnostic.VSTHRD003.severity = none                                   # No JoinableTaskFactory exists in any host here, so the prescribed repair is unavailable; foreign-task awaits stay legal.
+dotnet_diagnostic.VSTHRD003.severity = none                                   # No host exposes JoinableTaskFactory, so its prescribed replacement is unavailable for externally supplied tasks.
 dotnet_diagnostic.VSTHRD103.severity = none                                   # Covered by CA1849 and MA0042 to avoid duplicate async-flow diagnostics.
 dotnet_diagnostic.VSTHRD102.severity = error                                  # Info default: a private synchronous body under an async public member breaks the async chain.
 dotnet_diagnostic.VSTHRD111.severity = error                                  # Hidden default: require explicit ConfigureAwait intent on awaits.
 
 # --- [MEZIANTOU_ANALYZERS] ---------------------------------------------------
 dotnet_diagnostic.MA0003.severity = error                                     # Require parameter names to clarify arguments.
-dotnet_diagnostic.MA0004.severity = none                                      # ConfigureAwait already has two owners at error, CA2007 and VSTHRD111; a third restates them.
+dotnet_diagnostic.MA0004.severity = none                                      # CA2007 and VSTHRD111 already enforce ConfigureAwait usage.
 dotnet_diagnostic.MA0007.severity = error                                     # Require a trailing comma after the last value in multi-line initializers.
 dotnet_diagnostic.MA0020.severity = error                                     # Prefer direct collection APIs over equivalent LINQ.
 dotnet_diagnostic.MA0028.severity = error                                     # Optimize StringBuilder append patterns.
 dotnet_diagnostic.MA0029.severity = error                                     # Combine adjacent LINQ operations.
 dotnet_diagnostic.MA0032.severity = error                                     # Require using overloads with CancellationToken when available.
 dotnet_diagnostic.MA0042.severity = error                                     # Ban blocking calls in async-capable methods.
-dotnet_diagnostic.MA0001.severity = error                                     # Info default: StringComparison on the call shapes CA1307/CA1310 miss.
+dotnet_diagnostic.MA0001.severity = error                                     # Info default: require StringComparison for call patterns CA1307 and CA1310 miss.
 dotnet_diagnostic.MA0043.severity = error                                     # Info default: nameof in ArgumentException parameter names.
 dotnet_diagnostic.MA0075.severity = error                                     # Info default: implicit culture-sensitive ToString.
 dotnet_diagnostic.MA0121.severity = error                                     # Shipped disabled: a parameter is never reassigned; changing context is a returned value.
@@ -181,7 +181,7 @@ dotnet_diagnostic.MA0170.severity = error                                     # 
 dotnet_diagnostic.MA0171.severity = error                                     # Shipped disabled: `is null` over Nullable<T>.HasValue.
 dotnet_diagnostic.MA0172.severity = error                                     # Shipped disabled: identical operands on both sides of a binary operator.
 dotnet_diagnostic.MA0186.severity = error                                     # Shipped disabled: [NotNullWhen(true)] on the Equals parameter.
-dotnet_diagnostic.MA0217.severity = error                                     # Shipped disabled: static lambda where nothing is captured; the non-Thinktecture twin of TTRESG1001.
+dotnet_diagnostic.MA0217.severity = error                                     # Shipped disabled: require static lambdas when nothing is captured; equivalent to TTRESG1001 outside Thinktecture APIs.
 dotnet_diagnostic.MA0031.severity = error                                     # Info default: Enumerable.Count() where Any() or Length answers.
 dotnet_diagnostic.MA0036.severity = error                                     # Info default: a class with only static members is static.
 dotnet_diagnostic.MA0057.severity = error                                     # Info default: attribute class names end with Attribute.
@@ -258,7 +258,7 @@ dotnet_diagnostic.IDE0005.severity = error                                    # 
 dotnet_diagnostic.IDE0035.severity = error                                    # Remove unreachable code.
 dotnet_diagnostic.IDE0051.severity = error                                    # Remove unused private members.
 dotnet_diagnostic.IDE0052.severity = error                                    # Remove private members that are written but never read.
-dotnet_diagnostic.IDE0060.severity = error                                    # Remove unused parameters; a knob smuggled into a signature is a shape defect.
+dotnet_diagnostic.IDE0060.severity = error                                    # Remove unused parameters; each parameter must affect the operation.
 dotnet_diagnostic.IDE0064.severity = error                                    # Make struct fields writable when reassignment is intended.
 dotnet_diagnostic.IDE0070.severity = error                                    # Use System.HashCode.Combine for composite hash codes.
 dotnet_diagnostic.IDE0076.severity = error                                    # Remove invalid SuppressMessage attribute targets.
@@ -281,39 +281,39 @@ dotnet_diagnostic.IDE0380.severity = error                                    # 
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 
 # --- [MAPPERLY_ANALYZERS] ----------------------------------------------------
-dotnet_diagnostic.RMG001.severity = error                                     # A throwing conversion (LanguageExt explicit Option<T> cast) bound over a registered mapping is a landmine, never a warning.
-dotnet_diagnostic.RMG007.severity = error                                     # A null-rejecting protoc setter fed a nullable carrier throws at runtime; presence writes are hand-owned by law.
-dotnet_diagnostic.RMG012.severity = error                                     # An unmapped TARGET member is a silently absent wire column.
-dotnet_diagnostic.RMG013.severity = error                                     # No suitable constructor: a shape drift between contract and wire must break the build, not degrade.
-dotnet_diagnostic.RMG020.severity = error                                     # An unmapped SOURCE member is a silently dropped contract fact (reader-bearing mappings demote this to authored inventory — the ignore roster states why).
-dotnet_diagnostic.RMG036.severity = error                                     # [MapDerivedType] on a protobuf oneof envelope is refused; the generated Switch owns union dispatch.
-dotnet_diagnostic.RMG060.severity = error                                     # Duplicate user mappings make the selected codec ambient; one per (T, TWire) pair by law.
-dotnet_diagnostic.RMG093.severity = error                                     # A mapping silently ignoring its source value voids the transcription proof.
+dotnet_diagnostic.RMG001.severity = error                                     # Reject registered mappings that use throwing conversions, including an explicit LanguageExt Option<T> cast.
+dotnet_diagnostic.RMG007.severity = error                                     # Reject nullable values passed to null-rejecting protobuf setters; custom mappings handle field presence explicitly.
+dotnet_diagnostic.RMG012.severity = error                                     # Reject target members omitted from a mapping.
+dotnet_diagnostic.RMG013.severity = error                                     # Fail the build when no constructor can map the contract to its serialized representation.
+dotnet_diagnostic.RMG020.severity = error                                     # Reject source members omitted from a mapping unless the mapping explicitly documents the ignored member.
+dotnet_diagnostic.RMG036.severity = error                                     # [MapDerivedType] on a protobuf oneof envelope is rejected; the generated Switch implements union dispatch.
+dotnet_diagnostic.RMG060.severity = error                                     # Define one user mapping per (T, TWire) pair so selection is unambiguous.
+dotnet_diagnostic.RMG093.severity = error                                     # Reject mappings that ignore the supplied source value.
 
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
 
 # --- [ERRORPRONE_ANALYZERS] --------------------------------------------------
 # Warning-default rules (EPC11-13, EPC16-18, EPC20, EPC23-26, EPC30-31, EPC34, EPC41, ERP021-022, ERP031, ERP042) already error under TreatWarningsAsErrors; only Info-default and disabled rules earn a row.
-dotnet_diagnostic.EPC15.severity = error                                      # ConfigureAwait(false) required. Fires only in an assembly carrying an attribute whose simple name opens UseConfigureAwaitFalse; no assembly declares one yet, so the row is armed and silent. EPC14 (redundant ConfigureAwait) is its inverse and stays at the Info floor.
+dotnet_diagnostic.EPC15.severity = error                                      # Require ConfigureAwait(false) in assemblies marked with UseConfigureAwaitFalse; no assembly currently declares that attribute. EPC14 remains informational.
 dotnet_diagnostic.EPC19.severity = error                                      # CancellationTokenRegistration must be observed and disposed; an unobserved registration on a long-lived token pins the callback and its captures.
-dotnet_diagnostic.EPC27.severity = error                                      # async void method declaration; EPC17 covers the delegate form at the warning floor.
+dotnet_diagnostic.EPC27.severity = error                                      # async void method declaration; EPC17 covers the delegate form at default warning severity.
 dotnet_diagnostic.EPC28.severity = error                                      # [ExcludeFromCodeCoverage] on a partial class splits coverage across the parts.
-dotnet_diagnostic.EPC29.severity = error                                      # [ExcludeFromCodeCoverage] states its reason in the message. Reports inside generated code by analyzer design; the .artifacts carve below covers the MSBuild-emitted test entry points.
+dotnet_diagnostic.EPC29.severity = error                                      # Require a reason for ExcludeFromCodeCoverage. The .artifacts override below covers generated test entry points.
 dotnet_diagnostic.EPC32.severity = error                                      # TaskCompletionSource without TaskCreationOptions.RunContinuationsAsynchronously runs continuations inline on the completing thread.
 dotnet_diagnostic.EPC33.severity = error                                      # Thread.Sleep inside an async method; Task.Delay is the awaited form.
 dotnet_diagnostic.EPC35.severity = error                                      # Blocking on a task inside an async method: .Result, .Wait(), .GetAwaiter().GetResult().
 dotnet_diagnostic.EPC36.severity = error                                      # Async delegate under TaskCreationOptions.LongRunning abandons the dedicated thread at its first await.
 dotnet_diagnostic.EPC37.severity = error                                      # Argument validation inside an async method throws at await time, never at the call.
-dotnet_diagnostic.ERP041.severity = error                                     # EventSource subclass must be sealed; ERP042 covers the wider EventSource shape at the warning floor.
+dotnet_diagnostic.ERP041.severity = error                                     # EventSource subclass must be sealed; ERP042 covers the wider EventSource pattern at default warning severity.
 dotnet_diagnostic.EPC38.severity = error                                      # Shipped disabled: IEnumerable<Task> enumerated twice starts a second, unrelated set of tasks.
 dotnet_diagnostic.EPC39.severity = error                                      # Shipped disabled: one enumerable re-iterated inside a loop.
 dotnet_diagnostic.EPC40.severity = error                                      # Shipped disabled: a private method re-enumerating an IEnumerable<T> parameter a caller passes as a deferred query.
 
 # --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------
-# Rule severity lives here alone; the RASM0002 shape guard refuses a NoWarn or WarningsNotAsErrors spelling in a project body. MSBuild-task warnings no analyzer config can reach (IKVM) are exempted once at the root targets, keyed on the package that raises them.
+# Rule severity lives here alone; RASM0002 rejects NoWarn and WarningsNotAsErrors in project files. Root targets hold the IKVM exemptions that analyzer configuration cannot express.
 dotnet_diagnostic.CS1591.severity = none                                      # GenerateDocumentationFile ships the XML for tooling; member-level doc prose is not required.
-dotnet_diagnostic.CA2225.severity = none                                      # LanguageExt/Thinktecture operator algebra is the canonical surface; named alternates would duplicate it.
+dotnet_diagnostic.CA2225.severity = none                                      # LanguageExt and Thinktecture operators are the public API; named alternatives would duplicate it.
 
 [{libs/dotnet/Rasm,libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper}/**.cs]
 dotnet_diagnostic.CA1416.severity = none                                      # Rhino's bundled System.Drawing.Common implements the Windows-annotated members on macOS; CA1416 reads the NuGet reference assembly, not the host runtime.
@@ -323,19 +323,19 @@ dotnet_diagnostic.CA1724.severity = none                                      # 
 
 [libs/dotnet/Rasm.AppHost/**.cs]
 dotnet_diagnostic.EXTEXP0002.severity = none                                  # Compliance redaction rows (HmacRedactor): experimental-API opt-in.
-dotnet_diagnostic.EXTEXP0008.severity = none                                  # Resource-monitoring roster rows: experimental-API opt-in.
+dotnet_diagnostic.EXTEXP0008.severity = none                                  # Opt in to the experimental resource-monitoring API.
 
 [.artifacts/**.cs]
-dotnet_diagnostic.EPC29.severity = none                                       # xunit.v3.msbuildtasks and Microsoft.Testing.Platform.MSBuild emit message-less [ExcludeFromCodeCoverage] entry points here; foreign material, repaired at neither owner.
+dotnet_diagnostic.EPC29.severity = none                                       # xunit.v3.msbuildtasks and Microsoft.Testing.Platform.MSBuild generate ExcludeFromCodeCoverage attributes without messages in this directory.
 
 [tests/**/*.cs]
-dotnet_diagnostic.VSTHRD111.severity = none                                   # xunit.analyzers suppresses CA2007 inside test bodies and xUnit1030 forbids ConfigureAwait(false) there; this row keeps the second owner from re-imposing it.
+dotnet_diagnostic.VSTHRD111.severity = none                                   # xunit.analyzers suppresses CA2007 in test methods and xUnit1030 forbids ConfigureAwait(false), so VSTHRD111 must not reintroduce the requirement.
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit discovery requires public test classes; spec-local generators stay non-public.
-dotnet_diagnostic.MA0191.severity = none                                      # Adversarial null-payload laws intentionally use null-forgiving to enter non-nullable production boundaries.
+dotnet_diagnostic.MA0191.severity = none                                      # Adversarial null-payload tests intentionally use null-forgiving to enter non-nullable production boundaries.
 
 # --- [XUNIT_ANALYZERS] -------------------------------------------------------
-# xunit.analyzers rides xunit.v3.core; the rows below are the Info- and Hidden-default rules, every other xUnit rule already errors.
-dotnet_diagnostic.xUnit1004.severity = error                                  # A skipped test; a law that cannot run is deleted.
+# xunit.v3.core includes xunit.analyzers; the rows below promote its informational and hidden rules, while every other xUnit rule already reports an error.
+dotnet_diagnostic.xUnit1004.severity = error                                  # Disallow skipped tests; repair the test or remove it only when its behavior is retired or its oracle is invalid.
 dotnet_diagnostic.xUnit1033.severity = error                                  # A fixture the class declares but never accepts through its constructor.
 dotnet_diagnostic.xUnit1042.severity = error                                  # MemberData over an untyped source; TheoryData<T> types the rows.
 dotnet_diagnostic.xUnit1044.severity = error                                  # Theory data that cannot be serialized loses per-row discovery.
@@ -352,7 +352,7 @@ dotnet_diagnostic.xUnit2032.severity = error                                  # 
 dotnet_diagnostic.xUnit2033.severity = error                                  # Info in the shipped binary: Assert.Empty/NotEmpty over a count.
 
 # --- [VERIFY_SNAPSHOTS] ------------------------------------------------------
-# VerifyChecks matches this section literal verbatim; the brace form is the tool's canonical shape.
+# VerifyChecks matches this section literal verbatim; keep the brace syntax expected by the tool.
 [*.{received,verified}.{txt}]
 charset = utf-8-bom
 end_of_line = lf

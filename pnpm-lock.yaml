@@ -1960,7 +1960,7 @@ importers:
         specifier: workspace:*
         version: link:..
 
-  tests/typescript/testkit:
+  tests/typescript/support:
     dependencies:
       '@effect/platform':
         specifier: 'catalog:'

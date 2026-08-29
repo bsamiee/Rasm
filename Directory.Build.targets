@@ -1,5 +1,5 @@
 <Project>
-    <PropertyGroup Label="Declared Shape">
+    <PropertyGroup Label="Project Classification">
         <RasmRole Condition="$(MSBuildProjectDirectory.StartsWith('$(RasmLibsRoot)'))">libs</RasmRole>
         <RasmRole Condition="$(MSBuildProjectDirectory.StartsWith('$(RasmToolsRoot)'))">tools</RasmRole>
         <RasmRole Condition="$(MSBuildProjectDirectory.StartsWith('$(RasmTestsRoot)'))">tests</RasmRole>
@@ -20,7 +20,7 @@
         <Using Include="LanguageExt.Sys;LanguageExt.Sys.IO;LanguageExt.Sys.Traits;LanguageExt.Sys.Diag" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Sys'))' != ''" />
         <!-- LanguageExt.Parsec exports a static class Char; sources spell the BCL type as the keyword char. -->
         <Using Include="LanguageExt.Parsec" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Parsec'))' != ''" />
-        <!-- Test related usings -->
+        <!-- Test package references derive their shared usings here. -->
         <Using Include="Xunit" Condition="'@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.mtp-v2'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.assert'))' != ''" />
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
     </ItemGroup>
@@ -36,14 +36,14 @@
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(HostGrasshopper)' == 'true'" />
     </ItemGroup>
 
-    <ItemGroup Label="Host Platform Scope" Condition="'$(HostPlatform)' == 'true'">
+    <ItemGroup Label="Host Platform Metadata" Condition="'$(HostPlatform)' == 'true'">
         <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
             <_Parameter1>macos</_Parameter1>
         </AssemblyAttribute>
     </ItemGroup>
 
-    <!-- MPXJ.Net compiles its Java closure through IKVM at build time, an item-list condition is illegal in evaluation-time PropertyGroup, so the owner is named. -->
-    <PropertyGroup Label="IKVM Compile" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
+    <!-- MPXJ.Net compiles its Java dependencies through IKVM at build time. Item-list conditions cannot run in an evaluation-time PropertyGroup, so this setting uses the project name. -->
+    <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
         <IkvmCacheDir>$(RasmRepoRoot).cache/ikvm/</IkvmCacheDir>
         <IkvmExportCacheDir>$(RasmRepoRoot).cache/ikvm/expcache/</IkvmExportCacheDir>
         <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
@@ -57,24 +57,24 @@
                Text="Rhino bundle '$(RhinoAppPath)' lacks @(_MissingRhinoHostFile->'%(Filename)%(Extension)', ', '); set RHINO_APP_PATH to a Rhino 9 bundle." />
     </Target>
 
-    <Target Name="RasmReferenceRoleGuard" BeforeTargets="AssignProjectConfiguration" Condition="'@(ProjectReference)' != '' and '$(DesignTimeBuild)' != 'true'">
+    <Target Name="ValidateRasmProjectReferences" BeforeTargets="AssignProjectConfiguration" Condition="'@(ProjectReference)' != '' and '$(DesignTimeBuild)' != 'true'">
         <ItemGroup>
-            <_RasmDeclaredEdge Include="@(ProjectReference->'%(FullPath)')" />
-            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'libs' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)'))" />
-            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmToolsRoot)'))" />
-            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(RasmAppsRoot)'))" />
-            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(RasmRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(MSBuildProjectDirectory)'))" />
+            <_RasmProjectReference Include="@(ProjectReference->'%(FullPath)')" />
+            <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'libs' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)'))" />
+            <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmToolsRoot)'))" />
+            <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(RasmAppsRoot)'))" />
+            <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(MSBuildProjectDirectory)'))" />
         </ItemGroup>
-        <Error Code="RASM0001" Condition="'@(_RasmUnlawfulEdge)' != ''"
-               Text="Role '$(RasmRole)' project '$(MSBuildProjectName)' references outside its allowed set: @(_RasmUnlawfulEdge->'%(Identity)', '; ')." />
+        <Error Code="RASM0001" Condition="'@(_RasmInvalidProjectReference)' != ''"
+               Text="Role '$(RasmRole)' project '$(MSBuildProjectName)' references outside its allowed set: @(_RasmInvalidProjectReference->'%(Identity)', '; ')." />
     </Target>
 
-    <Target Name="RasmProjectShapeGuard" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Target Name="ValidateRasmProjectPolicy" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
         <PropertyGroup>
-            <_RasmShapeBreach>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), '&lt;(NoWarn|MSBuildWarningsAsMessages|WarningsAsMessages|MSBuildWarningsNotAsErrors|WarningsNotAsErrors|MSBuildTreatWarningsAsErrors|TreatWarningsAsErrors|CodeAnalysisTreatWarningsAsErrors|AnalysisLevel|AnalysisMode|RunAnalyzers|EnforceCodeStyleInBuild|NuGetAudit|NuGetAuditMode|NuGetAuditLevel|ArtifactsPath|UseArtifactsOutput|BaseOutputPath|BaseIntermediateOutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|InformationalVersion)[ &gt;/]').Value)</_RasmShapeBreach>
+            <_RasmProjectPolicyElement>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), '&lt;(NoWarn|MSBuildWarningsAsMessages|WarningsAsMessages|MSBuildWarningsNotAsErrors|WarningsNotAsErrors|MSBuildTreatWarningsAsErrors|TreatWarningsAsErrors|CodeAnalysisTreatWarningsAsErrors|AnalysisLevel|AnalysisMode|RunAnalyzers|EnforceCodeStyleInBuild|NuGetAudit|NuGetAuditMode|NuGetAuditLevel|ArtifactsPath|UseArtifactsOutput|BaseOutputPath|BaseIntermediateOutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|InformationalVersion)[ &gt;/]').Value)</_RasmProjectPolicyElement>
         </PropertyGroup>
-        <Error Code="RASM0002" Condition="'$(_RasmShapeBreach)' != ''"
-               Text="Project manifest '$(MSBuildProjectFile)' carries a policy element ('$(_RasmShapeBreach.Trim())…'): versions ride CPM, severities ride .editorconfig, output and analysis posture ride the root project." />
+        <Error Code="RASM0002" Condition="'$(_RasmProjectPolicyElement)' != ''"
+               Text="Project manifest '$(MSBuildProjectFile)' contains a centrally managed element ('$(_RasmProjectPolicyElement.Trim())…'): package versions belong in Directory.Packages.props, analyzer severities in .editorconfig, and output and analysis settings in Directory.Build.props." />
     </Target>
 
 </Project>

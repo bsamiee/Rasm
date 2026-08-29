@@ -8,7 +8,7 @@
         <RasmAppsRoot>$(RasmRepoRoot)apps/</RasmAppsRoot>
     </PropertyGroup>
 
-    <PropertyGroup Label="Package Posture">
+    <PropertyGroup Label="Package Metadata">
         <Authors>bsamiee</Authors>
         <Company>bsamiee</Company>
         <Copyright>Copyright © 2025 bsamiee</Copyright>

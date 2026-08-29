@@ -11,11 +11,11 @@
         <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers"              Version="18.7.23" />
     </ItemGroup>
 
-    <ItemGroup Label="Host Compile Surface">
+    <ItemGroup Label="Host Build Dependencies">
         <PackageVersion Include="System.Drawing.Common"                                   Version="10.0.11" />
     </ItemGroup>
 
-    <ItemGroup Label="Core Substrate">
+    <ItemGroup Label="Core Dependencies">
         <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />
         <PackageVersion Include="Generator.Equals"                                        Version="4.0.2" />
         <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-77" />
@@ -33,7 +33,7 @@
         <PackageVersion Include="Wacton.Unicolour"                                        Version="8.0.0" />
     </ItemGroup>
 
-    <ItemGroup Label="Wire Transport">
+    <ItemGroup Label="Serialization and RPC Dependencies">
         <PackageVersion Include="Celly.Protovalidate"                                     Version="1.2.0" />
         <PackageVersion Include="Google.Api.CommonProtos"                                 Version="2.17.0" />
         <PackageVersion Include="Google.Protobuf"                                         Version="3.36.0" />
@@ -50,7 +50,7 @@
         <PackageVersion Include="NodaTime.Serialization.Protobuf"                         Version="2.0.2" />
     </ItemGroup>
 
-    <ItemGroup Label="Kernel Numerics">
+    <ItemGroup Label="Numerical Computing Dependencies">
         <PackageVersion Include="CSparse"                                                 Version="4.4.0" />
         <PackageVersion Include="MathNet.Numerics"                                        Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Numerics.Providers.MKL"                          Version="6.0.0-beta2" />
@@ -60,7 +60,7 @@
         <PackageVersion Include="TYoshimura.DoubleDouble"                                 Version="5.0.8" />
     </ItemGroup>
 
-    <ItemGroup Label="Kernel Geometry">
+    <ItemGroup Label="Computational Geometry Dependencies">
         <PackageVersion Include="MIConvexHull"                                            Version="1.1.19.1019" />
         <PackageVersion Include="Supercluster.KDTree.Net"                                 Version="1.0.22" />
     </ItemGroup>
@@ -98,7 +98,7 @@
         <PackageVersion Include="PollinationSDK"                                          Version="1.10.0" />
     </ItemGroup>
 
-    <ItemGroup Label="Geospatial Substrate">
+    <ItemGroup Label="Geospatial Dependencies">
         <PackageVersion Include="NetTopologySuite"                                        Version="2.6.0" />
         <PackageVersion Include="NetTopologySuite.IO.Esri.Shapefile"                      Version="1.2.0" />
         <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ"                         Version="4.0.0" />
@@ -108,7 +108,7 @@
         <PackageVersion Include="pocketken.H3"                                            Version="4.5.0.1" />
     </ItemGroup>
 
-    <ItemGroup Label="Event Transport">
+    <ItemGroup Label="Messaging Dependencies">
         <PackageVersion Include="AMQPNetLite.Core"                                        Version="2.5.3" />
         <PackageVersion Include="CloudNative.CloudEvents"                                 Version="2.9.0" />
         <PackageVersion Include="CloudNative.CloudEvents.Amqp"                            Version="2.9.0" />
@@ -121,7 +121,7 @@
         <PackageVersion Include="Pidgin"                                                  Version="3.5.1" />
     </ItemGroup>
 
-    <ItemGroup Label="Data Substrate">
+    <ItemGroup Label="Data Dependencies">
         <PackageVersion Include="Apache.Arrow"                                            Version="23.0.0" />
         <PackageVersion Include="Apache.Arrow.Adbc"                                       Version="0.24.0" />
         <PackageVersion Include="Apache.Arrow.Adbc.Drivers.Apache"                        Version="0.23.0" />
@@ -150,7 +150,7 @@
         <PackageVersion Include="TorchSharp"                                              Version="0.107.0" />
     </ItemGroup>
 
-    <ItemGroup Label="GPU Substrate">
+    <ItemGroup Label="GPU Computing Dependencies">
         <PackageVersion Include="Silk.NET.WebGPU"                                         Version="2.23.0" />
         <PackageVersion Include="Silk.NET.WebGPU.Extensions.WGPU"                         Version="2.23.0" />
         <PackageVersion Include="Silk.NET.WebGPU.Native.WGPU"                             Version="2.23.0" />
@@ -439,7 +439,7 @@
         <PackageVersion Include="Microsoft.Diagnostics.NETCore.Client"                    Version="0.2.661903" />
     </ItemGroup>
 
-    <ItemGroup Label="Test Stack">
+    <ItemGroup Label="Test Dependencies">
         <PackageVersion Include="coverlet.MTP"                                            Version="10.0.1" />
         <PackageVersion Include="CsCheck"                                                 Version="4.8.0" />
         <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing"               Version="10.8.0" />
@@ -451,7 +451,7 @@
         <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="4.0.0" />
     </ItemGroup>
 
-    <ItemGroup Label="Transitive Floors">
+    <ItemGroup Label="Transitive Version Constraints">
         <PackageVersion Include="Humanizer.Core"                                          Version="3.0.10" />
         <PackageVersion Include="Microsoft.Bcl.Memory"                                    Version="10.0.10" />
         <PackageVersion Include="Microsoft.Build.Framework"                               Version="18.8.2" />

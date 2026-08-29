@@ -22,7 +22,7 @@ public/build/
 **/dist/**/*.d.ts
 **/dist/**/*.d.ts.map
 *.js.map
-# Vite's transient config bundle; lingers beside vite.config.ts after a crashed run
+# Vite's transient config bundle may remain next to vite.config.ts after a crashed run
 *.timestamp-*.mjs
 
 # --- [PYTHON_ARTIFACTS] -------------------------------------------------------
@@ -49,7 +49,7 @@ env/
 .pytest_cache/
 .ruff_cache/
 .ty_cache/
-# Testkit routes the hypothesis DB to .cache/hypothesis; this catches runs outside that runtime
+# Python test support routes the Hypothesis database to .cache/hypothesis; this catches runs without that configuration
 .hypothesis/
 .dmypy.json
 *.prof
@@ -91,7 +91,7 @@ diagnostics.sarif
 *.user
 *.suo
 *.lscache
-# Rhino writes lock/backup sidecars next to any opened .3dm; unroutable at the host
+# Rhino writes lock and backup files beside opened .3dm files; the host exposes no relocation option
 *.rhl
 *.3dmbak
 # Grasshopper2.dll extracts embedded resources to the `dotnet build` cwd; root-anchored so the real `apps/grasshopper/` tree stays tracked
@@ -161,5 +161,5 @@ _tmp/
 *.cert
 *.crt
 credentials.json
-# Stryker.NET mutation sandbox: cwd-relative with no relocation option upstream; reports route to .artifacts/dotnet/stryker
+# Stryker.NET mutation working directory: relative to the current directory with no upstream relocation option; reports write to .artifacts/dotnet/stryker
 .stryker-tmp/

@@ -2,6 +2,7 @@
     "stryker-config": {
         "test-runner": "mtp",
         "solution": "Workspace.slnx",
+        "output": ".artifacts/dotnet/stryker",
         "mutate": [
             "**/libs/dotnet/**/*.cs",
             "**/tools/**/*.cs",

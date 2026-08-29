@@ -1,10 +1,10 @@
 # [RASM_WORKSPACE]
 
-Rasm is a polyglot monorepo. Development targets macOS first and every surface stays portable to Linux and Windows. A dependency, tool, or host that cannot run on macOS stays out.
+Rasm is a polyglot monorepo. Development targets macOS first, and all code and tooling remain portable to Linux and Windows. A dependency, tool, or host that cannot run on macOS stays out.
 
-All primary folders are branched by language, `libs/`, `apps/`, `tests/`, and `eng/` contains the automation for all languages, but is NOT organized by language. Reusable libraries live in `libs/`. Applications live in `apps/`, one directory per product, each consuming a library exactly as it consumes any third-party package.
+Language-specific code is organized beneath `libs/` and `tests/`. Applications live in `apps/`, one directory per product, and consume internal libraries through package dependencies. Shared build and release automation lives in `eng/`.
 
-All languages are CPM, centralized package management, versions ONLY live in repo root, nowhere else, and they carry package identity and dependency edges.
+Dependency versions centralize in root manifests: `Directory.Packages.props` for .NET, `pyproject.toml` and `uv.lock` for Python, and `pnpm-workspace.yaml` for TypeScript.
 
 ## [01]-[LAYOUT]
 
@@ -17,34 +17,34 @@ Rasm/
 │   ├── dotnet/
 │   ├── python/
 │   └── typescript/
-├── tests/                    # Centralized test suites
+├── tests/                    # Cross-language test policy, reusable test support, and non-colocated suites
 │   ├── dotnet/
 │   ├── python/
 │   └── typescript/
-├── eng/                      # Build and release infrastructure every language branch shares
+├── eng/                      # Shared build and release infrastructure
 │   └── scripts/              # Python automation that Nx targets and CI jobs invoke
 ├── tools/                    # Custom tools for developing this project
 │   └── biome/                # Python automation that Nx targets and CI jobs invoke
-├── nx.json                   # Task graph, caching, and change detection across every branch
-├── Directory.Build.props     # C# setup, artifacts path, restore, analysis, workspace analyzers, Rhino bundle paths
-├── Directory.Build.targets   # C# derived items: package-keyed usings, host references, shape guards
-├── Directory.Packages.props  # CPM - C#
-├── pyproject.toml            # CPM - Python, and rule set tuning for all Python tools
-├── pnpm-workspace.yaml       # CPM - TypeScript
-├── package.json              # TypeScript catalog dependencies EVERY project extends
-├── tsconfig.base.json        # TypeScript compiler options EVERY project extends
+├── nx.json                   # Task graph, caching, and change detection across the workspace
+├── Directory.Build.props     # .NET build defaults, artifacts path, restore, analysis, analyzers, Rhino bundle paths
+├── Directory.Build.targets   # .NET derived items, host references, and project policy checks
+├── Directory.Packages.props  # .NET central package versions
+├── pyproject.toml            # Python dependency groups and tool configuration
+├── pnpm-workspace.yaml       # TypeScript workspace and dependency catalog
+├── package.json              # Root TypeScript package metadata and development dependencies
+├── tsconfig.base.json        # Base TypeScript compiler options for workspace projects
 ├── tsconfig.json             # TypeScript project references that drive build order
 ├── biome.json                # TypeScript lint and formatting rules
-├── vite.config.ts            # TypeScript Shared Vite build configuration that app and package configs import
+├── vite.config.ts            # Shared TypeScript Vite build configuration imported by app and package configs
 ├── vitest.config.ts          # TypeScript Vitest projects, coverage, and benchmark configuration
 ├── stryker.config.json       # TypeScript mutation testing
-├── stryker-config.json       # C# mutation testing
-├── Workspace.slnx            # C# solution listing every C# project
-├── NuGet.config              # NuGet feed, clears inherited machine and user sources
+├── stryker-config.json       # .NET mutation testing
+├── Workspace.slnx            # .NET solution listing every project
 ├── global.json               # .NET SDK version and test runner config (MTP)
+├── NuGet.config              # NuGet feed, clears inherited machine and user sources
 ├── CLAUDE.md                 # Agent standards
 ├── AGENTS.md                 # Symlink to CLAUDE.md
-├── .editorconfig             # Analyzer severity, path-scoped carves, and BuildCheck rows
+├── .editorconfig             # Analyzer severity, path-specific overrides, and BuildCheck settings
 ├── .gitattributes
 ├── .gitignore
 ├── README.md
@@ -53,43 +53,43 @@ Rasm/
 
 ## [02]-[TASKS]
 
-[REQUIRED]: Tools/tasks MUST have outputs configured for caches and outputs to land under `.cache/` and `.artifacts/`, NEVER as root level litter.
+[REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`; tool-specific root work directories that cannot be relocated are explicitly ignored and contain no durable output.
 
-Nx owns the task graph, and build, test, lint, and generate targets.
+Nx defines the task graph and the build, test, lint, and generate targets.
 
 - Targets resolve from plugin inference, then `targetDefaults` in `nx.json`, then a project's own configuration, each source overriding the one before it
 - Targets running a single command name that command directly
-- Steps carrying real logic land as Python scripts under `eng/scripts/`, which a target invokes
-- Scripts declare their own dependencies inline and run under `uv run`, no shared environment gates them
+- Steps containing control flow are implemented as Python scripts under `eng/scripts/`, which a target invokes
+- Scripts declare their dependencies inline and run under `uv run` without a shared Python environment
 
 ## [03]-[QUALITY]
 
-Every checker runs at its strictest available setting, and each branch passes all of its checkers before code lands.
-- Dotnet: Roslyn analyzers at `latest-all`, warnings-as-errors, code-style rules enforced during build, `.editorconfig` carries rule severity and configuration.
+Checker configuration is centralized, and each language area must pass its configured checks before code is merged.
+
+- .NET: Roslyn analyzers at `latest-all`, warnings-as-errors, code-style rules enforced during build, `.editorconfig` carries rule severity and configuration.
 - Python: Passes with no warnings/errors from `ruff`, `ty`, and `mypy`.
-- TypeScript: Compiles under `biome`, and `tsc` with `strict`
-- Formatting: `dotnet format`, `ruff format`, and `biome`
-- Strictness moves in one direction, a relaxed setting is a defect to repair rather than a decision to keep
+- TypeScript: Passes `biome check` and compiles with `tsc --build` under strict settings.
+- Formatting: `dotnet format`, `ruff format`, and `biome format`
+- Do not relax checker settings; repair the code or correct a demonstrably invalid rule
 
 ## [04]-[LIBRARIES]
 
-Every `libs/` package stands alone, publishing an API for a consumer it never meets.
+Every `libs/` package is independently consumable and publishes a stable API.
 
-- Packages import a sibling the way they import any third-party dependency
+- Packages reference sibling packages through declared package dependencies
 - Every dependency edge points toward a lower-level package, the graph stays acyclic
-- Packages expose capability. Explicit exports at the END of the file is required for Python and Typescript
+- Packages expose capabilities. Python and TypeScript files declare explicit exports at the end.
 - Workflow assembly, configuration loading, and dependency wiring belong to the application
-- Siblings align on naming, failure handling, and boundary shape to compose predictably
+- Sibling packages align on naming, error handling, and boundary types so they compose predictably
 
-## [05]-[LANGUAGE_BRANCHES]
+## [05]-[LANGUAGE_AREAS]
 
-Each language branch develops on its own terms and ships without the others.
+Each language area follows its own ecosystem and ships independently.
 
-- Branches share one design approach to boundaries, failure, and immutability
-- Each branch follows the idioms and standards of its own language
-- Each branch derives its module layout, naming, and API shape from that language alone
-- Each branch builds and runs with no other branch present
-- Each branch expresses that approach in its own idiom
+- Language areas share one design approach to boundaries, errors, and immutability
+- Each area follows the idioms and standards of its language
+- Each area derives module layout, naming, and API design from its language
+- Each area builds and runs without another language area present
 
 ## [06]-[APPLICATIONS]
 
@@ -97,5 +97,5 @@ Each `apps/<name>/` is one product with its own host, lifecycle, and release.
 
 - Each application depends on `libs/` and third-party packages
 - One application spans as many languages and projects as its host demands
-- Applications own the composition root, where configuration, dependency wiring, effect execution, and telemetry land
+- Applications own the composition root, where configuration, dependency wiring, effect execution, and telemetry are implemented
 - Host APIs stay inside the package named for that host or inside the application itself

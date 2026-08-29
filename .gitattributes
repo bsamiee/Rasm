@@ -1,6 +1,5 @@
-# Text Normalization
-# LF working-tree law for all source/config; *.verify.csx scenarios are compiler-authoritative
-# and *.verified.* Verify snapshots are byte-exact assertion artifacts — both stay LF.
+# Text normalization
+# Normalize source and configuration files to LF; Verify snapshots require exact LF bytes
 * text=auto
 *.cs text eol=lf
 *.csx text eol=lf
@@ -39,7 +38,7 @@
 
 *.bin binary
 
-# Icons
+# Icon files
 *.ico -filter -diff -merge -text
 
 # Git LFS — large binary assets commit as pointers
@@ -102,5 +101,5 @@
 *.parquet filter=lfs diff=lfs merge=lfs -text
 *.feather filter=lfs diff=lfs merge=lfs -text
 
-# Vendored lib3mf RID natives are committed as plain blobs (the build consumes real files); LFS filters stay off so re-staging never converts them to pointers.
+# Vendored lib3mf RID natives are committed as plain blobs (the build consumes real files); LFS filters stay off so re-staging never converts them to pointers
 libs/dotnet/Rasm.Fabrication/vendor/runtimes/** -filter -diff -merge
