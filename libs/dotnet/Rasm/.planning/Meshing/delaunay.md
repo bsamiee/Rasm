@@ -1,12 +1,12 @@
 # [RASM_ARRANGEMENT_DELAUNAY]
 
-`Rasm.Meshing` owns exact constrained Delaunay triangulation and tetrahedralization: one sealed `Tessellation` built by `Tessellation.Build` over one `SimplexStore` arena, every vertex carried by defining entities through the `Implicit` store, so a constructed crossing keeps exact signs and rounds once at the `ToMesh` emission boundary. `TessellationPolicy.Mode` closes the two build regimes — `Delaunay` restores empty-circum by predicate-guarded flips, `Constrained` holds zero-in-circum exactness for implicit-bearing builds — one keyless roster over one store owning the whole insertion algebra, each regime carrying its insert and settle arms as row delegates so no call site branches on row equality.
+`Rasm.Meshing` owns exact constrained Delaunay triangulation and tetrahedralization: one sealed `Tessellation` built by `Tessellation.Build` over one `SimplexStore` arena, every vertex carried by defining entities through the `ImplicitPoint` store, so a constructed crossing keeps exact signs and rounds once at the `ToMesh` emission boundary. `TessellationPolicy.Mode` closes the two build regimes — `Delaunay` restores empty-circum by predicate-guarded flips, `Constrained` holds zero-in-circum exactness for implicit-bearing builds — one keyless roster over one store owning the whole insertion algebra, each regime carrying its insert and settle arms as row delegates so no call site branches on row equality.
 
-`Implicit` rows are the exact vertex carrier, and every walk, cavity, flip, and recovery sign composes the `Predicate` family — both owned at `Numerics`. `SimplexStore` obeys the `Meshing/edit` `[03]-[ARENA_LAW]` contract by name, `ToMesh` publishing through that arena's freeze to the hashable `MeshSpace` that `Spatial/reconciliation` `Encode` content-addresses; failures route the `GeometryFault` union. `SimplexStore.Reach` is the page's one traversal over the store's own neighbour incidence, composing QuikGraph. `VoronoiDual` and `LowerHull` serve the `Meshing/offset` medial substrate and the Fabrication operating-envelope gate, the predicate-gated exact tier beside the `Spatial/cloud` host-kind hull arm.
+`ImplicitPoint` rows are the exact vertex carrier, and every walk, cavity, flip, and recovery sign composes the `Predicate` family — both owned at `Numerics`. `SimplexStore` obeys the `Meshing/edit` `[03]-[ARENA_LAW]` contract by name, `ToMesh` publishing through that arena's freeze to the hashable `MeshSpace` that `Spatial/reconciliation` `Encode` content-addresses; failures route the `GeometryFault` union. `SimplexStore.Reach` is the page's one traversal over the store's own neighbour incidence, composing QuikGraph. `VoronoiDual` and `LowerHull` serve the `Meshing/offset` medial substrate and the Fabrication operating-envelope gate, the predicate-gated exact tier beside the `Spatial/cloud` host-kind hull arm.
 
 ## [01]-[INDEX]
 
-- [02]-[TESSELLATION]: one `Build(TessellationOp)` entry; one sealed `Tessellation` over one `SimplexStore` arena of `Implicit` rows; cavity-flood or split-insert by row delegate; `Conform` recovery with defining-entity Steiner re-anchoring; `ToMesh`/`Triangles`/`Tetrahedra`/`VoronoiDual`/`LowerHull` projections, the dual's bounded-cell overload clipping each site's cell to an admitted boundary ring.
+- [02]-[TESSELLATION]: one `Build(TessellationOp)` entry; one sealed `Tessellation` over one `SimplexStore` arena of `ImplicitPoint` rows; cavity-flood or split-insert by row delegate; `Conform` recovery with defining-entity Steiner re-anchoring; `ToMesh`/`Triangles`/`Tetrahedra`/`VoronoiDual`/`LowerHull` projections, the dual's bounded-cell overload clipping each site's cell to an admitted boundary ring.
 - [03]-[DENSITY_BAR]: one owner per axis-concern, each a case, row, or fold arm over the one store.
 
 ## [02]-[TESSELLATION]
@@ -14,12 +14,12 @@
 - Owner: one sealed `Tessellation` mints the arrangement over one `SimplexStore` arena; `TessellationKind` is the ONE dimensional discriminant and the sealed owner normalizes the two asymmetric columns at construction — a tetrahedralization projects on `Axis.Z` and carries no planar support, so the illegal pairing is unrepresentable rather than guarded; `TessellationPolicy` binds the `TessellationMode` regime with the per-edge flip budget, the pass-shaped recovery budget, the Steiner budget, the arena seed, the super-simplex scale, and the one `CorridorGuard` derivation both recovery regimes read, `Conform` is the closed recovery input whose `Crossing` case carries a foreign supporting plane's original points, `Carrier` is the depth-1 original-entity spelling one side of a split resolves to, and `SimplexStore.Reach` is the ONE traversal over the store's own neighbour incidence.
 - Cases: `TessellationOp` 3 (`Points`/`Insert`/`Recover`), `Conform` 3 (`Edge`/`Facet`/`Crossing`), `Carrier` 2 (`PairCase`/`PlaneCase`), `TessellationKind` and `TessellationMode` 2 each; the fence carries every roster. Every dispatch over `Conform` is the generated total `Switch` — the shape gate, the recovery route, and the carrier resolution alike — so a fourth case breaks all three at compile time instead of falling into a catch-all.
 - Entry: one polymorphic `Build(TessellationOp)` discriminates `Points` (seed, Morton-order, insert, recover, strip), `Insert` (one incremental insertion), and `Recover` (force a conform set) through the same one-row admission, so the interior never re-validates; no `BuildTriangulation`/`InsertVertex` sibling statics.
-- Auto: `Points` seeds the scaled super-simplex, folds insertion over the Morton locality order, recovers each conform row, and strips super-incident simplices; the `TessellationMode` row's `Insert` delegate selects per insertion — `Delaunay` floods the in-circum cavity over explicit-cornered simplices and cones it, `Constrained` split-inserts with zero in-circum references — and its `Settle` delegate owns the terminal restoration pass. Every interior query rides the vertex-anchored star walk over `SimplexStore.Reach`'s implicit depth-first reach, whose colouring touches only what it discovers, never a table scan. Recovery walks each missing edge, flips unconstrained crossings on quad convexity, and mints the exact Steiner over original entities (`Implicit.SegmentIntersection`/`LinePlaneIntersection`/`ThreePlaneIntersection` by `Carrier` resolution) when the crossing is itself pinned, both sub-segments re-anchored on the root; 3D recovery is bistellar-only.
+- Auto: `Points` seeds the scaled super-simplex, folds insertion over the Morton locality order, recovers each conform row, and strips super-incident simplices; the `TessellationMode` row's `Insert` delegate selects per insertion — `Delaunay` floods the in-circum cavity over explicit-cornered simplices and cones it, `Constrained` split-inserts with zero in-circum references — and its `Settle` delegate owns the terminal restoration pass. Every interior query rides the vertex-anchored star walk over `SimplexStore.Reach`'s implicit depth-first reach, whose colouring touches only what it discovers, never a table scan. Recovery walks each missing edge, flips unconstrained crossings on quad convexity, and mints the exact Steiner over original entities (`ImplicitPoint.SegmentIntersection`/`LinePlaneIntersection`/`ThreePlaneIntersection` by `Carrier` resolution) when the crossing is itself pinned, both sub-segments re-anchored on the root; 3D recovery is bistellar-only.
 - Law: duplicate admission is decided by the page's OWN exact predicate — the explicit rows sort under `Predicate.Compare` on the three ordinals and adjacent equal pairs reject — never by a hash over `Point3d`, whose bucket a signed zero or a host-specific hash normalization can split while `==` calls the pair equal. Named cost is one `O(n log n)` sort in place of an `O(n)` probe, and the bought guarantee is that "duplicate" means what every other sign on this page means. Both admission modalities refuse identically: implicit rows demand `Constrained`, and a 3D implicit row is CDTet-gated growth on the batch entry exactly as on the incremental one.
 - Exemption: `SimplexStore`'s columns, its free list, its live census, the cone's shared-subface table, and the pin table are mutable for the build's whole life and never freeze — the arena law's single-writer clause covers them, and the frozen projections are the only egress. That same clause covers every fold-scoped accumulator dying with the pass that fills it: the cavity `IndexSet` and star list of both insertion arms, the emission slot map, the ping-pong ring and label buffers of the bounded-cell clip, and the incidence and off-vertex lists of the 3-2 bistellar move. `Locate` states its own refusal: point location is a directed straight-line walk under an exact exit predicate — one path, no frontier, no colouring — so no container or observer expresses it, and the live-count bound faults typed on an overrun. Recovery work-lists are a SPLITTING fold, not a traversal: each dequeue may enqueue two halves of the segment it just cut, so the structure it walks does not exist until the walk creates it, and no QuikGraph container holds it. 3D bistellar corridors walk tetrahedra through `SimplexStore.Reach` but decide each move by exact orientation, never by an edge weight.
-- Packages: `Rasm.Numerics` (the `Predicate` floor and `Implicit` carrier, `Predicate.ClipHalfplane` + `Halfplane.Frame` the ONE ring clip, `Axis` with `U`/`V`, `EpsilonPolicy` the numerical floors, the `GeometryFault` union, `Dimension`/`PositiveMagnitude`), `Rasm.Meshing` (the `MeshEdit` arena freeze and `MeshSpace`, and `FlipFrontier` — the folder's ONE flip work-list, composed with this page's three store reads), `Rasm.Domain` (`Context`, `ValidityClaim`), QuikGraph (`DelegateIncidenceGraph` + `ImplicitDepthFirstSearchAlgorithm` + `VertexPredecessorRecorderObserver` — the one lazily-adjacent reach and its recorder), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new tessellation modality is one `TessellationKind` or `TessellationMode` row with its two delegate columns over the same `SimplexStore`; a new budget is one `TessellationPolicy` column with the derivation that reads it; a new conform shape is one `Conform` case and one arm on each of the three total `Switch`es; a new depth-1 spelling is one `Carrier` case; a new vertex-row construction is the `Numerics` predicate owner's `Implicit` case, this page widening by zero members.
-- Boundary: `Tessellation` is a sealed CLASS and never a record — it holds the live arena and the live pin table, so a generated `with` clone would publish a second value aliasing one store and one pin map while claiming value semantics; the frozen hash-eligible artifact is the `MeshSpace` the `ToMesh` freeze publishes, and `Triangles` publishes corners beside face indices so a consumer welds on the store's own ordinals rather than re-interning its rounded points. The `Implicit` carrier keeps signs exact and rounds coordinates once at the emission boundary; the depth-1 seal binds every constructed vertex — an implicit row references input points only, and a recovery split re-expresses over original entities through the `Conform` carriage. `Build` and the projections are total over `Fin`; recovery splits a conform row within budget or faults typed with its index, never dropping it, and every bounded pass on this page — the flip guard, the Steiner budget, the restoration passes, the facet conformance passes — exits through `ConstraintUnrecoverable` or its own direct tessellation leaf rather than returning an unconverged result shaped like a converged one. Consumers reach this owner only through `Build` and the projections; `VoronoiDual` and `LowerHull` hold the predicate-gated exact hull tier while `Spatial/cloud` owns the host and concave hull kinds. RETIRED VOCABULARY, stated once: this page's recovery input was `Constraint` and its two-ended case `Constraint.Segment`, now `Conform` and `Conform.Edge`; `Rasm.Solving` keeps `Constraint` for its solver rows, which is why the rename was kernel-interior, and the shared typed exhaustion fault `GeometryFault.ConstraintUnrecoverable(int Constraint, Dimension Budget)` keeps its positional name at the `Numerics/faults` owner both families read — this page feeds it a CONFORM index and the field name follows the fault's owner, not its caller.
+- Packages: `Rasm.Numerics` (the `Predicate` floor and `ImplicitPoint` carrier, `HalfPlane.Clip` + `HalfPlane.DirectedLine` the ONE ring clip, `Axis` with `U`/`V`, `EpsilonPolicy` the numerical floors, the `GeometryFault` union, `Dimension`/`PositiveMagnitude`), `Rasm.Meshing` (the `MeshEdit` arena freeze and `MeshSpace`, and `FlipFrontier` — the folder's ONE flip work-list, composed with this page's three store reads), `Rasm.Domain` (`Context`, `ValidityClaim`), QuikGraph (`DelegateIncidenceGraph` + `ImplicitDepthFirstSearchAlgorithm` + `VertexPredecessorRecorderObserver` — the one lazily-adjacent reach and its recorder), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new tessellation modality is one `TessellationKind` or `TessellationMode` row with its two delegate columns over the same `SimplexStore`; a new budget is one `TessellationPolicy` column with the derivation that reads it; a new conform shape is one `Conform` case and one arm on each of the three total `Switch`es; a new depth-1 spelling is one `Carrier` case; a new vertex-row construction is the `Numerics` predicate owner's `ImplicitPoint` case, this page widening by zero members.
+- Boundary: `Tessellation` is a sealed CLASS and never a record — it holds the live arena and the live pin table, so a generated `with` clone would publish a second value aliasing one store and one pin map while claiming value semantics; the frozen hash-eligible artifact is the `MeshSpace` the `ToMesh` freeze publishes, and `Triangles` publishes corners beside face indices so a consumer welds on the store's own ordinals rather than re-interning its rounded points. The `ImplicitPoint` carrier keeps signs exact and rounds coordinates once at the emission boundary; the depth-1 seal binds every constructed vertex — an implicit row references input points only, and a recovery split re-expresses over original entities through the `Conform` carriage. `Build` and the projections are total over `Fin`; recovery splits a conform row within budget or faults typed with its index, never dropping it, and every bounded pass on this page — the flip guard, the Steiner budget, the restoration passes, the facet conformance passes — exits through `ConstraintRecoveryExhausted` or its own direct tessellation leaf rather than returning an unconverged result shaped like a converged one. Consumers reach this owner only through `Build` and the projections; `VoronoiDual` and `LowerHull` hold the predicate-gated exact hull tier while `Spatial/cloud` owns the host and concave hull kinds. RETIRED VOCABULARY, stated once: this page's recovery input was `Constraint` and its two-ended case `Constraint.Segment`, now `Conform` and `Conform.Edge`; `Rasm.Solving` keeps `Constraint` for its solver rows, which is why the rename was kernel-interior, and the shared typed exhaustion fault `GeometryFault.ConstraintRecoveryExhausted(int Constraint, Dimension Budget)` keeps its positional name at the `Numerics/faults` owner both families read — this page feeds it a CONFORM index and the field name follows the fault's owner, not its caller.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -77,7 +77,7 @@ public sealed record TessellationPolicy(
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed class SimplexStore {
-    Implicit[] rows;
+    ImplicitPoint[] rows;
     int[] vertices;
     int[] neighbours;
     int[] anchor;
@@ -88,7 +88,7 @@ internal sealed class SimplexStore {
 
     internal SimplexStore(int arity, int capacity) {
         this.arity = arity;
-        rows = new Implicit[capacity];
+        rows = new ImplicitPoint[capacity];
         vertices = new int[arity * capacity];
         neighbours = new int[arity * capacity];
         anchor = new int[capacity];
@@ -97,14 +97,14 @@ internal sealed class SimplexStore {
 
     public int VertexCount => vertexCount;
     public int SimplexCount => simplexCount;
-    public Implicit Row(int vertex) => rows[vertex];
+    public ImplicitPoint Row(int vertex) => rows[vertex];
     public bool Alive(int simplex) => simplex < simplexCount && !dead[simplex];
     public ReadOnlySpan<int> SimplexVertices(int simplex) => vertices.AsSpan(arity * simplex, arity);
     public int Neighbour(int simplex, int face) => neighbours[(arity * simplex) + face];
     public int LiveCount => liveCount;
     public IEnumerable<int> Live => Enumerable.Range(0, simplexCount).Where(Alive);
 
-    internal int AddVertex(in Implicit row) {
+    internal int AddVertex(in ImplicitPoint row) {
         Grow(ref rows, vertexCount + 1);
         Grow(ref anchor, vertexCount + 1);
         rows[vertexCount] = row;
@@ -198,9 +198,9 @@ public abstract partial record TessellationOp {
     private TessellationOp() { }
 
     public sealed record Points(
-        TessellationKind Kind, Arr<Implicit> Vertices, Seq<Conform> Conforms,
+        TessellationKind Kind, Arr<ImplicitPoint> Vertices, Seq<Conform> Conforms,
         TessellationPolicy Policy, Axis Plane, Option<(Point3d P, Point3d Q, Point3d R)> Support = default) : TessellationOp;
-    public sealed record Insert(Tessellation Into, Implicit Vertex) : TessellationOp;
+    public sealed record Insert(Tessellation Into, ImplicitPoint Vertex) : TessellationOp;
     public sealed record Recover(Tessellation Into, Seq<Conform> Conforms) : TessellationOp;
 }
 
@@ -251,7 +251,7 @@ public sealed partial class Tessellation : IValidityEvidence {
                 .Bind(admitted => r.Conforms.Map(static i => (Index: i, Row: c))
                     .FoldM(admitted, c => t.RecoverOne(c.Row, c.Index)).As()));
 
-    static Seq<int> InsertionOrder(Arr<Implicit> rows) {
+    static Seq<int> InsertionOrder(Arr<ImplicitPoint> rows) {
         Option<Point3d>[] sites = [.. rows.AsIterable().Map(static r => r.Round())];
         BoundingBox box = new(sites.Somes());
         Vector3d span = box.Max - box.Min;
@@ -297,7 +297,7 @@ public sealed partial class Tessellation : IValidityEvidence {
             Fin.Fail<TessellationOp.Points>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, index, witness));
     }
 
-    static int Rank(Implicit a, Implicit b) {
+    static int Rank(ImplicitPoint a, ImplicitPoint b) {
         foreach (Axis axis in Seq(Axis.X, Axis.Y, Axis.Z)) {
             Sign side = Predicate.Compare(in a, in b, axis);
             if (side != Sign.Zero) { return side == Sign.Negative ? -1 : 1; }
@@ -305,8 +305,8 @@ public sealed partial class Tessellation : IValidityEvidence {
         return 0;
     }
 
-    Fin<Implicit> AdmitRow(Implicit vertex) {
-        Fin<Implicit> Reject(string witness) =>
+    Fin<ImplicitPoint> AdmitRow(ImplicitPoint vertex) {
+        Fin<ImplicitPoint> Reject(string witness) =>
             new GeometryFault.DegenerateInput(Rasm.Domain.Kind.Point, Store.VertexCount, witness);
         return vertex.IsExplicit && !ValidityClaim.Finite(point: vertex.AsExplicit) ? Reject("non-finite explicit row")
             : vertex.IsExplicit && Enumerable.Range(0, Store.VertexCount).Any(v => Store.Row(v).IsExplicit && Rank(Store.Row(v), vertex) == 0) ? Reject("duplicate row")
@@ -338,7 +338,7 @@ public sealed partial class Tessellation : IValidityEvidence {
     // --- [LOCATE]
     Fin<int> Locate(int query) {
         int current = Store.LastLive();
-        Implicit q = Store.Row(query);
+        ImplicitPoint q = Store.Row(query);
         int arity = Kind.SimplexArity;
         for (int step = 0; step <= Store.SimplexCount; step++) {
             ReadOnlySpan<int> vertices = Store.SimplexVertices(current);
@@ -366,7 +366,7 @@ public sealed partial class Tessellation : IValidityEvidence {
 
     // --- [CAVITY]
     internal Fin<int> CavityInsert(int seed, int query) {
-        Implicit q = Store.Row(query);
+        ImplicitPoint q = Store.Row(query);
         IndexSet cavity = [.. Store.Reach(seed,
             s => Restorable(s) && InCircum(s, in q) == Sign.Positive)];
         List<(int Simplex, int Face)> star = [];
@@ -381,7 +381,7 @@ public sealed partial class Tessellation : IValidityEvidence {
             : Fin.Succ(Cone(cavity, star, query));
     }
 
-    Sign InCircum(int simplex, in Implicit query) {
+    Sign InCircum(int simplex, in ImplicitPoint query) {
         ReadOnlySpan<int> vs = Store.SimplexVertices(simplex);
         return Kind.SimplexArity == 3
             ? Predicate.InCircle(Store.Row(vs[0]).AsExplicit, Store.Row(vs[1]).AsExplicit, Store.Row(vs[2]).AsExplicit, in query, Projection)
@@ -429,7 +429,7 @@ public sealed partial class Tessellation : IValidityEvidence {
 
     internal Fin<int> SplitInsert(int at, int query) {
         ReadOnlySpan<int> vs = Store.SimplexVertices(at);
-        Implicit q = Store.Row(query);
+        ImplicitPoint q = Store.Row(query);
         int onFace = -1;
         if (Kind.SimplexArity == 3) {
             for (int f = 0; f < 3; f++) {
@@ -476,7 +476,7 @@ public sealed partial class Tessellation : IValidityEvidence {
             (int a, int b, Conform carrier) = queue.Dequeue();
             int guard = Policy.CorridorGuard(Store.SimplexCount);
             while (!EdgePresent(a, b)) {
-                if (guard-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxFlipPasses)); }
+                if (guard-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintRecoveryExhausted(index, Policy.MaxFlipPasses)); }
                 if (FirstCrossing(a, b).Case is not ((int p, int q, Option<Conform> pin))) {
                     if (OnSegment(a, b).Case is int through) {
                         queue.Enqueue((a, through, carrier));
@@ -486,7 +486,7 @@ public sealed partial class Tessellation : IValidityEvidence {
                     return Fin.Fail<Tessellation>(new GeometryFault.ConstraintCrossingMissing(a, b));
                 }
                 if (pin.IsNone && FlipDiagonal(p, q)) { continue; }
-                if (budget-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxRecoverySteiner)); }
+                if (budget-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintRecoveryExhausted(index, Policy.MaxRecoverySteiner)); }
                 Fin<int> steiner = SteinerOf(carrier, p, q, pin, index).Map(row => Store.AddVertex(in row)).Bind(v => InsertRow(v).Map(_ => v));
                 if (steiner.Case is not int w) { return steiner.Map(_ => (Tessellation)this); }
                 queue.Enqueue((a, w, carrier));
@@ -499,13 +499,13 @@ public sealed partial class Tessellation : IValidityEvidence {
     }
 
     Option<int> OnSegment(int a, int b) {
-        (Implicit ra, Implicit rb) = (Store.Row(a), Store.Row(b));
+        (ImplicitPoint ra, ImplicitPoint rb) = (Store.Row(a), Store.Row(b));
         Axis u = Projection.U;
         Axis extent = Predicate.Compare(in ra, in rb, u) != Sign.Zero ? u : Projection.V;
         foreach (int s in Star(a)) {
             foreach (int w in Store.SimplexVertices(s)) {
                 if (w == a || w == b) { continue; }
-                Implicit rw = Store.Row(w);
+                ImplicitPoint rw = Store.Row(w);
                 if (Predicate.Orient2D(in ra, in rb, in rw, Projection) != Sign.Zero) { continue; }
                 if (Predicate.Compare(in rw, in ra, extent).Times(Predicate.Compare(in rw, in rb, extent)) == Sign.Negative) { return Some(w); }
             }
@@ -513,16 +513,16 @@ public sealed partial class Tessellation : IValidityEvidence {
         return None;
     }
 
-    Fin<Implicit> SteinerOf(Conform root, int p, int q, Option<Conform> pin, int index) {
+    Fin<ImplicitPoint> SteinerOf(Conform root, int p, int q, Option<Conform> pin, int index) {
         Option<Carrier> own = CarrierOf(root);
         Option<Carrier> cross = pin.Match(Some: CarrierOf, None: () => ExplicitPair(p, q));
         return (own.Case, cross.Case) switch {
-            (Carrier.PairCase sa, Carrier.PairCase sb) => Fin.Succ<Implicit>(new Implicit.SegmentIntersection(sa.A, sa.B, sb.A, sb.B, Projection)),
-            (Carrier.PairCase sa, Carrier.PlaneCase tp) => Fin.Succ<Implicit>(new Implicit.LinePlaneIntersection(sa.A, sa.B, tp.P, tp.Q, tp.R)),
-            (Carrier.PlaneCase op, Carrier.PairCase sb) => Fin.Succ<Implicit>(new Implicit.LinePlaneIntersection(sb.A, sb.B, op.P, op.Q, op.R)),
+            (Carrier.PairCase sa, Carrier.PairCase sb) => Fin.Succ<ImplicitPoint>(new ImplicitPoint.SegmentIntersection(sa.A, sa.B, sb.A, sb.B, Projection)),
+            (Carrier.PairCase sa, Carrier.PlaneCase tp) => Fin.Succ<ImplicitPoint>(new ImplicitPoint.LinePlaneIntersection(sa.A, sa.B, tp.P, tp.Q, tp.R)),
+            (Carrier.PlaneCase op, Carrier.PairCase sb) => Fin.Succ<ImplicitPoint>(new ImplicitPoint.LinePlaneIntersection(sb.A, sb.B, op.P, op.Q, op.R)),
             (Carrier.PlaneCase op, Carrier.PlaneCase tp) when Support.Case is ((Point3d sp, Point3d sq, Point3d sr)) =>
-                Fin.Succ<Implicit>(new Implicit.ThreePlaneIntersection(sp, sq, sr, op.P, op.Q, op.R, tp.P, tp.Q, tp.R)),
-            _ => Fin.Fail<Implicit>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxRecoverySteiner)),
+                Fin.Succ<ImplicitPoint>(new ImplicitPoint.ThreePlaneIntersection(sp, sq, sr, op.P, op.Q, op.R, tp.P, tp.Q, tp.R)),
+            _ => Fin.Fail<ImplicitPoint>(new GeometryFault.ConstraintRecoveryExhausted(index, Policy.MaxRecoverySteiner)),
         };
     }
 
@@ -541,7 +541,7 @@ public sealed partial class Tessellation : IValidityEvidence {
     static Tessellation Seeded(TessellationOp.Points p) {
         int arity = p.Kind.SimplexArity;
         SimplexStore store = new(arity, int.Max((2 * p.Vertices.Count) + arity, p.Policy.SeedCapacity.Value));
-        foreach (Implicit row in p.Vertices) { store.AddVertex(in row); }
+        foreach (ImplicitPoint row in p.Vertices) { store.AddVertex(in row); }
         BoundingBox box = new(p.Vertices.AsIterable().Map(static v => v.Round()).Somes());
         double r = p.Policy.SuperSimplexScale.Value * double.Max(box.Diagonal.Length, EpsilonPolicy.ZeroTolerance);
         Point3d c = box.Center;
@@ -567,7 +567,7 @@ public sealed partial class Tessellation : IValidityEvidence {
             p.Policy,
             p.Kind == TessellationKind.Triangulation ? p.Support : None);
 
-        static Implicit Planar(Point3d c, Axis u, Axis v, double du, double dv) {
+        static ImplicitPoint Planar(Point3d c, Axis u, Axis v, double du, double dv) {
             Span<double> at = [c.X, c.Y, c.Z];
             at[u.Key] += du;
             at[v.Key] += dv;
@@ -588,13 +588,13 @@ public sealed partial class Tessellation : IValidityEvidence {
     }
 
     Option<(int P, int Q, Option<Conform> Pin)> FirstCrossing(int a, int b) {
-        (Implicit ra, Implicit rb) = (Store.Row(a), Store.Row(b));
+        (ImplicitPoint ra, ImplicitPoint rb) = (Store.Row(a), Store.Row(b));
         foreach (int s in Star(a)) {
             ReadOnlySpan<int> vs = Store.SimplexVertices(s);
             for (int f = 0; f < 3; f++) {
                 (int p, int q) = (vs[(f + 1) % 3], vs[(f + 2) % 3]);
                 if (p == a || p == b || q == a || q == b) { continue; }
-                (Implicit rp, Implicit rq) = (Store.Row(p), Store.Row(q));
+                (ImplicitPoint rp, ImplicitPoint rq) = (Store.Row(p), Store.Row(q));
                 bool straddles =
                     Predicate.Orient2D(ra, rb, rp, Projection).Times(Predicate.Orient2D(ra, rb, rq, Projection)) == Sign.Negative
                     && Predicate.Orient2D(rp, rq, ra, Projection).Times(Predicate.Orient2D(rp, rq, rb, Projection)) == Sign.Negative;
@@ -606,7 +606,7 @@ public sealed partial class Tessellation : IValidityEvidence {
 
     bool FlipDiagonal(int p, int q) {
         if (IncidentPair(p, q).Case is not ((int s, int t, int apexS, int apexT))) { return false; }
-        (Implicit rp, Implicit rq, Implicit rs, Implicit rt) = (Store.Row(p), Store.Row(q), Store.Row(apexS), Store.Row(apexT));
+        (ImplicitPoint rp, ImplicitPoint rq, ImplicitPoint rs, ImplicitPoint rt) = (Store.Row(p), Store.Row(q), Store.Row(apexS), Store.Row(apexT));
         bool convex =
             Predicate.Orient2D(rs, rt, rp, Projection).Times(Predicate.Orient2D(rs, rt, rq, Projection)) == Sign.Negative
             && Predicate.Orient2D(rp, rq, rs, Projection).Times(Predicate.Orient2D(rp, rq, rt, Projection)) == Sign.Negative;
@@ -644,7 +644,7 @@ public sealed partial class Tessellation : IValidityEvidence {
     bool EmptyCircum(int p, int q) {
         if (IncidentPair(p, q).Case is not ((int s, int t, int _, int _))) { return true; }
         if (!Restorable(s) || !Restorable(t)) { return true; }
-        Implicit apex = Store.Row(Apex(t, p, q));
+        ImplicitPoint apex = Store.Row(Apex(t, p, q));
         return InCircum(s, in apex) != Sign.Positive;
     }
 
@@ -750,7 +750,7 @@ public sealed partial class Tessellation : IValidityEvidence {
         double[] radius = new double[live.Length];
         for (int i = 0; i < live.Length; i++) {
             ReadOnlySpan<int> vs = Store.SimplexVertices(live[i]);
-            (Implicit r0, Implicit r1, Implicit r2) = (Store.Row(vs[0]), Store.Row(vs[1]), Store.Row(vs[2]));
+            (ImplicitPoint r0, ImplicitPoint r1, ImplicitPoint r2) = (Store.Row(vs[0]), Store.Row(vs[1]), Store.Row(vs[2]));
             if (!r0.IsExplicit || !r1.IsExplicit || !r2.IsExplicit) {
                 return Fin.Fail<DualGraph>(new GeometryFault.DualRequiresExplicitVertex(live[i]));
             }
@@ -818,12 +818,12 @@ public sealed partial class Tessellation : IValidityEvidence {
                 if (Store.Row(neighbour).Round().Case is not Point3d other) {
                     return Fin.Fail<Arr<BoundedCell>>(new GeometryFault.VertexUnrepresentable(neighbour));
                 }
-                Halfplane cut = Bisector(at, other);
-                Fin<(int Written, int MidpointFallbacks)> clipped = Predicate.ClipHalfplane(
-                    front.AsSpan(0, count), frontLabel.AsSpan(0, count), cut, cut.Evaluate(at).Side,
-                    band: 0.0, denomFloor: EpsilonPolicy.ZeroTolerance, cutLabel: neighbour, back, backLabel, midpointFallback);
-                if (clipped.Case is not (int written, int midpointFallbacks)) { return clipped.Map(static _ => Arr<BoundedCell>.Empty); }
-                if (midpointFallbacks > 0) {
+                HalfPlane cut = Bisector(at, other);
+                Fin<int> clipped = cut.Clip(
+                    front.AsSpan(0, count), frontLabel.AsSpan(0, count), interior: at,
+                    band: 0.0, denominatorFloor: EpsilonPolicy.ZeroTolerance, cutLabel: neighbour, back, backLabel, midpointFallback);
+                if (clipped.Case is not int written) { return clipped.Map(static _ => Arr<BoundedCell>.Empty); }
+                if (midpointFallback.AsSpan(0, written).Contains(true)) {
                     return Fin.Fail<Arr<BoundedCell>>(new GeometryFault.BisectorUndefined(site));
                 }
                 (front, back, frontLabel, backLabel, count) = (back, front, backLabel, frontLabel, written);
@@ -845,11 +845,11 @@ public sealed partial class Tessellation : IValidityEvidence {
             return ordered;
         }
 
-        Halfplane Bisector(Point3d a, Point3d b) {
+        HalfPlane Bisector(Point3d a, Point3d b) {
             (Axis u, Axis v) = (Projection.U, Projection.V);
             (double mu, double mv) = ((u.Read(a) + u.Read(b)) * 0.5, (v.Read(a) + v.Read(b)) * 0.5);
             (double pu, double pv) = (v.Read(a) - v.Read(b), u.Read(b) - u.Read(a));
-            return new Halfplane.Frame(Planar(mu, mv), Planar(mu + pu, mv + pv), Projection);
+            return new HalfPlane.DirectedLine(Planar(mu, mv), Planar(mu + pu, mv + pv), Projection);
 
             Point3d Planar(double du, double dv) {
                 Span<double> row = [0.0, 0.0, 0.0];
@@ -921,11 +921,11 @@ public sealed partial class Tessellation : IValidityEvidence {
     Fin<Tessellation> RecoverEdge3D(int a, int b, Conform edge, int index) {
         int guard = Policy.CorridorGuard(Store.SimplexCount);
         while (!EdgePresent(a, b)) {
-            if (guard-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxFlipPasses)); }
+            if (guard-- <= 0) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintRecoveryExhausted(index, Policy.MaxFlipPasses)); }
             if (BlockingFace(a, b).Case is not ((int s, int f))) {
                 return Fin.Fail<Tessellation>(new GeometryFault.BlockingFaceMissing(a, b));
             }
-            if (!Flip23(s, f)) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxFlipPasses)); }
+            if (!Flip23(s, f)) { return Fin.Fail<Tessellation>(new GeometryFault.ConstraintRecoveryExhausted(index, Policy.MaxFlipPasses)); }
         }
         Pin(a, b, edge);
         return Fin.Succ(this);
@@ -1058,17 +1058,17 @@ public sealed partial class Tessellation : IValidityEvidence {
             if (!crossing) { return Fin.Succ(this); }
             if (!moved) { break; }
         }
-        return Fin.Fail<Tessellation>(new GeometryFault.ConstraintUnrecoverable(index, Policy.MaxFlipPasses));
+        return Fin.Fail<Tessellation>(new GeometryFault.ConstraintRecoveryExhausted(index, Policy.MaxFlipPasses));
     }
 
     bool CrossesFacet(int u, int v, Arr<int> boundary, Point3d wa, Point3d wb, Point3d wc, Axis plane) {
         (Point3d pu, Point3d pv) = (Store.Row(u).AsExplicit, Store.Row(v).AsExplicit);
         if (Predicate.Orient3D(wa, wb, wc, pu).Times(Predicate.Orient3D(wa, wb, wc, pv)) != Sign.Negative) { return false; }
-        Implicit hit = new Implicit.LinePlaneIntersection(pu, pv, wa, wb, wc);
+        ImplicitPoint hit = new ImplicitPoint.LinePlaneIntersection(pu, pv, wa, wb, wc);
         Axis vOrdinal = plane.V;
         bool inside = false;
         for (int e = 0; e < boundary.Count; e++) {
-            (Implicit rc, Implicit rd) = (Store.Row(boundary[e]), Store.Row(boundary[(e + 1) % boundary.Count]));
+            (ImplicitPoint rc, ImplicitPoint rd) = (Store.Row(boundary[e]), Store.Row(boundary[(e + 1) % boundary.Count]));
             Sign sc = Predicate.Compare(in rc, in hit, vOrdinal);
             Sign sd = Predicate.Compare(in rd, in hit, vOrdinal);
             if (sc.Times(sd) != Sign.Negative) { continue; }
@@ -1112,7 +1112,7 @@ flowchart LR
     accTitle: Tessellation build flow
     accDescr: Vertices and conform rows flow through the simplex store build, recovery, and the mesh, triangle, dual, and hull projections.
     TessellationOp -->|Morton order over Round| Insert
-    Insert -->|projected Orient2D over Implicit rows| Locate
+    Insert -->|projected Orient2D over ImplicitPoint rows| Locate
     Insert -->|mode row delegate: cavity / split| SimplexStore
     Conforms -->|flip on quad convexity| Recover
     Recover -->|Steiner: SegmentIntersection / LinePlaneIntersection / ThreePlaneIntersection over ORIGINAL entities| Predicate
@@ -1120,7 +1120,7 @@ flowchart LR
     SimplexStore -->|Tetrahedra: shared corners + cell tuples| Cells["Arr&lt;(A,B,C,D)&gt;"]
     SimplexStore -->|VoronoiDual: circumcenters + radii| DualGraph
     SimplexStore -->|LowerHull: boundary facets| Hull["MeshSpace (exact hull)"]
-    Insert -.->|DegenerateInput / ConstraintUnrecoverable / direct tessellation leaves| GeometryFault
+    Insert -.->|DegenerateInput / ConstraintRecoveryExhausted / direct tessellation leaves| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]

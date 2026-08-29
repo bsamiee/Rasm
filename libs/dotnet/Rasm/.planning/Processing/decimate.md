@@ -14,7 +14,7 @@ Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Nu
 - Cases: every modality shares one quadric accumulation, one exact-plane-gated collapse loop, one Hausdorff bound, and one vsplit recorder.
 - Entry: `Simplify.Apply(SimplifyOp)` is the one decimation entrypoint, discriminating by the `SimplifyMode` row the request carries and total over `Fin<DecimationResult>`, `DecimationResult.Project<TOut>` its one typed egress; `SimplifyPolicy.Of` is the one construction path so no entry re-tests it, and a budget no manifold-preserving collapse reaches faults typed.
 - Law: the target is ONE `FaceTarget` case, never a fraction-and-count knob pair a `> 0` sentinel selects between — the two spellings are one decision, the ad-hoc union names which was made, and `Of` refuses the generated struct's no-case default. The fraction arm clamps to the source extent, so a target never exceeds the faces it decimates. Ceilings that admit every bound read `None`, never a positive-infinity literal.
-- Law: one complete priority queue owns termination — every live edge is seeded once, a collapse bumps the survivor's version alone and re-enqueues its whole current ring, and the drain runs to queue exhaustion; a live count still above the target when the queue empties lowers `FaceBudgetMissed` instead of becoming success-shaped termination, and no pass budget, global rescan, or second admissibility probe exists beside the queue.
+- Law: one complete priority queue owns termination — every live edge is seeded once, a collapse bumps the survivor's version alone and re-enqueues its whole current ring, and the drain runs to queue exhaustion; a live count still above the target when the queue empties lowers `FaceBudgetExceeded` instead of becoming success-shaped termination, and no pass budget, global rescan, or second admissibility probe exists beside the queue.
 - Law: the directed Hausdorff bound is a SAMPLED source-to-simplified distance, MEASURED or absent — samples draw on the original source so a region decimation removed still measures, each sample resolves through the exact `Mesh.ClosestPoint` on the frozen simplified mesh, a run that sampled nothing lowers typed instead of publishing 0.0, and an invalid closest point lowers naming its sample ordinal, so `TensorPrimitives.Max` folds only measured distances.
 - Law: `SimplifyMode` carries ONE `CapabilitySet<SimplifyTrait>` column because the three guarantees have a corner law — a resampling mode rebuilds the surface from a level set, so `Resample` and `Topology` never co-occur on a row, and three independent bool columns spell that corner as representable.
 - Exemption: `QuadricStore.Pq` is a BCL `PriorityQueue` (K3): the collapse queue is a cost-keyed EVENT stream with lazy staleness rejection, not a graph walk, and QuikGraph carries no event queue. One-ring/incidence `HashSet[]` columns and the boundary-fan `Dictionary` stay mutable inside the single-writer span kernel — each is seeded once at `Seed` and mutated only by `ApplyCollapse` under the arena's own writer.
@@ -299,7 +299,7 @@ public static class Simplify {
             }
             return store.Live <= target
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.FaceBudgetMissed(target, store.Live));
+                : Fin.Fail<Unit>(new GeometryFault.FaceBudgetExceeded(target, store.Live));
         });
     }
 
@@ -548,7 +548,7 @@ flowchart LR
     CollapseValid -->|admit| ApplyCollapse
     ApplyCollapse -->|SetPosition / SetFace / KillFace| MeshEdit
     ApplyCollapse -->|VertexSplit record| Splits
-    PriorityQueue -->|exhausted above target| GeometryFault["FaceBudgetMissed"]
+    PriorityQueue -->|exhausted above target| GeometryFault["FaceBudgetExceeded"]
     MeshEdit -->|ToSpace freeze| Simplified
     Simplified -->|Mesh.ClosestPoint per source sample| Hausdorff
     Hausdorff -->|lane-keyed Deterministic draw + TensorPrimitives.Max| DecimationResult

@@ -42,6 +42,8 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 using Dimension = Rasm.Numerics.Dimension;
 
+using SparseMatrix = CSparse.Storage.CompressedColumnStorage<double>;
+
 namespace Rasm.Processing;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -445,11 +447,10 @@ internal static partial class SegmentKernel {
                 from _ in guard(scalars.FiniteCount >= 2, new KernelFault.InvalidInput())
                 from adjacency in FaceAdjacency(state, state.Key)
                 from system in NormalizedCutSystemOf(adjacency, scalars.FaceValues, cut.Tolerance.Value, state.Key)
-                from eigen in MatrixKernel.GeneralizedEigenpairsDetailed(system.Laplacian, system.Degree, k: 2)
-                from projection in eigen.PairsIn(EigenOrder.Ascending, state.Key).Bind(pairs =>
-                    pairs.Count >= 2 && pairs[1].Eigenvector.Count == scalars.FaceValues.Count && pairs[1].Eigenvector.ForAll(double.IsFinite)
-                        ? Fin.Succ(pairs[1].Eigenvector)
-                        : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()))
+                from eigen in MatrixKernel.GeneralizedEigenpairs(stiffness: system.Laplacian, mass: system.Degree, k: 2)
+                from projection in eigen.Pairs.Count >= 2 && eigen.Pairs[1].Eigenvector.Count == scalars.FaceValues.Count && eigen.Pairs[1].Eigenvector.ForAll(double.IsFinite)
+                    ? Fin.Succ(eigen.Pairs[1].Eigenvector)
+                    : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult())
                 from kmeans in ClusterLabels(
                     values: new Arr<double>([.. Enumerable.Range(0, projection.Count)
                         .Select(index => double.IsFinite(scalars.FaceValues[index]) ? projection[index] : double.NaN)]),
@@ -686,8 +687,8 @@ internal static partial class SegmentKernel {
         Dimension dim = Dimension.Create(value: faceCount);
         return affinities == 0
             ? Fin.Fail<(SparseMatrix, SparseMatrix, int, double)>(new KernelFault.InvalidInput())
-            : from stiffness in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: laplacian)
-              from degreeMatrix in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: mass)
+            : from stiffness in MatrixKernel.Sparse(rows: dim, cols: dim, triplets: laplacian)
+              from degreeMatrix in MatrixKernel.Sparse(rows: dim, cols: dim, triplets: mass)
               select (Laplacian: stiffness, Degree: degreeMatrix, AffinityNonZeros: affinities, Sigma: sigma);
     }
     private static Option<double> NormalizedCutValue(IUndirectedGraph<int, SEdge<int>> adjacency, Arr<double> scalars, int[] labels, double sigma) {
@@ -793,7 +794,7 @@ internal static partial class SegmentKernel {
                     k: 1,
                     tolerance: EpsilonPolicy.SqrtEpsilon * connection.FrobeniusScale,
                     budget: KrylovPolicy.BlockBudget(order: connection.Order, blocks: 1))
-                .Bind(eigen => eigen.Stop.Equals(EigenSolveStop.ResidualConverged) ? Fin.Succ(eigen.Pairs) : Fin.Fail<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>>(new KernelFault.InvalidResult())))
+                .Map(static eigen => eigen.Pairs))
             .Bind(pairs => pairs.Count > 0 ? Fin.Succ(pairs[index: 0]) : Fin.Fail<(double Eigenvalue, Arr<Complex> Eigenvector)>(error: new KernelFault.InvalidResult()))
             .Map(head => NormalizePhases(eigenvector: head.Eigenvector));
     private static Fin<SparseHermitian> BuildConnectionLaplacian(MeshSpace space, RosyOrder order, Option<Arr<double>> edgeAdjustment) =>

@@ -346,7 +346,7 @@ public abstract partial record ScalarField {
             primitiveCase: static (s, c) => c.Shape.SignedDistance(worldPoint: s.Sample, pose: c.Pose),
             laplacianCase: static (s, c) => Nabla.LaplacianAt(
                 sampler: p => c.Source.SampleScalar(sample: p, context: s.Context),
-                point: s.Sample, eps: c.Epsilon.Value),
+                point: s.Sample, epsilon: c.Epsilon),
             geodesicCase: static (s, c) => GeodesicKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, sample: s.Sample),
             signedDistanceFromMeshCase: static (s, c) => MeshSdf.SignedDistanceDetailed(space: c.Space, policy: c.Policy, sample: s.Sample).Map(static r => r.Distance),
             latticeCase: static (s, c) => Acceptance.Value(value: ReconstructLattice(grid: c.Grid, values: c.Values, interp: c.Interp, local: c.Grid.Locate(sample: s.Sample))),
@@ -431,7 +431,7 @@ public abstract partial record VectorField {
                 select terms.Fold(Vector3d.Zero, static (sum, term) => sum + term),
             gradientCase: static (s, c) => Nabla.GradientAt(
                 sampler: p => c.Source.SampleScalar(sample: p, context: s.Context),
-                point: s.Sample, eps: c.Epsilon.Value),
+                point: s.Sample, epsilon: c.Epsilon),
             crossFieldCase: static (s, c) => SegmentKernel.CrossFieldAt(c.Space, c.Order, c.Constraints, c.Cones, s.Sample, s.Key),
             tangentLogMapCase: static (s, c) => GeodesicKernel.LogMapAt(space: c.Space, source: c.Source, sample: s.Sample, time: c.Time.Value, algorithm: c.Algorithm, trace: c.Trace, windows: c.Windows).Map(static r => r.Vector)
             ));
@@ -508,7 +508,7 @@ public abstract partial record TensorField {
 
     public Fin<Seq<(double Eigenvalue, Direction Axis)>> PrincipalDirections(Point3d sample, Context context) {
         return SampleTensor(sample: sample, context: context)
-            .Bind(tensor => tensor.DecomposeEigenDetailed()).Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude))
+            .Bind(tensor => tensor.DecomposeEigenDetailed()).Map(static solved => solved.Pairs)
             .Bind(pairs => pairs.TraverseM(pair =>
                 Direction.Of(value: new Vector3d(x: pair.Eigenvector[0], y: pair.Eigenvector[1], z: pair.Eigenvector[2]), context: context)
                     .Map(axis => (pair.Eigenvalue, Axis: axis))).As());
@@ -521,13 +521,13 @@ public abstract partial record TensorField {
 
     private static Fin<SymmetricMatrix> Congruence(SymmetricMatrix tensor, Transform map) =>
         from dim in FactoryBridge.Accept<Dimension>(candidate: 3)
-        from rotation in Matrix.Of(rows: dim, cols: dim, entries: new Arr<double>([
+        from rotation in MatrixKernel.Dense(rows: dim, cols: dim, entries: new Arr<double>([
             map.M00, map.M01, map.M02, map.M10, map.M11, map.M12, map.M20, map.M21, map.M22]))
-        from half in rotation.Multiply(other: tensor.ToDense())
-        from full in half.Multiply(other: rotation.Transpose())
+        let half = rotation.Multiply(tensor.ToDense())
+        let full = half.Multiply(rotation.Transpose())
         from packed in SymmetricMatrix.Of(dim: dim, upper: new Arr<double>([
-            full.At(i: 0, j: 0), full.At(i: 0, j: 1), full.At(i: 0, j: 2),
-            full.At(i: 1, j: 1), full.At(i: 1, j: 2), full.At(i: 2, j: 2)]))
+            full[0, 0], full[0, 1], full[0, 2],
+            full[1, 1], full[1, 2], full[2, 2]]))
         select packed;
 }
 ```

@@ -24,6 +24,7 @@ using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance;
 using Rasm.Domain;
 using Rasm.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace Rasm.Spatial;
 
@@ -223,10 +224,10 @@ public static class CloudTransport {
                     select summary),
                 ProjectionRow.Of<CloudCorrespondenceSet>(() => Settled(() => CloudCorrespondenceSet.OfCoupling(
                     source, target, plane, policy.CouplingCutoff.Value, sourceMass, targetMass))),
-                ProjectionRow.Of<Matrix>(() => Settled(() =>
+                ProjectionRow.Of<Matrix<double>>(() => Settled(() =>
                     from rows in FactoryBridge.Accept<Dimension>(sourceMass.Count)
                     from cols in FactoryBridge.Accept<Dimension>(targetMass.Count)
-                    from matrix in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>([.. coupling]))
+                    from matrix in MatrixKernel.Dense(rows: rows, cols: cols, entries: new Arr<double>([.. coupling]))
                     select matrix)),
                 ProjectionRow.Of<VectorCloud>(() => Settled(() => {
                     List<Point3d> image = [];

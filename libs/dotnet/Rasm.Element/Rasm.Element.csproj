@@ -19,6 +19,10 @@
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
+    <ItemGroup Label="Numeric Substrate">
+        <PackageReference Include="MathNet.Numerics" />
+    </ItemGroup>
+
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="Google.Protobuf" />

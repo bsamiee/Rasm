@@ -2,26 +2,26 @@
 
 Rasm.Compute signal/spectral lane: one `SpectralTransform` `[SmartEnum<string>]` frequency-domain axis whose rows carry transform and inverse delegates over a `SignalShape` admission row, folding to deferred `Transform.Apply` and `Transform.Invert` surfaces. `IO<Fin<T>>` preserves the outer lowering effect and inner domain fault without forcing either inside the numeric lane. Forward and inverse share one surface: `stft` preserves frame phase and overlap-add evidence, while evidence-destroying `spectrogram` and averaged periodograms return typed inverse faults. One framed fold raises every frame grid the lane needs and takes its per-frame reducer as a value, so the STFT rows, the Welch periodogram, and the N-channel cross-power matrix are three reads of one windowing-and-transform law.
 
-Per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier` over split `double[]` planes, windowing composes the kernel `Numerics/transform#WINDOW` `WindowTaper` roster, dependence and density rows ride `MathNet.Numerics.Statistics`, magnitude and phase read `TensorPrimitives.Hypot`/`Atan2`, bin spacing reads `Fourier.FrequencyScale`, the modal peak floor reads the kernel `Rasm/Domain/stats#ORDER_STATISTICS` `Distribution.Of` exact median, and wavelet analysis and synthesis ride `Tensor/factor#KERNEL_LOWERING` `Conv` over `LoweringOperands.Windowed`.
+Per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier` over split `double[]` planes, periodic framing binds the four matching `MathNet.Numerics.Window` factories directly, dependence and density rows ride `MathNet.Numerics.Statistics`, magnitude and phase read `TensorPrimitives.Hypot`/`Atan2`, bin spacing reads `Fourier.FrequencyScale`, the modal peak floor reads the kernel `Rasm/Domain/stats#ORDER_STATISTICS` `Distribution.Of` exact median, and wavelet analysis and synthesis ride `Tensor/factor#KERNEL_LOWERING` `Conv` over `LoweringOperands.Windowed`.
 
 The per-bin complex Hermitian dominant pair stays page-local under a convergence witness because the dense owner is real-typed; `ComputeFault` and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies the semantic `Instant` a spectral result stamps and kernel `MonotonicTimeline` supplies any elapsed span it measures, so the app-stratum `ClockPolicy` never descends into this owner. Waveform corpora arrive already framed through `Runtime/field#FIELD_RESULT_CODEC` `InterchangeIo.ImportWaveforms` and fold into the same cross-power matrix a raised frame grid produces. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` and `Modal` own measured-mode identification and `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating end.
 
 ## [01]-[INDEX]
 
-- [02]-[SIGNAL_LANE]: effect-preserving FFT/STFT/PSD/wavelet `Transform` over MathNet Fourier and the kernel taper roster, one framed fold under a shared `FrameGrid`, paired row-owned inversion, the Welch cross-power matrix serving two-channel coherence and N-channel FDD measured-mode extraction alike, one `CrossPower` matrix minted from raised planes or from an already-framed interchange corpus and read as two-channel coherence or N-channel FDD measured modes, and amplitude-domain dependence and nonparametric distribution description.
+- [02]-[SIGNAL_LANE]: effect-preserving FFT/STFT/PSD/wavelet `Transform` over MathNet Fourier and the signal-owned periodic-window policy, one framed fold under a shared `FrameGrid`, paired row-owned inversion, the Welch cross-power matrix serving two-channel coherence and N-channel FDD measured-mode extraction alike, one `CrossPower` matrix minted from raised planes or from an already-framed interchange corpus and read as two-channel coherence or N-channel FDD measured modes, and amplitude-domain dependence and nonparametric distribution description.
 
 ## [02]-[SIGNAL_LANE]
 
 - Owner: `SpectralTransform` `[SmartEnum<string>]` rows each carry a `SignalShape` admission row, a `(ReadOnlyMemory<float>, SignalContext, Instant) → IO<Fin<SpectralOutput>>` transform column, and a `(SpectralOutput) → IO<Fin<ReadOnlyMemory<float>>>` inverse column — no transport on either, because the `dwt` bank's convolutions lower against the `Tensor/factor#KERNEL_LOWERING` `ShardDispatch.Local` a local bank spells and the Fourier rows lower nothing at all. `SignalShape` `[SmartEnum<int>]` is the admission axis: which `SignalPolicy` case a row admits AND the gate that case owes, so a row states its evidence shape as a value rather than a boolean the framed case alone could read. `SignalPolicy` `[Union]` closes `PerBin`, `Framed`, and `Wavelet` evidence; `SignalContext` exists only after row admission and `FrameGrid` is the frame geometry every framed leg derives ONCE. `WaveletExtension` rows carry one boundary-extension column and the per-family admission that proves the extension reconstructs; `ExtensionClass` types the symmetry point a family's zero-stripped core admits; `QmfShift` derives the analysis and synthesis shifts as one pair so the perfect-reconstruction law is structural. `SpectralOutput` owns `Bins`/`Frames`/`Bands`; `Spectrogram` owns inverse-sufficient `Phasor` frames and magnitude-only `Power` frames; `CrossPower` is the per-bin Hermitian cross-spectral matrix both mints produce and both measured-mode reads fold. `DependenceKind` rows carry both arities of one co-variation measure and `DensityKernel` rows carry one taper each, while `ChannelQuery` closes the description request and `ChannelEvidence` its two result shapes.
 - Cases: `SpectralTransform` fft · rfft · stft · spectrogram · welch-psd · dwt; `SignalShape` per-bin · framed · overlapped · wavelet; `SignalPolicy` per-bin · framed · wavelet; `DependenceKind` pearson · spearman; `DensityKernel` gaussian · epanechnikov · uniform · triangular; `ChannelQuery` dependence · distribution; `WaveletFamily` haar · db2 · db4 · sym4 · coif1; `WaveletExtension` zero · periodic · symmetric; `ExtensionClass` none · whole-point · half-point.
-- Entry: `Transform.Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, IClock clock) → IO<Fin<SpectralOutput>>` composes sample admission with the row's `SignalShape` gate, then dispatches over `SignalContext`. `Invert(SpectralOutput output) → IO<Fin<ReadOnlyMemory<float>>>` projects and dispatches the owning row. `Power(Seq<ReadOnlyMemory<float>> channels, SignalPolicy policy, IClock clock)` and `Power(WaveformCorpus corpus, WindowTaper window, Instant at)` are the TWO MINTS of one `CrossPower` matrix — the first raises its own frame grid under the `welch-psd` row's admission and a two-segment floor, the second walks the frames an interchange corpus already carries — and `Coherence(CrossPower power, int left, int right, Instant at)` and `Modal(CrossPower power, Instant at)` are the two READS of it: the first projects one pair's auto/cross spectra and magnitude-squared coherence, the second runs dominant-singular-pair power iteration per bin, first-singular-value peak picking, and half-power damping, returning the `ModalEstimate` measured-mode set. `Coherence(x, y, policy, clock)` and `Modal(channels, policy, clock)` are the mint-then-read convenience pair over two and N planes. `Describe(Seq<ReadOnlyMemory<float>> channels, ChannelQuery query, IClock clock)` admits the same synchronous channel set under the query's own arity floor and folds either the all-pairs dependence matrix or the per-channel kernel density with its empirical CDF, entropy, and interquartile range on one shared support grid. Every window materializes through the kernel `taper.Sample(width, new TaperSampling.Periodic())` on the `Fin` result.
+- Entry: `Transform.Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, IClock clock) → IO<Fin<SpectralOutput>>` composes sample admission with the row's `SignalShape` gate, then dispatches over `SignalContext`. `Invert(SpectralOutput output) → IO<Fin<ReadOnlyMemory<float>>>` projects and dispatches the owning row. `Power(Seq<ReadOnlyMemory<float>> channels, SignalPolicy policy, IClock clock)` and `Power(WaveformCorpus corpus, PeriodicWindow window, Instant at)` are the TWO MINTS of one `CrossPower` matrix — the first raises its own frame grid under the `welch-psd` row's admission and a two-segment floor, the second walks the frames an interchange corpus already carries — and `Coherence(CrossPower power, int left, int right, Instant at)` and `Modal(CrossPower power, Instant at)` are the two READS of it: the first projects one pair's auto/cross spectra and magnitude-squared coherence, the second runs dominant-singular-pair power iteration per bin, first-singular-value peak picking, and half-power damping, returning the `ModalEstimate` measured-mode set. `Coherence(x, y, policy, clock)` and `Modal(channels, policy, clock)` are the mint-then-read convenience pair over two and N planes. `Describe(Seq<ReadOnlyMemory<float>> channels, ChannelQuery query, IClock clock)` admits the same synchronous channel set under the query's own arity floor and folds either the all-pairs dependence matrix or the per-channel kernel density with its empirical CDF, entropy, and interquartile range on one shared support grid. Every frame window materializes through `PeriodicWindow.Sample` on the `Fin` result.
 - Auto: each `SpectralTransform` `Kernel` realizes one split-plane `Fourier` transform: `fft` full-length, `rfft` Hermitian half-spectrum, `stft` centered magnitude/phase frames over a recorded coverage extent, `spectrogram` squared STFT magnitudes, `welch-psd` averaged periodograms, and `dwt` a stride-2 `Conv` QMF cascade under the policy's own `WaveletExtension`. Each `Invert` realizes the paired inverse: `fft`/`rfft` reciprocal transforms, `stft` weighted overlap-add trimmed to the recorded coverage, and `dwt` zero-stuff synthesis at the mirrored shift, trimmed to recorded extents.
 - Result: `Spectrum`, `Spectrogram`, `WaveletDecomposition`, and `CrossSpectrum` retain the measurements their callers consume; tensor-lowered legs return their tensor value directly.
-- Packages: MathNet.Numerics, Rasm (kernel `Numerics/transform#WINDOW` `WindowTaper`/`TaperSampling`, `Numerics/atoms` `Dimension`, `Domain/stats#ORDER_STATISTICS` `Distribution`/`Scalar`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, Generator.Equals, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new spectral transform is one `SpectralTransform` row naming its `SignalShape` and binding forward and inverse; a new evidence shape is one `SignalShape` row carrying its gate and one `SignalPolicy` case; a new window is one `WindowTaper` row at the kernel taper owner, reaching every leg here with no edit on this page; a new wavelet is one `WaveletFamily` row whose linear-phase and extension class DERIVE from its coefficients, so its admissible extensions follow with no roster edit; a new boundary mode is one `WaveletExtension` row; a new co-variation measure is one `DependenceKind` row carrying both arities and a new density taper one `DensityKernel` row, while a new description modality is one `ChannelQuery` case with its `ChannelEvidence` twin. `FftTransform`/`StftTransform`/`PsdEstimator` collapse onto `Transform.Apply`; inverse siblings collapse onto `Transform.Invert`; a second per-frame windowing loop collapses onto `Framed`.
-- Boundary: `MathNet.Numerics.IntegralTransforms.Fourier` operates in place. Per-bin and framed kernels apply recorded `FourierOptions`; Welch and the cross-power fold pin `FourierOptions.NoScaling` and own their normalization — the kernel `Numerics/transform#SPECTRAL` `SpectralScaling` roster names those same three conventions and its `Unscaled.RoundTrip(cells)` states the factor this lane divides back out, so the convention vocabulary agrees across the strata boundary while the option value stays the RECORDED EVIDENCE here: `FourierOptions` is what `Spectrum.Scaling` and `Spectrogram.Phasor.Scaling` hand the reciprocal leg and what every MathNet entrypoint consumes.
-- Boundary: the kernel's `SpectralArena` cases own their buffers, where this lane transforms split `double[]` planes and one pooled per-frame scratch pair in place under its own framing, so composing the arena re-buffers every frame of an overlap-add for a transform this lane already performs. Split real/imaginary arrays let `TensorPrimitives.Hypot`/`Atan2` read contiguous spans; `ForwardReal`/`InverseReal` own packed half-spectra; `Fourier.FrequencyScale` owns bin resolution. Frame scratch is `double[]` and not a pooled span owner because `Fourier.Forward(double[], double[], FourierOptions)` binds ARRAY arities — the reduction that matters is that `Framed` allocates its scratch pair ONCE per call where four hand loops allocated one pair each.
-- Boundary: the taper roster serves this lane through FFT FRAMING ALONE. The kernel's shaped rows — Gauss, Tukey, Kaiser — carry their design on the `TaperSampling.Symmetric` request alone and refuse `Periodic` outright, and its fixed rows without a periodic twin refuse it too, so the four rows carrying that twin are exactly what a frame grid admits and the refusal is typed on the `Fin` result where the deleted local roster ignored the flag and silently substituted the symmetric form. NAMED LOSS with the filter half: the σ and α policy values this lane declared for the kernel's shaped rows had their one consumer in the windowed-sinc leg, so `Option<TaperShape>` leaves `SignalPolicy.Framed`, `SignalContext`, and `Spectrogram.Phasor` — every surviving path spells `None` by construction and a column whose every reaching value is `None` is decorative.
+- Packages: MathNet.Numerics, Rasm (`Numerics/atoms` `Dimension`, `Domain/stats#ORDER_STATISTICS` `Distribution`/`Scalar`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, Generator.Equals, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: a new spectral transform is one `SpectralTransform` row naming its `SignalShape` and binding forward and inverse; a new evidence shape is one `SignalShape` row carrying its gate and one `SignalPolicy` case; a new periodic framing window is one `PeriodicWindow` row bound directly to the matching MathNet factory; a new wavelet is one `WaveletFamily` row whose linear-phase and extension class DERIVE from its coefficients, so its admissible extensions follow with no roster edit; a new boundary mode is one `WaveletExtension` row; a new co-variation measure is one `DependenceKind` row carrying both arities and a new density taper one `DensityKernel` row, while a new description modality is one `ChannelQuery` case with its `ChannelEvidence` twin. `FftTransform`/`StftTransform`/`PsdEstimator` collapse onto `Transform.Apply`; inverse siblings collapse onto `Transform.Invert`; a second per-frame windowing loop collapses onto `Framed`.
+- Boundary: `MathNet.Numerics.IntegralTransforms.Fourier` operates in place. Per-bin and framed kernels apply their recorded `FourierOptions`; Welch and the cross-power fold pin `FourierOptions.NoScaling` and divide by their sample count at the consuming inverse.
+- Boundary: this lane owns its split `double[]` planes and one per-frame scratch pair because its framing and overlap-add read between transform legs. Split real/imaginary arrays let `TensorPrimitives.Hypot`/`Atan2` read contiguous spans; `ForwardReal`/`InverseReal` own packed half-spectra; `Fourier.FrequencyScale` owns bin resolution. Frame scratch is `double[]` rather than a pooled span owner because `Fourier.Forward(double[], double[], FourierOptions)` binds array arities, and `Framed` allocates its scratch pair once per call.
+- Boundary: `PeriodicWindow` is the exact four-row framing policy this lane consumes — Hann, Hamming, Cosine, and Lanczos bind directly to their `Window.*Periodic` factories. Symmetric filter-design windows and their shape parameters do not enter the signal lane.
 - Boundary: inversion consumes forward evidence and nothing else. `Spectrum` records `Samples` and `Scaling` and DERIVES its sample rate from `BinHz · Samples` rather than storing a second authority; `Spectrogram.Phasor` records `Samples`, `FrameSize`, `Hop`, `Window`, `Scaling`, the half-open COVERAGE EXTENT the frame grid actually spans, magnitude, and phase; `Spectrogram.Power` and Welch output typed inverse faults; `WaveletDecomposition` records per-level `Extents` and the `WaveletExtension` its cascade ran under. `Spectrum.Phase` is an `Option`, because the averaged periodogram destroys phase and an empty span is an absence wearing a length.
 - Boundary: an overlap-add's first and last half-frame carry partial window mass by construction, so synthesis normalizes and TRIMS to the recorded extent rather than refusing the whole inversion over an edge the forward pass already measured — the same evidence-driven law the wavelet `Extents` trim rides, and a coverage floor that fails a signal whose interior reconstructs exactly is the deleted form.
 - Boundary: `WaveletFamily` owns scaling tables because MathNet exposes no wavelet surface; linear phase and extension class are DERIVED from those tables under an exact symmetry compare, never asserted per row, and each `WaveletExtension` admits against the derived descriptor so the admissible set follows a new row automatically. `QmfShift` derives both cascade shifts from the tap count as one pair, so the perfect-reconstruction law `analysis + synthesis = L − 1` holds by construction rather than as a constant one leg carries and the other assumes.
@@ -40,6 +40,23 @@ public sealed partial class ExtensionClass {
     public static readonly ExtensionClass None = new("none");
     public static readonly ExtensionClass WholePoint = new("whole-point");
     public static readonly ExtensionClass HalfPoint = new("half-point");
+}
+
+[SmartEnum]
+public sealed partial class PeriodicWindow {
+    public static readonly PeriodicWindow Hann = new(apply: MathNet.Numerics.Window.HannPeriodic);
+    public static readonly PeriodicWindow Hamming = new(apply: MathNet.Numerics.Window.HammingPeriodic);
+    public static readonly PeriodicWindow Cosine = new(apply: MathNet.Numerics.Window.CosinePeriodic);
+    public static readonly PeriodicWindow Lanczos = new(apply: MathNet.Numerics.Window.LanczosPeriodic);
+
+    [UseDelegateFromConstructor]
+    private partial double[] Apply(int width);
+
+    public Fin<Arr<double>> Sample(Dimension width) =>
+        Try.lift(() => new Arr<double>(Apply(width.Value))).Run()
+            .Bind(samples => TensorPrimitives.IsFiniteAll<double>(samples.AsSpan())
+                ? Fin.Succ(samples)
+                : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()));
 }
 
 [SmartEnum<string>]
@@ -215,12 +232,12 @@ public abstract partial record SignalPolicy {
     private SignalPolicy() { }
 
     public sealed record PerBin(double SampleRate, FourierOptions Scaling) : SignalPolicy;
-    public sealed record Framed(WindowTaper Window, int FrameSize, int HopSize, double SampleRate, FourierOptions Scaling) : SignalPolicy;
+    public sealed record Framed(PeriodicWindow Window, int FrameSize, int HopSize, double SampleRate, FourierOptions Scaling) : SignalPolicy;
     public sealed record Wavelet(int Levels, WaveletFamily Family, WaveletExtension Extension) : SignalPolicy;
 
     public static readonly SignalPolicy CanonicalFft   = new PerBin(SampleRate: 48000.0, FourierOptions.Default);
-    public static readonly SignalPolicy CanonicalStft  = new Framed(WindowTaper.Hann, FrameSize: 1024, HopSize: 512, SampleRate: 48000.0, FourierOptions.Default);
-    public static readonly SignalPolicy CanonicalWelch = new Framed(WindowTaper.Hann, FrameSize: 256, HopSize: 128, SampleRate: 48000.0, FourierOptions.Default);
+    public static readonly SignalPolicy CanonicalStft  = new Framed(PeriodicWindow.Hann, FrameSize: 1024, HopSize: 512, SampleRate: 48000.0, FourierOptions.Default);
+    public static readonly SignalPolicy CanonicalWelch = new Framed(PeriodicWindow.Hann, FrameSize: 256, HopSize: 128, SampleRate: 48000.0, FourierOptions.Default);
     public static readonly SignalPolicy CanonicalDwt   = new Wavelet(Levels: 4, WaveletFamily.Db4, WaveletExtension.Periodic);
 }
 
@@ -238,19 +255,19 @@ public readonly record struct FrameGrid(int Frame, int Hop, int Left, int Frames
 }
 
 internal sealed record SignalContext(
-    SpectralTransform Transform, WindowTaper Window, FrameGrid Grid, int Levels,
+    SpectralTransform Transform, PeriodicWindow Window, FrameGrid Grid, int Levels,
     double SampleRate, FourierOptions Scaling, WaveletFamily Wavelet, WaveletExtension Extension) {
     internal static SignalContext OfPerBin(SpectralTransform row, SignalPolicy.PerBin policy) =>
-        new(row, WindowTaper.Dirichlet, default, 0, policy.SampleRate, policy.Scaling, WaveletFamily.Haar, WaveletExtension.Periodic);
+        new(row, PeriodicWindow.Hann, default, 0, policy.SampleRate, policy.Scaling, WaveletFamily.Haar, WaveletExtension.Periodic);
 
     internal static SignalContext OfFramed(SpectralTransform row, SignalPolicy.Framed policy, int samples) =>
         new(row, policy.Window, FrameGrid.Centered(policy.FrameSize, policy.HopSize, samples), 0,
             policy.SampleRate, policy.Scaling, WaveletFamily.Haar, WaveletExtension.Periodic);
 
     internal static SignalContext OfWavelet(SpectralTransform row, SignalPolicy.Wavelet policy) =>
-        new(row, WindowTaper.Dirichlet, default, policy.Levels, 0.0, FourierOptions.Default, policy.Family, policy.Extension);
+        new(row, PeriodicWindow.Hann, default, policy.Levels, 0.0, FourierOptions.Default, policy.Family, policy.Extension);
 
-    internal Fin<Arr<double>> Taper() => Window.Sample(Dimension.Create(value: Grid.Frame), new TaperSampling.Periodic());
+    internal Fin<Arr<double>> Taper() => Window.Sample(Dimension.Create(value: Grid.Frame));
 
     internal FrameGrid Segments(int samples) => FrameGrid.Interior(Grid.Frame, Grid.Hop, samples);
 }
@@ -265,7 +282,7 @@ public sealed record Spectrum(
 public abstract partial record Spectrogram {
     private Spectrogram() { }
 
-    public sealed record Phasor(SpectralTransform Transform, FrameGrid Grid, int Samples, int CoverFrom, int CoverTo, double BinHz, WindowTaper Window, FourierOptions Scaling, ReadOnlyMemory<double> Magnitude, ReadOnlyMemory<double> Phase, Instant At) : Spectrogram;
+    public sealed record Phasor(SpectralTransform Transform, FrameGrid Grid, int Samples, int CoverFrom, int CoverTo, double BinHz, PeriodicWindow Window, FourierOptions Scaling, ReadOnlyMemory<double> Magnitude, ReadOnlyMemory<double> Phase, Instant At) : Spectrogram;
     public sealed record Power(SpectralTransform Transform, FrameGrid Grid, double BinHz, ReadOnlyMemory<double> Values, Instant At) : Spectrogram;
 
     public SpectralTransform Transform => Switch(
@@ -435,14 +452,14 @@ public static class Transform {
 
     // --- [CORPUS]
 
-    public static Fin<CrossPower> Power(WaveformCorpus corpus, WindowTaper window, Instant at) =>
+    public static Fin<CrossPower> Power(WaveformCorpus corpus, PeriodicWindow window, Instant at) =>
         corpus.Channels < 2
             ? Fin.Fail<CrossPower>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(corpus.Channels, 2L))))
         : corpus.FrameCount < 2
             ? Fin.Fail<CrossPower>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(corpus.FrameCount, 2L))))
         : !TensorPrimitives.IsFiniteAll<float>(corpus.Frames.Span)
             ? Fin.Fail<CrossPower>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(corpus.Frames.Length))))
-            : window.Sample(Dimension.Create(value: corpus.Window.Frame), new TaperSampling.Periodic()).Map(taper => {
+            : window.Sample(Dimension.Create(value: corpus.Window.Frame)).Map(taper => {
                 int n = corpus.Channels, frame = corpus.Window.Frame, bins = frame / 2 + 1;
                 (double[] gre, double[] gim) = (new double[bins * n * n], new double[bins * n * n]);
                 CrossPower power = new(n, bins, corpus.FrameCount, corpus.SampleRate / frame, gre, gim);
@@ -720,7 +737,7 @@ public static class Transform {
             .Bind(frames => frames.Spectrogram is Spectrogram.Phasor phasor
                 ? Fin.Succ(phasor)
                 : Fin.Fail<Spectrogram.Phasor>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None()))))
-            .Bind(frames => frames.Window.Sample(Dimension.Create(value: frames.Grid.Frame), new TaperSampling.Periodic()).Bind(taper => {
+            .Bind(frames => frames.Window.Sample(Dimension.Create(value: frames.Grid.Frame)).Bind(taper => {
                 FrameGrid grid = frames.Grid;
                 double[] sum = new double[frames.Samples];
                 double[] weight = new double[frames.Samples];

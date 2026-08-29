@@ -125,7 +125,7 @@ internal static partial class GeodesicKernel {
                                    from u in Solved(heat.SolveDetailed(rhs: delta))
                                    let gradient = DecAssembly.FaceGradients(mesh: space.Native, u: u)
                                    let divergence = DecAssembly.Divergence(mesh: space.Native, gradients: gradient)
-                                   from distance in Solved(laplacian.Stiffness.SingularSolveDetailed(rhs: divergence, gauge: GaugePolicy.Pinned(indices: [.. ordered], mass: Some(laplacian.MassLumped), shift: GaugeShift.MinZero), context: space.Tolerance))
+                                   from distance in Solved(MatrixKernel.SingularGaugeSolve(matrix: laplacian.Stiffness, rhs: divergence, gauge: GaugePolicy.Pinned(indices: [.. ordered], mass: Some(laplacian.MassLumped), shift: GaugeShift.MinZero), context: space.Tolerance))
                                    select distance);
     }
 

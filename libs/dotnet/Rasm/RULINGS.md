@@ -9,7 +9,7 @@ Every reopen predicate rides the license gate.
 - QuikGraph KEEP, core alone — "unmaintained" is chronology, not capability: MS-PL, owns the kernel's graph algorithm set, no maintained successor.
 - Package admission is managed purity on a live kernel consumer, never geometry domain — a native-asset or host-engine package homes at its sibling.
 - geometry3Sharp and the MathNet native providers stay sibling-only — a central-manifest row is sibling consumption, never a `Rasm.csproj` invite.
-- Triangle.NET and TetGen REJECTED on capability, never license — float-epsilon CDT, native-only binding; reopens on a managed exact-`Implicit` CDT.
+- Triangle.NET and TetGen REJECTED on capability, never license — float-epsilon CDT, native-only binding; reopens on a managed exact-`ImplicitPoint` CDT.
 - `Predicate` authors the exact-sign floor in-repo — no package pairs adaptive exact-sign with constructed points; one shipping both reopens.
 - `Parametric/nurbs` is the ONE NURBS engine, package-free — no package exposes arbitrary-knot construction and raw rational surface derivatives.
 - OpenSubdiv REJECTED — no managed binding, and the `SubdivisionScheme` Stam lane owns limit evaluation; only throughput it cannot meet reopens.
@@ -50,12 +50,12 @@ Every reopen predicate rides the license gate.
 - `MinimumSpanningTreePrim` is single-component — a spanning forest over a labelled multi-component graph takes `MinimumSpanningTreeKruskal`.
 - Host-extensible fact families land an interface floor a non-generic `[SmartEnum]` roster realizes — a boundary extends by realizing that floor.
 - `EvidenceDrain` is the ONE ordinal minter — every source serializes through its stamp, so a second counter hands two events one `UiEvent.Ordinal`.
-- `MatrixKernel` funnels factorization, solve, eigen, transform — a raw reach skips the stop and residual witness; MathNet utilities stay page-local.
+- `MatrixKernel` funnels factorization, solve, and eigen — a raw reach skips the stop and residual witness; transform consumers use the admitted transform owner or direct package operations.
 - Every `ILmModel` Jacobian arm is EXACT — closed form or forward-mode duals alone; FD halves the 106-bit objective and stays a test oracle.
 - `Lm.Minimize` is the ONE damped iterate, `Schedule.recurs` its sole budget authority — a private loop forks the singular guard and accept order.
 - `ArrangementResult.Boolean` carries TRUE shells on BOTH routes — one `MeshSpace` lies about a severed result; intermediate legs stay undecomposed.
 - `Heal.Boolean` FAILS TYPED on a severed boolean — heal admits one arena, so severance lowers `UnrepairableMesh` carrying the shell count.
-- Geometry-fold abandonment lowers the direct cancellation leaves — `GeometryFault.SubdivisionCancelled`, `ClassificationCancelled`, `WeldCancelled`, and `NativeBooleanCancelled` — on both arrangement routes; a direct `Eff` token poll returns `Errors.Cancelled`.
+- Geometry-fold abandonment lowers `GeometryFault.ArrangementCancelled` with its `ArrangementStage` on both arrangement routes; a direct `Eff` token poll returns `Errors.Cancelled`.
 - Adjoint sensitivity is `Rasm.Compute`'s — the kernel emits `MeshAdjointSnapshot`, its own differentiation staying `Lm`'s forward-mode dual floor.
 - `PerceptualColor` egress splits on TRANSFER, never on member — the byte leg is the one content-key quantizer, and a sibling egress member forks it.
 - Kernel laws bind only where their compliant construction is public — `RgbProfile.Viewed` and `DeltaMetric.Measure` publish for exactly that reason.
@@ -66,8 +66,8 @@ Every reopen predicate rides the license gate.
 - `RoundTripWitness.Root` names the digest root — `Apply` roots Source and `Of` roots Payload, so a dedup or lake consumer reads it before comparing.
 - `Band` rows are the ONE range guard — a `ValidateFactoryArguments` body spelling its own bounds forks the guard from its readers.
 - `SymmetricMatrix.FlatIndex` is the ONE packed-upper index mint — `SampleMoment` and `Lm` delegate to it rather than mirroring the arithmetic.
-- `MatrixKernel` is `partial` across `Numerics/matrix` and `Numerics/transform`, so the one-funnel ruling binds the TYPE and never a file.
-- `Interpolant<TCapability>` is the ONE interpolation capability owner — `TCapability` carries differentiation and integration, so unsupported calls never compile.
+- `MatrixKernel` belongs to `Numerics/matrix`; `Numerics/transform` owns its separable transform and tap-series operations directly.
+- `Interpolant` is the finite-result interpolation owner — MathNet's support flags gate differentiation and integration with typed refusal.
 - `PerceptualColor` host egress REFUSES an out-of-display colour where the byte leg CLIPS — a silent clip hands a painter an unattributable colour.
 - `UiThread.Run(crossing, lane)` is the ONE marshal entry — the crossing CASE selects arity, and a crossing never swallows a body's `Fin`.
 - `MountCustody` is the ONE release latch on host chrome — teardown runs recursive and mint-reverse behind the machine's own published transitions.
@@ -92,7 +92,7 @@ Every reopen predicate rides the license gate.
 - `PanelSpec`'s constructor is the ONE board-descriptor spelling — a hand-built descriptor bypasses the vocabulary the board compile validates.
 - `SheetSize.Key` is the ONE wire spelling, series prefix with index or suffix — a free-text key forks host re-entry by exact name.
 - `RungLadder` is the ONE Renard-series snap — a page-local rounding table drifts from the published ladder.
-- `WindowTaper` is the ONE taper roster and `SpectralArena` the ONE transform carrier — a framing is a COLUMN on the row, never a second roster.
+- `Taper` owns only the Kaiser and Bohman algorithms absent from MathNet; package-backed windows stay direct package calls.
 - `FactoryBridge.Row` decoupled arms carry every cross-typed column resolve — column equality rides the `match` argument, never a re-keyed roster or index.
 - `CapabilitySet.Wire` derives from ordinal key order — a semantic rank lives explicitly on its owning vocabulary and never on the generic capability floor.
 - Capability-read failure posture is the consumer boundary's — `Require` refuses with `Missing` evidence, the law row settling emptiness at construction.

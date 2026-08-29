@@ -30,6 +30,7 @@ using System.Numerics.Tensors;
 using DoubleDouble;
 using LanguageExt;
 using LanguageExt.Common;
+using MathNet.Numerics.LinearAlgebra;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;
@@ -71,7 +72,7 @@ public sealed record SolvePolicy(
         double initial = Math.Sqrt(d: convergence);
         double ceiling = 1.0 / convergence;
         int climbs = (int)Math.Ceiling(a: Math.Log(a: ceiling / initial, newBase: LadderFactor));
-        return FactoryBridge.Accept<PositiveMagnitude>(candidate: ResidualCap.Converged.In(context: Some(context)))
+        return FactoryBridge.Accept<PositiveMagnitude>(candidate: SolvePath.SparseKrylov.Tolerance(context: Some(context)))
             .Map(tolerance => new SolvePolicy(
                 InitialLambda: initial,
                 LambdaFloor: convergence * convergence,
@@ -405,8 +406,8 @@ public static class Lm {
         double[] rhs = new double[dof];
         TensorPrimitives.Negate<double>(normal.Gradient, rhs);
         return SymmetricMatrix.Of(Dimension.Create(dof), new Arr<double>(damped))
-            .Bind(spd => spd.DecomposeCholesky())
-            .Bind(chol => chol.SolveDetailed(new Arr<double>(rhs)))
+            .Bind(spd => MatrixKernel.Cholesky(spd)
+                .Bind(factor => MatrixKernel.CholeskySolve(spd.ToDense(), factor, new Arr<double>(rhs))))
             .Bind(solved => solved.IsValid
                 ? Fin.Succ(solved.Solution)
                 : Fin.Fail<Arr<double>>(new KernelFault.InvalidResult()))
@@ -531,7 +532,7 @@ public sealed class DualModel(IDualResidual residual) : ILmModel {
 
 - Owner: `SketchEntityKind` `[SmartEnum<int>]` discriminates the parametric primitive, each row carrying its parameter `Arity`, a `Carrier` binding to the `Rasm.Domain` `Kind` so admission faults mint typed discriminants, and the `EndOf`/`RadiusOf` slice accessors answering `Option` for a slot the kind does not carry; `Entity` is one parametric-primitive algebra over every kind, carrying its kind and its `[Offset, Offset+Arity)` slice into the flat parameter vector; `Constraint` the closed relation `[Union]` whose generated-`Switch` `Residual` and `Touches` folds return residual rows with analytic partials and name the incident entities, `Residual(p).Count` the one row-cardinality authority; `ConstraintSystem` the one solver owner — the immutable graph with accumulating `Build` admission, the accessor-backed `Islands` and `SeedVector` lazies, the rank methods the `RankMethod` rows bind, the island-scoped private `Model : ILmModel`, and the island-folded `Solve`; `Determinacy`/`DofReport` the verdict vocabulary and the `IslandVerdict` rows both totals derive from, each row stamped with the `RankMethod` that decided it; `RankMethod` the rank-method roster whose `Analyze` delegate column IS the one determinacy read; `Solution` the one outcome carrier.
 - Cases: `Constraint` is the closed relation `[Union]` the fence rosters; `Ground` is the gauge anchor whose absence leaves the rigid-body freedoms honestly under-constrained, and `Distance`, `Tangent`, and `OnCircle` carry squared residuals staying C¹ at coincident and zero-length configurations where the `√`-form Jacobian is undefined. `Determinacy` adds the witness-numeric `Redundant` row to the three structural verdicts — the redundant-but-consistent system a row count misclassifies as over-constrained — and its key ordinal carries the fold precedence every island roll-up maxes over. `AxisLock` names WHICH component a locked line holds constant, so the horizontal and vertical forms are one offset-addressed residual rather than a bool selecting between two transcriptions of the same difference. `SketchEntityKind` discriminates the parametric primitives, each row carrying its parameter arity.
-- Entry: `ConstraintSystem.Solve(SolvePolicy)` decomposes into islands, instantiates the private `Model : ILmModel` per island, runs `Lm.Minimize` on each small normal system, scatters the sub-solutions back into one parameter vector, and gates the assembled result: `GeometryFault.OverConstrained` when the witness verdict is over-determined and the global residual stays past tolerance — a redundant-and-inconsistent system has no configuration, its payload carrying the dependent-row count `rows − rank(J)` at the witness — with `GeometryFault.SingularSystem` bubbling from any island's ladder; a well- or under-constrained system always solves, LM finding the nearest point on the manifold to the seed. `RankMethod.Analyze(system)` is the ONE determinacy read and the row names which rank it reads — `Count` per-island row cardinality, `Matching` the König refinement, `Witness` the numeric rank — every island verdict carrying the `RankMethod` that actually decided it, so an SVD refusal that fell back to `Count` is legible rather than silent. `ConstraintSystem.Build` is the accumulating admission: every non-finite seed value, seed/arity mismatch, dangling reference (membership tests the full `Entity` value, so a mis-kinded reference at a valid offset is equally dangling), operand-kind mismatch, duplicate constraint, and the empty-system report exit together through one `Validation<Error, T>` traverse.
+- Entry: `ConstraintSystem.Solve(SolvePolicy)` decomposes into islands, instantiates the private `Model : ILmModel` per island, runs `Lm.Minimize` on each small normal system, scatters the sub-solutions back into one parameter vector, and gates the assembled result: `GeometryFault.InconsistentConstraints` when the witness verdict is over-determined and the global residual stays past tolerance — a redundant-and-inconsistent system has no configuration, its `DependentRows` payload carrying the dependent-row count `rows − rank(J)` at the witness — with `GeometryFault.SingularSystem` bubbling from any island's ladder; a well- or under-constrained system always solves, LM finding the nearest point on the manifold to the seed. `RankMethod.Analyze(system)` is the ONE determinacy read and the row names which rank it reads — `Count` per-island row cardinality, `Matching` the König refinement, `Witness` the numeric rank — every island verdict carrying the `RankMethod` that actually decided it, so an SVD refusal that fell back to `Count` is legible rather than silent. `ConstraintSystem.Build` is the accumulating admission: every non-finite seed value, seed/arity mismatch, dangling reference (membership tests the full `Entity` value, so a mis-kinded reference at a valid offset is equally dangling), operand-kind mismatch, duplicate constraint, and the empty-system report exit together through one `Validation<Error, T>` traverse.
 - Auto: `Islands` folds the entity↔constraint incidence through a transient `ForestDisjointSet` — every entity a singleton, every constraint one `Union` per operand past its head, `SetCount` the live island census and `FindSet` the grouping key — so the partition costs one near-constant-time pass and no container is minted for a question union-find answers directly; each component solves on its own `dof_island²` normal matrix instead of `Seed.Count²`, the decomposition that makes a many-sketch document solve at the cost of its largest island; an untouched entity is a zero-row island converging at iteration 0. Per island, `Model` gathers the columns into a compact local vector over a single-writer global scratch (islands are column-disjoint, so the scratch never races), folds `Σr²` at 106-bit `ddouble`, and accumulates packed-upper `JᵀJ` + `Jᵀr` from the analytic partials with global→local remap, so the dense `J` never materializes on the LM lane. Residual scatter accumulates rather than overwrites because an arm can emit one column twice for a shared or self-aliased entity. `RankMethod.Matching` reads `MaximumBipartiteMatchingAlgorithm` cardinality as the König structural rank — row deficiency localizes over-constraint to its island and column surplus under-constraint, the locality a global row count is blind to. `RankMethod.Witness` runs PER ISLAND — `J(seed)` is block-diagonal under the island permutation, so each island's compact `rows_island × dof_island` dense block goes through `DecomposeSvd` and the fold is EQUAL to the global witness at `Σ dof_island²` cost, the same economy the solve fold buys; per island it reads true DOF `dof_island − Rank` and projects the residual onto the left-null space via the `SvdResult.U` tail — a vanishing tail is `Redundant`, redundant constraints that all hold — and island verdicts fold through the system's own `Worst` over the row's key ordinal with dependent rows summed.
 - Output: `Solve` returns `Solution` carrying the converged parameters as `Arr<double>` beside its status, determinacy, residual norm, iteration total, terminal λ, row count, and island count under one `ValidityClaim.All` fold; the terminal λ is the MAX over the islands' measured readings and the status the worst island's key ordinal, so no island's outcome hides behind another's, and an empty island set is unreachable past `Build`. `DofReport` is the diagnosis evidence a sketch UI reads to name which island over-constrains and by which rank method.
 - Packages: `Rhino.Geometry` (`Point3d`/`Vector3d` for entity geometry), `Rasm.Numerics` (`SymmetricMatrix`/`CholeskyResult`/`Matrix`/`SvdResult`/`Dimension`/`PositiveMagnitude` — the `Numerics/matrix` + `Numerics/atoms` owners), QuikGraph (`ForestDisjointSet` the island partition; `AdjacencyGraph` + `MaximumBipartiteMatchingAlgorithm` the structural-rank walk), TYoshimura.DoubleDouble (`ddouble` + `DoubleDoubleEnumerableExpand.Sum`, the 106-bit `Σr²`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`/`[SmartEnum<string>]`/`[UseDelegateFromConstructor]`, generated `Switch`), CommunityToolkit.HighPerformance (`ReadOnlySpan2D` row projection for the U-tail gather), System.Numerics.Tensors (`TensorPrimitives.Dot`/`Norm` on the witness projection), LanguageExt.Core (`Fin`/`Option`/`Arr`/`Validation`/`Seq`, the accumulating `.Traverse` admission and the short-circuiting `Seq.TraverseM` island sequence), BCL inbox.
@@ -558,7 +559,6 @@ using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using Dimension = Rasm.Numerics.Dimension;
-using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Solving;
 
@@ -899,7 +899,7 @@ public sealed record ConstraintSystem(
                 }
                 double norm = (double)Norm(Constraints.Bind(constraint => constraint.Residual(parameters)));
                 return report.Verdict == Determinacy.Over && norm >= policy.ResidualTolerance.Value
-                    ? Fin.Fail<Solution>(new GeometryFault.OverConstrained(report.Deficiency, norm))
+                    ? Fin.Fail<Solution>(new GeometryFault.InconsistentConstraints(report.Deficiency, norm))
                     : Fin.Succ(new Solution(new Arr<double>(parameters), status, report.Verdict,
                         norm, iterations, lambda,
                         Constraints.Sum(constraint => constraint.Residual(parameters).Count), islands.Count));
@@ -958,10 +958,10 @@ public sealed record ConstraintSystem(
 
     internal static DofReport WitnessRank(ConstraintSystem system) {
         Seq<IslandVerdict> islands = system.Islands.Value.Map((island, ordinal) => {
-            (int rows, double[] r, Option<Matrix> jacobian, int dofs) = LinearizeIsland(system, island, system.SeedVector.Value);
+            (int rows, double[] r, Option<Matrix<double>> jacobian, int dofs) = LinearizeIsland(system, island, system.SeedVector.Value);
             return rows == 0
                 ? new IslandVerdict(ordinal, dofs > 0 ? Determinacy.Under : Determinacy.Well, dofs, 0, 0, RankMethod.Count)
-                : jacobian.ToFin(new KernelFault.InvalidResult()).Bind(j => j.DecomposeSvd(key)).Match(
+                : jacobian.ToFin(new KernelFault.InvalidResult()).Bind(MatrixKernel.Svd).Match(
                     Succ: svd => rows <= svd.Rank
                         ? new IslandVerdict(ordinal, dofs - svd.Rank > 0 ? Determinacy.Under : Determinacy.Well,
                             dofs - svd.Rank, 0, svd.Rank, RankMethod.Witness)
@@ -1009,7 +1009,7 @@ public sealed record ConstraintSystem(
         return toSeq(entityRows).Map((rows, ordinal) => (Entities: rows, Constraints: constraintRows[ordinal]));
     }
 
-    static (int Rows, double[] Residual, Option<Matrix> Jacobian, int LocalDofs) LinearizeIsland(
+    static (int Rows, double[] Residual, Option<Matrix<double>> Jacobian, int LocalDofs) LinearizeIsland(
         ConstraintSystem system, (Seq<int> Entities, Seq<int> Constraints) island, double[] parameters) {
         Dictionary<int, int> local = [];
         int dofs = 0;
@@ -1026,11 +1026,11 @@ public sealed record ConstraintSystem(
             r[row] = allRows[row].Value;
             foreach ((int column, double partial) in allRows[row].Partials) j[(row * dofs) + local[column]] += partial;
         }
-        return (allRows.Count, r, Matrix.Of(Dimension.Create(allRows.Count), Dimension.Create(dofs), new Arr<double>(j)).ToOption(), dofs);
+        return (allRows.Count, r, MatrixKernel.Dense(Dimension.Create(allRows.Count), Dimension.Create(dofs), new Arr<double>(j)).ToOption(), dofs);
     }
 
-    static bool ConsistentAtWitness(SvdResult svd, double[] r, int rows) {
-        ReadOnlySpan2D<double> tailRows = svd.U.Transpose().AsPlane();
+    static bool ConsistentAtWitness(MathNet.Numerics.LinearAlgebra.Factorization.Svd<double> svd, double[] r, int rows) {
+        ReadOnlySpan2D<double> tailRows = svd.U.Transpose().ToRowMajorArray().AsSpan2D(height: svd.U.ColumnCount, width: svd.U.RowCount);
         double[] tail = new double[rows - svd.Rank];
         for (int k = svd.Rank; k < rows; k++) tail[k - svd.Rank] = TensorPrimitives.Dot<double>(tailRows.GetRowSpan(k), r);
         return TensorPrimitives.Norm<double>(tail) <= EpsilonPolicy.SqrtEpsilon * Math.Max(TensorPrimitives.Norm<double>(r), 1.0);
@@ -1128,7 +1128,7 @@ flowchart LR
     Islands -->|"per island: Model : ILmModel"| Lm["Lm.Minimize λ-ladder"]
     Lm -->|"JᵀJ + λ·diag → DecomposeCholesky → SolveDetailed"| Matrix["matrix.md owners"]
     Lm -->|"TraverseM islands → assemble"| Solution["Solution : IValidityEvidence"]
-    Witness -->|"OverConstrained + residual ≥ tol"| Fault["GeometryFault.OverConstrained"]
+    Witness -->|"InconsistentConstraints + residual ≥ tol"| Fault["GeometryFault.InconsistentConstraints"]
 ```
 
 ## [04]-[DENSITY_BAR]

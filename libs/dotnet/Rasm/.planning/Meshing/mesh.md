@@ -41,6 +41,8 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 using Dimension = Rasm.Numerics.Dimension;
 
+using SparseMatrix = CSparse.Storage.CompressedColumnStorage<double>;
+
 namespace Rasm.Meshing;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -198,7 +200,7 @@ public readonly record struct MeshSpace {
 - Exemption: `FlipFrontier` is a WORK-LIST fixpoint, not a traversal, and names its refusal in-fence at the owner both flip consumers compose — QuikGraph's `BreadthFirstSearchAlgorithm` colours each vertex once and admits no re-entry, so composing it caps every edge at one flip and silently changes the algorithm, and `IQueue<TVertex>` selects a frontier over a STATIC container while every flip rewrites the incidence the frontier reads. Power-cell FIFO frontier and signpost fan orbit refuse the same operators for the same reason and stay measured statement kernels. `IntrinsicMesh.EdgeData` stays a mutable `Dictionary` because a flip rewrites it in place; `SeedHalfedges` freezes into a `FrozenDictionary` at `Freeze`, and `LaplacianCache.solverSlots` stays concurrent because it grows across the snapshot's whole lifetime. That same clause covers every span-kernel accumulator that dies with the fold that fills it: `LaplacianTriplets`' per-face triplet columns, the SPD assembly's `triplets` list, `TransportFramesOf`'s `rows`, and the overlay's `points`, `crossings`, and preallocated `alongB` slot table — the last is preallocated BY NORMAL COORDINATE precisely so a missed crossing lands as a null slot the completeness gate refuses. RhinoCommon's `IsManifold` publishes its predicates as `out` parameters, and that HOST-BOUNDARY exemption ends at `TopologyDetailed`: the bools fold into `CapabilitySet<MeshTrait>` in the same expression that reads them, so none crosses a page surface and no helper carries them.
 - Packages: RhinoCommon is a genuine Rhino boundary here per the Tier-0 capture law, never thinned; `Numerics/matrix` owns sparse assembly and the Cholesky factor, `Numerics/spectral` the `DiscreteCalculus` carrier, `Numerics/atoms` the projection and magnitude value objects, `Spatial/neighbors` the one k-NN substrate the power-incident seed rides rather than a private RTree, `Spatial/index` the broad phase the snapshot memoizes, `Processing/geodesics` the one chart-unfolding `WalkChart` the overlay trace seats in `EdgeOverlay` mode rather than minting a second unfold; `Domain/results` owns the `ValidityClaim` fold, `Domain/context` the `Context` and its lanes, `Domain/validation` the `CapabilitySet`/`ICapability` idiom. Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL concurrency complete the floor.
 - Growth: a fourth Laplacian discretization is one `MeshLaplacian` row, one cache memo, and one assembly member, every call site untouched; a new memoized solver artifact is zero cache edits — the owning page mints its key record and calls `Memoized`; a new transport half is one `TransportHalf` row, a new cover law one `CoverLaw` row, a new topology fact one `MeshTrait` row; a new signpost gauge or topology witness is one row or one field, and a richer density rule is one `DensityQuadrature` node count. Zero new public surface.
-- Boundary: the radical clip is NOT this page's arithmetic — `Predicate.ClipHalfplane` is the one convex-ring half-plane fold, and the power path supplies its `Halfplane.Affine` cut, its band, and its floor, so the guarded crossing and the midpoint-fallback channel are the same code the bounded Voronoi cell runs. A `DenomFloor` hit publishes a midpoint the aggregate tally alone could not attribute, so `PowerCell.MidpointFallback` and `PowerFacet.MidpointFallback` name the contaminated rows and a Newton step refuses them rather than the run. Cache identity keys on the snapshot `Mesh` reference and memoizes success only — a keyed dictionary leaks across snapshot lifetimes and re-keys on value equality, so the `ConditionalWeakTable` is the load-bearing contract. `Cotangent` arithmetic lives in one owner and the edge weight over it in `CotanEdgeWeightOf`; a consumer re-deriving `(a·b)/(2A)`, the law-of-cosines form, or the half-sum of opposite cotangents inline re-opens the collapsed duplication. Face normals ride the memoized column the same way: a consumer duplicating the native to run `FaceNormals.ComputeFaceNormals` re-opens the per-consumer copy the column collapsed, and running it on the snapshot itself mutates a frozen mesh every cached reader aliases. `IntrinsicMesh` stays `internal` and the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, so no consumer mutates a frozen snapshot mid-cache. Aspect-ratio guard and intrinsic mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, and `MeshAssemblyPolicy` travels on `MeshSpace.Of` one value per snapshot, so per-run variation means a fresh snapshot rather than a per-call knob aliasing the Unit-keyed memos. The direct-cotangent host-read window sits wholly inside `Try.lift`: a proved over-ceiling finite ratio alone mints `GeometryFault.CotangentQuality` with face and guarded ratio evidence, a malformed reading returns the kernel invalid-result refusal, and an unknown raise remains exact. Two solver families sharing one `(key-record, artifact)` pair alias one `Memoized` slot, so every family declares its own key record beside its kernel. `PowerFacet` carries the SIGNED dual length and the UNCLAMPED radical foot `OffsetI`, both built from the weights the clip itself ran under, so the BNOT weight-Newton Hessian reads them rather than re-deriving a site distance; a clamped foot or an unsigned length mints a wrong-sign Newton step no residual catches. `A_ij == A_ji` holds because the canonical `(min, max)` key accumulates ONCE — the FIFO frontier reaches both cell views and the two clip SEQUENCES differ by ulps, so summing both doubles every length. Euclidean k-NN seeds the power-incident set through `Spatial/neighbors`, so non-trivial weights can under-clip the k-th neighbour; the weighted security radius tests the farthest neighbour after the list exhausts, `KNearest` is a policy row, and the signed `IntegrationResidual`, the `NeighborFacetCount`-versus-`IncidentPairCount` gap, and `QueuePeakDepth` make any under-clip observable from two independent directions. Degenerate meshes route a typed fault over `Fin<T>`, never a throw.
+- Boundary: the radical clip is NOT this page's arithmetic — `HalfPlane.Clip` is the one convex-ring half-plane fold, and the power path supplies its `HalfPlane.Affine` cut, its interior point, band, and denominator floor, so the guarded crossing and the midpoint-fallback channel are the same code the bounded Voronoi cell runs. A denominator-floor hit publishes a midpoint the aggregate tally alone could not attribute, so `PowerCell.MidpointFallback` and `PowerFacet.MidpointFallback` name the contaminated rows and a Newton step refuses them rather than the run. Cache identity keys on the snapshot `Mesh` reference and memoizes success only — a keyed dictionary leaks across snapshot lifetimes and re-keys on value equality, so the `ConditionalWeakTable` is the load-bearing contract. `Cotangent` arithmetic lives in one owner and the edge weight over it in `CotanEdgeWeightOf`; a consumer re-deriving `(a·b)/(2A)`, the law-of-cosines form, or the half-sum of opposite cotangents inline re-opens the collapsed duplication. Face normals ride the memoized column the same way: a consumer duplicating the native to run `FaceNormals.ComputeFaceNormals` re-opens the per-consumer copy the column collapsed, and running it on the snapshot itself mutates a frozen mesh every cached reader aliases. `IntrinsicMesh` stays `internal` and the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, so no consumer mutates a frozen snapshot mid-cache. Aspect-ratio guard and intrinsic mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, and `MeshAssemblyPolicy` travels on `MeshSpace.Of` one value per snapshot, so per-run variation means a fresh snapshot rather than a per-call knob aliasing the Unit-keyed memos. The face-aspect-ratio host-read window sits wholly inside `Try.lift`: a proved over-ceiling finite ratio alone mints `GeometryFault.FaceAspectRatioExceeded` with face and guarded ratio evidence, a malformed reading returns the kernel invalid-result refusal, and an unknown raise remains exact. Two solver families sharing one `(key-record, artifact)` pair alias one `Memoized` slot, so every family declares its own key record beside its kernel. `PowerFacet` carries the SIGNED dual length and the UNCLAMPED radical foot `OffsetI`, both built from the weights the clip itself ran under, so the BNOT weight-Newton Hessian reads them rather than re-deriving a site distance; a clamped foot or an unsigned length mints a wrong-sign Newton step no residual catches. `A_ij == A_ji` holds because the canonical `(min, max)` key accumulates ONCE — the FIFO frontier reaches both cell views and the two clip SEQUENCES differ by ulps, so summing both doubles every length. Euclidean k-NN seeds the power-incident set through `Spatial/neighbors`, so non-trivial weights can under-clip the k-th neighbour; the weighted security radius tests the farthest neighbour after the list exhausts, `KNearest` is a policy row, and the signed `IntegrationResidual`, the `NeighborFacetCount`-versus-`IncidentPairCount` gap, and `QueuePeakDepth` make any under-clip observable from two independent directions. Degenerate meshes route a typed fault over `Fin<T>`, never a throw.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -324,10 +326,10 @@ public readonly record struct SparseLaplacian(
     SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped,
     int SkippedDegenerateFaces = 0, Option<TuftedCover> Tufted = default, int NegativeCotangentCount = 0) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.CountExactly(count: Stiffness.Rows.Value, expected: Stiffness.Cols.Value),
-        ValidityClaim.CountExactly(count: MassConsistent.Rows.Value, expected: Stiffness.Rows.Value),
-        ValidityClaim.CountExactly(count: MassConsistent.Cols.Value, expected: Stiffness.Cols.Value),
-        ValidityClaim.CountExactly(count: MassLumped.Count, expected: Stiffness.Rows.Value),
+        ValidityClaim.CountExactly(count: Stiffness.RowCount, expected: Stiffness.ColumnCount),
+        ValidityClaim.CountExactly(count: MassConsistent.RowCount, expected: Stiffness.RowCount),
+        ValidityClaim.CountExactly(count: MassConsistent.ColumnCount, expected: Stiffness.ColumnCount),
+        ValidityClaim.CountExactly(count: MassLumped.Count, expected: Stiffness.RowCount),
         ValidityClaim.CountAtLeast(count: SkippedDegenerateFaces, floor: 0),
         ValidityClaim.CountAtLeast(count: NegativeCotangentCount, floor: 0),
         Tufted.Map(static cover => cover.IsValid).IfNone(noneValue: true));
@@ -387,7 +389,7 @@ public sealed record MeshAdjointSnapshot(DiscreteCalculus Calculus, int VertexCo
     public static Fin<MeshAdjointSnapshot> Of(MeshSpace space) =>
         space.Cache.Calculus()
             .Map(dec => new MeshAdjointSnapshot(Calculus: dec,
-                VertexCount: dec.D0.Cols.Value, EdgeCount: dec.D0.Rows.Value, FaceCount: dec.D1.Rows.Value));
+                VertexCount: dec.D0.ColumnCount, EdgeCount: dec.D0.RowCount, FaceCount: dec.D1.RowCount));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -429,9 +431,9 @@ public readonly record struct CommonSubdivision(
         ValidityClaim.CountExactly(count: SubdivisionVertexCount, expected: SourceVertexCount + SumNormalCoordinates),
         ValidityClaim.CountExactly(count: SubdivisionEdgeCount, expected: SourceEdgeCount + SumNormalCoordinates + CornerCrossingSum),
         ValidityClaim.CountExactly(count: SubdivisionFaceCount, expected: SourceFaceCount + CornerCrossingSum),
-        ValidityClaim.CountExactly(count: InterpolationA.Rows.Value, expected: SubdivisionVertexCount),
-        ValidityClaim.CountExactly(count: InterpolationB.Rows.Value, expected: SubdivisionVertexCount),
-        ValidityClaim.CountExactly(count: InterpolationA.Cols.Value, expected: InterpolationB.Cols.Value),
+        ValidityClaim.CountExactly(count: InterpolationA.RowCount, expected: SubdivisionVertexCount),
+        ValidityClaim.CountExactly(count: InterpolationB.RowCount, expected: SubdivisionVertexCount),
+        ValidityClaim.CountExactly(count: InterpolationA.ColumnCount, expected: InterpolationB.ColumnCount),
         ValidityClaim.CountExactly(count: SourceFaceA.Count, expected: SubdivisionFaceCount),
         ValidityClaim.CountExactly(count: SourceFaceB.Count, expected: SubdivisionFaceCount),
         RowSumResidualA <= RowSumBand.Value,
@@ -511,7 +513,7 @@ internal sealed class LaplacianCache {
     private readonly Memo<Unit, MeshKernel.IntrinsicMesh> inputIntrinsic = new(), intrinsicMesh = new(), tuftedIntrinsicMesh = new();
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
     private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new();
-    private readonly Memo<double, (CholeskySparse Factor, SpectralAssembly Assembly)> edgeConnectionCholesky = new();
+    private readonly Memo<double, (CholeskySparse Factor, DiscreteOperatorAssembly.ConnectionLaplacianCase Assembly)> edgeConnectionCholesky = new();
     private readonly ConcurrentDictionary<(Type Key, Type Value), object> solverSlots = new();
     private readonly Lazy<double> meanEdgeLength;
     private readonly Lazy<BoundingBox> bounds;
@@ -565,7 +567,7 @@ internal sealed class LaplacianCache {
     internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(Dimension k);
     internal Fin<CholeskySparse> ConnectionCholesky(int symmetry, double time, Option<Arr<double>> edgeAdjustment);
     internal Fin<CholeskySparse> ScalarHeatCholesky(double time);
-    internal Fin<(CholeskySparse Factor, SpectralAssembly Assembly)> EdgeConnectionCholeskyDetailed(double time);
+    internal Fin<(CholeskySparse Factor, DiscreteOperatorAssembly.ConnectionLaplacianCase Assembly)> EdgeConnectionCholeskyDetailed(double time);
     internal Fin<T> Memoized<TKey, T>(TKey probe, Func<Fin<T>> compute) where TKey : notnull =>
         ((Memo<TKey, T>)solverSlots.GetOrAdd(key: (typeof(TKey), typeof(T)), valueFactory: static _ => new Memo<TKey, T>()))
             .Of(probe: probe, compute: compute);
@@ -625,17 +627,18 @@ internal static class MeshKernel {
 
     // --- [QUAD_DIAGONAL]
     internal static bool QuadDiagonal(Point3d a, Point3d b, Point3d c, Point3d d) =>
-        Axis.DominantOf(a, b, c, d).Case is Axis axis
+        Axis.DominantOf(Vector3d.CrossProduct(c - a, d - b)).Case is Axis axis
         && Predicate.Orient2D(a, c, b, axis).Times(Predicate.Orient2D(a, c, d, axis)) == Sign.Negative;
 
     // --- [SELECTION_SPD]
     internal static Fin<SparseMatrix> AssembleMassStiffnessSystem(SparseLaplacian laplacian, double stiffnessScale, double massScale = 1.0) {
-        int n = laplacian.Stiffness.Rows.Value;
+        int n = laplacian.Stiffness.RowCount;
         if (n == 0) return Fin.Fail<SparseMatrix>(new KernelFault.InvalidInput());
-        List<(int Row, int Col, double Value)> triplets = MatrixKernel.SparseTripletsOf(matrix: laplacian.Stiffness, capacityBonus: n, scale: stiffnessScale);
+        List<(int Row, int Col, double Value)> triplets = new(capacity: laplacian.Stiffness.NonZerosCount + n);
+        laplacian.Stiffness.EnumerateIndexed((row, column, value) => triplets.Add((row, column, stiffnessScale * value)));
         for (int i = 0; i < n; i++) triplets.Add(item: (i, i, massScale * laplacian.MassLumped[index: i]));
         Dimension dim = Dimension.Create(value: n);
-        return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets);
+        return MatrixKernel.Sparse(rows: dim, cols: dim, triplets: triplets);
     }
     internal static Fin<Unit> AspectRatioGuard(Mesh mesh, PositiveMagnitude ceiling) =>
         Try.lift(() => {
@@ -643,8 +646,8 @@ internal static class MeshKernel {
                 double ratio = mesh.Faces.GetFaceAspectRatio(index: face);
                 if (!double.IsFinite(ratio) || ratio <= 0.0) { return Fin.Fail<Unit>(new KernelFault.InvalidResult()); }
                 if (ratio > ceiling.Value) {
-                    return Fin.Fail<Unit>(new GeometryFault.CotangentQuality(
-                        Face: face, Ratio: PositiveMagnitude.Create(value: ratio), Ceiling: ceiling));
+                    return Fin.Fail<Unit>(new GeometryFault.FaceAspectRatioExceeded(
+                        Face: face, AspectRatio: PositiveMagnitude.Create(value: ratio), Ceiling: ceiling));
                 }
             }
             return Fin.Succ(unit);
@@ -1060,8 +1063,8 @@ internal static class MeshKernel {
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct PowerSite(Point3d Shifted, double Weight, double SquareLength);
 
-    private static Halfplane RadicalOf(PowerSite from, PowerSite to) =>
-        new Halfplane.Affine(
+    private static HalfPlane RadicalOf(PowerSite from, PowerSite to) =>
+        new HalfPlane.Affine(
             Normal: 2.0 * ((Vector3d)to.Shifted - (Vector3d)from.Shifted),
             Constant: (to.SquareLength - from.SquareLength) - (to.Weight - from.Weight));
 

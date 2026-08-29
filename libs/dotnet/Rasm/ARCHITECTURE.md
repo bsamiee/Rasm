@@ -24,8 +24,8 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Predicates.cs      # Sign total over explicit and constructed points; defining-point carriage rounds once at the emission boundary
 │   ├── Faults.cs          # GeometryFault [Union] with compact generated FaultCase identities on the LanguageExt base
 │   ├── Atoms.cs           # Guard Bands, PerceptualColor, ResultProjection rows with the identity fallthrough, primitive vector types
-│   ├── Matrix.cs          # MatrixKernel partial with transform; solutions carry route, stop, residual — no raw Matrix<double> crosses
-│   ├── Transform.cs       # WindowTaper roster, Interpolant<TCapability>, SpectralArena over the four MathNet layouts, both convolution routes
+│   ├── Matrix.cs          # Numeric solve kernel; solutions carry route, stop, residual — no raw Matrix<double> crosses
+│   ├── Transform.cs       # Branch-owned taper algorithms, interpolant admission, lattice spectral transform, tap-series convolution
 │   ├── Integrate.cs       # Step is pure with no in-kernel reject loop; dense output localizes events on the solution curve
 │   ├── Spectral.cs        # Mesh-free DEC carrier layer and eigen filter surface; Meshing/dec owns the mesh-bound assembly above it
 │   └── Calculus.cs        # Sampler-generic differential operators and the closed-form site-and-instant almanac; no mesh type reaches here
@@ -49,7 +49,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Projections.cs     # Selectors drain one Project<TOut> into ResultProjection.Raw; clock values stay branded to the injected timeline
 │   └── Locate.cs          # Operation<TGeometry, TOut> under Eff<Env, Seq<TOut>>; AnalysisQuery.LocationCase construction is the sole public route in
 ├── Meshing/               # Mesh substrate and construction ops
-│   ├── Delaunay.cs        # Tessellation.Build over one SimplexStore arena; Implicit carriage keeps exact signs to ToMesh
+│   ├── Delaunay.cs        # Tessellation.Build over one SimplexStore arena; ImplicitPoint carriage keeps exact signs to ToMesh
 │   ├── Arrangement.cs     # ArrangementOp over subdivide, classify, keep, weld; four booleans are four data rows, manifoldc the companion
 │   ├── Intersect.cs       # CrossKey interns adjacent-face crossings by integer equality; chains walk that adjacency into oriented loops
 │   ├── Slice.cs           # LayerPlan generates the plane family as height-law data; crossing machinery composes the intersect owner
@@ -218,7 +218,7 @@ flowchart LR
     Numerics e18@-->|"[SHAPE]: CellLattice"| Element
     Numerics e19@-->|"[SHAPE]: RgbProfile + CellLattice"| Bim
     Numerics e20@-->|"[SHAPE]: SunPosition + CellLattice"| AppUi
-    Numerics e21@-->|"[SHAPE]: RgbProfile + SunPosition + SpectralArena + TapSeries + SparseMatrix + CellLattice"| Materials
+    Numerics e21@-->|"[SHAPE]: RgbProfile + SunPosition + Spectral + TapSeries + SparseMatrix + CellLattice"| Materials
     Spatial e22@<-->|"[CONTENT_KEY]: XxHash128"| Runtime
     Spatial e23@<-->|"[CONTENT_KEY]: XxHash128"| Core
     Spatial e24@-->|"[CONTENT_KEY]: GeometryHash"| Persistence
@@ -266,7 +266,7 @@ flowchart LR
     Fabrication{{Rasm.Fabrication}}
     Domain e1@-->|"[WIRE]: Stat"| Fabrication
     Spatial e2@-->|"[SHAPE]: SpatialIndex"| Fabrication
-    Numerics e3@-->|"[SHAPE]: Predicate + SpectralArena + CellLattice + VectorCone"| Fabrication
+    Numerics e3@-->|"[SHAPE]: Predicate + Spectral + CellLattice + VectorCone"| Fabrication
     Meshing e4@-->|"[WIRE]: MeshSpace + SliceStack + CurveSkeleton"| Fabrication
     Parametric e5@-->|"[WIRE]: ParametricOp + DevelopOp + DevelopmentResult"| Fabrication
     Parametric e12@-->|"[SHAPE]: MaterialSymmetry + PanelField + InstanceBatch"| Fabrication

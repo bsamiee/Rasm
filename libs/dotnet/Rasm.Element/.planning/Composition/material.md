@@ -47,7 +47,6 @@ using System.Numerics.Tensors;
 using Thinktecture;
 using Band = Rasm.Numerics.Band;
 using Interpolant = Rasm.Numerics.Interpolant;
-using CalculusInterpolant = Rasm.Numerics.Interpolant<Rasm.Numerics.ICalculus>;
 using static LanguageExt.Prelude;
 using static Rasm.Domain.AdmissionSlots;
 
@@ -252,9 +251,9 @@ public readonly record struct Attestation(AttestationRole Role, string Credentia
 public sealed partial record SampledCurve {
  [property: OrderedEquality] public ImmutableArray<double> Axis { get; }
  [property: OrderedEquality] public ImmutableArray<double> Values { get; }
- [IgnoreEquality] private readonly CalculusInterpolant fit;
+ [IgnoreEquality] private readonly Interpolant fit;
 
- private SampledCurve(ImmutableArray<double> axis, ImmutableArray<double> values, CalculusInterpolant fit) =>
+ private SampledCurve(ImmutableArray<double> axis, ImmutableArray<double> values, Interpolant fit) =>
   (Axis, Values, this.fit) = (axis, values, fit);
 
  public static Fin<SampledCurve> Of(ReadOnlyMemory<double> axis, ReadOnlyMemory<double> values) =>
@@ -264,7 +263,7 @@ public sealed partial record SampledCurve {
     .Apply(static (_, _) => unit).As().ToFin()
     .Bind(_ => NotIncreasing(axis.Span)
      ? new ElementFault.ValueRejected("<curve-axis-not-increasing>")
-     : Interpolant.LinearSpline(toArray(axis.ToArray()), toArray(values.ToArray()))
+     : Interpolant.Fit(toArray(axis.ToArray()), toArray(values.ToArray()), MathNet.Numerics.Interpolation.LinearSpline.InterpolateSorted)
         .Map(fitted => new SampledCurve([.. axis.Span], [.. values.Span], fitted)));
 
  public Fin<double> At(double x) =>

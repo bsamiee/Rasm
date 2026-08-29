@@ -81,7 +81,7 @@
 - `Interceptor` and `ISaveChangesInterceptor` land BOTH modality twins — a pass-through default leaves the async path every leg takes unintercepted.
 - `RecoveryObjective` declares ONCE at `Rasm.AppHost` and `Rasm.Persistence` imports it — a port shape earns its seat by RE-SHAPING, never by name.
 - Declaring a recovery target and grading one split owners — `RecoveryWindow.Gauged` is the one gauge, a `Meets*` twin blind to the unmeasured half.
-- Kernel vectors cross as `Vector3d` and a float engine narrows at ITS edge — `SunPosition.Direction` on `Vector3` floors its inverse at `1.1e-3°`.
+- Kernel vectors cross as `Vector3d` and a float engine narrows at ITS edge — `SunPosition.OfDirection` preserves double at ingress, while a float-produced vector floors the recovered altitude at `1.1e-3°`.
 - Exact planar adjudication is the kernel's — Clipper2/NTS serve float planes, a consumer's tolerance source picks the tier, a verdict never rises.
 - Corpus proto descriptors keep ONE spelling — an owner page carries the header-only fence alone; the roster is gate-emitted and a hand mirror forks.
 - Host-enum reads resolve a `[SmartEnum]` row through `FactoryBridge.Row` — it folds `Enum.IsDefined` and the ordinal once, so a call-site cast forks admission.
@@ -122,7 +122,7 @@
 - Mounted sets fold over any number of meters through one `InstrumentSet.Of` — a root re-folding pre-bound pairs positionally re-mints it.
 - `InstrumentSet.Tags` materializes dimension keys at the write entry — a folder re-spelling that fold copies the one materialization.
 - `RasterPolicy`/`VisualCodec`/`RasterCodec` and the Rhino/AppUi PDF owners stay plural per stratum — a shared owner forces a cross-stratum edge.
-- `SolarPosition` is the kernel's ONE ephemeris almanac — every consumer projects the ANGLES into its own frame, a local Meeus fold being deleted.
+- `SunPosition.At` is the kernel's ONE ephemeris almanac — every consumer projects the ANGLES into its own frame, a local Meeus fold being deleted.
 - Kernel `FieldNoise` and Materials `ProceduralNoise` stay two-formed — differentiability-gating versus byte-parity is the whole discriminant.
 - `ImportedGeometry` is the ONE decoded-geometry carrier at the boundary — an absent lane is a missing descriptor, never an empty buffer.
 - Colour vocabulary has ONE branch owner — `Configuration` short-circuits on reference equality; space, hue, and view ride THREE axes, not a product.

@@ -1177,7 +1177,7 @@ public sealed partial class LineType {
 public sealed partial class PlotPosture {
     public static readonly PlotPosture Colour = new(key: "colour", ink: static colour => Fin.Succ(colour));
     public static readonly PlotPosture Grayscale = new(key: "grayscale",
-        ink: static colour => PerceptualColor.Achromatic(lightness: colour.Lightness, alpha: colour.Alpha));
+        ink: static colour => PerceptualColor.Of(lightness: colour.Lightness, opponentA: 0.0, opponentB: 0.0, alpha: colour.Alpha));
     public static readonly PlotPosture Monochrome = new(key: "monochrome", ink: static _ => Fin.Succ(Ink0));
     private static readonly PerceptualColor Ink0 = PerceptualColor.Of(lightness: 0.0, opponentA: 0.0, opponentB: 0.0).ThrowIfFail();
     [UseDelegateFromConstructor] public partial Fin<PerceptualColor> Ink(PerceptualColor colour);

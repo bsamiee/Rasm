@@ -302,7 +302,7 @@ internal static partial class CloudKernel {
     internal static Fin<(Vector3d Mean, Seq<(double Eigenvalue, Arr<double> Eigenvector)> Eigen)>
         PrincipalStatsOf(VectorCloud.ClusterCase cluster) =>
         from stats in CovarianceOf(cluster: cluster)
-        from eigen in stats.Cov.DecomposeEigenDetailed().Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude))
+        from eigen in stats.Cov.DecomposeEigenDetailed().Map(static solved => solved.Pairs)
         from full in eigen.Count >= 3
             ? Fin.Succ((Mean: stats.Mean, Eigen: eigen))
             : Fin.Fail<(Vector3d, Seq<(double, Arr<double>)>)>(new KernelFault.InvalidResult())

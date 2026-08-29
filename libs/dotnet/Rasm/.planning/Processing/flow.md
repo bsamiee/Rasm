@@ -55,7 +55,6 @@ using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using Dimension = Rasm.Numerics.Dimension;
-using Matrix = Rasm.Numerics.Matrix;
 using RootBracket = (Rhino.Geometry.Point3d A, Rhino.Geometry.Point3d B, double FA, double FB, double TA, double TB,
     LanguageExt.Option<(Rhino.Geometry.Point3d At, double Value, double T)> Localized, int Iterations);
 
@@ -509,12 +508,12 @@ internal static class MorseAtlas {
             sampler: point => source.SampleVector(sample: point, context: context),
             point: site, eps: policy.StencilWidth.Value)
         let inv2eps = 1.0 / (2.0 * policy.StencilWidth.Value)
-        from jacobian in Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 3), entries: [
+        from jacobian in MatrixKernel.Dense(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 3), entries: [
             (samples.X1.X - samples.X0.X) * inv2eps, (samples.Y1.X - samples.Y0.X) * inv2eps, (samples.Z1.X - samples.Z0.X) * inv2eps,
             (samples.X1.Y - samples.X0.Y) * inv2eps, (samples.Y1.Y - samples.Y0.Y) * inv2eps, (samples.Z1.Y - samples.Z0.Y) * inv2eps,
             (samples.X1.Z - samples.X0.Z) * inv2eps, (samples.Y1.Z - samples.Y0.Z) * inv2eps, (samples.Z1.Z - samples.Z0.Z) * inv2eps])
-        from eigen in jacobian.DecomposeEigenDetailed()
-        from pairs in eigen.PairsIn(expected: EigenOrder.Factorization)
+        from eigen in MatrixKernel.GeneralEigen(matrix: jacobian)
+        let pairs = eigen.Pairs
         let tolerance = EpsilonPolicy.SqrtEpsilon * pairs.Fold(
             0.0, static (peak, pair) => Math.Max(peak, pair.Eigenvalue.Magnitude))
         let spectrum = pairs.Map(static pair => pair.Eigenvalue)

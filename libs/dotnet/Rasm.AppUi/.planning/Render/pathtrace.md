@@ -10,7 +10,7 @@ Every appearance value crosses as a Materials VALUE: `ShadePort` resolves a hit 
 - [03]-[BSDF_SHADING]: `PathTracePass` shades from the Materials `LayeredBsdf`/`SlabStack`/`SetBind`, never re-deriving lobe math or texture reconstruction.
 - [04]-[ACCELERATION_BOUNDARY]: The GPU acceleration boundary and the two Materials boundaries, spelled exactly.
 - [05]-[LIGHT_ROWS]: The closed `LightSource` family, its typed `LightKey` identity, and the one unshadowed candidate projection.
-- [06]-[SUN_STUDY]: The statutory design-day sweep over the kernel `SolarPosition` almanac.
+- [06]-[SUN_STUDY]: The statutory design-day sweep over the kernel `SunPosition.At` almanac.
 
 ## [02]-[PATH_TRACE]
 
@@ -849,11 +849,11 @@ flowchart LR
 - Law: `Environment` carries the resolved dome VALUE, never an asset handle — `EnvironmentLight` answers `Radiance`, `Irradiance`, `Sample` (the `EnvironmentSample` `[Union]` whose `Dome`/`Sun` arms share base `Direction`/`Radiance`/`Pdf`), `Pdf` (the ONE sun-selection/guided-dome combined balance density), and `Sun : Option<SolarDisc>` on the owner that prefiltered the map and resolved the disc; every consumer of an unresolved key column re-derives a decode Materials already owns.
 - Law: the direct beam rides the Environment row's OWN sampling arm, so a rig never seats a `LightSource.Sun` row beside a dome whose `Sun` is present — the pair lights one beam twice and the doubled energy hides inside a single render — which is why `Studio` REFUSES it at construction; `SunAt` and the `SunStudy` sweep serve the dome-less study rig and the ingested HDRI whose disc is absent.
 - Law: the world basis is `+Z`-up, matching the OpenPBR local frame and the frozen equirect correspondence; sun azimuth measures from `+X` geographic north increasing EASTWARD onto `−Y` — the environment owner's own solar frame — so the directional row lands in the SAME basis the dome speaks; `LightSource.Direction` reports ABSENCE on the rows that carry no orientation rather than a `+Z` stand-in no consumer can tell from a measured axis.
-- Entry: `public static LightSource SunAt(SolarSite site, Instant at, RgbSpectrum radiance)` — the Sun row composing the kernel `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` almanac `SolarPosition.At(SolarSite, Instant) -> SunPosition`, its identity `LightKey.OfInstant`; `PhotometricWeb.Of(polar, azimuth, candela, artifact)` — the one validated web constructor, `Sample(azimuthDeg, polarDeg)` the bilinear read honouring each axis's own topology (polar clamps its measured arc, azimuth wraps its circle).
+- Entry: `public static LightSource SunAt(SolarSite site, Instant at, RgbSpectrum radiance)` — the Sun row composing the kernel `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` almanac `SunPosition.At(SolarSite, Instant)`, its identity `LightKey.OfInstant`; `PhotometricWeb.Of(polar, azimuth, candela, artifact)` — the one validated web constructor, `Sample(azimuthDeg, polarDeg)` the bilinear read honouring each axis's own topology (polar clamps its measured arc, azimuth wraps its circle).
 - Auto: the raster shading path and the path-trace oracle read the SAME rig and the SAME resolved `EnvironmentLight`; the ReSTIR reservoir samples candidates from the rig rows; a reduced-quality tier caps rig evaluation through the governor pass mask, never a second light list.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Materials (project), Rasm (project — `ArtifactContent`, `SolarPosition`/`SolarSite`/`SunPosition`, `ContentHash`), Rasm.Bim (boundary wire — `GeoReference` lowers into `SolarSite`)
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Materials (project), Rasm (project — `ArtifactContent`, `SolarSite`/`SunPosition`, `ContentHash`), Rasm.Bim (boundary wire — `GeoReference` lowers into `SolarSite`)
 - Growth: a new emitter kind is one `LightSource` case carrying its candidate projection arm on the integrator's total fold; a new sun site is a `SolarSite` value from the Bim `GeoReference` lowering; zero new surface.
-- Boundary: the kernel `SolarPosition.At` supplies the solar ephemeris and Bim lowers `GeoReference` into `SolarSite` values; IES/LDT decode is an ASSET-BOUNDARY admission — the composition root's decoder lands a validated `PhotometricWeb` carrying the file bytes' SHA-256 artifact identity, so no light row parses a file and the decoded table joins the Rhino `PhotometricWebRef(Artifact, Dialect)` reference typed instead of by coincidence; `dotnet:Rasm.Materials/Appearance/environment#IBL_PREFILTER` supplies the resolved `EnvironmentLight` over the declared `[BOUNDARY]` port — this page never decodes an HDRI, projects an equirect, integrates an SH band, or builds a prefilter ladder, and `LightRig.Studio` therefore TAKES the resolved row; Render owns neither a second solar ephemeris nor a second light vocabulary.
+- Boundary: the kernel `SunPosition.At` supplies the solar ephemeris and Bim lowers `GeoReference` into `SolarSite` values; IES/LDT decode is an ASSET-BOUNDARY admission — the composition root's decoder lands a validated `PhotometricWeb` carrying the file bytes' SHA-256 artifact identity, so no light row parses a file and the decoded table joins the Rhino `PhotometricWebRef(Artifact, Dialect)` reference typed instead of by coincidence; `dotnet:Rasm.Materials/Appearance/environment#IBL_PREFILTER` supplies the resolved `EnvironmentLight` over the declared `[BOUNDARY]` port — this page never decodes an HDRI, projects an equirect, integrates an SH band, or builds a prefilter ladder, and `LightRig.Studio` therefore TAKES the resolved row; Render owns neither a second solar ephemeris nor a second light vocabulary.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -929,7 +929,7 @@ public abstract partial record LightSource {
     public sealed record Ies(LightKey Key, double X, double Y, double Z, (double X, double Y, double Z) Aim, (double X, double Y, double Z) Reference, PhotometricWeb Web, RgbSpectrum Tint, double LumenScale) : LightSource;
 
     public static LightSource SunAt(SolarSite site, Instant at, RgbSpectrum radiance) =>
-        SolarPosition.At(site, at) switch {
+        SunPosition.At(site, at) switch {
             var sun => new Sun(LightKey.OfInstant(at), sun.AzimuthDeg, sun.AltitudeDeg, radiance),
         };
 
@@ -957,10 +957,10 @@ public sealed record LightRig(Seq<LightSource> Rows) {
 
 ## [06]-[SUN_STUDY]
 
-- Owner: `DesignDay` — the statutory design-day roster, each row carrying its own civil date with its provenance; `SunStudy` — the day/date solar-sweep instrument composing the kernel `SunPath` almanac.
-- Entry: `Sweep(midnight, step, samples)` composes `SolarPosition.SunPath(site, midnight, step, samples)` into the day's dated Sun rows; `SweepYear(year, zone, step, samples)` folds every `DesignDay` row through that same sweep; `Arc(swept, draw)` projects the swept positions into one `RenderPass.Overlay` — the sun-path arc and analemma — which is the sweep's one executable consumer today, scheduled like every overlay through the `Render/pipeline` pass roster.
+- Owner: `DesignDay` — the statutory design-day roster, each row carrying its own civil date with its provenance; `SunStudy` — the day/date solar-sweep instrument projecting the kernel `SunPosition.At` almanac over its schedule.
+- Entry: `Sweep(midnight, step, samples)` projects `SunPosition.At(site, instant)` across the day's dated Sun rows; `SweepYear(year, zone, step, samples)` folds every `DesignDay` row through that same sweep; `Arc(swept, draw)` projects the swept positions into one `RenderPass.Overlay` — the sun-path arc and analemma — which is the sweep's one executable consumer today, scheduled like every overlay through the `Render/pipeline` pass roster.
 - Auto: a rights-to-light or solar-envelope shadow study scrubs an instant across the day (or a date across the year) with the rig's Sun row re-derived per frame through an animation `Parameter` track on the one playhead; the run-queue/analysis plane binds that scrub — the binding is that plane's own, not a second timeline here.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project — `SolarPosition`/`SolarSite`)
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project — `SunPosition`/`SolarSite`)
 - Growth: a new statutory study day is one `DesignDay` row; zero new surface.
 - Boundary: a Render-side ephemeris sweep or a second sun-study timeline is the deleted form — `Sweep` composes the ONE kernel path; the zone is the site's own civil zone because a statutory design day is a LOCAL date, and `InZoneLeniently` resolves a midnight a DST transition can skip or repeat, so a study never drops a design day over a clock change.
 
@@ -982,8 +982,11 @@ public sealed partial class DesignDay {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record SunStudy(SolarSite Site, RgbSpectrum Radiance) {
     public Seq<(Instant At, LightSource Sun)> Sweep(Instant midnight, Duration step, int samples) =>
-        SolarPosition.SunPath(Site, midnight, step, samples)
-            .Map(row => (row.Instant, (LightSource)new LightSource.Sun(LightKey.OfInstant(row.Instant), row.Sun.AzimuthDeg, row.Sun.AltitudeDeg, Radiance)));
+        toSeq(Enumerable.Range(0, samples))
+            .Map(i => midnight + (step * i))
+            .Map(at => SunPosition.At(Site, at) switch {
+                var sun => (at, (LightSource)new LightSource.Sun(LightKey.OfInstant(at), sun.AzimuthDeg, sun.AltitudeDeg, Radiance)),
+            });
 
     public Seq<(Instant At, LightSource Sun)> SweepYear(int year, DateTimeZone zone, Duration step, int samples) =>
         toSeq(DesignDay.Items).Bind(day => Sweep(

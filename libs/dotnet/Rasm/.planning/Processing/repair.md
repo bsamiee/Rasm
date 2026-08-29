@@ -14,7 +14,7 @@ Rebuilds read the un-gated `Rasm.Meshing` `Topology` witness whole as the before
 - Entry: `Heal.Repair(MeshSpace, Option<Seq<HealOp>>, Option<RepairPolicy>)` is the one entrypoint over every modality — it admits the input, defaults the sequence to `Heal.Standard` and the policy to `RepairPolicy.Canonical`, refuses an empty sequence typed, and allocates the arena only past admission.
 - Auto: every author-kernel is a pure-managed arena fold composing the `Predicate` exact-sign floor and the `Axis.DominantOf` plane admission, reading its bands off `edit.Tolerance` under the lanes the policy names.
 - Law: `HealOp.Stage` is a root column each case selects at construction through the one private base constructor, so a mispaired stage is unrepresentable and no table re-answers it; `Heal.Repair` reads the changed sets, residual, and boolean evidence through ONE generated `HealOp.Switch` over the op it already selected, and a missing split carry or boolean census leaves its axis `None` for the step's own witness to refuse, never a fabricated empty step or a re-measured arena.
-- Law: the retile's arena maps key on EXACT `Point3d` equality, never a rounded grid: `Tessellation.Triangles` hands back coordinates that are bit-identical readbacks of the soup corners and of `Implicit.Round()`, so equality is the ordinal. Sub-ulp near-misses therefore mint a distinct vertex, which is the sliver the terminal weld/degenerate sweep collects — the quantum is zero and the debris is scheduled, never rounded away.
+- Law: the retile's arena maps key on EXACT `Point3d` equality, never a rounded grid: `Tessellation.Triangles` hands back coordinates that are bit-identical readbacks of the soup corners and of `ImplicitPoint.Round()`, so equality is the ordinal. Sub-ulp near-misses therefore mint a distinct vertex, which is the sliver the terminal weld/degenerate sweep collects — the quantum is zero and the debris is scheduled, never rounded away.
 - Exemption: `Incidence`, the `Recut` patch table, and the retile's arena maps are mutable `Dictionary`/`HashSet` inside a single-writer span kernel and stay so — each is built, mutated, and dropped inside one fold with no reader past it. The manifold split's pass loop is the same single-writer kernel — the arena owns the state and the admitted `ManifoldPasses` budget owns the bound, so no cell, transition, or schedule stands between them.
 - Law: `HealSession` carries one typed `HealStep` per applied op; `before[n] = after[n-1]` threads the status pair so N ops cost N+1 projections, and the affected-entity seed reads the arena dirty bitsets admission clears. `Incidence` rides forward as arena-interior scratch spared a recomputation inside a mutation-free run, and the split's carried fold IS the residual `HealStep.Residual` records — one authority, so the gate and the step cannot report two numbers.
 - Packages: `Rasm.Meshing`, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Spatial`, QuikGraph, Thinktecture.Runtime.Extensions, LanguageExt.Core.
@@ -190,7 +190,7 @@ public static class Heal {
             (int a, int b, int c) = edit.Face(f);
             if (a == b || b == c || c == a || !seen.Add(Sorted(a, b, c))) { edit.KillFace(f); continue; }
             (Point3d pa, Point3d pb, Point3d pc) = (edit.Position(a), edit.Position(b), edit.Position(c));
-            if (Axis.DominantOf(pa, pb, pc).Case is not Axis axis) { edit.KillFace(f); continue; }
+            if (Axis.DominantOf(Vector3d.CrossProduct(pb - pa, pc - pa)).Case is not Axis axis) { edit.KillFace(f); continue; }
             if (Predicate.Orient2D(pa, pb, pc, axis) == Sign.Zero
                 || 0.5 * Vector3d.CrossProduct(pb - pa, pc - pa).Length < areaFloor) { edit.KillFace(f); }
         }
@@ -328,9 +328,9 @@ public static class Heal {
             Fin<Unit> Subdivide(int face, int tableFace, List<Cut> cuts) {
                 (int s0, int s1, int s2) = soup.Face(tableFace);
                 (Point3d pa, Point3d pb, Point3d pc) = (soup.Position(s0), soup.Position(s1), soup.Position(s2));
-                List<Implicit> rows = new(3 + cuts.Count) { new(pa), new(pb), new(pc) };
+                List<ImplicitPoint> rows = new(3 + cuts.Count) { new(pa), new(pb), new(pc) };
                 Dictionary<CrossKey, int> slotOf = new();
-                return Axis.DominantOf(pa, pb, pc, key).Bind(plane => {
+                return Axis.DominantOf(Vector3d.CrossProduct(pb - pa, pc - pa)).Bind(plane => {
                     Vector3d normal = Vector3d.CrossProduct(pb - pa, pc - pa);
                     Vector3d lift = plane.Basis;
                     bool mirrored = plane.Along(normal) < 0.0;

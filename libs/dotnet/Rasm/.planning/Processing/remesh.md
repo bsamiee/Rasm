@@ -12,9 +12,9 @@ Rebuild work composes the `Meshing/edit` arena as the sole position and face car
 
 - Owner: `Remeshing` mints the one static rewrite surface over `RemeshOp` the request record, `RemeshPolicy` the `IValidityEvidence` policy row every pass reads, `PassState` the pass fold's carried state, `QuadLayout` the retained quad layout, and `RemeshResult` the one typed result carrying mesh, target, deviation band, pass tallies, and the optional layout.
 - Cases: `RemeshOp` carries mesh, target length, policy, and `Option<RosyOrder>` `Order` — absent selects the edge-length equalizer, present the field-guided quad extraction over it; the pass budget, hysteresis band, crease dihedral, and per-position sizing ride as policy, and regular triangular valence — six interior, four on the boundary — is the flip objective's own law, never a policy target.
-- Entry: `Apply(RemeshOp)` discriminates on the request shape over `Fin` — faceless mesh, invalid policy, present order, isotropic — in one structural switch, `RemeshResult` its one typed egress read by column; an inadmissible request routes `DegenerateInput` and a budget-exhausted rewrite `RemeshStalled` carrying the achieved deviation as an `Option` — a run that measured nothing states absence rather than echoing the target back as though it had hit it.
+- Entry: `Apply(RemeshOp)` discriminates on the request shape over `Fin` — faceless mesh, invalid policy, present order, isotropic — in one structural switch, `RemeshResult` its one typed egress read by column; an inadmissible request routes `DegenerateInput` and a budget-exhausted rewrite `RemeshUnconverged` carrying the achieved deviation as an `Option` — a run that measured nothing states absence rather than echoing the target back as though it had hit it.
 - Auto: `Apply` internalizes arena lifetime, the one original-surface BVH build, pass budgeting with its early convergence exit, feature and boundary pinning, and the quad arm's isotropic pre-conditioning, so a caller supplies the request and reads the result.
-- Law: the pass budget is `Cell.Converge` over one `Atom<Fin<PassState>>`; a projection or deviation refusal terminates on `Fin`, the state carries only the convergence fact, and an unconverged budget lowers to `RemeshStalled`, never success-shaped fall-through. `PassState.Deviation` is `Option`, so "no pass measured" and "measured zero" stay distinguishable, and `Deviation` itself refuses an edgeless arena typed instead of publishing a fabricated mean the band would read as converged. The terminal fold is one `Bind` over the settled `Fin` — the failure arm IS the fault, the success arm reads the band and freezes the arena.
+- Law: the pass budget is `Cell.Converge` over one `Atom<Fin<PassState>>`; a projection or deviation refusal terminates on `Fin`, the state carries only the convergence fact, and an unconverged budget lowers to `RemeshUnconverged`, never success-shaped fall-through. `PassState.Deviation` is `Option`, so "no pass measured" and "measured zero" stay distinguishable, and `Deviation` itself refuses an edgeless arena typed instead of publishing a fabricated mean the band would read as converged. The terminal fold is one `Bind` over the settled `Fin` — the failure arm IS the fault, the success arm reads the band and freezes the arena.
 - Law: `TargetLength` is `PositiveMagnitude` and every policy scalar an admitted value object, so the entry switch gates shape (a faceless mesh, an inverted hysteresis band) and never re-tests a range its carrier already holds. Quad arms carry the `segment` `RosyOrder` row — the one closed n-RoSy vocabulary, admitted once at that owner — and forward it unprojected to the `VectorField.CrossField` factory and `SegmentKernel.CrossFieldAt`; `.Key` reads only inside the kernel's phase, power, and cache arithmetic.
 - Exemption: the split/collapse/flip/relax passes and the quad-cell extraction are statement kernels over one single-writer arena; their `Dictionary`/`HashSet` tables are rebuilt per phase and dropped inside the fold, so none becomes a frozen table.
 - Output: `RemeshResult` witnesses every rewrite in place — the admitted target, the pass tallies, and the deviation as the branch's one `Stat<Scalar>` band so mean, maximum, count, and spread arrive off one derivation; `QuadLayout` rides `RemeshResult.Quads` on the quad arm alone and reads `None` on a triangle rewrite, with no generic projection beside the columns.
@@ -117,9 +117,9 @@ public static class Remeshing {
                     ? arena.ToSpace().Map(space => new RemeshResult(
                         space, target, measured, state.Iterations, state.Splits, state.Collapses,
                         state.Flips, state.FeatureEdges, None))
-                    : Fin.Fail<RemeshResult>(new GeometryFault.RemeshStalled(
+                    : Fin.Fail<RemeshResult>(new GeometryFault.RemeshUnconverged(
                         target, Some(target.Value * (1.0 + measured.Mean)), state.Iterations)),
-                None: () => Fin.Fail<RemeshResult>(new GeometryFault.RemeshStalled(target, None, 0))));
+                None: () => Fin.Fail<RemeshResult>(new GeometryFault.RemeshUnconverged(target, None, 0))));
 
             Fin<PassState> Pass(PassState state) {
                 double featureAngle = policy.CreaseDihedral.Value;
@@ -521,7 +521,7 @@ flowchart LR
     Extraction -->|QuadDiagonal exact triangulation| MeshKernel
     MeshEdit -->|ToSpace freeze| RemeshResult
     RemeshResult -->|QuadLayout channels| Panelize["Parametric/panelize substrate"]
-    RemeshOp -.->|DegenerateInput / RemeshStalled| GeometryFault
+    RemeshOp -.->|DegenerateInput / RemeshUnconverged| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]

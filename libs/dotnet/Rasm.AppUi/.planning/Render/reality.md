@@ -295,7 +295,7 @@ public sealed record CapturePalette(FrozenDictionary<byte, SKColor> Ink) {
             var members =>
                 from stop in map.Sample((family.Slot + 0.5d) / PointFamily.Items.Count)
                 from anchor in PerceptualColor.OfRgb(stop.R, stop.G, stop.B, stop.A)
-                from terminus in PerceptualColor.Achromatic(RungTerminus)
+                from terminus in PerceptualColor.Of(lightness: RungTerminus, opponentA: 0.0, opponentB: 0.0)
                 let ladder = members.Count == 1 ? Seq(anchor) : anchor.Ramp(terminus, Dimension.Create(members.Count))
                 select toSeq(members.Zip(ladder).Map(static pair => (pair.First.Key, Skia(pair.Second)))),
         };

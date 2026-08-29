@@ -203,7 +203,7 @@ public static class IconSurface {
 
     static Fin<GlyphPaint> Folded(Seq<IconFilter> chain) =>
         chain.Fold(
-            PerceptualColor.Achromatic(lightness: 0d).Map(seed => new GlyphPaint(seed, UnitInterval.Create(1d))),
+            PerceptualColor.Of(lightness: 0d, opponentA: 0.0, opponentB: 0.0).Map(seed => new GlyphPaint(seed, UnitInterval.Create(1d))),
             (acc, filter) => acc.Bind(paint => filter.Switch(
                 state: paint,
                 disabled: static (s, _) => Fin.Succ(s with { Coverage = DisabledCover }),

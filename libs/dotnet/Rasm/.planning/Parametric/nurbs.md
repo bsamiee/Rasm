@@ -39,6 +39,8 @@ using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
+using SparseMatrix = CSparse.Storage.CompressedColumnStorage<double>;
+
 namespace Rasm.Parametric;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -51,9 +53,9 @@ public sealed partial class ParametricDirection {
 [SmartEnum]
 public sealed partial class SplineFit {
     public static readonly SplineFit Interpolate = new(
-        solve: static (basis, rhs, key) => basis.SolveDetailed(rhs));
+        solve: static (basis, rhs) => MatrixKernel.SparseSolve(basis, rhs, None));
     public static readonly SplineFit Approximate = new(
-        solve: static (basis, rhs, key) => basis.SolveLeastSquaresDetailed(rhs));
+        solve: static (basis, rhs) => MatrixKernel.SparseQrSolve(basis, rhs, OperatorSense.Forward, None));
 
     [UseDelegateFromConstructor]
     public partial Fin<LinearSolution> Solve(SparseMatrix basis, Arr<double> rhs);

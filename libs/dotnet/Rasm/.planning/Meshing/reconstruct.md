@@ -31,6 +31,7 @@ using System.Threading;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
+using MathNet.Numerics.LinearAlgebra;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Spatial;
@@ -39,6 +40,7 @@ using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using Dimension = Rasm.Numerics.Dimension;
+using SparseMatrix = CSparse.Storage.CompressedColumnStorage<double>;
 
 namespace Rasm.Meshing;
 
@@ -255,7 +257,7 @@ public readonly record struct PoissonSolve(
     double GradientResidual, bool UnscreenedEquivalence, Option<GaugeFix> Gauge, LinearSolution Solve) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: SystemDof, expected: (int)Grid.CellCount),
-        ValidityClaim.CountExactly(count: SystemDof, expected: Solve.Cols.Value),
+        ValidityClaim.CountExactly(count: SystemDof, expected: Solve.Solution.Count),
         ValidityClaim.CountExactly(count: ContributionCount + RejectedCount + ClampedCount, expected: SampleCount),
         ValidityClaim.Nonnegative(WeightSum), ValidityClaim.Finite(Isovalue), ValidityClaim.Nonnegative(GradientEnergy),
         ValidityClaim.Nonnegative(ScreeningEnergy), ValidityClaim.Finite(GradientResidual),
@@ -268,7 +270,7 @@ public readonly record struct PoissonSolve(
 public readonly record struct SignedHeatSolve(
     int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount,
     int BoundaryUnmatchedSegmentCount, Option<LinearSolution> HeatSolve, LinearSolution PoissonSolve,
-    Option<SpectralAssembly> EdgeAssembly = default, Option<double> SpdMassShift = default,
+    Option<DiscreteOperatorAssembly.ConnectionLaplacianCase> EdgeAssembly = default, Option<double> SpdMassShift = default,
     Option<double> SourceNormalAgreement = default) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         SourceNormalAgreement.Map(static agreement => double.IsFinite(agreement) && agreement >= 0.0).IfNone(noneValue: true),
@@ -435,10 +437,10 @@ public static class Reconstruction {
         return from _ in guard(n >= 1, new KernelFault.InvalidInput())
                from rowDim in FactoryBridge.Accept<Dimension>(candidate: rows)
                from colDim in FactoryBridge.Accept<Dimension>(candidate: cols)
-               from matrix in Matrix.Of(rows: rowDim, cols: colDim, entries: entries)
+               from matrix in MatrixKernel.Dense(rows: rowDim, cols: colDim, entries: entries)
                from solve in exact
-                   ? matrix.SolveDetailed(rhs: targets)
-                   : matrix.LeastSquaresDetailed(rhs: targets)
+                   ? MatrixKernel.Solve(matrix: matrix, rhs: targets)
+                   : MatrixKernel.LeastSquares(matrix: matrix, rhs: targets)
                let coefficients = toArray(solve.Solution.Take(count: n))
                let fit = new ReconstructionFit(
                    Mode: exact ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation,
@@ -463,7 +465,7 @@ public static class Reconstruction {
                from splat in Acceptance.Value(value: SplatNormals(samples: samples, grid: grid, policy: policy))
                from laplacian in AssembleLaplacian(grid: grid, policy: policy, splat: splat)
                from solve in !policy.Dirichlet && policy.PointWeight <= 0.0
-                   ? laplacian.System.SingularSolveDetailed(rhs: laplacian.Rhs, gauge: GaugePolicy.Pinned(indices: [0]), context: context)
+                   ? MatrixKernel.SingularGaugeSolve(matrix: laplacian.System, rhs: laplacian.Rhs, gauge: GaugePolicy.Pinned(indices: [0]), context: context)
                    : CholeskySparse.Of(symmetric: laplacian.System).Bind(factor => factor.SolveDetailed(rhs: laplacian.Rhs))
                from _ in guard(solve.Residual <= policy.ResidualTolerance.Value, new KernelFault.InvalidResult())
                from gamma in Acceptance.Value(value: IsovalueOf(samples: samples, grid: grid, chi: solve.Solution, splat: splat))
@@ -485,7 +487,7 @@ public static class Reconstruction {
         return from hood in CollectNeighborhood(samples: samples, sample: sample, support: policy.Radius.Value, kernel: policy.WeightKernel,
                    neglectEps: policy.Neglect.Value, minNeighbors: policy.MinNeighbors, context: context)
                from design in DesignOf(hood: hood)
-               from solve in design.Matrix.LeastSquaresDetailed(rhs: design.Rhs)
+               from solve in MatrixKernel.LeastSquares(matrix: design.Matrix, rhs: design.Rhs)
                from _ in guard(solve.FullRank.IfNone(noneValue: true), new KernelFault.InvalidResult())
                let gradient = new Vector3d(x: solve.Solution[1], y: solve.Solution[2], z: solve.Solution[3])
                let agreement = AgreementOf(gradient: gradient, hood: hood)
@@ -495,7 +497,7 @@ public static class Reconstruction {
                        SampleCount: samples.Count, NeighborhoodCount: hood.Length, RejectedWeightCount: samples.Count - hood.Length,
                        WeightSum: hood.Sum(static n => n.Weight), Rank: Some(4),
                        Condition: Option<double>.None, NormalAgreement: Some(agreement), GradientNorm: Some(gradient.Length), Solve: Some(solve)));
-        static Fin<(Matrix Matrix, Arr<double> Rhs)> DesignOf(Neighbor[] hood);
+        static Fin<(Matrix<double> Matrix, Arr<double> Rhs)> DesignOf(Neighbor[] hood);
         static double AgreementOf(Vector3d gradient, Neighbor[] hood);
     }
     internal static Fin<(double Value, SampleFit Fit, LevinFit Levin)> EvaluateLevinMls(Seq<MlsSample> samples, LevinMlsPolicy policy, Point3d sample, Context context) =>

@@ -376,7 +376,9 @@ public abstract partial record Extraction {
         return from source in Admit.Need(value: field)
                from step in FactoryBridge.Accept<PositiveMagnitude>(candidate: initialStep)
                from stop in Termination.Admit(value: termination)
-               from active in RungeKuttaIntegrator.AdmitOrFixed(value: integrator)
+               from active in integrator.Match(
+                   Some: Fin.Succ,
+                   None: () => RungeKuttaIntegrator.Fixed(method: RungeKuttaMethod.RK4))
                from validDomain in Admit.Need(value: domain)
                from validSeeds in SampleKind.Admit(value: seeds)
                select (Extraction)new StreamBundleCase(Field: source, InitialStep: step, Integrator: active, Termination: stop, Domain: validDomain, Seeds: validSeeds);

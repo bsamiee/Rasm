@@ -931,7 +931,7 @@ public static class SceneMap {
     private static Wire.SolarFrame Frame(SolarFrame frame) => new() {
         LatitudeDeg = frame.Site.LatitudeDeg,
         LongitudeDeg = frame.Site.LongitudeDeg,
-        TimeZoneHours = frame.Site.OffsetHours,
+        TimeZoneHours = frame.Site.StandardOffset.Seconds / (double)NodaConstants.SecondsPerHour,
         ElevationM = frame.Site.ElevationM,
         NorthAxisDeg = frame.NorthAxisDegrees,
         DaylightSavingMinutes = frame.DaylightSavingMinutes,

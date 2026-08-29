@@ -51,7 +51,7 @@
 - Weighted composition is DECLARED BY RECIPE at the capture root — `recipeOf` supplies a `ConstituentRecipe`, never a roster column inferring one.
 - `AsceRcSystem`/`EnConcreteDuctility` are SYSTEM-level coefficient rows — Compute's spectrum divisor takes q or R as a SCALAR at composition.
 - `Bake` is a name this folder does NOT take — `Rasm.Rhino` `TextureBake` and the contract fold hold it; generation is `TexturePress`/`Press` throughout.
-- `SolarFrame` names the FRAME the sun adapter projects into, never the ephemeris — a `SolarPosition` twin forces qualified calls at every site.
+- `SolarFrame` names the FRAME the sun adapter projects into, never the ephemeris — `SunPosition.At` owns the ephemeris without a facade twin.
 - `gpu#PRESS_DEVICE` is the SOLE `Silk.NET.WebGPU` composer here — `press#TEXTURE_PRESS` names a `PressBackend` row, so a binding swap is one page.
 - Admit each completed corpus message ONCE through descriptor rules; project Protobuf enums directly or through one proved domain bridge.
 - Appearance Set keys identify the document alone; each stored level projects its own blob address into `PlaneRef.digest`.

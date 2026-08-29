@@ -1,26 +1,26 @@
 # [RASM_INTERSECTION_INTERSECT]
 
-`Rasm.Meshing` owns the predicate-exact crossing table: one `IntersectOp` `[Union]` folded by one `Intersection.Apply` entry, crossing EXISTENCE decided by exact straddle signs, every crossing POINT an `Implicit` construction rounded at the `Round()` emission boundary. Endpoints key by defining entities through `CrossKey`, adjacent-face crossings interning to one row by integer equality, and chains walk that adjacency into oriented closed loops and open runs, closure reading off the polyline endpoints. Predicate-exact discrete crossing is the whole charter; host-parametric NURBS/Brep intersection homes at `Analysis/relations`.
+`Rasm.Meshing` owns the predicate-exact crossing table: one `IntersectOp` `[Union]` folded by one `Intersection.Apply` entry, crossing EXISTENCE decided by exact straddle signs, every crossing POINT an `ImplicitPoint` construction rounded at the `Round()` emission boundary. Endpoints key by defining entities through `CrossKey`, adjacent-face crossings interning to one row by integer equality, and chains walk that adjacency into oriented closed loops and open runs, closure reading off the polyline endpoints. Predicate-exact discrete crossing is the whole charter; host-parametric NURBS/Brep intersection homes at `Analysis/relations`.
 
 Rebuilding composes the broad phase from `SpatialIndex.Build` and its typed `Query` arms, the triangle soups from `MeshEdit.Of`, and exact ordering from `Predicate.Compare`, authoring the Guigue-Devillers narrow phase and the key-connectivity chain assembly alone. `CrossingStore` binds the `Meshing/edit` arena law, and `IntersectResult.Chains` carries the frozen `CrossTable` so `Meshing/arrangement` consumes the same run without a second narrow phase.
 
 ## [01]-[INDEX]
 
-- [02]-[INTERSECTION]: one `Intersection.Apply` folding seven `IntersectOp` cases; `CrossTable.Row` = `Implicit` construction + `CrossKey` merge key over the `CrossingStore` arena; Guigue-Devillers narrow phase; key-connectivity chain walk with oriented loops and open runs.
+- [02]-[INTERSECTION]: one `Intersection.Apply` folding seven `IntersectOp` cases; `CrossTable.Row` = `ImplicitPoint` construction + `CrossKey` merge key over the `CrossingStore` arena; Guigue-Devillers narrow phase; key-connectivity chain walk with oriented loops and open runs.
 - [03]-[DENSITY_BAR]: one owner per axis with its return type and case count.
 
 ## [02]-[INTERSECTION]
 
-- Owner: `PrimitiveKind` `[SmartEnum<string>]` mints the primitive vocabulary the direct intersection fault payloads read; `CrossKey` is the defining-entity merge key where integer equality IS the cross-face merge; `CrossTable.Row` pairs the `Implicit` exact point with its `CrossKey`; `CrossingStore` interns key-classified crossing rows and segment pairs, freezing into the `CrossTable` projection; `Chain` is the result row and `Chain.Of` the ONE oriented-edge decomposition minting it, composed here and by the arrangement rim; `IntersectOp`/`IntersectResult` are the request/result unions folded by the `Intersection` static surface.
+- Owner: `PrimitiveKind` `[SmartEnum<string>]` mints the primitive vocabulary the direct intersection fault payloads read; `CrossKey` is the defining-entity merge key where integer equality IS the cross-face merge; `CrossTable.Row` pairs the `ImplicitPoint` exact point with its `CrossKey`; `CrossingStore` interns key-classified crossing rows and segment pairs, freezing into the `CrossTable` projection; `Chain` is the result row and `Chain.Of` the ONE oriented-edge decomposition minting it, composed here and by the arrangement rim; `IntersectOp`/`IntersectResult` are the request/result unions folded by the `Intersection` static surface.
 - Cases: `IntersectOp` cases `SegmentSegment` · `SegmentTriangle` · `TriangleTriangle` · `RayMesh` · `MeshMesh` · `SelfMesh` · `PlaneMesh`; `IntersectResult` cases `Points` · `Segments` · `Chains`.
 - Entry: `Apply` discriminates on the op case and resolves the ONE key every interior static then takes outright; `Fin<T>` routes `GeometryFault.DegenerateInput` on an inadmissible primitive and `GeometryFault.NonManifoldIntersection` — carrying the offending endpoint in its `Junction` column — on a section edge key incident to three or more faces, while an OPEN section on a boundaried mesh is a chain whose endpoints differ, never a fault. `SegmentSegment` carries its projection `Axis`, so the 2D restriction lives in the request shape.
 - Auto: point-level cases run the exact straddle directly; mesh-level cases fold `MeshEdit.Of`, the `SpatialIndex` BVH broad phase, and the narrow phase, interning each crossing endpoint into `CrossingStore` by `CrossKey` so a crossing reached from two face pairs lands on one row and a hit on a pierced edge or corner keys by its classified landing, not by either incident face. Chain assembly hands the material-oriented segments stored `from → to` to `Chain.Of`, which seats them in a bidirectional container source-first: an out-degree or in-degree above one on any endpoint routes the non-manifold junction fault carrying that endpoint, a zero-indegree head opens an open run, a head the container gives a predecessor sits on a cycle and closes an oriented loop, and every remaining component is reached by the one depth-first sweep.
 - Output: `IntersectResult`, its `Chains` case carrying the frozen `CrossTable` as payload; the hash-eligible artifacts are the `Polyline`/`Point3d` values at the `Round()` boundary.
-- Law: every crossing row keys by INTEGER defining entities, and the one coincidence fallback keys by `Axis.BitKey` — the predicate owner's exact IEEE triple with signed zero folded onto positive, the same zero the exact `Compare` reads — so the arena carries no float-keyed table, no page re-derives that ordinal, and no tolerance decides identity. Broad-phase inflation reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the sweep band scales with the model instead of pinning an absolute epsilon on the policy row. `IntersectPolicy.KeepCoplanar` stays a bare bool: it gates whether the coplanar AREA contact emits constraint rows at all, and no second policy column shares a legal-corner law with it.
+- Law: every crossing row keys by INTEGER defining entities, and the one coincidence fallback keys by `CrossingStore.Intern`'s local `BitKey` — the arena's exact IEEE triple with signed zero folded onto positive, the same zero the exact `Compare` reads — so no tolerance decides identity and no unrelated numeric owner publishes the arena policy. Broad-phase inflation reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the sweep band scales with the model instead of pinning an absolute epsilon on the policy row. `IntersectPolicy.KeepCoplanar` stays a bare bool: it gates whether the coplanar AREA contact emits constraint rows at all, and no second policy column shares a legal-corner law with it.
 - Exemption: the mutable tables are arena or statement-kernel state, never frozen — `CrossingStore`'s `interned`/`byBits` intern maps and `segments`/`coplanar` accumulators (the arena's own columns, published only through `Freeze`), the `shared` third-vertex ledger inside one `Section` sweep, and `Chain.Of`'s `incoming` seed set, which orders the container's insertion and dies with the build.
-- Packages: `Rasm.Numerics` (`Predicate`, `Implicit` with its `SegmentIntersection`/`LinePlaneIntersection` cases, `Sign`, `Axis` with `Along`/`BitKey`, `Dimension`, `GeometryFault`), `Rasm.Spatial` (`SpatialIndex.Build`, the overlap and box `Query` arms), `Rasm.Meshing` (`MeshEdit.Of`, `MeshSpace`), `Rasm.Domain` (`Kind`, `Context`/`ToleranceLane`), QuikGraph (`GraphExtensions.ToBidirectionalGraph`, `BidirectionalGraph`/`SEdge`, `DepthFirstSearchAlgorithm` under `ProcessAllComponents`, `VertexPredecessorPathRecorderObserver` — the chain decomposition's one container, one walk, one observer), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new crossing modality is one `IntersectOp` case reading the same narrow phase and key-connectivity assembly; a new crossing construction is a predicate-owner `Implicit` case; a new broad-phase knob is one `IntersectPolicy` column, and a new band is one `ToleranceLane` row at the context owner.
-- Boundary: one `IntersectOp` `[Union]` folds every case; connectivity derives from integer `CrossKey` equality and exact `Compare` signs; every ordering is a TOTAL function of the input, the arena slot or arrival ordinal settling the `Compare` tie a collinear multi-touch produces, so no emission depends on an unstable sort's array layout; loops emit oriented at emission with their seed repeated, so `Polyline.IsClosed` is the one closure read; `Apply` is total over `Fin`; `CrossingStore` is the single-writer arena whose frozen `CrossTable` is the only projection consumers hold.
+- Packages: `Rasm.Numerics` (`Predicate`, `ImplicitPoint` with its `SegmentIntersection`/`LinePlaneIntersection` cases, `Sign`, `Axis` with `Along`, `Dimension`, `GeometryFault`), `Rasm.Spatial` (`SpatialIndex.Build`, the overlap and box `Query` arms), `Rasm.Meshing` (`MeshEdit.Of`, `MeshSpace`), `Rasm.Domain` (`Kind`, `Context`/`ToleranceLane`), QuikGraph (`GraphExtensions.ToBidirectionalGraph`, `BidirectionalGraph`/`SEdge`, `DepthFirstSearchAlgorithm` under `ProcessAllComponents`, `VertexPredecessorPathRecorderObserver` — the chain decomposition's one container, one walk, one observer), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new crossing modality is one `IntersectOp` case reading the same narrow phase and key-connectivity assembly; a new crossing construction is a predicate-owner `ImplicitPoint` case; a new broad-phase knob is one `IntersectPolicy` column, and a new band is one `ToleranceLane` row at the context owner.
+- Boundary: one `IntersectOp` `[Union]` folds every case; connectivity derives from integer `CrossKey` equality, arena-local explicit-point bit identity, and exact `Compare` signs; every ordering is a TOTAL function of the input, the arena slot or arrival ordinal settling the `Compare` tie a collinear multi-touch produces, so no emission depends on an unstable sort's array layout; loops emit oriented at emission with their seed repeated, so `Polyline.IsClosed` is the one closure read; `Apply` is total over `Fin`; `CrossingStore` is the single-writer arena whose frozen `CrossTable` is the only projection consumers hold.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -105,7 +105,7 @@ public sealed record CrossTable(
     Arr<CrossTable.Row> Rows,
     Arr<(int A, int B, int FaceA, int FaceB)> Segments,
     Arr<(int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)> Coplanar) {
-    public readonly record struct Row(Implicit Point, CrossKey Key);
+    public readonly record struct Row(ImplicitPoint Point, CrossKey Key);
 
     readonly ILookup<int, (int A, int B, int FaceA, int FaceB)>[] onFace =
         [toSeq(Segments).ToLookup(static s => s.FaceA), toSeq(Segments).ToLookup(static s => s.FaceB)];
@@ -151,13 +151,18 @@ public static class Intersection {
 
         public CrossingStore(Dimension seed) { rows = new(seed.Value); }
 
-        public int Intern(in Implicit point, CrossKey key) {
+        public int Intern(in ImplicitPoint point, CrossKey key) {
             if (interned.TryGetValue(key, out int at)) { return at; }
-            if (point.IsExplicit && byBits.TryGetValue(Axis.BitKey(point.AsExplicit), out int shared)) { return interned[key] = shared; }
+            if (point.IsExplicit && byBits.TryGetValue(BitKey(point.AsExplicit), out int shared)) { return interned[key] = shared; }
             int slot = rows.Count;
             rows.Add(new CrossTable.Row(point, key));
-            if (point.IsExplicit) { byBits[Axis.BitKey(point.AsExplicit)] = slot; }
+            if (point.IsExplicit) { byBits[BitKey(point.AsExplicit)] = slot; }
             return interned[key] = slot;
+
+            static (long X, long Y, long Z) BitKey(Point3d point) {
+                static long CanonicalBits(double value) => BitConverter.DoubleToInt64Bits(value == 0.0 ? 0.0 : value);
+                return (CanonicalBits(point.X), CanonicalBits(point.Y), CanonicalBits(point.Z));
+            }
         }
 
         public CrossTable Freeze() => new([.. rows], [.. segments], [.. coplanar]);
@@ -198,27 +203,27 @@ public static class Intersection {
         && Predicate.Orient2D(a, b, c, Axis.Y) == Sign.Zero;
 
     // --- [NARROW_PHASE]
-    static Option<Implicit> CrossSegments2D(Line a, Line b, Axis plane) {
+    static Option<ImplicitPoint> CrossSegments2D(Line a, Line b, Axis plane) {
         Sign d1 = Predicate.Orient2D(a.From, a.To, b.From, plane);
         Sign d2 = Predicate.Orient2D(a.From, a.To, b.To, plane);
         Sign d3 = Predicate.Orient2D(b.From, b.To, a.From, plane);
         Sign d4 = Predicate.Orient2D(b.From, b.To, a.To, plane);
         return d1.Times(d2) == Sign.Negative && d3.Times(d4) == Sign.Negative
-            ? Some<Implicit>(new Implicit.SegmentIntersection(a.From, a.To, b.From, b.To, plane))
+            ? Some<ImplicitPoint>(new ImplicitPoint.SegmentIntersection(a.From, a.To, b.From, b.To, plane))
             : None;
     }
 
-    static Option<Implicit> EdgePierce(Point3d u, Point3d v, Point3d a, Point3d b, Point3d c) {
+    static Option<ImplicitPoint> EdgePierce(Point3d u, Point3d v, Point3d a, Point3d b, Point3d c) {
         Sign su = Predicate.Orient3D(a, b, c, u), sv = Predicate.Orient3D(a, b, c, v);
         if (su.Times(sv) != Sign.Negative) { return None; }
-        Implicit hit = new Implicit.LinePlaneIntersection(u, v, a, b, c);
-        return Axis.DominantOf(a, b, c).Case is Axis axis && InsideProjected(in hit, a, b, c, axis) ? Some(hit) : None;
+        ImplicitPoint hit = new ImplicitPoint.LinePlaneIntersection(u, v, a, b, c);
+        return Axis.DominantOf(Vector3d.CrossProduct(b - a, c - a)).Case is Axis axis && InsideProjected(in hit, a, b, c, axis) ? Some(hit) : None;
     }
 
-    static bool InsideProjected(in Implicit p, Point3d a, Point3d b, Point3d c, Axis axis) =>
+    static bool InsideProjected(in ImplicitPoint p, Point3d a, Point3d b, Point3d c, Axis axis) =>
         Placed(in p, a, b, c, axis).IsSome;
 
-    static Option<(int Edge, int Vertex)> Placed(in Implicit p, Point3d a, Point3d b, Point3d c, Axis axis) {
+    static Option<(int Edge, int Vertex)> Placed(in ImplicitPoint p, Point3d a, Point3d b, Point3d c, Axis axis) {
         Sign s0 = Predicate.Orient2D(a, b, in p, axis);
         Sign s1 = Predicate.Orient2D(b, c, in p, axis);
         Sign s2 = Predicate.Orient2D(c, a, in p, axis);
@@ -237,45 +242,45 @@ public static class Intersection {
     }
 
     // --- [GUIGUE_DEVILLERS]
-    static Option<(Implicit A, Implicit B)> TriTriSegment(Point3d pa, Point3d pb, Point3d pc, Point3d qa, Point3d qb, Point3d qc) {
+    static Option<(ImplicitPoint A, ImplicitPoint B)> TriTriSegment(Point3d pa, Point3d pb, Point3d pc, Point3d qa, Point3d qb, Point3d qc) {
         Span<Sign> q = [Predicate.Orient3D(pa, pb, pc, qa), Predicate.Orient3D(pa, pb, pc, qb), Predicate.Orient3D(pa, pb, pc, qc)];
         if (q[0] == Sign.Zero && q[1] == Sign.Zero && q[2] == Sign.Zero) { return None; }
         if (ZeroPair(q).Case is int zq) {
             (Point3d u, Point3d v) = zq == 0 ? (qa, qb) : zq == 1 ? (qb, qc) : (qc, qa);
-            List<Implicit> clip = Axis.DominantOf(pa, pb, pc).Case is Axis plane ? ClipToTriangle(u, v, pa, pb, pc, plane) : [];
+            List<ImplicitPoint> clip = Axis.DominantOf(Vector3d.CrossProduct(pb - pa, pc - pa)).Case is Axis plane ? ClipToTriangle(u, v, pa, pb, pc, plane) : [];
             return clip.Count >= 2 ? Some((clip[0], clip[^1])) : None;
         }
         if (SameSide(q)) { return None; }
         Span<Sign> p = [Predicate.Orient3D(qa, qb, qc, pa), Predicate.Orient3D(qa, qb, qc, pb), Predicate.Orient3D(qa, qb, qc, pc)];
         if (ZeroPair(p).Case is int zp) {
             (Point3d u, Point3d v) = zp == 0 ? (pa, pb) : zp == 1 ? (pb, pc) : (pc, pa);
-            List<Implicit> clip = Axis.DominantOf(qa, qb, qc).Case is Axis plane ? ClipToTriangle(u, v, qa, qb, qc, plane) : [];
+            List<ImplicitPoint> clip = Axis.DominantOf(Vector3d.CrossProduct(qb - qa, qc - qa)).Case is Axis plane ? ClipToTriangle(u, v, qa, qb, qc, plane) : [];
             return clip.Count >= 2 ? Some((clip[0], clip[^1])) : None;
         }
         if (SameSide(p)) { return None; }
-        List<Implicit> hits = new(4);
+        List<ImplicitPoint> hits = new(4);
         Collect(hits, pa, pb, pc, p, qa, qb, qc);
         Collect(hits, qa, qb, qc, q, pa, pb, pc);
         if (hits.Count < 2) { return None; }
         if (Axis.DominantOf(Vector3d.CrossProduct(Vector3d.CrossProduct(pb - pa, pc - pa), Vector3d.CrossProduct(qb - qa, qc - qa))).Case is not Axis order) { return None; }
         (int lo, int hi) = (0, 0);
         for (int i = 1; i < hits.Count; i++) {
-            (Implicit here, Implicit least, Implicit greatest) = (hits[i], hits[lo], hits[hi]);
+            (ImplicitPoint here, ImplicitPoint least, ImplicitPoint greatest) = (hits[i], hits[lo], hits[hi]);
             if (Predicate.Compare(in here, in least, order) == Sign.Negative) { lo = i; }
             if (Predicate.Compare(in here, in greatest, order) != Sign.Negative) { hi = i; }
         }
         return Some((hits[lo], hits[hi]));
 
-        static void Collect(List<Implicit> hits, Point3d a, Point3d b, Point3d c, ReadOnlySpan<Sign> signs, Point3d ta, Point3d tb, Point3d tc) {
-            if (Axis.DominantOf(ta, tb, tc).Case is not Axis axis) { return; }
+        static void Collect(List<ImplicitPoint> hits, Point3d a, Point3d b, Point3d c, ReadOnlySpan<Sign> signs, Point3d ta, Point3d tb, Point3d tc) {
+            if (Axis.DominantOf(Vector3d.CrossProduct(tb - ta, tc - ta)).Case is not Axis axis) { return; }
             Span<(Point3d W, Sign S)> verts = [(a, signs[0]), (b, signs[1]), (c, signs[2])];
             foreach ((Point3d w, Sign s) in verts) {
-                Implicit row = new(w);
+                ImplicitPoint row = new(w);
                 if (s == Sign.Zero && InsideProjected(in row, ta, tb, tc, axis)) { hits.Add(row); }
             }
             Span<(Point3d U, Point3d V, Sign Su, Sign Sv)> edges = [(a, b, signs[0], signs[1]), (b, c, signs[1], signs[2]), (c, a, signs[2], signs[0])];
             foreach ((Point3d u, Point3d v, Sign su, Sign sv) in edges) {
-                if (su.Times(sv) == Sign.Negative && EdgePierce(u, v, ta, tb, tc).Case is Implicit hit) { hits.Add(hit); }
+                if (su.Times(sv) == Sign.Negative && EdgePierce(u, v, ta, tb, tc).Case is ImplicitPoint hit) { hits.Add(hit); }
             }
         }
     }
@@ -292,18 +297,18 @@ public static class Intersection {
             _                   => Option<int>.None,
         };
 
-    static List<Implicit> ClipToTriangle(Point3d u, Point3d v, Point3d a, Point3d b, Point3d c, Axis plane) {
-        List<Implicit> kept = new(4);
-        Implicit ru = new(u), rv = new(v);
+    static List<ImplicitPoint> ClipToTriangle(Point3d u, Point3d v, Point3d a, Point3d b, Point3d c, Axis plane) {
+        List<ImplicitPoint> kept = new(4);
+        ImplicitPoint ru = new(u), rv = new(v);
         if (InsideProjected(in ru, a, b, c, plane)) { kept.Add(ru); }
         if (InsideProjected(in rv, a, b, c, plane)) { kept.Add(rv); }
         foreach ((Point3d s, Point3d t) in (ReadOnlySpan<(Point3d, Point3d)>)[(a, b), (b, c), (c, a)]) {
-            if (CrossSegments2D(new Line(u, v), new Line(s, t), plane).Case is Implicit hit) { kept.Add(hit); }
+            if (CrossSegments2D(new Line(u, v), new Line(s, t), plane).Case is ImplicitPoint hit) { kept.Add(hit); }
         }
         if (Axis.DominantOf(v - u).Case is not Axis along) { return kept; }
         int[] ranked = [.. Enumerable.Range(0, kept.Count)];
         System.Array.Sort(ranked, (l, r) => {
-            (Implicit left, Implicit right) = (kept[l], kept[r]);
+            (ImplicitPoint left, ImplicitPoint right) = (kept[l], kept[r]);
             Sign side = Predicate.Compare(in left, in right, along);
             return side != Sign.Zero ? side.Key : l.CompareTo(r);
         });
@@ -360,7 +365,7 @@ public static class Intersection {
         if (Axis.DominantOf(material).Case is not Axis axis) { return store; }
         Sign forward = Sign.Of(axis.Along(material));
         ends.Sort((l, r) => {
-            (Implicit left, Implicit right) = (store.rows[l].Point, store.rows[r].Point);
+            (ImplicitPoint left, ImplicitPoint right) = (store.rows[l].Point, store.rows[r].Point);
             Sign side = Predicate.Compare(in left, in right, axis).Times(forward);
             return side != Sign.Zero ? side.Key : l.CompareTo(r);
         });
@@ -369,11 +374,11 @@ public static class Intersection {
 
         static void Pierce(CrossingStore store, List<int> ends, int side, int otherSide, MeshEdit soup, (int V0, int V1, int V2) f, ReadOnlySpan<Sign> signs, MeshEdit other, (int W0, int W1, int W2) g, int otherFace) {
             (Point3d ta, Point3d tb, Point3d tc) = (other.Position(g.W0), other.Position(g.W1), other.Position(g.W2));
-            if (Axis.DominantOf(ta, tb, tc).Case is not Axis plane) { return; }
+            if (Axis.DominantOf(Vector3d.CrossProduct(tb - ta, tc - ta)).Case is not Axis plane) { return; }
             Span<int> verts = [f.V0, f.V1, f.V2];
             int W(int ordinal) => ordinal == 0 ? g.W0 : ordinal == 1 ? g.W1 : g.W2;
             for (int i = 0; i < 3; i++) {
-                Implicit row = new(soup.Position(verts[i]));
+                ImplicitPoint row = new(soup.Position(verts[i]));
                 if (signs[i] == Sign.Zero && InsideProjected(in row, ta, tb, tc, plane)) {
                     Keep(ends, store.Intern(in row, CrossKey.Vertex(side, verts[i])));
                 }
@@ -382,7 +387,7 @@ public static class Intersection {
                 (int u, int v) = (verts[e], verts[(e + 1) % 3]);
                 Sign su = signs[e], sv = signs[(e + 1) % 3];
                 if (su.Times(sv) == Sign.Negative) {
-                    Implicit hit = new Implicit.LinePlaneIntersection(soup.Position(u), soup.Position(v), ta, tb, tc);
+                    ImplicitPoint hit = new ImplicitPoint.LinePlaneIntersection(soup.Position(u), soup.Position(v), ta, tb, tc);
                     if (Placed(in hit, ta, tb, tc, plane).Case is (int onEdge, int onVertex)) {
                         Keep(ends, onVertex >= 0
                             ? store.Intern(other.Position(W(onVertex)), CrossKey.Vertex(otherSide, W(onVertex)))
@@ -393,7 +398,7 @@ public static class Intersection {
                 }
                 else if (su == Sign.Zero && sv == Sign.Zero) {
                     foreach ((int s2, int t2) in (ReadOnlySpan<(int, int)>)[(g.W0, g.W1), (g.W1, g.W2), (g.W2, g.W0)]) {
-                        if (CrossSegments2D(new Line(soup.Position(u), soup.Position(v)), new Line(other.Position(s2), other.Position(t2)), plane).Case is Implicit hit) {
+                        if (CrossSegments2D(new Line(soup.Position(u), soup.Position(v)), new Line(other.Position(s2), other.Position(t2)), plane).Case is ImplicitPoint hit) {
                             Keep(ends, store.Intern(in hit, CoplanarKey(side, otherSide, u, v, s2, t2)));
                         }
                     }
@@ -413,8 +418,8 @@ public static class Intersection {
 
     static (int From, int To) Oriented(CrossingStore store, int e0, int e1, Vector3d material) {
         if (Axis.DominantOf(material).Case is not Axis axis) { return (e0, e1); }
-        Implicit p0 = store.rows[e0].Point;
-        Implicit p1 = store.rows[e1].Point;
+        ImplicitPoint p0 = store.rows[e0].Point;
+        ImplicitPoint p1 = store.rows[e1].Point;
         Sign order = Predicate.Compare(in p0, in p1, axis).Times(Sign.Of(axis.Along(material)));
         return order == Sign.Negative ? (e0, e1) : (e1, e0);
     }
@@ -422,7 +427,7 @@ public static class Intersection {
     static CrossingStore CoplanarCrossings(CrossingStore store, MeshEdit a, MeshEdit b, int fa, int fb, int sideA = 0, int sideB = 1) {
         (int a0, int a1, int a2) = a.Face(fa);
         (int b0, int b1, int b2) = b.Face(fb);
-        if (Axis.DominantOf(a.Position(a0), a.Position(a1), a.Position(a2)).Case is not Axis plane) { return store; }
+        if (Axis.DominantOf(Vector3d.CrossProduct(a.Position(a1) - a.Position(a0), a.Position(a2) - a.Position(a0))).Case is not Axis plane) { return store; }
         Flush(store, plane, sideA, sideB, a, (a0, a1, a2), b, (b0, b1, b2), fa, fb);
         Flush(store, plane, sideB, sideA, b, (b0, b1, b2), a, (a0, a1, a2), fa, fb);
         return store;
@@ -432,18 +437,18 @@ public static class Intersection {
             foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(f.V0, f.V1), (f.V1, f.V2), (f.V2, f.V0)]) {
                 (Point3d pu, Point3d pv) = (own.Position(u), own.Position(v));
                 List<int> kept = new(4);
-                Implicit ru = new(pu), rv = new(pv);
+                ImplicitPoint ru = new(pu), rv = new(pv);
                 if (InsideProjected(in ru, ta, tb, tc, plane)) { Keep(kept, store.Intern(in ru, CrossKey.Vertex(carrierSide, u))); }
                 if (InsideProjected(in rv, ta, tb, tc, plane)) { Keep(kept, store.Intern(in rv, CrossKey.Vertex(carrierSide, v))); }
                 foreach ((int s, int t) in (ReadOnlySpan<(int, int)>)[(g.W0, g.W1), (g.W1, g.W2), (g.W2, g.W0)]) {
-                    if (CrossSegments2D(new Line(pu, pv), new Line(other.Position(s), other.Position(t)), plane).Case is Implicit hit) {
+                    if (CrossSegments2D(new Line(pu, pv), new Line(other.Position(s), other.Position(t)), plane).Case is ImplicitPoint hit) {
                         Keep(kept, store.Intern(in hit, CoplanarKey(carrierSide, otherSide, u, v, s, t)));
                     }
                 }
                 if (kept.Count < 2) { continue; }
                 if (Axis.DominantOf(pv - pu).Case is not Axis along) { continue; }
                 kept.Sort((l, r) => {
-                    (Implicit left, Implicit right) = (store.rows[l].Point, store.rows[r].Point);
+                    (ImplicitPoint left, ImplicitPoint right) = (store.rows[l].Point, store.rows[r].Point);
                     Sign side = Predicate.Compare(in left, in right, along);
                     return side != Sign.Zero ? side.Key : l.CompareTo(r);
                 });
@@ -486,7 +491,7 @@ public static class Intersection {
             for (int e = 0; e < 3; e++) {
                 (int u, int v) = (verts[e], verts[(e + 1) % 3]);
                 if (s[e].Times(s[(e + 1) % 3]) == Sign.Negative) {
-                    Keep(ends, store.Intern(new Implicit.LinePlaneIntersection(soup.Position(u), soup.Position(v), po, px, py), CrossKey.Of(0, u, v, -1)));
+                    Keep(ends, store.Intern(new ImplicitPoint.LinePlaneIntersection(soup.Position(u), soup.Position(v), po, px, py), CrossKey.Of(0, u, v, -1)));
                 }
             }
             if (ends.Count == 2) {
@@ -505,10 +510,10 @@ public static class Intersection {
         return Bvh(soup)
             .Bind(index => index.Query(new BoundingBox([from, to])))
             .Map(faces => {
-                Option<Implicit> best = None;
+                Option<ImplicitPoint> best = None;
                 foreach (int f in faces) {
                     (int v0, int v1, int v2) = soup.Face(f);
-                    if (EdgePierce(from, to, soup.Position(v0), soup.Position(v1), soup.Position(v2)).Case is not Implicit hit) { continue; }
+                    if (EdgePierce(from, to, soup.Position(v0), soup.Position(v1), soup.Position(v2)).Case is not ImplicitPoint hit) { continue; }
                     best = best.Match(
                         Some: held => Predicate.Compare(in hit, in held, axis).Times(forward) == Sign.Negative ? Some(hit) : Some(held),
                         None: () => Some(hit));

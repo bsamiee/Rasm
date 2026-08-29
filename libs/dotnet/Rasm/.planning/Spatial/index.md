@@ -442,7 +442,7 @@ public sealed class SpatialIndex : IValidityEvidence {
 
     public Fin<double[]> Query(Arr<Point3d> points, Arr<(Point3d A, Point3d B, Point3d C)> triangles, PositiveMagnitude betaSquared) {
         return triangles.Count != Primitives.Length
-            ? Fin.Fail<double[]>(new GeometryFault.IndexMismatch(EntityKind.Face, Primitives.Length, triangles.Count))
+            ? Fin.Fail<double[]>(new GeometryFault.PrimitiveCountMismatch(Primitives.Length, triangles.Count))
             : guard(points.Count > 0, new KernelFault.InvalidInput()).ToFin().Map<double[]>(_ => {
                 (Vector3d[] dipole, Point3d[] weighted, double[] area) = Moments(Store, triangles);
                 return [.. points.AsIterable().Select(point => WindingAt(Store, triangles, betaSquared.Value, dipole, weighted, area, point))];
@@ -609,7 +609,7 @@ public sealed class SpatialIndex : IValidityEvidence {
     // --- [REFIT]
     public Fin<SpatialIndex> Refit(BoundingBox[] revised) {
         Fin<SpatialIndex> result = revised.Length != Primitives.Length
-            ? Fin.Fail<SpatialIndex>(new GeometryFault.IndexMismatch(EntityKind.Face, Primitives.Length, revised.Length))
+            ? Fin.Fail<SpatialIndex>(new GeometryFault.PrimitiveCountMismatch(Primitives.Length, revised.Length))
             : Admit(revised).Bind(Rebound);
         return result.Bind(index => guard(index.IsValid, new KernelFault.InvalidResult()).ToFin().Map(_ => index));
     }

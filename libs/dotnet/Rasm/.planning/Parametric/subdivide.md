@@ -25,13 +25,13 @@ Refinement is the only Parametric surface that outputs a mesh, published through
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using LanguageExt;
+using MathNet.Numerics.LinearAlgebra;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Matrix = Rasm.Numerics.Matrix;
 using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Parametric;
@@ -111,7 +111,7 @@ public abstract partial record SubdivisionResult {
 public static class Subdivision {
     // --- [STAM_BASIS]
     // Valence lives in the memo key alone; Factor is the retained Matrix.DecomposeLu() output, so V⁻¹b(u,v) is one LuResult.SolveDetailed whose whole LinearSolution verdict is read before its vector is taken.
-    sealed record StamBasis(Arr<double> Eigenvalues, Matrix Basis, LuResult Factor);
+    sealed record StamBasis(Arr<double> Eigenvalues, Matrix<double> Basis, MathNet.Numerics.LinearAlgebra.Factorization.LU<double> Factor);
 
     static readonly Atom<HashMap<(SubdivisionScheme Scheme, int Valence), StamBasis>> Bases = Atom(HashMap<(SubdivisionScheme, int), StamBasis>());
 

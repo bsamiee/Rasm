@@ -49,6 +49,8 @@ using Dimension = Rasm.Numerics.Dimension;
 using Matrix2 = (double M00, double M01, double M10, double M11);
 using Solved = (double[] U, double[] V, int Iterations, double Residual, LanguageExt.Option<int> FactorNonZeros, LanguageExt.Option<double> LscmEigenvalue, LanguageExt.Option<double> Delta);
 
+using SparseMatrix = CSparse.Storage.CompressedColumnStorage<double>;
+
 namespace Rasm.Processing;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -228,11 +230,15 @@ public static class Flatten {
     static Fin<Solved> FlattenLscm(MeshDec dec, ParamPolicy policy) =>
         dec.Loops.Length == 0
             ? Fin.Fail<Solved>(new GeometryFault.InvalidChartBoundary(0, None))
-            : SparseMatrix.FromTriplets(Dimension.Create(2 * dec.VertexCount), Dimension.Create(2 * dec.VertexCount), dec.ConformalTriplets())
-                .Bind(conformal => conformal.SmallestEigenpairsDetailed(k: GaugeModes + 1, tolerance: policy.ResidualTolerance.Value, budget: policy.EigenBudget))
-                .Bind(eigen => eigen.PairsIn(expected: EigenOrder.Ascending).Bind(pairs => pairs.Count > GaugeModes
-                    ? Fin.Succ(SplitComplex(dec, pairs[GaugeModes], eigen.Evidence.Iterations.IfNone(0), eigen.MaxResidual))
-                    : Fin.Fail<Solved>(new GeometryFault.IncompleteParameterizationSpectrum(GaugeModes + 1, pairs.Count))));
+            : MatrixKernel.Sparse(Dimension.Create(2 * dec.VertexCount), Dimension.Create(2 * dec.VertexCount), dec.ConformalTriplets())
+                .Bind(conformal => MatrixKernel.Lobpcg(matrix: conformal, k: GaugeModes + 1, tolerance: policy.ResidualTolerance.Value, budget: policy.EigenBudget))
+                .Bind(eigen => eigen.Pairs.Count > GaugeModes
+                    ? Fin.Succ(SplitComplex(dec, eigen.Pairs[GaugeModes], eigen.Evidence.Switch(
+                        direct: static _ => 0,
+                        factored: static _ => 0,
+                        ranked: static _ => 0,
+                        iterative: static path => path.Iterations), eigen.MaxResidual))
+                    : Fin.Fail<Solved>(new GeometryFault.IncompleteParameterizationSpectrum(GaugeModes + 1, eigen.Pairs.Count)));
 
     static Fin<Solved> FlattenArap(MeshDec dec, ParamPolicy policy) =>
         FlattenLscm(dec, policy).Bind(seed => {
@@ -511,7 +517,7 @@ file sealed class MeshDec {
             else if (rj >= 0) couplings.Add((rj, slot[i], w));
         }
         for (int d = 0; d < interior; d++) triplets.Add((d, d, diagonal[d]));
-        return SparseMatrix.FromTriplets(Dimension.Create(interior), Dimension.Create(interior), triplets)
+        return MatrixKernel.Sparse(Dimension.Create(interior), Dimension.Create(interior), triplets)
             .Bind(stiffness => CholeskySparse.Of(stiffness))
             .Map(factor => {
                 ReducedSystem system = new(factor, map, [.. couplings], interior);
@@ -522,10 +528,13 @@ file sealed class MeshDec {
 
     public IEnumerable<(int I, int J, double W)> StiffnessEdges() {
         DiscreteCalculus dec = Calculus;
-        for (int e = 0; e < dec.D0.Rows.Value; e++) {
-            int start = dec.D0.RowPtr[e], end = dec.D0.RowPtr[e + 1];
-            if (end - start != 2) continue;
-            yield return (dec.D0.ColInd[start], dec.D0.ColInd[start + 1], dec.Star1[e]);
+        List<int>[] endpoints = [.. Enumerable.Range(0, dec.D0.RowCount).Select(static _ => new List<int>(capacity: 2))];
+        dec.D0.EnumerateIndexed((row, column, value) => {
+            if (value != 0.0) endpoints[row].Add(column);
+        });
+        for (int e = 0; e < endpoints.Length; e++) {
+            if (endpoints[e].Count != 2) continue;
+            yield return (endpoints[e][0], endpoints[e][1], dec.Star1[e]);
         }
     }
 

@@ -13,8 +13,8 @@
 
 - Owner: `SkeletonPolicy` the Au weight/convergence/surgery policy row minted through `Of(Context, …)`, every budget a guarded value object, both convergence RATIOS `Tolerance` reads off the run's own context, the two magnitudes no lane owns required arguments rather than pinned literals, and the post-extraction resampling the `SmoothBranches` policy fact; `CurveSkeleton` the result and clearance-query owner carrying `SkeletonGraph` whole beside `SectionA`/`SectionB`/`Component` and offset's `ClearanceProbe`; `Skeletonize` the static surface.
 - Cases: the clearance family (`ClearanceNode` · `SkeletonArc` · `SkeletonGraph`) is `offset.md`'s, composed verbatim, and the result's node and arc rows ARE that family's rows, stored rather than re-minted.
-- Entry: `public static Fin<CurveSkeleton> Apply(MeshSpace mesh, SkeletonPolicy policy)` — the ONE entry, one modality taking its mesh, policy, and site directly, the probe riding the result with no `Contract`/`ExtractSkeleton`/`ProbeClearance` sibling. Admission gates `Traits.Require(Manifold, Oriented) ∧ BoundaryComponents == 0` over the landed `MeshKernel.TopologyDetailed` witness, routing `DegenerateInput` on an empty mesh or an open shell rather than a silent garbage graph — the trait half naming the MISSING traits and the boundary half its component count, so the two causes never wear one another's evidence; a stalled area ratio, an exhausted round budget, and an unusable solve all lower `CollapseStalled` on the round's own `Fin`, and an exhausted surgery queue `SkeletonStalled`.
-- Auto: admission snapshots the ORIGINAL positions and one-ring areas (the `W_H` anchoring denominators and the radius provenance) and opens ONE `MeshEdit.Of` arena with the policy floor threaded into `ArenaPolicy`. Contraction rides ONE bounded `FoldMaybe` over `MaxIterations`, the folder itself owning the stop: each round re-assembles the clamped cotangent stiffness from LIVE arena positions, factors `diag(W_H) + w_L·L_k` once through `CholeskySparse`, solves the three coordinate axes' mass-weighted right-hand sides through `SolveDetailed` and REFUSES a solve whose own evidence fold rejects its stop, writes contracted positions back, kills sub-floor faces, refreshes `W_H` off the collapsing one-ring areas, and scales `w_L` — the round FAILING `CollapseStalled` where the ratio still exceeds `CollapseAreaRatio` inside `StallBand`, and the post-budget guard lowering the same fault where the run leaves the threshold unmet, so no fall-through certifies an unconverged contraction as converged. Surgery then drains a cost-ordered `PriorityQueue` over FACE-BEARING edges: a dequeued edge collapses only while a live face carries both endpoints, so every accepted collapse kills at least one face and a face-less edge — the emerging 1D skeleton — survives untouched, each collapse folding the victim's merge set into the survivor. Extraction folds the survivors into an `UndirectedGraph`, takes `MinimumSpanningTreeKruskal` to prune contraction-noise cycles to the tree and span a multi-shell remnant as a forest, labels branches through `ConnectedComponents`, re-samples each maximal degree-2 chain's interior at uniform chord-length stations through `Interpolate.CubicSplineRobust` where `SmoothBranches` asks, then recovers `Radius` and `Witness` from the merge provenance as the Euclidean distance to the nearest original boundary vertex, and fits `SectionA`/`SectionB` as the merge set's two principal spreads in the arc-normal plane (frame from the arc tangent and the witness direction; an isotropic section reports `SectionB == Radius`), every node fact deriving from the settled coordinates rather than a post-result mutation.
+- Entry: `public static Fin<CurveSkeleton> Apply(MeshSpace mesh, SkeletonPolicy policy)` — the ONE entry, one modality taking its mesh, policy, and site directly, the probe riding the result with no `Contract`/`ExtractSkeleton`/`ProbeClearance` sibling. Admission gates `Traits.Require(Manifold, Oriented) ∧ BoundaryComponents == 0` over the landed `MeshKernel.TopologyDetailed` witness, routing `DegenerateInput` on an empty mesh or an open shell rather than a silent garbage graph — the trait half naming the MISSING traits and the boundary half its component count, so the two causes never wear one another's evidence; a stalled area ratio, an exhausted round budget, and an unusable solve all lower `ContractionUnconverged` on the round's own `Fin`, and an exhausted surgery queue `CurveSkeletonStalled`.
+- Auto: admission snapshots the ORIGINAL positions and one-ring areas (the `W_H` anchoring denominators and the radius provenance) and opens ONE `MeshEdit.Of` arena with the policy floor threaded into `ArenaPolicy`. Contraction rides ONE bounded `FoldMaybe` over `MaxIterations`, the folder itself owning the stop: each round re-assembles the clamped cotangent stiffness from LIVE arena positions, factors `diag(W_H) + w_L·L_k` once through `CholeskySparse`, solves the three coordinate axes' mass-weighted right-hand sides through `SolveDetailed` and REFUSES a solve whose own evidence fold rejects its stop, writes contracted positions back, kills sub-floor faces, refreshes `W_H` off the collapsing one-ring areas, and scales `w_L` — the round FAILING `ContractionUnconverged` where the ratio still exceeds `CollapseAreaRatio` inside `StallBand`, and the post-budget guard lowering the same contraction fault where the run leaves the threshold unmet, so no fall-through certifies an unconverged contraction as converged. Surgery then drains a cost-ordered `PriorityQueue` over FACE-BEARING edges: a dequeued edge collapses only while a live face carries both endpoints, so every accepted collapse kills at least one face and a face-less edge — the emerging 1D skeleton — survives untouched, each collapse folding the victim's merge set into the survivor. Extraction folds the survivors into an `UndirectedGraph`, takes `MinimumSpanningTreeKruskal` to prune contraction-noise cycles to the tree and span a multi-shell remnant as a forest, labels branches through `ConnectedComponents`, re-samples each maximal degree-2 chain's interior at uniform chord-length stations through `Interpolate.CubicSplineRobust` where `SmoothBranches` asks, then recovers `Radius` and `Witness` from the merge provenance as the Euclidean distance to the nearest original boundary vertex, and fits `SectionA`/`SectionB` as the merge set's two principal spreads in the arc-normal plane (frame from the arc tangent and the witness direction; an isotropic section reports `SectionB == Radius`), every node fact deriving from the settled coordinates rather than a post-result mutation.
 - Output: `CurveSkeleton` — the stored `SkeletonGraph` plus its section and component sidecars — the result and wire consumed by Fabrication; the live contraction arena never crosses the boundary.
 - Law: the sparse owner's solve is READ, never projected away — every axis solve gates `LinearSolution.IsValid` (which folds the solve stop's usability) and refuses typed, so an unusable factorization can never write positions back as if it had converged.
 - Exemption: the surgery `PriorityQueue` is the named span-kernel stay — the collapse order is a COST schedule the dequeue re-validates against live adjacency, not a graph relaxation, and QuikGraph carries no event queue; a stale row skips rather than corrupting the fold. The branch descent keeps its half-edge key set for the same reason offset's ring walk does: its product is each maximal degree-2 chain's ORDER, which no observer publishes, so `EdgeRecorderObserver` would hand back whole-walk visit order and this descent again to cut it into chains. Surgery's `facesOf` incidence map, the extraction `dense`/`components` tables, and the pooled provenance and moment planes are statement-kernel state dying with the fold that fills it.
@@ -44,6 +44,8 @@ using static LanguageExt.Prelude;
 using EdgeKeySet = System.Collections.Generic.HashSet<(int, int)>;
 using IndexSet = System.Collections.Generic.HashSet<int>;
 using Dimension = Rasm.Numerics.Dimension;
+
+using SparseMatrix = CSparse.Storage.CompressedColumnStorage<double>;
 
 namespace Rasm.Meshing;
 
@@ -136,7 +138,7 @@ public static class Skeletonize {
 
         return contracted.Bind(final =>
             guard(final.Round > 0 && final.Ratio <= policy.CollapseAreaRatio.Value,
-                new GeometryFault.CollapseStalled(final.Round, final.Ratio)).ToFin()
+                new GeometryFault.ContractionUnconverged(final.Round, final.Ratio)).ToFin()
                 .Map(_ => {
                     ForestDisjointSet<int> merged = new(capacity: n);
                     for (int v = 0; v < n; v++) { merged.MakeSet(v); }
@@ -164,7 +166,7 @@ public static class Skeletonize {
                 double ratio = ringArea.Sum() / totalSeed;
                 int round = at.Round + 1;
                 return ratio > policy.CollapseAreaRatio.Value && at.Ratio - ratio < policy.StallBand.Value * at.Ratio
-                    ? Fin.Fail<(int Round, double Wl, double Ratio)>(new GeometryFault.CollapseStalled(round, ratio))
+                    ? Fin.Fail<(int Round, double Wl, double Ratio)>(new GeometryFault.ContractionUnconverged(round, ratio))
                     : Fin.Succ((Round: round, Wl: at.Wl * policy.ContractionScale.Value, Ratio: ratio));
             });
 
@@ -196,7 +198,7 @@ public static class Skeletonize {
         }
         return toSeq(rhs)
             .TraverseM(axis => factor.SolveDetailed(rhs: new Arr<double>(axis))
-                .Bind(solve => guard(solve.IsValid, new GeometryFault.CollapseStalled(round, solve.Residual))
+                .Bind(solve => guard(solve.IsValid, new GeometryFault.ContractionUnconverged(round, solve.Residual))
                     .ToFin().Map(_ => solve.Solution)))
             .As()
             .Map(axes => {
@@ -236,7 +238,7 @@ public static class Skeletonize {
         }
         while (liveFaces > 0) {
             if (!queue.TryDequeue(out (int U, int V) row, out _)) {
-                return Fin.Fail<ContractState>(new GeometryFault.SkeletonStalled(liveFaces));
+                return Fin.Fail<ContractState>(new GeometryFault.CurveSkeletonStalled(liveFaces));
             }
             (int u, int v) = row;
             if (!adjacency.ContainsEdge(int.Min(u, v), int.Max(u, v))) { continue; }
@@ -468,7 +470,7 @@ flowchart LR
     Resample -->|skeleton topology and evidence| CurveSkeleton
     CurveSkeleton -->|carried graph — offset's ONE clearance family| SkeletonGraph
     CurveSkeleton -->|"Clearance(probe) → ClearanceNode"| Fabrication["FAB:22 toolpath boundary"]
-    Apply -.->|DegenerateInput / CollapseStalled / SkeletonStalled| GeometryFault
+    Apply -.->|DegenerateInput / ContractionUnconverged / CurveSkeletonStalled| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]

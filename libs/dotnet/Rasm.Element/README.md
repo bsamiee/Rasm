@@ -70,6 +70,9 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Thinktecture.Runtime.Extensions.Json` — JSON boundary transcription for smart-enum and value-object types.
 - `UnitsNet` — Quantity-type registry and SI-coercion boundary.
 
+[NUMERIC_SUBSTRATE]:
+- `MathNet.Numerics` — Sorted linear interpolation factory selected at the material sampled-curve boundary.
+
 [WIRE_CODEGEN]:
 - `Celly.Protovalidate` — Validates generated `NodeWire` support messages from corpus-authored rules before domain projection.
 - `Google.Protobuf` — Generated node-edit support messages and the descriptor-driven `FieldMask` boundary.

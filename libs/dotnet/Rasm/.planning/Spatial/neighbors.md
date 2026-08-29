@@ -2,7 +2,7 @@
 
 `NeighborIndex` and `NeighborKernel` own the Rhino-native and frozen-point neighborhood substrate; every proximity consumer routes its index, query, and per-point fold through these owners.
 
-Tolerances arrive from `Domain/context` lanes rather than page literals: the eigen-gap floor reads `ToleranceLane.Svd` and the quadric residual floor `ToleranceLane.Residual`, so a model that widens either widens it here without a second policy. Ring posture crosses as the one `isClosed` discriminant `VectorFrame.Chain` (`Numerics/atoms`) threads down, so every chain fold reads a single declared fact rather than re-deriving it per call.
+Tolerances arrive from `Domain/context` lanes rather than page literals: the eigen-gap floor reads `ToleranceLane.Svd` and the quadric residual floor `ToleranceLane.Residual`, so a model that widens either widens it here without a second policy. Ring posture crosses as the one `isClosed` discriminant each `VectorCloud` arm passes to the chain walk, so every fold reads a single declared fact rather than re-deriving it per call.
 
 ## [01]-[INDEX]
 
@@ -464,17 +464,15 @@ internal static partial class NeighborKernel {
         row.Length < QuadricUnknowns
             ? Fin.Succ((QuadricAttempt)new QuadricAttempt.RankRefused())
             : from stats in CloudKernel.CovarianceOf(points: toSeq(row.Select(id => cluster.Vertices[id])), mass: Option<Arr<double>>.None)
-              from eigen in stats.Cov.DecomposeEigenDetailed().Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude))
+              from eigen in stats.Cov.DecomposeEigenDetailed().Map(static solved => solved.Pairs)
               let frame = (U: AxisOf(eigen[0].Eigenvector), V: AxisOf(eigen[1].Eigenvector), N: AxisOf(eigen[2].Eigenvector))
               let center = cluster.Vertices[index]
               let local = row.Select(id => cluster.Vertices[id] - center).Select(d => (U: d * frame.U, V: d * frame.V, N: d * frame.N)).ToArray()
               from rows in FactoryBridge.Accept<Dimension>(candidate: local.Length)
               from cols in FactoryBridge.Accept<Dimension>(candidate: QuadricUnknowns)
-              from design in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>([.. local.SelectMany(static q => (double[])[q.U * q.U, q.U * q.V, q.V * q.V, q.U, q.V, 1.0])]))
-              from attempt in design.LeastSquaresDetailed(rhs: new Arr<double>([.. local.Select(static q => q.N)])).Match(
-                  Succ: fit => !fit.Stop.IsUsable
-                      ? Fin.Succ((QuadricAttempt)new QuadricAttempt.RankRefused())
-                      : fit.Residual > policy.FitResidualTolerance.Value
+              from design in MatrixKernel.Dense(rows: rows, cols: cols, entries: new Arr<double>([.. local.SelectMany(static q => (double[])[q.U * q.U, q.U * q.V, q.V * q.V, q.U, q.V, 1.0])]))
+              from attempt in MatrixKernel.LeastSquares(matrix: design, rhs: new Arr<double>([.. local.Select(static q => q.N)])).Match(
+                  Succ: fit => fit.Residual > policy.FitResidualTolerance.Value
                           ? Fin.Succ((QuadricAttempt)new QuadricAttempt.ResidualRefused(Residual: fit.Residual))
                           : SampleOf(index: index, point: center, frame: (frame.U, frame.V), fit: fit, neighborCount: row.Length, context: cluster.Tolerance)
                               .Map(static sample => (QuadricAttempt)new QuadricAttempt.Fitted(Sample: sample)),
@@ -523,8 +521,8 @@ internal static partial class NeighborKernel {
 
 ## [04]-[BISHOP_CHAIN]
 
-- Owner: `NeighborKernel.BishopChain` mints the one point-chain rotation-minimizing-frame body that `VectorFrame.Chain` delegates to.
-- Law: ring posture is the one `bool isClosed` discriminant `VectorFrame.Chain` threads down — a payloadless two-case type over the same binary fact is the forbidden second spelling, so the boolean column owns the posture and each `VectorCloud` arm states it exactly once.
+- Owner: `NeighborKernel.BishopChain` mints the one point-chain rotation-minimizing-frame body consumed directly by the `VectorCloud` ring and polyline arms; its ring arm owns the private Newell normal fold that seeds that walk.
+- Law: ring posture is the one `bool isClosed` discriminant each `VectorCloud` arm passes to the internal walk — a payloadless two-case type over the same binary fact is the forbidden second spelling, so the boolean column owns the posture and each arm states it exactly once.
 - Exemption: the double-reflection walk is a named span kernel — each step's reference vector is the previous step's product, so no fold or traversal owner carries it and the tangent/reference arrays stay mutable for exactly that pass.
 - Growth: a new transport flavor is one policy argument on this fold.
 - Boundary: every emitted plane admits through `VectorFrame.Of`; `Direction.ParallelTransport` applies caller-supplied frames, and parametric-curve sweeps route `Parametric/curve.md` `PerpendicularFrames`.
@@ -534,7 +532,7 @@ internal static partial class NeighborKernel {
 internal static partial class NeighborKernel {
     internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud) => cloud.Switch(
         ringCase: static r =>
-            from seed in Direction.Of(value: VectorFrame.NewellNormal(ring: r.Vertices.ToArray()), context: r.Tolerance)
+            from seed in Direction.Of(value: NewellNormal(ring: r.Vertices.ToArray()), context: r.Tolerance)
             from chain in BishopChain(points: r.Vertices, initialNormal: seed, isClosed: true, context: r.Tolerance)
             select chain,
         polylineCase: static p =>
@@ -579,6 +577,15 @@ internal static partial class NeighborKernel {
             .TraverseM(i => VectorFrame.Of(origin: columns.Points[i], normal: columns.Tangents[i],
                 xHint: Some(columns.References[i]), context: context).Map(static frame => frame.Value)).As()
         select frames;
+
+    private static Vector3d NewellNormal(ReadOnlySpan<Point3d> ring) {
+        Vector3d normal = Vector3d.Zero;
+        for (int i = 0; i < ring.Length; i++) {
+            (Point3d a, Point3d b) = (ring[i], ring[(i + 1) % ring.Length]);
+            normal += new Vector3d(x: (a.Y - b.Y) * (a.Z + b.Z), y: (a.Z - b.Z) * (a.X + b.X), z: (a.X - b.X) * (a.Y + b.Y));
+        }
+        return normal;
+    }
 
     private static Vector3d Transported(Vector3d reference, Vector3d tangent, Vector3d next, Vector3d chord, double floor) {
         double c1 = chord * chord;

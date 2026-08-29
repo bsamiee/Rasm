@@ -909,13 +909,13 @@ public sealed record RenderConfig(
 - Owner: `SunProblem` closes the HOST astronomy questions — direction, altitude, Julian day, twilight, tint, and machine location; `SunCapability` is the grant a machine-facts read presents; `SunSolution` closes vector, scalar, colour, and optional-location egress; `SunSolver.Solve` is the sole entry. `SolarFrame`, `SunDerivation`, and `SceneSun` are the daylighting descriptor's sun band, projected out of `SunState` and never read back in.
 - Law: each host problem dispatches directly to its verified host static and provider failure or invalid admission stays on the `Fin<SunSolution>` carrier.
 - Law: every problem but `Here` is pure over its supplied arguments — `Here` reads the machine's own geolocation service, so it carries the `SunCapability.MachineLocation` grant and admission refuses the case without it; a machine-facts read reached implicitly through a coordinate solve is the deleted form.
-- Law: host astronomy and wire astronomy answer two questions and stay two-formed — `Sun.SunDirection`/`AltitudeFromValues` report what the HOST believes and drive host-facing reads, while the descriptor's angles are the kernel `SolarPosition.At` almanac a peer reproduces. The SOLVE is the kernel's, so `SceneSun.Derive` composes it in ONE hop; routing it back through a host-problem case wrapped a total effect-free fold in a request union, a solution union, and a partial projection off both.
+- Law: host astronomy and wire astronomy answer two questions and stay two-formed — `Sun.SunDirection`/`AltitudeFromValues` report what the HOST believes and drive host-facing reads, while the descriptor's angles are the kernel `SunPosition.At` almanac a peer reproduces. The SOLVE is the kernel's, so `SceneSun.Derive` composes it in ONE hop; routing it back through a host-problem case wrapped a total effect-free fold in a request union, a solution union, and a partial projection off both.
 - Law: `SolarFrame` narrows the georeference to what an annual engine run admits — time zone `[-12, 14]` hours and elevation `[-300, 8900)` metres — so a document outside those bounds refuses at the producer instead of writing a site an engine rejects, and `SolarSite`'s own wider gate stays the kernel's.
 - Law: `Sited` and `Authored` are the whole discriminant — a manually controlled sun has no site derivation, so it carries angles alone and an annual run refuses it by name rather than back-solving coordinates from two numbers.
 - Law: `Sun.Vector` points sun-toward-scene in the document world frame and `Sun.North` bears compass north counter-clockwise off `+X` — `90`, the host default, seating north on `+Y` — so `ManualVector` negates, unitizes, projects onto that bearing's east and north axes in the host `Vector3d` the almanac takes, and re-reads through the kernel `SunPosition.OfDirection`; `Authored` therefore carries the same east-of-North pair `Sited` does, the host frame stops at this projection, and a ray that cannot unitize refuses instead of crossing as the due-south horizon reading the host substitutes for it.
 - Boundary: the georeference invariant — `Sun.North`/`Latitude`/`Longitude` re-encoded from `EarthAnchorPoint` after an anchor write — is the Exchange pipeline's earth-sync owner; this page never writes the anchor, `Here` only reads the machine, and `elevationMetres` arrives as the caller's `EarthAnchorPoint.EarthBasepointElevation` read.
 - Boundary: sky irradiance is the consuming weather owner's — `SunState.Intensity` is a dimensionless render multiplier, so this band carries no `W/m2` column and a manufactured one fabricates radiation the document never held.
-- Packages: `api-rhinocommon-rendersettings.md` (`Sun.SunDirection`, `Sun.AltitudeFromValues`, `Sun.JulianDay`, `Sun.TwilightZone`, `Sun.ColorFromAltitude`, `Sun.Here`); kernel `Numerics/calculus` (`SolarSite`, `SolarPosition.At`, `SunPosition`, `SunPosition.OfDirection`), `Numerics/atoms` (`PerceptualColor.OfHost`), `Domain/results` (`Try.lift`, `ValidityClaim`), `Domain/validation` (`FactoryBridge.Accept`); NodaTime (`Instant`, `Instant.FromDateTimeUtc`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`).
+- Packages: `api-rhinocommon-rendersettings.md` (`Sun.SunDirection`, `Sun.AltitudeFromValues`, `Sun.JulianDay`, `Sun.TwilightZone`, `Sun.ColorFromAltitude`, `Sun.Here`); kernel `Numerics/calculus` (`SolarSite`, `SunPosition.At`, `SunPosition.OfDirection`), `Numerics/atoms` (`PerceptualColor.OfHost`), `Domain/results` (`Try.lift`, `ValidityClaim`), `Domain/validation` (`FactoryBridge.Accept`); NodaTime (`Instant`, `Instant.FromDateTimeUtc`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -996,10 +996,11 @@ public sealed partial class SolarFrame {
         ref double northAxisDegrees,
         ref int daylightSavingMinutes,
         ref Instant moment) {
+        double offsetHours = site is null ? 0.0 : site.StandardOffset.Seconds / (double)NodaConstants.SecondsPerHour;
         validationError = ValidityClaim.All(
             site is not null,
-            site is not null && ValidityClaim.Ordered(lower: -12d, upper: site.OffsetHours),
-            site is not null && ValidityClaim.Ordered(lower: site.OffsetHours, upper: 14d),
+            site is not null && ValidityClaim.Ordered(lower: -12d, upper: offsetHours),
+            site is not null && ValidityClaim.Ordered(lower: offsetHours, upper: 14d),
             site is not null && ValidityClaim.Ordered(lower: -300d, upper: site.ElevationM),
             site is not null && site.ElevationM < 8900d,
             ValidityClaim.Finite(value: northAxisDegrees),
@@ -1035,7 +1036,7 @@ public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double Int
                     out SolarFrame? framed), framed)
                 select (SunDerivation)new SunDerivation.Sited(
                     Frame: frame,
-                    Angles: SolarPosition.At(site: site, instant: frame.Moment)),
+                    Angles: SunPosition.At(site: site, instant: frame.Moment)),
             manualAngles: static (context, placement) => Fin.Succ<SunDerivation>(value: new SunDerivation.Authored(
                 Angles: new SunPosition(AzimuthDeg: placement.Azimuth, AltitudeDeg: placement.Altitude))),
             manualVector: static (context, placement) =>

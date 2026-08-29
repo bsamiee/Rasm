@@ -26,7 +26,7 @@
 - [15]-[FAULTS](.planning/Numerics/faults.md): Consolidated fault union every geometry op routes through, with compact generated identities.
 - [16]-[ATOMS](.planning/Numerics/atoms.md): Typed scalar, transform, vector, and output-projection algebra floor every higher concern composes.
 - [17]-[MATRIX](.planning/Numerics/matrix.md): Dense/sparse/complex solve and eigen owner — one kernel funnels every factorization.
-- [18]-[TRANSFORM](.planning/Numerics/transform.md): Transform band — window taper, the capability-typed interpolant, and the spectral tap fold.
+- [18]-[TRANSFORM](.planning/Numerics/transform.md): Transform band — branch-owned tapers, finite-result interpolation, lattice Fourier transforms, and tap-series convolution.
 - [19]-[INTEGRATE](.planning/Numerics/integrate.md): ODE floor — tableaux admitted by validating order conditions, one carrier-generic pure step.
 - [20]-[SPECTRAL](.planning/Numerics/spectral.md): Mesh-free spectral algebra — `DiscreteCalculus` with transfer-function and descriptor algebra.
 - [21]-[CALCULUS](.planning/Numerics/calculus.md): Sample-anywhere math floor — stencils, noise lattices, falloff profiles, solar almanac.

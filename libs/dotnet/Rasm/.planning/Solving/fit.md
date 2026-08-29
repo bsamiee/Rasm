@@ -34,7 +34,6 @@ using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using Dimension = Rasm.Numerics.Dimension;
-using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Solving;
 
@@ -74,10 +73,10 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
 
     static Fin<FitPrimitive> SolveSphere(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance) {
         Point3d a = cloud[draw[0]], b = cloud[draw[1]], c = cloud[draw[2]], d = cloud[draw[3]];
-        return Matrix.Of(
+        return MatrixKernel.Dense(
                 Dimension.Create(3), Dimension.Create(3),
                 new Arr<double>([b.X - a.X, b.Y - a.Y, b.Z - a.Z, c.X - a.X, c.Y - a.Y, c.Z - a.Z, d.X - a.X, d.Y - a.Y, d.Z - a.Z]))
-            .Bind(lhs => lhs.SolveDetailed(new Arr<double>([
+            .Bind(lhs => MatrixKernel.Solve(lhs, new Arr<double>([
                 0.5 * (b.DistanceToSquared(Point3d.Origin) - a.DistanceToSquared(Point3d.Origin)),
                 0.5 * (c.DistanceToSquared(Point3d.Origin) - a.DistanceToSquared(Point3d.Origin)),
                 0.5 * (d.DistanceToSquared(Point3d.Origin) - a.DistanceToSquared(Point3d.Origin))])))
@@ -227,8 +226,8 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             (lhs[i * 3], lhs[(i * 3) + 1], lhs[(i * 3) + 2]) = (nrm.X, nrm.Y, nrm.Z);
             rhs[i] = nrm.X * cloud[draw[i]].X + nrm.Y * cloud[draw[i]].Y + nrm.Z * cloud[draw[i]].Z;
         }
-        return Matrix.Of(Dimension.Create(n), Dimension.Create(3), new Arr<double>(lhs))
-            .Bind(design => design.LeastSquaresDetailed(new Arr<double>(rhs)))
+        return MatrixKernel.Dense(Dimension.Create(n), Dimension.Create(3), new Arr<double>(lhs))
+            .Bind(design => MatrixKernel.LeastSquares(design, new Arr<double>(rhs)))
             .Map(solved => new Point3d(solved.Solution[0], solved.Solution[1], solved.Solution[2]));
     }
 
@@ -758,7 +757,7 @@ public static class Fit {
                 },
                 None: () => CloudKernel.CovarianceOf(toSeq(cloud), Option<Arr<double>>.None)
                     .Bind(stats => stats.Cov.DecomposeEigenDetailed()
-                        .Bind(solved => solved.PairsIn(EigenOrder.DescendingMagnitude))
+                        .Map(static solved => solved.Pairs)
                         .Map(eigen => (stats.Mean, Eigen: eigen)))
                     .Bind(pca => {
                         if (pca.Eigen.Count < 3) return Fin.Fail<double[]>(new KernelFault.InvalidResult());

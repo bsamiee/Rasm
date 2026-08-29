@@ -452,11 +452,11 @@ public sealed partial class SpectralSymbol {
 
 - Owner: `VoxelMorphologyStep` owns the transform vocabulary and the ONE `Apply` entrypoint both its capsule classes answer on; `VoxelBoolean` owns the set operations over a rasterized set; `SpectralMorphology` owns the kernel-numeric boundary; `FilteredField` owns the reconstruction the filtered spectrum re-enters through.
 - Cases: nine PicoGK rows are provider statement capsules; the `Spectral` row is a kernel-numeric-floor capsule that reaches no provider entry point.
-- Law: `Spectral` crosses the boundary as SAMPLES on the budget lattice and returns as an `IImplicit` the provider rasterizes over the same bounds, so its failures are typed numeric refusals and never a native status. A spectral row lowered onto a PicoGK morphology call, or a page-local transform, window, frequency axis, or separability rule beside the kernel arena, is the deleted form.
+- Law: `Spectral` crosses the boundary as samples on the budget lattice and returns as an `IImplicit` the provider rasterizes over the same bounds, so its failures are typed numeric refusals and never a native status. A spectral row lowered onto a PicoGK morphology call, or a page-local transform, window, frequency axis, or separability rule beside `Spectral.Transform`, is the deleted form.
 - Exemption: `Apply`'s provider bodies, `SpectralMorphology.Rasterize`, and `FilteredField.fSignedDistance` are statement capsules — a native handle mutates or is replaced in place, and the reconstruction is a per-query lattice fold with no expression form.
 - Entry: `VoxelMorphologyStep.Apply(Voxels, ImplicitPolicy)` is the one entrypoint, so the morphology fold never learns which capsule class a step belongs to.
 - Auto: the provider bracket releases the held handle on the failure arm, so a mid-chain native throw never strands a lease; the reconstruction interpolates TRILINEARLY over the eight surrounding cell centres, so the filtered field is continuous and the smoothness the spectral law spends a transform pair to obtain survives its return.
-- Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `SpectralArena`, `Spectrum`, `SpectralSense`, `SpectralScaling`, `SignedAxis`, `PositiveMagnitude`), kernel `Rasm.Domain` (`Custody.Rollback` — the failure-arm release under every provider bracket; `Custody.Settled`/`Custody.Dispose` — the both-arms release folding a whole operand `Seq`; `Admit.Need` — the empty-operand refusal ahead of the fold), LanguageExt.Core.
+- Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `Spectral.Transform`, `TransformDirection`), MathNet.Numerics (`Fourier.FrequencyScale` and `FourierOptions.Default`), System.Numerics.Tensors (`TensorPrimitives.Multiply<Complex>`), kernel `Rasm.Domain` (`Custody.Rollback` — the failure-arm release under every provider bracket; `Custody.Settled`/`Custody.Dispose` — the both-arms release folding a whole operand `Seq`; `Admit.Need` — the empty-operand refusal ahead of the fold), LanguageExt.Core.
 - Growth: a native transform is one `VoxelMorphologyStep` case; a frequency-domain transform is one `SpectralSymbol` row under the single `Spectral` case.
 - Boundary: a native failure carries the provider's own cause forward on the composed error, because the provider owns that taxonomy and the fabrication case names only the operation and its budget.
 
@@ -543,28 +543,34 @@ file static class SpectralMorphology {
         return from cell in FactoryBridge.Accept<PositiveMagnitude>(candidate: policy.Budget.VoxelSizeMm)
                from lattice in CellLattice.Of(
                    bounds: policy.Budget.Bounds, cell: cell, ceiling: policy.Budget.VoxelCap)
-               from sampled in Try.lift(() => Fin.Succ<SpectralArena>(new SpectralArena.Interleaved(
-                       [.. Enumerable.Range(0, (int)lattice.CellCount)
-                           .Select(index => lattice.Coordinate(index))
-                           .Select(at => lattice.Center(at.Column, at.Row, at.Layer))
-                           .Select(point => new Complex(
-                               held.fSignedDistance(new Vector3((float)point.X, (float)point.Y, (float)point.Z)), 0.0))],
-                       lattice))).Run().Bind(static inner => inner)
-               from forward in sampled.Transform(SpectralSense.Forward, SpectralScaling.Symmetric, key)
-               from axes in Seq(SignedAxis.PositiveX, SignedAxis.PositiveY, SignedAxis.PositiveZ)
-                   .TraverseM(axis => forward.Frequencies(axis, key)).As()
-               let symbol = Enumerable.Range(0, (int)forward.Cells)
+               let samples = Enumerable.Range(0, (int)lattice.CellCount)
+                   .Select(index => lattice.Coordinate(index))
+                   .Select(at => lattice.Center(at.Column, at.Row, at.Layer))
+                   .Select(point => new Complex(
+                       held.fSignedDistance(new Vector3((float)point.X, (float)point.Y, (float)point.Z)), 0.0))
+                   .ToArray()
+               from forward in Rasm.Numerics.Spectral.Transform(
+                   samples, lattice, TransformDirection.Forward, MathNet.Numerics.IntegralTransforms.FourierOptions.Default)
+               from axes in Try.lift(() => Enumerable.Range(0, lattice.Rank)
+                   .Select(axis => MathNet.Numerics.IntegralTransforms.Fourier.FrequencyScale(
+                       lattice.Extent(axis).Value, 1.0 / lattice.Spacing(axis)))
+                   .ToArray()).Run()
+               let symbol = Enumerable.Range(0, samples.Length)
                    .Select(bin => lattice.Coordinate(bin))
                    .Select(at => step.Symbol.Of(
                        new Vector3d(axes[0][at.Column], axes[1][at.Row], axes[2][at.Layer]), shape))
                    .ToArray()
-               from modulated in forward.Modulate(symbol, key)
-               from inverted in modulated.Arena.Transform(SpectralSense.Inverse, SpectralScaling.Symmetric, key)
-               from rebuilt in Rasterize(held, inverted, lattice, policy)
+               from modulated in Try.lift(() => {
+                   TensorPrimitives.Multiply<Complex>(samples, symbol, samples);
+                   return unit;
+               }).Run()
+               from inverted in Rasm.Numerics.Spectral.Transform(
+                   samples, lattice, TransformDirection.Inverse, MathNet.Numerics.IntegralTransforms.FourierOptions.Default)
+               from rebuilt in Rasterize(held, samples, lattice, policy)
                select rebuilt;
     }
 
-    private static Fin<Voxels> Rasterize(Voxels held, Spectrum filtered, CellLattice lattice, ImplicitPolicy policy) =>
+    private static Fin<Voxels> Rasterize(Voxels held, Complex[] filtered, CellLattice lattice, ImplicitPolicy policy) =>
         Try.lift(() => {
             Voxels result = new(new FilteredField(held, filtered, lattice), FieldMath.Bounds(policy.Budget.Bounds));
             held.Dispose();
@@ -572,8 +578,7 @@ file static class SpectralMorphology {
         }).Run().Bind(static inner => inner).Rollback(held);
 }
 
-file sealed class FilteredField(Voxels source, Spectrum filtered, CellLattice lattice) : IImplicit {
-    private readonly Complex[] values = filtered.Arena is SpectralArena.Interleaved grid ? grid.Values : [];
+file sealed class FilteredField(Voxels source, Complex[] values, CellLattice lattice) : IImplicit {
 
     public float fSignedDistance(in Vector3 point) {
         Point3d world = new(point.X, point.Y, point.Z);

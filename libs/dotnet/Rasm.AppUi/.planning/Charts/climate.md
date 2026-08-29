@@ -521,7 +521,7 @@ public static partial class CustomVisuals {
 - Cases: `ClimateSource` = Rose | Sun | Dome | Comfort | Series; `ClimateMount` = Plane | Series.
 - Entry: `public static Fin<ClimateMount> Mount(ClimateReading reading, ClimateBrief brief, ClimateSource source)` — the one projection, discriminating on the source arm and proving the reading admits it; `public DashboardTile Tile(string key, TileSource source)` on `ClimateMount` — the tile a composition root binds, so the polar-split verdict is READ off the roster rather than re-decided at each mount.
 - Auto: an hourly row carries its magnitude in the canonical datum's first slot and its DIRECTION in the second, which is exactly the weighted encoding the chart grammar already declares, so a rose feed and a scatter layer read one datum shape; a rose bins in ONE keyed pass, so a sixteen-sector rose over eight bins and a year of hours costs one walk rather than a sector-by-edge rescan; the sun path composes the kernel almanac per design day and samples the analemma weekly across the CONTEXT'S OWN declared span, so both curve families come from the one almanac over the span the operator selected; the dome projection reads a sealed `ResultKind.Dome` layer's own samples and its own averaging posture, so a sky diagram and the scene hemisphere beside it are one result read twice; a series reading composes the reshape its row declares, so a carpet cannot be mounted without the calendar row that makes it one.
-- Packages: NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm (project — `SolarPosition`/`SunPosition`, `Reduce.Floored`, `Dimension`)
+- Packages: NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm (project — `SunPosition`, `Reduce.Floored`, `Dimension`)
 - Growth: a new diagram feed is one `ClimateSource` arm and one `Mount` arm over the reading its roster row names; zero new surface.
 - Boundary:
   - THE VERDICT IS A VALUE THE MOUNT DISPATCHES ON. `ClimateRender.Plane` answers a `CustomVisual` and `ClimateRender.Series` a `ChartSeriesKind`, so a source arm whose reading names the wrong owner refuses by name and `ClimateMount.Tile` lands `DashboardTile.Custom` or `DashboardTile.Chart` with no second decision. A composition root that re-derived the split at each mount is the deleted form the roster replaces.
@@ -680,22 +680,21 @@ public static class ClimateFeed {
         new(
             Arcs: row.DesignDays.Map(day => (
                 Label: brief.Locale.Day(day),
-                Points: SolarPosition
-                    .SunPath(brief.Context.Site,
-                        day.AtStartOfDayInZone(brief.Context.Calendar.Zone).ToInstant(),
-                        Duration.FromDays(1) / row.Samples.Value, row.Samples)
-                    .Filter(static sample => sample.Sun.AboveHorizon)
+                Points: toSeq(Enumerable.Range(0, row.Samples.Value))
+                    .Map(i => day.AtStartOfDayInZone(brief.Context.Calendar.Zone).ToInstant() + ((Duration.FromDays(1) / row.Samples.Value) * i))
+                    .Map(at => (At: at, Sun: SunPosition.At(brief.Context.Site, at)))
+                    .Filter(static sample => sample.Sun.AltitudeDeg > 0.0)
                     .Map(static sample => (Az: sample.Sun.AzimuthDeg, Alt: sample.Sun.AltitudeDeg)))),
             Analemmas: row.Hours.Map(hour => (
                 Label: brief.Locale.Clock(new LocalTime(hour, 0)),
                 Points: Weekly(brief.Context)
                     .Map(day => Sun(brief.Context, day, hour))
-                    .Filter(static sun => sun.AboveHorizon)
+                    .Filter(static sun => sun.AltitudeDeg > 0.0)
                     .Map(static sun => (Az: sun.AzimuthDeg, Alt: sun.AltitudeDeg)))),
             Hours: row.DesignDays.Head
                 .Map(day => row.Hours
                     .Map(hour => (Label: brief.Locale.Clock(new LocalTime(hour, 0)), Sun: Sun(brief.Context, day, hour)))
-                    .Filter(static mark => mark.Sun.AboveHorizon)
+                    .Filter(static mark => mark.Sun.AltitudeDeg > 0.0)
                     .Map(static mark => (mark.Label, Az: mark.Sun.AzimuthDeg, Alt: mark.Sun.AltitudeDeg)))
                 .IfNone(Seq<(string Label, double Az, double Alt)>()),
             Projection: row.Projection);
@@ -707,7 +706,7 @@ public static class ClimateFeed {
         };
 
     static SunPosition Sun(AnalysisContext context, LocalDate day, int hour) =>
-        SolarPosition.At(context.Site,
+        SunPosition.At(context.Site,
             day.At(new LocalTime(hour, 0)).InZoneLeniently(context.Calendar.Zone).ToInstant());
 
     static Fin<VisualPayload.SkyDome> Dome(ClimateSource.Dome row) =>

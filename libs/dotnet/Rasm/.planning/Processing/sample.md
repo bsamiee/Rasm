@@ -249,7 +249,7 @@ public readonly record struct PowerCcvtSolution(
         ValidityClaim.CountAtLeast(EmptyCellCount, 0), EmptyCellCount <= SiteCount,
         ValidityClaim.Evidence(CellMass), ValidityClaim.Nonnegative(IntegrationResidual),
         PinnedSite.IsSome || DualSolve.Bind(static solve => solve.Gauge)
-            .Exists(static gauge => gauge.PostShiftApplied.Equals(GaugeShift.MeanZero)),
+            .Exists(static gauge => gauge.Shift.Equals(GaugeShift.MeanZero)),
         ValidityClaim.Evidence(DualSolve));
 }
 
@@ -618,8 +618,8 @@ internal static class SampleKernel {
                 Some: site => GaugePolicy.Pinned(indices: [site], mass: Some(masses), shift: GaugeShift.None),
                 None: () => GaugePolicy.MeanZeroConstant(dimension: masses.Count, mass: Some(masses), shift: GaugeShift.MeanZero));
             return HessianTriplets(currentSites: currentSites, diagram: state.Diagram)
-                .Bind(triplets => SparseMatrix.FromTriplets(rows: Dimension.Create(value: siteCount), cols: Dimension.Create(value: siteCount), triplets: triplets))
-                .Bind(laplacian => laplacian.SingularSolveDetailed(rhs: gradient, gauge: gauge, context: context))
+                .Bind(triplets => MatrixKernel.Sparse(rows: Dimension.Create(value: siteCount), cols: Dimension.Create(value: siteCount), triplets: triplets))
+                .Bind(laplacian => MatrixKernel.SingularGaugeSolve(matrix: laplacian, rhs: gradient, gauge: gauge, context: context))
                 .Bind(solve => GeodesicKernel.Solved(solve: Fin.Succ(solve))
                     .Bind(direction => Armijo(
                         baseline: state.DualObjective,

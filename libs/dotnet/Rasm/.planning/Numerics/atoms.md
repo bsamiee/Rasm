@@ -7,23 +7,23 @@
 ## [01]-[INDEX]
 
 - [02]-[SCALAR_FLOOR]: epsilon policy, the range-guard band vocabulary, generated scalar and angle admission, and the perceptual color algebra.
-- [03]-[TRANSFORM_ALGEBRA]: affine construction union and the one `Placement` build, analysis, and rewrite surface.
+- [03]-[TRANSFORM_ALGEBRA]: affine construction union and the one `Placement` build surface.
 - [04]-[VECTOR_ALGEBRA]: admitted-direction currency with the span, frame, and cone models over it.
 - [05]-[CELL_LATTICE]: ONE bounded rectangular cell lattice — index-to-world affine, per-axis census, budget ceiling.
 - [06]-[PROJECTION_ROW]: corpus-wide raw-to-typed output dispatch.
 
 ## [02]-[SCALAR_FLOOR]
 
-- Owner: `EpsilonPolicy` names the three anchor rows — sqrt-epsilon for near-unit and residual gates, zero-tolerance for degeneracy floors, band-ulp for the convergence floor no double iterate reaches below. `Bound` closes one interval endpoint as a case — open, closed, or unbounded — and `Band` pairs two of them into the one named range vocabulary every scalar admission reads: `Dimension`, `PositiveMagnitude`, `UnitInterval`, `SignedUnit`, `VectorAngle`, and `PerceptualColor` all guard through a row, so a count, positive length, normalized parameter, bipolar reading, radian angle, or opponent component carries the owner and never a raw primitive re-gated per call site. `BoundarySense`, `SignedAxis`, `VectorRelation`, `AnglePivot`, and `VectorAngle` close directional sign, cardinal axis, coplanarity, measurement pivot, and radian-bounded angle. `PerceptualColor` owns the OKLab triple with normalized alpha, its mix, ramp, tonal, contrast, contrast-targeted tonal solve, simulation, difference, compositing, colorimetric read-back, appearance reading, and gamut-safe RGB, ARGB, and host egress composing `Wacton.Unicolour` through `BlendPath`, `RgbProfile`, `DeltaMetric`, `GamutPolicy`, `ToneSweep`, and `RgbTransfer` values, never a host-edge conversion. `RgbProfile` is the branch working-space roster and the corpus' ONE `Configuration` mint — the instance is the colour-space identity, so every package above composes a row, and `Condition` and `Viewed` extend that same mint with the viewing-condition slot rather than opening a second one; `BlendPath` splits interpolation space from the axes only some spaces admit, one row per space with the hue traversal on the polar case's payload and the viewing condition on the appearance case's; `DeltaMetric` splits the difference axis the same way, an opponent row condition-free beside an appearance row carrying its condition; `AppearanceReading` carries the correlates with the condition they were measured under; `GamutPolicy` rows own a reproducibility domain with both its containment predicate and its nearest-in-domain projection, `Unbounded` the whole-space row an HDR or scene-linear egress names; `RgbTransfer` rows own the representation the profile egress reads a bounded colour off, the companded encoding beside scene-linear light, because a return shape cannot discriminate what the ingress triple's shape does.
+- Owner: `EpsilonPolicy` names the three anchor rows — sqrt-epsilon for near-unit and residual gates, zero-tolerance for degeneracy floors, band-ulp for the convergence floor no double iterate reaches below. `Bound` closes one interval endpoint as a case — open, closed, or unbounded — and `Band` pairs two of them into the one named range vocabulary every scalar admission reads: `Dimension`, `PositiveMagnitude`, `UnitInterval`, `SignedUnit`, `VectorAngle`, and `PerceptualColor` all guard through a row, so a count, positive length, normalized parameter, bipolar reading, radian angle, or opponent component carries the owner and never a raw primitive re-gated per call site. `BoundarySense`, `SignedAxis`, `VectorRelation`, and `VectorAngle` close directional sign, cardinal axis, coplanarity, and radian-bounded angle. `PerceptualColor` owns the OKLab triple with normalized alpha, its mix, ramp, tonal, contrast, contrast-targeted tonal solve, simulation, difference, compositing, colorimetric read-back, appearance reading, and gamut-safe RGB, ARGB, and host egress composing `Wacton.Unicolour` through `BlendPath`, `RgbProfile`, `DeltaMetric`, `GamutPolicy`, `ToneSweep`, and `RgbTransfer` values, never a host-edge conversion. `RgbProfile` is the branch working-space roster and the corpus' ONE `Configuration` mint — the instance is the colour-space identity, so every package above composes a row, and `Condition` and `Viewed` extend that same mint with the viewing-condition slot rather than opening a second one; `BlendPath` splits interpolation space from the axes only some spaces admit, one row per space with the hue traversal on the polar case's payload and the viewing condition on the appearance case's; `DeltaMetric` splits the difference axis the same way, an opponent row condition-free beside an appearance row carrying its condition; `AppearanceReading` carries the correlates with the condition they were measured under; `GamutPolicy` rows own a reproducibility domain with both its containment predicate and its nearest-in-domain projection, `Unbounded` the whole-space row an HDR or scene-linear egress names; `RgbTransfer` rows own the representation the profile egress reads a bounded colour off, the companded encoding beside scene-linear light, because a return shape cannot discriminate what the ingress triple's shape does.
 - Cases: `Bound.Open`/`Closed` carry the endpoint value, `Bound.Unbounded` carries none — an unbounded side is a CASE, never an infinity sentinel, and inclusivity is that case rather than a flag beside a number, so an open-versus-closed mismatch is unrepresentable.
 - Law: `Band.Guard` canonicalizes negative zero to positive zero before the bound test, because `-0.0` passes every comparison its band admits and then forks the content key and every reciprocal sign downstream — this is the one canonicalization the `ref` slot exists for, and a row needing another lands it here rather than at a factory. `ValidationError?` returns from a guard as the Thinktecture generated-guard signal, admitted-as-null by the generator's own contract and never a domain absence; that guard carries ONE error, so a multi-column body is a first-refusal chain and accumulation rides `Validation` at the admission gate instead. Exact bounds — zero, one, the unit endpoints, the count floor, the device half-unit — are normalization identities and state so on site; every INEXACT bound derives from an `EpsilonPolicy` row or `Math.Tau`, and a bare epsilon at a call site is the deleted form.
 - Exemption: `Band` and `ValidityClaim` are two owners, not two spellings — `Band` guards a generated factory on host-neutral material through `double.IsFinite`, `ValidityClaim` folds result evidence over host-read material through `RhinoMath.IsValidDouble` so the `UnsetValue` sentinel is refused; Numerics composes Domain and never the reverse, so the two cannot merge.
-- Entry: `Dimension`, `PositiveMagnitude`, `UnitInterval`, and `SignedUnit` admit through generated `TryCreate`/`Validate`; `SignedAxis.Of` resolves the world or frame axis and `Cardinal(rank)` filters the axes a rank admits; `VectorRelation.Of` classifies and `VectorAngle.Of` measures two vectors through the ambient `Context` and pivot; `PerceptualColor.Of`/`OfRgb`/`OfArgb`/`OfHost`/`OfTemperature`/`Achromatic` admit — display bytes with a unit-gated or byte alpha, a packed ARGB word, a host `System.Drawing.Color`, an encoded unit-interval triple, an unbounded scene-linear double triple, a correlated colour temperature, or a lightness alone on the neutral axis — `Mix` and `Ramp` interpolate along a `BlendPath` and read the interpolated alpha off the result, `Blend` composites onto a backdrop under any `BlendMode`, `Simulate` previews a colour-vision deficiency at a unit-bounded severity, `Difference` measures perceptual distance under a `DeltaMetric` row, `ReferenceLightness` reads the reference-corrected lightness a ramp asserts monotonicity on, `Contrast` reads the WCAG ratio and `ToneFor` inverts it through a `ToneSweep` walk, `Colorimetry` reads relative luminance, correlated colour temperature, dominant wavelength, and excitation purity as one column, `Appearance` reads the CAM correlates a `BlendPath.Appearance` row states, `InGamut` tests the selected reproducibility domain, and `ToRgb`/`ToArgb`/`ToDrawing`/`ToColor4f` bound through that domain before quantizing (the RhinoCommon float quad enters through `OfHost(Color4f, transfer)` and leaves through `ToColor4f`, the `RgbTransfer` row discriminating companded from scene-linear on both legs); `RgbProfile.Viewed` mints the cam-bearing `Configuration` a direct-`Unicolour` composer states its condition through and `DeltaMetric.Measure` measures a `Unicolour` operand pair under the row's own condition; `RgbProfile.Condition` admits an authored viewing condition from a rostered illuminant, a stated observer, an ambient illuminance, a background luminance, and a `Surround`.
-- Auto: every generated `ValidateFactoryArguments` body is one `Band.Guard` call, so interior code never re-validates an admitted scalar and a bound moves at one row; `Band.Admits(ReadOnlySpan<double>)` reduces through `TensorPrimitives` so a whole plane admits in one vectorized pass; `AnglePivot.Admit` re-validates only the case payload and `Compute` dispatches the three `Vector3d.VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` before reading parallel and perpendicular relations under the context angle tolerance; `RgbProfile.Viewed` memoizes each cam-bearing `Configuration` on the condition's reference identity and resolves the package-default condition to the row's own instance, so no caller sequences a mint.
+- Entry: `Dimension`, `PositiveMagnitude`, `UnitInterval`, and `SignedUnit` admit through generated `TryCreate`/`Validate`; `SignedAxis.Cardinal(rank)` filters the world axes a rank admits; `VectorRelation.Of` classifies and `VectorAngle.Of` measures two vectors through the ambient `Context`; `PerceptualColor.Of`/`OfRgb`/`OfArgb`/`OfHost`/`OfTemperature` admit — an opponent triple, display bytes with a unit-gated or byte alpha, a packed ARGB word, a host `System.Drawing.Color`, an encoded unit-interval triple, an unbounded scene-linear double triple, or a correlated colour temperature — `Mix` and `Ramp` interpolate along a `BlendPath` and read the interpolated alpha off the result, `Blend` composites onto a backdrop under any `BlendMode`, `Simulate` previews a colour-vision deficiency at a unit-bounded severity, `Difference` measures perceptual distance under a `DeltaMetric` row, `ReferenceLightness` reads the reference-corrected lightness a ramp asserts monotonicity on, `Contrast` reads the WCAG ratio and `ToneFor` inverts it through a `ToneSweep` walk, `Colorimetry` reads relative luminance, correlated colour temperature, dominant wavelength, and excitation purity as one column, `Appearance` reads the CAM correlates a `BlendPath.Appearance` row states, `InGamut` tests the selected reproducibility domain, and `ToRgb`/`ToArgb`/`ToDrawing`/`ToColor4f` bound through that domain before quantizing (the RhinoCommon float quad enters through `OfHost(Color4f, transfer)` and leaves through `ToColor4f`, the `RgbTransfer` row discriminating companded from scene-linear on both legs); `RgbProfile.Viewed` mints the cam-bearing `Configuration` a direct-`Unicolour` composer states its condition through and `DeltaMetric.Measure` measures a `Unicolour` operand pair under the row's own condition; `RgbProfile.Condition` admits an authored viewing condition from a rostered illuminant, a stated observer, an ambient illuminance, a background luminance, and a `Surround`.
+- Auto: every generated `ValidateFactoryArguments` body is one `Band.Guard` call, so interior code never re-validates an admitted scalar and a bound moves at one row; `Band.Admits(ReadOnlySpan<double>)` reduces through `TensorPrimitives` so a whole plane admits in one vectorized pass; `VectorRelation.Of` admits both operands as `Direction` before reading parallel and perpendicular relations under the context angle tolerance; `RgbProfile.Viewed` memoizes each cam-bearing `Configuration` on the condition's reference identity and resolves the package-default condition to the row's own instance, so no caller sequences a mint.
 - Output: `AppearanceReading` alone — CAM correlates are meaningless apart from the condition that produced them, so the reading carries it; every other owner here is its own admission evidence.
-- Packages: Thinktecture.Runtime.Extensions for the generated value-object, union, and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` types and the `Atom<HashMap<_,_>>` cell behind the cam-bearing mint cache; Wacton.Unicolour for the perceptual model behind `PerceptualColor`; System.Numerics.Tensors for the span-arm band reduction; System.Drawing.Common for the host colour carrier at the ARGB egress pair; Rasm.Domain (project) for `Context` tolerance, `ValidityClaim` evidence, and `Admit` vocabulary; RhinoCommon for the `Vector3d` and `Plane` value structs.
-- Growth: a new range window is one `Band` row and a new endpoint modality one `Bound` case, never a bespoke bounds expression inside a factory; a new scalar invariant is one `[ValueObject]` owner reading a band; a new axis member, relation class, pivot modality, working space, or reproducibility domain is one enum row or union case, never a sibling type; a new interpolation space is one `BlendPath` row whose case states which of the traversal and condition axes it admits; a new difference metric is one `DeltaMetric` row on the case matching its condition dependence; a new egress representation is one `RgbTransfer` row, never a sibling `ToRgb`; an HDR egress publishing above-white light names the `GamutPolicy.Unbounded` row rather than skipping the bound; a declared viewing condition is a `Condition` construction at its own site, never a roster row, because a surround measures the viewer's room rather than naming a colour vocabulary member; a new epsilon is one named `EpsilonPolicy` row; a new tonal-search direction is one `ToneSweep` row and never a comparator argument, because a caller-supplied ordering re-opens the monotonicity the walk depends on; a new color capability is one member on `PerceptualColor` reading deeper into the `Unicolour` it holds.
-- Boundary: `RhinoMath.SqrtEpsilon`/`ZeroTolerance`/`TwoPI` give way to `EpsilonPolicy` and `Math.Tau` everywhere, and `RhinoMath.IsValidDouble` gives way to `double.IsFinite` on HOST-NEUTRAL shapes — host-read material instead admits through the `Domain/results` `ValidityClaim.Finite` row — keeping the numeric floor portable while the assembly stays RhinoCommon-aware; a raw `double` meaning dimension, magnitude, unit parameter, or bipolar-normalized reading never crosses a signature, the generated owner does, and a package above that re-declares a `[-1,1]` value object is the split-owner form this row closes; angle measurement reaches `Vector3d.VectorAngle` only through `AnglePivot.Compute`; a componentwise sRGB lerp, a hand-rolled opponent-space matrix, a host color-blend, or a call-site tone search against a contrast target never stands in for perceptual math — every host edge admits into `PerceptualColor`, interpolates through `BlendPath`, solves a readable rung through `ToneFor`, and quantizes through `ToRgb`, whose byte leg is the ONE content-key quantizer the federation addresses against and therefore carries no transfer slot at all and CLIPS by ruling, while the ARGB and `System.Drawing` legs REFUSE an out-of-display colour because a paint instruction that clipped silently is a colour no consumer can attribute; the `Eto.Drawing` pair of that same correspondence is an `extension(PerceptualColor)` block on `Interaction/paint#COLOR`, so this page names no UI toolkit and the numeric floor stays Eto-free; AppUi's colour-space vocabulary is a coordinate in the space, transfer, and domain axes already declared here — its scene-linear float row is `RgbProfile.Srgb` read through `RgbTransfer.Linear` under `GamutPolicy.Unbounded`, never a fourth axis or a parallel roster; a hue traversal never travels beside an interpolation space as a parallel argument, because the polar case is the only shape that carries one, and a viewing condition never travels beside one either, because the appearance case is; a working space enters as an `RgbProfile` row and never as a peer-minted `Configuration`, a chromaticity table, or a whitepoint literal — the cam-bearing crossing is the SAME row's `Viewed` mint, published so every chartered direct-`Unicolour` composer reaches it; an appearance space or CAM difference metric with no stated condition is unspellable and no default surround is ever fabricated for one, which is why `Viewed` and `DeltaMetric.Measure` publish rather than the law carving an exemption, while the WCAG `Contrast` read stays condition-free because WCAG fixes its own.
+- Packages: Thinktecture.Runtime.Extensions for the generated value-object, union, and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` types and the `Atom<HashMap<_,_>>` cell behind the cam-bearing mint cache; Wacton.Unicolour for the perceptual model behind `PerceptualColor`; System.Numerics.Tensors for the span-arm band reduction; System.Drawing.Common for the host colour carrier at the ARGB egress pair; Rasm.Domain (project) for `Context` tolerance, `ValidityClaim` evidence, and `Admit` vocabulary; RhinoCommon for the `Vector3d` value struct.
+- Growth: a new range window is one `Band` row and a new endpoint modality one `Bound` case, never a bespoke bounds expression inside a factory; a new scalar invariant is one `[ValueObject]` owner reading a band; a new axis member, relation class, working space, or reproducibility domain is one enum row or union case, never a sibling type; a new interpolation space is one `BlendPath` row whose case states which of the traversal and condition axes it admits; a new difference metric is one `DeltaMetric` row on the case matching its condition dependence; a new egress representation is one `RgbTransfer` row, never a sibling `ToRgb`; an HDR egress publishing above-white light names the `GamutPolicy.Unbounded` row rather than skipping the bound; a declared viewing condition is a `Condition` construction at its own site, never a roster row, because a surround measures the viewer's room rather than naming a colour vocabulary member; a new epsilon is one named `EpsilonPolicy` row; a new tonal-search direction is one `ToneSweep` row and never a comparator argument, because a caller-supplied ordering re-opens the monotonicity the walk depends on; a new color capability is one member on `PerceptualColor` reading deeper into the `Unicolour` it holds.
+- Boundary: `RhinoMath.SqrtEpsilon`/`ZeroTolerance`/`TwoPI` give way to `EpsilonPolicy` and `Math.Tau` everywhere, and `RhinoMath.IsValidDouble` gives way to `double.IsFinite` on HOST-NEUTRAL shapes — host-read material instead admits through the `Domain/results` `ValidityClaim.Finite` row — keeping the numeric floor portable while the assembly stays RhinoCommon-aware; a raw `double` meaning dimension, magnitude, unit parameter, or bipolar-normalized reading never crosses a signature, the generated owner does, and a package above that re-declares a `[-1,1]` value object is the split-owner form this row closes; angle measurement reaches the world-angle `Vector3d.VectorAngle` overload only after both vectors admit as `Direction`; a componentwise sRGB lerp, a hand-rolled opponent-space matrix, a host color-blend, or a call-site tone search against a contrast target never stands in for perceptual math — every host edge admits into `PerceptualColor`, interpolates through `BlendPath`, solves a readable rung through `ToneFor`, and quantizes through `ToRgb`, whose byte leg is the ONE content-key quantizer the federation addresses against and therefore carries no transfer slot at all and CLIPS by ruling, while the ARGB and `System.Drawing` legs REFUSE an out-of-display colour because a paint instruction that clipped silently is a colour no consumer can attribute; the `Eto.Drawing` pair of that same correspondence is an `extension(PerceptualColor)` block on `Interaction/paint#COLOR`, so this page names no UI toolkit and the numeric floor stays Eto-free; AppUi's colour-space vocabulary is a coordinate in the space, transfer, and domain axes already declared here — its scene-linear float row is `RgbProfile.Srgb` read through `RgbTransfer.Linear` under `GamutPolicy.Unbounded`, never a fourth axis or a parallel roster; a hue traversal never travels beside an interpolation space as a parallel argument, because the polar case is the only shape that carries one, and a viewing condition never travels beside one either, because the appearance case is; a working space enters as an `RgbProfile` row and never as a peer-minted `Configuration`, a chromaticity table, or a whitepoint literal — the cam-bearing crossing is the SAME row's `Viewed` mint, published so every chartered direct-`Unicolour` composer reaches it; an appearance space or CAM difference metric with no stated condition is unspellable and no default surround is ever fabricated for one, which is why `Viewed` and `DeltaMetric.Measure` publish rather than the law carving an exemption, while the WCAG `Contrast` read stays condition-free because WCAG fixes its own.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -151,52 +151,27 @@ public sealed partial class BoundarySense {
 
 [SmartEnum<int>]
 public sealed partial class SignedAxis {
-    public static readonly SignedAxis NegativeX = new(key: -1, world: -Vector3d.XAxis, axis: static frame => -frame.XAxis);
-    public static readonly SignedAxis PositiveX = new(key: 1, world: Vector3d.XAxis, axis: static frame => frame.XAxis);
-    public static readonly SignedAxis NegativeY = new(key: -2, world: -Vector3d.YAxis, axis: static frame => -frame.YAxis);
-    public static readonly SignedAxis PositiveY = new(key: 2, world: Vector3d.YAxis, axis: static frame => frame.YAxis);
-    public static readonly SignedAxis NegativeZ = new(key: -3, world: -Vector3d.ZAxis, axis: static frame => -frame.ZAxis);
-    public static readonly SignedAxis PositiveZ = new(key: 3, world: Vector3d.ZAxis, axis: static frame => frame.ZAxis);
+    public static readonly SignedAxis NegativeX = new(key: -1, world: -Vector3d.XAxis);
+    public static readonly SignedAxis PositiveX = new(key: 1, world: Vector3d.XAxis);
+    public static readonly SignedAxis NegativeY = new(key: -2, world: -Vector3d.YAxis);
+    public static readonly SignedAxis PositiveY = new(key: 2, world: Vector3d.YAxis);
+    public static readonly SignedAxis NegativeZ = new(key: -3, world: -Vector3d.ZAxis);
+    public static readonly SignedAxis PositiveZ = new(key: 3, world: Vector3d.ZAxis);
     public Vector3d World { get; }
-    internal Vector3d Of(Option<Plane> frame) => frame.Map(Axis).IfNone(World);
     internal static Seq<SignedAxis> Cardinal(Dimension rank) => toSeq(Items).Filter(axis => Math.Abs(value: axis.Key) <= rank.Value);
-    [UseDelegateFromConstructor] private partial Vector3d Axis(Plane frame);
-}
-
-[Union]
-public abstract partial record AnglePivot {
-    private AnglePivot() { }
-    public sealed record WorldCase : AnglePivot;
-    public sealed record FrameCase(Plane Value) : AnglePivot;
-    public sealed record NormalCase(Direction Value) : AnglePivot;
-    public static AnglePivot World { get; } = new WorldCase();
-    public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame);
-    public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
-    internal Fin<AnglePivot> Admit() => Switch(
-        worldCase: static pivot => Fin.Succ<AnglePivot>(pivot),
-        frameCase: static (pivot) => Admit.Plane(basis: pivot.Value).Map(_ => (AnglePivot)pivot),
-        normalCase: static (pivot) => guard(pivot.Value.IsValid, new KernelFault.InvalidInput()).ToFin().Map(_ => (AnglePivot)pivot));
-    internal double Compute(Vector3d a, Vector3d b) => Switch(
-        state: (A: a, B: b),
-        worldCase: static (state, _) => Vector3d.VectorAngle(a: state.A, b: state.B),
-        frameCase: static (state, frame) => Vector3d.VectorAngle(a: state.A, b: state.B, plane: frame.Value),
-        normalCase: static (state, normal) => Vector3d.VectorAngle(v1: state.A, v2: state.B, vNormal: normal.Value.Value));
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct VectorAngle {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = Band.Angle.Guard(label: nameof(VectorAngle), value: ref value);
-    internal static Fin<VectorAngle> Of(Direction a, Direction b, AnglePivot pivot) =>
-        from activePivot in pivot.Admit()
-        from angle in FactoryBridge.Accept<VectorAngle>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
-        select angle;
-    internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, Option<AnglePivot> pivot) =>
+    internal static Fin<VectorAngle> Of(Direction a, Direction b) =>
+        FactoryBridge.Accept<VectorAngle>(candidate: Vector3d.VectorAngle(a: a.Value, b: b.Value));
+    internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context) =>
         from left in Direction.Of(value: a, context: context)
         from right in Direction.Of(value: b, context: context)
-        from angle in Of(a: left, b: right, pivot: pivot.IfNone(AnglePivot.World))
+        from angle in Of(a: left, b: right)
         select angle;
-    internal Fin<TOut> Project<TOut>() => ResultProjection.SelfOrValue<VectorAngle, double, TOut>(self: this, value: Value);
 }
 
 [SmartEnum<int>]
@@ -215,7 +190,6 @@ public sealed partial class VectorRelation {
             (_, true) => Perpendicular,
             _ => Oblique,
         };
-    internal Fin<TOut> Project<TOut>() => ResultProjection.Self<VectorRelation, TOut>(value: this);
 }
 
 [SmartEnum<int>]
@@ -413,9 +387,8 @@ public sealed partial class PerceptualColor {
             ?? Band.Parameter.Guard(label: nameof(OpponentB), value: ref opponentB)
             ?? Band.Unit.Guard(label: nameof(Alpha), value: ref alpha);
     public static Fin<PerceptualColor> Of(double lightness, double opponentA, double opponentB, double alpha = 1.0) =>
-        Validate(lightness, opponentA, opponentB, alpha, out PerceptualColor? admitted) is null && admitted is not null
-            ? Fin.Succ(value: admitted)
-            : Fin.Fail<PerceptualColor>(error: new KernelFault.InvalidInput());
+        FactoryBridge.Lift<PerceptualColor>(
+            fault: Validate(lightness, opponentA, opponentB, alpha, out PerceptualColor? admitted), admitted: admitted);
     public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, double alpha = 1.0) =>
         from coverage in FactoryBridge.Accept<UnitInterval>(candidate: alpha)
         from admitted in OfOklab(colour: new Unicolour(ColourSpace.Rgb255, red, green, blue, coverage.Value), alpha: coverage.Value)
@@ -457,8 +430,6 @@ public sealed partial class PerceptualColor {
                     : new Unicolour(Configuration.Default, new Temperature(cct, duv), luminance),
                 alpha: 1.0)
             : Fin.Fail<PerceptualColor>(error: new KernelFault.InvalidInput());
-    public static Fin<PerceptualColor> Achromatic(double lightness, double alpha = 1.0) =>
-        Of(lightness: lightness, opponentA: 0.0, opponentB: 0.0, alpha: alpha);
     public PerceptualColor Mix(PerceptualColor other, UnitInterval amount, Option<BlendPath> path = default) {
         Unicolour mixed = path.IfNone(BlendPath.Oklch()).Mix(from: AsUnicolour(), to: other.AsUnicolour(), amount: amount.Value);
         return FromOklab(colour: mixed, alpha: mixed.Alpha.A);
@@ -543,13 +514,13 @@ public sealed partial class PerceptualColor {
 
 ## [03]-[TRANSFORM_ALGEBRA]
 
-- Owner: `TransformSpec` is the public construction `[Union]`, each case the irreducible payload of one affine factory semantic, and `Compose` an ordered program of already-built transforms. `Decomposition` is the typed result `[Union]` — its similarity and rigid cases carry the `ReversesOrientation` fact — `DecompositionMethod` and `TransformRewrite` are behavior-bearing smart-enum rows, and `Placement` is the single construction and transform-operation surface.
-- Entry: `Placement.Build` constructs every spec case through one generated total `Switch`; the `Transform` extension members admit the receiver once and keep every refusal on `Fin<T>`.
-- Auto: `Compose` left-composes its sequence first to last and maps the empty sequence to `Transform.Identity`; `DecompositionMethod` carries each host factorization as one delegate row, `TransformRewrite` mutates the by-value delegate parameter so the caller's transform is untouched, and the similarity and rigid rows gate the host status exhaustively — only the two successful orientation outcomes are admitted, and `ReversesOrientation` projects from the admitted status in place.
-- Output: `Decomposition` preserves every factor the selected factorization produces, with `ReversesOrientation` the orientation fact on the similarity and rigid cases; construction, inverse, and rewrite return the admitted host value directly.
-- Packages: Thinktecture.Runtime.Extensions for the union and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` types; Rasm.Domain (project) for `Context`, and `Admit`; RhinoCommon for `Transform` and its factorization results.
-- Growth: a factory semantic is one `TransformSpec` case and one generated-switch arm; a factorization or copy rewrite is one behavior row; a new result shape is one `Decomposition` case. Every consumer continues through `Placement`.
-- Boundary: `TransformSpec` is DISTINCT-BY-DESIGN from every same-named upper twin — it names an affine CONSTRUCTION request the host factories realize, where an upper `TransformSpec` names a placement authored against a document; the discriminant is the admission path, stated here once and never per site. `Transform.Unset`, zero matrices, and pseudo-inverses are never control values; failed construction and factorization stay failures, `TryGetInverse` returning `false` rejects its pseudo-inverse output, and only `Identity` or an empty `Compose` supplies an identity value.
+- Owner: `TransformSpec` is the public construction `[Union]`, each case the irreducible payload of one affine factory semantic, and `Compose` an ordered program of already-built transforms. `Placement` is the single construction surface.
+- Entry: `Placement.Build` constructs every spec case through one generated total `Switch`.
+- Auto: `Compose` left-composes its sequence first to last and maps the empty sequence to `Transform.Identity`.
+- Output: construction returns the admitted host value directly.
+- Packages: Thinktecture.Runtime.Extensions for the union owner; LanguageExt.Core for the `Fin`/`Option`/`Seq` types; Rasm.Domain (project) for `Context`, and `Admit`; RhinoCommon for `Transform`.
+- Growth: a factory semantic is one `TransformSpec` case and one generated-switch arm. Every consumer continues through `Placement`.
+- Boundary: `TransformSpec` is DISTINCT-BY-DESIGN from every same-named upper twin — it names an affine CONSTRUCTION request the host factories realize, where an upper `TransformSpec` names a placement authored against a document; the discriminant is the admission path, stated here once and never per site. `Transform.Unset` and zero matrices are never control values, and only `Identity` or an empty `Compose` supplies an identity value.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -579,152 +550,6 @@ public abstract partial record TransformSpec {
     public sealed record DirectionalProjection(Plane Plane, Vector3d Direction) : TransformSpec;
     public sealed record Shear(Plane Plane, Vector3d X, Vector3d Y, Vector3d Z) : TransformSpec;
     public sealed record Compose(Seq<Transform> Values) : TransformSpec;
-}
-
-[Union]
-public abstract partial record Decomposition {
-    private Decomposition() { }
-    public sealed record Similarity(Vector3d Translation, double Dilation, Transform Rotation, bool ReversesOrientation) : Decomposition;
-    public sealed record Rigid(Vector3d Translation, Transform Rotation, bool ReversesOrientation) : Decomposition;
-    public sealed record TranslationLinear(Vector3d Translation, Transform Linear) : Decomposition;
-    public sealed record LinearTranslation(Transform Linear, Vector3d Translation) : Decomposition;
-    public sealed record AffineFactors(Vector3d Translation, Transform Rotation, Transform Orthogonal, Vector3d Diagonal) : Decomposition;
-    public sealed record Symmetric(Transform Basis, Vector3d Diagonal) : Decomposition;
-    public sealed record Quaternion(Rhino.Geometry.Quaternion Value) : Decomposition;
-    public sealed record YawPitchRoll(double Yaw, double Pitch, double Roll) : Decomposition;
-    public sealed record EulerZYZ(double Alpha, double Beta, double Gamma) : Decomposition;
-    public sealed record Texture(Vector3d Offset, Vector3d Repeat, Vector3d Rotation) : Decomposition;
-}
-
-[SmartEnum]
-public sealed partial class DecompositionMethod {
-    public static readonly DecompositionMethod Similarity = new(apply: SimilarityOf);
-    public static readonly DecompositionMethod Rigid = new(apply: RigidOf);
-    public static readonly DecompositionMethod TranslationLinear = new(apply: TranslationLinearOf);
-    public static readonly DecompositionMethod LinearTranslation = new(apply: LinearTranslationOf);
-    public static readonly DecompositionMethod AffineFactors = new(apply: AffineFactorsOf);
-    public static readonly DecompositionMethod Symmetric = new(apply: SymmetricOf);
-    public static readonly DecompositionMethod Quaternion = new(apply: QuaternionOf);
-    public static readonly DecompositionMethod YawPitchRoll = new(apply: YawPitchRollOf);
-    public static readonly DecompositionMethod EulerZYZ = new(apply: EulerZYZOf);
-    public static readonly DecompositionMethod Texture = new(apply: TextureOf);
-
-    [UseDelegateFromConstructor]
-    internal partial Fin<Decomposition> Apply(Transform source, Context context);
-
-    private static Fin<Decomposition> SimilarityOf(Transform source, Context context) {
-        TransformSimilarityType kind = source.DecomposeSimilarity(
-            translation: out Vector3d translation,
-            dilation: out double dilation,
-            rotation: out Transform rotation,
-            tolerance: context.Fractional);
-        return kind is TransformSimilarityType.OrientationReversing or TransformSimilarityType.OrientationPreserving
-            ? (Acceptance.Value(translation), Acceptance.Value(dilation), Acceptance.Value(rotation))
-                .Apply((move, scale, spin) => (Decomposition)new Decomposition.Similarity(move, scale, spin,
-                    ReversesOrientation: kind is TransformSimilarityType.OrientationReversing)).As()
-            : Fin.Fail<Decomposition>(new KernelFault.InvalidResult());
-    }
-
-    private static Fin<Decomposition> RigidOf(Transform source, Context context) {
-        TransformRigidType kind = source.DecomposeRigid(
-            translation: out Vector3d translation,
-            rotation: out Transform rotation,
-            tolerance: context.Fractional);
-        return kind is TransformRigidType.RigidReversing or TransformRigidType.Rigid
-            ? (Acceptance.Value(translation), Acceptance.Value(rotation))
-                .Apply((move, spin) => (Decomposition)new Decomposition.Rigid(move, spin,
-                    ReversesOrientation: kind is TransformRigidType.RigidReversing)).As()
-            : Fin.Fail<Decomposition>(new KernelFault.InvalidResult());
-    }
-
-    private static Fin<Decomposition> TranslationLinearOf(Transform source, Context context) =>
-        source.DecomposeAffine(translation: out Vector3d translation, linear: out Transform linear)
-            ? (Acceptance.Value(value: translation), Acceptance.Value(value: linear))
-                .Apply(static (move, map) => (Decomposition)new Decomposition.TranslationLinear(Translation: move, Linear: map))
-                .As()
-            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
-
-    private static Fin<Decomposition> LinearTranslationOf(Transform source, Context context) =>
-        source.DecomposeAffine(linear: out Transform linear, translation: out Vector3d translation)
-            ? (Acceptance.Value(value: linear), Acceptance.Value(value: translation))
-                .Apply(static (map, move) => (Decomposition)new Decomposition.LinearTranslation(Linear: map, Translation: move))
-                .As()
-            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
-
-    private static Fin<Decomposition> AffineFactorsOf(Transform source, Context context) =>
-        source.DecomposeAffine(
-            translation: out Vector3d translation,
-            rotation: out Transform rotation,
-            orthogonal: out Transform orthogonal,
-            diagonal: out Vector3d diagonal)
-            ? (Acceptance.Value(value: translation), Acceptance.Value(value: rotation), Acceptance.Value(value: orthogonal), Acceptance.Value(value: diagonal))
-                .Apply(static (move, spin, basis, scale) => (Decomposition)new Decomposition.AffineFactors(
-                    Translation: move,
-                    Rotation: spin,
-                    Orthogonal: basis,
-                    Diagonal: scale))
-                .As()
-            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
-
-    private static Fin<Decomposition> SymmetricOf(Transform source, Context context) =>
-        source.DecomposeSymmetric(matrix: out Transform matrix, diagonal: out Vector3d diagonal)
-            ? (Acceptance.Value(value: matrix), Acceptance.Value(value: diagonal))
-                .Apply(static (basis, scale) => (Decomposition)new Decomposition.Symmetric(Basis: basis, Diagonal: scale))
-                .As()
-            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
-
-    private static Fin<Decomposition> QuaternionOf(Transform source, Context context) =>
-        source.GetQuaternion(quaternion: out Rhino.Geometry.Quaternion quaternion)
-        && quaternion.IsValid
-        && Math.Abs(value: quaternion.Length - 1.0) <= Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: context.Fractional)
-            ? Fin.Succ<Decomposition>(value: new Decomposition.Quaternion(Value: quaternion))
-            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
-
-    private static Fin<Decomposition> YawPitchRollOf(Transform source, Context context) =>
-        source.GetYawPitchRoll(yaw: out double yaw, pitch: out double pitch, roll: out double roll)
-            ? (Acceptance.Value(value: yaw), Acceptance.Value(value: pitch), Acceptance.Value(value: roll))
-                .Apply(static (z, y, x) => (Decomposition)new Decomposition.YawPitchRoll(Yaw: z, Pitch: y, Roll: x))
-                .As()
-            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
-
-    private static Fin<Decomposition> EulerZYZOf(Transform source, Context context) =>
-        source.GetEulerZYZ(alpha: out double alpha, beta: out double beta, gamma: out double gamma)
-            ? (Acceptance.Value(value: alpha), Acceptance.Value(value: beta), Acceptance.Value(value: gamma))
-                .Apply(static (a, b, c) => (Decomposition)new Decomposition.EulerZYZ(Alpha: a, Beta: b, Gamma: c))
-                .As()
-            : Fin.Fail<Decomposition>(error: new KernelFault.InvalidResult());
-
-    private static Fin<Decomposition> TextureOf(Transform source, Context context) {
-        source.DecomposeTextureMapping(
-            offset: out Vector3d offset,
-            repeat: out Vector3d repeat,
-            rotation: out Vector3d rotation);
-        return (Acceptance.Value(value: offset), Acceptance.Value(value: repeat), Acceptance.Value(value: rotation))
-            .Apply(static (move, scale, spin) => (Decomposition)new Decomposition.Texture(
-                Offset: move,
-                Repeat: scale,
-                Rotation: spin))
-            .As();
-    }
-}
-
-[SmartEnum]
-public sealed partial class TransformRewrite {
-    public static readonly TransformRewrite Affine = new(apply: static (source, _, key) => {
-        source.Affineize();
-        return Acceptance.Value(source);
-    });
-    public static readonly TransformRewrite Linear = new(apply: static (source, _, key) => {
-        source.Linearize();
-        return Acceptance.Value(source);
-    });
-    public static readonly TransformRewrite Orthogonal = new(apply: static (source, context, key) =>
-        source.Orthogonalize(Math.Max(EpsilonPolicy.SqrtEpsilon, context.Fractional))
-            ? Acceptance.Value(source)
-            : Fin.Fail<Transform>(error: new KernelFault.InvalidResult()));
-
-    [UseDelegateFromConstructor]
-    internal partial Fin<Transform> Apply(Transform source, Context context);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -917,33 +742,6 @@ public static class Placement {
                 .Bind(result => Acceptance.Value(result))));
     }
 
-    extension(Transform source) {
-        public Fin<Transform> Inverse() {
-            return from active in Admit.Value(value: source)
-                   from inverse in active.TryGetInverse(inverseTransform: out Transform result)
-                       ? Acceptance.Value(value: result)
-                       : Fin.Fail<Transform>(error: new KernelFault.InvalidResult())
-                   select inverse;
-        }
-
-        public Fin<Decomposition> Decompose(DecompositionMethod method, Context context) {
-            return from active in Admit.Value(value: source)
-                   from activeMethod in Optional(method).ToFin(Fail: new KernelFault.InvalidInput())
-                   from model in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
-                   from result in activeMethod.Apply(source: active, context: model)
-                   select result;
-        }
-
-        public Fin<Transform> Rewrite(TransformRewrite rewrite, Context context) {
-            return from active in Admit.Value(value: source)
-                   from selector in Optional(rewrite).ToFin(Fail: new KernelFault.InvalidInput())
-                   from model in Optional(context).ToFin(Fail: new KernelFault.MissingContext())
-                   from result in selector.Apply(source: active, context: model)
-                   select result;
-        }
-
-    }
-
     private static Fin<(Vector3d X, Vector3d Y, Vector3d Z)> RotationBasis(
         Vector3d x,
         Vector3d y,
@@ -967,13 +765,13 @@ public static class Placement {
 ## [04]-[VECTOR_ALGEBRA]
 
 - Owner: `Direction` is the single admitted unit-vector currency of the kernel; `VectorSpan` the anchored vector, `VectorFrame` the validated orthonormal frame over `Plane`, `VectorCone` the apex/axis/half-angle solid sector. All four carriers are construction-gated — the private constructor is unreachable except through the validating `Of`, so an instance is its own admission evidence.
-- Cases: `Direction` owns admission, reflection, refraction, and transport; `VectorSpan` anchored magnitude decomposition; `VectorFrame` orthonormal admission and chained construction; `VectorCone` containment, enclosure, rim partition, and the `Spread` beam-radius-per-unit-distance scalar, which refuses at or past the half-space so no spotlight or capture boundary re-derives it with inline trig.
+- Cases: `Direction` owns admission, reflection, refraction, and transport; `VectorSpan` anchored magnitude decomposition; `VectorFrame` orthonormal admission; `VectorCone` containment, enclosure, rim partition, and the `Spread` beam-radius-per-unit-distance scalar, which refuses at or past the half-space so no spotlight or capture boundary re-derives it with inline trig.
 - Law: `Direction` implements `IValidityEvidence`, so its `IsValid` is the ruled `ValidityClaim.All` fold rather than a loose bool — the unit-length claim and the host-finiteness claim compose there and every reader sees one evidence surface.
-- Entry: every constructor and host-backed transform returns `Fin<T>`; `Direction.Reflect` and `ParallelTransport`, the `VectorFrame` transform projection, and the `VectorCone` rotation folds construct only through `Placement.Build`.
-- Auto: `Transported` re-admits every rigid-transform result against the type's OWN validity band so reflection, refraction, and parallel transport share one floor instead of gating a unit quantity on a distance-degeneracy epsilon; `VectorSpan.Value` recomposes `Direction * Magnitude` so the stored triple is the canonical decomposition; `SeedPerpendicular` is the deterministic perpendicular seed shared by frame construction and cone partition; `NewellNormal` is the one inexact polygon-normal fold every ring and panel fit composes, the exact carrier staying on the predicates ladder.
+- Entry: every constructor and host-backed transform returns `Fin<T>`; `Direction.Reflect` and `ParallelTransport` re-admit their resulting directions, and the `VectorCone` rotation folds admit every produced ray.
+- Auto: `Transported` re-admits every rigid-transform result against the type's OWN validity band so reflection, refraction, and parallel transport share one floor instead of gating a unit quantity on a distance-degeneracy epsilon; `VectorSpan.Value` recomposes `Direction * Magnitude` so the stored triple is the canonical decomposition; `SeedPerpendicular` is the deterministic perpendicular seed shared by frame construction and cone partition.
 - Packages: LanguageExt.Core for the `Fin`/`Seq`/`Option` types; Thinktecture.Runtime.Extensions for the generated owners; Rasm.Domain (project) for `Context`, `ValidityClaim`, and the `Admit` vocabulary; RhinoCommon for the `Vector3d`, `Point3d`, `Plane`, and `Line` value structs.
 - Growth: a new direction algorithm is one member on `Direction` or `VectorCone`, never a sibling `DirectionUtils`; a new frame-construction modality is one `Of` overload discriminating on input shape.
-- Boundary: `VectorFrame.Chain` composes the one rotation-minimizing-frame owner in `Spatial/neighbors`, which owns the chain math while this page owns only frame admission over the chained planes and the `isClosed` posture it hands down; quaternion pose interpolation is `Parametric/projections`' and never re-derives here; `Direction.ParallelTransport` transports through given frames, so a second double-reflection implementation here is the deleted form.
+- Boundary: rotation-minimizing-frame construction belongs to `Spatial/neighbors`; quaternion pose interpolation is `Parametric/projections`' and never re-derives here; `Direction.ParallelTransport` transports through given frames, so a second double-reflection implementation here is the deleted form.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -991,14 +789,8 @@ public readonly record struct Direction : IValidityEvidence {
     private static Fin<Direction> Transported(Vector3d value) => Of(value: value, tolerance: EpsilonPolicy.SqrtEpsilon);
     public static Direction operator -(Direction direction) => new(value: -direction.Value);
     public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
-    public Fin<Direction> Reflect(Direction normal) {
-        Direction self = this;
-        return Placement.Build(
-                spec: new TransformSpec.Mirror(
-                    Point: Point3d.Origin,
-                    Normal: normal.Value))
-            .Bind(transform => Transported(value: transform * self.Value));
-    }
+    public Fin<Direction> Reflect(Direction normal) =>
+        Transported(value: Value - (2.0 * (Value * normal.Value) * normal.Value));
     public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted) =>
         from activeIncident in FactoryBridge.Accept<PositiveMagnitude>(candidate: etaIncident)
         from activeTransmitted in FactoryBridge.Accept<PositiveMagnitude>(candidate: etaTransmitted)
@@ -1017,12 +809,8 @@ public readonly record struct Direction : IValidityEvidence {
         return Admit.All(values: frames, claim: static frame => frame.IsValid, floor: 1).Bind(admittedFrames =>
             toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: admittedFrames.Count - 1))).Fold(
                 initialState: Transported(value: value),
-                f: (acc, i) => acc.Bind(prev =>
-                    Placement.Build(
-                            spec: new TransformSpec.PlaneMap(
-                                From: admittedFrames[index: i - 1],
-                                To: admittedFrames[index: i]))
-                        .Bind(transform => Transported(value: transform * prev.Value)))));
+                f: (acc, i) => acc.Bind(prev => Transported(
+                    value: Transform.PlaneToPlane(admittedFrames[index: i - 1], admittedFrames[index: i]) * prev.Value))));
     }
     internal Fin<TOut> Project<TOut>() => ResultProjection.SelfOrValue<Direction, Vector3d, TOut>(self: this, value: Value);
 }
@@ -1075,29 +863,9 @@ public readonly record struct VectorFrame {
         let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
         from valid in Admit.Plane(basis: frame)
         select new VectorFrame(value: valid);
-    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool isClosed, Context context) =>
-        NeighborKernel.BishopChain(points: points, initialNormal: initialNormal, isClosed: isClosed, context: context)
-            .Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context)).As());
     internal static Vector3d SeedPerpendicular(Vector3d axis) {
         Vector3d seed = Vector3d.Zero;
         return seed.PerpendicularTo(other: axis) && seed.Unitize() ? seed : Vector3d.XAxis;
-    }
-    public static Vector3d NewellNormal(ReadOnlySpan<Point3d> ring) {
-        Vector3d normal = Vector3d.Zero;
-        for (int i = 0; i < ring.Length; i++) {
-            (Point3d a, Point3d b) = (ring[i], ring[(i + 1) % ring.Length]);
-            normal += new Vector3d(x: (a.Y - b.Y) * (a.Z + b.Z), y: (a.Z - b.Z) * (a.X + b.X), z: (a.X - b.X) * (a.Y + b.Y));
-        }
-        return normal;
-    }
-    internal Fin<TOut> Project<TOut>() {
-        VectorFrame self = this;
-        return ResultProjection.Rows<VectorFrame, TOut>(self: self,
-            ProjectionRow.Of<Plane>(() => Admit.Plane(basis: self.Value)),
-            ProjectionRow.Of<Transform>(() => Placement.Build(
-                spec: new TransformSpec.PlaneMap(
-                    From: Plane.WorldXY,
-                    To: self.Value))));
     }
 }
 
@@ -1120,13 +888,13 @@ public readonly record struct VectorCone {
     public Fin<bool> Contains(Vector3d query, Context context) {
         VectorCone cone = this;
         return from probe in Direction.Of(value: query, context: context)
-               from angle in VectorAngle.Of(a: cone.Axis, b: probe, pivot: AnglePivot.World)
+               from angle in VectorAngle.Of(a: cone.Axis, b: probe)
                select angle.Value <= cone.HalfAngle.Value;
     }
     public static Fin<VectorCone> Enclose(VectorCone left, VectorCone right, Context context) {
         return from model in Optional(context).ToFin(new KernelFault.MissingContext())
                from _ in guard(left.Apex.DistanceTo(other: right.Apex) <= model.Absolute.Value, new KernelFault.InvalidInput())
-               from between in VectorAngle.Of(a: left.Axis, b: right.Axis, pivot: AnglePivot.World)
+               from between in VectorAngle.Of(a: left.Axis, b: right.Axis)
                let envelope = (Theta: between.Value, A: left.HalfAngle.Value, B: right.HalfAngle.Value, Tolerance: model.Angle.Value, Half: (between.Value + left.HalfAngle.Value + right.HalfAngle.Value) * 0.5)
                let cross = Vector3d.CrossProduct(a: left.Axis.Value, b: right.Axis.Value)
                let rotationAxis = cross.IsTiny(model.Absolute.Value) switch { true => VectorFrame.SeedPerpendicular(axis: left.Axis.Value), false => cross }
@@ -1135,14 +903,11 @@ public readonly record struct VectorCone {
                    (_, true, _) => Fin.Succ(right),
                    (_, _, true) => Of(apex: left.Apex, axis: (envelope.A >= envelope.B ? left : right).Axis.Value, halfAngleRadians: Math.Max(val1: envelope.A, val2: envelope.B), context: model),
                    _ => guard(envelope.Half <= Math.PI + envelope.Tolerance, new KernelFault.InvalidInput())
-                       .Bind(_ => Placement.Build(
-                           spec: new TransformSpec.AxisRotation(
-                               Angle: envelope.Half - envelope.A,
-                               Axis: rotationAxis,
-                               Center: Point3d.Origin),
-                           context: Some(model)))
-                       .Bind(transform => Direction.Of(
-                           value: transform * left.Axis.Value,
+                       .Bind(_ => Direction.Of(
+                           value: Transform.Rotation(
+                               angleRadians: envelope.Half - envelope.A,
+                               rotationAxis: rotationAxis,
+                               rotationCenter: Point3d.Origin) * left.Axis.Value,
                            context: model))
                        .Bind(axis => Of(
                            apex: left.Apex,
@@ -1159,16 +924,13 @@ public readonly record struct VectorCone {
                let stepAngle = Math.Tau / sectorCount.Value
                let lateral = Math.Sin(a: cone.HalfAngle.Value)
                let coaxial = Math.Cos(d: cone.HalfAngle.Value) * cone.Axis.Value
-               from rays in toSeq(Enumerable.Range(start: 0, count: sectorCount.Value)).TraverseM(i =>
-                   Placement.Build(
-                           spec: new TransformSpec.AxisRotation(
-                               Angle: stepAngle * i,
-                               Axis: cone.Axis.Value,
-                               Center: Point3d.Origin),
-                           context: Some(context))
-                       .Bind(transform => Direction.Of(
-                           value: coaxial + (lateral * (transform * rim.Value)),
-                           context: context))).As()
+               from rays in toSeq(Enumerable.Range(start: 0, count: sectorCount.Value)).Traverse(i =>
+                   Direction.Of(
+                       value: coaxial + (lateral * (Transform.Rotation(
+                           angleRadians: stepAngle * i,
+                           rotationAxis: cone.Axis.Value,
+                           rotationCenter: Point3d.Origin) * rim.Value)),
+                       context: context)).As()
                select rays;
     }
 }
@@ -1243,10 +1005,7 @@ public readonly record struct CellLattice {
             ? from columns in FactoryBridge.Accept<Dimension>((int)counts.Columns)
               from rows in FactoryBridge.Accept<Dimension>((int)counts.Rows)
               from layers in FactoryBridge.Accept<Dimension>((int)counts.Layers)
-              from scale in Placement.Build(spec: new TransformSpec.UniformScale(Anchor: Point3d.Origin, Factor: cell.Value))
-              from shift in Placement.Build(spec: new TransformSpec.Translation(Motion: (Vector3d)bounds.Min))
-              from map in Placement.Build(spec: new TransformSpec.Compose(Values: Seq(scale, shift)))
-              from lattice in Of(indexToWorld: map, columns: columns, rows: rows, layers: layers, ceiling: ceiling)
+              from lattice in Of(indexToWorld: Transform.Translation((Vector3d)bounds.Min) * Transform.Scale(Point3d.Origin, cell.Value), columns: columns, rows: rows, layers: layers, ceiling: ceiling)
               select lattice
             : Fin.Fail<CellLattice>(error: new KernelFault.InvalidInput());
     }
@@ -1295,51 +1054,35 @@ public readonly record struct CellLattice {
                 Row: Math.Clamp(value: (int)Math.Floor(d: local.Y), min: 0, max: Rows.Value - 1),
                 Layer: Math.Clamp(value: (int)Math.Floor(d: local.Z), min: 0, max: Layers.Value - 1));
     }
-    public BoundingBox Bounds {
-        get {
-            BoundingBox box = new(min: Point3d.Origin,
-                max: new Point3d(x: Columns.Value, y: Rows.Value, z: Rank is 3 ? Layers.Value : 0.0));
-            _ = box.Transform(xform: IndexToWorld);
-            return box;
-        }
-    }
+    public BoundingBox Bounds => IndexToWorld.TransformBoundingBox(new BoundingBox(
+        min: Point3d.Origin,
+        max: new Point3d(x: Columns.Value, y: Rows.Value, z: Rank is 3 ? Layers.Value : 0.0)));
 
-    public Fin<CellLattice> Coarsen() {
-        return from columns in FactoryBridge.Accept<Dimension>((Columns.Value / 2) + (Columns.Value % 2))
-               from rows in FactoryBridge.Accept<Dimension>((Rows.Value / 2) + (Rows.Value % 2))
-               from layers in FactoryBridge.Accept<Dimension>(Rank is 3 ? Math.Max(2, (Layers.Value / 2) + (Layers.Value % 2)) : 1)
-               from scale in Placement.Build(spec: new TransformSpec.Diagonal(Values: new Vector3d(
-                   x: Columns.Value > 1 ? 2.0 : 1.0,
-                   y: Rows.Value > 1 ? 2.0 : 1.0,
-                   z: Rank is 3 && Layers.Value > 2 ? 2.0 : 1.0)))
-               from map in Placement.Build(spec: new TransformSpec.Compose(Values: Seq(scale, IndexToWorld)))
-               from level in Of(indexToWorld: map, columns: columns, rows: rows, layers: layers, ceiling: Ceiling)
-               select level;
-    }
+    public Fin<CellLattice> Coarsen() =>
+        from columns in FactoryBridge.Accept<Dimension>((Columns.Value / 2) + (Columns.Value % 2))
+        from rows in FactoryBridge.Accept<Dimension>((Rows.Value / 2) + (Rows.Value % 2))
+        from layers in FactoryBridge.Accept<Dimension>(Rank is 3 ? Math.Max(2, (Layers.Value / 2) + (Layers.Value % 2)) : 1)
+        from level in Of(indexToWorld: IndexToWorld * Transform.Diagonal(new Vector3d(
+            x: Columns.Value > 1 ? 2.0 : 1.0,
+            y: Rows.Value > 1 ? 2.0 : 1.0,
+            z: Rank is 3 && Layers.Value > 2 ? 2.0 : 1.0)), columns: columns, rows: rows, layers: layers, ceiling: Ceiling)
+        select level;
 }
 ```
 
 ## [06]-[PROJECTION_ROW]
 
-- Owner: `ProjectionRow` is the typed dispatch row — a `Type`/`Make` pair whose `Of<TValue>` factory erases once at declaration so call sites never spell an `(object)` cast — and `ResultProjection` is the corpus-wide raw-to-typed output dispatch every kernel surface resolves its `.Project<TOut>` output type through. `RawAdmission` is the capability vocabulary a raw-boundary caller declares its conditional arms with.
-- Cases: `Rows` scans a typed row-table with identity fallthrough; `Self`, `Value`, `SelfOrValue`, `Values`, and `Custom` cover the fixed acceptance shapes; `Raw` is the one raw-`object` boundary case where a loose payload meets the typed world, and `Accepts(raw, output, admits)` is its pair predicate — the same (raw type, output type, magnitude admission) table answered as a `bool` before any sample exists, so a selector row storing its raw type gates an output shape at build time and the run-time fold can only agree.
-- Law: a conditional `Raw` arm reads a `CapabilitySet<RawAdmission>` the caller declares as row data, never a boolean beside the payload — magnitude admission is a property of the producing row and the set is how that row states it.
+- Owner: `ProjectionRow` is the typed dispatch row — a `Type`/`Make` pair whose `Of<TValue>` factory erases once at declaration so call sites never spell an `(object)` cast — and `ResultProjection` is the corpus-wide raw-to-typed output dispatch every kernel surface resolves its `.Project<TOut>` output type through.
+- Cases: `Rows` scans a typed row-table with identity fallthrough; `Self`, `Value`, `SelfOrValue`, `Values`, and `Custom` cover the fixed acceptance shapes; `Raw` is the one raw-`object` boundary case where a loose payload meets the typed world, and `Accepts(raw, output, admitsMagnitude)` is its pair predicate — the same (raw type, output type, magnitude admission) table answered as a `bool` before any sample exists, so a selector row storing its raw type gates an output shape at build time and the run-time fold can only agree.
+- Law: the conditional vector-magnitude arm reads the producing row's `admitsMagnitude` fact directly.
 - Exemption: `Rows` carries two arities because a `params` span may not follow an optional parameter; the owner-bearing arity is the primary and the other forwards its absent owner.
 - Entry: `ResultProjection.Rows` scans the row table, first match winning and `TOut == TSelf` yielding the value itself, anything else failing `key.Unsupported`; `ProjectionRow.Of` declares one row.
 - Auto: the row table is data — a surface grows an output modality by adding one `ProjectionRow` beside its peers while the dispatch body never changes; `Raw` admits through the owning model's `Of`, so the row is an admission funnel, not a cast.
-- Packages: LanguageExt.Core for the `Fin`/`Option`/`Seq` types; Thinktecture.Runtime.Extensions for the capability vocabulary; Rasm.Domain (project) for the `ICapability`/`CapabilitySet` idiom; RhinoCommon for the value structs at the `Raw` case; the BCL for `Type` and `ReadOnlySpan<T>`.
-- Growth: a new projectable output is one `ProjectionRow` at the owning surface or one arm in the `Raw` case; a new conditional raw arm is one `RawAdmission` row read by set algebra, never a new parameter; a surface-local `typeof(TOut)` switch is the collapse trigger that routes here.
+- Packages: LanguageExt.Core for the `Fin`/`Option`/`Seq` types; RhinoCommon for the value structs at the `Raw` case; the BCL for `Type` and `ReadOnlySpan<T>`.
+- Growth: a new projectable output is one `ProjectionRow` at the owning surface or one arm in the `Raw` case; a surface-local `typeof(TOut)` switch is the collapse trigger that routes here.
 - Boundary: `ResultProjection` is the one sanctioned type-directed dispatch site in the kernel; inline `typeof(TOut)` reflection branching inside a consumer surface is the deleted form. `ResultProjection` stays `internal`, so consumers reach it only through their surface's `.Project<TOut>` and the public API never exposes an untyped `object` entry. `ResultProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
 
 ```csharp
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RawAdmission : ICapability<RawAdmission> {
-    public static readonly RawAdmission VectorMagnitude = new(key: "vector-magnitude", rank: 0);
-    public int Rank { get; }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal readonly record struct ProjectionRow(Type Output, Func<Fin<object>> Make) {
     internal static ProjectionRow Of<TValue>(Func<Fin<TValue>> make) =>
@@ -1372,28 +1115,29 @@ internal static class ResultProjection {
         typeof(TOut) == typeof(TValue)
             ? claim ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: new KernelFault.InvalidResult())
             : Fin.Fail<TOut>(error: new KernelFault.Unsupported(InputType: owner.IfNone(typeof(TValue)), OutputType: typeof(TOut)));
-    internal static bool Accepts(Type raw, Type output, CapabilitySet<RawAdmission> admits) => raw switch {
-        Type r when r == typeof(Vector3d) => output == typeof(Vector3d) || output == typeof(Direction) || (output == typeof(double) && admits.Admits(RawAdmission.VectorMagnitude)),
+    internal static bool Accepts(Type raw, Type output, bool admitsMagnitude) => raw switch {
+        Type r when r == typeof(Vector3d) => output == typeof(Vector3d) || output == typeof(Direction) || (output == typeof(double) && admitsMagnitude),
         Type r when r == typeof(Plane) => output == typeof(Plane) || output == typeof(VectorFrame),
         Type r when r == typeof(VectorAngle) => output == typeof(VectorAngle) || output == typeof(double),
         Type r when r == typeof(Direction) => output == typeof(Direction) || output == typeof(Vector3d),
         Type r when r == typeof(double) || r == typeof(Circle) || r == typeof(Point3d) || r == typeof(Matrix) || r == typeof(Seq<double>) || r == typeof(SymmetricMatrix) => output == r,
         _ => false,
     };
-    internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Type owner, CapabilitySet<RawAdmission> admits) =>
+    internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Type owner, bool admitsMagnitude) =>
         (raw, typeof(TOut)) switch {
             (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v),
             (Vector3d v, Type t) when t == typeof(Direction) => context.ToFin(Fail: new KernelFault.MissingContext()).Bind(model => Direction.Of(value: v, context: model).Bind(direction => direction.Project<TOut>())),
-            (Vector3d v, Type t) when t == typeof(double) && admits.Admits(RawAdmission.VectorMagnitude) => Acceptance.Value(value: v).Bind(valid => Value<double, TOut>(value: valid.Length)),
+            (Vector3d v, Type t) when t == typeof(double) && admitsMagnitude => Acceptance.Value(value: v).Bind(valid => Value<double, TOut>(value: valid.Length)),
             (Plane p, Type t) when t == typeof(Plane) => Admit.Plane(basis: p).Bind(valid => Value<Plane, TOut>(value: valid)),
-            (Plane p, Type t) when t == typeof(VectorFrame) => context.ToFin(Fail: new KernelFault.MissingContext()).Bind(model => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: model).Bind(frame => frame.Project<TOut>())),
+            (Plane p, Type t) when t == typeof(VectorFrame) => context.ToFin(Fail: new KernelFault.MissingContext()).Bind(model => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: model).Bind(frame => Value<VectorFrame, TOut>(value: frame))),
             (double d, Type t) when t == typeof(double) => Value<double, TOut>(value: d),
             (Circle c, Type t) when t == typeof(Circle) => Value<Circle, TOut>(value: c),
             (Point3d p, Type t) when t == typeof(Point3d) => Value<Point3d, TOut>(value: p),
             (Matrix matrix, Type t) when t == typeof(Matrix) => Custom<Matrix, TOut>(value: matrix, claim: matrix.IsValid),
             (Seq<double> ks, Type t) when t == typeof(Seq<double>) => ks.ForAll(Band.Parameter.Admits) ? Fin.Succ((TOut)(object)ks) : Fin.Fail<TOut>(error: new KernelFault.InvalidResult()),
             (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => Custom<SymmetricMatrix, TOut>(value: matrix, claim: matrix.IsValid),
-            (VectorAngle angle, Type t) when t == typeof(VectorAngle) || t == typeof(double) => angle.Project<TOut>(),
+            (VectorAngle angle, Type t) when t == typeof(VectorAngle) => Value<VectorAngle, TOut>(value: angle),
+            (VectorAngle angle, Type t) when t == typeof(double) => Value<double, TOut>(value: angle.Value),
             (Direction direction, Type t) when t == typeof(Direction) || t == typeof(Vector3d) => direction.Project<TOut>(),
             _ => Fin.Fail<TOut>(error: new KernelFault.Unsupported(InputType: owner, OutputType: typeof(TOut))),
         };

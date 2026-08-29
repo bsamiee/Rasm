@@ -14,7 +14,7 @@ Rasm.Compute daylight runner owns the `Discipline.Daylight` assessment arm: it a
 - Law: circumsolar admission is probed PER WEATHER HOUR at the policy cadence — each retained `SkyState` casts its own occlusion ray along its own sun direction, so a target the morning sun reaches and the afternoon sun does not reads two different circumsolar admissions; a design-day-mean visibility ratio smeared across the annual sum reports a fabricated sky at every hour it was not measured at.
 - Entry: `Run(graph, request, geometry, sink, clock)` resolves the target points and obstruction scene through the `GeometrySource` port (an unresolvable target fails `AnalysisFailed(Admission, Input)`), reads optional weather through `WeatherIngress.Read` over the source axis (a present-but-malformed source fails typed; an absent one selects the geometry-only degrade over the request's explicit `Site`; the gridded row reads one rank-3 single-cell annual hyperslab per variable at the request's declared cell), and mints the fact stream; the governing ratio is the worst target's required/achieved sun-hours (EN 17037 minimum-sunlight, the route row's citation), ABSENT where the request carries no requirement. Under weather the runner also lands the annual per-sensor irradiance matrix through the threaded `AssessmentSink` — a target-outermost `[targets, probedHours]` grid derived through the one `Runtime/archive#CHUNK_CURSOR` owner, written through the declared-session capsule onto `sink.Store`, with the same evidence crossing `sink.Series` in temporal form — and the result carries the artifact's `BlobKey` on `ResultArtifact`. The assessment content key rides IN from the dispatch spine because both sink legs address their rows by it; a runner-side re-derivation would key the artifact, the series, and the assessment node three ways.
 - Result: rides the one `AssessmentPayload` case, no daylight-local result; the `sky-state` fact (`perez:<band>` or `geometry-only`) makes the degrade auditable off the baked node, the `weather-cell` fact names which corpus cell served a gridded run, and the weather-bearing run's `ResultArtifact` names the annual matrix artifact.
-- Packages: NREL.OpenStudio.macOS-arm64 (the `EpwFile` reader — `latitude()`/`longitude()`/`timeZone()`/`elevation()`, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` `OptionalDouble` under the SWIG `is_initialized()`-then-`get()` discipline — the energy lane's own pin), PureHDF (`NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`, `IH5Object.Attribute`/`AttributeExists` — the gridded row; the matrix artifact reaches the library only through the archive capsule), CommunityToolkit.HighPerformance (`MemoryOwner<double>` the pooled annual column each gridded variable reads into), Rasm (project — the kernel `SpatialIndex.Wire` node-link wire the staged scene decodes from, the `Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition`/`SolarSite`/`SunPosition` solar almanac, `Evidence<T>` the measured-versus-absent probe result, `Context`/`ToleranceLane` the footprint degeneracy gate), Rasm.Element (`ElementGraph`, `NodeId`, `FootprintPolygon`, `ContentAddress`, `BlobKey`, `Dimension`), Rasm.Persistence (project — the `Query/datasets#SERIES_ROSTER` `SeriesPoint` the temporal leg lands), the `Runtime/archive#CHUNK_CURSOR` `ChunkGrid`/`ArchiveSession`/`ArchiveSlot`/`ArchiveAttribute` write capsule, Generator.Equals (`[Equatable]`+`[OrderedEquality]` — the plane-vector reference-equality repair), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Packages: NREL.OpenStudio.macOS-arm64 (the `EpwFile` reader — `latitude()`/`longitude()`/`timeZone()`/`elevation()`, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` `OptionalDouble` under the SWIG `is_initialized()`-then-`get()` discipline — the energy lane's own pin), PureHDF (`NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`, `IH5Object.Attribute`/`AttributeExists` — the gridded row; the matrix artifact reaches the library only through the archive capsule), CommunityToolkit.HighPerformance (`MemoryOwner<double>` the pooled annual column each gridded variable reads into), Rasm (project — the kernel `SpatialIndex.Wire` node-link wire the staged scene decodes from, the `Numerics/calculus#SOLAR_EPHEMERIS` `SolarSite`/`SunPosition` solar almanac, `Evidence<T>` the measured-versus-absent probe result, `Context`/`ToleranceLane` the footprint degeneracy gate), Rasm.Element (`ElementGraph`, `NodeId`, `FootprintPolygon`, `ContentAddress`, `BlobKey`, `Dimension`), Rasm.Persistence (project — the `Query/datasets#SERIES_ROSTER` `SeriesPoint` the temporal leg lands), the `Runtime/archive#CHUNK_CURSOR` `ChunkGrid`/`ArchiveSession`/`ArchiveSlot`/`ArchiveAttribute` write capsule, Generator.Equals (`[Equatable]`+`[OrderedEquality]` — the plane-vector reference-equality repair), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new sky model is one band-table swap on the same `SkyState` carrier; a tilted-plane fact (a window vertical-sky-component) composes the row's `Horizon` term beside the `Circumsolar` one already folded; a re-cadenced sweep or hemisphere fan is one `DaylightPolicy` column; sDA/ASE-class EN 17037 hour-threshold metrics are ONE reduction over the stored matrix rows — the scalar mean cannot reach them, and no re-run is ever needed; a new gridded variable is one `WeatherSource.Gridded` column; zero new surface.
 - Boundary: shadow rays are `Solver/clash#CLASH_AND_TWIN` `ClashScale.Occluded` over the decoded kernel BVH — one ray engine on the one acceleration owner, never a daylight-local traversal, and the app stages the decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys; sky ingress rides the two-row `WeatherSource` axis — the energy lane's own `WeatherRef` surface through the admitted `EpwFile` reader, and the gridded corpus row over `Runtime/archive#HDF_ARCHIVE` whose netCDF SEMANTICS (CF `units`/`calendar`, coordinate datasets) resolve ABOVE the raw-HDF5 API (PureHDF surfaces raw objects), the `CfEpoch` object factory admitting the `hours since <date>` grammar and the calendar roster as ONE two-column datum and refusing the rest typed — never a second weather decode path nor a weather column on the sampling policy. Both source rows converge on ONE hour admission: a sky hour is an `(instant, DNI, DHI)` triple whichever wire carried it, so the finite-non-negative pair test and the above-horizon filter are stated once and the two rows cannot drift on which hour a malformed reading drops. Every gridded gate ACCUMULATES — the declared cell bound, the calendar, and the epoch report together — and the handle rides the bracketed archive session, which releases on every outcome arm where a `using` inside a fallible lambda released on the arms the lambda reached; the gridded corpus keys by CONTENT KEY beside its declared cell and year span, never by path; the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac is composed, never re-derived — the same owner `Rasm.AppUi` viewport sun-light and the Materials environment adapter compose — and its ANGLES project into the float clash coordinate at `SurveyRay`, this page's ONE narrowing, so the almanac's double bijection is never floored by a ray engine and no host coordinate reaches a signature here. EN 17037 fixes the reference plane HORIZONTAL, so the plane-of-array form collapses exactly: the isotropic weight `(1 + cos S)/2` becomes the measured sky-view factor, the circumsolar ratio `a/b` is unity under an above-horizon sun, and the horizon band's `sin S` factor is zero — the fold composes `Circumsolar` alone and `Horizon` stays row surface the tilted case reads, never a term applied at a tilt that annihilates it. Every sampling count and step is a `DaylightPolicy` column that folds the assessment content key, never a runner constant a re-cadenced sweep silently re-uses the cached answer of.
 
@@ -74,14 +74,15 @@ public readonly record struct SkyState(Instant At, SunPosition Sun, double Direc
     const double SolarConstantWm2 = 1367.0;
 
     public static SkyState Of(SolarSite site, Instant at, double directNormalWm2, double diffuseHorizontalWm2) {
-        SunPosition sun = SolarPosition.At(site, at);
-        double zenithRad = sun.ZenithDeg * Math.PI / 180.0;
+        SunPosition sun = SunPosition.At(site, at);
+        double zenithDeg = 90.0 - sun.AltitudeDeg;
+        double zenithRad = zenithDeg * Math.PI / 180.0;
         double kappa = 1.041 * zenithRad * zenithRad * zenithRad;
         double clearness = diffuseHorizontalWm2 > 0.0
             ? ((diffuseHorizontalWm2 + directNormalWm2) / diffuseHorizontalWm2 + kappa) / (1.0 + kappa)
             : 1.0;
         return new SkyState(at, sun, directNormalWm2, diffuseHorizontalWm2,
-            diffuseHorizontalWm2 * AirMass(sun.ZenithDeg) / Extraterrestrial(at.WithOffset(site.StandardOffset).DayOfYear),
+            diffuseHorizontalWm2 * AirMass(zenithDeg) / Extraterrestrial(at.WithOffset(site.StandardOffset).DayOfYear),
             PerezBand.OfClearness(clearness));
     }
 
@@ -150,7 +151,7 @@ public static class WeatherIngress {
         readings
             .Filter(static row => double.IsFinite(row.Dni) && row.Dni >= 0.0 && double.IsFinite(row.Dhi) && row.Dhi >= 0.0)
             .Map(row => SkyState.Of(site, row.At, row.Dni, row.Dhi))
-            .Filter(static hour => hour.Sun.AboveHorizon)
+            .Filter(static hour => hour.Sun.AltitudeDeg > 0.0)
             .Match(
                 Empty: () => Fin.Fail<WeatherObservations>(new ComputeFault.AnalysisFailed(
                     SolvePhase.Extraction, FailureKind.Input, "<daylight-weather-no-valid-daylight-hours>")),
@@ -338,9 +339,10 @@ public static class DaylightAnalysis {
 
     static Fin<Seq<SunSample>> DesignSweep(DaylightScene scene, Vector3 origin, SolarSite site, AssessmentRequest.Daylight request) =>
         request.DesignDays
-            .Bind(day => SolarPosition
-                .SunPath(site, day.AtMidnight().WithOffset(site.StandardOffset).ToInstant(), Duration.FromHours(request.Policy.SunStepHours), request.Policy.SunSamplesPerDay)
-                .Filter(static row => row.Sun.AboveHorizon)
+            .Bind(day => toSeq(Enumerable.Range(0, request.Policy.SunSamplesPerDay))
+                .Map(i => day.AtMidnight().WithOffset(site.StandardOffset).ToInstant() + (Duration.FromHours(request.Policy.SunStepHours) * i))
+                .Map(at => (Instant: at, Sun: SunPosition.At(site, at)))
+                .Filter(static row => row.Sun.AltitudeDeg > 0.0)
                 .Map(row => (Day: day, Ray: SurveyRay(row.Sun))))
             .TraverseM(row => ClashScale.Occluded(scene.Scene, origin, row.Ray, scene.SceneDiameter)
                 .Map(occluded => new SunSample(row.Day, occluded)))
@@ -374,8 +376,9 @@ public static class DaylightAnalysis {
         probed
             .TraverseM(hour => ClashScale.Occluded(scene.Scene, origin, SurveyRay(hour.Sun), scene.SceneDiameter)
                 .Map(occluded => {
-                    double diffuse = Diffuse(hour, skyView, occluded);
-                    double direct = occluded ? 0.0 : hour.DirectNormalWm2 * Math.Max(0.0, Math.Cos(hour.Sun.ZenithDeg * Math.PI / 180.0));
+                    double zenithDeg = 90.0 - hour.Sun.AltitudeDeg;
+                    double diffuse = Diffuse(hour, skyView, occluded, zenithDeg);
+                    double direct = occluded ? 0.0 : hour.DirectNormalWm2 * Math.Max(0.0, Math.Cos(zenithDeg * Math.PI / 180.0));
                     return (Diffuse: diffuse, Plane: diffuse + direct);
                 }))
             .As()
@@ -383,8 +386,8 @@ public static class DaylightAnalysis {
                 Mean: terms.Map(static term => term.Diffuse).Sum() / terms.Count,
                 PlaneWm2: terms.Map(static term => term.Plane).ToArray()));
 
-    static double Diffuse(SkyState hour, double skyView, bool occluded) {
-        double circumsolar = hour.Band.Circumsolar(hour.Brightness, hour.Sun.ZenithDeg * Math.PI / 180.0);
+    static double Diffuse(SkyState hour, double skyView, bool occluded, double zenithDeg) {
+        double circumsolar = hour.Band.Circumsolar(hour.Brightness, zenithDeg * Math.PI / 180.0);
         return hour.DiffuseHorizontalWm2 * ((1.0 - circumsolar) * skyView + (occluded ? 0.0 : circumsolar));
     }
 

@@ -31,6 +31,7 @@ using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using DoubleDouble;
 using LanguageExt;
+using MathNet.Numerics.LinearAlgebra;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Solving;
@@ -40,7 +41,6 @@ using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using Dimension = Rasm.Numerics.Dimension;
-using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Processing;
 
@@ -446,21 +446,22 @@ internal static class AlignKernel {
             cross[6] += w * sv.Z * tv.X; cross[7] += w * sv.Z * tv.Y; cross[8] += w * sv.Z * tv.Z;
             sourceSpread += w * sv.SquareLength;
         }
-        return from h in Matrix.Of(rows: dim3, cols: dim3, entries: new Arr<double>(cross))
-               from svd in h.DecomposeSvd()
-               from vu in svd.V.Multiply(other: svd.U.Transpose())
-               from det in vu.Determinant()
+        return from h in MatrixKernel.Dense(rows: dim3, cols: dim3, entries: new Arr<double>(cross))
+               from svd in MatrixKernel.Svd(h)
+               let v = svd.VT.Transpose()
+               let vu = v.Multiply(svd.U.Transpose())
+               let det = vu.Determinant()
                let diag = new[] { 1.0, 1.0, det >= 0.0 ? 1.0 : -1.0 }
-               from d in Matrix.Of(rows: dim3, cols: dim3, entries: new Arr<double>([.. Enumerable.Range(start: 0, count: 9).Select(idx => (idx / 3) == (idx % 3) ? diag[idx / 3] : 0.0)]))
-               from vd in svd.V.Multiply(other: d)
-               from rot in vd.Multiply(other: svd.U.Transpose())
+               from d in MatrixKernel.Dense(rows: dim3, cols: dim3, entries: new Arr<double>([.. Enumerable.Range(start: 0, count: 9).Select(idx => (idx / 3) == (idx % 3) ? diag[idx / 3] : 0.0)]))
+               let vd = v.Multiply(d)
+               let rot = vd.Multiply(svd.U.Transpose())
                let rotation = Rotation(rot)
                from scaled in fit.Seat(source: source, target: target, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, rotation: rotation, sourceSpread: sourceSpread, bands: bands)
                select scaled;
 
-        static Transform Rotation(Matrix source) {
+        static Transform Rotation(Matrix<double> source) {
             Transform result = Transform.Identity;
-            for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) result[i, j] = source.At(i, j);
+            for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) result[i, j] = source[i, j];
             return result;
         }
     }
@@ -500,8 +501,8 @@ internal static class AlignKernel {
                 b[i] = (q - p) * nrm;
             }
             return FactoryBridge.Accept<Dimension>(n).Bind(rows =>
-                Matrix.Of(rows: rows, cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat)))
-                .Bind(design => design.LeastSquaresDetailed(rhs: new Arr<double>(b)))
+                MatrixKernel.Dense(rows: rows, cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat)))
+                .Bind(design => MatrixKernel.LeastSquares(matrix: design, rhs: new Arr<double>(b)))
                 .Bind(solve => solve.Solution.Count == 6 && solve.Solution.ForAll(RhinoMath.IsValidDouble)
                     ? Fin.Succ(new AlignmentStep(
                         Delta: ComposeRigidTransform(omega: new Vector3d(x: solve.Solution[0], y: solve.Solution[1], z: solve.Solution[2]), translation: new Vector3d(x: solve.Solution[3], y: solve.Solution[4], z: solve.Solution[5]), bands: bands),

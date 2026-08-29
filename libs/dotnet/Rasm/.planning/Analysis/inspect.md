@@ -446,7 +446,7 @@ public sealed partial class MeshMetric {
                 _ => Fin.Fail<Seq<int>>(new KernelFault.InvalidInput()),
             }).Bind((Seq<int> neighbours) => neighbours
                 .TraverseM(other => NormalOf(probe: probe.AtFace(face: other), context: context)
-                    .Bind(neighbour => VectorAngle.Of(a: normal, b: neighbour, context: context, pivot: Option<AnglePivot>.None).Map(static angle => angle.Value))).As()
+                    .Bind(neighbour => VectorAngle.Of(a: normal, b: neighbour, context: context).Map(static angle => angle.Value))).As()
                 .Bind(angles => Stat.Extrema(items: angles, projection: static angle => angle, band: context.For(lane: ToleranceLane.Angle), direction: ExtremumDirection.Maximum)
                     .Head.ToFin(new KernelFault.InvalidResult()))));
 }

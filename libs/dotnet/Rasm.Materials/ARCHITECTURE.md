@@ -174,7 +174,7 @@ flowchart LR
     Host([Host boundary])
     Rasm([Rasm])
     Rasm e1@-->|"[SHAPE]: SunPosition"| Appearance
-    Rasm e2@-->|"[SHAPE]: SpectralArena"| Raster
+    Rasm e2@-->|"[SHAPE]: Spectral"| Raster
     Rasm e3@-->|"[SHAPE]: CellLattice"| Raster
     Rasm e4@-->|"[SHAPE]: ChannelDtype"| Raster
     Rasm e5@-->|"[PROJECTION]: ChartAtlas"| Raster

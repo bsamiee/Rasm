@@ -2,7 +2,7 @@
 
 `Rasm.Meshing` owns the exact mesh-and-polygon arrangement: ONE `ArrangementOp` `[Union]` — `MeshBoolean`, `PlanarOverlay`, `CellComplex` — folded by ONE `Arrangement.Apply` entry over the shared subdivide → classify → keep → weld algebra, `BooleanOp` the region-predicate vocabulary keep and flip derive from, four booleans as four data rows over one classification. Managed exactness is the ONE correctness owner, `manifoldc` the tier-3 scale companion behind the finite `ScaleCeiling`, an over-ceiling call with no per-RID native asset failing typed on the `GeometryFault` union.
 
-Rebuilding composes each floor from its owner: the crossing table from `Intersection.Apply` (`CrossTable`), per-face constrained re-triangulation from `Tessellation.Build` (`Conform.Crossing` rows, `CrossKey`-interned `Implicit` vertices), the batched inside/outside scalar from ONE winding `SpatialIndex.Query` per operand, soup and weld from `MeshEdit.Of` + `MeshEdit.Weld`, and both graph products — component severance and rim decomposition — from the ONE admitted QuikGraph walk family. `BooleanOp`, `BooleanCensus`, and its nested `ManifoldEvidence` record mint here; `Processing/session` composes `BooleanCensus` as the heal-session payload, `Processing/repair`'s `HealOp.Boolean` delegates to `Arrangement.Apply`, and an `Analysis` `Eff<Env, T>` pipeline descending into this synchronous fold seats its governance onto `ArrangementPolicy`'s own `Progress` and `Cancel` columns at the crossing — the descent is one-way and `Analysis` gains no `Meshing` reference.
+Rebuilding composes each floor from its owner: the crossing table from `Intersection.Apply` (`CrossTable`), per-face constrained re-triangulation from `Tessellation.Build` (`Conform.Crossing` rows, `CrossKey`-interned `ImplicitPoint` vertices), the batched inside/outside scalar from ONE winding `SpatialIndex.Query` per operand, soup and weld from `MeshEdit.Of` + `MeshEdit.Weld`, and both graph products — component severance and rim decomposition — from the ONE admitted QuikGraph walk family. `BooleanOp`, `BooleanCensus`, and its nested `ManifoldEvidence` record mint here; `Processing/session` composes `BooleanCensus` as the heal-session payload, `Processing/repair`'s `HealOp.Boolean` delegates to `Arrangement.Apply`, and an `Analysis` `Eff<Env, T>` pipeline descending into this synchronous fold seats its governance onto `ArrangementPolicy`'s own `Progress` and `Cancel` columns at the crossing — the descent is one-way and `Analysis` gains no `Meshing` reference.
 
 ## [01]-[INDEX]
 
@@ -13,13 +13,13 @@ Rebuilding composes each floor from its owner: the crossing table from `Intersec
 
 - Owner: `BooleanOp` `[SmartEnum]` (`Union`/`Difference`/`Intersection`/`Xor`) — each row carries the `[UseDelegateFromConstructor]` `Region` predicate column alone, the `ManifoldOpType` ordinal riding the generated exhaustive `Switch` at the `manifoldc` boundary (`ManifoldOpType` has no symmetric difference, so the `Xor` arm decomposes it as union-minus-intersection under its own handle custody); keep and orientation DERIVE over `Region` at their ONE consumer, one classification never four keep bodies; `PolygonFill` `[SmartEnum]` (`NonZero`/`EvenOdd`/`Positive`/`Negative`) the fill-rule rows whose `Inside` delegate classifies the overlay's signed winding count; `BooleanCensus` the one typed boolean evidence over two axes — the summing census columns and the nested `Option<ManifoldEvidence>` native axis carrying genus/V-E-F/volume/area guarantee BESIDE the operand-seated run windows, run ids, and per-triangle face ids its one `OperandOf` join reads, its PRESENCE the route evidence itself and its one optional slot spelling absence where the arm took no measure; the operand side riding one named `fromA` fact through the subdivision walk, translated to the crossing table's side ordinal at that boundary alone; `ArrangementPolicy` the policy row binding GWN accuracy, winding admission, the fill rule, the finite `ScaleCeiling`, the constrained `Substrate`, spatial/intersect policies, the weld `Arena`, and the execution-governance band BOTH routes read (`Cancel` token and `Progress` sink, a composition site projecting both down from the ambient `Env` in the one `with` expression it already owns); `PatchStore` the `Arrangement`-private single-writer patch arena (triangle corners, operand origin, per-operand inside bits) whose ONE published product is the immutable `Arr` column set on `ArrangementResult.Complex`; `ArrangementOp`/`ArrangementResult` the request/result unions; `Arrangement` the static surface.
 - Cases: `BooleanOp` 4 (`Union`/`Difference`/`Intersection`/`Xor`), `PolygonFill` 4, `ArrangementOp` 3 (`MeshBoolean`/`PlanarOverlay`/`CellComplex`), `ArrangementResult` 3 (`Boolean`/`Overlay`/`Complex`); the fence carries every roster. `MeshBoolean` carries its operands as one `Seq<MeshSpace>` — a pair is the two-element case, an N-solid fold one request — and `Boolean` returns `Seq<MeshSpace> Shells` so a severed result expresses its components on BOTH routes, the managed route decomposing its welded terminal through the one graph-walk owner and the native route reading its `manifold_decompose` vector. `PlanarOverlay` admits ring sets directly (the `Meshing/offset` self-overlap owner); `CellComplex` retains the classified arrangement un-welded for the `Rasm.Bim` solid classifier.
-- Entry: one polymorphic `Apply` discriminating on the op case; no `MeshBool`/`PolygonBool`/`BuildComplex` sibling statics, and every interior static takes the typed outright. `Fin` routes `GeometryFault.DegenerateInput` on an empty mesh operand or an open/degenerate/non-finite overlay ring (rings arrive raw and admit here once; mesh operands carry the `MeshSpace` admission's evidence, the interior never re-validating), `ArrangementSubdivisionFailed` on a per-face substrate failure with its operand, face, and preserved cause, `NativeOperandRejected`/`NativeBooleanFailed` on a native status refusal, the direct cancellation cases — `SubdivisionCancelled`, `ClassificationCancelled`, `WeldCancelled`, `NativeBooleanCancelled` — EXACTLY when the governance token cancels, the native engine's `MANIFOLD_CANCELLED` status and the managed fold's stage reads each lowering its own case carrying the fraction the abandoning stage measured, and `ManifoldLibraryUnavailable` EXACTLY when combined operand faces exceed `ScaleCeiling` and the per-RID native asset does not resolve — under the ceiling the managed body serves every workload and the gate is never consulted; an over-ceiling `CellComplex` refuses TYPED as `CellComplexScaleExceeded`, the native engine emitting no classified cell set so the caller raises the revisable `ScaleCeiling` row for a managed run. Both volumetric cases share ONE fold with ONE soup admission per operand — gate, subdivision, classification, native raise, and emission read the same two arenas. `PlanarOverlay` returns oriented loops (outer CCW / holes CW) on intersect's chain vocabulary.
-- Auto: `MeshBoolean`/`CellComplex` run the shared `Arrange` fold — (1) `Intersection.Apply(IntersectOp.MeshMesh(a, b, policy.Narrow))` yields the frozen `CrossTable` (defining-entity crossing rows, per-face segments, coplanar constraint rows recorded on BOTH operand faces so the two surfaces split coherently on their shared curve); (2) per operand face, `table.OnFace` + `table.CoplanarOnFace` drive the subdivision — an un-cut face passes whole as one patch, a cut face builds `Tessellation.Build(TessellationOp.Points(...))` whose vertex rows are the three explicit corners and each crossing endpoint's `Implicit` construction interned by its `CrossKey`, piercing conforms `Conform.Crossing` rows carrying the OTHER operand's face plane and coplanar sub-segments the perpendicular plane `(S, T, S + ê)` through their carrier edge, the sub-triangles read back through `Triangles()` as corners beside face indices; (3) classification batches every patch probe (centroid nudged along the patch normal by the operand context's own `ToleranceLane.Offset` read) into ONE winding `SpatialIndex.Query(probes, otherSoup, BetaSquared)` per operand, its `double[]` scalars crossing `WindingThreshold` into the per-operand inside bits; (4) `MeshBoolean` reads `op.Region` on both arms of each patch's own membership — the patch survives where the two arms disagree and its winding flips where the outside arm holds — and welds through `MeshEdit.Of` + `MeshEdit.Weld` + `ToSpace`; `CellComplex` stops after (3) and copies the full arena into `ArrangementResult.Complex`'s immutable `Arr` columns. `PlanarOverlay` is the SAME algebra on rings: all ring vertices enter ONE constrained `Tessellation.Build` with every ring edge a `Conform.Edge`, each triangle's centroid gathers its exact SIGNED winding count against each operand's ring set (upward crossings +1 / downward −1, exact signs with no epsilon band), the policy's `PolygonFill` row classifies the raw count — `NonZero` canonical, so a self-overlapping cycle set resolves to its true covered region, with even-odd and one-sided fills the same walk under different rows — the region keeps per `op.Region(inA, inB)` directly, and the kept-region rim decomposes into oriented `Chain` loops through the folder's ONE `Chain.Of` owner over the substrate's own corner ordinals. Each managed stage — the two subdivision walks, the batched classification, the weld — OPENS by publishing its declared progress fraction and reading `policy.Cancel`, the subdivision walk re-reading the bare token per face, and the terminal welded result then decomposes into connected shells through the one QuikGraph component walk. Its native lane raises every operand ONCE and re-seats it through `manifold_as_original` so the result's runs name an operand the kernel declared, packs the operands into ONE `manifold_manifold_vec` and folds them in ONE `manifold_batch_boolean` call — `Xor` decomposing as union-minus-intersection over the same seated handles — then attaches the execution context to the RESULT, because a deferred batch op ignores an operand-attached context and returns one carrying none: `manifold_status` on that bound copy is the single eager force, the one point where `Cancel` reaches the evaluation and the progress read has anything to report. It reads the genus/census/volume/area guarantee off that forced handle, the run windows, run ids, and per-triangle face ids off its `meshgl64` as the attribution axis, and decomposes a severed result into shells.
+- Entry: one polymorphic `Apply` discriminating on the op case; no `MeshBool`/`PolygonBool`/`BuildComplex` sibling statics, and every interior static takes the typed outright. `Fin` routes `GeometryFault.DegenerateInput` on an empty mesh operand or an open/degenerate/non-finite overlay ring (rings arrive raw and admit here once; mesh operands carry the `MeshSpace` admission's evidence, the interior never re-validating), `ArrangementSubdivisionFailed` on a per-face substrate failure with its operand, face, and preserved cause, `ManifoldOperandRejected`/`ManifoldBooleanRejected` on a typed `ManifoldError` refusal, `ArrangementCancelled` with its `ArrangementStage` and optional operand EXACTLY when the governance token cancels, the Manifold engine's `MANIFOLD_CANCELLED` status and the managed fold's stage reads each lowering the staged case carrying the fraction the abandoning stage measured, and `ManifoldLibraryUnavailable` EXACTLY when combined operand faces exceed `ScaleCeiling` and the per-RID native asset does not resolve — under the ceiling the managed body serves every workload and the gate is never consulted; an over-ceiling `CellComplex` refuses TYPED as `CellComplexScaleExceeded`, the native engine emitting no classified cell set so the caller raises the revisable `ScaleCeiling` row for a managed run. Both volumetric cases share ONE fold with ONE soup admission per operand — gate, subdivision, classification, native raise, and emission read the same two arenas. `PlanarOverlay` returns oriented loops (outer CCW / holes CW) on intersect's chain vocabulary.
+- Auto: `MeshBoolean`/`CellComplex` run the shared `Arrange` fold — (1) `Intersection.Apply(IntersectOp.MeshMesh(a, b, policy.Narrow))` yields the frozen `CrossTable` (defining-entity crossing rows, per-face segments, coplanar constraint rows recorded on BOTH operand faces so the two surfaces split coherently on their shared curve); (2) per operand face, `table.OnFace` + `table.CoplanarOnFace` drive the subdivision — an un-cut face passes whole as one patch, a cut face builds `Tessellation.Build(TessellationOp.Points(...))` whose vertex rows are the three explicit corners and each crossing endpoint's `ImplicitPoint` construction interned by its `CrossKey`, piercing conforms `Conform.Crossing` rows carrying the OTHER operand's face plane and coplanar sub-segments the perpendicular plane `(S, T, S + ê)` through their carrier edge, the sub-triangles read back through `Triangles()` as corners beside face indices; (3) classification batches every patch probe (centroid nudged along the patch normal by the operand context's own `ToleranceLane.Offset` read) into ONE winding `SpatialIndex.Query(probes, otherSoup, BetaSquared)` per operand, its `double[]` scalars crossing `WindingThreshold` into the per-operand inside bits; (4) `MeshBoolean` reads `op.Region` on both arms of each patch's own membership — the patch survives where the two arms disagree and its winding flips where the outside arm holds — and welds through `MeshEdit.Of` + `MeshEdit.Weld` + `ToSpace`; `CellComplex` stops after (3) and copies the full arena into `ArrangementResult.Complex`'s immutable `Arr` columns. `PlanarOverlay` is the SAME algebra on rings: all ring vertices enter ONE constrained `Tessellation.Build` with every ring edge a `Conform.Edge`, each triangle's centroid gathers its exact SIGNED winding count against each operand's ring set (upward crossings +1 / downward −1, exact signs with no epsilon band), the policy's `PolygonFill` row classifies the raw count — `NonZero` canonical, so a self-overlapping cycle set resolves to its true covered region, with even-odd and one-sided fills the same walk under different rows — the region keeps per `op.Region(inA, inB)` directly, and the kept-region rim decomposes into oriented `Chain` loops through the folder's ONE `Chain.Of` owner over the substrate's own corner ordinals. Each managed stage — the two subdivision walks, the batched classification, the weld — OPENS by publishing its declared progress fraction and reading `policy.Cancel`, the subdivision walk re-reading the bare token per face, and the terminal welded result then decomposes into connected shells through the one QuikGraph component walk. Its native lane raises every operand ONCE and re-seats it through `manifold_as_original` so the result's runs name an operand the kernel declared, packs the operands into ONE `manifold_manifold_vec` and folds them in ONE `manifold_batch_boolean` call — `Xor` decomposing as union-minus-intersection over the same seated handles — then attaches the execution context to the RESULT, because a deferred batch op ignores an operand-attached context and returns one carrying none: `manifold_status` on that bound copy is the single eager force, the one point where `Cancel` reaches the evaluation and the progress read has anything to report. It reads the genus/census/volume/area guarantee off that forced handle, the run windows, run ids, and per-triangle face ids off its `meshgl64` as the attribution axis, and decomposes a severed result into shells.
 - Output: `BooleanCensus` — the classified-patch census, keep survivor count, weld vertex-collapse count, and one slot absent wherever the arm took no measure: `Option<ManifoldEvidence>` the native lane's genus, V/E/F triple, volume, and area read off the forced result handle beside the run attribution measured from the same `meshgl64` — the manifoldness guarantee the tier-3 route is bought for, witnessed rather than asserted, and the ONE route authority, present exactly on a native result and absent on every managed one, guarantee and attribution never splitting into a half-native state. `ArrangementResult.Boolean.Shells` is the SOLE severance census — the shells themselves, never a count beside them that can disagree. Patch-count delta with that route evidence is the boolean evidence `Processing/session` carries as the heal-session payload, and `ManifoldEvidence.OperandOf` is the source key `Rasm.Bim` reconstruction joins an output face back to its operand on.
 - Law: every `ArrangementPolicy` column is a guarded value object — `PositiveMagnitude` accuracy and nudge, `UnitInterval` admission, `Dimension` ceiling — so a nonpositive or out-of-band policy is unrepresentable and the record carries no evidence fold; the interior reads `.Value` and never re-guards.
 - Exemption: mutable tables live inside one statement kernel and never freeze — the private `PatchStore`'s four SoA columns (the arena itself), `slotOf` per face build, `dense` per shell re-index, the QuikGraph `label` sink (the algorithm's own out-parameter shape), and the `rim` cancellation set per overlay. None survives its enclosing fold, and no fold publishes one.
-- Packages: `Rasm.Meshing` (`Intersection.Apply`, `CrossTable`/`CrossKey`/`Chain` — the crossing table, composed), `Rasm.Meshing` delaunay owners (`Tessellation.Build`, `TessellationOp.Points`, `Conform.Edge`/`Conform.Crossing`, `TessellationPolicy.Constrained`, `Triangles()` — the constrained substrate, composed), `Rasm.Spatial` (`SpatialIndex.Build` + the batched winding `Query` arm — composed, never re-built), `Rasm.Meshing` (`MeshEdit.Of`, `MeshEdit.Weld`, `ArenaPolicy` — the soup and weld owners), `Rasm.Numerics` (`Predicate`/`Implicit`/`Sign`/`Axis` — the parity classification signs; `Dimension`/`PositiveMagnitude`/`UnitInterval` the policy bands), `Rasm.Numerics` (`GeometryFault`), `Rasm.Domain` (`Kind`, `Context`, `ValidityClaim`), `Rasm.Meshing` (`MeshSpace`), `Rhino.Geometry` (`Point3d`/`Polyline`), `manifoldc` (in-house P/Invoke, `api-manifold.md` — the tier-3 scale companion; NO NuGet pin), `Rasm.Meshing` intersect owners (`Chain.Of` — the folder's ONE oriented-edge decomposition, composed by the overlay rim), QuikGraph (`UndirectedGraph`/`SEdge` + `AddVerticesAndEdge` + `ConnectedComponents` — the shell labeller, the one graph product this page mints directly), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`NativeLibrary`, `RuntimeInformation`, `FrozenDictionary`).
-- Growth: a new arrangement modality (a Nef-style 3D cell refinement, a coplanar-face merge overlay) is one `ArrangementOp` case over the SAME arrange fold; a new boolean operation is ONE `BooleanOp` row — its `Region` delegate derives keep and flip with zero new bodies; a new classification or weld knob is one `ArrangementPolicy` column; a new managed governance checkpoint is one direct cancellation leaf at the fault owner carrying its own declared fraction; the tier-3 native path grows only behind the existing `ScaleCeiling` gate (a second native engine is a charter amendment); zero new surface.
+- Packages: `Rasm.Meshing` (`Intersection.Apply`, `CrossTable`/`CrossKey`/`Chain` — the crossing table, composed), `Rasm.Meshing` delaunay owners (`Tessellation.Build`, `TessellationOp.Points`, `Conform.Edge`/`Conform.Crossing`, `TessellationPolicy.Constrained`, `Triangles()` — the constrained substrate, composed), `Rasm.Spatial` (`SpatialIndex.Build` + the batched winding `Query` arm — composed, never re-built), `Rasm.Meshing` (`MeshEdit.Of`, `MeshEdit.Weld`, `ArenaPolicy` — the soup and weld owners), `Rasm.Numerics` (`Predicate`/`ImplicitPoint`/`Sign`/`Axis` — the parity classification signs; `Dimension`/`PositiveMagnitude`/`UnitInterval` the policy bands), `Rasm.Numerics` (`GeometryFault`), `Rasm.Domain` (`Kind`, `Context`, `ValidityClaim`), `Rasm.Meshing` (`MeshSpace`), `Rhino.Geometry` (`Point3d`/`Polyline`), `manifoldc` (in-house P/Invoke, `api-manifold.md` — the tier-3 scale companion; NO NuGet pin), `Rasm.Meshing` intersect owners (`Chain.Of` — the folder's ONE oriented-edge decomposition, composed by the overlay rim), QuikGraph (`UndirectedGraph`/`SEdge` + `AddVerticesAndEdge` + `ConnectedComponents` — the shell labeller, the one graph product this page mints directly), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`NativeLibrary`, `RuntimeInformation`, `FrozenDictionary`).
+- Growth: a new arrangement modality (a Nef-style 3D cell refinement, a coplanar-face merge overlay) is one `ArrangementOp` case over the SAME arrange fold; a new boolean operation is ONE `BooleanOp` row — its `Region` delegate derives keep and flip with zero new bodies; a new classification or weld knob is one `ArrangementPolicy` column; a new managed governance checkpoint is one `ArrangementStage` member carried by the existing cancellation fault with its declared fraction; the tier-3 native path grows only behind the existing `ScaleCeiling` gate (a second native engine is a charter amendment); zero new surface.
 - Boundary: ONE `ArrangementOp` `[Union]` owns all three modalities, keep and flip DERIVING from the one `Region` column; composition stops at the public entries — `Tessellation.Build`'s op and `Triangles` projection, never the interior `SimplexStore` or a page-local triangulator, and ONE batched `Spatial/index` `Winding` per operand, the 2D ring parity being the overlay's own exact classification owned here; the managed arrangement is the correctness owner, the native route a scale companion only, and the native extraction feeds `ToSpace` with NO re-weld — a tolerance-grid weld over the engine's topologically-welded output destroys the guaranteed-manifold property the route buys; `Apply` is total over `Fin`; `CellComplex` retains classification un-welded while the welded boolean is terminal; shells express disconnection LANE-UNIFORMLY, the managed route labelling components through the one admitted graph-walk owner and never a page-local flood fill, and governance is one band both routes read — the token gates the managed stage walks and the engine's own context alike, so abandonment never forks into two vocabularies.
 
 ```csharp
@@ -64,6 +64,26 @@ public sealed partial class PolygonFill {
     [UseDelegateFromConstructor]
     public partial bool Inside(int winding);
 }
+
+public enum ManifoldError {
+    MANIFOLD_NO_ERROR,
+    MANIFOLD_NON_FINITE_VERTEX,
+    MANIFOLD_NOT_MANIFOLD,
+    MANIFOLD_VERTEX_INDEX_OUT_OF_BOUNDS,
+    MANIFOLD_PROPERTIES_WRONG_LENGTH,
+    MANIFOLD_MISSING_POSITION_PROPERTIES,
+    MANIFOLD_MERGE_VECTORS_DIFFERENT_LENGTHS,
+    MANIFOLD_MERGE_INDEX_OUT_OF_BOUNDS,
+    MANIFOLD_TRANSFORM_WRONG_LENGTH,
+    MANIFOLD_RUN_INDEX_WRONG_LENGTH,
+    MANIFOLD_FACE_ID_WRONG_LENGTH,
+    MANIFOLD_INVALID_CONSTRUCTION,
+    MANIFOLD_RESULT_TOO_LARGE,
+    MANIFOLD_INVALID_TANGENTS,
+    MANIFOLD_CANCELLED,
+}
+
+public enum ArrangementStage { Subdivision, Classification, Weld, Manifold }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record ArrangementPolicy(
@@ -258,7 +278,7 @@ public static partial class Arrangement {
     static Fin<Unit> Subdivided(PatchStore store, MeshEdit soup, CrossTable table, bool fromA, MeshEdit other, ArrangementPolicy policy) {
         int side = fromA ? 0 : 1;
         UnitInterval progress = UnitInterval.Create(value: fromA ? 0.00 : 0.25);
-        GeometryFault cancelled = new GeometryFault.SubdivisionCancelled(side, progress);
+        GeometryFault cancelled = new GeometryFault.ArrangementCancelled(ArrangementStage.Subdivision, Some(side), progress);
         if (Opened(progress, policy)) { return Fin.Fail<Unit>(cancelled); }
         for (int f = 0; f < soup.FaceCount; f++) {
             if (policy.Cancel.IsCancellationRequested) { return Fin.Fail<Unit>(cancelled); }
@@ -282,7 +302,7 @@ public static partial class Arrangement {
         bool fromA, (Point3d A, Point3d B, Point3d C) face, int faceId,
         MeshEdit soup, MeshEdit other, ArrangementPolicy policy) {
         int side = fromA ? 0 : 1;
-        List<Implicit> rows = new() { new(face.A), new(face.B), new(face.C) };
+        List<ImplicitPoint> rows = new() { new(face.A), new(face.B), new(face.C) };
         Dictionary<CrossKey, int> slotOf = new();
         int Intern(int tableRow) {
             CrossTable.Row crossing = table.Rows[tableRow];
@@ -290,7 +310,7 @@ public static partial class Arrangement {
             rows.Add(crossing.Point);
             return slotOf[crossing.Key] = rows.Count - 1;
         }
-        return Axis.DominantOf(face.A, face.B, face.C).Bind(plane => {
+        return Axis.DominantOf(Vector3d.CrossProduct(face.B - face.A, face.C - face.A)).Bind(plane => {
             Vector3d lift = plane.Basis;
             List<Conform> conforms = new(cuts.Length + flush.Length);
             foreach ((int A, int B, int FaceA, int FaceB) cut in cuts) {
@@ -303,7 +323,7 @@ public static partial class Arrangement {
                 conforms.Add(new Conform.Crossing(Intern(row.A), Intern(row.B), s, t, s + lift));
             }
             return Tessellation.Build(
-                    new TessellationOp.Points(TessellationKind.Triangulation, new Arr<Implicit>([.. rows]), toSeq(conforms), policy.Substrate, plane, Some((face.A, face.B, face.C))))
+                    new TessellationOp.Points(TessellationKind.Triangulation, new Arr<ImplicitPoint>([.. rows]), toSeq(conforms), policy.Substrate, plane, Some((face.A, face.B, face.C))))
                 .MapFail(fail => new GeometryFault.ArrangementSubdivisionFailed(side, faceId, fail))
                 .Bind(static t => t.Triangles())
                 .Map(tris => {
@@ -315,7 +335,7 @@ public static partial class Arrangement {
 
     static Fin<PatchStore> Classify(PatchStore store, MeshEdit ea, MeshEdit eb, Context context, ArrangementPolicy policy) {
         UnitInterval progress = UnitInterval.Create(value: 0.50);
-        if (Opened(progress, policy)) { return Fin.Fail<PatchStore>(new GeometryFault.ClassificationCancelled(progress)); }
+        if (Opened(progress, policy)) { return Fin.Fail<PatchStore>(new GeometryFault.ArrangementCancelled(ArrangementStage.Classification, default, progress)); }
         Point3d[] probes = new Point3d[store.Count];
         double nudge = context.For(ToleranceLane.Offset).Value;
         for (int p = 0; p < store.Count; p++) {
@@ -349,7 +369,7 @@ public static partial class Arrangement {
     // --- [KEEP_AND_WELD]
     static Fin<(MeshSpace Solid, BooleanCensus Census)> KeepAndWeld(PatchStore store, BooleanOp op, Context context, ArrangementPolicy policy) {
         UnitInterval progress = UnitInterval.Create(value: 0.75);
-        if (Opened(progress, policy)) { return Fin.Fail<(MeshSpace, BooleanCensus)>(new GeometryFault.WeldCancelled(progress)); }
+        if (Opened(progress, policy)) { return Fin.Fail<(MeshSpace, BooleanCensus)>(new GeometryFault.ArrangementCancelled(ArrangementStage.Weld, default, progress)); }
         List<Point3d> vertices = new(3 * store.Count);
         List<(int, int, int)> faces = new(store.Count);
         int kept = 0;
@@ -374,7 +394,7 @@ public static partial class Arrangement {
 
     // --- [PLANAR_OVERLAY]
     static Fin<ArrangementResult> Overlay(ArrangementOp.PlanarOverlay op) {
-        List<Implicit> rows = new();
+        List<ImplicitPoint> rows = new();
         List<Conform> conforms = new();
         int ordinal = 0;
         foreach (Polyline ring in op.A.Concat(op.B)) {
@@ -389,7 +409,7 @@ public static partial class Arrangement {
             for (int v = 0; v < ring.Count - 1; v++) { conforms.Add(new Conform.Edge(baseAt + v, baseAt + ((v + 1) % (ring.Count - 1)))); }
             ordinal++;
         }
-        return Tessellation.Build(new TessellationOp.Points(TessellationKind.Triangulation, new Arr<Implicit>([.. rows]), toSeq(conforms), op.Policy.Substrate, op.Plane))
+        return Tessellation.Build(new TessellationOp.Points(TessellationKind.Triangulation, new Arr<ImplicitPoint>([.. rows]), toSeq(conforms), op.Policy.Substrate, op.Plane))
             .Bind(static t => t.Triangles())
             .Bind(tris => {
                 bool[] region = new bool[tris.Faces.Count];
@@ -453,7 +473,7 @@ public static partial class Arrangement {
         [LibraryImport("manifoldc")] private static partial void manifold_manifold_vec_set(nint ms, nuint idx, nint m);
         [LibraryImport("manifoldc")] private static partial nuint manifold_manifold_vec_length(nint ms);
         [LibraryImport("manifoldc")] private static partial nint manifold_manifold_vec_get(nint mem, nint ms, nuint idx);
-        [LibraryImport("manifoldc")] private static partial int manifold_status(nint m);
+        [LibraryImport("manifoldc")] private static partial ManifoldError manifold_status(nint m);
         [LibraryImport("manifoldc")] private static partial int manifold_genus(nint m);
         [LibraryImport("manifoldc")] private static partial nuint manifold_num_vert(nint m);
         [LibraryImport("manifoldc")] private static partial nuint manifold_num_edge(nint m);
@@ -461,7 +481,6 @@ public static partial class Arrangement {
         [LibraryImport("manifoldc")] private static partial double manifold_volume(nint m);
         [LibraryImport("manifoldc")] private static partial double manifold_surface_area(nint m);
         [LibraryImport("manifoldc")] private static partial void manifold_execution_context_cancel(nint context);
-        [LibraryImport("manifoldc")] private static partial int manifold_execution_context_cancelled(nint context);
         [LibraryImport("manifoldc")] private static partial double manifold_execution_context_progress(nint context);
         [LibraryImport("manifoldc")] private static partial nint manifold_with_context(nint mem, nint m, nint context);
         [LibraryImport("manifoldc")] private static partial nint manifold_get_meshgl64(nint mem, nint m);
@@ -493,9 +512,9 @@ public static partial class Arrangement {
                 for (int i = 0; i < operands.Count; i++) {
                     using MeshEdit soup = MeshEdit.Of(operands[i]);
                     raised[i] = Raise(soup);
-                    int raisedStatus = manifold_status(raised[i]);
-                    if (raisedStatus != 0) {
-                        return Fin.Fail<ArrangementResult>(new GeometryFault.NativeOperandRejected(i, raisedStatus));
+                    ManifoldError raisedStatus = manifold_status(raised[i]);
+                    if (raisedStatus != ManifoldError.MANIFOLD_NO_ERROR) {
+                        return Fin.Fail<ArrangementResult>(new GeometryFault.ManifoldOperandRejected(i, raisedStatus));
                     }
                     seated[i] = manifold_original_id(raised[i]);
                 }
@@ -517,18 +536,18 @@ public static partial class Arrangement {
                         }
                     });
                 observed = manifold_with_context(manifold_alloc_manifold(), raw, host);
-                int status = manifold_status(observed);
+                ManifoldError status = manifold_status(observed);
                 policy.Progress.Iter(sink => sink.Report(manifold_execution_context_progress(host)));
                 return status switch {
-                    0 => Shells(observed, context, policy)
+                    ManifoldError.MANIFOLD_NO_ERROR => Shells(observed, context, policy)
                             .Map(shells => {
                                 BooleanCensus.ManifoldEvidence evidence = Evidence(observed, seated);
                                 return (ArrangementResult)new ArrangementResult.Boolean(shells, new BooleanCensus(
                                     Classified: classified, Kept: evidence.Triangles, Welded: 0, Native: Some(evidence)));
                             }),
-                    _ when manifold_execution_context_cancelled(host) != 0 => Fin.Fail<ArrangementResult>(
-                        new GeometryFault.NativeBooleanCancelled(UnitInterval.Create(value: Math.Clamp(manifold_execution_context_progress(host), 0.0, 1.0)))),
-                    _ => Fin.Fail<ArrangementResult>(new GeometryFault.NativeBooleanFailed(status)),
+                    ManifoldError.MANIFOLD_CANCELLED => Fin.Fail<ArrangementResult>(
+                        new GeometryFault.ArrangementCancelled(ArrangementStage.Manifold, default, UnitInterval.Create(value: Math.Clamp(manifold_execution_context_progress(host), 0.0, 1.0)))),
+                    _ => Fin.Fail<ArrangementResult>(new GeometryFault.ManifoldBooleanRejected(status)),
                 };
             }
             finally {

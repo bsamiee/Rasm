@@ -263,7 +263,7 @@ flowchart LR
     Posting e12@-->|"[WIRE]: ToolpathPath"| Rasm
     Documentation e13@-->|"[WIRE]: HiddenLineResult"| AppUi
     Rasm e14@-->|"[SHAPE]: SpatialIndex"| Toolpath
-    Rasm e15@-->|"[SHAPE]: CellLattice + SpectralArena"| Additive
+    Rasm e15@-->|"[SHAPE]: CellLattice + Spectral"| Additive
     Rasm e16@-->|"[SHAPE]: CellLattice"| Geometry2D
     Rasm e17@-->|"[SHAPE]: ObjectiveSense"| Additive
     Rasm e18@-->|"[SHAPE]: MaterialSymmetry + PanelField + InstanceBatch"| Nesting

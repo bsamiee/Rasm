@@ -63,7 +63,7 @@ public sealed partial class FaultBand {
     // --- [AEC_AND_KERNEL_GEOMETRY]
     public static readonly FaultBand Core             = new(2200,  30, BandKind.Fault, TelemetrySource.Compute);
     public static readonly FaultBand Component        = new(2300,  41, BandKind.Fault, TelemetrySource.Materials);
-    public static readonly FaultBand Geometry         = new(2350,  62, BandKind.Fault, TelemetrySource.Kernel);
+    public static readonly FaultBand Geometry         = new(2350,  60, BandKind.Fault, TelemetrySource.Kernel);
     public static readonly FaultBand Appearance       = new(2450,   3, BandKind.Fault, TelemetrySource.Materials);
     public static readonly FaultBand Raster           = new(2460,   7, BandKind.Fault, TelemetrySource.Materials);
     public static readonly FaultBand Projection       = new(2470,   3, BandKind.Fault, TelemetrySource.Materials);
@@ -337,6 +337,12 @@ public abstract partial record KernelFault : Fault {
     }
     [FaultCase(10)]
     public sealed partial record InvalidUnitSystem(UnitSystem Units, string Requirement) : KernelFault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; }
+    [FaultCase(11)]
+    public sealed partial record RankDeficient : KernelFault { public override string Message => "The numerical operator is rank deficient."; }
+    [FaultCase(12)]
+    public sealed partial record IterationLimit : KernelFault { public override string Message => "The numerical iteration limit was reached."; }
+    [FaultCase(13)]
+    public sealed partial record ResidualExceeded : KernelFault { public override string Message => "The numerical residual exceeded its tolerance."; }
 }
 
 public static class FaultExtensions {

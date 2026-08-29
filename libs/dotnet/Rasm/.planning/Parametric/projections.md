@@ -2,11 +2,11 @@
 
 `CurveProjection` and `SurfaceProjection` own Rhino-native parameter-addressed evaluation; the host-neutral owners beside them govern rotor interpolation, the shaping algebra a drive samples, provider-relative time, and the one sampled-motion fold every host clock lease feeds. Each selector drains one `Project<TOut>` gate into `ResultProjection.Raw`, every captured clock value stays branded to the injected `TimeProvider` timeline that minted it, and `MotionDrive` answers one beat with one sample and one continuation verdict while the timer attachment, the run-loop lifecycle, and the host invalidation stay at the boundary that owns them.
 
-Every fallible read stays on the typed `Fin<T>` result: Rhino-read material admits through the Rhino acceptance oracle, the host-neutral owners through their own validity evidence. Range guards read `Band` rows and model-space thresholds read `Context.For(lane)`; `ICapability`/`CapabilitySet` come from `Domain/validation`, `PositiveMagnitude`/`EpsilonPolicy`/`Band`/`RawAdmission` from `Numerics/atoms`, and `Duration` from NodaTime under a prelude alias because the injected LanguageExt global using binds the bare name to its schedule-stream span. Perceptual colour interpolation stays the `Numerics/atoms` `PerceptualColor`/`BlendPath` owner — a colour tween is an `Eased` script whose apply samples `PerceptualColor.Mix` at the eased parameter, never a fourth drive case.
+Every fallible read stays on the typed `Fin<T>` result: Rhino-read material admits through the Rhino acceptance oracle, the host-neutral owners through their own validity evidence. Range guards read `Band` rows and model-space thresholds read `Context.For(lane)`; `PositiveMagnitude`/`EpsilonPolicy`/`Band` come from `Numerics/atoms`, and `Duration` from NodaTime under a prelude alias because the injected LanguageExt global using binds the bare name to its schedule-stream span. Perceptual colour interpolation stays the `Numerics/atoms` `PerceptualColor`/`BlendPath` owner — a colour tween is an `Eased` script whose apply samples `PerceptualColor.Mix` at the eased parameter, never a fourth drive case.
 
 ## [01]-[INDEX]
 
-- [02]-[SELECTORS]: `CurveProjection`, `SurfaceProjection`, and the `SurfaceSpace` capsule — delegate-row `[SmartEnum<int>]` vocabularies, one `Project<TOut>` gate each, row-factory folds, and the `Admits` capability column replacing identity probes.
+- [02]-[SELECTORS]: `CurveProjection`, `SurfaceProjection`, and the `SurfaceSpace` capsule — delegate-row `[SmartEnum<int>]` vocabularies, one `Project<TOut>` gate each, row-factory folds, and the `AdmitsMagnitude` row fact replacing identity probes.
 - [03]-[ROTORS]: `MotionInterpolation` — the branch's one quaternion-interpolation law over poses and directions.
 - [04]-[SHAPES]: `Easing`, `BezierEase`, `CyclePlan`, `SpringShape`, and `DecayShape` — the closed-form shaping algebra a drive samples and a host token names as values.
 - [05]-[TIMELINE]: `IGaugeLane`, `GaugedSpan<TLane>`, `MonotonicTimeline`, `MonotonicStamp`, `BeatSeed`, and `MonotonicBeat` — the one gauged span and the one branded beat chain.
@@ -14,12 +14,12 @@ Every fallible read stays on the typed `Fin<T>` result: Rhino-read material admi
 
 ## [02]-[SELECTORS]
 
-- Owner: `CurveProjection` `[SmartEnum<int>]` — a row vocabulary over one `[UseDelegateFromConstructor]` `Sample(Curve, double, Context)` column, the `Admits` capability column, and the `Raw` type column every row derives from its `Row<TRaw>` factory's type parameter — the one erasure site, so a row spells neither its raw type nor an `(object)` lift — and `Accepts<TOut>()` answers output-shape support off that column through the `Numerics/atoms` `ResultProjection.Accepts` pair predicate before any sample exists. `Vector(admits, sample)` owns vector admission, `FrameRow(perpendicular, project)` owns moving and sweep-frame recovery with axis projection, `TorsionRow(side)` owns third-order Frenet torsion with the kink-evaluation side as its column, the arc-length row owns the domain-length call, and the `Point`/`Parameter` rows surface the evaluated point and the admitted station itself, so a `Parametric/locate` curve read never re-spells `Curve.PointAt` beside the vocabulary.
+- Owner: `CurveProjection` `[SmartEnum<int>]` — a row vocabulary over one `[UseDelegateFromConstructor]` `Sample(Curve, double, Context)` column, the `AdmitsMagnitude` fact, and the `Raw` type column every row derives from its `Row<TRaw>` factory's type parameter — the one erasure site, so a row spells neither its raw type nor an `(object)` lift — and `Accepts<TOut>()` answers output-shape support off those columns through the `Numerics/atoms` `ResultProjection.Accepts` pair predicate before any sample exists. `Vector(admitsMagnitude, sample)` owns vector admission, `FrameRow(perpendicular, project)` owns moving and sweep-frame recovery with axis projection, `TorsionRow(side)` owns third-order Frenet torsion with the kink-evaluation side as its column, the arc-length row owns the domain-length call, and the `Point`/`Parameter` rows surface the evaluated point and the admitted station itself, so a `Parametric/locate` curve read never re-spells `Curve.PointAt` beside the vocabulary.
 - Owner: `SurfaceProjection` `[SmartEnum<int>]` — a row vocabulary over `Sample(Surface, Point2d, Context)` with the same `Row<TRaw>`-derived `Raw` column and `Accepts<TOut>()` gate. `WithCurvature` scopes every disposable `SurfaceCurvature` projection on the `Lease` carrier, `Derivatives(project)` derives the first-fundamental forms from one `Surface.Evaluate(u, v, numberDerivatives: 1, ...)` call, and `ShapeOperator` remains the sole second-fundamental-form owner.
 - Owner: `SurfaceSpace` `readonly record struct` — the validated `Surface` + `Context` capsule: `Of(Surface, Context)` admits once (context present, surface non-null and `IsValid`), `Sample<TOut>(SurfaceProjection, double u, double v)` delegates to the selector gate with the captured tolerance. `Spatial/support` owns `SupportSpace` closest-point over ANY geometry while `SurfaceSpace` owns parameter-addressed evaluation on a typed surface.
-- Entry: each selector exposes exactly one `internal Fin<TOut> Project<TOut>(...)` gate — `CurveProjection.Project<TOut>(Curve, double, Context)` admits the curve (non-null, `IsValid`, `Domain.IncludesParameter`), samples the row, and drains `ResultProjection.Raw<TOut>(raw, Some(context), owner: typeof(CurveProjection), admits: Admits)`; `SurfaceProjection.Project<TOut>(Surface, double u, double v, Context)` admits the surface, normalizes `(u,v)` through the `Domain/evaluation` `SurfaceUv`, samples, and drains the same fold. No per-row public methods, no output-type overloads — the raw→typed step is the row's.
-- Law: magnitude admission is ROW DATA on a `CapabilitySet<RawAdmission>` column, never an identity probe and never a boolean beside the payload: the `ReferenceEquals(this, Curvature)` special case and the `bool admitsVectorMagnitude` knob it fed are both the deleted form, and a second conditional raw arm is one more `RawAdmission` row the same column already carries.
-- Packages: RhinoCommon (`Curve.PointAt`/`TangentAt`/`CurvatureAt`/`FrameAt`/`PerpendicularFrameAt`/`DerivativeAt(t, derivativeCount, CurveEvaluationSide)`/`GetLength(fractionalTolerance, subdomain)`/`Domain.IncludesParameter`; `CurveEvaluationSide.Default`/`Below`/`Above`; `Surface.CurvatureAt`/`PointAt`/`Evaluate`; `SurfaceCurvature.Kappa`/`Direction`/`OsculatingCircle`/`MaximumPrincipalCurvature`/`MinimumPrincipalCurvature`/`IsSet` — an `IDisposable` bundle; `Interval`, `Circle.IsValid`, `Vector3d.CrossProduct`/`IsValid`/`IsTiny`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`/`Option`/`guard`/`Optional`), `Domain/results` (`Lease<T>`), `Domain/validation` (`Admit.Plane`, `CapabilitySet<T>`), `Domain/context` (`Context.For`), `Domain/evaluation` (`NormalAt`/`FrameAt`/`SurfaceUv`), `Domain/stats` (`ScalarMetric`), `Numerics/atoms` (`ResultProjection.Raw`, `RawAdmission`, `Direction.Of`, `Dimension`, `EpsilonPolicy`), `Numerics/matrix` (`SymmetricMatrix.Of`, `Matrix.Of`).
+- Entry: each selector exposes exactly one `internal Fin<TOut> Project<TOut>(...)` gate — `CurveProjection.Project<TOut>(Curve, double, Context)` admits the curve (non-null, `IsValid`, `Domain.IncludesParameter`), samples the row, and drains `ResultProjection.Raw<TOut>(raw, Some(context), owner: typeof(CurveProjection), admitsMagnitude: AdmitsMagnitude)`; `SurfaceProjection.Project<TOut>(Surface, double u, double v, Context)` admits the surface, normalizes `(u,v)` through the `Domain/evaluation` `SurfaceUv`, samples, and drains the same fold with `admitsMagnitude: false`. No per-row public methods, no output-type overloads — the raw→typed step is the row's.
+- Law: magnitude admission is the one `AdmitsMagnitude` row fact, `true` only on `Curvature`; every other curve and surface row states `false`.
+- Packages: RhinoCommon (`Curve.PointAt`/`TangentAt`/`CurvatureAt`/`FrameAt`/`PerpendicularFrameAt`/`DerivativeAt(t, derivativeCount, CurveEvaluationSide)`/`GetLength(fractionalTolerance, subdomain)`/`Domain.IncludesParameter`; `CurveEvaluationSide.Default`/`Below`/`Above`; `Surface.CurvatureAt`/`PointAt`/`Evaluate`; `SurfaceCurvature.Kappa`/`Direction`/`OsculatingCircle`/`MaximumPrincipalCurvature`/`MinimumPrincipalCurvature`/`IsSet` — an `IDisposable` bundle; `Interval`, `Circle.IsValid`, `Vector3d.CrossProduct`/`IsValid`/`IsTiny`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`/`Option`/`guard`/`Optional`), `Domain/results` (`Lease<T>`), `Domain/validation` (`Admit.Plane`), `Domain/context` (`Context.For`), `Domain/evaluation` (`NormalAt`/`FrameAt`/`SurfaceUv`), `Domain/stats` (`ScalarMetric`), `Numerics/atoms` (`ResultProjection.Raw`, `Direction.Of`, `Dimension`, `EpsilonPolicy`), `Numerics/matrix` (`SymmetricMatrix.Of`, `Matrix.Of`).
 - Growth: a new curve or surface probe is one row through an existing factory fold or a direct constructor where the read is scalar-shaped; a new derivative form is one `Derivatives(...)` row; a new output type for an existing row is a `ProjectionRow` addition in the `Numerics/atoms` rows, never a selector edit. Existing selector gates absorb every row extension.
 - Boundary: the selector family is the ONE row vocabulary for parameter-addressed evaluation — a per-output `CurveEvaluator`/`SurfaceAnalyzer` method family is the named defect collapsed here, and a row exists where evaluation carries ROW SEMANTICS (validity gating, magnitude admission, moving-vs-sweep frame choice, the curvature-bundle lease, the derivative fold); `Domain/evaluation` is the shared derivation floor both these rows and the `Parametric/locate` arms compose — an arm re-implementing row semantics beside the row is the killed duplicate, while a `Parametric/locate` surface arm reading the floor directly (point/frame/normal, UV pre-normalized) is lawful composition; `SurfaceProjection.ShapeOperator` is the sole second-fundamental-form assembly, `TensorField.Curvature` composes its `Project` and a second `k·d⊗d` assembly is the named double-owner defect; rows sample the LIVE Rhino object under the caller's lease (`Parametric/locate` inside `Lease<Curve>`/`Lease<Surface>`) and never duplicate, cache, or outlive their geometry; `SurfaceCurvature` is disposable host memory, so every bundle read runs inside `Lease<SurfaceCurvature>.Owned(...).Use(...)` and an escaping bundle is the named leak defect; the `Domain/evaluation` family owns closest-point/normal/frame over ARBITRARY geometry while these selectors own only parameter-addressed evaluation on an already-typed `Curve`/`Surface`, so routing a closest-point through a selector is the altitude violation.
 
@@ -29,18 +29,17 @@ using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;
 using Dimension = Rasm.Numerics.Dimension;
-using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Parametric;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CurveProjection {
-    public static readonly CurveProjection Tangent = Vector(key: 0, admits: CapabilitySet<RawAdmission>.None, sample: static (curve, t) => curve.TangentAt(t: t));
-    public static readonly CurveProjection Curvature = Vector(key: 1, admits: CapabilitySet<RawAdmission>.Of(RawAdmission.VectorMagnitude), sample: static (curve, t) => curve.CurvatureAt(t: t));
+    public static readonly CurveProjection Tangent = Vector(key: 0, admitsMagnitude: false, sample: static (curve, t) => curve.TangentAt(t: t));
+    public static readonly CurveProjection Curvature = Vector(key: 1, admitsMagnitude: true, sample: static (curve, t) => curve.CurvatureAt(t: t));
     public static readonly CurveProjection Frame = FrameRow(key: 2, perpendicular: false, project: static frame => frame);
     public static readonly CurveProjection PerpendicularFrame = FrameRow(key: 3, perpendicular: true, project: static frame => frame);
-    public static readonly CurveProjection ArcLength = Row(key: 4, admits: CapabilitySet<RawAdmission>.None,
+    public static readonly CurveProjection ArcLength = Row(key: 4, admitsMagnitude: false,
         sample: static (curve, t, context, key) => curve.GetLength(fractionalTolerance: context.For(lane: ToleranceLane.Fraction).Value, subdomain: new Interval(curve.Domain.T0, t)) switch {
             double length when RhinoMath.IsValidDouble(x: length) && (length > 0.0 || curve.Domain.NormalizedParameterAt(t) <= context.For(lane: ToleranceLane.Fraction).Value) => Fin.Succ(length),
             _ => Fin.Fail<double>(new KernelFault.InvalidResult()),
@@ -52,39 +51,39 @@ public sealed partial class CurveProjection {
     public static readonly CurveProjection Torsion = TorsionRow(key: 9, side: CurveEvaluationSide.Default);
     public static readonly CurveProjection TorsionBelow = TorsionRow(key: 10, side: CurveEvaluationSide.Below);
     public static readonly CurveProjection TorsionAbove = TorsionRow(key: 11, side: CurveEvaluationSide.Above);
-    public static readonly CurveProjection Point = Row(key: 12, admits: CapabilitySet<RawAdmission>.None, sample: static (curve, t, _, key) => Acceptance.Value(value: curve.PointAt(t: t)));
-    public static readonly CurveProjection Parameter = Row(key: 13, admits: CapabilitySet<RawAdmission>.None, sample: static (_, t, _, key) => Acceptance.Value(value: t));
+    public static readonly CurveProjection Point = Row(key: 12, admitsMagnitude: false, sample: static (curve, t, _, key) => Acceptance.Value(value: curve.PointAt(t: t)));
+    public static readonly CurveProjection Parameter = Row(key: 13, admitsMagnitude: false, sample: static (_, t, _, key) => Acceptance.Value(value: t));
 
-    public CapabilitySet<RawAdmission> Admits { get; }
+    public bool AdmitsMagnitude { get; }
     public Type Raw { get; }
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context);
 
-    internal bool Accepts<TOut>() => ResultProjection.Accepts(raw: Raw, output: typeof(TOut), admits: Admits);
+    internal bool Accepts<TOut>() => ResultProjection.Accepts(raw: Raw, output: typeof(TOut), admitsMagnitude: AdmitsMagnitude);
 
     internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context) =>
         from active in Optional(curve).ToFin(new KernelFault.InvalidInput())
         from _ in guard(active.IsValid && active.Domain.IncludesParameter(t: parameter), new KernelFault.InvalidInput())
         from raw in Sample(curve: active, parameter: parameter, context: context).BindFail(_ => Fin.Fail<object>(new KernelFault.InvalidResult()))
-        from output in ResultProjection.Raw<TOut>(raw: raw, context: Some(context), owner: typeof(CurveProjection), admits: Admits)
+        from output in ResultProjection.Raw<TOut>(raw: raw, context: Some(context), owner: typeof(CurveProjection), admitsMagnitude: AdmitsMagnitude)
         select output;
 
     // Row<TRaw> is the ONE erasure — TRaw seats the stored raw type and the (object) lift together, so no row spells either.
-    private static CurveProjection Row<TRaw>(int key, CapabilitySet<RawAdmission> admits, Func<Curve, double, Context, Fin<TRaw>> sample) where TRaw : notnull =>
-        new(admits: admits, raw: typeof(TRaw), sample: (curve, t, context, op) => sample(arg1: curve, arg2: t, arg3: context, arg4: op).Map(static value => (object)value));
-    private static CurveProjection Vector(int key, CapabilitySet<RawAdmission> admits, Func<Curve, double, Vector3d> sample) =>
-        Row(admits: admits, sample: (curve, t, _, op) => sample(arg1: curve, arg2: t) switch {
-            Vector3d vector when vector.IsValid && (admits.Admits(RawAdmission.VectorMagnitude) || !vector.IsTiny()) => Fin.Succ(vector),
+    private static CurveProjection Row<TRaw>(int key, bool admitsMagnitude, Func<Curve, double, Context, Fin<TRaw>> sample) where TRaw : notnull =>
+        new(admitsMagnitude: admitsMagnitude, raw: typeof(TRaw), sample: (curve, t, context, op) => sample(arg1: curve, arg2: t, arg3: context, arg4: op).Map(static value => (object)value));
+    private static CurveProjection Vector(int key, bool admitsMagnitude, Func<Curve, double, Vector3d> sample) =>
+        Row(admitsMagnitude: admitsMagnitude, sample: (curve, t, _, op) => sample(arg1: curve, arg2: t) switch {
+            Vector3d vector when vector.IsValid && (admitsMagnitude || !vector.IsTiny()) => Fin.Succ(vector),
             _ => Fin.Fail<Vector3d>(new KernelFault.InvalidResult()),
         });
     private static CurveProjection TorsionRow(int key, CurveEvaluationSide side) =>
-        Row(admits: CapabilitySet<RawAdmission>.None, sample: (curve, t, _, op) => curve.DerivativeAt(t: t, derivativeCount: 3, side: side) switch {
+        Row(admitsMagnitude: false, sample: (curve, t, _, op) => curve.DerivativeAt(t: t, derivativeCount: 3, side: side) switch {
             [_, var d1, var d2, var d3] when Vector3d.CrossProduct(a: d1, b: d2) is var binormal
                 && binormal.SquareLength > EpsilonPolicy.ZeroTolerance =>
                 Fin.Succ((binormal * d3) / binormal.SquareLength),
             _ => Fin.Fail<double>(new KernelFault.InvalidResult()),
         });
     private static CurveProjection FrameRow<TRaw>(int key, bool perpendicular, Func<Plane, TRaw> project) where TRaw : notnull =>
-        Row(admits: CapabilitySet<RawAdmission>.None, sample: (curve, t, _, op) => perpendicular switch {
+        Row(admitsMagnitude: false, sample: (curve, t, _, op) => perpendicular switch {
             true => curve.PerpendicularFrameAt(t: t, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<TRaw>(new KernelFault.InvalidResult()),
             false => curve.FrameAt(t: t, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<TRaw>(new KernelFault.InvalidResult()),
         });
@@ -102,7 +101,7 @@ public sealed partial class SurfaceProjection {
     public static readonly SurfaceProjection Point = Row(key: 7, sample: static (surface, uv, _, key) => Acceptance.Value(value: surface.PointAt(u: uv.X, v: uv.Y)));
     public static readonly SurfaceProjection Frame = Row(key: 8, sample: static (surface, uv, _, key) => Evaluation.FrameAt(surface: surface, uv: uv));
     public static readonly SurfaceProjection UvFrame = Derivatives(key: 9, project: static (surface, uv, d, _, key) => OrientedFrame(surface: surface, uv: uv, frame: new Plane(origin: d.Point, xDirection: d.Du, yDirection: d.Dv)));
-    public static readonly SurfaceProjection Jacobian = Derivatives(key: 10, project: static (_, _, d, _, key) => Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [d.Du.X, d.Dv.X, d.Du.Y, d.Dv.Y, d.Du.Z, d.Dv.Z]));
+    public static readonly SurfaceProjection Jacobian = Derivatives(key: 10, project: static (_, _, d, _, key) => MatrixKernel.Dense(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [d.Du.X, d.Dv.X, d.Du.Y, d.Dv.Y, d.Du.Z, d.Dv.Z]));
     public static readonly SurfaceProjection Metric = Derivatives(key: 11, project: static (_, _, d, _, key) => SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [d.Du * d.Du, d.Du * d.Dv, d.Dv * d.Dv]));
     public static readonly SurfaceProjection AreaScale = Derivatives(key: 12, project: static (_, _, d, _, key) => Acceptance.Value(value: Vector3d.CrossProduct(a: d.Du, b: d.Dv).Length));
     public static readonly SurfaceProjection MeanCurvatureVector = Row(key: 13, sample: static (surface, uv, _, key) =>
@@ -112,14 +111,14 @@ public sealed partial class SurfaceProjection {
     public Type Raw { get; }
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Surface surface, Point2d uv, Context context);
 
-    internal bool Accepts<TOut>() => ResultProjection.Accepts(raw: Raw, output: typeof(TOut), admits: CapabilitySet<RawAdmission>.None);
+    internal bool Accepts<TOut>() => ResultProjection.Accepts(raw: Raw, output: typeof(TOut), admitsMagnitude: false);
 
     internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context) =>
         from active in Optional(surface).ToFin(new KernelFault.InvalidInput())
         from _ in guard(active.IsValid, new KernelFault.InvalidInput())
         from uv in Evaluation.SurfaceUv(surface: active, uv: new Point2d(x: u, y: v), context: context)
         from raw in Sample(surface: active, uv: uv, context: context).BindFail(_ => Fin.Fail<object>(new KernelFault.InvalidResult()))
-        from output in ResultProjection.Raw<TOut>(raw: raw, context: Some(context), owner: typeof(SurfaceProjection), admits: CapabilitySet<RawAdmission>.None)
+        from output in ResultProjection.Raw<TOut>(raw: raw, context: Some(context), owner: typeof(SurfaceProjection), admitsMagnitude: false)
         select output;
 
     private static Fin<T> WithCurvature<T>(Surface surface, Point2d uv, Func<SurfaceCurvature, Fin<T>> project) =>
@@ -418,7 +417,7 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
 
     public Fin<IntegrationStep<SpringState, SpringState>> Step(SpringState origin, double target, Duration h, RungeKuttaIntegrator integrator) {
         (double omega, double zeta) = (AngularFrequency, DampingRatio);
-        return from active in RungeKuttaIntegrator.Admit(value: integrator)
+        return from active in Optional(integrator).ToFin(new KernelFault.InvalidInput())
                from span in Admit.Positive(value: h.TotalSeconds)
                from step in active.Step(
                    module: Module,
