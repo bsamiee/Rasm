@@ -36,10 +36,10 @@ class _Size(TypedDict):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EMPTY: _Schema = {}
 _CAP = 64
 _NUM_CEILING = 1_000_000
 
+_EMPTY: _Schema = {}
 _JSON_SCALAR: st.SearchStrategy[object] = st.one_of(st.none(), st.booleans(), st.integers(min_value=-1_000, max_value=1_000), st.text(min_size=0, max_size=16))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
