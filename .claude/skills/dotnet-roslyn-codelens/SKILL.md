@@ -19,7 +19,7 @@ Before calling `rg`, `Grep` or `Glob` on `.cs` / `.csproj` / `.sln` / `.slnx` / 
 1. Is the target a C# symbol (type/member/namespace)?                 → Use `search_symbols` or `find_references`
 2. Is the target an attribute?                                        → Use `find_attribute_usages`
 3. Is the target a reflection pattern?                                → Use `find_reflection_usage`
-4. Is it genuinely a string literal, comment, or non-semantic text? → `rg` is OK
+4. Is it genuinely a string literal, comment, or non-semantic text?   → `rg` is OK
 
 Before running `dotnet build` / `msbuild` via Bash:
 1. Am I looking for errors, warnings, or analyzer diagnostics?        → Use `get_diagnostics`. Stop

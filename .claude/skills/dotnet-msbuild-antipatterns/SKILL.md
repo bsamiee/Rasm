@@ -3,14 +3,14 @@ name: dotnet-msbuild-antipatterns
 description: "Detect and fix MSBuild anti-patterns in project and build files. USE WHEN asked to review, audit, lint, clean up, or code-review a .csproj/.vbproj/.fsproj/.props/.targets/.proj (or Directory.Build.props/.targets) file, when asked 'is this project file correct?' or 'what's wrong with my build file?', or when hunting subtle build bugs caused by how a project is authored. Each anti-pattern has a symptom and a concrete BAD→GOOD fix."
 ---
 
-# MSBuild Anti-Pattern Catalog
+# [DOTNET_MSBUILD_ANTIPATTERNS]
 
 Use this catalog when scanning project files for improvements, and correcting common MSBuild anti-patterns. Each entry follows the format:
 - SMELL: What to look for
 - WHY: Impact on builds, maintainability, or correctness
 - FIX: Concrete transformation
 
-## AP-01: `<Exec>` for Operations That Have Built-in Tasks
+## [AP-01]-[EXEC_FOR_BUILTIN_TASKS]
 
 - SMELL: `<Exec Command="mkdir ..." />`, `<Exec Command="copy ..." />`, `<Exec Command="del ..." />`
 - WHY: Built-in tasks are cross-platform, support incremental build, emit structured logging, and handle errors consistently. `<Exec>` is opaque to MSBuild.
@@ -43,7 +43,7 @@ Built-in task alternatives:
 |  [06]   | `touch`            | `<Touch>`                |
 |  [07]   | `xcopy /s`         | `<Copy>` with item globs |
 
-## AP-02: Unquoted Condition Expressions
+## [AP-02]-[UNQUOTED_CONDITION_EXPRESSIONS]
 
 - SMELL: `Condition="$(Foo) == Bar"` — either side of a comparison is unquoted.
 - WHY: If the property is empty or contains spaces/special characters, the condition evaluates incorrectly or throws a parse error. MSBuild requires single-quoted strings for reliable comparisons.
@@ -62,7 +62,7 @@ Built-in task alternatives:
 
 RULE: Always quote both sides of `==` and `!=` comparisons with single quotes.
 
-## AP-03: Hardcoded Absolute Paths
+## [AP-03]-[HARDCODED_ABSOLUTE_PATHS]
 
 - SMELL: Paths like `C:\tools\`, `D:\packages\`, `/usr/local/bin/` in project files.
 - WHY: Breaks on other machines, CI environments, and other operating systems. Not relocatable.
@@ -90,7 +90,7 @@ Preferred path properties:
 |  [03]   | `$([MSBuild]::GetDirectoryNameOfFileAbove(...))` | Walk up to find a marker file                 |
 |  [04]   | `$([MSBuild]::NormalizePath(...))`               | Combine and normalize path segments           |
 
-## AP-04: Restating SDK Defaults
+## [AP-04]-[RESTATING_SDK_DEFAULTS]
 
 - SMELL: Properties set to values that the .NET SDK already provides by default.
 - WHY: Adds noise, hides intentional overrides, and makes it harder to identify what's actually customized. When defaults change in newer SDKs, the redundant properties may silently pin old behavior.
@@ -112,7 +112,7 @@ Preferred path properties:
 </PropertyGroup>
 ```
 
-## AP-05: Using `<Reference>` with HintPath for NuGet Packages
+## [AP-05]-[REFERENCE_WITH_HINTPATH_FOR_NUGET_PACKAGES]
 
 - SMELL: `<Reference Include="..." HintPath="..\packages\SomePackage\lib\..." />`
 - WHY: This is the legacy `packages.config` pattern. It doesn't support transitive dependencies, version conflict resolution, or automatic restore. The `packages/` folder must be committed or restored separately.
@@ -131,7 +131,7 @@ Preferred path properties:
 </ItemGroup>
 ```
 
-## AP-06: Copy-Pasted Properties Across Multiple .csproj Files
+## [AP-06]-[COPY_PASTED_PROPERTIES_ACROSS_MULTIPLE_CSPROJ_FILES]
 
 - SMELL: The same `<PropertyGroup>` block appears in 3+ project files.
 - WHY: Maintenance burden — a change must be made in every file. Inconsistencies creep in over time.
@@ -158,7 +158,7 @@ Preferred path properties:
 
 See `directory-build-organization` skill for full guidance on structuring `Directory.Build.props` / `Directory.Build.targets`.
 
-## AP-07: Monolithic Targets (Too Much in One Target)
+## [AP-07]-[MONOLITHIC_TARGETS]
 
 - SMELL: A single `<Target>` with 50+ lines doing multiple unrelated things.
 - WHY: Can't skip individual steps via incremental build, hard to debug, hard to extend, and the target name becomes meaningless.
@@ -190,7 +190,7 @@ See `directory-build-organization` skill for full guidance on structuring `Direc
 </Target>
 ```
 
-## AP-08: Custom Targets Missing `Inputs` and `Outputs`
+## [AP-08]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
 
 Custom targets must specify `Inputs` and `Outputs` attributes so MSBuild can skip them when up-to-date. Without both attributes, the target runs on every build.
 
@@ -224,7 +224,7 @@ Key points:
 
 See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, and up-to-date checks.
 
-## AP-09: Setting Defaults in .targets Instead of .props
+## [AP-09]-[SETTING_DEFAULTS_IN_TARGETS_INSTEAD_OF_PROPS]
 
 - SMELL: `<PropertyGroup>` with default values inside a `.targets` file.
 - WHY: `.targets` files are imported late (after project files). By the time they set defaults, other `.targets` files may have already used the empty/undefined value. `.props` files are imported early and are the correct place for defaults.
@@ -252,7 +252,7 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 RULE: `.props` = defaults and settings (evaluated early). `.targets` = build logic and targets (evaluated late).
 
-## AP-10: Import Without `Exists()` Guard
+## [AP-10]-[IMPORT_WITHOUT_EXISTS_GUARD]
 
 - SMELL: `<Import Project="some-file.props" />` without a `Condition="Exists('...')"` check.
 - WHY: If the file doesn't exist (not yet created, wrong path, deleted), the build fails with a confusing error. Optional imports should always be guarded.
@@ -278,7 +278,7 @@ Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` 
 
 Forwarding `buildTransitive/` → `build/`: forward through the sibling `build/*.props` / `build/*.targets` file (not directly to `buildMultiTargeting/`); when `build/` is per-TFM (`build/<tfm>/`), include the TFM segment derived from the file's own folder (not `$(TargetFramework)`), or transitive consumers hit `MSB4019`. See the `extension-points` skill — Forwarding chain — for the rule and derivation expression.
 
-## AP-11: Backslashes in Paths — Where It Matters
+## [AP-11]-[BACKSLASHES_IN_PATHS]
 
 - SMELL: Backslash path separators in `.props`/`.targets` files meant to run cross-platform.
 - Note: `$(MSBuildThisFileDirectory)` already ends with a platform-appropriate separator, so `$(MSBuildThisFileDirectory)tools/mytool` works on both platforms.
@@ -305,7 +305,7 @@ MSBuild's evaluator normalizes `\` → `/` on Unix-like systems before resolving
 
 Verification rule: Before flagging a backslash path as [ERROR], ask "does this string flow through MSBuild's evaluator, or is it handed verbatim to a non-MSBuild consumer?" Only the second case is a correctness defect.
 
-## AP-12: Unconditional Property Override in Multiple Scopes
+## [AP-12]-[UNCONDITIONAL_PROPERTY_OVERRIDE_IN_MULTIPLE_SCOPES]
 
 - SMELL: A property set unconditionally in both `Directory.Build.props` and a `.csproj` — last write wins silently.
 - WHY: Hard to trace which value is actually used. Makes the build fragile and confusing for anyone reading the project files.
@@ -329,7 +329,7 @@ Verification rule: Before flagging a backslash path as [ERROR], ask "does this s
 <!-- MyProject.csproj can now intentionally override or leave the default -->
 ```
 
-## AP-13: Using `<Exec>` for String/Path Operations
+## [AP-13]-[USING_EXEC_FOR_STRING_PATH_OPERATIONS]
 
 - SMELL: `<Exec Command="echo $(Var) | sed ..." />` or `<Exec Command="powershell -c ..." />` for simple string manipulation.
 - WHY: Shell-dependent, not cross-platform, slower than property functions, and the result is hard to capture back into MSBuild properties.
@@ -354,7 +354,7 @@ Verification rule: Before flagging a backslash path as [ERROR], ask "does this s
 </PropertyGroup>
 ```
 
-## AP-14: Mixing `Include` and `Update` for the Same Item Type in One ItemGroup
+## [AP-14]-[MIXING_INCLUDE_AND_UPDATE_FOR_THE_SAME_ITEM_TYPE_IN_ONE_ITEMGROUP]
 
 - SMELL: Same `<ItemGroup>` has both `<Compile Include="...">` and `<Compile Update="...">`.
 - WHY: `Update` acts on items already in the set. If `Include` hasn't been processed yet (evaluation order), `Update` may not find the item. Separating them avoids subtle ordering bugs.
@@ -375,7 +375,7 @@ Verification rule: Before flagging a backslash path as [ERROR], ask "does this s
 </ItemGroup>
 ```
 
-## AP-15: Redundant `<ProjectReference>` to Transitively-Referenced Projects
+## [AP-15]-[REDUNDANT_PROJECTREFERENCE_TO_TRANSITIVELY_REFERENCED_PROJECTS]
 
 - SMELL: A project references both `Core` and `Utils`, but `Core` already depends on `Utils`.
 - WHY: Adds unnecessary coupling, makes the dependency graph harder to understand, and can cause ordering issues in large builds. MSBuild resolves transitive references automatically.
@@ -394,7 +394,7 @@ Verification rule: Before flagging a backslash path as [ERROR], ask "does this s
 </ItemGroup>
 ```
 
-## AP-16: Side Effects During Property Evaluation
+## [AP-16]-[SIDE_EFFECTS_DURING_PROPERTY_EVALUATION]
 
 - SMELL: Property functions that write files, make network calls, or modify state during `<PropertyGroup>` evaluation.
 - WHY: Property evaluation happens during the evaluation phase, which can run multiple times (e.g., during design-time builds in Visual Studio). Side effects are unpredictable and can corrupt state.
@@ -411,7 +411,7 @@ Verification rule: Before flagging a backslash path as [ERROR], ask "does this s
 </Target>
 ```
 
-## AP-17: Platform-Specific Exec Without OS Condition
+## [AP-17]-[PLATFORM_SPECIFIC_EXEC_WITHOUT_OS_CONDITION]
 
 - SMELL: `<Exec Command="chmod +x ..." />` or `<Exec Command="cmd /c ..." />` without an OS condition.
 - WHY: Fails on the wrong platform. If the project is cross-platform, guard platform-specific commands.
@@ -429,7 +429,7 @@ Verification rule: Before flagging a backslash path as [ERROR], ask "does this s
 </Target>
 ```
 
-## AP-18: Property Conditioned on TargetFramework in .props Files
+## [AP-18]-[PROPERTY_CONDITIONED_ON_TARGETFRAMEWORK_IN_PROPS_FILES]
 
 - SMELL: `<PropertyGroup Condition="'$(TargetFramework)' == '...'">` or `<Property Condition="'$(TargetFramework)' == '...'">` in `Directory.Build.props` or any `.props` file imported before the project body.
 - WHY: `$(TargetFramework)` is NOT reliably available in `Directory.Build.props` or any `.props` file imported before the project body. It is only set that early for multi-targeting projects, which receive `TargetFramework` as a global property from the outer build. Single-targeting projects (using singular `<TargetFramework>`) set it in the project body, which is evaluated after `.props`. This means property conditions on `$(TargetFramework)` in `.props` files silently fail for single-targeting projects — the condition never matches because the property is empty. This applies to both `<PropertyGroup Condition="...">` and individual `<Property Condition="...">` elements.
@@ -483,7 +483,7 @@ Do NOT flag the following patterns — they are correct:
 </ItemGroup>
 ```
 
-## AP-19: Forking a Project Instance via `<MSBuild>` with Path-Neutral Global Properties
+## [AP-19]-[MSBUILD_FORKING_WITH_PATH_NEUTRAL_GLOBAL_PROPERTIES]
 
 - SMELL: A target uses the `<MSBuild>` task to build or publish a project, passing extra `Properties` that don't change that project's output path.
 - WHY: An MSBuild project instance is identified by its path plus its global properties. Passing an extra global property creates a distinct instance of the target project — `(project, {_IsPublishing=true})` — that still resolves to the same `OutputPath`/`IntermediateOutputPath` as the instance the solution/graph already builds, `(project, {})`. That project is then built twice, and in a parallel/graph build the two instances can write the same files concurrently (PDBs, `*.sourcelink` and other NativeAOT intermediates, `project.assets.json`), producing `The process cannot access the file because it is being used by another process` or intermittent file-lock failures. This applies whether the offending `<MSBuild>` call is in the target project itself or in some other project in the same build. Use the `check-bin-obj-clash` skill to confirm two evaluations of that project differ only by a path-neutral property while sharing an output path.
@@ -536,7 +536,7 @@ For (b), the consumer must not fork the producer with path-neutral global proper
 
 When extra global properties ARE fine: only when the output path encodes the discriminator (`RuntimeIdentifier`, `TargetFramework`, `Configuration`, `Platform`) so each instance writes to a distinct directory. If you must invoke a project with a path-neutral property, give that build its own `BaseIntermediateOutputPath`/output path so it can't collide.
 
-## AP-20: `SetTargetFramework` Metadata on a `ProjectReference` to a Non-Multi-Targeting Project
+## [AP-20]-[SETTARGETFRAMEWORK_METADATA_ON_A_PROJECTREFERENCE_TO_A_NON-MULTI-TARGETING_PROJECT]
 
 - SMELL: A `<ProjectReference>` carries `SetTargetFramework="TargetFramework=net8.0"` (or similar) metadata, the referenced project is single-targeting (uses singular `<TargetFramework>`, not `<TargetFrameworks>`), and the injected TFM equals the TFM the project already targets.
 - WHY: `SetTargetFramework` injects `TargetFramework` as a global property on the referenced project's build. That mechanism exists so a consumer can pick one specific TFM of a multi-targeting project — different TFM values produce different output paths, so each build is distinct and safe.

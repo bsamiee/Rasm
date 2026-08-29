@@ -3,7 +3,7 @@ name: dotnet-msbuild-property-patterns
 description: "MSBuild property definition patterns: conditional defaults, composition/concatenation, path normalization, trailing-slash handling, TFM detection helpers, and evaluation order. USE FOR: diagnosing and fixing property definition issues and shared-property anti-patterns in .props/.csproj; DefineConstants or NoWarn overwritten instead of appended; unconditional assignments that block project-level overrides; unquoted conditions that fail on empty properties; hardcoded paths that break cross-platform builds; setting overridable defaults; property evaluation order and last-write-wins semantics."
 ---
 
-# [MSBUILD_PROPERTY_PATTERNS]
+# [DOTNET_MSBUILD_PROPERTY_PATTERNS]
 
 Canonical property definition and manipulation patterns from the MSBuild repository.
 
