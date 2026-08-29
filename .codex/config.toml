@@ -1,0 +1,7 @@
+[mcp_servers.roslyn-codelens]
+command = "dotnet"
+args = ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
+required = true
+startup_timeout_sec = 120
+tool_timeout_sec = 300
+default_tools_approval_mode = "approve"

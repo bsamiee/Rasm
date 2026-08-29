@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+        "roslyn-codelens": {
+            "type": "stdio",
+            "command": "dotnet",
+            "args": ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"],
+            "env": {}
+        }
+    }
+}

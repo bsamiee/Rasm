@@ -142,11 +142,11 @@ public static partial class TestAssertions {
     }
     public static void Valid<T>(Validation<Error, T> result, Action<T>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Succ: value => Tap(then, value), Fail: static error => throw new XunitException($"Expected Valid; got Invalid: {error.Message}"));
+        _ = result.Match(Fail: static error => throw new XunitException($"Expected Valid; got Invalid: {error.Message}"), Succ: value => Tap(then, value));
     }
     public static void Invalid<T>(Validation<Error, T> result, Action<Error>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Succ: static value => throw new XunitException($"Expected Invalid; got Valid: {value}"), Fail: error => Tap(then, error));
+        _ = result.Match(Fail: error => Tap(then, error), Succ: static value => throw new XunitException($"Expected Invalid; got Valid: {value}"));
     }
     public static void Some<T>(Option<T> result, Action<T>? then = null) =>
         _ = result.Match(Some: value => Tap(then, value), None: static () => throw new XunitException("Expected Some; got None"));

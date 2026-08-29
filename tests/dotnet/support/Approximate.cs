@@ -33,27 +33,15 @@ public sealed record NumericComparison(string Name, VectorComparison Matches) {
     public static NumericComparison Periodic(double period) {
         _ = double.IsFinite(period) && period > 0.0 ? period : throw new ArgumentOutOfRangeException(nameof(period), period, "period must be finite and positive");
         return new NumericComparison(string.Create(CultureInfo.InvariantCulture, $"Periodic({period:R})"), (left, right, tolerance) => {
-            if (left.Length != right.Length) {
-                return false;
-            }
-            for (int i = 0; i < left.Length; i++) {
-                if (!tolerance.Matches(Math.Abs(Math.IEEERemainder(left[i] - right[i], period)), 0.0)) {
-                    return false;
-                }
-            }
+            if (left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++) if (!tolerance.Matches(Math.Abs(Math.IEEERemainder(left[i] - right[i], period)), 0.0)) return false;
             return true;
         });
     }
 
     private static bool CompareElements(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, bool negate) {
-        if (left.Length != right.Length) {
-            return false;
-        }
-        for (int i = 0; i < left.Length; i++) {
-            if (!tolerance.Matches(left[i], negate ? -right[i] : right[i])) {
-                return false;
-            }
-        }
+        if (left.Length != right.Length) return false;
+        for (int i = 0; i < left.Length; i++) if (!tolerance.Matches(left[i], negate ? -right[i] : right[i])) return false;
         return true;
     }
 }

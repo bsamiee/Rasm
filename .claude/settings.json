@@ -45,5 +45,6 @@
         "defaultMode": "bypassPermissions"
     },
     "outputStyle": "Concise",
-    "skipDangerousModePermissionPrompt": true
+    "skipDangerousModePermissionPrompt": true,
+    "enableAllProjectMcpServers": true
 }

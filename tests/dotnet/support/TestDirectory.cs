@@ -17,9 +17,7 @@ public sealed class TestDirectory : IDisposable {
 
     public void Dispose() {
         Root.Refresh();
-        if (Root.Exists) {
-            Root.Delete(recursive: true);
-        }
+        if (Root.Exists) Root.Delete(recursive: true);
     }
 
     private string Resolve(string relativePath) {

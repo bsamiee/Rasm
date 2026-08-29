@@ -189,6 +189,12 @@
           "SSH.NET": "2024.0.0"
         }
       },
+      "Roslynator.Analyzers": {
+        "type": "Direct",
+        "requested": "[5.0.0, )",
+        "resolved": "5.0.0",
+        "contentHash": "+J5kR/naCd62IwY2BG9P0QoHnJM8liBUFFAk6jga1t9s61JC3M+ofb3AY3wc73/pdROyKFCURqctQh8WRCIT/w=="
+      },
       "System.IO.Hashing": {
         "type": "Direct",
         "requested": "[10.0.11, )",
@@ -334,6 +340,7 @@
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.36.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "MathNet.Numerics": "[6.0.0-beta2, )",
           "NodaTime": "[3.3.3, )",
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",

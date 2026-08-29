@@ -11,24 +11,27 @@
 
 Read `docs/stacks/<language>/README.md` before changing a file owned by that language; let the task scope determine any additional reading
 
+Never use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, languages have specialized skills/mcp servers, and `ast-grep` skill and mcp for general usage.
+
 [TOOL_ROUTING]:
 - ALWAYS use `exa` MCP to start open-web search with neural discovery
 - ALWAYS use `search-tavily` skill on known targets, extract or crawl a site, or run a multi-source report, REPLACES `WebFetch` entirely
 - ALWAYS use `search-context7` skill when working with external dependencies; never use training data, never guess SDK/framework/API capabilities
-- ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
+- ALWAYS use `dotnet-roslyn-codelens` skill to read, navigate, diagnose, and refactor C# files and code
 - ALWAYS use `binlog` MCP for all `.binlog` related work such as build failures, target/property/import questions, and timing, NEVER direct searching
+- ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex usage, config, harness work, and understanding
 
 [CLI_TOOLING]: All tools are available from `Parametric_Forge`; prefer them to standard Unix tools where applicable
 
-| [INDEX] | [TOOL]    | [GUIDANCE]                                                                                  |
-| :-----: | :-------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `tree`    | `tree <dir>` lists all directory and files, `-D` for dirs only                              |
-|  [02]   | `loc`     | `loc <dir>` for true LOC count with complexity score, folder total + per file               |
-|  [03]   | `fd`      | `--hidden` is baked in, `-H` is noise                                                       |
-|  [04]   | `rg`      | `--smart-case --hidden`                                                                     |
-|  [05]   | `jq`/`yq` | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays |
-|  [06]   | `gh`      | Non-TTY prints nothing when empty, count through `--json <fields> \| jq length`             |
+| [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                          |
+| :-----: | :-------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `tree`    | `tree <dir>` lists all directory and files, `-D` for dirs only                                                      |
+|  [02]   | `loc`     | `loc <dir>` for true LOC count with complexity score, folder total + per file                                       |
+|  [03]   | `fd`      | Use for ALL normal filesystem queries/actions, trumped by language specialized skills/mcp depending on context      |
+|  [04]   | `rg`      | REPLACES `grep`, NEVER use for code surface search, trumped by language specialized skills/mcp depending on context |
+|  [05]   | `gh`      | Non-TTY prints nothing when empty, count through `--json <fields> \| jq length`                                     |
+|  [06]   | `jq`/`yq` | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                         |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

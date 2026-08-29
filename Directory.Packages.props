@@ -9,6 +9,7 @@
         <PackageVersion Include="ErrorProne.NET.CoreAnalyzers"                            Version="0.9.0-beta.4" />
         <PackageVersion Include="Meziantou.Analyzer"                                      Version="3.0.190" />
         <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers"              Version="18.7.23" />
+        <PackageVersion Include="Roslynator.Analyzers"                                    Version="5.0.0" />
     </ItemGroup>
 
     <ItemGroup Label="Host Build Dependencies">
