@@ -14,6 +14,7 @@ Covers the evaluation phase: import order, conditions, properties, items, and th
 
 MSBuild evaluates imports and properties in one pass, in order of appearance, as if each import were expanded in place. The last assignment wins:
 - `Directory.Build.props` → NuGet package `.props` → SDK `.props` → project file → SDK `.targets` → NuGet package `.targets` → `Directory.Build.targets`
+- `Directory.Build.props` is imported early in `Microsoft.Common.props`. A property defined later evaluates to empty. `Directory.Build.targets` is imported from `Microsoft.Common.targets`.
 
 ```xml
 <!-- File 1 (imported first) -->
@@ -24,14 +25,11 @@ MSBuild evaluates imports and properties in one pass, in order of appearance, as
 <MyProp Condition="'$(MyProp)' == ''">value3</MyProp>  <!-- not set: already value2 -->
 ```
 
-`Directory.Build.props` is imported early in `Microsoft.Common.props`. It sets defaults, a property defined later evaluates to empty inside it, and the project file overrides any value it sets. `Directory.Build.targets` is imported from `Microsoft.Common.targets` after the project file and after every NuGet package `.targets` file. A property assigned there overrides the project file and package build logic.
-
-[CRITICAL]: A property condition on `$(TargetFramework)` in a `.props` file never matches for a single-targeting project. The project file sets the property after the import, so it is empty during the import. Place `TargetFramework`-conditioned property groups in `.targets` files or the project file. `ItemGroup`, item, and `Target` conditions see the final value, because items and targets evaluate after all properties.
+[CRITICAL]: A property condition on `$(TargetFramework)` in a `.props` file never matches for a single-targeting project. The project file sets the property after the import. Place `TargetFramework`-conditioned property groups in `.targets` files or the project file. `ItemGroup`, item, and `Target` conditions see the final value, because items and targets evaluate after all properties.
 
 ## [02]-[CONDITIONS]
 
-A `Condition` attribute is parsed as one expression string, so its quoting rules differ from a property value.
-
+A `Condition` attribute is parsed as one expression string:
 - Quote both sides of `==` and `!=` with single quotes: `'$(Prop)' == ''`.
 - Inside a quoted `Condition` operand, property function arguments take backticks or no quotes: `` `$([MSBuild]::GetTargetFrameworkIdentifier(`$(TargetFramework)`))` ``. An inner `'` closes the operand and raises `MSB4092`. A property value nests single quotes freely.
 - `Exists(...)` and `HasTrailingSlash(...)` are condition functions, called without a class prefix: `Condition="!HasTrailingSlash('$(OutDir)')"`. `$([MSBuild]::HasTrailingSlash(...))` raises `MSB4186` because no such property function exists.
@@ -65,7 +63,7 @@ Compare target frameworks with `IsTargetFrameworkCompatible(target, candidate)`.
 
 ## [03]-[PROPERTIES]
 
-Set a property only when it is still empty, so an earlier import keeps its value. A global property from the command line is never overwritten by a project assignment. In `.props` the condition creates a default the project can override. In `.targets` it creates a fallback. An unconditioned assignment overwrites every earlier value.
+Set a property only when it is still empty, so an earlier import keeps its value. A global property from the command line is never overwritten by a project assignment. In `.props` the condition creates a default the project can override. In `.targets` it creates a fallback.
 
 ```xml
 <PropertyGroup>
@@ -104,16 +102,14 @@ Set a marker property at the end of a `.props` file so its `.targets` file impor
 ```xml
 <PropertyGroup>
   <!-- Directory properties carry a trailing slash -->
-  <OutDir Condition="'$(OutDir)' != ''">$([MSBuild]::EnsureTrailingSlash('$(OutDir)'))</OutDir>
-
-  <!-- Combine and normalize to a full path -->
+  <OutDir>$([MSBuild]::EnsureTrailingSlash('$(OutDir)'))</OutDir>
   <TargetRefPath>$([MSBuild]::NormalizePath('$(TargetDir)', 'ref', '$(TargetFileName)'))</TargetRefPath>
   <TargetRefDir>$([MSBuild]::NormalizeDirectory('$(TargetDir)', 'ref'))</TargetRefDir>
   <MSBuildProjectExtensionsPath>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(MSBuildProjectExtensionsPath)'))</MSBuildProjectExtensionsPath>
 </PropertyGroup>
 ```
 
-| [INDEX] | [FUNCTION]                                       | [PURPOSE]                                                      |
+| [INDEX] | [EXPRESSION]                                     | [PURPOSE]                                                      |
 | :-----: | :----------------------------------------------- | :------------------------------------------------------------- |
 |  [01]   | `$([MSBuild]::NormalizePath(...))`               | Combine and normalize a file path                              |
 |  [02]   | `$([MSBuild]::NormalizeDirectory(...))`          | Combine, normalize, and force a trailing slash                 |
@@ -123,13 +119,13 @@ Set a marker property at the end of a `.props` file so its `.targets` file impor
 
 ## [04]-[ITEMS]
 
+`Exclude` applies only to the `Include` attribute in the same element, never to `Update` or `Remove`.
+
 | [INDEX] | [OPERATION] | [PURPOSE]                         | [USE_WHEN]                          |
 | :-----: | :---------- | :-------------------------------- | :---------------------------------- |
 |  [01]   | `Include`   | Add items to the item type        | Create items with metadata          |
 |  [02]   | `Remove`    | Remove items that match a pattern | Exclude files or clear an item type |
 |  [03]   | `Update`    | Set metadata on existing items    | Metadata without a new `Include`    |
-
-`Update` does not add items. `Exclude` applies only to the `Include` attribute in the same element, never to `Update` or `Remove`.
 
 ```xml
 <ItemGroup>
@@ -208,48 +204,39 @@ When `%(Metadata)` appears in a target's `Inputs`, `Outputs`, or `Condition`, MS
     Outputs="$(IntermediateOutputPath)%(Culture)\$(TargetName).resources.dll">
 </Target>
 
-<!-- Task-level batching -->
-<Copy SourceFiles="@(_SourceItems)"
-    DestinationFiles="@(_SourceItems->'$(OutDir)%(TargetPath)')">
-</Copy>
-
 <!-- Item condition on the item's own metadata (no batching outside a target) -->
 <ItemGroup>
   <_ResxOutput Include="@(EmbeddedResource->'%(OutputResource)')"
       Condition="'%(EmbeddedResource.WithCulture)' == 'false'" />
 </ItemGroup>
 
-<!-- BAD: batches on two item types, each batch has one side empty -->
+<!-- BAD: batches on two item types -->
 <Exec Command="process %(Source.Identity) with %(Config.Identity)" />
 
-<!-- GOOD: batch on one item type, pass the other as a property -->
+<!-- GOOD: batch on one item type -->
 <Exec Command="process %(Source.Identity) with $(ConfigFile)" />
 ```
 
 ### [04.3]-[GENERATED_FILE_ITEMS]
 
 - Add every file that a target writes to `@(FileWrites)`, so that `IncrementalClean` and `Clean` delete it.
-- Write generated files under `$(IntermediateOutputPath)`, never the source directory. A generated file in the source tree lands in version control and in the default `Compile` glob.
-
-The `dotnet-msbuild-execution` skill owns the target that writes the file and adds it to `@(FileWrites)`.
+- Write generated files under `$(IntermediateOutputPath)`, never the source directory. Generated files in the source tree land in version control and in default `Compile` glob.
+- See the `dotnet-msbuild-execution` skill, it owns the target that writes the file.
 
 ## [05]-[FILE_PLACEMENT]
 
-| [INDEX] | [PROPS]                          | [TARGETS]                                     |
-| :-----: | :------------------------------- | :-------------------------------------------- |
-|  [01]   | Property defaults                | Custom targets                                |
-|  [02]   | Common items                     | Properties that read SDK-defined values       |
-|  [03]   | Properties projects can override | Post-build steps                              |
-|  [04]   | Assembly and package metadata    | Conditions on final property values           |
-|  [05]   | Shared `PackageReference` items  | Targets that depend on SDK-defined properties |
+| [INDEX] | [PROPS]                          | [TARGETS]                               |
+| :-----: | :------------------------------- | :-------------------------------------- |
+|  [01]   | Property defaults                | Custom targets                          |
+|  [02]   | Common items                     | Properties that read SDK-defined values |
+|  [03]   | Properties projects can override | Post-build steps                        |
 
 ### [05.1]-[DIRECTORY_BUILD_PROPS]
 
-Never put here: a project-specific `TargetFramework`, a project-specific `PackageReference`, a target, or a property that reads an SDK-defined value. SDK-defined values are empty during this import.
+Set `<ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>` here. `UseArtifactsOutput` follows the same rule. The SDK then writes `artifacts/<type>/<project>/<pivot>`, where type is `bin`, `obj`, `publish`, or `package`. A project-file assignment raises `NETSDK1199`.
 
-Set `<ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>` here, never in a project file. `UseArtifactsOutput` follows the same rule. The SDK then writes `artifacts/<type>/<project>/<pivot>`, where type is `bin`, `obj`, `publish`, or `package`. A project-file assignment raises `NETSDK1199`.
-
-Put here: language settings, assembly and package metadata, warning settings, and code analysis settings.
+- Never put here: a project-specific `TargetFramework` or a project-specific `PackageReference`.
+- Put here: language settings, assembly and package metadata, warning settings, and code analysis settings.
 
 ```xml
 <Project>
@@ -274,8 +261,6 @@ Detect test projects by project name. `$(MSBuildProjectName)` is a reserved prop
 ```
 
 ### [05.2]-[DIRECTORY_BUILD_TARGETS]
-
-Put here: custom targets, properties that read SDK-defined values, and validation targets.
 
 ```xml
 <Project>
@@ -350,9 +335,9 @@ Holds default command-line switches for every command-line build under its direc
 
 ### [05.5]-[MULTILEVEL_DIRECTORY_BUILD_FILES]
 
-MSBuild imports only the first `Directory.Build.props` (or `.targets`) it finds when it searches upward from the project directory. To merge levels, import the outer file at the top of the inner file.
+MSBuild imports only the first `Directory.Build.props` (or `.targets`) it finds when it searches upward from the project directory. To merge levels, import the outer file at the top of the inner file. Read the `references/multi-level-examples.md` for full guidance.
 
-`$(DirectoryBuildPropsPath)` and `$(DirectoryBuildTargetsPath)` name the file to import. `$(ImportDirectoryBuildProps)` and `$(ImportDirectoryBuildTargets)` default to `true`, and `false` disables the import. `Microsoft.Common.props` reads the `.props` pair before any project content, so only a global property, an environment variable, or `Directory.Build.rsp` can set it. `Directory.Build.props` or the project file can set the `.targets` pair.
+`$(DirectoryBuildPropsPath)` and `$(DirectoryBuildTargetsPath)` name the file to import. `$(ImportDirectoryBuildProps)` and `$(ImportDirectoryBuildTargets)` default to `true`, and `false` disables the import. Only a global property, an environment variable, or `Directory.Build.rsp` can set the `.props` pair. `Directory.Build.props` or the project file can set the `.targets` pair.
 
 ```xml
 <Project>
@@ -361,19 +346,6 @@ MSBuild imports only the first `Directory.Build.props` (or `.targets`) it finds 
 
   <!-- Inner-level overrides go here -->
 </Project>
-```
-
-Example layout:
-
-```
-repo/
-  Directory.Build.props          ← repo-wide (language settings, package metadata)
-  Directory.Build.targets        ← repo-wide targets
-  Directory.Packages.props       ← central package versions
-  libs/dotnet/
-    Directory.Build.props        ← library-specific (imports repo-level, sets IsPackable=true)
-  tests/dotnet/
-    Directory.Build.props        ← test-specific (imports repo-level, sets IsPackable=false, adds test packages)
 ```
 
 ### [05.6]-[PACKAGE_BUILD_FOLDER_IMPORTS]
@@ -388,17 +360,15 @@ NuGet imports one `.props` and one `.targets` file per package from `build/`, `b
 <Import Project="$(MSBuildThisFileDirectory)../../build/$(_MyPackageTfm)/MyPackage.props" />
 ```
 
-The import needs no `Exists()` guard. The packed layout, not the source tree, is the contract. The pack step produces the per-TFM folders from a `.nuspec` `<file>` entry with a per-TFM `target`, or from `<None>` or `<Content>` items with a per-TFM `<PackagePath>`. Before you judge such an import, read every `*.nuspec` in the project directory and its parent directory, and read every `<PackagePath>` in the `.csproj`. The import is broken only when the target path is absent from both the source tree and that packed layout.
+The forwarding import needs no `Exists()` guard, because the packed layout is the contract. Restore already guards its own generated import of the package file with `Exists()`. The pack step places a file at the `target` of a `.nuspec` `<file>` entry, or at the `PackagePath` of a `<None>` or `<Content>` item with `Pack="true"`. Before you judge such an import, read every `*.nuspec` in the project directory and its parent directory, and read every `PackagePath` in the `.csproj`. The import is broken only when that packed layout lacks the target path.
 
 ## [06]-[TROUBLESHOOTING]
 
-| [INDEX] | [PROBLEM]                                             | [CAUSE]                                             | [FIX]                                           |
-| :-----: | :---------------------------------------------------- | :-------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `Directory.Build.props` is not imported               | Filename casing differs, Linux is case-sensitive    | Match the casing exactly                        |
-|  [02]   | `Directory.Build.props` value is ignored              | The project file reassigns it after the import      | Set it in `Directory.Build.targets`             |
-|  [03]   | Outer `Directory.Build.props` is skipped              | MSBuild imports the first file found upward         | Inner file imports it with `GetPathOfFileAbove` |
-|  [04]   | An SDK-defined property is empty in `.props`          | The SDK sets it after the `.props` import           | Read it in `.targets`                           |
-|  [05]   | `Directory.Packages.props` is not found               | No file of that name in project dir or a parent dir | Create it at the repo root                      |
-|  [06]   | `$(TargetFramework)` condition never matches `.props` | Single-target projects set it in the project file   | Move it to `.targets`                           |
+| [INDEX] | [PROBLEM]                                    | [CAUSE]                                             | [FIX]                               |
+| :-----: | :------------------------------------------- | :-------------------------------------------------- | :---------------------------------- |
+|  [01]   | `Directory.Build.props` is not imported      | Filename casing differs, Linux is case-sensitive    | Match the casing exactly            |
+|  [02]   | `Directory.Build.props` value is ignored     | The project file reassigns it after the import      | Set it in `Directory.Build.targets` |
+|  [03]   | An SDK-defined property is empty in `.props` | The SDK sets it after the `.props` import           | Read it in `.targets`               |
+|  [04]   | `Directory.Packages.props` is not found      | No file of that name in project dir or a parent dir | Create it at the repo root          |
 
 [DIAGNOSIS]: `dotnet msbuild -pp:output.xml MyProject.csproj` writes every import inline, with file boundaries marked, which shows where each property is assigned. `dotnet msbuild -getProperty:Name MyProject.csproj` prints the evaluated value without a build. `-getItem:Name` and `-getTargetResult:Name` do the same for items and target outputs.
