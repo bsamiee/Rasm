@@ -140,18 +140,18 @@ A green clash shows nothing in the console and nothing in `binlog_diagnose`. The
 ### [05.1]-[GLOBAL_PROPERTIES]
 
 | [INDEX] | [PROPERTY]                             | [SDK_DEFAULT_SEPARATION] | [MEANING]                                                                   |
-| :-----: | :------------------------------------- | :----------------------: | :-------------------------------------------------------------------------- |
-|  [01]   | `TargetFramework`                      |       Conditional        | Appended while `AppendTargetFrameworkToOutputPath` is `true`                |
-|  [02]   | `RuntimeIdentifier`                    |       Conditional        | Appended while `AppendRuntimeIdentifierToOutputPath` is `true`              |
-|  [03]   | `Configuration`                        |           Yes            | One path per configuration                                                  |
-|  [04]   | `Platform`                             |       Non-`AnyCPU`       | Non-default platforms add a path segment                                    |
-|  [05]   | `SolutionFileName`                     |            No            | Names the building solution, different values mark a multi-solution clash   |
-|  [06]   | `SolutionName`, `BuildingSolutionFile` |            No            | Same signal as `SolutionFileName`                                           |
-|  [07]   | `CurrentSolutionConfigurationContents` |            No            | Project entries of the solution, the entry count tells two solutions apart  |
-|  [08]   | `BuildProjectReferences`               |            No            | Reference query if only `Get*` targets ran, also set by `--no-dependencies` |
-|  [09]   | `MSBuildIsRestoring`                   |            No            | Restore-pass marker, with `MSBuildRestoreSessionId`                         |
-|  [10]   | `PublishReadyToRun`                    |            No            | Publish setting, forks an instance without a path change                    |
-|  [11]   | `_IsPublishing`                        |            No            | Set by `dotnet publish`, an `<MSBuild>` call that passes it forks the build |
+| :-----: | :------------------------------------- | :----------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `TargetFramework`                      | Conditional              | Appended while `AppendTargetFrameworkToOutputPath` is `true`                |
+|  [02]   | `RuntimeIdentifier`                    | Conditional              | Appended while `AppendRuntimeIdentifierToOutputPath` is `true`              |
+|  [03]   | `Configuration`                        | Yes                      | One path per configuration                                                  |
+|  [04]   | `Platform`                             | Non-`AnyCPU`             | Non-default platforms add a path segment                                    |
+|  [05]   | `SolutionFileName`                     | No                       | Names the building solution, different values mark a multi-solution clash   |
+|  [06]   | `SolutionName`, `BuildingSolutionFile` | No                       | Same signal as `SolutionFileName`                                           |
+|  [07]   | `CurrentSolutionConfigurationContents` | No                       | Project entries of the solution, the entry count tells two solutions apart  |
+|  [08]   | `BuildProjectReferences`               | No                       | Reference query if only `Get*` targets ran, also set by `--no-dependencies` |
+|  [09]   | `MSBuildIsRestoring`                   | No                       | Restore-pass marker, with `MSBuildRestoreSessionId`                         |
+|  [10]   | `PublishReadyToRun`                    | No                       | Publish setting, forks an instance without a path change                    |
+|  [11]   | `_IsPublishing`                        | No                       | Set by `dotnet publish`, an `<MSBuild>` call that passes it forks the build |
 
 ### [05.2]-[PIVOT_MISSING_FROM_OUTPUT_PATH]
 
