@@ -14,6 +14,7 @@ Use this catalog when you review project and build files. Each entry has:
 
 - SMELL: `Condition="$(Foo) == Bar"`. One side of a comparison has no single quotes.
 - WHY: A `Condition` attribute is one expression string. If the property is empty, the unquoted operand is empty and MSBuild reports an error. Single quotes are required for empty values and for values with spaces.
+- RULE: Quote both sides of `==` and `!=` with single quotes.
 
 ```xml
 <!-- BAD -->
@@ -27,12 +28,11 @@ Use this catalog when you review project and build files. Each entry has:
 </PropertyGroup>
 ```
 
-RULE: Quote both sides of `==` and `!=` with single quotes.
-
 ## [AP-02]-[PROPERTY_DEFAULTS_IN_TARGETS_FILES]
 
 - SMELL: A `<PropertyGroup>` with default values inside a `.targets` file.
 - WHY: `.targets` files import after the project body. A file that reads the property before that point sees an empty value.
+- RULE: `.props` owns defaults and settings. `.targets` owns targets and derived properties.
 
 ```xml
 <!-- BAD: custom.targets -->
@@ -54,8 +54,6 @@ RULE: Quote both sides of `==` and `!=` with single quotes.
   <Exec Command="mytool --version $(MyToolVersion)" />
 </Target>
 ```
-
-RULE: `.props` owns defaults and settings. `.targets` owns targets and derived properties.
 
 ## [AP-03]-[UNCONDITIONAL_PROPERTY_OVERRIDE_IN_MULTIPLE_SCOPES]
 
@@ -111,7 +109,7 @@ RULE: `.props` owns defaults and settings. `.targets` owns targets and derived p
 
 [CAUTION] Only property conditions have this problem. Items and targets evaluate after every property, so `ItemGroup`, item, and `Target` conditions on `$(TargetFramework)` in `.props` files are correct.
 
-Do not flag these patterns:
+Do NOT flag these patterns:
 
 ```xml
 <!-- OK in Directory.Build.props — ItemGroup conditions evaluate late -->
@@ -208,6 +206,7 @@ Exception: `ArtifactsProjectName` is the one artifacts property that belongs in 
 
 - SMELL: The same `<PropertyGroup>` block in three or more project files.
 - WHY: Each change must land in every file. The copies drift apart.
+- See `dotnet-msbuild-evaluation` skill for `Directory.Build.props` and `Directory.Build.targets` placement.
 
 ```xml
 <!-- BAD: Repeated in every .csproj -->
@@ -228,8 +227,6 @@ Exception: `ArtifactsProjectName` is the one artifacts property that belongs in 
   </PropertyGroup>
 </Project>
 ```
-
-See `dotnet-msbuild-evaluation` skill for `Directory.Build.props` and `Directory.Build.targets` placement.
 
 ## [AP-10]-[REFERENCE_WITH_HINTPATH_FOR_NUGET_PACKAGES]
 
@@ -389,8 +386,7 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
 - `Outputs` lives under `$(IntermediateOutputPath)`, so the generated file lands in `obj/`.
 - The `FileWrites` item makes sure that `Clean` deletes the generated file.
 - The `Compile` item inside the target adds the file to compilation without a glob at evaluation time.
-
-See `dotnet-msbuild-execution` skill for `Inputs`, `Outputs`, `FileWrites`, and up-to-date checks.
+- See `dotnet-msbuild-execution` skill for `Inputs`, `Outputs`, `FileWrites`, and up-to-date checks.
 
 ## [AP-17]-[EXEC_FOR_BUILTIN_TASKS]
 
@@ -477,8 +473,8 @@ See `dotnet-msbuild-execution` skill for `Inputs`, `Outputs`, `FileWrites`, and 
 - WHY: MSBuild creates one project instance for a project path and a unique set of global properties. The extra property creates a second instance, `(project, {_IsPublishing=true})`, with the same `OutputPath` and `IntermediateOutputPath` as the instance the solution or graph already builds, `(project, {})`. The project builds twice. In a parallel build the two instances write the same output files and fail with `The process cannot access the file because it is being used by another process`, or with an intermittent file-lock failure. The `<MSBuild>` call can live in the target project or in any other project in the same build.
 
 ```xml
-<!-- BAD (a): forks a second instance (path + {_IsPublishing=true}) that shares this project's bin/obj -->
-<Target Name="PublishOnBuild" AfterTargets="Build">
+<!-- BAD (a): forks a second instance (path + {_IsPublishing=true}) that shares this project's bin/obj; the guard only stops the recursion -->
+<Target Name="PublishOnBuild" AfterTargets="Build" Condition="'$(_IsPublishing)' != 'true'">
   <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
 </Target>
 ```
@@ -536,7 +532,7 @@ The ProjectReference protocol itself does not set `TargetFramework` for a single
 
 `SetTargetFramework` is correct in two cases:
 1. The referenced project is multi-targeting and the consumer needs one specific TFM. Each TFM has its own output path.
-2. The consumer builds a single-targeting project under a TFM other than the one it declares. The injected `TargetFramework` changes the output path to `obj\<config>\<different-tfm>\`, so the instance does not collide with `(project, {})`.
+2. The consumer builds a single-targeting project under a TFM other than the one it declares. The injected `TargetFramework` changes the output path to `obj\<config>\<different-tfm>\`, so the instance does not collide with `(project, {})`
 
 Related, a framework-incompatible reference: when the referencing and referenced projects target incompatible frameworks, for example `.NETFramework` and `.NETCoreApp`, set both metadata values:
 - `SkipGetTargetFrameworkProperties="true"` skips the target framework negotiation, which fails for incompatible frameworks.

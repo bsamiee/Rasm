@@ -14,7 +14,7 @@ Covers the evaluation phase: import order, conditions, properties, items, and th
 
 MSBuild evaluates imports and properties in one pass, in order of appearance, as if each import were expanded in place. The last assignment wins:
 - `Directory.Build.props` → NuGet package `.props` → SDK `.props` → project file → SDK `.targets` → NuGet package `.targets` → `Directory.Build.targets`
-- `Directory.Build.props` is imported early in `Microsoft.Common.props`. A property defined later evaluates to empty. `Directory.Build.targets` is imported from `Microsoft.Common.targets`.
+- `Directory.Build.props` is imported early in `Microsoft.Common.props`. A property defined later evaluates to empty. `Directory.Build.targets` is imported from `Microsoft.Common.targets`
 
 ```xml
 <!-- File 1 (imported first) -->
