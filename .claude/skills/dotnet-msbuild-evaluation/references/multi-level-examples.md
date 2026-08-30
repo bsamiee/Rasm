@@ -1,4 +1,4 @@
-# [MULTI-LEVEL_EXAMPLES]-[DIRECTORY_BUILD]
+# [MULTI_LEVEL_EXAMPLES]-[DIRECTORY_BUILD]
 
 Full file examples for a typical multi-level repo layout.
 
@@ -60,14 +60,14 @@ Full file examples for a typical multi-level repo layout.
 
 ## [04]-[BEFORE_AFTER]-[CENTRALIZING_DUPLICATED_SETTINGS]
 
-BEFORE: Duplicated settings in every .csproj
+[BEFORE]: the same settings in every project file
 
 ```xml
 <!-- libs/dotnet/LibA/LibA.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -82,11 +82,11 @@ BEFORE: Duplicated settings in every .csproj
 
 </Project>
 
-<!-- libs/dotnet/LibB/LibB.csproj — same boilerplate repeated -->
+<!-- libs/dotnet/LibB/LibB.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -96,13 +96,13 @@ BEFORE: Duplicated settings in every .csproj
 
   <ItemGroup>
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
   </ItemGroup>
 
 </Project>
 ```
 
-AFTER: Centralized with Directory.Build files.
+[AFTER]: settings moved to `Directory.Build.props` and `Directory.Packages.props`
 
 ```xml
 <!-- Directory.Build.props -->
@@ -127,7 +127,7 @@ AFTER: Centralized with Directory.Build files.
 
   <ItemGroup>
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -136,11 +136,11 @@ AFTER: Centralized with Directory.Build files.
 
 </Project>
 
-<!-- libs/dotnet/LibA/LibA.csproj — clean and minimal -->
+<!-- libs/dotnet/LibA/LibA.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -149,11 +149,11 @@ AFTER: Centralized with Directory.Build files.
 
 </Project>
 
-<!-- libs/dotnet/LibB/LibB.csproj — clean and minimal -->
+<!-- libs/dotnet/LibB/LibB.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
