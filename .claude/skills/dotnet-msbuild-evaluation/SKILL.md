@@ -219,9 +219,7 @@ When `%(Metadata)` appears in a target's `Inputs`, `Outputs`, or `Condition`, MS
 
 ### [04.3]-[GENERATED_FILE_ITEMS]
 
-- Add every file that a target writes to `@(FileWrites)`, so that `IncrementalClean` and `Clean` delete it.
-- Write generated files under `$(IntermediateOutputPath)`, never the source directory. Generated files in the source tree land in version control and in default `Compile` glob.
-- See the `dotnet-msbuild-execution` skill, it owns the target that writes the file.
+See the `dotnet-msbuild-execution` skill.
 
 ## [05]-[FILE_PLACEMENT]
 

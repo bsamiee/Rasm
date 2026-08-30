@@ -343,13 +343,17 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
 </Target>
 
 <!-- GOOD: Single-responsibility targets -->
-<Target Name="WriteVersionFile" BeforeTargets="CoreCompile"
-        Inputs="$(MSBuildProjectFile)" Outputs="$(IntermediateOutputPath)version.txt">
-  <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" />
+<Target Name="CopyVersionFile" BeforeTargets="CoreCompile"
+        Inputs="version.txt" Outputs="$(IntermediateOutputPath)version.txt">
+  <Copy SourceFiles="version.txt" DestinationFiles="$(IntermediateOutputPath)version.txt">
+    <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+  </Copy>
 </Target>
 
 <Target Name="CopyLicense" AfterTargets="Build">
-  <Copy SourceFiles="LICENSE" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  <Copy SourceFiles="LICENSE" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true">
+    <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+  </Copy>
 </Target>
 
 ```
@@ -357,20 +361,20 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
 ## [AP-16]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
 
 - SMELL: `<Target Name="MyTarget" BeforeTargets="Build">` that writes files, with no `Inputs` and `Outputs` attributes.
-- WHY: MSBuild skips a target only when every output is newer than its inputs. Without both attributes, the target runs on every build, and a no-op build becomes slow.
+- WHY: MSBuild skips a target when every output is the same age as or newer than its corresponding input set. Without both attributes, the target runs on every build, and a no-op build becomes slow.
 
 ```xml
 <!-- BAD: Runs every time -->
 <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
-  <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
-                    Lines="// Generated at $(Version)" Overwrite="true" />
+  <Copy SourceFiles="BuildInfo.cs.in"
+        DestinationFiles="$(IntermediateOutputPath)BuildInfo.g.cs" />
 </Target>
 
 <!-- GOOD: Skipped when up-to-date -->
 <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile"
-        Inputs="$(MSBuildProjectFile)" Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">
-  <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
-                    Lines="// Generated at $(Version)" Overwrite="true" />
+        Inputs="BuildInfo.cs.in" Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">
+  <Copy SourceFiles="BuildInfo.cs.in"
+        DestinationFiles="$(IntermediateOutputPath)BuildInfo.g.cs" />
   <ItemGroup>
     <FileWrites Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
     <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
@@ -378,8 +382,8 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
 </Target>
 ```
 
-- `Inputs` lists `$(MSBuildProjectFile)` plus every source file that drives generation.
-- `Outputs` lives under `$(IntermediateOutputPath)`, so the generated file lands in `obj/`.
+- `Inputs` lists every source file that drives generation.
+- `Outputs` uses `$(IntermediateOutputPath)`, so the file follows the configured intermediate directory.
 - The `FileWrites` item makes sure that `Clean` deletes the generated file.
 - The `Compile` item inside the target adds the file to compilation without a glob at evaluation time.
 - See `dotnet-msbuild-execution` skill for `Inputs`, `Outputs`, `FileWrites`, and up-to-date checks.

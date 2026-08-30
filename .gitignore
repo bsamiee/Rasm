@@ -118,7 +118,6 @@ lerna-debug.log*
 
 # --- [IDE_AND_EDITOR] ---------------------------------------------------------
 
-.vscode/
 mise.local.toml
 .idea/
 .history/

@@ -13,11 +13,11 @@ Capture the measured build with `-bl:{}`. Keep its command, properties, and para
 5. Run `binlog_task_details` when task parameters or messages can explain the cost.
 6. Run `binlog_expensive_projects`, `binlog_expensive_targets`, and `binlog_expensive_tasks` for build-wide cost.
 
-`binlog_expensive_projects` ranks projects by exclusive target duration. The target and task tools aggregate cost by name across the build. Rank findings by measured duration and critical-path effect. Do not apply universal timing or percentage thresholds.
+`binlog_expensive_projects` ranks projects by exclusive target duration. The target and task tools aggregate elapsed duration by name across the build. Rank findings by measured duration and critical-path effect. Do not apply universal timing or percentage thresholds.
 
 ## [02]-[CRITICAL_PATH_AND_PARALLELISM]
 
-The critical path is the duration-weighted project chain that bounds build completion. Work outside this chain can still delay it through contention.
+The critical path is the duration-weighted project chain that sets the dependency graph's minimum completion time. Work outside this chain can still delay it through contention.
 
 - `dotnet build` enables multiprocess MSBuild. A direct `msbuild` invocation uses one node unless you pass `-m` or `-maxCpuCount`.
 - An MSBuild node usually builds one project at a time. Project dependencies, limited nodes, and shared resources constrain parallel execution.

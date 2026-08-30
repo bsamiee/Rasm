@@ -25,7 +25,7 @@
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.expand": false,
     "explorer.fileNesting.patterns": {
-        "CLAUDE.md": ".coderabbit.yaml, AGENTS.md",
+        "CLAUDE.md": ".coderabbit.yaml, .mcp.json, AGENTS.md",
         "README.md": "LICENSE",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, stryker-config.json, Workspace.slnx",
         "*.cs": "${capture}.Tests.cs",
