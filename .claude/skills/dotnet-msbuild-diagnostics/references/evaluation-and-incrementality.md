@@ -77,8 +77,8 @@ FILE  WRITES:
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
 ```bash
-dotnet build -bl:prime-incremental-{} # establish the outputs
-dotnet build -bl:incremental-{}       # capture the no-change build
+dotnet build -bl:prime-incremental-{}  # establish the outputs
+dotnet build -bl:incremental-{}        # capture the no-change build
 ```
 
 Analyze the second binlog:

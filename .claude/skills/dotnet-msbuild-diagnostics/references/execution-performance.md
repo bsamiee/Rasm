@@ -64,7 +64,7 @@ Do not batch this task into one call per project. Batching serializes the calls 
 MSBuild 18.4 and later can run eligible tasks concurrently inside one MSBuild process with `-mt`.
 
 ```bash
-dotnet msbuild -mt -bl:task-concurrency-{} # capture concurrent task execution
+dotnet msbuild -mt -bl:task-concurrency-{}  # capture concurrent task execution
 ```
 
 A concrete task class needs `[MSBuildMultiThreadableTask]` before MSBuild can run it in-process. `IMultiThreadableTask` supplies `TaskEnvironment`; it does not opt in the task.

@@ -29,8 +29,8 @@ Capture the measured build with `-bl:{}`. Keep its command, properties, and para
 Choose one server state and keep it unchanged across compared captures:
 
 ```bash
-dotnet build-server shutdown                         # stop persistent build servers before the capture
-dotnet build --disable-build-servers -bl:no-server-{} # disable persistent build servers for this capture
+dotnet build-server shutdown                           # stop persistent build servers before the capture
+dotnet build --disable-build-servers -bl:no-server-{}  # disable persistent build servers for this capture
 ```
 
 Record the selected state with the capture. Do not compare a warm-server build with a fresh-server build.
