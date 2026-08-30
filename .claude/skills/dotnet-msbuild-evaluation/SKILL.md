@@ -378,15 +378,31 @@ repo/
     Directory.Build.props        ← test-specific (imports repo-level, sets IsPackable=false, adds test packages)
 ```
 
+### [05.6]-[PACKAGE_BUILD_FOLDER_IMPORTS]
+
+NuGet imports one `.props` and one `.targets` file per package from `build/`, `buildTransitive/`, or `buildMultiTargeting/`. When the folder has TFM subfolders, NuGet selects the nearest compatible TFM folder for the consuming project, not the folder named by the consumer's own TFM. As a result, a `buildTransitive/<tfm>/` file that forwards to `build/$(TargetFramework)/` can name a folder that the package does not ship, and the consumer stops with `MSB4019`. Derive the TFM segment from the file's own folder and forward through the sibling `build/` file:
+
+```xml
+<!-- buildTransitive/net8.0/MyPackage.props -->
+<PropertyGroup>
+  <_MyPackageTfm>$([System.IO.Path]::GetFileName($(MSBuildThisFileDirectory.TrimEnd('\/'))))</_MyPackageTfm>
+</PropertyGroup>
+<Import Project="$(MSBuildThisFileDirectory)../../build/$(_MyPackageTfm)/MyPackage.props" />
+```
+
+The import needs no `Exists()` guard. The packed layout, not the source tree, is the contract. The pack step produces the per-TFM folders from a `.nuspec` `<file>` entry with a per-TFM `target`, or from `<None>` or `<Content>` items with a per-TFM `<PackagePath>`. Before you judge such an import, read every `*.nuspec` in the project directory and its parent directory, and read every `<PackagePath>` in the `.csproj`. The import is broken only when the target path is absent from both the source tree and that packed layout.
+
+[REFERENCE]: https://learn.microsoft.com/en-us/nuget/concepts/msbuild-props-and-targets
+
 ## [06]-[TROUBLESHOOTING]
 
-| [INDEX] | [PROBLEM]                                             | [CAUSE]                                                        | [FIX]                                           |
-| :-----: | :---------------------------------------------------- | :------------------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `Directory.Build.props` is not imported               | Filename casing differs, Linux file systems are case-sensitive | Match the casing exactly                        |
-|  [02]   | `Directory.Build.props` value is ignored              | The project file reassigns it after the import                 | Set it in `Directory.Build.targets`             |
-|  [03]   | Outer `Directory.Build.props` is skipped              | MSBuild imports the first file found upward                    | Inner file imports it with `GetPathOfFileAbove` |
-|  [04]   | An SDK-defined property is empty in `.props`          | The SDK sets it after the `.props` import                      | Read it in `.targets`                           |
-|  [05]   | `Directory.Packages.props` is not found               | No file of that name in project dir or a parent dir            | Create it at the repo root                      |
-|  [06]   | `$(TargetFramework)` condition never matches `.props` | Single-target projects set it in the project file              | Move it to `.targets`                           |
+| [INDEX] | [PROBLEM]                                             | [CAUSE]                                             | [FIX]                                           |
+| :-----: | :---------------------------------------------------- | :-------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `Directory.Build.props` is not imported               | Filename casing differs, Linux is case-sensitive    | Match the casing exactly                        |
+|  [02]   | `Directory.Build.props` value is ignored              | The project file reassigns it after the import      | Set it in `Directory.Build.targets`             |
+|  [03]   | Outer `Directory.Build.props` is skipped              | MSBuild imports the first file found upward         | Inner file imports it with `GetPathOfFileAbove` |
+|  [04]   | An SDK-defined property is empty in `.props`          | The SDK sets it after the `.props` import           | Read it in `.targets`                           |
+|  [05]   | `Directory.Packages.props` is not found               | No file of that name in project dir or a parent dir | Create it at the repo root                      |
+|  [06]   | `$(TargetFramework)` condition never matches `.props` | Single-target projects set it in the project file   | Move it to `.targets`                           |
 
 [DIAGNOSIS]: `dotnet msbuild -pp:output.xml MyProject.csproj` writes every import inline, with file boundaries marked, which shows where each property is assigned. `dotnet msbuild -getProperty:Name MyProject.csproj` prints the evaluated value without a build. `-getItem:Name` and `-getTargetResult:Name` do the same for items and target outputs.

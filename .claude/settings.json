@@ -44,7 +44,6 @@
         "deny": [],
         "defaultMode": "bypassPermissions"
     },
-    "outputStyle": "Concise",
     "skipDangerousModePermissionPrompt": true,
     "enableAllProjectMcpServers": true
 }

@@ -22,6 +22,7 @@ _INTERP = "<inline-interpreter>"
 _BACKTICK = re.compile(r"`([^`]*)`")
 _CONTINUE = re.compile(r"\\\n")
 _CTRL = re.compile(r"[\x00-\x1f\x7f]+")
+_HEREDOC = re.compile(r"<<-?\s*(['\"])(\w+)\1\n.*?^\t*\2$", re.DOTALL | re.MULTILINE)  # Quoted delimiter: the body expands nothing
 _GIT_WORD = re.compile(r"\bgit\b")
 _IFS = re.compile(r"\$\{IFS[^}]*\}|\$IFS")
 _ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -135,6 +136,7 @@ def _resolve(argv: list[str], depth: int) -> list[list[str]]:
 
 def _leaves(command: str, depth: int = 0) -> list[list[str]]:
     """Return every argv leaf of a shell command: substitution bodies lifted and descended, then a quote-aware split."""
+    command = _HEREDOC.sub(" ", command)
     bodies, flat, cursor = _BACKTICK.findall(command), _BACKTICK.sub(" ", _CONTINUE.sub(" ", command)), 0
     while (opened := flat.find("$(", cursor)) >= 0:
         close, level = opened + 2, 1
