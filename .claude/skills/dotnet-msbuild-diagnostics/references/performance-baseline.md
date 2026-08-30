@@ -71,7 +71,6 @@ Analyze the second binlog. Run `binlog_overview` on both binlogs to make sure th
 ## [06]-[EVIDENCE_ROUTE]
 
 Follow the reference that matches the measured evidence:
-
 - For executed work, graph constraints, or task cost, follow `execution-performance.md`.
 - For evaluation cost or unexpected repeated work, follow `evaluation-and-incrementality.md`.
 
