@@ -5,7 +5,7 @@ description: "Use when deciding which MSBuild file owns a property, item, condit
 
 # [DOTNET_MSBUILD_EVALUATION]
 
-Covers the evaluation phase: import order, conditions, properties, items, and the placement of each declaration in `.props`, `.targets`, `.csproj`, `Directory.Build.*`, or `Directory.Packages.props`.
+Covers the evaluation phase: import order, conditions, properties, items, and the placement of each declaration in `.props`, `.targets`, `.csproj`, `Directory.Build.*`, and `Directory.Packages.props`.
 
 [REFERENCES]:
 - [01]-[MULTI_LEVEL_EXAMPLES](references/multi-level-examples.md): Inner, outer, and `tests/`, `Directory.Build.props` files, before/after of settings moved out of project files
@@ -337,8 +337,6 @@ Central Package Management holds every NuGet package version in `Directory.Packa
 </Project>
 ```
 
-[REFERENCE]: https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management
-
 ### [05.4]-[DIRECTORY_BUILD_RSP]
 
 Holds default command-line switches for every command-line build under its directory, one switch per line. `msbuild.exe` and `dotnet build` apply it. Visual Studio does not. Pass `-noAutoResponse` to skip it for one invocation.
@@ -391,8 +389,6 @@ NuGet imports one `.props` and one `.targets` file per package from `build/`, `b
 ```
 
 The import needs no `Exists()` guard. The packed layout, not the source tree, is the contract. The pack step produces the per-TFM folders from a `.nuspec` `<file>` entry with a per-TFM `target`, or from `<None>` or `<Content>` items with a per-TFM `<PackagePath>`. Before you judge such an import, read every `*.nuspec` in the project directory and its parent directory, and read every `<PackagePath>` in the `.csproj`. The import is broken only when the target path is absent from both the source tree and that packed layout.
-
-[REFERENCE]: https://learn.microsoft.com/en-us/nuget/concepts/msbuild-props-and-targets
 
 ## [06]-[TROUBLESHOOTING]
 

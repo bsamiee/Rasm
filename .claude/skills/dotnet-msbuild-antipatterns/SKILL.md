@@ -84,7 +84,7 @@ RULE: `.props` owns defaults and settings. `.targets` owns targets and derived p
 ## [AP-04]-[PROPERTY_CONDITIONED_ON_TARGETFRAMEWORK_IN_PROPS_FILES]
 
 - SMELL: `<PropertyGroup Condition="'$(TargetFramework)' == '...'">` or a property condition on `$(TargetFramework)` in `Directory.Build.props` or any `.props` file that imports before the project body.
-- WHY: A single-targeting project sets `TargetFramework` in the project body, after `.props` evaluation. The condition compares an empty string and never matches. Only a multi-targeting inner build receives `TargetFramework` early, as a global property. See `dotnet-msbuild-evaluation` skill, Evaluation order.
+- WHY: A single-targeting project sets `TargetFramework` in the project body, after `.props` evaluation. The condition compares an empty string and never matches. Only a multi-targeting inner build receives `TargetFramework` early, as a global property. See `dotnet-msbuild-evaluation` skill for evaluation order.
 
 ```xml
 <!-- BAD: In Directory.Build.props — TargetFramework may be empty here -->
@@ -289,7 +289,7 @@ See `dotnet-msbuild-evaluation` skill for `Directory.Build.props` and `Directory
 <Project Sdk="Microsoft.NET.Sdk">
 ```
 
-Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's `build/` or `buildTransitive/` folder is a package contract, and the packed layout decides whether it resolves. See `dotnet-msbuild-evaluation` skill, `[05.6]-[PACKAGE_BUILD_FOLDER_IMPORTS]`, for the layout cross-check and the TFM derivation that prevents `MSB4019` in transitive consumers.
+Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's `build/` or `buildTransitive/` folder is a package contract, and the packed layout decides whether it resolves. See `dotnet-msbuild-evaluation` skill for package `build/` folder imports.
 
 ## [AP-13]-[HARDCODED_ABSOLUTE_PATHS]
 
@@ -315,7 +315,7 @@ See `dotnet-msbuild-evaluation` skill for path normalization.
 ## [AP-14]-[BACKSLASHES_IN_PATHS]
 
 - SMELL: Backslash separators in `.props` or `.targets` files that run cross-platform.
-- WHY: The evaluator converts `\` to `/` on Unix-like systems before it resolves a path. See `MaybeAdjustFilePath` and `ConvertToUnixSlashes` in [`dotnet/msbuild` `src/Framework/FileUtilities.cs`](https://github.com/dotnet/msbuild/blob/main/src/Framework/FileUtilities.cs). The conversion is a heuristic: it applies only when the string looks like a path and its first segment exists on disk. A string that does not pass through the evaluator gets no conversion.
+- WHY: The evaluator converts `\` to `/` on Unix-like systems before it resolves a path. The conversion is a heuristic: it applies only when the string looks like a path and its first segment exists on disk. A string that does not pass through the evaluator gets no conversion.
 
 [ERROR] when the string bypasses the evaluator:
 - A raw shell string inside `<Exec Command="...\tools\foo.exe ..." />`. On Unix, `Exec` runs the command with `sh`, which reads `\` as an escape.
