@@ -138,7 +138,7 @@ See `dotnet-msbuild-evaluation` skill for Path normalization.
   <ImplicitUsings>enable</ImplicitUsings>
 </PropertyGroup>
 
-<!-- GOOD: Define once in Directory.Build.props at the repo/src root -->
+<!-- GOOD: Define once in Directory.Build.props at the repo root -->
 <!-- Directory.Build.props -->
 <Project>
   <PropertyGroup>
@@ -425,7 +425,7 @@ Verification rule: Before flagging a backslash path as [ERROR], ask "does this s
 ## [AP-18]-[PROPERTY_CONDITIONED_ON_TARGETFRAMEWORK_IN_PROPS_FILES]
 
 - SMELL: `<PropertyGroup Condition="'$(TargetFramework)' == '...'">` or `<Property Condition="'$(TargetFramework)' == '...'">` in `Directory.Build.props` or any `.props` file imported before the project body.
-- WHY: Single-targeting projects set `TargetFramework` in the project body, after `.props` evaluation, so the condition compares an empty string and silently never matches. Only multi-targeting inner builds receive it early, as a global property. See `dotnet-msbuild-evaluation` skill — Nested conditional groups.
+- WHY: Single-targeting projects set `TargetFramework` in the project body, after `.props` evaluation, so the condition compares an empty string and silently never matches. Only multi-targeting inner builds receive it early, as a global property. See `dotnet-msbuild-evaluation` skill — Evaluation order.
 
 ```xml
 <!-- BAD: In Directory.Build.props — TargetFramework may be empty here -->
