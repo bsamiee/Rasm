@@ -291,14 +291,14 @@ Tools that add a `summary` aggregate:
 
 When a tool cannot proceed, the response carries `isError: true` and a JSON body of `{ code, message, details? }`. Switch on `code`:
 
-| [INDEX] | [CODE]               | [MEANING]                                                      | [COMMON_SOURCE]                                                                   |
-| :-----: | :------------------- | :------------------------------------------------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `SymbolNotFound`     | type, method, or property did not resolve                      | `analyze_method`, `get_symbol_context`, `get_type_overview`, `get_type_hierarchy` |
-|  [02]   | `SolutionNotTrusted` | analyzers requested before `trust_solution` ran                | `get_diagnostics` (`includeAnalyzers: true`), `get_code_fixes`                    |
-|  [03]   | `AmbiguousMatch`     | several matches, listed in `details.matches`                   | `rename_symbol`, `set_active_solution`, `unload_solution`                         |
-|  [04]   | `FileNotFound`       | file path or baseline does not exist or is not in the solution | `get_file_overview`, `find_breaking_changes`                                      |
-|  [05]   | `ProjectNotFound`    | solution name did not match                                    | `set_active_solution`, `unload_solution`                                          |
-|  [06]   | `InvalidArgument`    | malformed or unsupported caller input                          | `rename_symbol`, `change_signature`, `resolve_stack_trace`, `load_solution`       |
-|  [07]   | `Internal`           | unexpected, and `message` carries the exception text           | any tool                                                                          |
+| [INDEX] | [CODE]               | [MEANING]                                            | [COMMON_SOURCE]                                                                   |
+| :-----: | :------------------- | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `SymbolNotFound`     | type, method, or property did not resolve            | `analyze_method`, `get_symbol_context`, `get_type_overview`, `get_type_hierarchy` |
+|  [02]   | `SolutionNotTrusted` | analyzers requested before `trust_solution` ran      | `get_diagnostics`, `includeAnalyzers: true`, `get_code_fixes`                     |
+|  [03]   | `AmbiguousMatch`     | several matches, listed in `details.matches`         | `rename_symbol`, `set_active_solution`, `unload_solution`                         |
+|  [04]   | `FileNotFound`       | file path or baseline does not exist                 | `get_file_overview`, `find_breaking_changes`                                      |
+|  [05]   | `ProjectNotFound`    | solution name did not match                          | `set_active_solution`, `unload_solution`                                          |
+|  [06]   | `InvalidArgument`    | malformed or unsupported caller input                | `rename_symbol`, `change_signature`, `resolve_stack_trace`, `load_solution`       |
+|  [07]   | `Internal`           | unexpected, and `message` carries the exception text | any tool                                                                          |
 
 Never repeat the same call after an error. Fix the cause that `code` names. For `SolutionNotTrusted`, call `trust_solution`, then retry the original call.
