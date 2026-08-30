@@ -5,7 +5,6 @@ Use the evaluation workflow for evaluation cost. Use the incrementality workflow
 ## [01]-[EVALUATION]
 
 MSBuild evaluates a project before it executes targets. A project evaluation has these passes:
-
 1. Environment variables
 2. Imports and properties
 3. Item definitions
