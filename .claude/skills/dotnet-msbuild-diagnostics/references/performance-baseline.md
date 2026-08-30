@@ -5,7 +5,6 @@ Establish comparable evidence before you change the build. Record the measuremen
 ## [01]-[MEASUREMENT_CONTROLS]
 
 Change only the input or setting that the measurement selects. Keep these other values unchanged:
-
 - Machine and power state
 - Source revision
 - .NET SDK and MSBuild versions
