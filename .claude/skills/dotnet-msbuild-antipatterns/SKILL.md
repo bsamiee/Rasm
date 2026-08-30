@@ -30,9 +30,9 @@ Use this catalog when you review project and build files. Each entry has:
 
 ## [AP-02]-[PROPERTY_DEFAULTS_IN_TARGETS_FILES]
 
-- SMELL: A `<PropertyGroup>` with default values inside a `.targets` file.
+- SMELL: A default needed by earlier imports or project evaluation exists only in a `.targets` file.
 - WHY: `.targets` files import after the project body. A file that reads the property before that point sees an empty value.
-- RULE: `.props` owns defaults and settings. `.targets` owns targets and derived properties.
+- RULE: `.props` owns overridable defaults needed during evaluation. `.targets` owns targets, fallbacks, and values derived from later properties.
 
 ```xml
 <!-- BAD: custom.targets -->
@@ -82,7 +82,7 @@ Use this catalog when you review project and build files. Each entry has:
 ## [AP-04]-[PROPERTY_CONDITIONED_ON_TARGETFRAMEWORK_IN_PROPS_FILES]
 
 - SMELL: `<PropertyGroup Condition="'$(TargetFramework)' == '...'">` or a property condition on `$(TargetFramework)` in `Directory.Build.props` or any `.props` file that imports before the project body.
-- WHY: A single-targeting project sets `TargetFramework` in the project body, after `.props` evaluation. The condition compares an empty string and never matches. Only a multi-targeting inner build receives `TargetFramework` early, as a global property. See `dotnet-msbuild-evaluation` skill for evaluation order.
+- WHY: A single-targeting project normally sets `TargetFramework` in the project body, after `.props` evaluation. The condition compares an empty string and does not match. A multi-targeting inner build receives `TargetFramework` early as a global property. A caller can also supply that global property. See `dotnet-msbuild-evaluation` skill for evaluation order.
 
 ```xml
 <!-- BAD: In Directory.Build.props — TargetFramework may be empty here -->
@@ -231,7 +231,7 @@ Exception: `ArtifactsProjectName` is the one artifacts property that belongs in 
 ## [AP-10]-[REFERENCE_WITH_HINTPATH_FOR_NUGET_PACKAGES]
 
 - SMELL: `<Reference Include="..." HintPath="..\packages\SomePackage\lib\..." />`
-- WHY: This is the `packages.config` layout. It has no transitive dependencies, no version conflict resolution, and no restore. The `packages/` folder must exist before the build.
+- WHY: A raw `Reference` with `HintPath` does not declare a NuGet restore. `packages.config` can restore that folder, but `PackageReference` supplies dynamic transitive restore and conflict resolution.
 
 ```xml
 <!-- BAD -->
@@ -298,7 +298,7 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
 
 <!-- GOOD -->
 <PropertyGroup>
-  <ToolPath>$(MSBuildThisFileDirectory)tools\mytool\mytool.exe</ToolPath>
+  <ToolPath>$(MSBuildThisFileDirectory)tools/mytool/mytool</ToolPath>
 </PropertyGroup>
 <Import Project="$(RepoRoot)eng\common.props" />
 ```
@@ -352,10 +352,6 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
   <Copy SourceFiles="LICENSE" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
 </Target>
 
-<Target Name="SignAssemblies" AfterTargets="Build" DependsOnTargets="CopyLicense"
-        Condition="'$(SignAssemblies)' == 'true'">
-  <Exec Command="signtool sign /f cert.pfx %(AssemblyFiles.Identity)" />
-</Target>
 ```
 
 ## [AP-16]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
@@ -445,7 +441,7 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
 <!-- GOOD: Path operations -->
 <PropertyGroup>
   <NormalizedOutput>$([MSBuild]::NormalizeDirectory($(OutputPath)))</NormalizedOutput>
-  <ToolPath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), 'tools', 'mytool.exe'))</ToolPath>
+  <ToolPath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), 'tools', 'mytool'))</ToolPath>
 </PropertyGroup>
 ```
 
@@ -505,7 +501,7 @@ For (a), the normal property keeps one instance, one output path, and nothing to
 <!-- The consumer then reads the tool's publish dir; it does not invoke Publish on tool. -->
 ```
 
-Extra global properties are safe only when the output path contains the value: `RuntimeIdentifier`, `TargetFramework`, `Configuration`, `Platform`. Then each instance writes to its own directory. If a path-neutral property is unavoidable, give that build its own `BaseIntermediateOutputPath` and output path.
+Extra global properties are safe only when the effective `OutputPath` and `IntermediateOutputPath` contain their values. SDK defaults normally include `Configuration`, non-`AnyCPU` `Platform`, `TargetFramework`, and `RuntimeIdentifier`. If a path-neutral property is unavoidable, give that build its own `BaseIntermediateOutputPath` and output path.
 
 ## [AP-21]-[SETTARGETFRAMEWORK_ON_A_SINGLE_TARGETING_PROJECTREFERENCE]
 
@@ -519,7 +515,7 @@ Extra global properties are safe only when the output path contains the value: `
 </ItemGroup>
 ```
 
-For a single-targeting project, the TFM it already targets is path-neutral. The project already resolves to `bin\<config>\net10.0\` and `obj\<config>\net10.0\`. The global property only creates a second project instance, `(project, {TargetFramework=net10.0})`. The solution or graph builds the same project as `(project, {})`. Both instances clash on `OutputPath` and `IntermediateOutputPath`.
+For a single-targeting project, the TFM it already targets is path-neutral. With SDK default paths, the project already resolves to `bin/<config>/net10.0/` and `obj/<config>/net10.0/`. The global property only creates a second project instance, `(project, {TargetFramework=net10.0})`. The solution or graph builds the same project as `(project, {})`. Both instances clash on `OutputPath` and `IntermediateOutputPath`.
 
 The ProjectReference protocol itself does not set `TargetFramework` for a single-targeting reference. It removes the global property. `SetTargetFramework` overrides that default and reintroduces the clash.
 
@@ -532,7 +528,7 @@ The ProjectReference protocol itself does not set `TargetFramework` for a single
 
 `SetTargetFramework` is correct in two cases:
 1. The referenced project is multi-targeting and the consumer needs one specific TFM. Each TFM has its own output path.
-2. The consumer builds a single-targeting project under a TFM other than the one it declares. The injected `TargetFramework` changes the output path to `obj\<config>\<different-tfm>\`, so the instance does not collide with `(project, {})`
+2. The consumer builds a single-targeting project under a different TFM, and the effective paths contain that TFM. The injected value then gives the instance separate paths.
 
 Related, a framework-incompatible reference: when the referencing and referenced projects target incompatible frameworks, for example `.NETFramework` and `.NETCoreApp`, set both metadata values:
 - `SkipGetTargetFrameworkProperties="true"` skips the target framework negotiation, which fails for incompatible frameworks.

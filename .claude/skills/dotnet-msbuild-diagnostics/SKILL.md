@@ -9,6 +9,11 @@ Covers binary log capture, build failure triage, build performance, and output p
 - `.binlog` is binary. Never read it with `cat` or `strings`. Query it through the MCP tools — a text-log replay erases the tree they read.
 - Once the evidence supports a conclusion, stop the investigation and present it.
 
+[REFERENCES]:
+- [01]-[PERFORMANCE_BASELINE](references/performance-baseline.md): Comparable captures and the first evidence route
+- [02]-[EXECUTION_PERFORMANCE](references/execution-performance.md): Executed work, graph constraints, and task cost
+- [03]-[EVALUATION_AND_INCREMENTALITY](references/evaluation-and-incrementality.md): Evaluation cost and unexpected repeated work
+
 ## [01]-[BINARY_LOG_CAPTURE]
 
 Pass `-bl:{}` on every MSBuild invocation: `dotnet build`, `dotnet test`, `dotnet pack`, `dotnet publish`, `dotnet restore`, and `msbuild`. MSBuild expands `{}` to a UTC date, time, process id, and random stamp, and appends `.binlog`. Each invocation writes one binlog to the current directory and prints its absolute path at the end of the build output. A failed build never needs a re-run to get a log.
@@ -100,23 +105,15 @@ git clean -fdx -e "*.binlog"              # keep the logs
 - Fix the first error, then re-capture. `NETSDK1004` follows the error that stopped restore, and a failed reference blocks its dependent builds.
 - Counts overstate: the solution node adds a synthetic `Build failed.`, and `×N` on a deduplicated line counts emissions across frameworks, not distinct problems.
 - If the build succeeded but a target never ran, run `binlog_search` for `listed in a BeforeTargets attribute`. The typo message is neither a warning nor an error.
-- On a very large binlog, `binlog_overview`, `binlog_errors`, `binlog_warnings`, and `binlog_projects` stay complete at any size. Other tools answer from an auto-extracted subtree and say so in a notice. Act on the notice, not on the tool name.
+- On a very large binlog, `binlog_overview`, `binlog_errors`, `binlog_warnings`, and `binlog_projects` normally use a whole-build streaming index. A subtree notice limits the result. Act on the notice, not the tool name.
 - Stale server instances hold their binlogs in memory. `list_mcp_instances` names them and `stop_instance` frees them.
 
 ## [04]-[BUILD_PERFORMANCE]
 
-A slow build decomposes top-down:
-1. Run `binlog_overview` for the total duration.
-2. Run `binlog_build_graph`. Only the critical path costs wall clock. It also collapses the per-instance duplicate rows that `binlog_expensive_projects` lists separately.
-3. Run `binlog_expensive_targets` and `binlog_expensive_tasks` to name the cost on that path. `Csc` time is a container: analyzers and source generators run inside it.
-4. For analyzer cost, re-capture with `-p:ReportAnalyzer=true`. The times sum CPU across concurrent analyzers — rank outliers, never subtract them.
-
-A no-change rebuild that still does work diagnoses on the second of two captures:
-1. Build twice with `-bl:{}` and analyze the warm binlog.
-2. Run `binlog_project_target_times` on the suspect project and keep the targets with `skipped: false`.
-3. Run `binlog_target_reasons` per candidate. `Building target "X" completely` plus its reason line names the stale input or missing output. A warm-build target with no `Skipped:` line has no up-to-date check — no `Inputs` and `Outputs`. See `dotnet-msbuild-antipatterns` skill, `AP-16`.
-
-`binlog_compare` diffs properties and packages between two binlogs — configuration drift such as "CI differs from local", never timing.
+1. Read and follow `references/performance-baseline.md`.
+2. Follow the reference selected by the baseline evidence:
+  - For executed work, graph constraints, or task cost, read and follow `references/execution-performance.md`.
+  - For evaluation cost or unexpected repeated work, read and follow `references/evaluation-and-incrementality.md`.
 
 ## [05]-[OUTPUT_PATH_CLASHES]
 
@@ -142,25 +139,25 @@ A green clash shows nothing in the console and nothing in `binlog_diagnose`. The
 
 ### [05.1]-[GLOBAL_PROPERTIES]
 
-| [INDEX] | [PROPERTY]                             | [IN_OUTPUT_PATH] | [MEANING]                                                                   |
-| :-----: | :------------------------------------- | :--------------: | :-------------------------------------------------------------------------- |
-|  [01]   | `TargetFramework`                      |       Yes        | One path per framework                                                      |
-|  [02]   | `RuntimeIdentifier`                    |       Yes        | One path per runtime                                                        |
-|  [03]   | `Configuration`                        |       Yes        | One path per configuration                                                  |
-|  [04]   | `Platform`                             |       Yes        | One path per platform                                                       |
-|  [05]   | `SolutionFileName`                     |        No        | Names the building solution, different values mark a multi-solution clash   |
-|  [06]   | `SolutionName`, `BuildingSolutionFile` |        No        | Same signal as `SolutionFileName`                                           |
-|  [07]   | `CurrentSolutionConfigurationContents` |        No        | Project entries of the solution, the entry count tells two solutions apart  |
-|  [08]   | `BuildProjectReferences`               |        No        | Reference query if only `Get*` targets ran, also set by `--no-dependencies` |
-|  [09]   | `MSBuildIsRestoring`                   |        No        | Restore-pass marker, with `MSBuildRestoreSessionId`                         |
-|  [10]   | `PublishReadyToRun`                    |        No        | Publish setting, forks an instance without a path change                    |
-|  [11]   | `_IsPublishing`                        |        No        | Set by `dotnet publish`, an `<MSBuild>` call that passes it forks the build |
+| [INDEX] | [PROPERTY]                             | [SDK_DEFAULT_SEPARATION] | [MEANING]                                                                   |
+| :-----: | :------------------------------------- | :----------------------: | :-------------------------------------------------------------------------- |
+|  [01]   | `TargetFramework`                      |       Conditional        | Appended while `AppendTargetFrameworkToOutputPath` is `true`                |
+|  [02]   | `RuntimeIdentifier`                    |       Conditional        | Appended while `AppendRuntimeIdentifierToOutputPath` is `true`              |
+|  [03]   | `Configuration`                        |           Yes            | One path per configuration                                                  |
+|  [04]   | `Platform`                             |       Non-`AnyCPU`       | Non-default platforms add a path segment                                    |
+|  [05]   | `SolutionFileName`                     |            No            | Names the building solution, different values mark a multi-solution clash   |
+|  [06]   | `SolutionName`, `BuildingSolutionFile` |            No            | Same signal as `SolutionFileName`                                           |
+|  [07]   | `CurrentSolutionConfigurationContents` |            No            | Project entries of the solution, the entry count tells two solutions apart  |
+|  [08]   | `BuildProjectReferences`               |            No            | Reference query if only `Get*` targets ran, also set by `--no-dependencies` |
+|  [09]   | `MSBuildIsRestoring`                   |            No            | Restore-pass marker, with `MSBuildRestoreSessionId`                         |
+|  [10]   | `PublishReadyToRun`                    |            No            | Publish setting, forks an instance without a path change                    |
+|  [11]   | `_IsPublishing`                        |            No            | Set by `dotnet publish`, an `<MSBuild>` call that passes it forks the build |
 
 ### [05.2]-[PIVOT_MISSING_FROM_OUTPUT_PATH]
 
 - PROBLEM: A multi-targeting or multi-RID project writes every framework or runtime to one path.
 - DETECT: Evaluations of one project differ in `TargetFramework` or `RuntimeIdentifier` and share `OutputPath`.
-- FIX: Keep the SDK default paths. The SDK appends the framework to `OutputPath` and `IntermediateOutputPath`, explicit or default. It appends the runtime only while the project keeps the default paths, so an explicit `OutputPath` in a multi-RID build must carry `$(RuntimeIdentifier)` itself. With `AppendTargetFrameworkToOutputPath` off, the path must carry the framework.
+- FIX: Keep the SDK default paths. The SDK appends the framework and runtime to explicit or default paths while the matching append properties remain `true`. If an append is off, the path must carry that pivot.
 
 ```xml
 <!-- BAD: the append is off and the path omits the framework -->

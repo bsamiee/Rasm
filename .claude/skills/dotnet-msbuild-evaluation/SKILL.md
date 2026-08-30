@@ -13,7 +13,7 @@ Covers the evaluation phase: import order, conditions, properties, items, and th
 ## [01]-[EVALUATION_ORDER]
 
 MSBuild evaluates imports and properties in one pass, in order of appearance, as if each import were expanded in place. The last assignment wins:
-- `Directory.Build.props` → NuGet package `.props` → SDK `.props` → project file → SDK `.targets` → NuGet package `.targets` → `Directory.Build.targets`
+- For a `Microsoft.NET.Sdk` project: `Directory.Build.props` → NuGet package `.props` → .NET SDK `.props` → project file → NuGet package `.targets` → `Directory.Build.targets` → later .NET SDK `.targets`
 - `Directory.Build.props` is imported early in `Microsoft.Common.props`. A property defined later evaluates to empty. `Directory.Build.targets` is imported from `Microsoft.Common.targets`
 
 ```xml
@@ -25,7 +25,7 @@ MSBuild evaluates imports and properties in one pass, in order of appearance, as
 <MyProp Condition="'$(MyProp)' == ''">value3</MyProp>  <!-- not set: already value2 -->
 ```
 
-[CRITICAL]: A property condition on `$(TargetFramework)` in a `.props` file never matches for a single-targeting project. The project file sets the property after the import. Place `TargetFramework`-conditioned property groups in `.targets` files or the project file. `ItemGroup`, item, and `Target` conditions see the final value, because items and targets evaluate after all properties.
+[CRITICAL]: In a normal single-targeting project, a property condition on `$(TargetFramework)` in an early `.props` file does not match. The project file sets the property after the import. A caller-supplied global `TargetFramework` is the exception. Place `TargetFramework`-conditioned property groups in `.targets` files or the project file. `ItemGroup`, item, and `Target` conditions see the final value, because items and targets evaluate after all properties.
 
 ## [02]-[CONDITIONS]
 
@@ -63,7 +63,7 @@ Compare target frameworks with `IsTargetFrameworkCompatible(target, candidate)`.
 
 ## [03]-[PROPERTIES]
 
-Set a property only when it is still empty, so an earlier import keeps its value. A global property from the command line is never overwritten by a project assignment. In `.props` the condition creates a default the project can override. In `.targets` it creates a fallback.
+Set a property only when it is still empty, so an earlier import keeps its value. A global property from the command line is not overwritten unless the project marks it in `TreatAsLocalProperty`. In `.props` the condition creates a default the project can override. In `.targets` it creates a fallback.
 
 ```xml
 <PropertyGroup>
@@ -337,7 +337,7 @@ Holds default command-line switches for every command-line build under its direc
 
 MSBuild imports only the first `Directory.Build.props` (or `.targets`) it finds when it searches upward from the project directory. To merge levels, import the outer file at the top of the inner file. Read the `references/multi-level-examples.md` for full guidance.
 
-`$(DirectoryBuildPropsPath)` and `$(DirectoryBuildTargetsPath)` name the file to import. `$(ImportDirectoryBuildProps)` and `$(ImportDirectoryBuildTargets)` default to `true`, and `false` disables the import. Only a global property, an environment variable, or `Directory.Build.rsp` can set the `.props` pair. `Directory.Build.props` or the project file can set the `.targets` pair.
+`$(DirectoryBuildPropsPath)` and `$(DirectoryBuildTargetsPath)` name the file to import. `$(ImportDirectoryBuildProps)` and `$(ImportDirectoryBuildTargets)` default to `true`, and `false` disables the import. Set the `.props` controls before `Microsoft.Common.props` imports `Directory.Build.props`. In a normal SDK-style project, use a global property, an environment variable, or `Directory.Build.rsp`. `Directory.Build.props` or the project file can set the `.targets` pair.
 
 ```xml
 <Project>
@@ -350,7 +350,7 @@ MSBuild imports only the first `Directory.Build.props` (or `.targets`) it finds 
 
 ### [05.6]-[PACKAGE_BUILD_FOLDER_IMPORTS]
 
-NuGet imports one `.props` and one `.targets` file per package from `build/`, `buildTransitive/`, or `buildMultiTargeting/`. When the folder has TFM subfolders, NuGet selects the nearest compatible TFM folder for the consuming project, not the folder named by the consumer's own TFM. As a result, a `buildTransitive/<tfm>/` file that forwards to `build/$(TargetFramework)/` can name a folder that the package does not ship, and the consumer stops with `MSB4019`. Derive the TFM segment from the file's own folder and forward through the sibling `build/` file:
+NuGet imports the applicable `.props` and `.targets` files from each package under `build/`, `buildTransitive/`, or `buildMultiTargeting/`. When the folder has TFM subfolders, NuGet selects the nearest compatible TFM folder for the consuming project, not the folder named by the consumer's own TFM. As a result, a `buildTransitive/<tfm>/` file that forwards to `build/$(TargetFramework)/` can name a folder that the package does not ship, and the consumer stops with `MSB4019`. Derive the TFM segment from the file's own folder and forward through the sibling `build/` file:
 
 ```xml
 <!-- buildTransitive/net8.0/MyPackage.props -->
