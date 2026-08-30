@@ -32,7 +32,7 @@ RULE: Quote both sides of `==` and `!=` with single quotes.
 ## [AP-02]-[PROPERTY_DEFAULTS_IN_TARGETS_FILES]
 
 - SMELL: A `<PropertyGroup>` with default values inside a `.targets` file.
-- WHY: `.targets` files import after the project body. A file that reads the property before that point sees an empty value. `.props` files import early and own defaults.
+- WHY: `.targets` files import after the project body. A file that reads the property before that point sees an empty value.
 
 ```xml
 <!-- BAD: custom.targets -->
@@ -60,7 +60,7 @@ RULE: `.props` owns defaults and settings. `.targets` owns targets and derived p
 ## [AP-03]-[UNCONDITIONAL_PROPERTY_OVERRIDE_IN_MULTIPLE_SCOPES]
 
 - SMELL: A property set without a condition in both `Directory.Build.props` and a `.csproj`. The last assignment wins without a message.
-- WHY: A reader cannot tell which value the build uses without a binlog. The project value discards the shared default.
+- WHY: A reader cannot tell which value the build uses without a binlog.
 
 ```xml
 <!-- BAD: Directory.Build.props sets it, csproj silently overrides -->
@@ -109,7 +109,7 @@ RULE: `.props` owns defaults and settings. `.targets` owns targets and derived p
 </PropertyGroup>
 ```
 
-[CAUTION] Only property conditions have this problem. Items and targets evaluate after every property, so `ItemGroup`, item, and `Target` conditions on `$(TargetFramework)` in `.props` files are correct. This includes `PackageVersion` items in `Directory.Packages.props`.
+[CAUTION] Only property conditions have this problem. Items and targets evaluate after every property, so `ItemGroup`, item, and `Target` conditions on `$(TargetFramework)` in `.props` files are correct.
 
 Do not flag these patterns:
 
@@ -125,11 +125,6 @@ Do not flag these patterns:
 </ItemGroup>
 <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
   <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
-</ItemGroup>
-
-<!-- OK — Individual item conditions also evaluate late -->
-<ItemGroup>
-  <PackageReference Include="System.Memory" Condition="'$(TargetFramework)' == 'net472'" />
 </ItemGroup>
 ```
 
@@ -258,7 +253,7 @@ See `dotnet-msbuild-evaluation` skill for `Directory.Build.props` and `Directory
 ## [AP-11]-[REDUNDANT_PROJECTREFERENCE_TO_A_TRANSITIVE_DEPENDENCY]
 
 - SMELL: A project references both `Core` and `Utils`, and `Core` already references `Utils`, and the project uses no `Utils` type directly.
-- WHY: The .NET SDK makes project references transitive through `project.assets.json` unless `DisableTransitiveProjectReferences` is `true`. The extra edge adds coupling and obscures the dependency graph. If the project uses `Utils` types directly, keep the direct reference.
+- WHY: The .NET SDK makes project references transitive through `project.assets.json` unless `DisableTransitiveProjectReferences` is `true`. The extra edge adds coupling and obscures the dependency graph.
 
 ```xml
 <!-- BAD -->
@@ -295,6 +290,7 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
 
 - SMELL: Paths such as `C:\tools\`, `D:\packages\`, or `/usr/local/bin/` in project files.
 - WHY: The path does not exist on other machines, in CI, or on other operating systems.
+- See `dotnet-msbuild-evaluation` skill for path normalization.
 
 ```xml
 <!-- BAD -->
@@ -309,8 +305,6 @@ Exception, NuGet package forwarders: an unguarded `<Import>` inside a package's 
 </PropertyGroup>
 <Import Project="$(RepoRoot)eng\common.props" />
 ```
-
-See `dotnet-msbuild-evaluation` skill for path normalization.
 
 ## [AP-14]-[BACKSLASHES_IN_PATHS]
 
@@ -334,8 +328,6 @@ See `dotnet-msbuild-evaluation` skill for path normalization.
 <!-- [RECOMMENDED] in new code -->
 <Import Project="$(MSBuildThisFileDirectory)../../build/common.props" />
 ```
-
-RULE: Before you flag a backslash path as [ERROR], decide whether the string passes through the evaluator or goes verbatim to a non-MSBuild consumer. Only the second case is a defect.
 
 ## [AP-15]-[MONOLITHIC_TARGETS]
 
@@ -482,17 +474,7 @@ See `dotnet-msbuild-execution` skill for `Inputs`, `Outputs`, `FileWrites`, and 
 ## [AP-20]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 
 - SMELL: A target calls the `<MSBuild>` task on a project with extra `Properties` that do not change that project's output path.
-- WHY: MSBuild creates one project instance for a project path and a unique set of global properties. The extra property creates a second instance, `(project, {_IsPublishing=true})`, with the same `OutputPath` and `IntermediateOutputPath` as the instance the solution or graph already builds, `(project, {})`. The project builds twice. In a parallel build the two instances write the same output files and fail with `The process cannot access the file because it is being used by another process`, or with an intermittent file-lock failure. The `<MSBuild>` call can live in the target project or in any other project in the same build. See `check-bin-obj-clash` skill to confirm that two evaluations of the project differ only by a path-neutral property and share an output path.
-
-Two common shapes:
-
-```xml
-<!-- (a) the SAME project re-invokes itself (publish-on-build) -->
-<MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
-
-<!-- (b) a consumer invokes Build/Publish on ANOTHER project it consumes (e.g. a test or layout project publishing a tool) -->
-<MSBuild Projects="..\tool\tool.csproj" Targets="Publish" Properties="_IsPublishing=true" />
-```
+- WHY: MSBuild creates one project instance for a project path and a unique set of global properties. The extra property creates a second instance, `(project, {_IsPublishing=true})`, with the same `OutputPath` and `IntermediateOutputPath` as the instance the solution or graph already builds, `(project, {})`. The project builds twice. In a parallel build the two instances write the same output files and fail with `The process cannot access the file because it is being used by another process`, or with an intermittent file-lock failure. The `<MSBuild>` call can live in the target project or in any other project in the same build.
 
 ```xml
 <!-- BAD (a): forks a second instance (path + {_IsPublishing=true}) that shares this project's bin/obj -->
@@ -504,7 +486,6 @@ Two common shapes:
 ```xml
 <!-- GOOD (a): set the flag as a normal (non-global) property and run the target in the SAME instance -->
 <PropertyGroup>
-  <!-- Capture whether the entry point already invoked publish (it sets _IsPublishing as a global prop). -->
   <_PublishWasInvokedDirectly Condition="'$(_IsPublishing)' == 'true'">true</_PublishWasInvokedDirectly>
   <_IsPublishing>true</_IsPublishing>
 </PropertyGroup>
@@ -528,14 +509,12 @@ For (a), the normal property keeps one instance, one output path, and nothing to
 <!-- The consumer then reads the tool's publish dir; it does not invoke Publish on tool. -->
 ```
 
-For (b), the consumer must not build the producer with a path-neutral global property. The producer publishes itself in one instance. The consumer references it to sequence the build and reads its output.
-
 Extra global properties are safe only when the output path contains the value: `RuntimeIdentifier`, `TargetFramework`, `Configuration`, `Platform`. Then each instance writes to its own directory. If a path-neutral property is unavoidable, give that build its own `BaseIntermediateOutputPath` and output path.
 
 ## [AP-21]-[SETTARGETFRAMEWORK_ON_A_SINGLE_TARGETING_PROJECTREFERENCE]
 
 - SMELL: A `<ProjectReference>` carries `SetTargetFramework="TargetFramework=net10.0"`, the referenced project is single-targeting (`<TargetFramework>`, not `<TargetFrameworks>`), and the injected TFM equals the TFM that the project already targets.
-- WHY: `SetTargetFramework` injects `TargetFramework` as a global property on the referenced build. The mechanism exists so a consumer can pick one TFM of a multi-targeting project. A different TFM produces a different output path, so each instance is distinct.
+- WHY: `SetTargetFramework` injects `TargetFramework` as a global property on the referenced build. The mechanism exists so a consumer can pick one TFM of a multi-targeting project.
 
 ```xml
 <!-- BAD: Tool.csproj single-targets net10.0 and we inject that SAME net10.0 — redundant AND harmful -->
@@ -544,9 +523,9 @@ Extra global properties are safe only when the output path contains the value: `
 </ItemGroup>
 ```
 
-For a single-targeting project, the TFM it already targets is path-neutral. The project already resolves to `bin\<config>\net10.0\` and `obj\<config>\net10.0\`. The global property only creates a second project instance, `(project, {TargetFramework=net10.0})`. The solution or graph builds the same project as `(project, {})`. Both instances share `OutputPath` and `IntermediateOutputPath`, so the project builds twice and both instances write the same output files. In a parallel build this is a bin/obj clash: `The process cannot access the file because it is being used by another process`, or an intermittent failure. A different TFM changes the output path and is a valid override, see the cases that follow.
+For a single-targeting project, the TFM it already targets is path-neutral. The project already resolves to `bin\<config>\net10.0\` and `obj\<config>\net10.0\`. The global property only creates a second project instance, `(project, {TargetFramework=net10.0})`. The solution or graph builds the same project as `(project, {})`. Both instances clash on `OutputPath` and `IntermediateOutputPath`.
 
-The ProjectReference protocol itself does not set `TargetFramework` for a single-targeting reference. It removes the global property. `SetTargetFramework` overrides that default and reintroduces the clash. See `check-bin-obj-clash` skill to confirm that two evaluations of the referenced project differ only by a path-neutral `TargetFramework` global property and share an output path.
+The ProjectReference protocol itself does not set `TargetFramework` for a single-targeting reference. It removes the global property. `SetTargetFramework` overrides that default and reintroduces the clash.
 
 ```xml
 <!-- GOOD: single-targeting reference needs no SetTargetFramework — just reference it -->
@@ -582,4 +561,4 @@ Related, a framework-incompatible reference: when the referencing and referenced
                   ReferenceOutputAssembly="false" />
 ```
 
-Use `SetTargetFramework` or `UndefineProperties="TargetFramework"`, not both. The first sets the property. The second removes it.
+Use `SetTargetFramework` or `UndefineProperties="TargetFramework"`, not both.
