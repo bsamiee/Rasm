@@ -14,11 +14,10 @@ description: >-
 
 Topology — projects, environments, configs, service tokens, directory scopes — lives as IaC rows in `Parametric_Forge/services/topology.ts`, materialized by `repo.ts` and applied by `driver.ts` over the Pulumi Automation API. `doppler` reads and writes secret values against declared configs; `doppler run` and owner-specific downloads inject values at the consuming process; `~/.doppler` holds CLI scope and authentication state.
 
-## [01]-[ROUTING]
-
+[REFERENCES]:
 - [01]-[PATTERNS](references/patterns.md): pattern doctrine — template rendering, mounts, multi-command wrappers, MCP row shape, plan-gated features.
 
-## [02]-[RESOLUTION]
+## [01]-[RESOLUTION]
 
 - `~/.doppler` is the CLI config dir; scopes ride `~/.doppler/.doppler.yaml`, written by `doppler configure set` through the driver's `scopes apply`.
 - A repo-local `doppler.yaml` is vendor setup guidance, not the repo scope owner; the repo carries none.
@@ -28,7 +27,7 @@ Topology — projects, environments, configs, service tokens, directory scopes �
 - Agents pass `--project`/`--config` explicitly; env carries only token custody.
 - An ambient `DOPPLER_TOKEN` outranks flags and represents one config; strip it with `env -u DOPPLER_TOKEN` when fetching more than one source.
 
-## [03]-[DOPPLER_CLI]
+## [02]-[DOPPLER_CLI]
 
 | [INDEX] | [TASK]                            | [COMMAND]                                                                                  |
 | :-----: | :-------------------------------- | :----------------------------------------------------------------------------------------- |
@@ -46,7 +45,7 @@ Topology — projects, environments, configs, service tokens, directory scopes �
 - Secret downloads pipe to `jq 'keys'` or `jq 'length'`; configure reads strip the root token with `del(.token)`, since a bare `configure debug` or `configure --all` prints it.
 - Transcripts and logs carry key names and counts, never values or tokens.
 
-## [04]-[OP_CLI]
+## [03]-[OP_CLI]
 
 `op` reads the local store directly; the field suffix is `token`, `credential`, or `password` per item. An exported `OP_SERVICE_ACCOUNT_TOKEN` pins `op` to the `Tokens` vault, so `Personal` (the SSH key) resolves only under `env -u OP_SERVICE_ACCOUNT_TOKEN`.
 
@@ -63,7 +62,7 @@ Topology — projects, environments, configs, service tokens, directory scopes �
 - `op` serves the SSH key to `ssh`, `git`, WezTerm, Yazi, and rclone through the 1Password agent socket; the item ref lives in `1Password/ssh/agent.toml`, never a private key on disk.
 - Read a secret only to verify presence or wire a one-off; standing local consumption rides the activation-generated session cache.
 
-## [05]-[SESSION_CUSTODY]
+## [04]-[SESSION_CUSTODY]
 
 `op inject` resolves `~/.config/op/env.template` into the mode-600 `~/.config/hm-op-session.sh` cache on every `forge-redeploy --switch`. Interactive shells source that cache through `forge-session-secrets.sh`; `gui-op-secrets` projects the same names into the launchd GUI domain for newly spawned applications. Process-specific Doppler consumers fetch their material explicitly with the owning project and config.
 
@@ -71,7 +70,7 @@ Topology — projects, environments, configs, service tokens, directory scopes �
 - `forge-session-secrets.sh` is the shell source path; `gui-op-secrets` is the GUI projection path.
 - Doppler delivery stays at the process boundary through `doppler run` or an owner-specific `doppler secrets download`.
 
-## [06]-[CUSTODY]
+## [05]-[CUSTODY]
 
 Local custody is `op`, never the OS keychain: every service, IaC, and MCP token and the SSH key live in a `Tokens` or `Personal` vault item. A personal `doppler login` is the one credential Doppler keeps in the keychain, used for the operator's ad-hoc interactive work alone — no pipeline depends on it.
 
@@ -88,7 +87,7 @@ Local custody is `op`, never the OS keychain: every service, IaC, and MCP token 
 - MCP token: the launcher prelude resolves the ambient personal CLI token, its grants the enforcement, while `--read-only` filters the toolset to GET endpoints.
 - Provider PATs are never topology identity.
 
-## [07]-[LAW]
+## [06]-[LAW]
 
 - One item, one official name: an item carries the credential's real published name, never a handrolled synonym; a consumer needing a different env-var name renames the item at the source and repoints every reader, never adds a second item or a duplicate export aliasing the same secret. A naming mistake is fixed by renaming in `op` and Doppler, never papered over.
 - A new project lands as project/config rows in `Parametric_Forge/services/topology.ts` and a directory scope row, then `pulumi up`; retiring it deletes its rows.

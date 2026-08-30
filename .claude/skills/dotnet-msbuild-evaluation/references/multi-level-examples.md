@@ -1,8 +1,8 @@
-# Multi-level Directory.Build Examples
+# [MULTI-LEVEL_EXAMPLES]-[DIRECTORY_BUILD]
 
 Full file examples for a typical multi-level repo layout.
 
-## Repo-level `Directory.Build.props`
+## [01]-[ROOT]-[DIRECTORY_BUILD_PROPS]
 
 ```xml
 <Project>
@@ -15,7 +15,9 @@ Full file examples for a typical multi-level repo layout.
 </Project>
 ```
 
-## `libs/dotnet/Directory.Build.props`
+## [02]-[INNER_FOLDER]-[DIRECTORY_BUILD_PROPS]
+
+`<folder>/Directory.Build.props`:
 
 ```xml
 <Project>
@@ -31,7 +33,9 @@ Full file examples for a typical multi-level repo layout.
 </Project>
 ```
 
-## `tests/dotnet/Directory.Build.props`
+## [03]-[INNER_FOLDER]-[TESTS]
+
+`tests/dotnet/Directory.Build.props`:
 
 ```xml
 <Project>
@@ -54,9 +58,9 @@ Full file examples for a typical multi-level repo layout.
 </Project>
 ```
 
-## Before/After: Centralizing Duplicated Settings
+## [04]-[BEFORE_AFTER]-[CENTRALIZING_DUPLICATED_SETTINGS]
 
-**Before — duplicated settings in every .csproj:**
+BEFORE: Duplicated settings in every .csproj
 
 ```xml
 <!-- libs/dotnet/LibA/LibA.csproj -->
@@ -98,7 +102,7 @@ Full file examples for a typical multi-level repo layout.
 </Project>
 ```
 
-**After — centralized with Directory.Build files:**
+AFTER: Centralized with Directory.Build files.
 
 ```xml
 <!-- Directory.Build.props -->

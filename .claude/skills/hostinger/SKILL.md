@@ -22,8 +22,7 @@ Hostinger's account is one API surface with three entry transports, and the work
 
 MCP tool names mirror the REST resources one-to-one (`VPS_createSnapshotV1` is `POST /api/vps/v1/virtual-machines/{id}/snapshot`), so every REST row in the references reads as an MCP row and vice versa. REST authenticates with `Authorization: Bearer $HOSTINGER_API_TOKEN`; official SDKs (Python, TypeScript, PHP) and the `hapi` CLI wrap the same endpoints.
 
-## [01]-[ROUTING]
-
+[REFERENCES]:
 - [01]-[DOMAINS](references/domains.md): registration, nameservers, DNS zone records, forwarding, WHOIS profiles, lock, privacy, transfer, bulk audit
 - [02]-[DEPLOYMENT](references/deployment.md): SSH-first Docker deploys — baseline, update order, verification levels, rollback, SSH-versus-API split
 - [03]-[HOSTING](references/hosting.md): websites, WordPress installs, plugins, themes, databases, Node.js apps, cache, cron, PHP, Horizons AI builder
@@ -31,7 +30,7 @@ MCP tool names mirror the REST resources one-to-one (`VPS_createSnapshotV1` is `
 - [05]-[REACH](references/reach.md): email marketing — sender profiles, deliverability, contacts, behavioral segments
 - [06]-[BILLING](references/billing.md): catalog item-id grammar, payment methods, subscriptions, renewals
 
-## [02]-[STANDING_LAW]
+## [01]-[STANDING_LAW]
 
 - [SNAPSHOT_FIRST]: A snapshot precedes every destructive operation — recreate, backup restore, migration. One per VM, overwritten by the next.
 - [FIREWALL_SYNC]: Firewall rule changes take effect only after an explicit sync to the VM; unsynced, the box runs stale rules.
@@ -45,7 +44,7 @@ MCP tool names mirror the REST resources one-to-one (`VPS_createSnapshotV1` is `
 - [DNS_OWNERSHIP]: Hostinger's DNS API acts only while the domain uses Hostinger nameservers; once delegated externally, records live there.
 - [SECRETS]: Every API token enters commands as `$HOSTINGER_API_TOKEN`, never inline; output carrying credentials never lands in transcripts.
 
-## [03]-[HOSTINGER_VPS]
+## [02]-[HOSTINGER_VPS]
 
 VPS fleet law: VM lifecycle, Docker Manager projects, firewalls, SSH keys, provisioning surfaces, backups and snapshots, recovery, malware scanning, and metrics. REST rows map one-to-one onto the `hostinger` MCP `VPS_*` tools; every mutation returns an async action polled to completion via `GET .../actions/{actionId}`.
 
@@ -67,7 +66,7 @@ curl -X POST "https://developers.hostinger.com/api/vps/v1/virtual-machines/12345
 
 `POST .../recreate` reinstalls the OS and destroys all data — snapshot first, confirm with the operator, and meet the password policy: 12+ characters, mixed case, numbers, screened against leaked-password databases.
 
-## [04]-[DOCKER_MANAGER]
+## [03]-[DOCKER_MANAGER]
 
 Docker Manager deploys Compose projects through the API from inline content, a GitHub repo URL (auto-resolves `docker-compose.yaml` on the master branch), or any URL returning raw compose content. Deploying under an existing project name replaces that project — the zero-config redeploy path. Hostinger marks these endpoints subject to change; a production deployment with an existing compose file takes the SSH transport instead.
 
@@ -85,7 +84,7 @@ curl -X DELETE ".../docker/my-app/down"     -H "Authorization: Bearer $HOSTINGER
 
 Troubleshooting rows: a restart-looping container reads its `logs` first (missing env, wrong image, port conflict); one service binds a host port at a time; disk pressure shows in `GET .../metrics`; a GitHub URL failure means the compose file is absent from the master-branch root — use the raw file URL for other branches.
 
-## [05]-[SSH_KEYS]
+## [04]-[SSH_KEYS]
 
 Keys register at account level and attach per VM; a key in the account but unattached does not authenticate. Attachment is the first check when SSH refuses a key, firewall sync the second.
 
@@ -97,7 +96,7 @@ curl -X POST "https://developers.hostinger.com/api/vps/v1/public-keys/attach/123
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" -d '{ "ids": [1, 2] }'
 ```
 
-## [06]-[FIREWALLS]
+## [05]-[FIREWALLS]
 
 Firewalls are account-level resources activated per VM. Default policy drops all inbound traffic; one firewall binds per VM; every rule change requires an explicit sync to take effect — an unsynced firewall is the first suspect when SSH or a service is unreachable.
 
@@ -122,7 +121,7 @@ Rule-set patterns by role — ports accept `"3000:3999"` range syntax, and `sour
 
 Hardening rows: SSH narrows to known IPs where feasible; database ports never open to `0.0.0.0/0`; unused rules and firewalls are removed (deleting a firewall auto-deactivates it everywhere); switching firewalls is deactivate-then-activate.
 
-## [07]-[DATA_SAFETY]
+## [06]-[DATA_SAFETY]
 
 - [BACKUPS]: Hostinger-managed periodic captures — `GET .../backups`, `POST .../backups/{id}/restore`. A restore overwrites all VM data.
 - [SNAPSHOTS]: Operator-initiated point-in-time captures — `POST/GET/DELETE .../snapshot`, `POST .../snapshot/restore`. One per VM; a new snapshot overwrites the old. Snapshot precedes every destructive operation.
@@ -132,7 +131,7 @@ Hardening rows: SSH narrows to known IPs where feasible; database ports never op
 - [PTR]: `POST/DELETE .../ptr/{ipId}` manages reverse-DNS records — required for mail deliverability.
 - [METRICS]: `GET .../metrics?date_from=...&date_to=...` returns CPU, memory, disk, network, and uptime for plan right-sizing and disk-pressure checks.
 
-## [08]-[API_REFERENCE]
+## [07]-[API_REFERENCE]
 
 | [INDEX] | [METHOD]              | [ENDPOINT]                                                | [DESCRIPTION]                            |
 | :-----: | :-------------------- | :-------------------------------------------------------- | :--------------------------------------- |

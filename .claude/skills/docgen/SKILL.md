@@ -18,8 +18,6 @@ Instruction surfaces — skill, standard, template comment, prompt — command t
 
 Fix prose by silent removal, never by mutation in place: delete the defect whole and rebuild the passage to stand without it — no tombstone, no hedge, no `never X` minted for the cut. Author the replacement fresh from the fact the dead sentence carried; a partial edit keeps the broken frame under new words and leaves the passage illogical.
 
-## [01]-[ROUTING]
-
 [REFERENCES]: Load before creating or editing prose:
 - [01]-[DEFECTS](references/defects.md): defect classes — detection test and reframe per class
 
@@ -36,7 +34,7 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 - [03]-[MARKERS](examples/markers.md): Marker crimes and the declared-vocabulary repair
 - [04]-[INTROS](examples/intros.md): Leads that legislate and the rejected frames
 
-## [02]-[VOICE]
+## [01]-[VOICE]
 
 [OWNING_SUBJECT] — Seat the acting owner as the grammatical subject of every law sentence, under a present-active verb that exercises ownership: mints, owns, folds, routes, drives, binds, derives, admits, rejects. State the total positive claim that forecloses every alternative; a surface that merely `supports`, `offers`, or `provides` is not yet designed.
 
@@ -54,7 +52,7 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 
 [PROSE_CODE_BOUNDARY] — Name owners in prose, carry mechanism in code: at most the owning symbol as a code span with its law, while signatures, rosters, and per-member behavior live in the fence, catalog, or table tooling keeps true. Never fence what a catalog indexes. Write one decision per list entry — one owner, one charter phrase — demoting any tail, second clause, or mechanism aside.
 
-## [03]-[ADMISSION]
+## [02]-[ADMISSION]
 
 [REBUILD_TEST] — Admit a sentence only when it stays true across any doctrine-conforming rebuild: couple prose to intent — charter, invariant, boundary, ruling, trap — and let the fence own shape. Rosters, counts, seals, and litanies read as discipline and rot as law; state the extension rule — how one new row, case, or member lands — where the anchor stood. Pass a page only when a stronger fence body lands with zero prose edits.
 
@@ -62,7 +60,7 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 
 [ONE_OWNER] — Give every fact one prose owner — a second copy at any tier forks on first edit — and pick the owner by lifespan: the home outlives the fact, and relocation is a move, the losing surface stripped in the same pass. Interrogate every law sentence for who else binds it — the always-loaded chain, a sibling surface, a deterministic tool. Point with the owner and its one consumed symbol; compose doctrine silently downstream, never re-taught.
 
-## [04]-[TIER]
+## [03]-[TIER]
 
 Land every fact at the lowest tier that owns it; hold the higher tier to the one invariant the fact instantiates. Move a sentence one tier down whenever the move loses no governing force over more than one child. Failure runs both ways: prose reaching below its tier freezes mechanism a rebuild must be free to re-derive, and prose floated above its tier dissolves into a platitude no rebuild can act on — delete any sentence whose deletion changes no rebuild.
 
@@ -75,14 +73,14 @@ Land every fact at the lowest tier that owns it; hold the higher tier to the one
 
 [DEMOTION] — Land the fact at its owner first, then collapse the higher copy to the invariant it instantiates; payload dropped during demotion is a defect.
 
-## [05]-[LEADS]
+## [04]-[LEADS]
 
 Engineer the lead, never accumulate it — first lines are the highest-value signal an agent loads.
 
 - Hold a lead to one or two single-line paragraphs under 500 characters, opening on the document's own law — never doc-set, siblings, audience, or process.
 - Demote a lead needing semicolons or parenthetical inventories — lower-tier payload; intro material earns its slot by changing the next action.
 
-## [06]-[SIGNAL_SELECTION]
+## [05]-[SIGNAL_SELECTION]
 
 Select what an index-tier page carries for one reader: the agent editing the unit in isolation.
 
@@ -92,7 +90,7 @@ Select what an index-tier page carries for one reader: the agent editing the uni
 - Reject topology narration, sibling-role description, and provenance.
 - Hold consistency over local optimality: a deviating index misplaced its extra — the shape is the contract, the extra goes to its owner.
 
-## [07]-[ROUTERS]
+## [06]-[ROUTERS]
 
 Routing is the one job that licenses linking and naming siblings; every other page composes settled law silently.
 
@@ -105,14 +103,14 @@ Routing is the one job that licenses linking and naming siblings; every other pa
 - Never relink or re-teach siblings from a non-router page: mechanics at the owner, consequence at the consumer, the boundary fixed in one pointer line.
 - Anchor a cross-owner reference on the target's public section token, extensionless and scope-qualified by distance; a `.md` path pins a file a move invalidates, and a lowercase anchor reaches a code symbol or slug the target renumbers away.
 
-## [08]-[EXAMPLE_CRAFT]
+## [07]-[EXAMPLE_CRAFT]
 
 - Give each example one demonstration region no sibling example repeats.
 - Show the form at real composed scale — admission, dispatch, and policy in one body, growth axis visible — never an isolated minimum.
 - Ride diagram fences on the mermaid-diagramming skill for admission, type selection, construction, and render validation.
 - Admit a diagram only as a declared regenerable representation whose fence carries structural payload only; the reader's renderer owns appearance.
 
-## [09]-[MARKER_SYSTEMS]
+## [08]-[MARKER_SYSTEMS]
 
 Keep many agents consistent inside one file class with a closed marker vocabulary riding a templated entry shape: the marker carries state, the schema carries structure, and prose carries only law.
 
@@ -122,7 +120,7 @@ Keep many agents consistent inside one file class with a closed marker vocabular
 - Keep entry ids and their references UPPERCASE_SNAKE — a hyphenated slug anywhere is a defect — and every path corpus-relative, never an absolute machine path.
 - Keep terminal marker sections past realization: a research or open-question section holds its header marker for the page's whole life, realizing a row deletes the row alone, and `(none)` marks the empty section — a deleted, displaced, duplicated, or deformed marker is a named defect.
 
-## [10]-[SCHEMA_OWNERSHIP]
+## [09]-[SCHEMA_OWNERSHIP]
 
 Declare a file kind's schema once — ordered header set, entry shape with closed field vocabulary, marker vocabulary, sanctioned extension points — at the corpus standard nearest the kind; every instance and every instruction surface composes it silently.
 
@@ -133,7 +131,7 @@ Declare a file kind's schema once — ordered header set, entry shape with close
 - Consolidate a vocabulary defined in two places to the owner and convert the second site to silence; scattered partial redefinitions rot a corpus.
 - Compile the schema into tooling pressure — a census gate, a marker grep, a lint — and never let tooling invent vocabulary of its own.
 
-## [11]-[REWRITING]
+## [10]-[REWRITING]
 
 Arm before reading: rebuilding an existing document is harder than writing fresh because the source's frame is the primary contaminant, and an agent that reads before arming itself inherits it. Hold these contamination modes through the whole pass:
 - Re-derive every section set, emphasis, enumeration, and justification; unexamined, each becomes the rewrite's default.
@@ -170,7 +168,7 @@ Exit only when the rewrite survives every test — the producer's grade admits, 
 
 Treat a seal, ruling tag, or never-re-open clause as prose, not law — the rebuild mandate outranks self-declared immutability; true freezes live only outside the document — wire contracts at their codec owner, the corpus standards. Read length, density, and citation apparatus as effort, never correctness — a forty-line justification extracts to one policy row. Corpus law wins without negotiation; surface a conflict between corpus laws to the standards owner, never resolve it silently in-page.
 
-## [12]-[COMMENTS]
+## [11]-[COMMENTS]
 
 Write a comment only for the agent editing the file in isolation, in source and transcription-complete fences alike: one in-situ constraint the code cannot show, uncoupled from paths, sessions, and siblings, never duplicating card or index content. Delete a comment whose constraint the code carries, and prune stale comments every pass. Keep a machine-config comment naming its owning module's path; delete a narrating path.
 
@@ -180,7 +178,7 @@ Run one ladder per comment: delete a no-load comment whole — narration, code r
 
 Rewrite on merge, never concatenate, and repair by read-and-rewrite judgment — the gate detects, no `sed`/regex mutates comment text. Correct dividers and docstring headers in style, structure, or label, never delete them; correct a phantom label only after reading the enclosing section.
 
-## [13]-[GATE]
+## [12]-[GATE]
 
 Run the gate on every touched durable doc before returning. Run `fix` for the deterministic repairs its `Repair` vocabulary owns — dry-run prints the plan, `--write` mutates — and resolve every judgment-tier `SKIP` row by hand. Its `Check` vocabulary owns the mechanical census alone; a defect class the gate does not carry is review work against the catalog.
 

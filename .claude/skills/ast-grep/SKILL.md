@@ -14,8 +14,6 @@ Structural code work — map, find, prove, lint, or rewrite code by its syntax t
 
 Every rule proves through `test_match_code_rule` at omitted or `warning` severity — an `error` diagnostic exits nonzero and the tool discards the JSON, so the shipped severity returns only at landing. Every non-match debugs through `dump_syntax_tree` against the target snippet. Search rules ride inline; durable rules are project rule files discovered through `sgconfig.yml`.
 
-## [01]-[ROUTING]
-
 [TEMPLATES]:
 - [01]-[SGCONFIG](assets/templates/sgconfig.template.yml): Project config — six-key surface, snapshot custody, parser overrides, injection rows.
 - [02]-[RULE](assets/templates/rule.yml): Lint rule with the full field set and a `---` sibling — the topic-file form every durable rule authors from.
@@ -33,9 +31,9 @@ Every rule proves through `test_match_code_rule` at omitted or `warning` severit
 - [07]-[PYTHON](assets/examples/no-raise-in-result-function.yml): Signature-scoped ban — nearest-enclosing `stopBy` anchors on the return type.
 - [08]-[PYTHON](assets/examples/guard-ladder-to-conditional-chain.yml): Statement-to-expression fold — totality closure, parenthesized rungs.
 
-## [02]-[OUTLINE]
+## [01]-[OUTLINE]
 
-`ast-grep outline` maps source structure before any full read or edit: line-numbered top-level items (imports, functions, classes, structs, interfaces, modules, enums — flagged imported/exported) with their direct members (fields, methods, constructors, variants — flagged public). Output is syntax-local — no reference resolution, type inference, re-export chains, or call graphs; those questions route through [03]-[SEARCH] after outline names the files.
+`ast-grep outline` maps source structure before any full read or edit: line-numbered top-level items (imports, functions, classes, structs, interfaces, modules, enums — flagged imported/exported) with their direct members (fields, methods, constructors, variants — flagged public). Output is syntax-local — no reference resolution, type inference, re-export chains, or call graphs; those questions route through [02]-[SEARCH] after outline names the files.
 
 Every outline task runs one sequence: resolve target paths from the task, search hits, or `git diff --name-only`; run the owning row; escalate the located symbol with `--match <symbol> --view expanded`; then Read only the printed line range.
 
@@ -58,7 +56,7 @@ Every outline task runs one sequence: resolve target paths from the task, search
 - JSON entries carry `symbolType`, `role`, zero-based `range` with byte offsets, `signature`, `astKind`, and import/export/public flags.
 - Uncovered syntax registers extractors via `--outline-rules <file>` or `customLanguages.<name>.outlineRules` in `sgconfig.yml`.
 
-## [03]-[SEARCH]
+## [02]-[SEARCH]
 
 Structural search runs on the MCP tools; rules ride inline YAML. Patterns are valid code under the language's tree-sitter grammar, carrying whole-node metavariables: `$VAR` one named node, `$$VAR` one unnamed node, `$$$MULTI` lazy zero-or-more, `$_` non-capturing. Smart matching skips unnamed target nodes, so the less a pattern specifies, the more it matches — anchor only what the query fixes.
 
@@ -92,17 +90,17 @@ constraints:
 - Capture threading: the first rule naming `$VAR` defines its content, later rules only re-match it — order `all` accordingly.
 - `strictness: relaxed` widens past comments and unnamed nodes; `signature` alone drops text — take either only when a proven match is blocked.
 
-## [04]-[REWRITE]
+## [03]-[REWRITE]
 
-Rewrite extends a proven [03]-[SEARCH] rule with patching fields — each match replaces exactly one target node's text with the instantiated template. Templates are unparsed text: metavariables land anywhere, an undefined metavariable fails the parse under `scan` and lands empty under `run -r`, a declared-but-unmatched one lands empty in both, and `$VARName` lexes as `$VARN` + `ame` — appended text rides a `replace` transform. Multiline templates re-indent relative to the match's column. `run` carries the pattern-only path; the full algebra — `fix`, `FixConfig`, `transform`, `rewriters` — rides `scan --inline-rules`.
+Rewrite extends a proven [02]-[SEARCH] rule with patching fields — each match replaces exactly one target node's text with the instantiated template. Templates are unparsed text: metavariables land anywhere, an undefined metavariable fails the parse under `scan` and lands empty under `run -r`, a declared-but-unmatched one lands empty in both, and `$VARName` lexes as `$VARN` + `ame` — appended text rides a `replace` transform. Multiline templates re-indent relative to the match's column. `run` carries the pattern-only path; the full algebra — `fix`, `FixConfig`, `transform`, `rewriters` — rides `scan --inline-rules`.
 
 Every rewrite runs one sequence:
-1. Prove the match set per [03]-[SEARCH] until results are exactly the edit set; `--json` match and file counts bound the blast radius.
+1. Prove the match set per [02]-[SEARCH] until results are exactly the edit set; `--json` match and file counts bound the blast radius.
 2. Attach the owning modality row; derived text lands in `transform`, multi-node edits in `rewriters`.
 3. Prove the fix through `test_match_code_rule` — the JSON carries `replacement` and `replacementOffsets`; the replacement must re-parse.
 4. Preview the tree diff: `ast-grep scan --inline-rules '<yaml>' <paths>` prints diffs and writes nothing; `--json` stays read-only even with `-U`.
 5. Apply with `-U` (`-U` overrides `-i`); nested matches rewrite outer-first, so re-run until zero changes — depth and idempotence prove together.
-6. Close with `fmt <target>`; comments never rewrite — sweep leftovers through [03]-[SEARCH] `regex`.
+6. Close with `fmt <target>`; comments never rewrite — sweep leftovers through [02]-[SEARCH] `regex`.
 
 | [INDEX] | [REWRITE]      | [SHAPE]                                                                                                             |
 | :-----: | :------------- | :------------------------------------------------------------------------------------------------------------------ |
@@ -122,9 +120,9 @@ Every rewrite runs one sequence:
 - A capture landing in an operator, member-access, or return position takes parentheses in the template — precedence dies in substitution.
 - `run` exits 1 on zero matches and 0 on a hit — inverted against `scan`; shell chains over the two verbs read opposite ways.
 
-## [05]-[RULE_CRAFT]
+## [04]-[RULE_CRAFT]
 
-Rule precision is engineered: each device below is the standing form for its problem, developed per [03]-[SEARCH] and landing unchanged in durable files.
+Rule precision is engineered: each device below is the standing form for its problem, developed per [02]-[SEARCH] and landing unchanged in durable files.
 
 - Anchor every `regex` to the ends its law fixes — matching is unanchored substring search; `Exemption` also matches `NoExemptionHere`.
 - Captures unify by default: one `$VAR` across clauses proves sameness, `not:` on a rebound pattern proves difference, `$_VAR` opts out of both.
@@ -146,7 +144,7 @@ Rule precision is engineered: each device below is the standing form for its pro
 - Precision proves empirically before landing: scan a real corpus and count — a rule firing wide of its law is a semantic invariant in disguise.
 - Grammar truth beats intuition: `dump_syntax_tree` decides node wrapping and field names; a construct parsing as `ERROR` is unenforceable.
 
-## [06]-[DURABLE_RULES]
+## [05]-[DURABLE_RULES]
 
 Durable rules are project structural law as a scanned gate: `sgconfig.yml` at the root, every YAML under `ruleDirs` a rule. A rule earns admission on three proofs — the violation is provable by node shape alone, no standing gate owns it (linter, analyzer, type checker, compiler, generator diagnostic), and it encodes a project law rather than generic hygiene; a scope-, type-, or cross-file-dependent invariant never becomes a rule. One rule owns a whole violation family through `any:` and `utils:`, splitting only when message or fix diverges; shared deep structure across split rules lands in a parameterized global util carrying an explicit `kind` guard. Every rule is `severity: error` — the scan exits nonzero and blocks.
 
@@ -175,7 +173,7 @@ labels: { <VAR>: { style: primary, message: '<span fact>' } }   # rule/constrain
 Every rule lands through one sequence:
 1. Derive the candidate from a standing project law; run the three admission proofs — a failed proof ends the candidate.
 2. Prove the violating node shape with `dump_syntax_tree` on real violating code; a shape the grammar parses as `ERROR` is unenforceable — stop.
-3. Author from the owning `assets/templates/` file; develop the rule per [03]-[SEARCH] and the fix per [04]-[REWRITE], proved both ways.
+3. Author from the owning `assets/templates/` file; develop the rule per [02]-[SEARCH] and the fix per [04]-[REWRITE], proved both ways.
 4. Ship the test file with matching id — conforming cases under `valid:`, violating under `invalid:` — then `ast-grep test -U` writes snapshots.
 5. Land the rule in its owning folder; `ast-grep scan --inspect entity` proves registration, `--filter '<rule-id>'` iterates it alone.
 6. Gate with `ast-grep scan --no-ignore hidden --error=unused-suppression --error=no-suppress-all`; `test` rides the same gate.

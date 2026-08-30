@@ -26,14 +26,13 @@ Level choice requires knowing what is already on disk: inspect the filesystem fi
 
 An uncertain CLI flag, command shape, or resource property is looked up, never guessed: `npx pulumi <command> --help` documents every flag from the CLI itself; the full reference, provider catalog, and conceptual docs live at https://www.pulumi.com/docs and https://www.pulumi.com/registry/.
 
-## [01]-[ROUTING]
-
+[REFERENCES]:
 - [01]-[CLI_OPERATIONS](references/cli-operations.md): driving one-off resource work from the CLI, and graduating it into a program.
 - [02]-[BEST_PRACTICES](references/best-practices.md): laws every non-trivial program obeys before it runs.
 - [03]-[COMPONENTS](references/components.md): `ComponentResource` anatomy, args interface design, multi-language packaging, and distribution.
 - [04]-[AUTOMATION_API](references/automation-api.md): embedding Pulumi in a program, multi-stack orchestration, and inline versus local programs.
 
-## [02]-[ONE_SHOT_OPERATIONS]
+## [01]-[ONE_SHOT_OPERATIONS]
 
 `pulumi do` runs one-shot, stateless resource operations against any provider — no project files, no `${...}` wiring, no Pulumi state. `npx pulumi <command>` is the canonical invocation — the PATH `pulumi` lacks the resource verbs. `npx pulumi version` confirms availability without touching Pulumi Cloud.
 
@@ -53,7 +52,7 @@ First invocation without saved credentials provisions an ephemeral agent account
 
 When a `Pulumi.yaml` project already manages a resource, changes go through the program — never `pulumi do`.
 
-## [03]-[PROJECT_PROGRAMS]
+## [02]-[PROJECT_PROGRAMS]
 
 A Pulumi project is code in Python, TypeScript, Go, C#, or Java describing related resources and their dependencies. Match the codebase language when one is present; default to TypeScript otherwise.
 
@@ -74,7 +73,7 @@ npx pulumi config set aws:region us-west-2
 npx pulumi config set --secret dbPassword "..."
 ```
 
-## [04]-[CLOUD_GOVERNANCE]
+## [03]-[CLOUD_GOVERNANCE]
 
 Pulumi Cloud layers governance onto a project: ESC composes secrets and configuration from cloud secret managers, OIDC-vended credentials, and other environments into one resolved bundle; policy packs run against the resource graph before any cloud API call; deployments run operations server-side; schedules automate drift detection and rotation.
 
@@ -89,7 +88,7 @@ npx pulumi stack schedule new --kind drift --cron "0 0 * * *"
 
 A provider with OIDC federation vends cloud credentials through it rather than static keys in environment YAML. A schedule is standing automation that outlives the session — confirm operation, cadence, and stack with the operator first, and default to detection-only: `--kind drift --auto-remediate` and `--kind ttl` act without a human in the loop.
 
-## [05]-[DEBUGGING]
+## [04]-[DEBUGGING]
 
 A failed `pulumi up` or `pulumi preview` already recorded its error; debugging reads that record, traces the cause, and places the fix — nothing reruns to reproduce. Every read command reaches Pulumi Cloud through `pulumi api`, addressing a stack by explicit `{orgName}/{projectName}/{stackName}` path, so the stack need not be selected locally to read its record; selection matters only when applying the fix.
 
