@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-diagnostics
-description: "enter a description here"
+description: "Use when a build fails, runs slow, or overwrites its own outputs, or when any .binlog needs capture or analysis using the binlog MCP."
 ---
 
 # [DOTNET_MSBUILD_DIAGNOSTICS]

@@ -1,9 +1,11 @@
 ---
 name: dotnet-msbuild-execution
-description: "enter a description here"
+description: "Use when adding or ordering an MSBuild target, extending a DependsOn chain, making a target incremental, copying items to output, or registering generated files."
 ---
 
 # [DOTNET_MSBUILD_EXECUTION]
+
+Covers the execution phase: target dependency chains, target ordering, `Returns` and `Outputs`, incremental targets, output copies, and the files that a target generates.
 
 ## [01]-[DEPENDENCY_CHAINS]
 
@@ -84,16 +86,7 @@ A target can set both attributes:
 <Target Name="GetMyFeatureOutput" Returns="@(MyFeatureOutput)" />
 ```
 
-## [05]-[INCREMENTAL_TARGETS]
-
-MSBuild skips the target when every output is up-to-date. It can partially build one-to-one input and output mappings.
-
-- `Inputs` names the files that drive a target.
-- `Outputs` names the files that the target produces.
-- Keep generated outputs under `$(IntermediateOutputPath)`.
-- Use the `dotnet-msbuild-execution` skill for item registration and clean tracking.
-
-## [06]-[RESOLVE_PROJECT_REFERENCES_DURATION]
+## [05]-[RESOLVE_PROJECT_REFERENCES_DURATION]
 
 `ResolveProjectReferences` can invoke referenced-project builds. Its inclusive duration includes their execution, including yielded wait. An MSBuild node can yield while a referenced build runs. The target duration is not CPU self-time or the build critical path.
 
@@ -107,7 +100,7 @@ MSBuild skips the target when every output is up-to-date. It can partially build
 - A high `ResolveProjectReferences` duration alone does not identify that work.
 - Use the `dotnet-msbuild-diagnostics` skill for binlog capture and comparable performance baselines.
 
-## [07]-[COPY_TO_OUTPUT_DIRECTORY]
+## [06]-[COPY_TO_OUTPUT_DIRECTORY]
 
 `CopyToOutputDirectory` controls build-output copies. `CopyToPublishDirectory` controls publish-output copies. Both metadata values accept the same four modes:
 
@@ -152,6 +145,14 @@ EXECUTION:
 |  [01]   | `PreserveNewest` | `_CopyOutOfDateSourceItemsToOutputDirectory`       | Target `Inputs` and `Outputs` |
 |  [02]   | `Always`         | `_CopyOutOfDateSourceItemsToOutputDirectoryAlways` | `Copy` task                   |
 |  [03]   | `IfDifferent`    | `_CopyDifferingSourceItemsToOutputDirectory`       | `Copy` with skip-unchanged    |
+
+## [07]-[INCREMENTAL_TARGETS]
+
+MSBuild skips the target when every output is up-to-date. It can partially build one-to-one input and output mappings.
+
+- `Inputs` names the files that drive a target.
+- `Outputs` names the files that the target produces.
+- Keep generated outputs under `$(IntermediateOutputPath)`.
 
 ## [08]-[INCLUDING_GENERATED_FILES]
 
