@@ -10,8 +10,7 @@
 ## [01]-[LANGUAGE_STANDARDS]
 
 Read `docs/stacks/<language>/README.md` before changing a file owned by that language; let the task scope determine any additional reading
-
-Never use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, languages have specialized skills/mcp servers, and `ast-grep` skill and mcp for general usage.
+- NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, languages have specialized skills/mcp servers, and `ast-grep` skill and mcp for general usage.
 
 [TOOL_ROUTING]:
 - ALWAYS use `exa` MCP to start open-web search with neural discovery
