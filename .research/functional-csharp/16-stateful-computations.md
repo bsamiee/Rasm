@@ -1,0 +1,226 @@
+# Stateful Programs and Stateful Computations
+
+## Statefulness without mutation
+
+A program is stateful when its behavior depends on previous inputs or events. The label depends on the boundary: a server can be stateless by itself while the server and its database form a stateful system.
+
+State does not have to be changed in place. Make it an explicit input and return its successor with the operation's value:
+
+```text
+stateless: Input -> Value
+stateful:  Input -> State -> (Value, NewState)
+```
+
+The caller carries the returned state into the next operation. Earlier immutable state values are not altered, yet the program remains stateful because each new state affects later behavior.
+
+## An immutable cache
+
+Consider a currency-rate lookup that should avoid repeated network requests. Its state can be a `HashMap<string, decimal>` from currency-pair names to rates, and the lookup is a `State<HashMap<string, decimal>, decimal>`:
+
+```csharp
+internal static class RateCache {
+    public static State<HashMap<string, decimal>, decimal> GetRate(Func<string, decimal> fetch, string currencyPair) =>
+        from cached in State.gets<HashMap<string, decimal>, Option<decimal>>(cache => cache.Find(currencyPair))
+        from rate in cached.Match(
+            Some: static hit => State.pure<HashMap<string, decimal>, decimal>(hit),
+            None: () => Store(fetch(currencyPair), currencyPair))
+        select rate;
+    private static State<HashMap<string, decimal>, decimal> Store(decimal rate, string currencyPair) =>
+        State.modify<HashMap<string, decimal>>(cache => cache.Add(currencyPair, rate)).Map(_ => rate);
+}
+```
+
+A hit returns the cached value and the same state. A miss performs the lookup and returns a new map containing the rate. `State.gets` reads a projection of the state, `State.pure` keeps the state unchanged, and `State.modify` replaces the state with a function of it. This changes the signature from a stateless lookup into a state transition:
+
+```text
+remote lookup: string -> decimal
+cached lookup: string -> HashMap<string, decimal> -> (decimal, HashMap<string, decimal>)
+```
+
+The application starts with an empty `HashMap<string, decimal>`. Dependent lookups bind in one query, and the host supplies the start state through `Run(state)`, which returns the value with the final state. The state values themselves and all global state remain unmutated.
+
+### Separate state mutation from other effects
+
+Removing mutation does not remove network and console I/O. Passing the network operation as a `Func<string, decimal>` makes that dependency explicit and lets the cache logic be exercised with a predictable function. Console functions can be supplied in the same way.
+
+The network effect and its failure belong in the function's type:
+
+```text
+before: (string -> decimal)     -> string -> State<HashMap<string, decimal>, decimal>
+after:  (string -> IO<decimal>) -> string -> StateT<HashMap<string, decimal>, IO, decimal>
+```
+
+```csharp
+internal static class EffectfulRateCache {
+    public static StateT<HashMap<string, decimal>, IO, decimal> GetRate(Func<string, IO<decimal>> fetch, string currencyPair) =>
+        from cache in StateT.get<IO, HashMap<string, decimal>>()
+        from rate in cache.Find(currencyPair).Match(
+            Some: static hit => StateT.pure<HashMap<string, decimal>, IO, decimal>(hit),
+            None: () => Fetch(fetch, currencyPair, cache))
+        select rate;
+    private static StateT<HashMap<string, decimal>, IO, decimal> Fetch(Func<string, IO<decimal>> fetch, string currencyPair, HashMap<string, decimal> cache) =>
+        from rate in StateT.liftIO<HashMap<string, decimal>, IO, decimal>(fetch(currencyPair))
+        from _ in StateT.put<IO, HashMap<string, decimal>>(cache.Add(currencyPair, rate))
+        select rate;
+}
+```
+
+`StateT.get` reads the whole state, `StateT.liftIO` lifts the fetch into the transformer, and `StateT.put` writes the new map. A failing fetch fails on the `IO` error channel, and the host still holds the original cache. Only a successful lookup yields a cache containing the new rate. `Run(state)` on a `StateT` returns `K<IO, (Value, State)>`, the host converts it with `.As()`, exits through `RunSafe()`, and matches the resulting `Fin` into its own vocabulary. An `IO` started with `Fork` inside the transformer reads no state and writes none back. Testability and error handling come from explicit function relationships and richer signatures rather than added interfaces or scattered `try/catch` blocks.
+
+## Stateful computations
+
+A stateful computation, also called a state transition, has the general shape:
+
+```text
+S -> (A, S)
+```
+
+`S` is the state before and after the operation, and `A` is the produced value. `State<S, A>` wraps a `Func<S, (A Value, S State)>`, and `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. A transition may also accept other arguments. The shape can occur inside a stateful or stateless application: it characterizes the function, not the architecture around it.
+
+Passing state explicitly is often clearest for an isolated transition. Repeatedly extracting and forwarding it becomes noise when several transitions must be sequenced. `Map`, `Bind`, and `State.pure` capture that protocol:
+- `Map` transforms the produced value and preserves the returned state.
+- `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the first computation's returned state.
+- `State.pure` lifts a value into a computation that returns the state unchanged.
+
+`Select` and `SelectMany` expose these operations to LINQ query syntax. The syntax hides state plumbing; it does not remove the dependency or change its order.
+
+The produced value can itself be an `Option<A>`, as `OptionInt` shows: the seed advances on every bind and the consumer matches the option at the boundary. The produced value can also be a function, so a stateful computation can thread behavior as well as data.
+
+`State.put` replaces the state, and it and `State.modify` both produce `Unit`. The module functions take explicit type arguments. `Stateful.state` and `Stateful.local` are the trait forms for a domain wrapper over `State` or `StateT`. `Stateful.local` restores the prior state after the nested computation.
+
+## Pure pseudo-random generation
+
+A composable generator is useful for property-based testing, load testing, and simulations such as Monte Carlo methods.
+
+A conventional pseudo-random generator is deterministic but hides state. Its current seed is an implicit input to `Next`, and the updated seed is an implicit output affecting the next call. Make both explicit with a `State<int, A>`:
+
+```text
+int -> (A, int)
+```
+
+An explicit seed makes generation repeatable and testable. `Run(seed)` returns the value with the next seed, and the host chooses the seed. A convenience runner that seeds from the clock is impure and not testable.
+
+### The primitive generator
+
+The basic generator scrambles its input seed and returns the result as both the value and the next seed:
+
+```csharp
+internal static partial class Generator {
+    public static State<int, int> NextInt { get; } = new(static seed => {
+        int shifted = seed ^ (seed >> 13);
+        int mixed = shifted ^ (shifted << 18);
+        int result = mixed & 0x7fffffff;
+        return (result, result);
+    });
+}
+```
+
+`State<int, int>` is constructed from a `Func<int, (int Value, int State)>`. The particular scrambling algorithm is not important to composition. What matters is that every call exposes the state needed by the next call.
+
+### Deriving values with `Map`
+
+`Map` reuses both the integer generator and its next seed while changing only the value:
+
+```csharp
+internal static partial class Generator {
+    public static State<int, bool> NextBool => NextInt.Map(static i => (i % 2) == 0);
+}
+```
+
+The same technique produces `NextChar` by reducing an integer modulo `char.MaxValue + 1` and casting it to `char`.
+
+### Sequencing with `Bind`
+
+Generating a pair manually requires feeding the first generation's seed into the second. `Bind` centralizes that threading. With LINQ, composite generators describe the value being built:
+
+```csharp
+internal static partial class Generator {
+    public static State<int, (int First, int Second)> PairOfInts =>
+        from first in NextInt
+        from second in NextInt
+        select (first, second);
+    public static State<int, Option<int>> OptionInt =>
+        from some in NextBool
+        from value in NextInt
+        select some ? Some(value) : Option<int>.None;
+}
+```
+
+The second generator always consumes the seed returned by the first, so binding order determines the path taken through generator state.
+
+### Recursive structures and generation policy
+
+`State.pure` supplies a fixed value without consuming state:
+
+```csharp
+internal static partial class Generator {
+    public static State<int, Seq<int>> Empty => State.pure<int, Seq<int>>(Seq<int>());
+}
+```
+
+A recursive integer-list generator chooses between an empty result and a generated head followed by another generated list:
+
+```csharp
+internal static partial class Generator {
+    public static State<int, Seq<int>> IntList =>
+        from empty in NextBool
+        from list in empty ? Empty : NonEmpty
+        select list;
+    public static State<int, Seq<int>> NonEmpty =>
+        from head in NextInt
+        from tail in IntList
+        select head.Cons(tail);
+}
+```
+
+This produces empty lists half the time, one-element lists one quarter of the time, and progressively longer lists with halving probability. It is therefore unlikely to produce long lists.
+
+Generation policy is part of generator design. If a different size distribution is required, first generate a bounded length and then populate that many values. Strings follow the same compositional idea: generate a sequence of character values and construct a string from it.
+
+## Generalizing beyond integer seeds
+
+A generator is `State<int, A>`: the general `State<S, A>` specialized to an integer seed. The general form permits any state type while using the same `Map`, `Bind`, and `State.pure` behavior.
+
+Tree numbering uses an integer counter as state:
+
+```csharp
+internal static class Numbering {
+    public static State<int, int> GetAndIncrement { get; } = new(static count => (count, count + 1));
+    public static Tree<(int Number, T Value)> Numbered<T>(Tree<T> tree) => tree.Number().Run(0).Value;
+}
+```
+
+For a leaf, the computation creates a new leaf containing the original value and current count, then returns the incremented count as its new state. For a branch, it numbers the left subtree, then numbers the right subtree with the state returned by the left. The result is a new tree whose leaves carry their traversal number:
+
+```csharp
+internal abstract record Tree<T> {
+    public abstract State<int, Tree<(int Number, T Value)>> Number();
+}
+
+internal sealed record Leaf<T>(T Value) : Tree<T> {
+    public override State<int, Tree<(int Number, T Value)>> Number() => Numbering.GetAndIncrement.Map(count => Tree.Leaf((count, Value)));
+}
+internal sealed record Branch<T>(Tree<T> Left, Tree<T> Right) : Tree<T> {
+    public override State<int, Tree<(int Number, T Value)>> Number() =>
+        from left in Left.Number()
+        from right in Right.Number()
+        select Tree.Branch(left, right);
+}
+
+internal static class Tree {
+    public static Tree<T> Leaf<T>(T value) => new Leaf<T>(value);
+    public static Tree<T> Branch<T>(Tree<T> left, Tree<T> right) => new Branch<T>(left, right);
+}
+```
+
+The numbering function returns a computation rather than a numbered tree immediately. Supplying the initial counter runs it: `Numbered` calls `Run(0)`, which returns the numbered tree with the next counter, and `.Value` selects the tree. LINQ is especially useful in a branch, where multiple recursive transitions must be sequenced. For simpler cases, explicit state passing can remain clearer.
+
+The same model is useful in simulations and parsers. A functional parser can treat its input text as state: it returns a structured parsed value together with the unconsumed remainder for the next parser. `LanguageExt.Parsec` follows this model: its `Parser<T>` maps a `PString` to a `ParserResult<T>` that carries the unconsumed input.
+
+## Choosing the representation
+
+- Keep state visible in inputs and outputs so dependencies and sequencing are explicit.
+- Use immutable state values when avoiding mutation; the caller advances by selecting the returned value as the next state.
+- Keep explicit tuple passing when the state flow is short and clear.
+- Use composition when many dependent transitions would otherwise repeat the same extract-and-forward plumbing.
+- Treat sequencing as semantic: each computation receives exactly the state produced by its predecessor.

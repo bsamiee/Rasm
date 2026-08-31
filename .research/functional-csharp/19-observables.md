@@ -1,0 +1,266 @@
+# Data Streams with `IObservable`
+
+## The model
+
+`IObservable<T>` represents a sequence of values delivered over time. It combines the multiplicity of `IEnumerable<T>` with the time-oriented delivery of `Task<T>`:
+
+| Shape       | Synchronous      | Asynchronous     |
+| ----------- | ---------------- | ---------------- |
+| One value   | `T`              | `Task<T>`        |
+| Many values | `IEnumerable<T>` | `IObservable<T>` |
+
+It is the more general shape: an `IEnumerable<T>` can be viewed as an observable that produces all its values synchronously, while a `Task<T>` can be viewed as one that produces a single value.
+
+An observable pushes notifications to an observer. Its protocol is:
+
+```text
+OnNext* (OnCompleted | OnError)?
+```
+
+- `OnNext(T)` delivers zero or more values.
+- `OnCompleted()` ends the stream successfully.
+- `OnError(Exception)` ends the stream abnormally.
+- A stream may never terminate, but after either terminal notification it must never emit again.
+
+Subscription connects producer and consumer:
+
+```csharp
+internal sealed class Replay<A>(Seq<A> items) : IObservable<A> {
+    public IDisposable Subscribe(IObserver<A> observer) {
+        _ = items.Iter(observer.OnNext);
+        observer.OnCompleted();
+        return new Subscription();
+    }
+
+    private sealed class Subscription : IDisposable {
+        public void Dispose() {
+        }
+    }
+}
+```
+
+The returned `IDisposable` owns the subscription lifetime. Scope or dispose it deliberately, especially for sources that never complete.
+
+`Subscribe` receives an `IObserver<T>`, and the observer implements `OnNext`, `OnError`, and `OnCompleted`. `Source.lift(IObservable<A>)` supplies that observer once and returns a `Source<A>`. `Reduce(seed, f)` on a `Source<A>` folds every value into one `IO<S>`.
+
+```csharp
+internal static class Model {
+    public static Source<int> Observed => Source.lift(new Replay<int>(Seq(1, 2, 3)));
+    public static IO<int> Total(Source<int> source) => source.Reduce(0, static (sum, item) => sum + item);
+}
+```
+
+## Structure a reactive program in three layers
+
+1. **Acquire sources.** Adapt callbacks, tasks, collections, or external event producers into observables.
+2. **Describe the dataflow.** Transform and combine streams with operators. Keep this layer declarative and free of observable side effects.
+3. **Run effects at the edge.** Subscribe only to the final streams and perform output, persistence, notifications, or diagnostics in observers. A `Source<A>` is reduced once at this layer, and the host runs the resulting `IO<S>`.
+
+This separation keeps stream logic composable while making effect ownership and resource lifetime visible.
+
+## Creating streams
+
+```csharp
+internal static class Sources {
+    private static Action<string> onMessage = static _ => { };
+
+    private static readonly Event<string> Messages = Event.from(ref onMessage);
+
+    public static Source<string> OneValue => Source.pure("ready");
+    public static Source<int> FiniteValues => Source.lift(Seq(1, 2, 3));
+    public static IO<string> FirstMessage =>
+        from messages in Messages.Subscribe()
+        from _ in IO.lift(static () => onMessage("hello"))
+        from head in messages.Take(1).Last()
+        select head;
+}
+```
+
+The lifted single value emits immediately and completes. A lifted enumerable immediately emits its elements and completes. A lifted observable is subscribed when the source is reduced. Not every observable is lazy; subscription behavior depends on the source.
+
+`Event.from(ref Action<A>)` adapts a callback-based producer such as a message subscription. It joins the delegate, and `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation of the delegate. The `Event` is `IDisposable`, and disposing it detaches the delegate.
+
+`Subject<T>` is both an observer and an observable, so imperative code can call its `OnNext`, `OnError`, and `OnCompleted` methods. It is useful at unavoidable push boundaries, but prefer `Event.from` or a dedicated source when they can express the source directly. This keeps imperative signaling out of the stream definition.
+
+Other source adapters include `FromEvent` and `FromEventPattern` for event-based APIs.
+
+## Transforming and combining streams
+
+Operators produce new observables rather than handling individual events imperatively.
+
+| Operator        | Meaning                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| `Select`        | Map each emitted value.                                                                             |
+| `SelectMany`    | Map each value to an observable or task, then flatten all inner values into one stream.             |
+| `Where`         | Retain values satisfying a predicate.                                                               |
+| `Take`          | Retain the first count of values, or values produced within a given timespan.                       |
+| `Skip`          | Discard an initial portion of a stream.                                                             |
+| `First`         | Reduce the stream to its first value.                                                               |
+| `Concat`        | Emit the first stream, then subscribe to the second after the first completes.                      |
+| `StartWith`     | Prefix a stream with one or more initial values.                                                    |
+| `Merge`         | Interleave values from streams as they arrive.                                                      |
+| `CombineLatest` | After both sources have emitted, recompute from their latest values whenever either source changes. |
+| `Scan`          | Emit every successive accumulated state.                                                            |
+| `GroupBy`       | Split one stream into keyed streams.                                                                |
+
+On `Source<A>` the same shapes are `Map`, `Filter`, `Take`, `Skip`, `Zip`, `Combine`, `Source.merge`, and a query that flattens an inner source.
+
+A query over `Source<A>` flattens the inner source of each value instead of blocking on it:
+
+```csharp
+internal static class Queries {
+    private static readonly HashMap<string, Seq<decimal>> History = HashMap(("EURUSD", Seq(1.1m, 1.2m)), ("GBPUSD", Seq(1.3m)));
+
+    public static Source<decimal> Quotes(string pair) => Source.lift(History.Find(pair).IfNone(Seq<decimal>()));
+    public static Source<decimal> Rates(Source<string> currencyPairs) =>
+        from pair in currencyPairs
+        from rate in Quotes(pair)
+        select rate;
+}
+```
+
+`Combine` depends on completion. If its first source never completes, the second source is never observed. `Source.pure(value).Combine(source)` is the direct choice when the requirement is to emit an initial value before the source.
+
+Partitioning is the stream equivalent of branching:
+
+```csharp
+internal static class Branches {
+    public static (Source<A> Passed, Source<A> Failed) Partition<A>(this Source<A> source, Func<A, bool> predicate) =>
+        (source.Filter(predicate), source.Filter(value => !predicate(value)));
+    public static IO<int> Rejoined(Source<int> source) {
+        (Source<int> passed, Source<int> failed) = source.Partition(static item => item > 1);
+        return Source.merge(passed.Map(static item => item * 10), failed).Reduce(0, static (sum, item) => sum + item);
+    }
+}
+```
+
+Each branch can evolve independently and later be normalized to a common type and merged with `Source.merge`.
+
+## Keep recoverable failures inside the stream
+
+`OnError` is terminal. When a derived stream reports an error, that stream and every downstream stream terminate permanently; upstream streams may continue, leaving only part of the dataflow alive.
+
+Do not use the terminal error channel for an expected per-item failure. Instead:
+1. Apply the operation to each input with `Map`.
+2. The operation returns a `Fin<R>`, which represents either the computed value or the `Error`. An expected failed computation becomes data rather than a terminal stream message.
+3. `Reduce` that stream into computed values and errors.
+4. Translate both cases to a common output type with `Match` and keep them in one stream.
+
+The outcomes stay alive as ordinary stream values:
+
+```csharp
+internal sealed record UnknownPair() : Expected("unknown currency pair", 404);
+
+internal static class Failures {
+    private static readonly HashMap<string, decimal> Table = HashMap(("EURUSD", 1.1m), ("GBPUSD", 1.3m));
+
+    public static Fin<decimal> Rate(string pair) => Table.Find(pair).ToFin(new UnknownPair());
+    public static Source<Fin<decimal>> Outcomes(Source<string> pairs) => pairs.Map(Rate);
+    public static Source<string> Outputs(Source<string> pairs) =>
+        Source.pure("Enter a currency pair").Combine(
+            Outcomes(pairs).Map(static outcome => outcome.Match(
+                Succ: static rate => rate.ToString(CultureInfo.InvariantCulture),
+                Fail: static error => error.Message)));
+    public static IO<(Seq<decimal> Rates, Seq<Error> Errors)> Partitioned(Source<string> pairs) =>
+        Outcomes(pairs).Reduce(
+            (Rates: Seq<decimal>(), Errors: Seq<Error>()),
+            static (state, outcome) => outcome.Match(
+                Succ: rate => (state.Rates.Add(rate), state.Errors),
+                Fail: error => (state.Rates, state.Errors.Add(error))));
+}
+```
+
+Reserve `OnError` for a failure that truly ends the whole stream. This distinction prevents one malformed message from killing a long-lived processing branch.
+
+## Logic across events
+
+Reactive streams are most valuable when the treatment of a new event depends on earlier events or on another event source.
+
+### Adjacent values and timed patterns
+
+Pairing every value with its successor makes transitions explicit:
+
+```csharp
+internal static class Transitions {
+    public static Source<(A Previous, A Current)> PairWithPrevious<A>(this Source<A> source) =>
+        source.Zip(source.Skip(1)).Map(static pair => (Previous: pair.First, Current: pair.Second));
+}
+```
+
+`Skip(1)` shifts the second subscription by one value, so `Zip` pairs each value with its successor. Filtering the pairs can recognize a multi-key sequence without an explicit mutable state machine.
+
+This implementation subscribes to `source` twice, and each subscription observes values produced from its subscription time. Its meaning therefore depends on the source's subscription behavior; do not assume every observable is lazy or behaves identically when subscribed more than once.
+
+### Multiple sources and backpressure
+
+`Zip` pairs each balance with its matching rate and recomputes the derived value from each pair. If one source is much more volatile than the required output, reduce it before combining. A `Conduit` made with `Buffer<A>.Latest` keeps only the newest rate for the consumer. The conduit's `Sink` receives values through `Post`, and `Comap` adapts it to the producer's value type. Use a latest-wins combine when either input invalidates the derived value. `Zip` is the choice when each value has one matching partner.
+
+```csharp
+internal static class Backpressure {
+    public static Source<decimal> BalanceInUsd(Source<decimal> euroBalance, Source<decimal> eurUsdRate) =>
+        euroBalance.Zip(eurUsdRate).Map(static pair => pair.First * pair.Second);
+    public static IO<Seq<decimal>> Retained(Buffer<decimal> buffer, Seq<decimal> rates) {
+        Conduit<decimal, decimal> quotes = Conduit.make(buffer);
+        return
+            from _ in rates.TraverseM(quotes.Post).As()
+            from __ in quotes.Complete()
+            from kept in quotes.Reduce(Seq<decimal>(), static (kept, rate) => Reduced.ContinueIO(kept.Add(rate)))
+            select kept;
+    }
+    public static IO<Seq<decimal>> Drained(Buffer<decimal> buffer, Seq<decimal> rates) {
+        Conduit<decimal, decimal> quotes = Conduit.make(buffer);
+        return
+            from running in quotes.Reduce(Seq<decimal>(), static (kept, rate) => Reduced.ContinueIO(kept.Add(rate))).Fork()
+            from _ in rates.TraverseM(quotes.Post).As()
+            from __ in quotes.Complete()
+            from kept in running.Await
+            select kept;
+    }
+    public static IO<Unit> PostLength(Sink<int> sink, string text) => sink.Comap(static (string s) => s.Length).Post(text);
+}
+```
+
+An observable pushes; the consumer cannot slow the producer by requesting the next item at its own pace. When production outpaces consumption, choose a policy explicitly through the `Buffer<A>` given to `Conduit.make`:
+- `Buffer<A>.Unbounded` keeps every value.
+- `Buffer<A>.Bounded(n)` and `Buffer<A>.Single` hold `n` values or one value and block `Post` when full, so the consumer is forked before the producer posts.
+- `Buffer<A>.Latest(value)` keeps only the last value, and `Buffer<A>.Newest(n)` keeps the last `n` values.
+
+Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`. The policy must reflect whether intermediate values may be dropped, delayed, grouped, or preserved.
+
+### Stateful business logic without mutable state
+
+`Scan` is a running fold: unlike `Aggregate`, which waits for completion, it emits each new accumulated state.
+
+```csharp
+internal sealed record Transaction(Guid AccountId, decimal Amount);
+
+internal static class Ledger {
+    public static IO<Seq<Guid>> Overdrawn(Source<Transaction> transactions) =>
+        transactions
+            .Reduce(HashMap<Guid, Seq<decimal>>(), static (ledger, transaction) =>
+                ledger.AddOrUpdate(transaction.AccountId, amounts => amounts.Add(transaction.Amount), Seq(transaction.Amount)))
+            .Map(static ledger => toSeq(ledger.Filter(Crossed).Keys));
+    private static bool Crossed(Seq<decimal> amounts) {
+        Seq<decimal> balances = amounts.Scan(0m, static (balance, amount) => balance + amount);
+        return balances.Zip(balances.Tail).Exists(static step => step.First >= 0m && step.Second < 0m);
+    }
+}
+```
+
+`Reduce` groups the amounts of each account in a `HashMap`, and `Scan` carries each balance forward. `Zip` with `Tail` pairs each balance with its predecessor, so the filter sees only a crossing from nonnegative to negative. The seed is emitted first so the first transaction can form a transition from the opening balance.
+
+## Fit and limits
+
+Use `IObservable` when:
+- values arrive asynchronously over time;
+- logic detects sequences, transitions, windows, or relationships across sources;
+- the system naturally forms a one-way dataflow, such as queue-to-database processing or fire-and-forget messaging.
+
+Avoid it when:
+- events are independent and ordinary callbacks or tasks are clearer;
+- every input needs a directly correlated response, as in request-response protocols;
+- synchronization requires finer control than available operators provide.
+
+`OnNext` returns no value, so information flows downstream only. For complex coordination built around explicit queues and precise sequencing, `Conduit` is the queue and `Pipes` is the pipeline. A `ProducerT`, a `PipeT`, and a `ConsumerT` fuse with `|` into one `EffectT` that the host runs.
+
+Important Rx details remain beyond these core operators: schedulers determine how calls to observers are dispatched, not every observable is lazy, and different subjects have different behaviors. These details are not expressed by the `IObservable<T>` type alone.
