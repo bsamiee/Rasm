@@ -39,6 +39,8 @@ MSBuild imports one file path at most once and reports `MSB4011` on a second att
 <Import Project="MySDK.props" Condition="'$(MySDKPropsImported)' != 'true'" />
 ```
 
+An `Import` path can carry a wildcard or a semicolon-separated list. MSBuild sorts wildcard matches with `StringComparer.OrdinalIgnoreCase` and imports a list in written order. The sort is textual, so number the files of a wildcard directory with a fixed-width prefix: `010-foundation.props` before `020-policy.props`, because `100-x` sorts before `20-y`.
+
 ## [02]-[CONDITIONS]
 
 MSBuild parses a `Condition` attribute as one expression string. Write every condition by these rules:
@@ -336,6 +338,10 @@ A property that holds the outer path once keeps nested quotes out of the `Condit
 
 `$(DirectoryBuildPropsPath)` and `$(DirectoryBuildTargetsPath)` name the file to import. `$(ImportDirectoryBuildProps)` and `$(ImportDirectoryBuildTargets)` default to `true`, and `false` disables the import. Set the `.props` controls before `Microsoft.Common.props` imports `Directory.Build.props`. In a normal SDK-style project, use a global property, an environment variable, or `Directory.Build.rsp`. `Directory.Build.props` or the project file can set the `.targets` pair.
 
+`Microsoft.Common.props` imports `$(CustomBeforeDirectoryBuildProps)` and `$(CustomAfterDirectoryBuildProps)` around `Directory.Build.props`. `Microsoft.Common.targets` imports `$(CustomBeforeDirectoryBuildTargets)` and `$(CustomAfterDirectoryBuildTargets)` around `Directory.Build.targets`. These four imports test only for a non-empty value, so a missing file stops the build with `MSB4019`. A relative value resolves against the SDK directory that holds the common file, so give a rooted path. The outer build of a multi-targeting project imports `Directory.Build.targets` from `Microsoft.Common.CrossTargeting.targets`, which uses neither targets hook.
+
+`CustomBeforeMicrosoftCommonTargets` and `CustomAfterMicrosoftCommonTargets` belong to machine and tool scope, and their default paths do not exist in a .NET SDK layout. `dotnet watch` and `dotnet user-secrets` pass the after hook as a global property, paired with `CustomAfterMicrosoftCommonCrossTargetingTargets`. That adds a targets file to a project they do not own. A repository imports its own file from `Directory.Build.props` instead.
+
 ### [05.6]-[PACKAGE_BUILD_FOLDER_IMPORTS]
 
 NuGet imports the applicable `.props` and `.targets` files from each package under `build/`, `buildTransitive/`, or `buildMultiTargeting/`. When the folder has TFM subfolders, NuGet selects the nearest compatible TFM folder for the consuming project. That folder is not the one named by the consumer's own TFM. As a result, a `buildTransitive/<tfm>/` file that forwards to `build/$(TargetFramework)/` can name a folder that the package does not ship. The consumer then stops with `MSB4019`. Derive the TFM segment from the file's own folder and forward through the sibling `build/` file:
@@ -349,6 +355,8 @@ NuGet imports the applicable `.props` and `.targets` files from each package und
 ```
 
 The forwarding import needs no `Exists()` guard, because the packed layout is the contract. Restore already guards its own generated import of the package file with `Exists()`. The pack step places a file at the `target` of a `.nuspec` `<file>` entry. It also places a file at the `PackagePath` of a `<None>` or `<Content>` item with `Pack="true"`. Before you judge such an import, read every `*.nuspec` in the project directory and its parent directory, and read every `PackagePath` in the `.csproj`. The import is broken only when that packed layout lacks the target path.
+
+Restore writes `<project>.nuget.g.props` and `<project>.nuget.g.targets` under `$(MSBuildProjectExtensionsPath)`, which defaults to `obj/`. Those two files hold the imports of the package `build/` files. `Microsoft.Common.props` and `Microsoft.Common.targets` collect them through a wildcard import that `ImportProjectExtensionProps` and `ImportProjectExtensionTargets` gate. Both properties default to `false` during restore and `true` in every other build, so a restore evaluation in a binary log shows neither file. Restore rewrites this directory, so no repository file belongs there.
 
 ## [06]-[TROUBLESHOOTING]
 
