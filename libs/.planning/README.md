@@ -87,7 +87,7 @@ One integration-point notation, scope-qualified by distance: `page#CLUSTER` insi
 
 ## [06]-[REVIEW]
 
-Review is judgment against this standard and the route-owned code doctrine. Each reviewing agent reads the standard, the language's `docs/stacks/<lang>/` doctrine, and the form standards, then grades cold: doc-set placement, page shape, signature truthfulness against the `.api/` catalogues, language and zero-provenance discipline, no fragile duplication or owner-state ledger, and integration points, never a drift-prone cross-reference map. Findings repair in the same pass; a doc finalizes when a cold read surfaces nothing.
+Review is judgment against this standard and the route-owned code doctrine. Each reviewing agent reads the standard and the form standards, then grades cold: doc-set placement, page shape, signature truthfulness against the `.api/` catalogues, language and zero-provenance discipline, no fragile duplication or owner-state ledger, and integration points, never a drift-prone cross-reference map. Findings repair in the same pass; a doc finalizes when a cold read surfaces nothing.
 
 Signature fences transcribe an external member as settled fence code only when that member is verified against the folder's `.api/` catalogue; an external member outside the `.api/` catalogue stays a marked RESEARCH item and never appears as settled fence code, and a cold grade fails any fence whose external member contradicts a sibling RESEARCH item that declares it unverified.
 

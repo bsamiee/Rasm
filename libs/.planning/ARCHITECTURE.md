@@ -170,7 +170,7 @@ Every `libs/` package is an independently versioned library an unrelated applica
 
 ## [09]-[DESIGN_LANGUAGE]
 
-One design language makes disparate repos read as one system: a consumer crossing packages, branches, or hosts meets the same shapes under different spellings, so capability composes without per-package relearning. Each row states the invariant, and `docs/stacks/<language>/` owns its spelling.
+One design language makes disparate repos read as one system: a consumer crossing packages, branches, or hosts meets the same shapes under different spellings, so capability composes without per-package relearning. Each row states the invariant.
 
 | [INDEX] | [INVARIANT]           | [LAW]                                                                                               |
 | :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------- |

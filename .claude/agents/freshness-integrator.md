@@ -26,7 +26,7 @@ Read fully, in order, before the first edit:
 1. `templates/api-catalog.template.md` of the `docgen` skill, which owns the catalog schema.
 2. Each owning catalog whole, then each sibling catalog its `[STACKING]` rows name.
 3. The complete changelog span: every release between old and new, from the named repo (releases, CHANGELOG, whatsnew). A span skimmed at its newest release is an incomplete read.
-4. Each consumer page whole before its first edit, with the `docs/stacks/<language>/` doctrine set for that page's language.
+4. Each consumer page whole before its first edit.
 
 Load MCP schemas in ONE `ToolSearch` call: context7 resolve/query, github releases/tags/file-contents, exa search, and the nuget context tools on a C# set.
 
@@ -55,7 +55,7 @@ Per consumer page, in order:
 3. Delete a workaround the release obsoleted — a validation the library now performs, a manual fold a new member owns, a guard against fixed behavior — and compose the new member in its place.
 4. Land new capability only where the page's charter already demands it, as a denser form of an existing owner, never a new section, page, or parallel surface.
 
-Doctrine (`docs/stacks/<language>/`) is the floor for every fence edit.
+Doctrine is the floor for every fence edit.
 
 MAJOR MODE (when the prompt marks it): before editing consumers, map every integration point across the consumer set, grading each land-now (in an editable file, unambiguous) or RIPPLE (cross-page, design-shifting, or needing an owner decision). Land the land-nows. Return RIPPLE rows `{page, integration, evidence-member, why-deferred}` naming verified members only. A prompt fed a RIPPLE roster lands its rows and returns zero new ones.
 
