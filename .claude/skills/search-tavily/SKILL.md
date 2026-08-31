@@ -21,23 +21,23 @@ Relevance resolves server-side, never a local post-filter: `--include-answer` on
 Every command runs as `uvx --from tavily-cli tvly <verb>` under the ambient `TAVILY_API_KEY`; `search` and `extract` also run key-free under a rate cap. `--json` returns the typed envelope, `-o` writes it to a file, and each verb's full flag roster lives behind `--help`; add `--extract-depth advanced` when `extract` or `crawl` hits a JavaScript-rendered page. Reach for the one-call command that fits:
 
 ```bash
-uvx --from tavily-cli tvly search "QUERY" --include-answer advanced --max-results 8   # answer inline, no follow-up
-uvx --from tavily-cli tvly search "QUERY" --include-raw-content markdown --max-results 8 --json   # fused: ranked hits + full content
-uvx --from tavily-cli tvly extract URL_A URL_B --query "QUESTION" --chunks-per-source 3 --format markdown   # known URLs -> content
-uvx --from tavily-cli tvly crawl https://example.com --max-depth 1 --limit 20 --instructions "GOAL" --chunks-per-source 3   # site pages -> chunks
-uvx --from tavily-cli tvly crawl https://example.com --max-depth 2 --limit 50 --output-dir DIR   # site section -> markdown files
-uvx --from tavily-cli tvly research run "QUERY" --citation-format numbered -o report.md   # cited report, blocks 30-120s
+uvx --from tavily-cli tvly search "QUERY" --include-answer advanced --max-results 8                                         # Answer inline, no follow-up
+uvx --from tavily-cli tvly search "QUERY" --include-raw-content markdown --max-results 8 --json                             # Fused: ranked hits + full content
+uvx --from tavily-cli tvly extract URL_A URL_B --query "QUESTION" --chunks-per-source 3 --format markdown                   # Known URLs -> content
+uvx --from tavily-cli tvly crawl https://example.com --max-depth 1 --limit 20 --instructions "GOAL" --chunks-per-source 3   # Site pages -> chunks
+uvx --from tavily-cli tvly crawl https://example.com --max-depth 2 --limit 50 --output-dir DIR                              # Site section -> markdown files
+uvx --from tavily-cli tvly research run "QUERY" --citation-format numbered -o report.md                                     # Cited report, blocks 30-120s
 ```
 
 Take a second call only when one will not do; `--max-results` and `--limit` keep the feed inside `extract`'s 20-URL cap:
 
 ```bash
-# few among many — score-gate search hits, then pull only the survivors
+# Few among many — score-gate search hits, then pull only the survivors
 uvx --from tavily-cli tvly search "QUERY" --json | jq -r '.results[] | select(.score > 0.5) | .url' | xargs uvx --from tavily-cli tvly extract --query "QUESTION" --chunks-per-source 3
-# recon — list a site's URLs to pick from, then extract the chosen ones
+# Recon — list a site's URLs to pick from, then extract the chosen ones
 uvx --from tavily-cli tvly map https://example.com --instructions "GOAL" --limit 20 --json | jq -r '.results[]'
 uvx --from tavily-cli tvly extract PICKED_URL --query "QUESTION" --chunks-per-source 3
-# detached research — dispatch now, poll later
+# Detached research — dispatch now, poll later
 uvx --from tavily-cli tvly research run "QUERY" --no-wait
 uvx --from tavily-cli tvly research poll REQUEST_ID -o report.md
 ```

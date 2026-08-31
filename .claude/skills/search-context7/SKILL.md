@@ -25,17 +25,20 @@ Two MCP tools and a REST surface: `resolve-library-id` ranks indexed sources, `q
 Any member of an external package about to be written, reviewed, or debugged, cross-library boundary names both sides in one query.
 
 Step 1. Resolve the library — skip when the ID is already known; libraryName AND query both required
+
 ```text
 mcp__context7__resolve-library-id {"libraryName": "Effect", "query": "retry a failing acquisition with capped exponential backoff and jitter"}
 ```
 
 Step 2. Query the repo ID; add the doc-site ID in the same block only when the repo answer is thin.
+
 ```text
 mcp__context7__query-docs {"libraryId": "/effect-ts/effect", "query": "Effect.retry with a Schedule combining exponential backoff, jitter, and a retry cap"}
 mcp__context7__query-docs {"libraryId": "/websites/effect_website", "query": "Effect.retry with a Schedule combining exponential backoff, jitter, and a retry cap"}
 ```
 
 Step 3. Drill — when a richer owning combinator surfaces, drill the richer symbol the first block surfaced
+
 ```text
 mcp__context7__query-docs {"libraryId": "/effect-ts/effect", "query": "Schedule.max combining retry count, elapsed-time budget, and capped backoff into one policy"}
 ```
@@ -50,12 +53,12 @@ mcp__exa__web_search_advanced_exa {"query": "best-in-class Python library for <c
 ```
 
 ```bash
-# depth 1 — rank a named library's indexed sources, projected compact
+# Depth 1 — rank a named library's indexed sources, projected compact
 xh -j GET https://context7.com/api/v1/search query=='scikit-image restoration' "Authorization: Bearer $CONTEXT7_API_KEY" \
   | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .totalTokens, .lastUpdateDate[:10]] | @tsv'
 # depth 2 — one budgeted pull per capability axis, bulk to disk, never the window
 xh GET https://context7.com/api/v1/scikit-image/scikit-image topic=='deconvolution wiener richardson-lucy' tokens==3000 "Authorization: Bearer $CONTEXT7_API_KEY" -o restoration.md
-# depth 3 — typed gate: only relevance-cleared snippets enter the window
+# Depth 3 — typed gate: only relevance-cleared snippets enter the window
 xh -j GET https://context7.com/api/v1/scikit-image/scikit-image type==json topic=='deconvolution' tokens==2000 "Authorization: Bearer $CONTEXT7_API_KEY" \
   | jq '[.snippets[] | select(.relevance > 0.02) | {title: .codeTitle, code: .codeList[0].code}]'
 ```
