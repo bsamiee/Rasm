@@ -28,13 +28,13 @@ Traverse : (A -> F<B>) -> T<A> -> F<T<B>>
 
 - `T` is the traversed structure.
 - `F` is the effect produced for each value.
-- The behavior used to combine results comes from `F`.
+- The behavior that combines results comes from `F`.
 
-This is useful whenever `Map` leaves effects inside a structure but the next operation needs one effect containing the complete structure. Unlike a fold, traversal does not expose an explicit accumulator: the applicative's normal behavior performs the accumulation while the two structures are flipped.
+Use it whenever `Map` leaves effects inside a structure and the next operation needs one effect containing the complete structure. A traversal exposes no accumulator: the applicative's own behavior performs the accumulation while the structures flip.
 
 ## [02]-[OUTER_APPLICATIVE_SEMANTICS]
 
-`Traverse` does not define one universal failure or evaluation policy. It repeatedly combines values through the selected `Applicative<F>`:
+`Traverse` defines no universal failure or evaluation policy. It combines values through the selected `Applicative<F>`:
 
 | [INDEX] | [TYPE]       | [BEHAVIOR]                                                                                  |
 | :-----: | :----------- | :------------------------------------------------------------------------------------------ |
@@ -42,7 +42,7 @@ This is useful whenever `Map` leaves effects inside a structure but the next ope
 |  [02]   | `Validation` | All failures are collected.                                                                 |
 |  [03]   | `Eff`        | File-reading effects in the example run in parallel; one failure fails the whole traversal. |
 
-The transformation should therefore match the dependency structure:
+Match the transformation to the dependency structure:
 
 ```csharp
 Seq<string> paths = Seq(
@@ -59,7 +59,7 @@ var serial = paths.TraverseM(File<Runtime>.readAllText);
 
 ## [03]-[TRAVERSE_AND_SEQUENCE]
 
-`Sequence` is `Traverse` with the identity function when the input is already nested:
+`Sequence` is `Traverse` with the identity function, for input that is already nested:
 
 ```text
 Traverse(f, T<A>)  -> F<T<B>>    where f : A -> F<B>
@@ -86,11 +86,11 @@ public static virtual K<M, K<T, A>> SequenceM<M, A>(
     Traversable.traverseM(x => x, ta);
 ```
 
-`Sequence` and `SequenceM` perform the same structural flip, but their constraints select applicative or monadic composition. A type may override the defaults when it can provide materially better semantics or performance; `Seq<A>` overrides `TraverseM` to guarantee serial evaluation.
+`Sequence` and `SequenceM` perform the same structural flip; their constraints select applicative or monadic composition. A type overrides the defaults where it provides materially better semantics or performance; `Seq<A>` overrides `TraverseM` to guarantee serial evaluation.
 
 ### [03.1]-[PREFER_TRAVERSE]
 
-C# cannot generally convert a concrete nested value such as `Seq<Option<int>>` to the nested higher-kinded form `K<Seq, K<Option, int>>`. Consequently, this fails at compile time:
+C# cannot convert a concrete nested value such as `Seq<Option<int>>` to the nested higher-kinded form `K<Seq, K<Option, int>>`, so this fails at compile time:
 
 ```csharp
 var values = Seq(Some(1), Some(2), None);
@@ -103,7 +103,7 @@ The practical equivalent keeps the inner conversion visible to inference:
 Option<Seq<int>> result = values.Traverse(x => x).As();
 ```
 
-Use `Sequence` directly when the input is already represented as `K<T, K<F, A>>`; otherwise, use `Traverse(x => x)`.
+Use `Sequence` when the input is already represented as `K<T, K<F, A>>`; otherwise use `Traverse(x => x)`.
 
 ## [04]-[HIGHER_KINDED_CONTRACT]
 
@@ -118,13 +118,13 @@ public interface Traversable<T> : Functor<T>, Foldable<T>
 }
 ```
 
-There are two independent type constructors:
-- `T` can map over values and fold its shape.
-- `F` can lift values with `Pure` and combine independent computations with `Apply`.
+Two independent type constructors participate:
+- `T` maps over values and folds its shape.
+- `F` lifts values with `Pure` and combines independent computations with `Apply`.
 - `K<T, A>` is the traversed value in higher-kinded form.
 - `K<F, K<T, B>>` is the transformed `T<B>` nested inside the chosen effect.
 
-The contract allows one `Traverse` implementation for a type to compose with every applicative supported by the trait system.
+One `Traverse` implementation for a type composes with every applicative the trait system supports.
 
 ## [05]-[COLLECTION_TRAVERSABLE]
 
@@ -148,13 +148,12 @@ static K<F, K<Seq, B>> Traverse<F, A, B>(
 }
 ```
 
-Important details:
-1. `foldBack` uses `Cons` to prepend each mapped item to the accumulated sequence.
-2. `F.Pure(empty<B>())` is the result for an empty input.
-3. `Applicative.lift` combines `f(x)` and the accumulated sequence through `F.Apply`; this is where failure accumulation, short-circuiting, or concurrency enters.
-4. The final `F.Map` widens the concrete inner `Seq<B>` to `K<Seq, B>` explicitly.
+- `foldBack` uses `Cons` to prepend each mapped item to the accumulated sequence.
+- `F.Pure(empty<B>())` is the result for an empty input.
+- `Applicative.lift` combines `f(x)` and the accumulated sequence through `F.Apply`; failure accumulation, short-circuiting, or concurrency enters here.
+- The final `F.Map` widens the concrete inner `Seq<B>` to `K<Seq, B>` explicitly.
 
-Keeping `Seq<B>` concrete during the fold avoids calling `.As()` and `.Kind()` for every item. One outer `Map` is normally cheaper than repeated boxing of a value-type collection. Prefer the explicit, correct widening over variance tricks that compile but fail through nested runtime casts.
+Keeping `Seq<B>` concrete during the fold avoids an `.As()` and `.Kind()` call per item; one outer `Map` costs less than repeated boxing of a value-type collection. Prefer the explicit widening over variance tricks that compile and then fail through nested runtime casts.
 
 ## [06]-[ALTERNATIVE_TRAVERSABLE]
 
@@ -179,11 +178,11 @@ static K<F, K<Either<L>, B>> Traverse<F, A, B>(
     };
 ```
 
-The `Left` branch does not call `f`; it preserves the existing structure and lifts it into `F`. The `Right` branch runs `f` once and maps the successful result back into `Either`.
+The `Left` branch does not call `f`; it preserves the existing structure and lifts it into `F`. The `Right` branch runs `f` once and maps the result back into `Either`.
 
 ## [07]-[CONCRETE_RETURN_TYPES]
 
-The generic extension returns two nested `K` interfaces. Add concrete member methods to a traversable type so C# resolves them before the generic extensions and only the outer layer remains abstract:
+The generic extension returns two nested `K` interfaces. Concrete member methods on a traversable type resolve before the generic extensions, so only the outer layer stays abstract:
 
 ```csharp
 public readonly struct Seq<A>
@@ -198,7 +197,7 @@ public readonly struct Seq<A>
 }
 ```
 
-Call `.As()` once more when the outer concrete type is needed:
+Call `.As()` once more where the outer concrete type is needed:
 
 ```csharp
 Option<Seq<int>> parsed =
@@ -207,8 +206,4 @@ Option<Seq<int>> parsed =
         .As();
 ```
 
-This repeated member pattern is a pragmatic response to C#'s handling of nested generic interfaces. It does not change traversal semantics.
-
-Operations defined for `K`, such as `Map` and `Apply`, remain available before that conversion.
-
-A domain type implements `Traverse` once and gains composition with the available foldable and applicative types, rather than requiring a separate method for every pairing.
+The repeated member pattern answers C#'s handling of nested generic interfaces; it does not change traversal semantics. Operations defined for `K`, such as `Map` and `Apply`, stay available before that conversion. A domain type implements `Traverse` once and composes with the available foldable and applicative types, instead of one method per pairing.

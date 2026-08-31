@@ -4,8 +4,8 @@
 
 Currying changes a function's shape. Invoking some stages specializes the curried function; invoking every stage completes the application. Partial application specializes the original function directly.
 
-- **Currying** transforms a function of `N` arguments into a chain of `N` unary functions. Each call accepts exactly one argument and returns the next function; the final call returns the result.
-- **Partial application** supplies fewer than all of the original arguments at once and returns a function for the arguments that remain. In the C# helpers shown here, it fixes a leading group of arguments, and the returned function may still accept several arguments. Supplying every argument is full application and produces the result.
+- Currying transforms a function of `N` arguments into a chain of `N` unary functions. Each call accepts exactly one argument and returns the next function; the final call returns the result.
+- Partial application supplies fewer than all of the original arguments at once and returns a function for the arguments that remain. In the C# helpers shown here, it fixes a leading group of arguments, and the returned function may still accept several arguments. Supplying every argument is full application and produces the result.
 
 For a two-argument function:
 

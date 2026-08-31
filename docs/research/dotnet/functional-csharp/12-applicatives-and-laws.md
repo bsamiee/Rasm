@@ -2,11 +2,11 @@
 
 ## [01]-[CORE_IDEA]
 
-The core forms of `Map` and `Bind` accept unary functions, but functions can require several arguments. Currying turns an n-argument function into a sequence of unary functions, allowing each argument to be supplied while the computation remains inside an effect such as `Option<T>` or `Validation<Error, T>`.
+The core forms of `Map` and `Bind` accept unary functions, but functions can require several arguments. Currying turns an n-argument function into a sequence of unary functions, and each argument can be supplied while the computation remains inside an effect such as `Option<T>` or `Validation<Error, T>`.
 
 Two composition models apply:
-- **Applicative composition** uses `Pure` and `Apply` to combine values inside an effect that are computed independently; an effect-specific `Apply`, such as Validation's, can accumulate their failures.
-- **Monadic composition** uses `Bind` when a later computation depends on an earlier result.
+- Applicative composition uses `Pure` and `Apply` to combine values inside an effect that are computed independently; an effect-specific `Apply`, such as Validation's, can accumulate their failures.
+- Monadic composition uses `Bind` when a later computation depends on an earlier result.
 
 Validation's applicative flow can combine all available failures; its monadic flow stops before later work is evaluated after a failure.
 
@@ -60,7 +60,7 @@ Option<int> mapped = fun<int, int, int>(static (x, y) => x * y).Map(Some(3)).App
 Option<int> applied = lifted.Apply(Some(3)).Apply(Some(4)).As();
 ```
 
-Lifting the function first mirrors ordinary partial application and is more readable.
+Lifting the function first mirrors ordinary partial application and is easier to read.
 
 ## [04]-[ABSTRACTION_HIERARCHY]
 
@@ -99,7 +99,7 @@ Two laws govern `Map`:
 - Mapping the identity function changes nothing: `value.Map(x => x) == value`.
 - Mapping a composition is equivalent to mapping its parts in sequence.
 
-An implementation of `Map` should transform only the inner value. Hidden mutation, counters, or other state changes tied to the number of `Map` calls break safe refactoring. `FunctorLaw<F>.validate` checks both laws for one value and returns `Validation<Error, Unit>`.
+An implementation of `Map` must transform only the inner value. Hidden mutation, counters, or other state changes tied to the number of `Map` calls break safe refactoring. `FunctorLaw<F>.validate` checks both laws for one value and returns `Validation<Error, Unit>`.
 
 ### [05.2]-[APPLICATIVE_EQUIVALENCE]
 
@@ -246,7 +246,7 @@ The input boundary returns `Validation<Error, PhoneNumber>`. At the host boundar
 
 ## [08]-[DEPENDENT_VALIDATION]
 
-Use LINQ when each step may depend on an earlier validated value, or when later work should not run after failure. Each `from` can consume values introduced by earlier clauses while preserving the effect.
+Use LINQ when each step can depend on an earlier validated value, or when later work must not run after failure. Each `from` can consume values introduced by earlier clauses while preserving the effect.
 
 `Bind` receives a function for the next computation rather than an already evaluated result. If the current value is invalid, it can return that error without invoking the function. This supports dependency and fail-fast behavior, but it cannot collect failures from work that never ran.
 
@@ -286,7 +286,7 @@ internal static partial class Validators {
 
 On success, traversal holds one copy of the input for each validator. `Map` discards those copies and returns the original value.
 
-Do not implement error accumulation with monadic `Bind`: its short-circuit behavior prevents later checks from running. Error accumulation is appropriate for user-submitted forms where reporting every violated rule lets the user fix all errors before submitting again.
+Error accumulation is appropriate for user-submitted forms where reporting every violated rule lets the user fix all errors before submitting again.
 
 ## [10]-[PROPERTY_BASED_TESTING]
 
@@ -311,12 +311,10 @@ Random sampling raises confidence but does not prove a universal law. `Sample` t
 
 - Use `Map` for a pure unary transformation that preserves the current effect.
 - Use the tuple `Apply` when inputs are independent and the effect has relevant combination semantics.
-- Use LINQ over `Bind` when a computation consumes an earlier result or should short-circuit.
+- Use LINQ over `Bind` when a computation consumes an earlier result or must short-circuit.
 - Use `Traverse` to accumulate over a collection of independent checks and `TraverseM` to stop at the first failure.
 - Avoid explicit unwrapping followed by rewrapping; it duplicates effect handling and leaks representation details.
 - Avoid nested `Bind` calls; LINQ expresses the same semantics without nested lambdas.
 - When lifting an inline lambda, use `fun` to give it a delegate type. A lambda can represent either a delegate or an expression tree.
 - Deriving `Apply` from `Bind` can discard error accumulation or other effect-specific behavior.
 - Do not use applicative composition for dependent work. It computes its arguments independently and cannot express that one input requires another's successful value.
-- Do not use monadic validation when the requirement is to report every independent input error; short-circuiting prevents later validations from contributing failures.
-- `Optional` converts `null` to `None` at the input boundary. `Some` represents a non-null value.

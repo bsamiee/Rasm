@@ -75,9 +75,9 @@ A stateful computation, also called a state transition, has the general shape:
 S -> (A, S)
 ```
 
-`S` is the state before and after the operation, and `A` is the produced value. `State<S, A>` wraps a `Func<S, (A Value, S State)>`, and `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. A transition may also accept other arguments. The shape can occur inside a stateful or stateless application: it characterizes the function, not the architecture around it.
+`S` is the state before and after the operation, and `A` is the produced value. `State<S, A>` wraps a `Func<S, (A Value, S State)>`, and `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. A transition can also accept other arguments. The shape can occur inside a stateful or stateless application: it characterizes the function, not the architecture around it.
 
-Use explicit state passing for an isolated transition. Repeatedly extracting and forwarding state adds repetition when several transitions must be sequenced. `Map`, `Bind`, and `State.pure` capture that protocol:
+Use explicit state passing for an isolated transition. Extracting and forwarding state by hand repeats itself once several transitions are sequenced. `Map`, `Bind`, and `State.pure` capture that protocol:
 - `Map` transforms the produced value and preserves the returned state.
 - `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the first computation's returned state.
 - `State.pure` lifts a value into a computation that returns the state unchanged.
@@ -222,5 +222,5 @@ Simulations and parsers can also use state transitions. A functional parser can 
 - Keep state visible in inputs and outputs to expose dependencies and sequencing.
 - Use immutable state values; the caller advances by selecting the returned value as the next state.
 - Keep explicit tuple passing for short state flows.
-- Use composition when many dependent transitions would otherwise repeat manual state extraction and forwarding.
+- Use composition when many dependent transitions otherwise repeat manual state extraction and forwarding.
 - Treat sequencing as semantic: each computation receives the state produced by its predecessor.

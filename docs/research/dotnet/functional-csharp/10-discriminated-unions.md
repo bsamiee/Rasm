@@ -133,13 +133,13 @@ internal static class Input {
 }
 ```
 
-The `Catch` overload with a predicate maps the captured error to the `ConsoleError` case at the boundary. The prompt reads again after any case, so the console failure is a case the prompt matches. Code that requires an integer handles `IntegerInput` directly and can recursively prompt for the other cases. Parsing and exception handling are not duplicated at every call site. The side-effecting read is separate from deterministic classification.
+The `Catch` overload with a predicate maps the captured error to the `ConsoleError` case at the boundary. The prompt reads again after any case. The console failure is a case the prompt matches. Code that requires an integer handles `IntegerInput` directly and can recursively prompt for the other cases. Parsing and exception handling are not duplicated at every call site. The side-effecting read is separate from deterministic classification.
 
 ## [05]-[GENERIC_UNIONS]
 
-`Option<A>` covers a value or nothing, and `Fin<A>` covers a value or a failure with a reason. `Either<L, R>` represents one of two value types, and independent failures accumulate in `Validation<Error, A>`. An empty `Seq<A>` is a result, not absence, so a producer wraps a collection in `Option` only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
+`Option<A>`, `Fin<A>`, `Either<L, R>`, and `Validation<Error, A>` are the generic unions for absence, failure with a reason, two value types, and accumulated failures. An empty `Seq<A>` is a result, not absence. A producer wraps a collection in `Option` only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
 
-`Option` and `Fin` are closed, so a `Match` over their cases is total. `Some` does not check for `null`, so use `Optional` to convert `null` at the boundary.
+`Option` and `Fin` are closed, so a `Match` over their cases is total.
 
 ## [06]-[RECURSIVE_CASES]
 

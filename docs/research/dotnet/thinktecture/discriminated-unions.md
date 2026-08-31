@@ -25,7 +25,7 @@ An ad hoc union combines existing types that share no base, such as `string`, `i
 
 `AsString` on a union that holds an `int` throws `InvalidOperationException`. The text is `'TextNumberOrFlag' is not of type 'string' but of type 'int'.` The explicit cast takes the same path. Equality compares the discriminator and then the member value, and two `string` members compare with `StringComparison.OrdinalIgnoreCase` unless `DefaultStringComparison` says otherwise. `ToString` and `GetHashCode` delegate to the member, and the generated `ToString` returns `string?`.
 
-C# forbids user-defined conversions from `object` and from interfaces, so a member of one of those types receives a constructor and no operator. Every member type must be at least as accessible as the union, because the generated operators and accessors expose it (`TTRESG077`). A union needs at least two member types (`TTRESG067`) and no more than one union attribute (`TTRESG066`).
+C# forbids user-defined conversions from `object` and from interfaces. A member of one of those types receives a constructor and no operator. Every member type must be at least as accessible as the union, because the generated operators and accessors expose it (`TTRESG077`). A union needs at least two member types (`TTRESG067`) and no more than one union attribute (`TTRESG066`).
 
 ## [04]-[AD_HOC_SETTINGS]
 
@@ -60,9 +60,9 @@ internal sealed partial class LabeledTextOrNumber {
 }
 ```
 
-The generated private constructors do not assign `Label`, so the property is `required` and the public constructors declare `SetsRequiredMembers`.
+The generated private constructors do not assign `Label`. The property is `required`, and the public constructors declare `SetsRequiredMembers`.
 
-The generator declares `static partial void Normalize{MemberName}(ref TMember {memberName})` for every member that carries state. An implementation rewrites the value before the backing field is written, so equality, `ToString`, `Switch`, `Value`, and every serializer read the normalized value.
+The generator declares `static partial void Normalize{MemberName}(ref TMember {memberName})` for every member that carries state. An implementation rewrites the value before the backing field is written. Equality, `ToString`, `Switch`, `Value`, and every serializer read the normalized value.
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Number")]
@@ -71,11 +71,11 @@ internal sealed partial class NamedTextOrNumber {
 }
 ```
 
-The parameter name is the member name in camel case, and a different name compiles with `CS8826`. The call is the first statement of the generated constructor, and no null check precedes it, so a `null` argument reaches the `Normalize` method body. The conversion operators delegate to that constructor. A member whose type another member repeats gets `Create{MemberName}` instead of a constructor, and the call moves there. A stateless member has no `Normalize` method. A union with an object factory reads through `Validate`, which constructs the union, so every framework read runs the `Normalize` method.
+The parameter name is the member name in camel case, and a different name compiles with `CS8826`. The call is the first statement of the generated constructor, and no null check precedes it: a `null` argument reaches the `Normalize` method body. The conversion operators delegate to that constructor. A member whose type another member repeats gets `Create{MemberName}` instead of a constructor, and the call moves there. A stateless member has no `Normalize` method. A union with an object factory reads through `Validate`, which constructs the union. Every framework read runs the `Normalize` method.
 
 ## [05]-[BACKING_FIELDS]
 
-A union with at most one reference type keeps one typed field per member. Two or more reference types share one `object?` field, and value types keep their fields, so no boxing occurs. `UseSingleBackingField = true` moves the value types into the shared field and boxes them. `SingleBackingFieldType` names a common base or interface for that field, and `Value` takes that type.
+A union with at most one reference type keeps one typed field per member. Two or more reference types share one `object?` field, and value types keep their fields without boxing. `UseSingleBackingField = true` moves the value types into the shared field and boxes them. `SingleBackingFieldType` names a common base or interface for that field, and `Value` takes that type.
 
 `Value` typed as the shared interface reaches the members every case declares, without a `Switch`. `SingleBackingFieldType` implies `UseSingleBackingField = true`, and an explicit `false` beside it is `TTRESG075`. Every member type needs a built-in implicit conversion to the field type, because the stored value must stay the original instance. A user-defined conversion is `TTRESG079`. `typeof(object)` equals `UseSingleBackingField = true`.
 
@@ -98,9 +98,9 @@ internal sealed partial class ApiResponse;
 - The `==` operator throws only when both operands are uninitialized, and the `IsX` properties return `false` without throwing
 - `DefaultValueHandling = UnionDefaultValueHandling.MapToFirstMember` turns `default` into the first member
 - The first member must be stateless (`TTRESG082`), and the union must be a struct (`TTRESG081`)
-- The generator then drops `IDisallowDefaultValue` from the base list, so `TTRESG047` stops
+- The generator then drops `IDisallowDefaultValue` from the base list, and `TTRESG047` stops
 - A hand-written `IDisallowDefaultValue` restores the analyzer check while the runtime value stays valid
-- The analyzer also reports `default` inside the union itself, so a hand-written property such as `MaybeInt.None` constructs the stateless member instead
+- The analyzer also reports `default` inside the union itself; a hand-written property such as `MaybeInt.None` constructs the stateless member instead
 
 ```csharp
 internal readonly record struct Absent;
@@ -122,7 +122,7 @@ An uninitialized `MaybeInt`, such as an array element, has `IsAbsent == true`, e
 - An `object` argument makes `(object)union` return the boxed union
 - An `object` argument also sends `Result<object> r = "text";` into the `string` member, because overload resolution picks the most specific parameter type
 - The generator emits `CreateX` factory methods for every member as soon as one member is a type parameter, an interface, `object`, or a duplicate type
-- An author who controls every instantiation adds the operator and delegates to the factory, so normalization still runs
+- An author who controls every instantiation adds the operator and delegates to the factory, and normalization still runs
 
 ```csharp
 [Union<TypeParamRef1, string>]
@@ -135,7 +135,7 @@ internal readonly partial struct Result<T> {
 
 ## [08]-[REGULAR_UNIONS]
 
-The generator gives the base a private constructor, so a type declared outside the base cannot derive from it. A class case is `sealed` or has private constructors only (`TTRESG054`), and a record case is `sealed` (`TTRESG055`). A non-abstract case is at least as accessible as the base (`TTRESG056`). A nested type that does not derive from the base is `TTRESG106`. A generated type never receives a primary constructor (`TTRESG043`), so a positional record case is the natural shape, and the base declares no primary constructor.
+The generator gives the base a private constructor. A type declared outside the base cannot derive from it. A class case is `sealed` or has private constructors only (`TTRESG054`), and a record case is `sealed` (`TTRESG055`). A non-abstract case is at least as accessible as the base (`TTRESG056`). A nested type that does not derive from the base is `TTRESG106`. A generated type never receives a primary constructor (`TTRESG043`). A positional record case is the natural shape, and the base declares no primary constructor.
 
 ```csharp
 [Union]
@@ -154,7 +154,7 @@ internal abstract partial record OrderState {
 }
 ```
 
-An abstract method suits behavior that belongs to the state and needs no dependency. A transition that reads context lives outside the union and passes that context through the `Switch` overload that takes a state parameter. The arms return different case types, so the call names `TResult`.
+An abstract method suits behavior that belongs to the state and needs no dependency. A transition that reads context lives outside the union and passes that context through the `Switch` overload that takes a state parameter. The arms return different case types, and the call names `TResult`.
 
 ```csharp
 internal sealed record ShipRequest(DateTime Now, string TrackingNumber, bool CanShip);
@@ -168,7 +168,7 @@ internal static class OrderTransitions {
 }
 ```
 
-The generator emits an implicit conversion to the base for every case with a single-parameter constructor whose parameter type is unique among those cases. `OrderState` converts from `string` into `Placed` and from `DateTime` into `Processing`, so `return "me";` in a method that returns `OrderState` yields a `Placed`. `ConversionFromValue = ConversionOperatorsGeneration.None` on `[Union]` removes these operators.
+The generator emits an implicit conversion to the base for every case with a single-parameter constructor whose parameter type is unique among those cases. `OrderState` converts from `string` into `Placed` and from `DateTime` into `Processing`: `return "me";` in a method that returns `OrderState` yields a `Placed`. `ConversionFromValue = ConversionOperatorsGeneration.None` on `[Union]` removes these operators.
 
 A class case with `[Union]` becomes an abstract nested union with a generated private constructor, and its own cases nest inside it. Records cannot nest unions, because every record case is `sealed`.
 
@@ -203,7 +203,7 @@ The `StopAt` overload gives up exhaustiveness: a new case under `Failure` compil
 
 ## [09]-[SWITCH_AND_MAP]
 
-`Switch` has a void overload with one `Action` per case and a value overload with one `Func<TCase, TResult>` per case. A state overload of each passes a `TState` first. `Map` takes one `TResult` value per case. Every argument is named (`TTRESG046`), and a lambda without `static` is `TTRESG1001`, so captured context travels through the state parameter and the lambdas are `static`. When arms return different types, `TResult` inference fails on the whole call, and an explicit `Switch<TResult>` moves the error to the one arm that differs.
+`Switch` has a void overload with one `Action` per case and a value overload with one `Func<TCase, TResult>` per case. A state overload of each passes a `TState` first. `Map` takes one `TResult` value per case. Every argument is named (`TTRESG046`), and a lambda without `static` is `TTRESG1001`. Captured context travels through the state parameter, and the lambdas are `static`. When arms return different types, `TResult` inference fails on the whole call, and an explicit `Switch<TResult>` moves the error to the one arm that differs.
 
 `SwitchMethods`, `MapMethods`, `SwitchMapStateParameterName`, and `ConversionFromValue` are declared on `[Union]` as well as on the ad hoc attributes. On an ad hoc union the `@default` arm receives the current member as `object?`, and on a regular union it receives the base type. The value overload requires `@default`, and the void overload declares it optional. A void `SwitchPartially` without `@default` does nothing for an unhandled case. `MapPartially` requires `@default` and takes the other arms as optional values.
 
@@ -241,9 +241,9 @@ internal abstract partial record PartiallyKnownDate {
 }
 ```
 
-`YearOnly(int)` is the only single-parameter case, so the generator also emits an implicit conversion from `int`. `System.Text.Json.JsonSerializer.Serialize<PartiallyKnownDate>(date)` writes `{"$type":"Date","Month":3,"Day":15,"Year":2024}`, and `Deserialize<PartiallyKnownDate>` returns an `Exact`.
+`YearOnly(int)` is the only single-parameter case. The generator also emits an implicit conversion from `int`. `System.Text.Json.JsonSerializer.Serialize<PartiallyKnownDate>(date)` writes `{"$type":"Date","Month":3,"Day":15,"Year":2024}`, and `Deserialize<PartiallyKnownDate>` returns an `Exact`.
 
-A case can be a value object or a smart enum, so the union names the kind and each case owns its value and rules. `Unknown` is a declared case with one instance, not `null`.
+A case can be a value object or a smart enum. The union names the kind, and each case owns its value and rules. `Unknown` is a declared case with one instance, not `null`.
 
 ```csharp
 [Union]
@@ -266,11 +266,11 @@ internal abstract partial class Jurisdiction {
 }
 ```
 
-`Unknown` has a private constructor, so `Instance` is its only value.
+`Unknown` has a private constructor: `Instance` is its only value.
 
 ## [11]-[FRAMEWORK_INTEGRATION]
 
-An ad hoc union carries no type discriminator, so no serializer handles it on its own. `[ObjectFactory<string>]` declares one wire format: `ToValue` renders the union, `Validate` parses it back and returns a `ValidationError` for bad input. With `UseForSerialization` set and `Thinktecture.Runtime.Extensions.Json` referenced, the generator applies a `JsonConverter` attribute with `ThinktectureJsonConverterFactory<TUnion, ValidationError>` to the type, so no options registration is needed. `UseForModelBinding = true` and `UseWithEntityFramework = true` reuse the same pair. A `string` factory also implements `IParsable<TUnion>`.
+An ad hoc union carries no type discriminator. No serializer handles it on its own. `[ObjectFactory<string>]` declares one wire format: `ToValue` renders the union, `Validate` parses it back and returns a `ValidationError` for bad input. With `UseForSerialization` set and `Thinktecture.Runtime.Extensions.Json` referenced, the generator applies a `JsonConverter` attribute with `ThinktectureJsonConverterFactory<TUnion, ValidationError>` to the type. No options registration is needed. `UseForModelBinding = true` and `UseWithEntityFramework = true` reuse the same pair. A `string` factory also implements `IParsable<TUnion>`.
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Number")]
@@ -297,13 +297,11 @@ internal sealed partial class TextOrNumberSerializable {
 
 `System.Text.Json.JsonSerializer.Serialize(union)` writes `"Text|hello"`, and `Deserialize<TextOrNumberSerializable>` returns an equal union. Invalid text surfaces as `JsonException` with the `ValidationError` message, `Parse` throws `FormatException` with the same message, and `TryParse` returns `false`. A JSON `null` deserializes to `null` without a `Validate` call. `SerializationFrameworks.All` covers System.Text.Json, Newtonsoft.Json, and MessagePack with one pair once each integration package is referenced.
 
-Entity Framework Core stores the ad hoc union in one column through a value converter, registered globally by `UseThinktectureValueConverters` on the options builder. ASP.NET Core binds the union from a route or query value through the generated `IParsable<TUnion>`. MVC controllers get the best behavior from `ThinktectureModelBinderProvider` in `Thinktecture.Runtime.Extensions.AspNetCore`, registered by `ModelBinderProviders.Insert` at index zero. Entity Framework Core keeps a null column null, and model binding answers a missing or empty value, so `Validate` never receives a null.
+Entity Framework Core stores the ad hoc union in one column through a value converter, and ASP.NET Core binds it from a route or query value through the generated `IParsable<TUnion>`; MVC controllers use `ThinktectureModelBinderProvider`. Entity Framework Core keeps a null column null, and model binding answers a missing or empty value, so `Validate` never receives a null.
 
 A regular union is a polymorphic hierarchy. System.Text.Json needs one `JsonDerivedType` on the base per case. Newtonsoft.Json needs `TypeNameHandling`, which is a deserialization risk unless the binder restricts the types. MessagePack has its own `Union` attribute, and this library does not integrate with it. `[ObjectFactory<string>]` on the base gives every framework one wire format at the cost of the property structure. Entity Framework Core maps the hierarchy with table-per-hierarchy through `HasDiscriminator<string>` and one `HasValue<TCase>` per case, or with table-per-type. Two cases that declare the same property map to one column through `HasColumnName`.
 
-Serilog destructures an ad hoc union to its current `Value` once `Destructure.UsingThinktectureRuntimeExtensions()` is registered. It recurses with destructuring enabled, so a generated inner value is unwrapped again and a plain object is destructured by Serilog. A regular union is declined and falls through to default object destructuring with a `$type` property. `TypesToRenderAsString.AdHocUnions` renders the union through `ToString` instead. `SkipToString = true` on the union leaves no override, so string rendering logs the type name. The `@` operator is required. An uninitialized struct union logs as the text `Capturing the property value threw an exception: InvalidOperationException`, because Serilog catches the throw from `Value` during capture.
-
-A `TextNumberOrFlag` holding `42` logs as `42`, and a `Shipped` state logs as `{"ShippedAt": ..., "TrackingNumber": "TRK", "$type": "Shipped"}`.
+Serilog destructures an ad hoc union to its current `Value` and declines a regular union, which falls through to default object destructuring with a `$type` property. `SkipToString = true` on the union leaves no override, and string rendering logs the type name. An uninitialized struct union logs a capture-exception placeholder instead of failing the log call.
 
 ## [12]-[DESIGN_RULES]
 

@@ -22,7 +22,7 @@ internal static partial class Sequences {
 
 LINQ operators enable a functional style but do not enforce it. A lambda can still capture mutable state or perform side effects, and a projection can still mutate an element.
 
-The same expression-oriented style applies to object construction. Define each property where the returned object is created instead of creating an empty object and assigning its properties across branches.
+Expression-oriented construction defines each property where the returned object is created, instead of assigning properties across branches of an empty object.
 
 ```csharp
 internal static partial class Sequences {
@@ -44,7 +44,7 @@ Every returned property and the inputs that determine it are visible in one plac
 
 ## [02]-[DEFERRED_EXECUTION]
 
-Many LINQ operators return a description of how to produce a sequence. Creating the query does not execute it; execution begins when a consumer enumerates it. An enumerator exposes the current item and advances in one direction without knowing the sequence length.
+Many LINQ operators return a description of how to produce a sequence. Creating the query does not execute it; execution begins when a consumer enumerates it.
 
 `Iterable<A>` is the lazy form over `IEnumerable<A>`, and `AsIterable()` lifts an `IEnumerable<A>` into it.
 
@@ -134,7 +134,7 @@ internal static partial class Sequences {
 }
 ```
 
-There is no built-in median operator. Sorting and choosing the middle value or pair expresses it without a mutable accumulator, and `At` reads the middle element as an `Option`:
+No built-in median operator exists. Sorting and choosing the middle value or pair expresses it without a mutable accumulator, and `At` reads the middle element as an `Option`:
 
 ```csharp
 internal static partial class Sequences {
@@ -149,7 +149,7 @@ internal static partial class Sequences {
 }
 ```
 
-`Order` from LINQ sorts, and `toSeq` materializes the sorted `Seq<int>`. An empty sequence has no middle element, so its median is `None`.
+`Order` from LINQ sorts, and `toSeq` materializes the sorted `Seq<int>`. An empty sequence has no middle element. Its median is `None`.
 
 For a custom reduction, `Fold` takes a seed and a step function. The function combines the accumulator with the next input. A tuple seed can calculate several results:
 
@@ -184,11 +184,7 @@ A sequence has two constructors: the empty sequence and cons, which prepends one
 
 `Fold` can express `Map`, `Filter`, and `Bind`.
 
-## [05]-[RECURSION]
-
-A recursive function has a base condition that returns the answer and a recursive step that calls the function with updated state. It models an early stop without mutable locals. An implementation needs an exhaustion case because a function without a reachable base condition does not terminate. Because C# does not guarantee tail-call optimization, recursion uses stack space.
-
-## [06]-[NON_MUTATING_UPDATES]
+## [05]-[NON_MUTATING_UPDATES]
 
 Use an indexed `Map` to replace one item:
 
@@ -202,15 +198,11 @@ internal static partial class Sequences {
 
 The function derives the replacement from the old item at one position. `Map` returns a new `Seq<A>`, and the source remains unchanged.
 
-## [07]-[DEEP_IMMUTABILITY]
-
-Private setters and read-only interfaces do not make an object graph deeply immutable.
-
-## [08]-[SEQUENCE_TRAVERSAL]
+## [06]-[SEQUENCE_TRAVERSAL]
 
 `Seq<A>` supplies `Tail` and `Zip`. `LanguageExt.List.unfold` produces a sequence of states.
 
-### [08.1]-[ADJACENT_ELEMENTS]
+### [06.1]-[ADJACENT_ELEMENTS]
 
 `source.Zip(source.Tail)` produces the pairs `(First, Second)`. A quantifier over those pairs decides the result.
 
@@ -227,7 +219,7 @@ internal static partial class Sequences {
 
 For example, sort a number sequence, then test whether any adjacent pair differs by one.
 
-## [09]-[END_TO_END_PIPELINE]
+## [07]-[END_TO_END_PIPELINE]
 
 A reporting pipeline can read one CSV text, split it into records, parse typed values, group them, aggregate each group, format report lines, and join those lines into one result.
 

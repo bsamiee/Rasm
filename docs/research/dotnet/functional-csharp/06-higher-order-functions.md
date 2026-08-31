@@ -2,7 +2,7 @@
 
 ## [01]-[FUNCTIONS_AS_VALUES]
 
-A higher-order function accepts a function, returns a function, or both. C# usually represents the passed behavior with delegates:
+A higher-order function accepts a function, returns a function, or both. C# represents the passed behavior with delegates:
 - `Func<T, TResult>` accepts a value and returns a value.
 - `Action<T>` accepts a value and returns nothing.
 - A lambda supplies an inline delegate: `items.Where(x => x.IsActive)`.
@@ -13,11 +13,11 @@ Delegates let C# treat behavior as a first-class value.
 ## [02]-[BEHAVIOR_PARAMETERIZATION]
 
 A higher-order function can own stable control flow while the caller supplies the varying rule. For example, `Seq<A>.Filter(Func<A, bool>)` owns iteration while the caller owns the inclusion criterion. This separates concerns that would otherwise be interleaved. The pattern supports:
-- **Iteration:** invoke a selector, predicate, or comparison for each relevant element.
-- **Conditional execution:** invoke a callback only when needed, such as computing a value after a cache miss.
-- **Inversion of control:** the caller chooses what behavior to supply; the higher-order function chooses when to run it.
+- Iteration: invoke a selector, predicate, or comparison for each relevant element.
+- Conditional execution: invoke a callback only when needed, such as computing a value after a cache miss.
+- Inversion of control: the caller chooses what behavior to supply; the higher-order function chooses when to run it.
 
-When optional work may be expensive, accept it as a function to evaluate it only when needed:
+When optional work can be expensive, accept it as a function to evaluate it only when needed:
 
 ```csharp
 internal sealed record Cache<T>(HashMap<Guid, T> Entries) {
@@ -81,7 +81,7 @@ A combinator applies or combines functions.
 
 ### [06.1]-[PIPE]
 
-`Pipe` applies one function to a whole value. `Map` keeps its structure-preserving meaning over a sequence. LINQ `Select` and the functor `Map` apply a function to each sequence element. With this extension, piping a sequence treats the sequence as the input value. LanguageExt has no equivalent `Pipe` operation, so this implementation is custom.
+`Pipe` applies one function to a whole value. `Map` keeps its structure-preserving meaning over a sequence. LINQ `Select` and the functor `Map` apply a function to each sequence element. With this extension, piping a sequence treats the sequence as the input value. LanguageExt has no equivalent `Pipe` operation. This implementation is custom.
 
 ```csharp
 internal static class Piping {
@@ -157,7 +157,7 @@ internal static class Guards {
 }
 ```
 
-The skipped branch has no computed result, so both return `IO<Unit>` for the host to run.
+The skipped branch has no computed result. Both return `IO<Unit>` for the host to run.
 
 ## [07]-[FUNCTIONS_AS_DATA]
 
@@ -185,7 +185,7 @@ internal static class Descriptions {
 }
 ```
 
-The function collection can be assembled at runtime, extended by adding one element, and kept separate from aggregation. `Seq.Map` is deferred: the descriptor functions run when the result is enumerated. This can postpone unnecessary work, while repeated enumeration repeats the projection. The indexed form `Map((item, index) => ...)` rewrites one position and returns a new `Seq`, leaving the source unchanged.
+The function collection can be assembled at runtime, extended by adding one element, and kept separate from aggregation. `Seq.Map` is deferred: the descriptor functions run when the result is enumerated. This can postpone unnecessary work.
 
 ### [07.2]-[PREDICATE_SETS]
 
@@ -203,7 +203,7 @@ Use `ForAll` when each predicate states what valid input must satisfy. Use `Exis
 - `Exists` stops at the first detected violation.
 - An empty validity rule set returns `true`; an empty violation set returns `false`.
 
-Short-circuiting is appropriate for a boolean answer. It is not suitable when every failure must be reported, because later rules may never run. A validator that returns typed errors accumulates every failure instead.
+Short-circuiting is appropriate for a boolean answer. It is not suitable when every failure must be reported, because later rules do not run. A validator that returns typed errors accumulates every failure instead.
 
 Keep each rule focused on one condition.
 
@@ -228,7 +228,7 @@ internal static class RuleTables {
 }
 ```
 
-The first matching predicate wins, so ordering is part of the meaning. Each predicate can contain detailed criteria or delegate that decision to a named function. A fallback makes the operation defined for every input. `Seq.Find` returns an `Option`, so the missing case is `None` and the `Match` on that `Option` selects the fallback without a null check. A staged `.Match(...).DefaultMatch(...)` design must track whether a predicate matched; it cannot infer "no match" by comparing the transformed value with `default(TOutput)`, because a matching transformation may return `0`, `false`, or `null`. Passing the fallback directly avoids that ambiguity.
+The first matching predicate wins. Ordering is part of the meaning. Each predicate can contain detailed criteria or delegate that decision to a named function. A fallback makes the operation defined for every input. `Seq.Find` returns an `Option`, so the missing case is `None` and the `Match` on that `Option` selects the fallback without a null check. A staged `.Match(...).DefaultMatch(...)` design must track whether a predicate matched; it cannot infer "no match" by comparing the transformed value with `default(TOutput)`, because a matching transformation can return `0`, `false`, or `null`. Passing the fallback directly avoids that ambiguity.
 
 This matches values with predicates, not object types. For a fixed decision, use a native switch expression. Using `KeyValuePair` instead of tuples adds syntax without changing the mechanism.
 
@@ -254,13 +254,13 @@ internal static class Parsing {
 }
 ```
 
-Call sites can construct a settings value directly, making every default visible beside its setting. This technique collapses missing and invalid input into the same fallback; use it only when callers do not need to distinguish those cases.
+Call sites can construct a settings value directly, and every default is visible beside its setting. This technique collapses missing and invalid input into the same fallback; use it only when callers do not need to distinguish those cases.
 
 The `Option`-returning forms, `parseInt` and `HashMap.Find`, preserve every outcome. `IfNone` extracts a value from the `Option` by applying a fallback. Call it at the boundary that selects that fallback.
 
 ## [08]-[EXCEPTIONS_AT_THE_BOUNDARY]
 
-Pure transformations do not fail because of external conditions. Boundary calls to databases, web APIs, and network files can fail. A higher-order wrapper can centralize `try/catch`, reduce repeated boilerplate, and prevent exception control flow from spreading across call layers. `Try.lift(f).Run()` captures a throwing synchronous dependency as a `Fin<A>`. `IO.lift(f)` defers the same call and carries the failure on the `IO` error channel for the host to run.
+Boundary calls to databases, web APIs, and network files can fail. A higher-order wrapper centralizes `try/catch` and keeps exception control flow out of the call layers. `Try.lift(f).Run()` captures a throwing synchronous dependency as a `Fin<A>`. `IO.lift(f)` defers the same call and carries the failure on the `IO` error channel for the host to run.
 
 ## [09]-[TECHNIQUE_SELECTION]
 
@@ -271,4 +271,4 @@ Pure transformations do not fail because of external conditions. Boundary calls 
 - Pair each element with its neighbor through `Zip` against `Tail` when the condition depends on adjacent elements.
 - Use recursive state transitions only when termination is bounded. For deep recursion, use `Trampoline` in pure code and `Monad.recur` in effectful code.
 
-Higher-order functions add callback frames, so a debugger shows less direct control flow. Do not remove boilerplate at the cost of hiding ordering, effects, missing-value behavior, or termination risk.
+Higher-order functions add callback frames. A debugger shows less direct control flow. Do not remove boilerplate at the cost of hiding ordering, effects, missing-value behavior, or termination risk.

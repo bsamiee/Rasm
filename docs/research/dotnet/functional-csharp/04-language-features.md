@@ -167,7 +167,3 @@ internal static class Editions {
 The original remains unchanged, and `with` copies unchanged properties automatically. This avoids manually constructing a complete copy when one property changes. For a state machine, store state in a record, pattern match on the next interaction, and return the next state with a `with` expression.
 
 The copy does not guarantee deep immutability because referenced child objects can remain shared. Nested values must also support immutability.
-
-## [05]-[NULLABLE_REFERENCE_TYPES]
-
-Nullable reference types are compiler analysis, not a new runtime type. The compiler warns when a non-nullable property stays uninitialized and when a caller assigns null to a non-nullable reference. Write `?` only where null is a deliberate part of an external representation. A nullable reference enters the domain through `Optional(x)` as an `Option<A>`, and the domain receives no null.

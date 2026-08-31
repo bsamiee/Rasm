@@ -14,22 +14,22 @@ A side effect includes:
 
 Under this definition, throwing counts as an effect even though some definitions permit it: exception handling can redirect control flow, and an unhandled exception can terminate the program.
 
-An instance method can be impure even without I/O when it reads mutable fields. A lambda can be impure by closing over mutable variables. A readonly field fixed at construction can instead be an immutable dependency. Purity depends on everything a function observes or changes, not merely its parameter list and return type.
+An instance method can be impure even without I/O when it reads mutable fields. A lambda can be impure by closing over mutable variables. A readonly field fixed at construction can instead be an immutable dependency. Purity depends on everything a function observes or changes, not on its parameter list and return type alone.
 
 Because a pure function always maps the same input to the same output, evaluation order does not affect its meaning. Pure computations are easier to reason about and are safe candidates for:
 - parallel evaluation;
 - lazy evaluation;
 - memoization.
 
-Applying these transformations to impure functions can change behavior and introduce bugs.
+Applying these transformations to impure functions can change behavior.
 
-A pure function call can be replaced with its result for a given input without changing program behavior. This property is referential transparency.
+Replacing the call with its result for a given input changes nothing; this property is referential transparency.
 
 Purity is about observable behavior. Mutation of state that is local to a function and never escapes is not a side effect; mutation of an instance field is, even when that field is private, because other methods on the object can observe it.
 
 ## [02]-[ISOLATING_IMPURITY]
 
-Useful programs require I/O, so the goal is not universal purity. Different effects need different treatment: I/O must be isolated, argument mutation can be eliminated by returning data, errors can always be handled without exceptions, and non-local state mutation can often be avoided. Keep unavoidable I/O outside the computational core and place as much computation as possible in pure functions.
+Useful programs require I/O; the goal is not universal purity. Different effects need different treatment: I/O must be isolated, argument mutation can be eliminated by returning data, errors can always be handled without exceptions, and non-local state mutation can be designed away. Keep unavoidable I/O outside the computational core and place as much computation as possible in pure functions.
 
 ```csharp
 internal static class Greeting {
@@ -42,7 +42,7 @@ internal static class Greeting {
 }
 ```
 
-`Greet` describes the console reads and writes as an `Eff<RT, Unit>`, and the host performs them at `Run(rt)`. `Greet` reads the console capability through `Console<RT>`. `GreetingFor` contains the reusable, deterministic logic. Impure functions may call pure functions.
+`Greet` describes the console reads and writes as an `Eff<RT, Unit>`, and the host performs them at `Run(rt)`. `Greet` reads the console capability through `Console<RT>`. `GreetingFor` contains the reusable, deterministic logic. Impure functions can call pure functions.
 
 ### [02.1]-[RETURN_OVER_MUTATION]
 
@@ -62,11 +62,11 @@ internal static class Orders {
 }
 ```
 
-The signature exposes the complete output. `Fold` sums the lines and `Filter` selects the lines to delete, both over the same `Seq<OrderLine>`. Neither side must know how the other manages a shared collection. Immutable objects can ensure that values do not change after construction. If one operation both mutates an object and calculates a result, separate those responsibilities so the calculation can remain pure.
+The signature exposes the complete output. `Fold` sums the lines and `Filter` selects the lines to delete, both over the same `Seq<OrderLine>`. Neither side must know how the other manages a shared collection. If one operation both mutates an object and calculates a result, separate those responsibilities so the calculation can remain pure.
 
 ## [03]-[CONCURRENCY]
 
-In the chapter's list formatter, sentence casing is pure, but numbering through an instance counter is not:
+In this list formatter, sentence casing is pure, and numbering through an instance counter is not:
 
 ```csharp
 internal static class StringExt {
@@ -86,7 +86,7 @@ internal sealed class ListFormatter {
 }
 ```
 
-Because concurrency does not guarantee evaluation order, shared mutable state turns read-modify-write operations into races. Applying the formatter in parallel lets multiple threads update the same counter; `++` is not atomic, so increments can be lost and results become nondeterministic.
+Because concurrency does not guarantee evaluation order, shared mutable state turns read-modify-write operations into races. Applying the formatter in parallel lets multiple threads update the same counter. `++` is not atomic: increments can be lost and results become nondeterministic.
 
 Concurrency covers several overlapping ideas: asynchronous code begins another task before an outstanding operation completes; parallel code runs work simultaneously across processing cores; multithreading schedules concurrent threads even when hardware cannot execute all of them at the same instant. All make hidden dependencies on mutable state harder to control.
 
@@ -101,11 +101,11 @@ internal static class Formatting {
 }
 ```
 
-`Range(1, items.Count)` generates that count of indices as values, and `toSeq` makes them a `Seq<int>`. `Zip` pairs each item with an index. No running counter is updated. State is input data rather than shared mutable state, so parallel evaluation preserves behavior.
+`Range(1, items.Count)` generates that count of indices as values, and `toSeq` makes them a `Seq<int>`. `Zip` pairs each item with an index. No running counter is updated. State is input data rather than shared mutable state. Parallel evaluation preserves behavior.
 
 `IO` determines how effects are evaluated: `Traverse` under `IO` starts every element effect before it awaits any. Effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread. `TraverseM` runs the effects one after another. `Fork` takes one thread per fork, so a large fan-out chunks the collection first.
 
-Treat `Map` as a value transformation and keep its function pure. The API accepts an impure delegate, but parallel execution may change its behavior.
+Treat `Map` as a value transformation and keep its function pure. The API accepts an impure delegate, but parallel execution can change its behavior.
 
 The compiler cannot infer whether an arbitrary delegate is pure, so parallel execution must be requested explicitly. Its overhead is justified only by sufficient work and input size.
 
@@ -132,7 +132,7 @@ An impure function behaves like a larger pure transformation:
     -> (return value, new program state, new world state)
 ```
 
-This explains the extra cost of testing effects. Arrange must construct substitute external state and program state; Assert must inspect both explicit results and externally visible changes. Mocks can model external state, while assertions over internal mutation tend to be brittle and break encapsulation.
+This explains the extra cost of testing effects. Arrange must construct substitute external state and program state; Assert must inspect both explicit results and externally visible changes. Mocks can model external state, while assertions over internal mutation are brittle and break encapsulation.
 
 Parameterized tests make inputs and expected outputs explicit: each test case supplies values, adapts them into the function's input, and returns or asserts the expected output across boundary cases.
 
@@ -147,7 +147,7 @@ Choose the narrowest dependency that represents what the consumer needs:
 - inject an `IO<A>` for an operation that must run on demand;
 - inject a runtime for a consumer that reads many capabilities.
 
-An interface remains appropriate as a common contract for distinct implementations. Systematically creating a one-method interface for every effect adds unnecessary infrastructure.
+An interface remains appropriate as a common contract for distinct implementations. A one-method interface for every effect adds unnecessary infrastructure.
 
 ### [05.2]-[VALUE_INJECTION]
 
@@ -182,7 +182,7 @@ internal static class Capabilities {
 
 ### [05.3]-[EFFECT_INJECTION]
 
-A validator needs the list of valid bank codes. The caller loads the codes as an effect and passes the `Seq<string>`, so the validator is pure:
+A validator needs the list of valid bank codes. The caller loads the codes as an effect and passes the `Seq<string>`:
 
 ```csharp
 internal sealed class BicExistsValidator(Seq<string> validCodes) {
@@ -196,15 +196,13 @@ internal static class Transfers {
 }
 ```
 
-Production composition supplies the `IO<Seq<string>>` that queries the codes. A test supplies `IO.pure`. The `IO<Seq<string>>` defers the query until `BicExists` binds it, so the codes are read only when the check runs. The validator stays pure and the effect is explicit and replaceable. The host runs `BicExists` with `RunSafe()` and matches the `Fin<bool>`.
+Production composition supplies the `IO<Seq<string>>` that queries the codes. A test supplies `IO.pure`. The `IO<Seq<string>>` defers the query until `BicExists` binds it. The codes are read only when the check runs. The validator stays pure and the effect is explicit and replaceable. The host runs `BicExists` with `RunSafe()` and matches the `Fin<bool>`.
 
 A function signature is a narrow interface. Injecting an effect value can replace a one-method interface, its implementation, constructor wiring, dependency-injection registration, and test fake.
 
 ## [06]-[ASYNC_AND_MULTICORE]
 
-Distributed systems perform more I/O because programs increasingly delegate computation to other processes and services. That makes fully pure programs less attainable while increasing the need for asynchronous work, where hidden mutable state is troublesome.
-
-At the same time, performance gains increasingly come from multiple processors rather than ever-faster individual CPUs. Computations built from pure functions are easier to parallelize safely. The growth of both asynchronous I/O and multicore execution therefore makes a small, explicit impure boundary more valuable even though useful software cannot eliminate effects.
+Distributed systems delegate computation to other processes, which raises the amount of I/O and lowers how much of a program stays pure. Performance gains come from more cores rather than faster single cores, and pure computations parallelize safely. Both trends raise the value of a small, explicit impure boundary.
 
 ## [07]-[DESIGN_CHECKLIST]
 

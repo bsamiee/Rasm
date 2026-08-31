@@ -49,7 +49,7 @@ The greeting is constructed only if the repository call produces a usable employ
 
 ### The printed success guard is reversed
 
-The prose says the callback runs for a non-default value, but several listings use `Equals(value, default(T))` as the successful guard. Copied literally, that runs the callback only for the default value and converts non-default values to `Nothing`. The guard must express *not equal to default* to implement the behavior described by the chapter.
+The prose says the callback runs for a non-default value, but several listings use `Equals(value, default(T))` as the successful guard. Copied literally, that runs the callback only for the default value and converts non-default values to `Nothing`. The guard must express not equal to default to implement the behavior described by the chapter.
 
 Default-based absence is itself a policy choice. It treats `null` as absent for reference types, but also treats `0` and `false` as absent. That is valid only when those values are unusable in the domain. If they are legitimate, presence cannot be inferred from `default(T)`.
 

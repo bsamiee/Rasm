@@ -11,8 +11,8 @@ Append-only storage replaces updates and deletes with appends:
 - Appends avoid write contention caused by concurrent overwrites of the same record.
 
 Two append-only storage models follow this rule:
-- **Event sourcing:** store an ordered history of things that happened.
-- **Valid-time storage:** store facts with the time intervals during which they are valid.
+- Event sourcing: store an ordered history of things that happened.
+- Valid-time storage: store facts with the time intervals during which they are valid.
 
 Event sourcing focuses on transitions rather than snapshots. The current state is derived data:
 
@@ -58,9 +58,9 @@ Event types have different payload shapes. From most to least suitable, the stor
 
 State is an immutable snapshot derived for a specific purpose. It is not necessarily the persisted source of truth.
 
-The command side needs only enough state to decide whether a command is allowed. For a bank account, this state may include status, currency, balance, and allowed overdraft, but not a complete transaction list.
+The command side needs only enough state to decide whether a command is allowed. For a bank account, this state can include status, currency, balance, and allowed overdraft, but not a complete transaction list.
 
-The query side needs read models, such as a monthly statement and its transactions. Analytics may use other projections. These models can differ because they answer independent questions.
+The query side needs read models, such as a monthly statement and its transactions. Analytics can use other projections. These models can differ because they answer independent questions.
 
 State objects expose read-only values and transformation methods that return new instances. Methods such as `Credit`, `Debit`, or `WithStatus` transform data; business rules belong in command validation.
 
@@ -92,7 +92,7 @@ Creation is the special case with no prior state:
 CreationEvent -> State
 ```
 
-Creation builds the first state from the creation event and may establish initial domain values, such as making a newly created account active. Later transition logic selects the event case through `Switch` and returns a new state. The same transition function must be used both when an event first occurs and when history is replayed. Duplicating these implementations risks producing a live state that cannot be reconstructed later.
+Creation builds the first state from the creation event and can establish initial domain values, such as making a newly created account active. Later transition logic selects the event case through `Switch` and returns a new state. The same transition function must be used both when an event first occurs and when history is replayed. Duplicating these implementations risks producing a live state that cannot be reconstructed later.
 
 ```csharp
 internal static partial class Account {
@@ -148,16 +148,16 @@ events  -> fold/map/filter -> projection or view model -> query response
 
 ### [04.1]-[COMMAND_SIDE]
 
-A command is an imperative request, such as `MakeTransfer`. Unlike an event, it may be invalid, ignored, or interrupted before completion.
+A command is an imperative request, such as `MakeTransfer`. Unlike an event, it can be invalid, ignored, or interrupted before completion.
 
-Commands are named imperatively because they are requests. A command and its resulting event often share fields, but conversion can add or derive values.
+Commands are named imperatively because they are requests. A command and its resulting event can share fields, but conversion can add or derive values.
 
 Command handling performs three jobs:
 1. Validate the command's general form.
 2. Load the entity's state and validate the requested transition against it.
 3. Convert a valid command into an event, persist it, and publish it.
 
-The transition operation can return both the event and the derived state. Each rejection is a sealed `Expected` record, so a consumer matches on `IsType<E>` or `HasCode` instead of message text. The first `guard` calls `ToFin`, which establishes the LINQ query's result type. Later `guard<Error>` clauses bind without another conversion:
+The transition operation can return both the event and the derived state. Each rejection is a sealed `Expected` record. The first `guard` calls `ToFin`, which establishes the LINQ query's result type. Later `guard<Error>` clauses bind without another conversion:
 
 ```csharp
 internal sealed record MakeTransfer(Guid AccountId, decimal Amount, string Beneficiary) {
@@ -179,7 +179,7 @@ internal static partial class Account {
 }
 ```
 
-General input validation and state-dependent business validation are dependent computations, so they compose with `Bind`. Persistence is a side effect that runs only for a valid result. Loading history returns `IO<Seq<Event>>`, and saving an event returns `IO<Unit>`. An `Atom<Seq<Event>>` holds the events in memory:
+General input validation and state-dependent business validation are dependent computations. They compose with `Bind`. Persistence is a side effect that runs only for a valid result. Loading history returns `IO<Seq<Event>>`, and saving an event returns `IO<Unit>`. An `Atom<Seq<Event>>` holds the events in memory:
 
 ```csharp
 internal static class EventStore {
@@ -208,7 +208,7 @@ Expected rejection and I/O failure are different effects. Expected rejection is 
 
 ### [04.2]-[PERSISTENCE_AND_PUBLISHING]
 
-An accepted event may trigger multiple subscribers: external transfers, reserve calculations, notifications, and projection updates. Persisting the event and making it available to handlers must behave atomically. Saving an event and then crashing before it reaches subscribers can leave the system inconsistent.
+An accepted event can trigger multiple subscribers: external transfers, reserve calculations, notifications, and projection updates. Persisting the event and making it available to handlers must behave atomically. Saving an event and then crashing before it reaches subscribers can leave the system inconsistent.
 
 The guarantee depends on storage and messaging infrastructure. Durable subscriptions can use the event store as the event stream and provide at-least-once delivery. The command handler then only saves the event.
 
@@ -242,7 +242,7 @@ internal static class Queries {
 
 As history grows, replaying it for every query becomes expensive. The query side can subscribe to new events, maintain cached projections incrementally, and optionally publish changed views to connected clients. Alternatively, it can use a dedicated query database shaped for filtering. The system can rebuild these projections from event history, which remains the source of truth.
 
-CQRS does not require two deployed applications. Command and query concerns can remain separate inside one application, or they can be deployed and scaled independently. Query load often benefits from multiple instances, while command processing may require tighter coordination of writes.
+CQRS does not require two deployed applications. Command and query concerns can remain separate inside one application, or they can be deployed and scaled independently. Query load benefits from multiple instances, while command processing can require tighter coordination of writes.
 
 ## [05]-[WHEN_TO_USE]
 

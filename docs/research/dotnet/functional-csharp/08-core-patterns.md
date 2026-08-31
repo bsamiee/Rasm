@@ -14,7 +14,7 @@ Functional programming applies common operations to values in contexts. `Option<
 
 `Option<A>`, `Seq<A>`, and `Fin<A>` supply these operations under these names. `Fin<A>` has no `Filter`, and `Seq<A>` has no `Pure`.
 
-In LINQ terminology, `Map` is `Select`, `Bind` is `SelectMany`, and `Filter` is `Where`. Elsewhere, `Map` may be called `fMap`, `Project`, or `Lift`; `Bind` may be `FlatMap`, `Chain`, `Collect`, or `Then`; and `Iter` may be `ForEach`.
+In LINQ terminology, `Map` is `Select`, `Bind` is `SelectMany`, and `Filter` is `Where`. Other libraries name `Map` as `fMap`, `Project`, or `Lift`; `Bind` as `FlatMap`, `Chain`, `Collect`, or `Then`; and `Iter` as `ForEach`.
 
 ## [02]-[MAP]
 
@@ -138,7 +138,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-For `Seq<A>`, each source value can produce a sequence, and `Bind` flattens all produced sequences into one. `Map` would produce `Seq<Seq<Pet>>`; `Bind` produces `Seq<Pet>`.
+For `Seq<A>`, each source value can produce a sequence, and `Bind` flattens all produced sequences into one. `Map` produces `Seq<Seq<Pet>>`; `Bind` produces `Seq<Pet>`.
 
 A type whose `Pure` and `Bind` obey the monad laws is a monad. `MonadLaw<F>.validate()` checks these laws for types such as `Option`. `Pure` only constructs `F<A>` from `A`. `Pure(value)` converts into `Option<A>`, `Fin<A>`, and `IO<A>`:
 

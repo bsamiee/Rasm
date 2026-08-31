@@ -10,7 +10,7 @@ internal static partial class Laziness {
 }
 ```
 
-Both arguments are evaluated before `Pick` chooses one. Accept computations instead when an expensive branch might not be used:
+Both arguments are evaluated before `Pick` chooses one. Accept computations instead when an expensive branch can go unused:
 
 ```csharp
 internal static partial class Laziness {
@@ -60,7 +60,7 @@ internal static partial class Laziness {
 
 `Option<A>` offers both overloads:
 - Use a direct value when its construction is negligible.
-- A `Func<A>` avoids work when the value is expensive and may not be needed.
+- A `Func<A>` avoids work when the value is expensive and can go unused.
 
 ## [02]-[COMPOSE_THEN_EXECUTE]
 
@@ -133,7 +133,7 @@ B -> Try<C>
 
 `Bind` defines how to connect them while preserving `Try` semantics: remain lazy, stop on failure, and carry the failure to the final result. Monadic composition connects functions that return a computational context; each context's `Bind` captures its sequencing rules.
 
-The rule changes with the return type. For functions returning `(value, K)`, sequencing can feed the value forward and combine both `K` values when two `K` values can be combined into one. A list works because the two lists can be concatenated. Other return types thread a seed or state through successive computations, or accept a continuation that surrounds downstream work.
+The sequencing rule changes with the return type: a `(value, K)` pair combines the `K` values, a stateful shape threads a seed forward, and a continuation shape surrounds downstream work.
 
 ## [05]-[READER]
 

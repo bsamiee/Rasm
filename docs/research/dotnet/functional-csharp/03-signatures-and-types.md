@@ -62,7 +62,7 @@ internal static class Underwriting {
 }
 ```
 
-`Age.From` has the signature `int -> Fin<Age>`. Callers cannot bypass the invariant, and consumers neither repeat validation nor inspect the underlying integer. A consumer that recovers from the failure pattern matches `InvalidAge` through `IsType` or `HasCode`, not a message. `Create` throws when the value is invalid. This behavior reports a defect in the calling code, not an expected input outcome.
+`Age.From` has the signature `int -> Fin<Age>`. Callers cannot bypass the invariant, and consumers neither repeat validation nor inspect the underlying integer. `Create` throws when the value is invalid. This behavior reports a defect in the calling code, not an expected input outcome.
 
 ### [02.1]-[HONEST_FUNCTIONS]
 
@@ -107,7 +107,7 @@ Use `void` when an ordinary imperative API performs effects and returns no infor
 
 ## [04]-[OPTION]
 
-Framework lookup APIs show that absence omitted from the result type is unsafe: a missing key may yield `null` from one collection and throw from another, even though both indexers appear to have the signature `key -> value`.
+Framework lookup APIs show that absence omitted from the result type is unsafe: a missing key can yield `null` from one collection and throw from another, even though both indexers appear to have the signature `key -> value`.
 
 `Option<A>` makes absence part of the result type:
 
@@ -143,7 +143,7 @@ internal static class Construction {
 }
 ```
 
-The default inner value in the `None` state is ignored. The contract is an empty case, a present case, and a way to handle both cases safely. The abstraction is called `Maybe`, with cases named `Nothing` and `Just`. Class-hierarchy encodings name the cases `Something<T>` and `Nothing<T>`. The abstraction is the same, and an open hierarchy cannot stop a caller from adding a third case.
+The default inner value in the `None` state is ignored. The contract is an empty case, a present case, and a way to handle both cases safely. Other libraries name the same abstraction `Maybe`, with cases `Nothing` and `Just`. An open class hierarchy cannot stop a caller from adding a third case.
 
 ## [05]-[TOTALITY]
 
@@ -170,7 +170,7 @@ Nullable reference types are compiler analysis, not a new runtime type. Enable t
 </PropertyGroup>
 ```
 
-The compiler warns when a non-nullable property may be uninitialized or when `null` is assigned to a non-nullable reference.
+The compiler warns when a non-nullable property can be uninitialized or when `null` is assigned to a non-nullable reference.
 
 Use `?` only when null is a deliberate part of the representation:
 

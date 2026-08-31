@@ -2,7 +2,7 @@
 
 ## [01]-[ERRORS_IN_THE_RETURN_TYPE]
 
-An operation that can predictably fail should return both outcomes as data. Its signature states its failure behavior, callers can reason about it locally, and composition controls the flow. An exception, by contrast, transfers control to a handler up the call stack or escapes uncaught; understanding the next step requires tracing the surrounding call paths.
+An operation that can predictably fail returns both outcomes as data. Its signature states its failure behavior, callers can reason about it locally, and composition controls the flow. An exception, by contrast, transfers control to a handler up the call stack or escapes uncaught; understanding the next step requires tracing the surrounding call paths.
 
 Use `Option<T>` when failure means only “no value” and no explanation is useful. Use `Fin<A>` when the caller needs failure details. `Either<L, R>` stays for two value types where neither side is an error.
 
@@ -26,13 +26,7 @@ internal static class Calculator {
 
 ### [01.1]-[RESULT_AND_ERROR_FIELDS]
 
-Wrappers around boundary calls have these limitations:
-- Returning `default` on failure swallows the exception and makes failure indistinguishable from a valid default result.
-- Giving a reusable wrapper a logger preserves the exception, but the wrapper lacks the caller's specific context unless more information is supplied.
-- Returning separate result and error fields preserves both outcomes, but every success carries an unused error field and every failure carries an unused result field.
-- An `OnError` operation on such a container reduces the caller's checking boilerplate and makes the error handler explicit, while retaining that container shape.
-
-Mutually exclusive success and failure cases avoid unused fields and invalid field combinations.
+Wrappers around boundary calls have two failure modes. Returning `default` on failure swallows the exception and makes failure indistinguishable from a valid default result. Separate result and error fields preserve both outcomes, but every success carries an unused error field and every failure an unused result field; only mutually exclusive cases remove the invalid combinations.
 
 ## [02]-[CORE_OPERATIONS]
 

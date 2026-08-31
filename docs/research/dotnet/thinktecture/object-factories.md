@@ -73,7 +73,7 @@ internal sealed partial class ShippingMethod {
 }
 ```
 
-`Serialize(ShippingMethod.Express)` yields `"express"`, and a JSON number is rejected with a `JsonException` because the converter expects a string token. A slug that `Validate` rejects becomes a `JsonException` carrying the message of the `ValidationError`. The generated `Parse` throws `FormatException` with the same message, and `TryParse` returns `false` for `null` and for a rejected value. The type also implements `ISpanParsable<ShippingMethod>` because the `int` key is parsable. The span overloads of `Parse` and `TryParse` parse the `int` key, so `Parse("express".AsSpan(), provider: null)` throws `FormatException`.
+`Serialize(ShippingMethod.Express)` yields `"express"`, and a JSON number is rejected with a `JsonException` because the converter expects a string token. A slug that `Validate` rejects becomes a `JsonException` carrying the message of the `ValidationError`. The generated `Parse` throws `FormatException` with the same message, and `TryParse` returns `false` for `null` and for a rejected value. The type also implements `ISpanParsable<ShippingMethod>` because the `int` key is parsable. The span overloads of `Parse` and `TryParse` parse the `int` key: `Parse("express".AsSpan(), provider: null)` throws `FormatException`.
 
 ```csharp
 internal static class ShippingMethods {
@@ -86,11 +86,11 @@ internal static class ShippingMethods {
 
 ## [05]-[ENTITY_FRAMEWORK_READ_PATH]
 
-`HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, and the generated metadata carries the expression `static TSelf (T value) => new TSelf(value)`. The value converter compiles it for reads when `UseConstructorForRead` is `true`, which is its default in the `Configuration` class. A read through the constructor skips `Validate` and every normalization, so the stored value is trusted as it is. `TTRESG059` reports a type whose declared constructor is missing, and `TTRESG060` reports a smart enum with the property set, because smart enum items are predefined. The constructor is used by Entity Framework Core alone. JSON, MessagePack, and model binding always go through `Validate`.
+`HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, and the generated metadata carries the expression `static TSelf (T value) => new TSelf(value)`. The value converter compiles it for reads when `UseConstructorForRead` is `true`, which is its default in the `Configuration` class. A read through the constructor skips `Validate` and every normalization. The stored value is trusted as it is. `TTRESG059` reports a type whose declared constructor is missing, and `TTRESG060` reports a smart enum with the property set, because smart enum items are predefined. The constructor is used by Entity Framework Core alone. JSON, MessagePack, and model binding always go through `Validate`.
 
-Without the constructor, or with `UseConstructorForRead = false`, a read calls `Validate(value, null, out item)`. A `ValidationError` becomes a `ValidationException`, and a `null` item for a non-null column value becomes an exception whose message names the factory and the type. Writes call `ToValue`. The max length strategies apply to smart enums and keyed value objects, and they skip a type that has a factory with `UseWithEntityFramework = true`. The default configuration applies a strategy to smart enums alone, so every other column length comes from `HasMaxLength`.
+Without the constructor, or with `UseConstructorForRead = false`, a read calls `Validate(value, null, out item)`. A `ValidationError` becomes a `ValidationException`, and a `null` item for a non-null column value becomes an exception whose message names the factory and the type. Writes call `ToValue`. The max length strategies apply to smart enums and keyed value objects, and they skip a type that has a factory with `UseWithEntityFramework = true`. The default configuration applies a strategy to smart enums alone, and every other column length comes from `HasMaxLength`.
 
-`FileLocation` is a complex value object with two members and one `string` representation. `Validate` splits the string and delegates to the generated member `Validate`, so `ValidateFactoryArguments` trims and rejects on both paths. The private constructor exists for the read path alone.
+`FileLocation` is a complex value object with two members and one `string` representation. `Validate` splits the string and delegates to the generated member `Validate`. `ValidateFactoryArguments` trims and rejects on both paths. The private constructor exists for the read path alone.
 
 ```csharp
 [ComplexValueObject(DefaultStringComparison = StringComparison.OrdinalIgnoreCase)]
@@ -128,7 +128,7 @@ A read of `" store :doc"` through the constructor keeps the padding, and a read 
 
 ## [06]-[MULTIPLE_FACTORIES]
 
-Several factories with distinct `T` coexist on one type, one `Validate` and one `ToValue` per `T`. Each integration point belongs to at most one factory. `TTRESG068` reports two factories with `UseWithEntityFramework = true`, and `TTRESG069` reports two with `UseForModelBinding = true`. `TTRESG070` reports two whose `UseForSerialization` flags overlap and names the shared framework. At most one factory per integration point survives, so the order of the attributes does not select a factory.
+Several factories with distinct `T` coexist on one type, one `Validate` and one `ToValue` per `T`. Each integration point belongs to at most one factory. `TTRESG068` reports two factories with `UseWithEntityFramework = true`, and `TTRESG069` reports two with `UseForModelBinding = true`. `TTRESG070` reports two whose `UseForSerialization` flags overlap and names the shared framework. At most one factory per integration point survives. The order of the attributes does not select a factory.
 
 ```csharp
 [SmartEnum<int>]
@@ -166,13 +166,13 @@ internal sealed partial class Dual {
 }
 ```
 
-Both JSON serializers write `"two"`. MessagePack converts through the `char` factory, and its formatter encodes `'2'` as the code unit 50. A `char` is a struct, so its `Validate` takes `char value` without a nullable annotation.
+Both JSON serializers write `"two"`. MessagePack converts through the `char` factory, and its formatter encodes `'2'` as the code unit 50. A `char` is a struct: its `Validate` takes `char value` without a nullable annotation.
 
 ## [07]-[SPAN_BASED_JSON]
 
-A `ReadOnlySpan<char>` factory flagged `SystemTextJson` receives the JSON string as a span instead of a `string`. The generated attribute is `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`. The reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters. A longer value rents from `ArrayPool<char>.Shared`. An escaped value is unescaped through `CopyString` first. A token that is not a string or a property name is rejected with a `JsonException`. C# matches a span against string constants, so a known value creates no `string`.
+A `ReadOnlySpan<char>` factory flagged `SystemTextJson` receives the JSON string as a span instead of a `string`. The generated attribute is `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`. The reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters. A longer value rents from `ArrayPool<char>.Shared`. An escaped value is unescaped through `CopyString` first. A token that is not a string or a property name is rejected with a `JsonException`. C# matches a span against string constants, and a known value creates no `string`.
 
-`TTRESG078` reports a ref-struct factory with `UseWithEntityFramework = true` or `UseForModelBinding = true`. Neither a value converter nor a model binder accepts a ref struct as a generic argument. `TTRESG108` warns when a ref-struct factory is flagged for a framework that ignores it, and its message lists those frameworks. `ReadOnlySpan<char>` with `SystemTextJson` is the one supported combination, so any other ref struct also triggers the warning under `SystemTextJson`. The generator then binds the key member in the attribute it emits for those frameworks. A `string` factory and a `ReadOnlySpan<char>` factory on one type must not both carry `SystemTextJson`, and `TTRESG070` reports the overlap. A string-keyed smart enum already deserializes through the span converter, and `DisableSpanBasedJsonConversion = true` on `[SmartEnum<string>]` opts out.
+`TTRESG078` reports a ref-struct factory with `UseWithEntityFramework = true` or `UseForModelBinding = true`. Neither a value converter nor a model binder accepts a ref struct as a generic argument. `TTRESG108` warns when a ref-struct factory is flagged for a framework that ignores it, and its message lists those frameworks. `ReadOnlySpan<char>` with `SystemTextJson` is the one supported combination, and any other ref struct also triggers the warning under `SystemTextJson`. The generator then binds the key member in the attribute it emits for those frameworks. A `string` factory and a `ReadOnlySpan<char>` factory on one type must not both carry `SystemTextJson`, and `TTRESG070` reports the overlap. A string-keyed smart enum already deserializes through the span converter, and `DisableSpanBasedJsonConversion = true` on `[SmartEnum<string>]` opts out.
 
 `Region` is a `string`-keyed value object. The span `Validate` matches the known values and delegates to the generated `string` `Validate`, and the unknown branch allocates one `string`. `ToValue` returns the generated key field `_value`.
 
@@ -197,7 +197,7 @@ internal readonly partial struct Region {
 
 ## [08]-[UNIONS_AND_PLAIN_TYPES]
 
-An ad hoc union carries no type discriminator, so a factory is the way to serialize it as one value. `Validate` assigns a `T1` or `T2` value to `item` through the implicit conversion of the union, and `ToValue` renders the active case with `Switch`. A regular union, an abstract partial record with case records, accepts the same attribute as an alternative to polymorphic JSON.
+An ad hoc union carries no type discriminator. A factory is the way to serialize it as one value. `Validate` assigns a `T1` or `T2` value to `item` through the implicit conversion of the union, and `ToValue` renders the active case with `Switch`. A regular union, an abstract partial record with case records, accepts the same attribute as an alternative to polymorphic JSON.
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Number")]
@@ -217,7 +217,7 @@ internal sealed partial class TextOrNumber {
 }
 ```
 
-A keyless smart enum has no key member, so a factory is its single route to serialization and model binding. A value object with `SkipFactoryMethods = true` loses its converters, and a factory with `UseForSerialization` restores them through the factory.
+A keyless smart enum has no key member: a factory is its single route to serialization and model binding. A value object with `SkipFactoryMethods = true` loses its converters, and a factory with `UseForSerialization` restores them through the factory.
 
 ```csharp
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]

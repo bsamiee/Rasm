@@ -123,7 +123,7 @@ internal static class Concurrency {
 
 ## [05]-[RECURSION]
 
-`tail` marks the last bind continuation after a deferred effect and uses constant stack space. A `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` are incompatible with this form and cause it to fail. `Monad.recur` loops a state with `Next.Loop` and `Next.Done` and can use any host operation. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while the value satisfies it.
+`tail` marks the last bind continuation after a deferred effect and uses constant stack space. A `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` are incompatible with this form and cause it to fail. `Monad.recur` loops a state with `Next.Loop` and `Next.Done` and can use any host operation. `Next.Done` can return any result type. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while the value satisfies it.
 
 ```csharp
 internal static class Recursion {

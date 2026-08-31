@@ -39,9 +39,9 @@ The object-oriented alternative is to pass an `IObserver<T>` to `Subscribe`; the
 
 ## Structure a reactive program in three layers
 
-1. **Acquire sources.** Adapt timers, callbacks, tasks, collections, or external event producers into observables.
-2. **Describe the dataflow.** Transform and combine streams with operators. Keep this layer declarative and free of observable side effects.
-3. **Run effects at the edge.** Subscribe only to the final streams and perform output, persistence, notifications, or diagnostics in observers.
+1. Acquire sources. Adapt timers, callbacks, tasks, collections, or external event producers into observables.
+2. Describe the dataflow. Transform and combine streams with operators. Keep this layer declarative and free of observable side effects.
+3. Run effects at the edge. Subscribe only to the final streams and perform output, persistence, notifications, or diagnostics in observers.
 
 This separation keeps stream logic composable while making effect ownership and resource lifetime visible.
 

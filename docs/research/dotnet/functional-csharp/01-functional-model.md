@@ -2,23 +2,19 @@
 
 ## [01]-[PARADIGM]
 
-Functional programming is a programming paradigm: a style for structuring programs, not a language, API, package, or framework. C# is multi-paradigm, so functional and object-oriented techniques can coexist. Applying functional programming in C# does not require first learning a pure functional language.
+Functional programming is a programming paradigm: a style for structuring programs, not a language, API, package, or framework. C# is multi-paradigm: functional and object-oriented techniques coexist. Applying functional programming in C# does not require first learning a pure functional language.
 
 The contrast is between imperative and declarative code:
 - Imperative code specifies how work proceeds through ordered instructions, mutable variables, loops, and branches.
 - Declarative code describes the result and the transformations needed to produce it, leaving more execution detail to the runtime.
-
-SQL illustrates the declarative style: a query describes the desired result without manually implementing every transformation or prescribing the runtime's exact execution order. Functional C# aims for a similar emphasis on what is computed rather than the mechanics of changing state.
-
-Functional programming has a long mathematical and programming lineage. Its roots include work on combinatory logic and lambda expressions, followed by early functional languages such as IPL and LISP. Some languages enforce the functional paradigm; hybrid languages such as C# expose functional features without implementing every part of it.
 
 C# provides these features: delegates and lambdas let functions be passed as values, LINQ supports declarative transformations, switch expressions use pattern matching to return values, and records help express immutable state transitions.
 
 ## [02]-[CORE_PRINCIPLES]
 
 Functional programming is a style built on two commitments:
-1. **Treat functions as values.** A function can be assigned to a variable, passed as an argument, returned from another function, or stored in a collection.
-2. **Avoid state mutation.** Once created, an object should not change, variables should not be reassigned, and transformations should produce new values instead of destroying prior ones.
+1. Treat functions as values. A function can be assigned to a variable, passed as an argument, returned from another function, or stored in a collection.
+2. Avoid state mutation. Once created, an object does not change, variables are not reassigned, and transformations produce new values instead of destroying prior ones.
 
 These commitments reinforce each other. Functions express transformations, while immutable inputs support reasoning, composition, testing, and concurrency.
 
@@ -120,18 +116,14 @@ internal static partial class CoreProperties {
 
 The clock enters as a `DateTimeOffset` argument, and invariant formatting keeps the result independent of the ambient culture.
 
-Required behavior can be supplied as a delegate rather than hidden behind a call to mutable or unknown external state. If one operation both mutates an object and calculates a result, separate those responsibilities so the calculation can remain pure.
-
 Interaction with users, files, APIs, libraries, and other external systems introduces effects. Keep most application logic pure, and keep unavoidable effects small and explicit.
 
 ### [04.5]-[RECURSION]
 
-Recursion replaces some mutation-driven loops with a function that calls itself using new argument values. A recursive function needs:
+Recursion can replace `while` and `foreach`, and some mutation-driven loops with a function that calls itself using new argument values. A recursive function needs:
 1. a base case that returns the final value;
 2. a recursive case that calls the same function with values closer to that condition;
 3. a returned value on every path.
-
-Recursion can replace `while` and `foreach`, but direct recursion can reduce performance in C#.
 
 ### [04.6]-[PATTERN_MATCHING]
 
@@ -155,19 +147,7 @@ internal static partial class CoreProperties {
 
 The operation receives the state and all information required for the transition and returns the replacement. Records reduce the copying needed to express this immutable state-transition model.
 
-## [05]-[PROPERTY_INTERACTION]
-
-1. Immutability prevents earlier values from changing invisibly.
-2. Pure functions transform those values deterministically.
-3. Higher-order functions combine small transformations into larger behavior.
-4. Each expression returns a value.
-5. Pattern matching makes alternative outputs explicit.
-6. Recursion or declarative collection operations replace mutation-based iteration.
-7. State changes remain possible as immutable state-transition functions.
-
-This combination emphasizes business logic and reduces boilerplate such as counters, flags, temporary variables, mutation, and explicit control-flow code.
-
-## [06]-[LANGUAGE_SUPPORT]
+## [05]-[LANGUAGE_SUPPORT]
 
 Garbage collection makes non-destructive updates practical because superseded versions can be reclaimed. Mutation remains C#'s default: fields and variables must be explicitly constrained, user-defined immutable types require effort, and the standard collections are mutable even though an immutable collections library is available. LanguageExt supplies `Seq<A>`, `Map<K, V>`, `HashMap<K, V>`, and `Set<A>`.
 
@@ -177,7 +157,7 @@ LINQ is C#'s clearest built-in example of functional programming:
 - `OrderBy` and `OrderByDescending` produce ordered sequences from key selectors.
 - These operators accept functions and return new sequences instead of modifying their inputs.
 
-The static import of `LanguageExt.Prelude` supplies constructors and functions as bare names: `Some`, `None`, `Seq`, `toSeq`, `Range`, and `parseInt`. `K<F, A>` carries the witness `F` for the type constructor and the element type `A`. The traits `Functor<F>`, `Applicative<F>`, and `Monad<M>` state what a witness supports, so one function serves every type with a witness. `.As()` restores the concrete type at a call site that requires it.
+The static import of `LanguageExt.Prelude` supplies constructors and functions as bare names: `Some`, `None`, `Seq`, `toSeq`, `Range`, and `parseInt`. `K<F, A>` pairs the witness `F` for the type constructor with the element type `A`; traits such as `Functor<F>` state what a witness supports, and `.As()` restores the concrete type.
 
 ```csharp
 internal static partial class Traits {
@@ -196,7 +176,7 @@ These language features reduce functional-code boilerplate:
 - Local functions keep single-use helpers near their caller.
 - Named tuples carry temporary intermediate structures without inventing domain types that have no independent meaning.
 
-## [07]-[FUNCTION_SIGNATURES]
+## [06]-[FUNCTION_SIGNATURES]
 
 A mathematical function maps each value in a domain to a value in a codomain. In a statically typed program, types represent those sets:
 
@@ -208,21 +188,21 @@ Person -> Greeting
 
 The input and output types form the function's contract. This perspective directs attention to what information enters and what value must come out.
 
-A mathematical function's result is determined exclusively by its input. A C# method, delegate, or lambda only represents a function; that representation does not guarantee the same property. It may capture context, read mutable state, or perform effects even when its visible signature does not reveal those dependencies.
+A C# method, delegate, or lambda represents a function without guaranteeing purity. It can capture context, read mutable state, or perform effects that its signature does not reveal.
 
 C# represents functions as:
-- **Methods** are the conventional representation and participate in class and interface design. An instance method can be understood as also taking the current instance as an implicit argument.
-- **Delegates** are types that represent methods with a specific signature.
-- **Lambdas** define short functions inline and are converted to a compatible delegate type.
-- **Dictionaries** directly store arbitrary mappings whose associations cannot be computed. The same representation can retain results of expensive computations instead of recomputing them.
+- Methods are the conventional representation and participate in class and interface design. An instance method can be understood as also taking the current instance as an implicit argument.
+- Delegates are types that represent methods with a specific signature.
+- Lambdas define short functions inline and are converted to a compatible delegate type.
+- Dictionaries directly store arbitrary mappings whose associations cannot be computed. The same representation can retain results of expensive computations instead of recomputing them.
 
 Use the `Func` and `Action` families when only the signature matters. Use a custom delegate when its name conveys domain intent that a generic delegate type such as `Func<T, bool>` does not.
 
-### [07.1]-[ARITY_TUPLES_CLOSURES]
+### [06.1]-[ARITY_TUPLES_CLOSURES]
 
 Arity is the number of arguments a function accepts: nullary, unary, or binary. Any multi-argument function can be viewed as a unary function over a tuple of its arguments.
 
-A closure combines a lambda with the context in which it was declared. The delegate's declared signature may remain unary, but the computation can also depend on captured context:
+A closure combines a lambda with the context in which it was declared. The delegate's declared signature stays unary, but the computation can also depend on captured context:
 
 ```csharp
 Seq<DayOfWeek> days = toSeq(Enum.GetValues<DayOfWeek>());
@@ -230,29 +210,29 @@ Seq<DayOfWeek> DaysStartingWith(string pattern) => days.Filter(day => day.ToStri
 Seq<DayOfWeek> weekendStarts = DaysStartingWith("S"); // Sunday, Saturday
 ```
 
-The predicate supplied to `Filter` has the signature `DayOfWeek -> bool`, yet it depends on both `day` and the captured `pattern`. The predicate has a one-parameter signature, but its result depends on both values.
+The predicate supplied to `Filter` has the signature `DayOfWeek -> bool`, yet it depends on both `day` and the captured `pattern`.
 
-## [08]-[BENEFITS]
+## [07]-[BENEFITS]
 
-### [08.1]-[CLARITY]
+### [07.1]-[CLARITY]
 
 Fewer loops, flags, and intermediate updates can shorten the program and clarify its purpose.
 
-### [08.2]-[TESTABILITY]
+### [07.2]-[TESTABILITY]
 
 A pure function can be tested with input-output pairs because it does not depend on hidden state. Referential transparency makes results repeatable and lets the same failing input reproduce a failure.
 
 Expressions that return values reduce implicit control flow from mutable flags, nested conditionals, and broadly scoped exception handling. Functional style does not prevent error-handling defects, but it makes control flow and effects more explicit.
 
-### [08.3]-[ROBUSTNESS]
+### [07.3]-[ROBUSTNESS]
 
 Immutability prevents bugs caused by later changes. The paradigm also avoids `null` and favors data types that represent absence and errors explicitly.
 
-### [08.4]-[CONCURRENCY]
+### [07.4]-[CONCURRENCY]
 
-Code that does not mutate shared in-memory state supports concurrent execution. Examples include asynchronous processing, multiple workers handling similar inputs, containerized workloads, and serverless functions. Shared external resources can still contend, so stateless application logic reduces but does not eliminate concurrency hazards.
+Code that does not mutate shared in-memory state supports concurrent execution. Examples include asynchronous processing, multiple workers handling similar inputs, containerized workloads, and serverless functions. Shared external resources can still contend. Stateless application logic reduces but does not eliminate concurrency hazards.
 
-## [09]-[APPLICABILITY]
+## [08]-[APPLICABILITY]
 
 Functional programming fits work based on predictable data transformations:
 - converting data from one form to another;
@@ -262,9 +242,3 @@ Functional programming fits work based on predictable data transformations:
 - logic that benefits from deterministic behavior and extensive testing.
 
 C# places limits on the paradigm. Framework base classes and some libraries are object-oriented, and C# cannot express every feature of a pure functional language. Functional C# is not inherently slow, but it does not guarantee the best performance. If performance outweighs readability and modularity, another style can be a better tradeoff.
-
-## [10]-[TRADEOFFS]
-
-Higher-order functions add stack frames for callbacks. Their performance cost depends on the workload, and callbacks can make call stacks harder to debug. Excessive abstraction can obscure behavior.
-
-Use higher-order functions when they separate otherwise interleaved logic, remove duplication, adapt an interface, or create reusable behavior. Keep lambdas short, choose clear names, and format nested callbacks so control flow remains visible.

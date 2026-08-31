@@ -1,12 +1,8 @@
 # [READER_TRANSFORMER]
 
-`ReaderT<Env, M, A>` adds an environment `Env` to a monad `M`. A computation can read configuration or request context without using global state or passing the same value through every function parameter.
-
-The environment is still explicit: one value is supplied when the complete computation is run and is threaded through its stages. Until then, `ReaderT` composes functions that are waiting for that value.
+`ReaderT<Env, M, A>` adds an environment `Env` to a monad `M`. A computation reads configuration or request context without global state and without the same parameter on every function. The environment stays explicit: one value is supplied when the computation runs and is threaded through its stages. Until then, `ReaderT` composes functions that wait for that value.
 
 ## [01]-[REPRESENTATION_AND_EXECUTION]
-
-The essential representation is:
 
 ```csharp
 public record ReaderT<Env, M, A>(Func<Env, K<M, A>> runReader) : K<ReaderT<Env, M>, A>
@@ -17,9 +13,9 @@ public record ReaderT<Env, M, A>(Func<Env, K<M, A>> runReader) : K<ReaderT<Env, 
 }
 ```
 
-Given an `Env`, the wrapped function returns `K<M, A>`. This differs from an optional transformer such as `OptionT`, whose shape is `K<M, Option<A>>`: the lifted monad wraps an optional result, whereas an environment-carrying computation wraps the lifted monad so that the inner computation runs with the environment.
+Given an `Env`, the wrapped function returns `K<M, A>`. Compare `OptionT`, whose shape is `K<M, Option<A>>`: the lifted monad wraps an optional result, while an environment-carrying computation wraps the lifted monad, so the inner computation runs with the environment.
 
-For example, configuration can be threaded through file-reading code without making it global:
+Configuration threads through file-reading code without becoming global:
 
 ```csharp
 public record MyConfig(string SourceFolder);
@@ -40,11 +36,11 @@ var textIO = readSourceText("test.cs").Run(config);
 var text = textIO.Run();
 ```
 
-The first `Run` supplies the environment and returns the lifted `IO<string>`; the second runs that effect. The `IO` should normally be run only at the edge of the application.
+The first `Run` supplies the environment and returns the lifted `IO<string>`; the second runs that effect. Run the `IO` at the edge of the application.
 
 ## [02]-[ASK_AND_BIND]
 
-`ask` does not retrieve global state. It builds a function that will lift its eventual input into `M`:
+`ask` retrieves no global state. It builds a function that lifts its eventual input into `M`:
 
 ```csharp
 public static ReaderT<Env, M, Env> ask<Env, M>()
@@ -52,7 +48,7 @@ public static ReaderT<Env, M, Env> ask<Env, M>()
     new(M.Pure);
 ```
 
-Everything before `Run` remains lazy. Other operations must therefore be expressed through function composition. `Bind` runs both dependent stages with the same environment and lets `M.Bind` sequence their inner computations:
+Everything before `Run` stays lazy, so the operations are expressed through function composition. `Bind` runs both dependent stages with the same environment and lets `M.Bind` sequence their inner computations:
 
 ```csharp
 public ReaderT<Env, M, B> Bind<B>(
@@ -62,11 +58,11 @@ public ReaderT<Env, M, B> Bind<B>(
         value => f(value).runReader(env)));
 ```
 
-The environment is always available to each `ReaderT` stage because it is passed whenever the wrapped function is invoked.
+The environment reaches each `ReaderT` stage because it is passed whenever the wrapped function is invoked.
 
 ## [03]-[STACK_ENCAPSULATION]
 
-Transformer stacks can be hidden behind a domain type. A simplified `Eff<RT, A>` is just a wrapper around `ReaderT<RT, IO, A>`:
+A domain type hides the stack. A simplified `Eff<RT, A>` is a wrapper around `ReaderT<RT, IO, A>`:
 
 ```csharp
 public record Eff<RT, A>(ReaderT<RT, IO, A> runEff) : K<Eff<RT>, A>;
@@ -92,9 +88,7 @@ public class Eff<RT> : Monad<Eff<RT>>
 }
 ```
 
-Every operation delegates to the corresponding `ReaderT` operation. Implementing `LiftIO` allows `IO` operations to appear directly in LINQ expressions over the wrapper.
-
-The companion operations unwrap the higher-kinded value, run it, or construct common values:
+Every operation delegates to the corresponding `ReaderT` operation. `LiftIO` lets `IO` operations appear directly in LINQ expressions over the wrapper. The companion operations unwrap the higher-kinded value, run it, or construct common values:
 
 ```csharp
 public static class Eff
@@ -113,11 +107,11 @@ public static class Eff
 }
 ```
 
-The wrapper can gain more capabilities by enclosing a larger transformer stack.
+The wrapper gains more capabilities by enclosing a larger transformer stack.
 
 ## [04]-[READABLE_CAPABILITY]
 
-`Readable<M, Env>` abstracts access to an environment away from `ReaderT`, `Reader`, `Eff`, or any other concrete implementation:
+`Readable<M, Env>` abstracts environment access away from `ReaderT`, `Reader`, `Eff`, or any other concrete implementation:
 
 ```csharp
 public interface Readable<M, Env>
@@ -134,7 +128,7 @@ public interface Readable<M, Env>
 }
 ```
 
-`Readable` does not itself require `Monad`. Its helper functions provide four operations:
+`Readable` does not require `Monad`. Its helper functions provide four operations:
 
 ```csharp
 public static class Readable
@@ -156,7 +150,7 @@ public static class Readable
 }
 ```
 
-The simplified `Eff` gains this capability by delegating again:
+The simplified `Eff` gains the capability by delegating again:
 
 ```csharp
 public class Eff<RT> : Monad<Eff<RT>>, Readable<Eff<RT>, RT>
@@ -172,7 +166,7 @@ public class Eff<RT> : Monad<Eff<RT>>, Readable<Eff<RT>, RT>
 }
 ```
 
-Code can now require only the capabilities it uses:
+Code then requires only the capabilities it uses:
 
 ```csharp
 public static K<M, int> addRdr<M>(K<M, int> mx, K<M, int> my)
@@ -189,11 +183,11 @@ var compute = addRdr(
 var result = compute.Run(300).Run(); // 600
 ```
 
-`addRdr` knows neither the concrete monad nor how it stores the environment. It only requires values that are bindable and readable. Its arguments may still represent computations with IO, parallelism, resource cleanup, errors, retries, or other capabilities that this function does not need to know about. The same approach lets shared support functions operate across multiple domain monads while reading their configuration through `Readable`.
+`addRdr` knows neither the concrete monad nor how it stores the environment. It requires values that are bindable and readable. Its arguments can still represent computations with IO, parallelism, resource cleanup, errors, or retries — capabilities this function does not name. Shared support functions operate across multiple domain monads by reading their configuration through `Readable`.
 
 ## [05]-[REQUEST_CONTEXT]
 
-A session can be supplied once per API request and then read anywhere in a compatible monad:
+A session is supplied once per API request and read anywhere in a compatible monad:
 
 ```csharp
 public record User(string Id, Seq<Role> Memberships);
@@ -218,7 +212,7 @@ public static K<M, Unit> assertHasRight<M, R>()
                 : throw new SecurityException("Access denied"));
 ```
 
-Running the request computation with `Run(session)` threads the read-only user, roles, and rights through the stack. Authorization logic can therefore be written once and used by every monad that exposes the session through `Readable`.
+Running the request computation with `Run(session)` threads the read-only user, roles, and rights through the stack. Authorization logic is written once and used by every monad that exposes the session through `Readable`:
 
 ```csharp
 public static Eff<Session, Unit> sendInvoice() =>
@@ -229,20 +223,18 @@ public static Eff<Session, Unit> sendInvoice() =>
 
 ## [06]-[LOCAL_ENVIRONMENTS]
 
-Two operations limit the environment seen by a computation:
-- `local(f, ma)` maps `Env` to another `Env` and runs `ma` with that temporary value. The change is scoped to `ma`; subsequent computation sees the original environment.
-- `with(f, ma)` maps an outer environment to a different environment type. For example, `AppConfig -> DbConfig` lets a data layer receive only its database configuration.
+Two operations limit the environment a computation sees:
+- `local(f, ma)` maps `Env` to another `Env` of the same type and runs `ma` with that temporary value. The change is scoped to `ma`; later computation sees the original environment.
+- `with(f, ma)` maps an outer environment to a different environment type, such as `AppConfig -> DbConfig`, so a data layer receives only its database configuration.
 
-`with` is not part of `Readable` because `Env` is fixed in the trait implementation. Use `Reader.with` or `ReaderT.with`, and expose an equivalent operation on a wrapper when environment-type mapping is useful.
+`with` is not part of `Readable`, because `Env` is fixed in the trait implementation. Use `Reader.with` or `ReaderT.with`, and expose an equivalent operation on a wrapper where environment-type mapping is useful.
 
 ## [07]-[TRANSFORMER_POSITION]
 
-Any monad can be lifted into `ReaderT`; `IO` is only a concrete way to demonstrate it. For example, lifting `Validation<F, A>` gives validators access to an environment.
-
-`ReaderT` is usually the outermost transformer so the inner monads can access the environment:
+Any monad lifts into `ReaderT`; `IO` is one concrete choice. Lifting `Validation<F, A>` gives validators access to an environment. `ReaderT` sits outermost in most stacks, so the inner monads reach the environment:
 
 ```text
 ReaderT<Env, Inner, A>
 ```
 
-This placement is effective rather than mandatory. Unlike a standalone `Reader`, `ReaderT` composes environment access with another monad. That capability can then be exposed through domain wrappers and combined with other transformer-provided capabilities.
+The placement is effective, not mandatory. Unlike a standalone `Reader`, `ReaderT` composes environment access with another monad, and domain wrappers expose that capability beside other transformer-provided capabilities.

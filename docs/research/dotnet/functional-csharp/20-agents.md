@@ -2,7 +2,7 @@
 
 ## [01]-[SHARED_STATE]
 
-Parallel computations with independent inputs can compute partial results and combine them without shared mutation. Some multithreaded services need one application-wide sequence, cache, or representation of a unique real-world entity. Giving every thread its own copy would either break correctness or defeat the purpose of the shared resource.
+Parallel computations with independent inputs can compute partial results and combine them without shared mutation. Some multithreaded services need one application-wide sequence, cache, or representation of a unique real-world entity. Giving every thread its own copy either breaks correctness or defeats the purpose of the shared resource.
 
 Avoid shared mutable state by default. When one logical value must be shared, serialize the operations that can change it.
 
@@ -35,7 +35,7 @@ The invariants are:
 2. Messages for one agent are processed sequentially.
 3. State values passed through the loop are immutable snapshots.
 
-The implementation keeps the state in the accumulator of a fold over the inbox and does not use a private mutable field. Immutability matters: exposing a mutable state object would let code outside the loop modify it concurrently and invalidate the model.
+The implementation keeps the state in the accumulator of a fold over the inbox and does not use a private mutable field. Immutability matters: exposing a mutable state object lets code outside the loop modify it concurrently and invalidates the model.
 
 ## [03]-[MINIMAL_IMPLEMENTATION]
 
@@ -92,9 +92,9 @@ Use agents when all coordinated access passes through one process. Use an actor 
 
 ## [06]-[FUNCTIONAL_DESIGN]
 
-Agent messaging is command-oriented and can be effectful. An agent combines state with the behavior that changes it. Message-passing concurrency complements functional composition. It is not a value-returning pipeline.
+Agent messaging is command-oriented and can be effectful. An agent combines state with the behavior that changes it. Message-passing concurrency complements functional composition; it is not a value-returning pipeline.
 
-There are two integration styles:
+Two integration styles apply:
 - use a unidirectional, event-driven flow in which agents communicate through messages;
 - keep agents as private concurrency primitives and expose value-returning APIs.
 
@@ -136,7 +136,7 @@ The agent stays private behind a domain API, and `Counter` provides that facade.
 
 Event sourcing can reconstruct a correct aggregate state from concurrent events, but it does not by itself protect business rules that depend on the state observed before creating an event. Two concurrent debits can each return a state computed from the same snapshot while replaying both persisted events later yields the correct balance. The problem appears when accepting both events is itself forbidden.
 
-For example, an account has a balance of 1,000 and an overdraft limit of 500. Two concurrent debits of 800 can each validate against the same initial snapshot. Both events would be accepted, producing an overdraft of 600. The event log is internally consistent, but the business invariant has been violated.
+For example, an account has a balance of 1,000 and an overdraft limit of 500. Two concurrent debits of 800 can each validate against the same initial snapshot. Both events are accepted, and the overdraft becomes 600. The event log is internally consistent, but the business invariant has been violated.
 
 Associate one lightweight process with each account and separate responsibilities. One server process can host thousands or millions of these processes if it is the sole route for account changes; cross-process access requires actors instead.
 

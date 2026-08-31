@@ -2,10 +2,8 @@
 
 ## [01]-[TASK]
 
-`Task<T>` represents a computation that produces a `T` asynchronously. Use it for operations that must not block a thread while waiting, especially I/O. `await` suspends the current context while the operation completes, freeing its thread for other work; synchronously waiting blocks that thread.
-
-`Task<T>` represents an asynchronous computation that can fail:
-- `Option<T>` may contain a `T`.
+`Task<T>` represents a computation that produces a `T` asynchronously. Use it for operations that must not block a thread while waiting, above all I/O. `await` suspends the current context and frees the thread; synchronous waiting blocks it. Compare the shapes:
+- `Option<T>` can contain a `T`.
 - `Func<T>` can be run to obtain a `T`.
 - `Task<T>` will produce a `T` later, or fault.
 
@@ -50,9 +48,9 @@ Remain inside `IO` throughout the workflow. The host runs the effect once at its
 `IO<A>` captures exceptions from an asynchronous computation as `Exceptional` errors on its error channel. An expected domain error is a typed `Expected` on the same channel, never a nested result type.
 
 Keep three policies distinct:
-- **Fallback** tries a lower-priority operation if the preferred effect fails: `primary | secondary`. The alternative starts only after failure, and `Catch` with an error code restricts it to one classified error.
-- **Recovery** maps a final error to a normal value at the workflow's end: `IfFail` on the `Fin<A>` that `RunSafe()` returns.
-- **Retry** creates a fresh attempt after a transient failure and delay: `Retry` with a `Schedule`.
+- Fallback tries a lower-priority operation if the preferred effect fails: `primary | secondary`. The alternative starts only after failure, and `Catch` with an error code restricts it to one classified error.
+- Recovery maps a final error to a normal value at the workflow's end: `IfFail` on the `Fin<A>` that `RunSafe()` returns.
+- Retry creates a fresh attempt after a transient failure and delay: `Retry` with a `Schedule`.
 
 ```csharp
 internal static class Policies {
@@ -123,11 +121,9 @@ internal static partial class Traversals {
 
 `TraverseM` stops calling validators after the first invalid value. `Traverse` calls the validator for every independent value and accumulates all errors; use it when validation must return all errors.
 
-`Traverse` over a `Seq` of validators for one value calls every validator and keeps every error, and `Map` discards the copies of the input to return the original value.
-
 ## [07]-[TASK_TRAVERSAL]
 
-For `Seq<A>` and `A -> IO<B>`, applicative traversal yields one `IO<Seq<B>>`, and monadic traversal stops creating later effects after a failure. `Traverse` under `IO` starts every element effect before it awaits any: effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread. `TraverseM` runs the effects one after another.
+For `Seq<A>` and `A -> IO<B>`, applicative traversal yields one `IO<Seq<B>>`, and monadic traversal stops creating later effects after a failure. `Traverse` under `IO` overlaps the element effects; `TraverseM` runs them one after another.
 
 ```csharp
 internal static partial class Traversals {

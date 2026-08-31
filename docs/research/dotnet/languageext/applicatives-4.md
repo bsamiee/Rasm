@@ -1,12 +1,10 @@
 # [APPLICATIVES]
 
-An applicative functor extends a functor with contextual function application. It can combine values inside a context such as `Maybe`, `Either`, `Option`, `Seq`, or `IO` without imposing the sequential dependencies of monadic composition.
+An applicative functor extends a functor with contextual function application. It combines values inside a context such as `Maybe`, `Either`, `Option`, `Seq`, or `IO` without the sequential dependencies of monadic composition.
 
 Two important uses in language-ext are:
 - evaluating independent effectful computations in parallel;
 - collecting multiple validation errors.
-
-Applicative behavior is not limited to those cases. Higher-kinded types, including collection types, can provide applicative instances.
 
 ## [01]-[FROM_MAP_TO_APPLY]
 
@@ -16,7 +14,7 @@ A functor's `Map` lifts a unary function over a contextual value:
 Func<A, B>  ->  Func<F<A>, F<B>>
 ```
 
-That is sufficient for a unary operation:
+That covers a unary operation:
 
 ```csharp
 static bool Not(bool x) => !x;
@@ -28,7 +26,7 @@ var mx = new Just<bool>(true);
 var my = mx.Map(Not);
 ```
 
-Multi-argument functions can be converted into unary stages by currying:
+Currying converts a multi-argument function into unary stages:
 
 ```csharp
 static int Add(int x, int y) => x + y;
@@ -41,7 +39,7 @@ var add10 = add(10);      // Func<int, int>
 var result = add10(20);   // 30
 ```
 
-Partial application lets arguments arrive one at a time. But when the function passed to `Map` returns another contextual value, `Map` wraps that result in the outer context and creates nesting:
+Partial application lets arguments arrive one at a time. When the function passed to `Map` returns another contextual value, `Map` wraps that result in the outer context and creates nesting:
 
 ```csharp
 var mw = new Just<int>(1);
@@ -54,7 +52,7 @@ var r2 = r1.Map(f => mx.Map(f));
 // K<Maybe, K<Maybe, int>>
 ```
 
-Trying to calculate `1 * 2 + 3 * 4` this way compounds the problem:
+Calculating `1 * 2 + 3 * 4` this way compounds the nesting:
 
 ```csharp
 var lhs = mw.Map(multiply).Map(f => mx.Map(f));
@@ -64,7 +62,7 @@ var res = lhs.Map(l => l.Map(add).Map(f => rhs.Map(r => r.Map(f))));
 // K<Maybe, K<Maybe, K<Maybe, K<Maybe, int>>>>
 ```
 
-`Apply` combines a contextual function with a contextual argument while preserving a single contextual layer.
+`Apply` combines a contextual function with a contextual argument and preserves a single contextual layer.
 
 ## [02]-[TRAIT]
 
@@ -91,9 +89,7 @@ public interface Functor<F>
 }
 ```
 
-The difference is the function. `Map` receives an ordinary `Func<A, B>`; `Apply` receives that function inside the same `K<F, ...>` context as its argument. The `Map` signature shown here uses language-ext's function-first ordering.
-
-The trait also declares `Pure`. In the `Maybe` instance below, `Pure` constructs `Just`.
+The difference is the function. `Map` receives an ordinary `Func<A, B>`; `Apply` receives that function inside the same `K<F, ...>` context as its argument. This `Map` signature uses LanguageExt's function-first ordering. The trait also declares `Pure`; the `Maybe` instance below constructs `Just`.
 
 ## [03]-[MAYBE_APPLICATIVE]
 
@@ -142,9 +138,7 @@ public class Maybe :
 }
 ```
 
-`Apply` extracts both the function and its argument. If either is `Nothing`, the result is `Nothing`. If both are `Just`, it invokes the function and wraps the result in `Just`.
-
-The `Foldable` trait requires `FoldWhile` and `FoldBackWhile`, which support optimized defaults for operations such as `Exists`, `ForAll`, and `IsEmpty`.
+`Apply` extracts both the function and its argument. Either side `Nothing` makes the result `Nothing`; both `Just` invokes the function and wraps the result in `Just`. The `Foldable` trait requires `FoldWhile` and `FoldBackWhile`, which support optimized defaults for `Exists`, `ForAll`, and `IsEmpty`.
 
 ## [04]-[FLUENT_COMPOSITION]
 
@@ -170,15 +164,11 @@ The nested `Map` expression becomes:
 var r = multiply.Map(mw).Apply(mx); // K<Maybe, int>
 ```
 
-`Map` supplies the first argument to the curried function, and each `Apply` supplies another. Longer functions can continue the chain.
-
-The same operation uses applicative operators in Haskell:
+`Map` supplies the first argument to the curried function; each `Apply` supplies another. Haskell writes the same operation with the `<$>` and `<*>` operators; C# operators cannot be parametrically polymorphic, so the generic operation uses fluent methods:
 
 ```haskell
 let r = multiply <$> mw <*> mx
 ```
-
-C# operators cannot be parametrically polymorphic, so the generic operation uses fluent methods instead.
 
 The full arithmetic expression preserves its two independent multiplication branches:
 
@@ -188,7 +178,7 @@ var rhs = multiply.Map(my).Apply(mz);
 var res = add.Map(lhs).Apply(rhs);
 ```
 
-The equivalent monadic query is often easier to read in C# and does not require explicit currying:
+The equivalent monadic query needs no explicit currying:
 
 ```csharp
 var res = from w in mw
@@ -198,11 +188,11 @@ var res = from w in mw
           select w * x + y * z;
 ```
 
-The distinction is evaluation structure. A monadic expression is sequential: each operand is obtained in order, and a failure can stop the remaining operations. An applicative expression exposes that its operands do not depend on one another, so an applicative instance may evaluate independent branches concurrently.
+The distinction is evaluation structure. A monadic expression is sequential: each operand is obtained in order, and a failure stops the remaining operations. An applicative expression exposes that its operands do not depend on one another, so an applicative instance can evaluate independent branches concurrently.
 
 ## [05]-[PARALLEL_IO]
 
-A simplified applicative `Apply` for `IO` forks both contextual operands and waits for both results:
+A simplified applicative `Apply` for `IO` forks both operands and awaits both results:
 
 ```csharp
 public static IO<B> Apply<A, B>(
@@ -215,7 +205,7 @@ public static IO<B> Apply<A, B>(
     select f(a);
 ```
 
-With more arguments, chained `Apply` calls allow each argument computation to run in parallel. The final function runs after all arguments have been acquired:
+Chained `Apply` calls let each argument computation run in parallel; the final function runs after all arguments have been acquired:
 
 ```csharp
 var io1 = liftIO(() => File.ReadAllTextAsync(path1));
@@ -227,8 +217,8 @@ var concat = (string txt1, string txt2, string txt3) => txt1 + txt2 + txt3;
 IO<string> res = concat.Map(io1).Apply(io2).Apply(io3);
 ```
 
-language-ext provides multi-argument `Map` and `Apply` overloads that curry delegates automatically. Because `Map` is called on the ordinary `concat` function, only the three `IO` arguments are forked.
+LanguageExt provides multi-argument `Map` and `Apply` overloads that curry delegates for the caller. Because `Map` is called on the ordinary `concat` function, only the three `IO` arguments are forked.
 
-The real `IO` implementation is more complex than the simplified fork-and-await model. It represents `IO<A>` as a DSL, avoids `async` where possible, unpacks underlying `Task` values, and coordinates them with `Task.WhenAll`. The applicative meaning remains automatic concurrency for independent `IO` operands.
+The production `IO` represents `IO<A>` as a DSL, avoids `async` where possible, unpacks underlying `Task` values, and coordinates them with `Task.WhenAll`. The applicative meaning stands: automatic concurrency for independent `IO` operands.
 
-Applicatives are most useful when their independent structure provides a capability that sequential monadic composition does not, or when the fluent expression is clearer. In C#, the monadic form may otherwise be easier to read.
+Use applicatives where the independent structure provides a capability that sequential monadic composition does not, or where the fluent expression is clearer; otherwise the monadic form reads better in C#.

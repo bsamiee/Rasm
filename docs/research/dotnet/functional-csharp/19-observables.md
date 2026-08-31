@@ -20,7 +20,7 @@ OnNext* (OnCompleted | OnError)?
 - `OnNext(T)` delivers zero or more values.
 - `OnCompleted()` ends the stream successfully.
 - `OnError(Exception)` ends the stream abnormally.
-- A stream may never terminate, but after either terminal notification it must never emit again.
+- A stream can run forever, but after either terminal notification it must never emit again.
 
 Subscription connects producer and consumer:
 
@@ -52,9 +52,9 @@ internal static class Model {
 
 ## [02]-[PROGRAM_STRUCTURE]
 
-1. **Acquire sources.** Adapt callbacks, tasks, collections, or external event producers into observables.
-2. **Describe the dataflow.** Transform and combine streams with operators. Keep this layer declarative and free of side effects.
-3. **Run effects at the edge.** Subscribe only to the final streams and perform output, persistence, notifications, or diagnostics in observers. A `Source<A>` is reduced once at this layer, and the host runs the resulting `IO<S>`.
+1. Acquire sources. Adapt callbacks, tasks, collections, or external event producers into observables.
+2. Describe the dataflow. Transform and combine streams with operators. Keep this layer declarative and free of side effects.
+3. Run effects at the edge. Subscribe only to the final streams and perform output, persistence, notifications, or diagnostics in observers. A `Source<A>` is reduced once at this layer, and the host runs the resulting `IO<S>`.
 
 This separation keeps stream logic composable and shows where effects run and resources are managed.
 
@@ -138,7 +138,7 @@ Each branch can be transformed independently, normalized to a common type, and m
 
 ## [05]-[FAILURE_HANDLING]
 
-`OnError` is terminal. When a derived stream reports an error, that stream and every downstream stream terminate permanently. Upstream streams may continue, so only part of the dataflow remains active.
+`OnError` is terminal. When a derived stream reports an error, that stream and every downstream stream terminate permanently. Upstream streams can continue. Only part of the dataflow then remains active.
 
 Do not use the terminal error channel for an expected per-item failure. Instead:
 1. Apply the operation to each input with `Map`.
@@ -225,7 +225,7 @@ The consumer cannot slow the producer by requesting the next item. When producti
 - `Buffer<A>.Bounded(n)` and `Buffer<A>.Single` hold `n` values or one value and block `Post` when full, so the consumer is forked before the producer posts.
 - `Buffer<A>.Latest(value)` keeps only the last value, and `Buffer<A>.Newest(n)` keeps the last `n` values.
 
-Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`. The policy must reflect whether intermediate values may be dropped, delayed, grouped, or preserved.
+Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`. The policy must reflect whether intermediate values can be dropped, delayed, grouped, or preserved.
 
 ### [06.3]-[STATEFUL_LOGIC]
 

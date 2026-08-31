@@ -11,8 +11,8 @@ Append-only storage replaces create-read-update-delete with create-read-append:
 - Appends avoid the hot-cell contention caused when concurrent requests overwrite the same value.
 
 Two immutable-storage models follow this rule:
-- **Event-based:** store an ordered history of things that happened.
-- **Assertion-based:** store facts together with the time intervals during which they are true.
+- Event-based: store an ordered history of things that happened.
+- Assertion-based: store facts together with the time intervals during which they are true.
 
 Event sourcing focuses on transitions rather than snapshots. The current state is derived data:
 

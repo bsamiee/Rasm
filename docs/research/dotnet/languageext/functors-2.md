@@ -2,9 +2,7 @@
 
 ## [01]-[MAPPING_PROBLEM]
 
-A mapping trait cannot bake the element type into the trait itself. Mapping a value of type `A` must be able to produce a value of type `B`, while preserving the surrounding type constructor.
-
-The desired shape would be:
+A mapping trait cannot fix the element type into the trait. Mapping an `A` must produce a `B` while it preserves the surrounding type constructor. The desired shape is not valid C#, because a type parameter `F` cannot be applied as `F<A>`:
 
 ```csharp
 public interface Mappable<F>
@@ -14,9 +12,7 @@ public interface Mappable<F>
 }
 ```
 
-This is not valid C#: a type parameter such as `F` cannot be applied as `F<A>` or `F<B>`. C# does not directly support higher-kinded type parameters.
-
-`K<F, A>` supplies an encoding for that missing relationship:
+`K<F, A>` encodes the missing relationship:
 
 ```csharp
 public interface Mappable<F>
@@ -26,11 +22,11 @@ public interface Mappable<F>
 }
 ```
 
-`K` is short for "kind." `F` acts as an anchor for the structure, while `A` is the value type carried by that structure. Mapping replaces `A` with `B` without changing `F`.
+`K` is short for "kind". `F` anchors the structure, and `A` is the value type carried by that structure. Mapping replaces `A` with `B` without changing `F`.
 
 ## [02]-[LIST_IMPLEMENTATION]
 
-The generic data type represents the data, while a non-generic sibling type implements the capability:
+The generic data type represents the data; a non-generic sibling type implements the capability:
 
 ```csharp
 public record List<A>(A[] Items) : K<List, A>;
@@ -47,7 +43,7 @@ public class List : Mappable<List>
 }
 ```
 
-Because `List<A>` implements `K<List, A>`, the implementation can recover the concrete list with a downcast. A context-specific extension keeps that cast in one place:
+Because `List<A>` implements `K<List, A>`, the implementation recovers the concrete list with a downcast. A context-specific extension keeps the cast in one place:
 
 ```csharp
 public static class ListExtensions
@@ -56,8 +52,6 @@ public static class ListExtensions
         (List<A>)ma;
 }
 ```
-
-The mapping implementation then becomes:
 
 ```csharp
 public class List : Mappable<List>
@@ -69,11 +63,11 @@ public class List : Mappable<List>
 }
 ```
 
-The cast relies on an invariant: only one concrete type should derive from `K<List, A>`. Defining another representation for the same `F` and `A` would make the downcast fail on use.
+The cast relies on an invariant: exactly one concrete type derives from `K<List, A>`. A second representation for the same `F` and `A` makes the downcast fail on use.
 
 ## [03]-[MAP_EXTENSION]
 
-The trait makes a single generic extension possible:
+The trait makes one generic extension possible:
 
 ```csharp
 public static class MappableExtensions
@@ -86,7 +80,7 @@ public static class MappableExtensions
 }
 ```
 
-Any data type that implements `K<F, A>` and has a sibling `F` implementing `Mappable<F>` gains the same LINQ `Select` operation:
+Every data type that implements `K<F, A>` with a sibling `F : Mappable<F>` gains the same LINQ `Select`:
 
 ```csharp
 var list = new List<int>([1, 2, 3]);
@@ -95,7 +89,7 @@ var nlist = list.Select(x => x + 1)
                 .Select(x => x * 2);
 ```
 
-The result remains abstract: `Select` returns `K<List, int>`, not `List<int>`. Calls can continue to compose in that abstract form. A concrete list is recovered only where it is needed:
+The result stays abstract: `Select` returns `K<List, int>`, not `List<int>`, and calls continue to compose in that form. Recover the concrete list only where it is needed:
 
 ```csharp
 List<int> nlist = list.Select(x => x + 1)
@@ -103,11 +97,11 @@ List<int> nlist = list.Select(x => x + 1)
                       .As();
 ```
 
-The compromise is a small cast at the concrete boundary. Staying in the abstract `K<F, A>` form usually avoids repeated calls to `As`.
+The cost is one cast at the concrete boundary. Staying in `K<F, A>` avoids repeated `As` calls.
 
 ## [04]-[MAYBE_FUNCTOR]
 
-The same extension works for a different structure once that structure supplies its own trait implementation:
+The same extension serves a different structure once that structure supplies its own trait implementation:
 
 ```csharp
 public abstract record Maybe<A> : K<Maybe, A>;
@@ -133,7 +127,7 @@ public static class MaybeExtensions
 }
 ```
 
-`Maybe<A>` has the same two cases as language-ext's `Option<A>`: `Just` corresponds to `Some`, and `Nothing` to `None`. Mapping transforms the `Just` value and preserves `Nothing`:
+`Maybe<A>` has the two cases of LanguageExt's `Option<A>`: `Just` corresponds to `Some`, and `Nothing` to `None`. Mapping transforms the `Just` value and preserves `Nothing`:
 
 ```csharp
 var mx = new Just<int>(100);
@@ -148,7 +142,7 @@ var r2 = my.Select(x => x + 1)
 
 ## [05]-[GENERIC_FUNCTIONS]
 
-Per-type extension methods could provide mapping syntax, but they would not let one function work across all mappable structures. The trait constraint does:
+Per-type extension methods give mapping syntax; they do not let one function serve every mappable structure. The trait constraint does:
 
 ```csharp
 public static K<F, int> Foo<F>(K<F, string> ma)
@@ -156,7 +150,7 @@ public static K<F, int> Foo<F>(K<F, string> ma)
     ma.Select(x => x.Length);
 ```
 
-`Foo` works for any `F` that implements `Mappable<F>` rather than requiring separate `List<string>` and `Maybe<string>` versions.
+`Foo` works for any `F : Mappable<F>` instead of requiring separate `List<string>` and `Maybe<string>` versions.
 
 ## [06]-[MAPPABLE_AS_FUNCTOR]
 
@@ -170,26 +164,23 @@ public interface Functor<F>
 }
 ```
 
-Its shape corresponds directly to the higher-kinded definition:
+The shape corresponds to the higher-kinded definition:
 
 ```text
 class Functor f where
   fmap :: (a -> b) -> f a -> f b
 ```
 
-The types align as follows:
-- `Functor f` corresponds to `Functor<F>`.
-- `f a` corresponds to `K<F, A>`.
-- `f b` corresponds to `K<F, B>`.
-- `a -> b` corresponds to `Func<A, B>`.
+- `Functor f` is `Functor<F>`
+- `f a` is `K<F, A>`
+- `f b` is `K<F, B>`
+- `a -> b` is `Func<A, B>`
 
 Only the argument order differs in this illustrative C# definition; the implemented API places the function first.
 
-This encoding is not as general as type-system lambda abstraction in a language with native higher kinds, but it provides higher-rank polymorphism for traits. The C#-specific requirement is that each data type derive from `K<F, A>`.
-
 ## [07]-[SHAPE_AND_CAPABILITY]
 
-The data types remain simple descriptions of shape:
+The data types stay descriptions of shape:
 
 ```csharp
 public record List<A>(A[] Items) : K<List, A>;
@@ -200,16 +191,14 @@ public record Just<A>(A Value) : Maybe<A>;
 public record Nothing<A>() : Maybe<A>;
 ```
 
-The sibling types `List` and `Maybe` carry the trait implementations. This resembles type-class instances: the data type represents the shape, and the trait implementation represents a capability. Keeping behavior out of the data representation leaves the structure easier to move through parallel processing and serialization boundaries.
+The sibling types `List` and `Maybe` carry the trait implementations, as type-class instances do: the data type is the shape, the trait implementation is a capability. Behavior kept out of the data representation leaves the structure free to cross parallel-processing and serialization boundaries.
 
 ## [08]-[HIGHER_KINDED_ABSTRACTION]
 
-Moving from concrete generic types to abstractions over type constructors avoids the same kind of duplication that ordinary generics avoid over value types.
-
-Without this encoding, operations involving multiple constructors cannot be written in their general form. For example, C# cannot express `T<F<A>>` with `T` as a traversable structure and `F` as an applicative structure. It can encode that nesting as:
+Abstraction over type constructors removes the duplication that ordinary generics remove over value types. Without the encoding, operations that involve two constructors have no general form: C# cannot express `T<F<A>>` with `T` traversable and `F` applicative. It can encode the nesting as:
 
 ```text
 K<T, K<F, A>>
 ```
 
-With the higher-kinded encoding, each type can implement its traversable trait once. User-defined traversable and applicative types can then compose with language-ext's types instead of requiring a new cross-product of specialized functions.
+Each type implements its traversable trait once. User-defined traversable and applicative types then compose with LanguageExt's types instead of requiring a new cross-product of specialized functions.

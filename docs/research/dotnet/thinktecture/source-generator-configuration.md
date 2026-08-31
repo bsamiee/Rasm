@@ -1,22 +1,10 @@
 # [SOURCE_GENERATOR_CONFIGURATION]
 
-The source generator reads project-level MSBuild properties. They control diagnostics logging, the generated JetBrains annotation, and a debugging counter. They apply to every generated type in the project:
--`GenerateJetBrainsAnnotations` removes a generated type
-- `Counter` changes the text of every emitted file.
-
-The generator keeps a second file named `ThinktectureRuntimeExtensionsSourceGenerator.log` in the temp folder of the process that hosts the compiler. Setting `UseSharedCompilation` to `false` starts the compiler from the build, and the self-log follows the build's temp folder.
-
-- Keep the generator properties out of the committed project file. Pass them with `-p:` for a single diagnostic build, or keep them in a local, ignored props file.
-- Set `LogLevel` to `Information` when the goal is to see the generator run.
-- Point `LogFilePath` at a folder that exists before the build. The generator never creates folders.
-- Set `LogFilePathMustBeUnique` to `false` to collect every compiler process in one file. Keep the default `true` to read one process alone.
-- Delete the log file before a measurement.
-- Leave `GenerateJetBrainsAnnotations` unset. Turning it off without an accessible attribute fails the compilation with `CS0122` on every delegate parameter.
-- Use `Counter` only to detect regeneration. Turn it off before the generated files are compared or committed, because every run changes the header.
+The source generator reads project-level MSBuild properties. They control diagnostics logging, the generated JetBrains annotation, and a debugging counter, and they apply to every generated type in the project. The generator keeps a second file named `ThinktectureRuntimeExtensionsSourceGenerator.log` in the temp folder of the process that hosts the compiler; setting `UseSharedCompilation` to `false` starts the compiler from the build, and the self-log follows the build's temp folder.
 
 ## [01]-[MSBUILD_PROPERTIES]
 
-`Thinktecture.Runtime.Extensions` shipss a props file that declares one `CompilerVisibleProperty` item per property. MSBuild forwards each item to the compiler as an analyzer config global option named `build_property.<PropertyName>`. A global analyzer configuration file sets the same option directly with a `build_property.` key and needs no MSBuild property.
+`Thinktecture.Runtime.Extensions` ships a props file that declares one `CompilerVisibleProperty` item per property. MSBuild forwards each item to the compiler as an analyzer config global option named `build_property.<PropertyName>`. A global analyzer configuration file sets the same option directly with a `build_property.` key and needs no MSBuild property.
 
 Every property name below carries the prefix `ThinktectureRuntimeExtensions_SourceGenerator_`.
 
@@ -29,10 +17,10 @@ Every property name below carries the prefix `ThinktectureRuntimeExtensions_Sour
 |  [05]   | `GenerateJetBrainsAnnotations` | `disable`, `disabled`, `false`, or `0` turn it off, case-insensitive          | on        |
 |  [06]   | `Counter`                      | `enable`, `enabled`, `true`, or `1` turn it on, case-insensitive              | off       |
 
-- A blank `LogFilePath` disables file logging.
-- `LogFilePath` gates other logging properties. Without it the generator reads no log level, uniqueness flag, and no buffer size.
-- `LogMessageInitialBufferSize` presizes the in-memory queue of pending messages inside one sink and changes no output. Every other string leaves the annotation on and the counter off.
-- The properties live in a `PropertyGroup` of the project file, or in a shared build props file for a whole tree. A `-p:` argument on the command line sets them for one build.
+- A blank `LogFilePath` disables file logging, and `LogFilePath` gates the other logging properties: without it the generator reads no log level, no uniqueness flag, and no buffer size.
+- `LogMessageInitialBufferSize` presizes the in-memory queue of pending messages inside one sink and changes no output.
+- Every other string leaves the annotation on and the counter off.
+- The properties live in a `PropertyGroup` of the project file or in a shared build props file for a whole tree. A `-p:` argument sets them for one build.
 
 ```xml
 <PropertyGroup>
@@ -44,17 +32,17 @@ Every property name below carries the prefix `ThinktectureRuntimeExtensions_Sour
 
 ## [02]-[LOG_FILE_RESOLUTION]
 
-An existing file supplies its folder, name, and extension. An existing folder supplies only the folder, and the name defaults to `ThinktectureRuntimeExtensions_logs` with the extension `.log`. Every generator that names one path shares one sink, so one compiler process writes one file and interleaves its generators, the sink appends to an existing file.
+An existing file supplies its folder, name, and extension. An existing folder supplies the folder, and the name defaults to `ThinktectureRuntimeExtensions_logs` with the extension `.log`. Every generator that names one path shares one sink: one compiler process writes one file, interleaves its generators, and appends to an existing file. The generator never creates folders, so the folder must exist before the build.
 
 - With `LogFilePathMustBeUnique` at `true`, the file name becomes `<name>_<yyyyMMdd>_<HHmmss>_<guid><extension>` from the UTC clock, and each compiler process names a new file.
 - With `false`, the file name is `<name><extension>`, and every process appends to one file.
 - The generator opens the file on the first message it writes, not when the compilation starts.
 - The level filters the generator's own entries, not build diagnostics.
-- The generator writes one `Warning` entry, `Code generator '<name>' didn't emit any code for '<namespace>.<type>'.`
+- The generator writes one `Warning` entry: `Code generator '<name>' didn't emit any code for '<namespace>.<type>'.`
 
 ## [03]-[LOG_LEVELS]
 
-The enum order is `Trace`, `Debug`, `Information`, `Warning`, `Error`, `None`. Each line carries a local timestamp, the level, the generator name, and the message:
+The enum order is `Trace`, `Debug`, `Information`, `Warning`, `Error`, `None`. Each line carries a local timestamp, the level, the generator name, and the message.
 
 - Only `Information`, `Warning`, and `Error` create a file logger.
 - `Trace`, `Debug`, and `None` fall back to a logger that writes errors to the self-log alone.
@@ -72,12 +60,23 @@ Every generated `Switch` and `SwitchPartially` method marks each delegate parame
 - It skips the file when the compilation declares a class `JetBrains.Annotations.InstantHandleAttribute` in source.
 - It also skips the file when a metadata reference contains the module `JetBrains.Annotations.dll`, or when the property turns the generation off.
 
-The core runtime assembly carries its own internal copy of the attribute. Turning the generation off in a project without the `JetBrains.Annotations` package binds the generated `Switch` methods to that internal copy. Where the generator already skips the file, the property is redundant, and everywhere else it breaks the build.
+The core runtime assembly carries its own internal copy of the attribute. Turning the generation off in a project without the `JetBrains.Annotations` package binds the generated `Switch` methods to that internal copy. Where the generator already skips the file, the property is redundant; everywhere else it fails the compilation with `CS0122` on every delegate parameter.
 
 ## [05]-[COUNTER]
 
-With the counter on, every file a code generator emits starts with the line `// COUNTER: <n>`:
+With the counter on, every file a code generator emits starts with the line `// COUNTER: <n>`.
+
 - The number `n` is a process-wide running number padded to eight characters.
 - The generated JetBrains attribute file carries no header.
 - The number increments once per code-generation attempt, before the code exists, so a generator that emits nothing consumes a number.
 - A number that rises between two inspections shows that the generator ran again, and the highest number marks the last file of the process.
+
+## [06]-[DESIGN_RULES]
+
+- Keep the generator properties out of the committed project file. Pass them with `-p:` for one diagnostic build, or keep them in a local, ignored props file.
+- Set `LogLevel` to `Information` to see the generator run.
+- Point `LogFilePath` at a folder that exists before the build.
+- Set `LogFilePathMustBeUnique` to `false` to collect every compiler process in one file; keep the default `true` to read one process alone.
+- Delete the log file before a measurement.
+- Leave `GenerateJetBrainsAnnotations` unset.
+- Use `Counter` only to detect regeneration, and turn it off before generated files are compared or committed, because every run changes the header.

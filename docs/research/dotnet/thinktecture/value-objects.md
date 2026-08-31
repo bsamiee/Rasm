@@ -4,7 +4,7 @@ A value object is a domain value defined by its content, not by an identity. Two
 
 ## [01]-[PRIMITIVE_OBSESSION]
 
-A `string`, `int`, or `decimal` in a signature carries no rule and no meaning. Two parameters of the same primitive type swap without a compiler error. Validation of the same value repeats at every construction site, and a change to the rule misses a copy. Normalization such as trimming or rounding is skipped where nobody remembers it. The signals for a value object are duplicated validation, confusable parameters, magic strings or numbers, primitives that always travel together, and behavior tied to a raw value. A concept with one value becomes a simple value object. A concept with several values that belong together becomes a complex value object.
+A `string`, `int`, or `decimal` in a signature carries no rule and no meaning. Two parameters of the same primitive type swap without a compiler error. Validation of the same value repeats at every construction site, and a rule change misses a copy. Normalization such as trimming or rounding is skipped where a construction site forgets it. The signals for a value object are duplicated validation, confusable parameters, magic strings or numbers, primitives that always travel together, and behavior tied to a raw value. A concept with one value becomes a simple value object. A concept with several values that belong together becomes a complex value object.
 
 ## [02]-[SIMPLE_AND_COMPLEX]
 
@@ -54,11 +54,11 @@ Equality, `GetHashCode`, `==`, and `!=` run through the configured comparer. `To
 
 ## [04]-[VALIDATION_HOOK]
 
-`ValidateFactoryArguments` is a `static partial void` method. The first parameter is `ref ValidationError? validationError`, and each following parameter is the key or a member by `ref`. The hook rejects input by assigning `validationError` and normalizes input by assigning the `ref` parameter. A `void` partial method without an implementation is erased by the compiler, so a type without rules pays nothing. Every entry point runs the hook: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, the JSON converters, the MessagePack formatter, and model binding. `ValidateConstructorArguments(ref TKey value)` exists, and it rejects input by throwing alone, so the factory hook is the correct place for rules.
+`ValidateFactoryArguments` is a `static partial void` method. The first parameter is `ref ValidationError? validationError`, and each following parameter is the key or a member by `ref`. The hook rejects input by assigning `validationError` and normalizes input by assigning the `ref` parameter. A `void` partial method without an implementation is erased by the compiler. A type without rules pays nothing. Every entry point runs the hook: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, the JSON converters, the MessagePack formatter, and model binding. `ValidateConstructorArguments(ref TKey value)` exists, and it rejects input by throwing alone. The factory hook is the correct place for rules.
 
 ## [05]-[HOOK_PARAMETERS]
 
-The hook accepts trailing parameters after the key or members. Declare them by value and without a default, or `TTRESG076` reports the parameter. The generator reproduces each additional parameter on its own declaration, re-declares a reference type as nullable, and gives it the default `null` or `default`. With additional parameters present, the generator emits `private static TValidationError? ValidateCore(members, extras, out T? obj)` and `private static T CreateCore(members, extras)`. The public `Validate` delegates to `ValidateCore` and passes `default` for every additional parameter, so `Create`, `TryCreate`, serialization, and model binding keep their shape. `CreateCore` follows `CreateFactoryMethodName`, so a factory renamed `FromRange` gets `FromRangeCore`. The `ValidateCore` name is fixed.
+The hook accepts trailing parameters after the key or members. Declare them by value and without a default, or `TTRESG076` reports the parameter. The generator reproduces each additional parameter on its own declaration, re-declares a reference type as nullable, and gives it the default `null` or `default`. With additional parameters present, the generator emits `private static TValidationError? ValidateCore(members, extras, out T? obj)` and `private static T CreateCore(members, extras)`. The public `Validate` delegates to `ValidateCore` and passes `default` for every additional parameter. `Create`, `TryCreate`, serialization, and model binding keep their shape. `CreateCore` follows `CreateFactoryMethodName`: a factory renamed `FromRange` gets `FromRangeCore`. The `ValidateCore` name is fixed.
 
 ```csharp
 [ValueObject<decimal>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -78,9 +78,9 @@ internal readonly partial struct Money : System.Numerics.IMultiplyOperators<Mone
 }
 ```
 
-The generated default is `MidpointRounding.ToEven`, so `Money.Create(19.999m)` yields `20.00`. `Money.Create(19.999m, MidpointRounding.ToNegativeInfinity)` yields `19.99`. Rounding happens once, inside the hook, whichever factory is called. Multiplication by `decimal` is disabled because the product needs a rounding decision, and multiplication by `int` is hand-written through `Create`.
+The generated default is `MidpointRounding.ToEven`. `Money.Create(19.999m)` yields `20.00`. `Money.Create(19.999m, MidpointRounding.ToNegativeInfinity)` yields `19.99`. Rounding happens once, inside the hook, whichever factory is called. Multiplication by `decimal` is disabled because the product needs a rounding decision, and multiplication by `int` is hand-written through `Create`.
 
-The hook has a second form with a return value. When the implementation is declared `private static partial string ValidateFactoryArguments(ref ValidationError? validationError, ref int value)`, the generator emits the same declaration. The generated `Validate` passes the returned value to `partial void FactoryPostInit(string factoryArgumentsValidationError)` on the constructed instance. `FactoryPostInit` runs only when validation succeeded, so the instance already satisfies every rule. `[IgnoreMember]` exempts the receiving field from `TTRESG001`, and the field needs an initializer, because the generated constructor leaves it unset (`CS8618`). A `readonly` struct cannot hold such a field, so the pattern belongs to a class. A hand-written factory that calls the hook itself drops the return value, so hand-written factories delegate to `CreateCore` and `ValidateCore`.
+The hook has a second form with a return value. When the implementation is declared `private static partial string ValidateFactoryArguments(ref ValidationError? validationError, ref int value)`, the generator emits the same declaration. The generated `Validate` passes the returned value to `partial void FactoryPostInit(string factoryArgumentsValidationError)` on the constructed instance. `FactoryPostInit` runs only when validation succeeded. The instance already satisfies every rule. `[IgnoreMember]` exempts the receiving field from `TTRESG001`, and the field needs an initializer, because the generated constructor leaves it unset (`CS8618`). A `readonly` struct cannot hold such a field. The pattern belongs to a class. A hand-written factory that calls the hook itself drops the return value. Hand-written factories delegate to `CreateCore` and `ValidateCore`.
 
 ## [06]-[COMPARERS]
 
@@ -92,7 +92,7 @@ A complex value object compares every assignable member. `DefaultStringCompariso
 
 ## [07]-[CUSTOM_VALIDATION_ERROR]
 
-`ValidationError` is a sealed class with a `Message`. A custom error type implements `IValidationError<T>`, whose one member is `static abstract T Create(string message)`. The generator calls `Create` for its own errors, such as the null-argument error. `ToString()` is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state, so the custom type overrides it. `[ValidationError<T>]` on the value object switches the hook parameter, the second `TryCreate` overload, and `Validate` to the custom type.
+`ValidationError` is a sealed class with a `Message`. A custom error type implements `IValidationError<T>`, whose one member is `static abstract T Create(string message)`. The generator calls `Create` for its own errors, such as the null-argument error. `ToString()` is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state. The custom type overrides it. `[ValidationError<T>]` on the value object switches the hook parameter, the second `TryCreate` overload, and `Validate` to the custom type.
 
 ```csharp
 internal sealed record BoundaryValidationError(string Message, decimal? Lower, decimal? Upper) : IValidationError<BoundaryValidationError> {
@@ -128,11 +128,11 @@ internal sealed partial class Interval {
 
 ## [09]-[NULL_AND_EMPTY_INPUT]
 
-`NullInFactoryMethodsYieldsNull = true` makes the factory methods of a class return `null` for a `null` argument instead of an error. `EmptyStringInFactoryMethodsYieldsNull = true` extends this to empty and whitespace strings. A struct cannot be `null`, so both settings are ignored, and `EmptyStringInFactoryMethodsYieldsNull` on a struct warns with `TTRESG109`. With either setting, `TryCreate` returns `true` with a `null` object, and the generated `out` parameter loses `[NotNullWhen(true)]`. `Validate` returns a `null` error with a `null` object. `Parse` keeps its non-nullable contract. With `EmptyStringInFactoryMethodsYieldsNull`, `Parse` of an empty string throws `FormatException`, and the message states that empty or whitespace input yields `null`. Minimal APIs bind through `TryParse`, so empty input fails to bind for such a type.
+`NullInFactoryMethodsYieldsNull = true` makes the factory methods of a class return `null` for a `null` argument instead of an error. `EmptyStringInFactoryMethodsYieldsNull = true` extends this to empty and whitespace strings. A struct cannot be `null`: both settings are ignored, and `EmptyStringInFactoryMethodsYieldsNull` on a struct warns with `TTRESG109`. With either setting, `TryCreate` returns `true` with a `null` object, and the generated `out` parameter loses `[NotNullWhen(true)]`. `Validate` returns a `null` error with a `null` object. `Parse` keeps its non-nullable contract. With `EmptyStringInFactoryMethodsYieldsNull`, `Parse` of an empty string throws `FormatException`, and the message states that empty or whitespace input yields `null`. Minimal APIs bind through `TryParse`. Empty input fails to bind for such a type.
 
 ## [10]-[OPERATORS]
 
-`EqualityComparisonOperators` and `ComparisonOperators` accept `OperatorsGeneration.None`, `Default`, or `DefaultWithKeyTypeOverloads`. `Default` generates operators between two value objects. `DefaultWithKeyTypeOverloads` adds overloads with the key type in both operand positions, so `amount > 42m` compiles without a conversion. The two settings must match, or `TTRESG105` warns. `AdditionOperators`, `SubtractionOperators`, `MultiplyOperators`, and `DivisionOperators` take the same values and default to `Default` when the key supports the operation. Every arithmetic result goes through `Create`, so the invariant holds after every operation, and `Amount.Create(1m) - 5m` throws. The generator emits `operator checked +` and its siblings beside the unchecked forms when the key type declares the checked operator.
+`EqualityComparisonOperators` and `ComparisonOperators` accept `OperatorsGeneration.None`, `Default`, or `DefaultWithKeyTypeOverloads`. `Default` generates operators between two value objects. `DefaultWithKeyTypeOverloads` adds overloads with the key type in both operand positions. `amount > 42m` compiles without a conversion. The two settings must match, or `TTRESG105` warns. `AdditionOperators`, `SubtractionOperators`, `MultiplyOperators`, and `DivisionOperators` take the same values and default to `Default` when the key supports the operation. Every arithmetic result goes through `Create`. The invariant holds after every operation, and `Amount.Create(1m) - 5m` throws. The generator emits `operator checked +` and its siblings beside the unchecked forms when the key type declares the checked operator.
 
 ```csharp
 [ValueObject<decimal>(
@@ -187,7 +187,7 @@ internal readonly partial struct OpenEndDate {
 }
 ```
 
-The nullable backing field maps the CLR default to `DateOnly.MaxValue`, so `default(OpenEndDate) == OpenEndDate.Infinite` and `OpenEndDate.Infinite == DateOnly.MaxValue` both hold. A query `Where(p => p.EndDate >= today)` needs one comparison and no `null` branch.
+The nullable backing field maps the CLR default to `DateOnly.MaxValue`. `default(OpenEndDate) == OpenEndDate.Infinite` and `OpenEndDate.Infinite == DateOnly.MaxValue` both hold. A query `Where(p => p.EndDate >= today)` needs one comparison and no `null` branch.
 
 ## [13]-[COMPOSITION]
 
@@ -221,7 +221,7 @@ internal sealed partial class Address {
 
 ## [14]-[GENERIC_KEY_TYPES]
 
-`[ValueObject<TypeParamRef1>]` through `TypeParamRef5` bind the key to the type parameter at that position. The parameter needs a `notnull`, `struct`, or `class` constraint, or `TTRESG074` reports it. `Create`, `TryCreate`, `Validate`, equality, and the conversion operators are always generated. The rest follows the constraints on the parameter, so `where T : INumber<T>` yields parsing, comparison, formatting, and arithmetic together.
+`[ValueObject<TypeParamRef1>]` through `TypeParamRef5` bind the key to the type parameter at that position. The parameter needs a `notnull`, `struct`, or `class` constraint, or `TTRESG074` reports it. `Create`, `TryCreate`, `Validate`, equality, and the conversion operators are always generated. The rest follows the constraints on the parameter: `where T : INumber<T>` yields parsing, comparison, formatting, and arithmetic together.
 
 ```csharp
 [ValueObject<TypeParamRef1>]
@@ -230,11 +230,11 @@ internal readonly partial struct Measure<T> where T : System.Numerics.INumber<T>
 
 ## [15]-[USE_CASES]
 
-A recurring date has a day and a month and no year. A `DateOnly` key pinned to one leap year gives ordering, equality, and the calendar rules. `ConversionFromKeyMemberType = ConversionOperatorsGeneration.Implicit` accepts any `DateOnly`, and `ConversionToKeyMemberType = ConversionOperatorsGeneration.None` hides the pinned year. The hook rewrites the year, so every instance shares it.
+A recurring date has a day and a month and no year. A `DateOnly` key pinned to one leap year gives ordering, equality, and the calendar rules. `ConversionFromKeyMemberType = ConversionOperatorsGeneration.Implicit` accepts any `DateOnly`, and `ConversionToKeyMemberType = ConversionOperatorsGeneration.None` hides the pinned year. The hook rewrites the year, and every instance shares it.
 
-Behavior that belongs to a value lives on the value. A `CurrencyAmount` struct with `decimal Amount` and `CurrencyCode Currency` declares `operator +` by hand. The operator rejects two different currencies with `InvalidOperationException` and returns `Create(left.Amount + right.Amount, left.Currency)`. The `CurrencyCode` hook normalizes with `ToUpperInvariant()`, so `CurrencyCode.Create("eur") == CurrencyCode.EUR` holds with an ordinal comparer.
+Behavior that belongs to a value lives on the value. A `CurrencyAmount` struct with `decimal Amount` and `CurrencyCode Currency` declares `operator +` by hand. The operator rejects two different currencies with `InvalidOperationException` and returns `Create(left.Amount + right.Amount, left.Currency)`. The `CurrencyCode` hook normalizes with `ToUpperInvariant()`. `CurrencyCode.Create("eur") == CurrencyCode.EUR` holds with an ordinal comparer.
 
-A complex value object with a string representation carries `[ObjectFactory<string>]`. The attribute adds `IObjectFactory<FileUrn, string, ValidationError>`, which requires a static `Validate(string? value, IFormatProvider? provider, out FileUrn? item)`. `UseForSerialization = SerializationFrameworks.All` adds `IConvertible<string>`, which requires `ToValue()`, and makes every serializer read and write the string. `HasCorrespondingConstructor = true` requires a constructor with one `string` parameter, which `TTRESG059` enforces. Entity Framework Core builds the instance through that constructor only when the factory also sets `UseWithEntityFramework = true`. The constructor trusts the stored value, so a row without a separator fails materialization with an index error. Every other framework keeps calling `Validate`. The string factory also supplies `Parse` and `TryParse`, so the type binds in a minimal API.
+A complex value object with a string representation carries `[ObjectFactory<string>]`. The attribute adds `IObjectFactory<FileUrn, string, ValidationError>`, which requires a static `Validate(string? value, IFormatProvider? provider, out FileUrn? item)`. `UseForSerialization = SerializationFrameworks.All` adds `IConvertible<string>`, which requires `ToValue()`, and makes every serializer read and write the string. `HasCorrespondingConstructor = true` requires a constructor with one `string` parameter, which `TTRESG059` enforces. Entity Framework Core builds the instance through that constructor only when the factory also sets `UseWithEntityFramework = true`. The constructor trusts the stored value. A row without a separator fails materialization with an index error. Every other framework keeps calling `Validate`. The string factory also supplies `Parse` and `TryParse`. The type binds in a minimal API.
 
 ```csharp
 [ComplexValueObject(DefaultStringComparison = StringComparison.OrdinalIgnoreCase)]
@@ -267,7 +267,7 @@ internal sealed partial class FileUrn {
 
 `FileUrn.Create("blob", "a/b.pdf")` serializes to the JSON string `"blob:a/b.pdf"`, and `FileUrn.Parse("nocolon", null)` throws `FormatException` with the format message.
 
-Value objects also serve as the cases of a regular union. A `[Union]` abstract class `Jurisdiction` holds nested cases: a `[ValueObject<string>(KeyMemberName = "IsoCode")] Country`, a `[ValueObject<int>(KeyMemberName = "Number")] FederalState`, and a `[ValueObject<string>(KeyMemberName = "Name")] District`. A `[ComplexValueObject] Unknown` with no members and a static `Instance` is the fourth case. The string cases carry both comparer attributes. `Unknown` receives value equality from the complex form, so two `Unknown` instances are equal, and `Switch` covers the four cases.
+Value objects also serve as the cases of a regular union. A `[Union]` abstract class `Jurisdiction` holds nested cases: a `[ValueObject<string>(KeyMemberName = "IsoCode")] Country`, a `[ValueObject<int>(KeyMemberName = "Number")] FederalState`, and a `[ValueObject<string>(KeyMemberName = "Name")] District`. A `[ComplexValueObject] Unknown` with no members and a static `Instance` is the fourth case. The string cases carry both comparer attributes. `Unknown` receives value equality from the complex form: two `Unknown` instances are equal, and `Switch` covers the four cases.
 
 ## [16]-[FRAMEWORK_INTEGRATION]
 
@@ -288,7 +288,7 @@ Every package name below omits the prefix `Thinktecture.Runtime.Extensions.`.
 
 `System.Text.Json.JsonSerializer.Serialize` writes `Amount.Create(10.5m)` as `10.5`, `Boundary.Create(1m, 2m)` as `{"Lower":1,"Upper":2}`, and a `FileUrn` as its string. A record `Line(Amount Price, Boundary Range, FileUrn Document)` round-trips to an equal value. A failed JSON read throws `JsonException` with the validation text.
 
-Minimal APIs bind a simple value object through `IParsable<T>`. A failed `TryParse` yields a plain `400` without the validation text, because the binding contract carries no message. The `MaybeBound<T, TKey, TValidationError>` pattern is application code. Its `TryParse` always returns `true`, parses the key with `TKey.TryParse`, calls `T.Validate`, and stores either the value or the error text. An endpoint filter or `IValidatableObject` then rejects the stored error. MVC model binding runs `Validate` and writes the error into `ModelState`, so `[ApiController]` answers `400` with the text. The model binder covers simple value objects and any type with `[ObjectFactory<string>(UseForModelBinding = true)]`, and the provider goes in front of the default providers.
+Minimal APIs bind a simple value object through `IParsable<T>`. A failed `TryParse` yields a plain `400` without the validation text, because the binding contract carries no message. The `MaybeBound<T, TKey, TValidationError>` pattern is application code. Its `TryParse` always returns `true`, parses the key with `TKey.TryParse`, calls `T.Validate`, and stores either the value or the error text. An endpoint filter or `IValidatableObject` then rejects the stored error. MVC model binding runs `Validate` and writes the error into `ModelState`. `[ApiController]` answers `400` with the text. The model binder covers simple value objects and any type with `[ObjectFactory<string>(UseForModelBinding = true)]`, and the provider goes in front of the default providers.
 
 `AddThinktectureOpenApiFilters` renders a simple value object as its key type and a complex value object as an object with its members. `ThinktectureSchemaFilterOptions.RequiredMemberEvaluator` defaults to `RequiredMemberEvaluator.FromDependencyInjection`. The registration adds `DefaultRequiredMemberEvaluator` as the `IRequiredMemberEvaluator`. It marks a member that implements `IDisallowDefaultValue` as required, and a non-nullable reference member as required. `All` and `None` override that per application, and Swashbuckle handles a member with `[Required]`.
 
@@ -296,7 +296,7 @@ Entity Framework Core stores a simple value object in one column of the key type
 
 - `UseThinktectureValueConverters` on `DbContextOptionsBuilder` applies to every context that uses the options
 - `AddThinktectureValueConverters` exists on `ModelBuilder`, `EntityTypeBuilder`, `OwnedNavigationBuilder`, and `ComplexPropertyBuilder`
-- `HasThinktectureValueConverter` on `PropertyBuilder<TProperty>` and `ComplexTypePropertyBuilder<TProperty>` applies the converter to one property
+- `HasThinktectureValueConverter` on `PropertyBuilder<TProperty>`, `ComplexTypePropertyBuilder<TProperty>`, `PrimitiveCollectionBuilder<TProperty>` applies converter to one property
 - Both accept a `Configuration` whose `UseConstructorForRead` defaults to `true`
 - With that default a row materializes through the constructor, and the hook does not run on read
 - A type with an object factory runs `Validate` on read unless it declares `HasCorrespondingConstructor = true`
@@ -305,19 +305,19 @@ Entity Framework Core stores a simple value object in one column of the key type
 
 A complex value object maps as a complex property or an owned type. `AddThinktectureValueConverters` on that builder converts the simple value objects nested inside it. A complex value object with `[ObjectFactory<T>(UseWithEntityFramework = true)]` maps to one column of `T` instead.
 
-Serilog destructuring with `{@Amount}` logs a simple value object as its key, `99.95` for `Amount.Create(99.95m)`, and `TypesToRenderAsString.ValueObjects` switches that to `ToString()`. The policy declines a complex value object, so Serilog's default object destructuring applies to it.
+Serilog destructuring logs a simple value object as its key and declines a complex value object; `TypesToRenderAsString.ValueObjects` switches the simple form to `ToString()`.
 
 ## [17]-[DESIGN_RULES]
 
 `HasConversion` with a lambda that calls `Create` re-validates every row read from the database.
 
-| [INDEX] | [WRONG_FORM]                                                                                        | [CORRECT_FORM]                                                          |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | A `throw` inside `ValidateFactoryArguments` skips `TryCreate`, `Validate`, and every framework path | assign `validationError` and `return`                                   |
-|  [02]   | `value.Trim().ToUpper()` in a hook depends on the current culture                                   | `value.Trim().ToUpperInvariant()`                                       |
-|  [03]   | `[ValueObject<string>]` without comparer attributes                                                 | both `[KeyMemberEqualityComparer<...>]` and `[KeyMemberComparer<...>]`  |
-|  [04]   | `record Payment(decimal Amount, string Account)` validating in a throwing constructor               | `record Payment(Amount Amount, AccountNumber Account)`                  |
-|  [05]   | `HasConversion(name => (string)name, s => ProductName.Create(s))`                                   | `HasThinktectureValueConverter()` or `UseThinktectureValueConverters()` |
+| [INDEX] | [WRONG_FORM]                                                                                 | [CORRECT_FORM]                                                          |
+| :-----: | :------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `throw` inside `ValidateFactoryArguments` skips `TryCreate`, `Validate`, and framework paths | assign `validationError` and `return`                                   |
+|  [02]   | `value.Trim().ToUpper()` in a hook depends on the current culture                            | `value.Trim().ToUpperInvariant()`                                       |
+|  [03]   | `[ValueObject<string>]` without comparer attributes                                          | both `[KeyMemberEqualityComparer<...>]` and `[KeyMemberComparer<...>]`  |
+|  [04]   | `record Payment(decimal Amount, string Account)` validating in a throwing constructor        | `record Payment(Amount Amount, AccountNumber Account)`                  |
+|  [05]   | `HasConversion(name => (string)name, s => ProductName.Create(s))`                            | `HasThinktectureValueConverter()` or `UseThinktectureValueConverters()` |
 
 Do not register `ThinktectureJsonConverterFactory` at the host for a complex value object without an object factory. Reference `Thinktecture.Runtime.Extensions.Json` from the project that declares the type.
 

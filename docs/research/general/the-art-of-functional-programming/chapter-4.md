@@ -151,8 +151,8 @@ length : 'a list -> int
 ## Algebraic data types
 
 Compound types arise from two forms:
-- **Combination (product):** a value contains all listed components. `int * string` contains every integer-string pair.
-- **Alternation (sum):** a value is one of several alternatives. A list is either `[]` or a head-tail pair.
+- Combination (product): a value contains all listed components. `int * string` contains every integer-string pair.
+- Alternation (sum): a value is one of several alternatives. A list is either `[]` or a head-tail pair.
 
 An algebraic data type combines sums and products. Each constructor may carry zero, one, or several values.
 

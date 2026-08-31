@@ -5,8 +5,8 @@
 The core forms of `Map` and `Bind` accept unary functions, but real functions often need several arguments. Currying turns an n-argument function into a sequence of unary functions, allowing each argument to be supplied while the computation remains inside an effect such as `Option<T>` or `Validation<T>`.
 
 There are two useful composition models:
-- **Applicative composition** uses `Return` and `Apply` to combine elevated values that are computed independently; an effect-specific `Apply`, such as Validation's, can accumulate their failures.
-- **Monadic composition** uses `Bind`, normally through LINQ query syntax, when a later computation depends on an earlier result.
+- Applicative composition uses `Return` and `Apply` to combine elevated values that are computed independently; an effect-specific `Apply`, such as Validation's, can accumulate their failures.
+- Monadic composition uses `Bind`, normally through LINQ query syntax, when a later computation depends on an earlier result.
 
 This distinction controls behavior. Validation's applicative flow can combine all available failures; its monadic flow stops before later work is evaluated after a failure.
 

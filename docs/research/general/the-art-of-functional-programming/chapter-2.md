@@ -3,8 +3,8 @@
 ## The expression-oriented model
 
 Functional programming evaluates expressions to values. Imperative languages divide language constructs into two categories:
-- **Expressions** evaluate to values: arithmetic such as `1 + 2`, booleans such as `true || false`, and strings such as `"Hello"`.
-- **Statements** issue commands and are characterized by side effects: assignments, statement-form conditionals, and loops.
+- Expressions evaluate to values: arithmetic such as `1 + 2`, booleans such as `true || false`, and strings such as `"Hello"`.
+- Statements issue commands and are characterized by side effects: assignments, statement-form conditionals, and loops.
 
 In the functional model, values move through function arguments and return values instead of variable assignments. Conditionals are expressions, and repeated computation uses recursion instead of `for` or `while` loops. Because every construct is an expression, simple expressions can be combined into larger ones without crossing an expression-statement boundary.
 
@@ -65,7 +65,7 @@ This uniform ability to combine is a central advantage of an expression-only mod
 
 ## Syntax and expression structure
 
-The **syntax** of a language is the set of rules that determines which character sequences are valid programs. Validity is language-specific: the same input string may be accepted by one language and rejected by another.
+The syntax of a language is the set of rules that determines which character sequences are valid programs. Validity is language-specific: the same input string may be accepted by one language and rejected by another.
 
 Textual programming-language syntax is hierarchical. In the chapter's OCaml example, it is built in layers:
 1. ASCII characters form literals, operators, keywords, and names.
@@ -103,12 +103,12 @@ Recursive productions allow expressions of unbounded depth. Their structure is a
 ## Parsing
 
 A compiler's parser determines whether input is syntactically valid and constructs its structural representation. Parsing proceeds in two conceptual stages:
-1. **Recognize language units.** Characters are grouped into literals, operators, and keywords. If a group is not a valid language unit, parsing stops. Thus `1xyz + 2` yields an invalid-literal error because `1xyz` cannot be recognized as a valid literal.
-2. **Recognize grammatical structure.** The units are checked against the grammar by attempting to build a parse tree. Thus `1 +` yields a syntax error: `+` requires a right operand, even though both `1` and `+` are individually recognized units.
+1. Recognize language units. Characters are grouped into literals, operators, and keywords. If a group is not a valid language unit, parsing stops. Thus `1xyz + 2` yields an invalid-literal error because `1xyz` cannot be recognized as a valid literal.
+2. Recognize grammatical structure. The units are checked against the grammar by attempting to build a parse tree. Thus `1 +` yields a syntax error: `+` requires a right operand, even though both `1` and `+` are individually recognized units.
 
 For `if 1 = 2 then 0 else 42`, the recognized units form an `if`-expression tree whose condition is equality between `1` and `2`, with `0` and `42` as the two branches.
 
-The parser normally produces an **abstract syntax tree (AST)** for later compiler phases. An AST preserves structured content while omitting concrete details that are no longer needed, such as whitespace, parentheses, and syntax keywords. The AST is subsequently used for type checking and code generation.
+The parser normally produces an abstract syntax tree (AST) for later compiler phases. An AST preserves structured content while omitting concrete details that are no longer needed, such as whitespace, parentheses, and syntax keywords. The AST is subsequently used for type checking and code generation.
 
 The parser therefore partitions all possible input strings: syntactically valid expressions are accepted; every other string is rejected before later phases.
 
@@ -141,7 +141,7 @@ Compiler acceptance forms nested sets: all strings contain the syntactically val
 
 ## Values and semantics
 
-**Syntax** concerns whether and how characters form an expression. **Semantics** concerns the expression's meaning or value. For `12 + 34`, parsing the character sequence and constructing its AST are syntactic work; obtaining `46` is semantic evaluation.
+Syntax concerns whether and how characters form an expression. Semantics concerns the expression's meaning or value. For `12 + 34`, parsing the character sequence and constructing its AST are syntactic work; obtaining `46` is semantic evaluation.
 
 ### Interpretation
 

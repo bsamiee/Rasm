@@ -4,10 +4,10 @@
 
 Programs must represent real-world change, but change does not require mutation.
 
-- **Mutation** overwrites an existing value in place.
-- **Immutable change** creates a new value representing the next state.
-- **State** is a snapshot at a point in time.
-- **Transition** is a function from one snapshot to the next.
+- Mutation overwrites an existing value in place.
+- Immutable change creates a new value representing the next state.
+- State is a snapshot at a point in time.
+- Transition is a function from one snapshot to the next.
 
 An entity may retain its identity while passing through many immutable states. A bank account is still the same account after it is frozen, but its active and frozen states are distinct values. A complete model therefore needs the snapshots, the transitions between them, and often an association from the enduring identity to its current snapshot.
 
@@ -22,10 +22,10 @@ current state --transition--> next state
 ## Why Shared Mutation Is Dangerous
 
 Shared mutable state creates several connected problems:
-1. **Lost updates:** concurrent operations can read the same old value and overwrite one another's results.
-2. **Temporary invalid states:** a multi-field update exposes intermediate combinations when fields are changed separately.
-3. **Hidden coupling:** every reader depends on every code path capable of changing the shared object.
-4. **Loss of purity:** changing state outside a function's local scope is an observable side effect.
+1. Lost updates: concurrent operations can read the same old value and overwrite one another's results.
+2. Temporary invalid states: a multi-field update exposes intermediate combinations when fields are changed separately.
+3. Hidden coupling: every reader depends on every code path capable of changing the shared object.
+4. Loss of purity: changing state outside a function's local scope is an observable side effect.
 
 A lock can protect a simple update, but coordination becomes difficult when one business action affects several objects or subsystems. The larger the mutation boundary, the harder it is to reason about atomicity and correctness.
 
@@ -132,7 +132,7 @@ No C# technique can make mutation absolutely impossible because reflection can a
 
 ## Cost Model of Immutable Updates
 
-An immutable update creates another top-level object, increasing allocations and eventual garbage collection. It normally performs a **shallow copy**: unchanged immutable children are shared, while only changed values and the new parent are allocated.
+An immutable update creates another top-level object, increasing allocations and eventual garbage collection. It normally performs a shallow copy: unchanged immutable children are shared, while only changed values and the new parent are allocated.
 
 This makes the usual tradeoff:
 - In-place mutation is cheaper for the individual write.
@@ -150,7 +150,7 @@ A functional singly linked list is recursively defined as:
 List<T> = Empty | Cons(head: T, tail: List<T>)
 ```
 
-Here, **persistent** means that earlier in-memory versions remain available after an update; it does not mean storage on disk. A persistent structure should also keep its principal operations within the same order of magnitude as the corresponding mutable structure.
+Here, persistent means that earlier in-memory versions remain available after an update; it does not mean storage on disk. A persistent structure should also keep its principal operations within the same order of magnitude as the corresponding mutable structure.
 
 All operations distinguish the two cases. Traversals recurse through the tail:
 
@@ -205,7 +205,7 @@ old root                 new root
 L      R         ->      L    rebuilt R
 ```
 
-The insertion descends through the right subtree. At a leaf it creates a branch containing the existing leaf and the new leaf; on the way back it rebuilds only that path while sharing each untouched left subtree. This reuse is **structural sharing**. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, so a higher-arity production tree can remain shallow even for a large collection. This sample always inserts on the right and therefore becomes unbalanced; efficient production structures need balancing.
+The insertion descends through the right subtree. At a leaf it creates a branch containing the existing leaf and the new leaf; on the way back it rebuilds only that path while sharing each untouched left subtree. This reuse is structural sharing. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, so a higher-arity production tree can remain shallow even for a large collection. This sample always inserts on the right and therefore becomes unbalanced; efficient production structures need balancing.
 
 ## Practical Decision Rules
 

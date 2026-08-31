@@ -82,13 +82,13 @@ Because each range variable is bound once, every stage remains available for ins
 ### [03.2]-[COMPOSABLE_FUNCTIONS]
 
 The following properties support function reuse and rearrangement:
-- **Pure:** its result depends only on its arguments, with no side effects.
-- **Chainable:** an instance or extension receiver lets its result flow into the next call.
-- **General:** it performs one operation that applies to multiple use cases.
-- **Structure-preserving:** when possible, it returns the same outer structure it accepts.
-- **Non-`void`:** it returns data for the next function. An `Action` is a terminal step.
+- Pure: its result depends only on its arguments, with no side effects.
+- Chainable: an instance or extension receiver lets its result flow into the next call.
+- General: it performs one operation that applies to multiple use cases.
+- Structure-preserving: when possible, it returns the same outer structure it accepts.
+- Non-`void`: it returns data for the next function. An `Action` is a terminal step.
 
-These are heuristics, not requirements. Terminal operations materialize or reduce a structure, or perform effects.
+The properties are guidance, not requirements. Terminal operations materialize or reduce a structure, or perform effects; they end a chain instead of continuing it.
 
 Prefer small, general building blocks over one specific aggregate operation:
 
@@ -192,7 +192,7 @@ internal sealed class Transfers(IRepository<AccountState> accounts, ISwiftServic
 }
 ```
 
-`Get` can find no account, and `MakeTransfer` can reject the transfer, so `Book` binds them on one `IO` error channel instead of nesting result types. `Save` and `Wire` run only when both succeed, and each effect is one visible step of the query. The host runs `Book` with `RunSafe`, which returns `Fin<Unit>` and carries the typed error out of the effect.
+`Get` can find no account, and `MakeTransfer` can reject the transfer. `Book` binds them on one `IO` error channel instead of nesting result types. `Save` and `Wire` run only when both succeed, and each effect is one visible step of the query. The host runs `Book` with `RunSafe`, which returns `Fin<Unit>` and carries the typed error out of the effect.
 
 ## [07]-[DECLARATIVE_CODE]
 
@@ -218,7 +218,7 @@ Let a top-level entry point compose functions from lower-level components while 
 
 ## [09]-[LIMITS]
 
-- **`Option` discards the reason for failure, and `Fin` keeps it.** `Option` can short-circuit the flow, but it cannot distinguish a missing account from insufficient funds. `Fin` carries the typed `Error` without changing the compositional approach.
-- **Composition does not make distributed effects atomic.** Saving a debited account and wiring funds can fail between operations. A database transaction cannot protect an external call from process failure after the call but before commit.
-- **One multi-system pattern uses a persisted work item and idempotency.** Persist a representation of the combined work atomically, process it until all effects complete, and make repeat execution safe.
-- **Confidence comes from tests.** Do not inspect the implementation and assume that its abstracted operations are correct.
+- `Option` discards the reason for failure, and `Fin` keeps it. `Option` can short-circuit the flow, but it cannot distinguish a missing account from insufficient funds. `Fin` carries the typed `Error` without changing the compositional approach.
+- Composition does not make distributed effects atomic. Saving a debited account and wiring funds can fail between operations. A database transaction cannot protect an external call from process failure after the call but before commit.
+- One multi-system pattern uses a persisted work item and idempotency. Persist a representation of the combined work atomically, process it until all effects complete, and make repeat execution safe.
+- Confidence comes from tests. Do not inspect the implementation and assume that its abstracted operations are correct.

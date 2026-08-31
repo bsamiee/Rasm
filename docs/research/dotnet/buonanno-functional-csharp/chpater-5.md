@@ -66,11 +66,11 @@ The pipeline states what is wanted. Iteration, branching, and enumeration mechan
 ### Properties of Composable Functions
 
 A function becomes easier to reuse and rearrange when it is:
-- **Pure:** its result depends only on its arguments, with no side effects.
-- **Chainable:** an instance or extension receiver lets its result flow naturally into the next call.
-- **General:** it performs one broadly useful operation rather than encoding one narrow use case.
-- **Shape-preserving:** when possible, it returns the same outer structure it accepts.
-- **Value-producing:** it returns data for the next function instead of ending in `void`; an `Action` is necessarily a terminal step.
+- Pure: its result depends only on its arguments, with no side effects.
+- Chainable: an instance or extension receiver lets its result flow naturally into the next call.
+- General: it performs one broadly useful operation rather than encoding one narrow use case.
+- Shape-preserving: when possible, it returns the same outer structure it accepts.
+- Value-producing: it returns data for the next function instead of ending in `void`; an `Action` is necessarily a terminal step.
 
 These are design heuristics, not absolute requirements. Terminal operations must eventually collapse a shape or perform effects. The important distinction is that those operations deliberately end a pipeline.
 
@@ -203,7 +203,7 @@ Instead, let a top-level entry point compose functions exposed by any lower-leve
 
 ## Limits and Failure Modes
 
-- **`Option` discards the reason for failure.** It can short-circuit the flow, but it cannot distinguish a missing account from insufficient funds. `Either` or a related structure can carry error details without changing the compositional approach.
-- **Composition does not make distributed effects atomic.** Saving a debited account and wiring funds can fail between operations. A database transaction cannot protect an external call from process failure after the call but before commit.
-- **A thorough multi-system solution uses a durable task and idempotency.** Persist a representation of the combined work atomically, process it until all effects complete, and make repeat execution safe.
-- **Declarative code is higher-level.** Confidence should come from tests rather than from looking at the implementation and assuming its hidden work is correct.
+- `Option` discards the reason for failure. It can short-circuit the flow, but it cannot distinguish a missing account from insufficient funds. `Either` or a related structure can carry error details without changing the compositional approach.
+- Composition does not make distributed effects atomic. Saving a debited account and wiring funds can fail between operations. A database transaction cannot protect an external call from process failure after the call but before commit.
+- A thorough multi-system solution uses a durable task and idempotency. Persist a representation of the combined work atomically, process it until all effects complete, and make repeat execution safe.
+- Declarative code is higher-level. Confidence should come from tests rather than from looking at the implementation and assuming its hidden work is correct.

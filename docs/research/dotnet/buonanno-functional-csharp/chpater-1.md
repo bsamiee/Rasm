@@ -3,8 +3,8 @@
 ## The functional model
 
 Functional programming is a style built on two commitments:
-1. **Treat functions as values.** A function can be assigned to a variable, passed as an argument, returned from another function, or stored in a collection.
-2. **Avoid state mutation.** Once created, an object should not change, variables should not be reassigned, and transformations should produce new values instead of destroying prior ones.
+1. Treat functions as values. A function can be assigned to a variable, passed as an argument, returned from another function, or stored in a collection.
+2. Avoid state mutation. Once created, an object should not change, variables should not be reassigned, and transformations should produce new values instead of destroying prior ones.
 
 These commitments reinforce each other. Functions express small transformations, while immutable inputs make those transformations easier to reason about, compose, test, and run concurrently.
 
@@ -72,10 +72,10 @@ The input and output types form the function's interface and contract. This pers
 A mathematical function's result is determined exclusively by its input. A C# method, delegate, or lambda only represents a function; that representation does not guarantee the same property. It may capture context, read mutable state, or perform effects even when its visible signature does not reveal those dependencies.
 
 C# can represent functions in several ways:
-- **Methods** are the conventional representation and participate in class and interface design. An instance method can be understood as also taking the current instance as an implicit argument.
-- **Delegates** are strongly typed function pointers. `Func<T, R>` represents value-returning functions; `Action<T>` represents operations with no return value.
-- **Lambdas** define short functions inline and are converted to a compatible delegate type.
-- **Dictionaries** directly store arbitrary mappings whose associations cannot be computed. The same representation can retain results of expensive computations instead of recomputing them.
+- Methods are the conventional representation and participate in class and interface design. An instance method can be understood as also taking the current instance as an implicit argument.
+- Delegates are strongly typed function pointers. `Func<T, R>` represents value-returning functions; `Action<T>` represents operations with no return value.
+- Lambdas define short functions inline and are converted to a compatible delegate type.
+- Dictionaries directly store arbitrary mappings whose associations cannot be computed. The same representation can retain results of expensive computations instead of recomputing them.
 
 Prefer the general `Func` and `Action` families when only the signature matters. A custom delegate can still be worthwhile when its name conveys domain intent more clearly than a structural type such as `Func<T, bool>`.
 
@@ -116,9 +116,9 @@ public static IEnumerable<T> Where<T>(
 ```
 
 The function owns iteration; the caller owns the inclusion criterion. This separates concerns that would otherwise be interleaved. The same shape supports:
-- **Iterated execution:** invoke a selector, predicate, or comparison for each relevant element.
-- **Conditional execution:** invoke a callback only when needed, such as computing a value after a cache miss.
-- **Inversion of control:** the caller chooses what behavior to supply; the higher-order function chooses when to run it.
+- Iterated execution: invoke a selector, predicate, or comparison for each relevant element.
+- Conditional execution: invoke a callback only when needed, such as computing a value after a cache miss.
+- Inversion of control: the caller chooses what behavior to supply; the higher-order function chooses when to run it.
 
 When optional work may be expensive, accept it as a function so it is evaluated only when needed:
 

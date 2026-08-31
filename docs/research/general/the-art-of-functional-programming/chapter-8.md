@@ -38,13 +38,13 @@ Books, tutorials, blog posts, and documentation can support deeper study; the ri
 
 For deeper study of functional thinking:
 
-- *Structure and Interpretation of Computer Programs* (SICP, also called the Wizard Book), by Harold Abelson and Gerald Jay Sussman with Julie Sussman
-- *Thinking Functionally with Haskell*, by Richard Bird
+- Structure and Interpretation of Computer Programs (SICP, also called the Wizard Book), by Harold Abelson and Gerald Jay Sussman with Julie Sussman
+- Thinking Functionally with Haskell, by Richard Bird
 
 For deeper study of OCaml and Haskell:
 
-- *Real World OCaml*
-- *Real World Haskell*
+- Real World OCaml
+- Real World Haskell
 
 For functional programming in a particular language, use the available learning materials to learn its syntax and idioms. The underlying principles remain valid across languages.
 

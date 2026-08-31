@@ -94,25 +94,7 @@ internal static class Laws {
 }
 ```
 
-## [04]-[STACK_SAFETY]
-
-`Trampoline<A>` makes recursive functions stack-safe. `Trampoline.Pure` ends the recursion, `Trampoline.More` defers the next step, and `Run()` evaluates the steps in a loop. `Monad.recur` repeats an effect while carrying state. The step returns `Next.Loop` to continue and `Next.Done` to stop. `Next.Done` can return any result type. `tail` marks the final bind continuation after a deferred effect and prevents stack growth.
-
-An `IO` recursion that uses `tail` exits through `Run()` or `RunAsync()` only. Using `RunSafe()`, `Try()`, `Map`, or a later `Bind` adds a `Map` continuation after `tail` and causes failure. To capture the result as a `Fin`, the host uses `Try.lift(io.Run).Run()`.
-
-```csharp
-internal static class StackSafety {
-    public static Trampoline<long> SumTo(int current, int limit, long total) =>
-        current > limit ? Trampoline.Pure(total) : Trampoline.More(() => SumTo(current + 1, limit, total + current));
-    public static IO<int> Drain(Atom<int> pending) =>
-        Monad.recur<IO, int, int>(0, drained => IO.lift(() => pending.Swap(static n => n - 1)).Map(left => left > 0 ? Next.Loop<int, int>(drained + 1) : Next.Done<int, int>(drained + 1))).As();
-    public static IO<int> CountTo(int current, int limit) =>
-        current >= limit ? IO.pure(current) : IO.lift(() => current + 1).Bind(next => tail(CountTo(next, limit)));
-    public static Fin<int> Exit(IO<int> counted) => Try.lift(counted.Run).Run();
-}
-```
-
-## [05]-[TRANSFORMERS]
+## [04]-[TRANSFORMERS]
 
 A transformer stacks one concern over an inner monad `M`. `OptionT<M, A>` holds `K<M, Option<A>>`. `FinT<M, A>` holds `K<M, Fin<A>>` and exposes it as `runFin`. `EitherT<L, M, A>` holds `K<M, Either<L, A>>`. `ValidationT<Error, IO, A>` accumulates inside an effect and is used only when errors must accumulate inside that effect. `ReaderT<Env, M, A>` holds `Func<Env, K<M, A>>`. `WriterT<W, M, A>` accumulates `W` beside the value, and `tell` appends one item. `RWST<R, W, S, M, A>` combines `ask`, `tell`, `get`, and `put` over one `M`.
 
@@ -193,7 +175,7 @@ internal static class Counters {
 }
 ```
 
-## [06]-[TRAVERSAL_POLICY]
+## [05]-[TRAVERSAL_POLICY]
 
 The dependency structure and the concurrency bound determine the traversal.
 
@@ -206,8 +188,6 @@ The dependency structure and the concurrency bound determine the traversal.
 |  [05]   | Best effort                  | `PartitionFallible`, `Succs`, `Fails`   | no short-circuit, both branches returned                                                 |
 
 `PartitionFallible` returns `(Seq<Error> Fails, Seq<A> Succs)` with the failures first. `Succs` keeps the successes and `Fails` keeps the errors. `PartitionFallible`, `Succs`, and `Fails` take a `Seq<K<IO, A>>`. Their projections use `Map<K<IO, A>>` to specify the result type.
-
-`Traverse` under `IO` starts every element effect before it awaits any. Effects built with `IO.liftAsync` overlap. Effects built with `IO.lift` run in order on the calling thread. Because `Fork` uses one thread per fork, large fan-outs require chunking first.
 
 ```csharp
 internal sealed record Job(string Name, IO<int> Work);

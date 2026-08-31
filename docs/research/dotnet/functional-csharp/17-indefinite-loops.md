@@ -42,7 +42,7 @@ internal static class Direct {
 
 State is not mutated, and every iteration produces a replacement value. C# does not provide the tail-call optimization needed for constant stack usage. Each recursive call can add a stack frame. A condition that takes many iterations can degrade performance or terminate the process with a stack overflow.
 
-Use direct recursion only when the iteration count has a small, known upper bound. An iteration count that is *usually* small does not remove the stack risk. `Trampoline<A>` removes it: `Trampoline.More` returns the recursive call as a deferred value, and `Run()` evaluates the deferred calls in a loop.
+Use direct recursion only when the iteration count has a small, known upper bound. An iteration count that is usually small does not remove the stack risk. `Trampoline<A>` removes it: `Trampoline.More` returns the recursive call as a deferred value, and `Run()` evaluates the deferred calls in a loop.
 
 A recursive function needs:
 1. an end condition that returns the final value
@@ -120,14 +120,7 @@ internal static class Deep {
 
 A `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a mapping continuation after the tail call and fail. A host that needs a `Fin` captures with `Try.lift(io.Run).Run()`.
 
-Polling one effect until its value satisfies a predicate is `RepeatUntil`, and `RepeatWhile` is its complement. A `Schedule` sets the cadence between runs:
-
-```csharp
-internal static class Polling {
-    public static IO<int> Drain(IO<int> step) =>
-        step.RepeatUntil(Schedule.spaced(TimeSpan.FromMilliseconds(1)), static remaining => remaining <= 0);
-}
-```
+Polling one effect until its value satisfies a predicate is `RepeatUntil`; `RepeatWhile` is its complement.
 
 ## [04]-[CUSTOM_ITERATION]
 

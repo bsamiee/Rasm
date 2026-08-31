@@ -42,7 +42,7 @@ static State Run(State state, Func<State, State> advance,
 
 This is conceptually clean: state is not mutated, and every iteration produces a replacement value. That describes the recursive structure, not necessarily `advance`; captured input, randomness, or other effects remain effects. The operational risk is that C# does not provide the tail-call optimization needed to turn this pattern into a constant-stack loop, so each recursive call can add a stack frame. A condition that takes unexpectedly many iterations can degrade performance or terminate the process with a stack overflow.
 
-Use direct recursion only when the iteration count has a small, defensible upper bound. An iteration count that is merely *usually* small does not remove the stack risk.
+Use direct recursion only when the iteration count has a small, defensible upper bound. An iteration count that is merely usually small does not remove the stack risk.
 
 ## A contained imperative core
 

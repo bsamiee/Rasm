@@ -12,12 +12,12 @@ general function
   -> result
 ```
 
-This separates who chooses each input and when it becomes available. The final consumer receives a function that accepts only its remaining inputs and does not need to know its configuration or construction process.
+The final consumer receives a function that accepts only its remaining inputs and does not need to know its configuration or construction process.
 
 ## [02]-[CORE_DISTINCTION]
 
-- **Currying** transforms a function of `N` arguments into a chain of `N` unary functions. Each call accepts exactly one argument and returns the next function; the final call returns the result.
-- **Partial application** supplies fewer than all of the original arguments at once and returns a function for the arguments that remain. The Prelude function `par` fixes a leading group of arguments, and the returned function can accept several arguments. Supplying every argument is full application and produces the result.
+- Currying transforms a function of `N` arguments into a chain of `N` unary functions. Each call accepts exactly one argument and returns the next function; the final call returns the result.
+- Partial application supplies fewer than all of the original arguments at once and returns a function for the arguments that remain. The Prelude function `par` fixes a leading group of arguments, and the returned function can accept several arguments. Supplying every argument is full application and produces the result.
 
 For a two-argument function:
 
@@ -75,7 +75,7 @@ internal static class Curried {
 }
 ```
 
-Currying has little value when every argument is always supplied together. It supports specialization in stages. A function can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete C# delegate accepts several parameters; the `Func` shape determines whether successive calls are possible.
+Currying supports specialization in stages; it adds nothing when every argument is supplied together. A function can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete C# delegate accepts several parameters; the `Func` shape determines whether successive calls are possible.
 
 ### [04.1]-[IMPLEMENTATION]
 
@@ -89,7 +89,7 @@ internal static class Helper {
 }
 ```
 
-Explicit lambda parameter types may be needed because the compiler does not always infer the delegate's generic arguments at this call site. A delegate value with a declared `Func` type, such as `Greetings.Greet`, needs no annotation.
+Explicit lambda parameter types can be needed because the compiler does not always infer the delegate's generic arguments at this call site. A delegate value with a declared `Func` type, such as `Greetings.Greet`, needs no annotation.
 
 ### [04.2]-[SPECIALIZED_FUNCTIONS]
 
@@ -124,7 +124,7 @@ Fixing a logger's `LogLevel` creates `logInfo`, `logWarning`, and `logError`. Ea
 
 ### [04.3]-[PIPELINES]
 
-Partial application can turn general operations into unary functions suitable for mapping or composition. For noncommutative operations, choose parameter order deliberately: the first parameter is fixed first, while the last one is typically the pipeline value. `Pipe` applies the function on its right to the value on its left.
+Partial application can turn general operations into unary functions suitable for mapping or composition. For noncommutative operations, choose parameter order deliberately: the first parameter is fixed first, while the last one is the pipeline value. `Pipe` applies the function on its right to the value on its left.
 
 ```csharp
 internal static class PipeExtensions {
@@ -141,7 +141,7 @@ internal static class Temperature {
 
 ## [05]-[METHOD_RESOLUTION]
 
-C# distinguishes methods, method groups, lambdas, and delegate values. A unary method often converts where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
+C# distinguishes methods, method groups, lambdas, and delegate values. A unary method converts where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
 
 Explicit generic arguments and delegate casts are available, but add syntax. `fun` gives a lambda its `Func` type at the call site, so the lambda can be invoked or passed without a declared local. For functions frequently used in partial application or other higher-order operations, expose a delegate value:
 
@@ -163,7 +163,7 @@ Return `Func` values from adapter or factory methods to cross from method-based 
 
 ## [06]-[API_DESIGN]
 
-An existing API may expose arguments in an order that works poorly for partial application. An adapter can:
+An existing API can expose arguments in an order that works poorly for partial application. An adapter can:
 - expose domain-specific types instead of ambiguous primitives;
 - acquire a short-lived resource only when the operation runs;
 - return a `Func` so subsequent specialization benefits from delegate inference.
@@ -199,7 +199,7 @@ Custom types such as `ConnectionIO` and `SqlTemplate` make signatures intention-
 
 A dependency must describe the behavior a consumer needs. A clock is `Func<DateTime>`; a validator is `T -> Validation<Error, T>`; a persistence operation is `T -> IO<Unit>`.
 
-In the chapter's signatures, `Option<T>` makes lookup absence explicit, `Validation<Error, T>` carries a valid value or accumulated errors, and `IO<Unit>` is a deferred effect that completes with no result value or fails on its error channel.
+In these signatures, `Option<T>` makes lookup absence explicit, `Validation<Error, T>` carries a valid value or accumulated errors, and `IO<Unit>` is a deferred effect that completes with no result value or fails on its error channel.
 
 ```csharp
 internal sealed record TransferDateIsPast() : Expected("The transfer date is in the past", 100);

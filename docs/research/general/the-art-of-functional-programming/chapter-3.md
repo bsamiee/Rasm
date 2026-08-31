@@ -45,8 +45,8 @@ Stopping after the first application fixes `x` to `u` and returns a unary functi
 ### Reduction strategies
 
 When both an application and its argument are redexes, evaluation order matters:
-- **Call by value:** fully reduce the argument, then substitute its value.
-- **Call by name:** substitute the unreduced argument expression.
+- Call by value: fully reduce the argument, then substitute its value.
+- Call by name: substitute the unreduced argument expression.
 
 For `(lambda x. x x) ((lambda y. y) z)`, call by value first reduces the argument to `z`; call by name first duplicates the argument. Both ultimately produce `z z`. In general, the paths differ but the results agree whenever both terminate.
 
