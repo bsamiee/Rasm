@@ -1,28 +1,28 @@
 # LanguageExt Result Types
 
-Every function in this set returns a value that names its outcome. This file owns the vocabulary of those values. One type serves one concern, and a value moves between types at one named boundary.
+Every function in this set returns an explicit result type.
 
 ## One type per concern
 
-| Type                   | Concern                                       | Shape                 |
-| ---------------------- | --------------------------------------------- | --------------------- |
-| `Option<A>`            | absence without a reason                      | readonly struct       |
-| `Fin<A>`               | expected failure with a reason, short-circuit | abstract class        |
-| `Either<L, R>`         | two value types, neither an error             | abstract record class |
-| `Validation<Error, A>` | independent failures, accumulate              | abstract record class |
-| `Try<A>`               | synchronous exception capture, deferred       | record class          |
-| `IO<A>`                | side effects with a failure channel           | abstract record class |
-| `Eff<RT, A>`           | effects that read a capability                | record class          |
+| Type                   | Concern                                         | Shape                 |
+| ---------------------- | ----------------------------------------------- | --------------------- |
+| `Option<A>`            | absence without an `Error`                      | readonly struct       |
+| `Fin<A>`               | expected failure with an `Error`, short-circuit | abstract class        |
+| `Either<L, R>`         | two value types, neither an error               | abstract record class |
+| `Validation<Error, A>` | independent failures, accumulate                | abstract record class |
+| `Try<A>`               | synchronous exception capture, deferred         | record class          |
+| `IO<A>`                | side effects with a failure channel             | abstract record class |
+| `Eff<RT, A>`           | effects that read a capability                  | record class          |
 
-- `Option<A>` holds a value or nothing. A lookup that misses has no reason to give, so `None` is the whole answer.
+- `Option<A>` holds a value or `None`. A missed lookup provides no error information.
 - `Fin<A>` holds a value or an `Error`. A domain transition that rejects its input explains the rejection, and a dependent chain of `Fin` stops at the first rejection.
-- `Either<L, R>` holds one of two values, and neither side is a failure. It serves a fork in the data, not a fork in the outcome.
-- `Validation<Error, A>` holds a value or every `Error` that independent checks raised. A form with an empty name and an impossible age reports both.
+- `Either<L, R>` holds one of two values. It represents alternative data values, not success and failure.
+- `Validation<Error, A>` holds a value or all `Error` values produced by independent checks. A form with an empty name and an impossible age reports both.
 - `Try<A>` holds a deferred synchronous computation that can throw. Nothing runs until `Run`, and a thrown exception arrives as an `Error`.
 - `IO<A>` holds a deferred effect with an `Error` channel. A domain rejection inside an effect is a typed `Expected` on that channel.
-- `Eff<RT, A>` is an effect that reads a capability from a runtime `RT`. An `IO<A>` enters by implicit conversion.
+- `Eff<RT, A>` is an effect that reads a capability from a runtime `RT`. An `IO<A>` converts implicitly to `Eff<RT, A>`.
 
-Each of them exposes `Match` with one function per case, and `Match` on `IO` and `Eff` returns an effect that the host runs. The domain type `Age` and the error records appear in the sections that follow.
+Each type exposes `Match` with one function per case. `Match` on `IO` and `Eff` returns an effect.
 
 ```csharp
 internal sealed record Person(string Name, Age Age);
@@ -47,11 +47,11 @@ internal static class Concerns {
 }
 ```
 
-`Find` returns `Option` because a missing person has no reason. `Admit` returns `Fin` because an out-of-range age has one. `Register` combines independent checks and reports every failure. `Load` returns `IO` whose failure channel carries the typed `NotFound`. `Stamp` reads the `Clock` capability from any runtime that declares `Has<Eff<RT>, Clock>`.
+`Find` returns `Option` because absence carries no `Error`. `Admit` returns `Fin` because an out-of-range age produces an `Error`. `Register` combines independent checks and reports every failure. `Load` returns `IO` whose failure channel carries the typed `NotFound`. `Stamp` reads the `Clock` capability from any runtime that declares `Has<Eff<RT>, Clock>`.
 
 ## The boundary rule
 
-The result type is chosen where input enters, and the domain keeps it. Conversion between types happens at one named boundary. `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations, and domain functions never run an effect. In the block that follows, `Register` admits the raw form as `Validation`. `Handle` converts with `ToFin` and binds the domain transition, and `Respond` matches at the host.
+The input boundary selects the result type, and domain functions preserve it. Conversion between types happens at one named boundary. `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations, and domain functions never run an effect. `Register` validates the raw form and returns `Validation`. `Handle` converts with `ToFin` and binds the domain transition, and `Respond` matches at the host.
 
 ```csharp
 internal sealed record Ticket(string Holder);
@@ -65,7 +65,7 @@ internal static class Boundary {
 
 ## Implicit lifts
 
-A bare `A` lifts into `Fin<A>` and `Validation<Error, A>`. A bare `Error`, including an `Expected` subclass, lifts into the failure case. `Pure(x)` and `Fail<Error>(e)` lift with an explicit intent when the two branches of a conditional differ in type. A smart constructor maps the value object's generated `Validate` to `Fin<Age>`, so every consumer receives a validated value.
+A value of type `A` lifts into `Fin<A>` and `Validation<Error, A>`. An `Error` value, including an `Expected` subclass, lifts into the failure case. `Pure(x)` and `Fail<Error>(e)` make the intended lift explicit when the two branches of a conditional differ in type. A smart constructor maps the value object's generated `Validate` to `Fin<Age>`. This gives every consumer a validated value.
 
 ```csharp
 [ValueObject<int>]
@@ -86,11 +86,11 @@ internal static class Lifts {
 }
 ```
 
-`From` returns the `InvalidAge` from `Validate` on one branch and `item` on the other. The return type `Fin<Age>` selects the lift for both branches.
+The return type `Fin<Age>` selects the lift for the `InvalidAge` and `item` branches.
 
 ## Conversions
 
-Each conversion is a method on the source type, and the name states the target. A conversion of `Option` to `Fin` or `Validation` names the `Error`, because absence has no reason of its own. `Validation` becomes `Fin` at the exit of the admitting boundary. `Fin` widens to `Validation` when a smart constructor joins an accumulating form. `Try`, `IO`, and `Eff` collapse to `Fin` when they run, and running belongs to the host.
+Each conversion is a method on the source type, and the name states the target. Converting `Option` to `Fin` or `Validation` requires an `Error`, because `Option` contains none. `Validation` becomes `Fin` at the end of input validation. A `Fin` from a smart constructor converts to `Validation` before it is combined with independent validations. `Try`, `IO`, and `Eff` return `Fin` when run.
 
 ```csharp
 internal static class Conversions {
@@ -109,7 +109,7 @@ internal static class Conversions {
 
 ## The `Error` model
 
-A domain error is a `sealed record` that extends `Expected` with a message and a code. The codes live in one closed block, so a consumer reads a code from one place. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. An error that a value object raises also implements `IValidationError<T>`, and the generated `Validate` returns it. The package `Errors` class holds shared values such as `Errors.TimedOut` and `Errors.None`.
+A domain error is a `sealed record` that extends `Expected` with a message and a code. The `Codes` static class defines all error codes. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. An error that a value object raises also implements `IValidationError<T>`, and the generated `Validate` returns it. The package `Errors` class holds shared values such as `Errors.TimedOut` and `Errors.None`.
 
 ```csharp
 internal static class Codes {
@@ -137,11 +137,11 @@ internal static class Classify {
 }
 ```
 
-A consumer classifies with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`, so `Count` reports accumulation and `Head` reads the first leaf. The message is for the host to render.
+A consumer classifies with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. The message is for the host to render.
 
 ## Recovery
 
-Recovery is a function from an error to the same result type, and it lives at the boundary that owns the error. The `Catch` overloads select by code, by error value, or by predicate. The code and error-value overloads are extensions that return `K<F, A>`, so `.As()` restores the concrete type. `IO<A>` declares the predicate overload as an instance method that returns `IO<A>`. The `|` operator names an alternative. `BindFail` rebinds the failure case with the full `Fin` vocabulary. `MapFail` adds context by wrapping the original error as the inner error. `IfFail` escapes to a plain value and belongs to the host.
+Recovery is a function from an error to the same result type. The boundary responsible for the error defines recovery. The `Catch` overloads select by code, by error value, or by predicate. The code and error-value overloads are extensions that return `K<F, A>`, so `.As()` restores the concrete type. `IO<A>` declares the predicate overload as an instance method that returns `IO<A>`. The `|` operator uses the right alternative when the left one fails. `BindFail` lets the recovery function return either `Fin` case. `MapFail` adds context by wrapping the original error as the inner error. `IfFail` returns a non-`Fin` value.
 
 ```csharp
 internal static class Recovery {
@@ -178,19 +178,17 @@ internal static class Guards {
 
 ## Anti-patterns
 
-Each rule in the table names the wrong form and the correct form beside it.
-
 | Rule                                                                               | Correct form                                                  |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | `Match` in the middle of a pipeline unwraps a value that the next step lifts again | `Bind` the next step, as `Older` shows                        |
-| `IfNone` with an invented default hides a missing reason                           | `ToFin` with an `Error`, as `Required` shows                  |
+| `IfNone` with an arbitrary default hides absence                                   | `ToFin` with an `Error`, as `Required` shows                  |
 | Matching on message text couples the consumer to prose                             | `HasCode` or `IsType<E>`                                      |
 | An `Option` nested inside an effect forces the consumer to unwrap two layers       | `OptionT<IO, A>`, as `Lookup` shows                           |
 | A `Fin` nested inside an effect duplicates the failure channel                     | a typed `Expected` on the `IO` error channel, as `Load` shows |
 | `Run` inside the domain performs the effect before the host runs the program       | keep the `IO` and `Bind` the next step                        |
 | `Some` as a null guard, because `Some(null)` holds `null`                          | `Optional` at the null boundary, as `Nickname` shows          |
 
-`Lookup` exits at the host with `Run`, `As`, and `RunSafe`, which yields `Fin<Option<Person>>`.
+At the host, evaluating `Lookup` with `Run`, `As`, and `RunSafe` produces `Fin<Option<Person>>`.
 
 ```csharp
 internal static class CorrectForms {

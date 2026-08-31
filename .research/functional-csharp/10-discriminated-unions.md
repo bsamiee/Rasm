@@ -6,9 +6,9 @@ A discriminated union is a type whose value is exactly one of several alternativ
 
 F# supports discriminated unions directly. The union generator supplies them in C#. `[Union]` marks an abstract partial record, each case is a sealed record nested inside it, and the generated `Switch` takes one arm per case.
 
-This is more than ordinary specialization. The cases may be unrelated alternatives that share only the need to travel through one API or collection.
+Cases can be unrelated alternatives that share only an API type or collection.
 
-## Model alternatives instead of flagged field bundles
+## Model alternatives instead of flags and conditionally meaningful fields
 
 A discriminator flag combined with fields that are meaningful only for one flag value permits invalid combinations:
 
@@ -16,7 +16,7 @@ A discriminator flag combined with fields that are meaningful only for one flag 
 internal sealed record FlaggedCustomer(string Email, bool IsRegistered, string Name, bool IsEligible);
 ```
 
-When `IsRegistered` is false, callers must remember that `Name` and `IsEligible` have no meaning. Model the alternatives as distinct variants instead:
+When `IsRegistered` is false, `Name` and `IsEligible` have no meaning. Model the alternatives as distinct variants:
 
 ```csharp
 [Union]
@@ -26,11 +26,11 @@ internal abstract partial record Customer {
 }
 ```
 
-Consumers call `Switch` on descriptive cases, and each case carries only the data it needs.
+Consumers call `Switch` on named cases, and each case carries only its required data.
 
-Suppose a travel system sells holidays and day trips. One class containing every possible field plus an `IsDayTrip` flag creates bundles of irrelevant fields and violates Interface Segregation: every instance carries properties that do not describe its actual case, while names such as `Destination` and `StartDate` are repurposed for concepts better called `Attraction` and `DateOfTrip`.
+A travel system sells holidays and day trips. One class with all fields and an `IsDayTrip` flag violates Interface Segregation: every instance carries properties that do not describe its case, while names such as `Destination` and `StartDate` mean concepts named `Attraction` and `DateOfTrip`.
 
-Keeping the types wholly unrelated preserves their vocabulary, but loses a common type for storing and processing every offering together. An abstract union base provides both:
+Use an abstract union base:
 
 ```csharp
 internal sealed record Location(string Name);
@@ -64,11 +64,11 @@ internal static class Offerings {
 }
 ```
 
-The same design handles structurally different naming conventions. A `BritishName` can carry first, middle, and last names with an honorific placed first; a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. A common abstract `Name` permits one collection, while the variants preserve meaningful fields and formatting rather than forcing one culture's shape onto another.
+A `BritishName` can carry first, middle, and last names with an honorific placed first; a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. A common abstract `Name` permits one collection, while the variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
 
 ## Make every expected function outcome a case
 
-A function's return type should describe more than its happy-path payload. Looking up a person has three meaningful outcomes:
+A function's return type must describe every expected outcome. Looking up a person has three meaningful outcomes:
 1. the person was found;
 2. no person has that identifier;
 3. the lookup failed.
@@ -95,7 +95,7 @@ internal static class Greeting {
 
 The host runs the effect with `RunSafe()` and receives a lookup failure in the `Fin` result. The caller does not infer the outcome from `null`, a status flag, or optional metadata.
 
-An operation with no success payload still benefits. Email sending returns `IO<Unit>`: `unit` is the completed send, and a transport failure is on the error channel. The absence of a success value does not require hiding whether the operation completed.
+Email sending returns `IO<Unit>`: `Unit` represents completion, and the error channel carries transport failures.
 
 ```csharp
 internal static class Mail {
@@ -105,8 +105,8 @@ internal static class Mail {
 
 ## Move from impure input to typed input in stages
 
-External input is uncontrolled. A console boundary can return one of four cases: text, an integer, no input, or a console error. This turns the move from an impure boundary to controlled program data into a sequence:
-1. Keep console access behind a narrow dependency, so the uncontrolled console can be replaced by a controlled implementation. A delegate carries a one-operation dependency.
+Convert the console result to typed application data in these stages:
+1. Pass console access as a `Func<string>` dependency so another implementation can replace it.
 2. `IO.lift` captures a console failure on the error channel.
 3. Classify successfully read text once.
 4. Let application code consume the already-classified case.
@@ -133,22 +133,20 @@ internal static class Input {
 }
 ```
 
-The `Catch` overload with a predicate maps the captured error to the `ConsoleError` case at the boundary. The prompt reads again after any case, so the console failure is a case the prompt matches. Code that requires an integer now handles `IntegerInput` directly and can recursively prompt again for the other cases. Parsing and exception handling are not duplicated at every call site. The side-effecting read remains small; classification can remain ordinary deterministic logic.
+The `Catch` overload with a predicate maps the captured error to the `ConsoleError` case at the boundary. The prompt reads again after any case, so the console failure is a case the prompt matches. Code that requires an integer handles `IntegerInput` directly and can recursively prompt for the other cases. Parsing and exception handling are not duplicated at every call site. The side-effecting read is separate from deterministic classification.
 
 ## Reusable generic unions
 
-Situation-specific cases communicate the domain best, but recurring shapes are generic. `Option<A>` covers a value or nothing, and `Fin<A>` covers a value or a failure with a reason. One of two value types is `Either<L, R>`, and independent failures accumulate in `Validation<Error, A>`. An empty `Seq<A>` is a result, not absence, so a producer wraps a collection in `Option` only where the receiver responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
+`Option<A>` covers a value or nothing, and `Fin<A>` covers a value or a failure with a reason. `Either<L, R>` represents one of two value types, and independent failures accumulate in `Validation<Error, A>`. An empty `Seq<A>` is a result, not absence, so a producer wraps a collection in `Option` only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
 
-`Option` and `Fin` are closed, so a `Match` over their cases is total. `Some` does not check for `null`, so `Optional` is the null boundary. A regular union is closed as well: the base has a private constructor, and `Switch` names every case.
+`Option` and `Fin` are closed, so a `Match` over their cases is total. `Some` does not check for `null`, so use `Optional` to convert `null` at the boundary. A generated union is closed: the base has a private constructor, and `Switch` names every case.
 
 ## Design rules
 
-- Model distinct valid states as distinct cases, not a boolean discriminator plus bundles of partially meaningful fields.
-- Put only genuinely shared data on the abstract base; keep case-specific data on its case.
-- Use domain-specific unions when their names explain the possible outcomes better than generic `Option`, `Fin`, or `Either` names.
-- Keep absence and failure separate whenever the receiver needs to respond differently.
-- Interpret uncontrolled values once near their source, then pass typed cases inward.
+- Model each valid state as a distinct case, not as a Boolean discriminator with conditionally meaningful fields.
+- Put only shared data on the abstract base; keep case-specific data in its case.
+- Use a domain-specific union when the consumer needs domain outcome names instead of `Option`, `Fin`, or `Either`.
+- Keep absence and failure separate whenever the consumer needs to respond differently.
+- Interpret external values once near their source, then pass typed cases inward.
 - Call `Switch` only where behavior depends on the case, and pass the union onward elsewhere.
-- Declaring the union costs one attribute and nested cases, and the generated `Switch` removes repeated checks and makes downstream handling descriptive.
-
-The result is a model in which valid alternatives are named, irrelevant field bundles are avoided, and receiving code is directed toward every meaningful outcome.
+- Declaring a union requires one attribute and nested cases. The generated `Switch` replaces repeated case checks.

@@ -1,10 +1,10 @@
 # LanguageExt Effects
 
-`IO<A>` is the effect type. It describes a side effect with a failure channel and performs nothing until a host runs it. The effect type is chosen where input enters and is kept through the domain. `RunSafe`, `Run`, `RunAsync`, and `Match` are host operations. A domain function never runs an effect.
+`IO<A>` is the effect type. It describes a side effect with a failure channel and performs nothing until a host runs it. It is chosen at the input boundary and preserved through the domain. `RunSafe`, `Run`, `RunAsync`, and `Match` are host operations. A domain function never runs an effect.
 
 ## Constructing an effect
 
-`IO.lift` takes a thunk and defers it. Overload resolution reads the return type of the thunk. A `Func<Fin<A>>` selects the result-typed overload and folds a `Fail` onto the error channel. The type argument in `IO.lift<Fin<A>>` keeps the `Fin` as the value. `IO.lift(Fin<A>)` lifts a result that already exists. `IO.liftAsync` takes a `Task` thunk, and the `EnvIO` overload passes `env.Token` to the dependency. `IO.pure` lifts a value and `IO.fail` builds a failed effect from an `Error`. LINQ over `IO` binds dependent steps.
+`IO.lift` takes a thunk and defers it. Overload resolution reads the return type of the thunk. A `Func<Fin<A>>` selects its overload and converts a `Fail` to an `IO` failure. The type argument in `IO.lift<Fin<A>>` keeps the `Fin` as the value. `IO.lift(Fin<A>)` lifts an existing result. `IO.liftAsync` takes a `Task` thunk, and the `EnvIO` overload passes `env.Token` to the dependency. `IO.pure` lifts a value and `IO.fail` builds a failed effect from an `Error`. LINQ over `IO` binds dependent steps.
 
 ```csharp
 internal sealed record Unavailable() : Expected("service unavailable", 503);
@@ -36,9 +36,9 @@ internal static class Construction {
 }
 ```
 
-## Exits at the host
+## Running effects at the host
 
-`Run` and `RunAsync` throw on failure and belong to `Main`. An `Expected` error arrives as an `ErrorException`, and an `Exceptional` error rethrows the captured exception. `RunSafe` returns `Fin<A>` and is the host exit. `Try.lift(io.Run).Run()` captures the thrown error and returns the original `Expected`. `EnvIO.New` carries the cancellation token. A cancelled token escapes `RunSafe` as an exception, so a host that supplies an `EnvIO` captures with `Try.lift`. `Catch(code, f)` recovers one error code and `|` supplies an alternative effect.
+`Run` and `RunAsync` throw on failure and belong to `Main`. They represent an `Expected` error as an `ErrorException` and rethrow the exception captured by an `Exceptional` error. `RunSafe` returns `Fin<A>` for translation at the host boundary. `Try.lift(io.Run).Run()` captures the thrown error and returns the original `Expected`. `EnvIO.New` carries the cancellation token. A cancelled token escapes `RunSafe` as an exception. A host that supplies an `EnvIO` captures the exception with `Try.lift`. `Catch(code, f)` recovers one error code and `|` supplies an alternative effect.
 
 ```csharp
 internal static class Exits {
@@ -55,7 +55,7 @@ internal static class Exits {
 
 ## Resources
 
-`use` acquires an `IDisposable` inside the effect and disposes it when the scope ends, on success and on failure. The `use` overload with a release action names the release step for the acquired value. `Bracket(Use:, Fin:)` runs `Fin` after `Use` on both paths. `Finally` attaches an effect that runs after the receiver. A pre-built `IO.fail` node drops the `Finally` effect. A failure raised during execution runs it, so `Finally` attaches to a deferred effect.
+`use` acquires an `IDisposable` inside the effect and disposes it when the scope ends, on success and on failure. The `use` overload with a release action names the release step for the acquired value. `Bracket(Use:, Fin:)` runs `Fin` after `Use` on both paths. `Finally` attaches an effect that runs after the receiver. If `Finally` is applied to an existing `IO.fail`, the finalizer does not run. The finalizer runs when a deferred effect fails during execution.
 
 ```csharp
 internal sealed class Connection : IDisposable {
@@ -90,7 +90,7 @@ internal static class Resources {
 
 `Fork` starts the effect on one `TaskCreationOptions.LongRunning` thread and returns a `ForkIO` with `Await` and `Cancel`. `awaitAll` runs every effect of a `Seq` and collects the values. `awaitAny` returns the first value. `timeout` fails the effect after the duration. `Uninterruptible` masks cancellation for the effect.
 
-`Traverse` under `IO` starts every element effect before it awaits any: effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread. `TraverseM` runs the effects one after another. `Fork` takes one thread per fork, so a large fan-out chunks the collection first. A `Conduit` with `Buffer<A>.Bounded(n)` is a queue whose `Post` waits when the buffer is full.
+`Traverse` under `IO` starts every element effect before awaiting any: effects built with `IO.liftAsync` run concurrently without a concurrency limit, and effects built with `IO.lift` run in order on the calling thread. `TraverseM` runs the effects one after another. For a large fan-out, chunk the collection first.
 
 ```csharp
 internal static class Concurrency {
@@ -123,7 +123,7 @@ internal static class Concurrency {
 
 ## Recursion
 
-`tail` marks the last bind continuation after a deferred effect and keeps the stack flat. A `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` push a map into the tail and fail. A host that needs a `Fin` captures with `Try.lift(io.Run).Run()`. `Monad.recur` loops a state with `Next.Loop` and `Next.Done` and has no exit restriction. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while the value satisfies it.
+`tail` marks the last bind continuation after a deferred effect and uses constant stack space. A `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` are incompatible with this form and cause it to fail. `Monad.recur` loops a state with `Next.Loop` and `Next.Done` and can use any host operation. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while the value satisfies it.
 
 ```csharp
 internal static class Recursion {
@@ -163,9 +163,9 @@ internal static class Schedules {
 
 ## Runtimes
 
-`Eff<RT, A>` reads a capability from a runtime. A runtime record implements `Has<Eff<RT>, ConsoleIO>` with `Eff.runtime<RT>().Map(static rt => rt.Console)`. `Console<RT>.writeLine` and `Console<RT>.readLine` compile against that constraint, and `File<RT>` needs `FileIO` and `EncodingIO`. `Run(rt)` returns `Fin<A>`. An `IO<A>` enters by implicit conversion.
+`Eff<RT, A>` reads a capability from a runtime. A runtime record implements `Has<Eff<RT>, ConsoleIO>` with `Eff.runtime<RT>().Map(static rt => rt.Console)`. `Console<RT>.writeLine` and `Console<RT>.readLine` compile against that constraint, and `File<RT>` needs `FileIO` and `EncodingIO`. `Run(rt)` returns `Fin<A>`. An `IO<A>` converts implicitly to `Eff<RT, A>`.
 
-`LanguageExt.Sys.Test.Runtime.New()` supplies a `MemoryConsole` and a file system rooted at a temporary directory under `Env.RootPath`. The test runtime is disposable and deletes that directory. `WriteKeyLine` feeds console input, and enumeration of the console returns the written lines only. `LanguageExt.Sys.Live.Runtime.New()` binds the real host.
+`LanguageExt.Sys.Test.Runtime.New()` supplies a `MemoryConsole` and a file system rooted at a temporary directory under `Env.RootPath`. The test runtime is disposable and deletes that directory. `WriteKeyLine` feeds console input, and enumeration of the console returns the written lines only. `LanguageExt.Sys.Live.Runtime.New()` supplies live host services.
 
 ```csharp
 internal sealed record Runtime(ConsoleIO Console) : Has<Eff<Runtime>, ConsoleIO> {
@@ -188,9 +188,9 @@ internal static class Runtimes {
 
 ## Streams
 
-`Source<A>` is a stream of values. `Source.lift` accepts an `IObservable<A>` or an `IEnumerable<A>`, `Source.merge` joins sources, and the instance `Zip` pairs them. `Reduce(seed, f)` returns `IO<S>` and is the fold that yields a value. `Fold` on a lifted finite sequence emits nothing. `ReduceIO` stops with `Reduced.DoneIO` and continues with `Reduced.ContinueIO`. `Sink<A>` receives with `Post`, adapts its input with `Comap`, and rejects `Post` after `Complete()`.
+`Source<A>` is a stream of values. `Source.lift` accepts an `IObservable<A>` or an `IEnumerable<A>`, `Source.merge` joins sources, and `Zip` pairs them. `Reduce(seed, f)` returns `IO<S>` and is the fold that yields a value. `Fold` on a lifted finite sequence emits nothing. `ReduceIO` stops with `Reduced.DoneIO` and continues with `Reduced.ContinueIO`. `Sink<A>` receives with `Post`, adapts its input with `Comap`, and rejects `Post` after `Complete()`.
 
-`Conduit.make` takes a `Buffer` policy. `Unbounded` keeps every item, `Bounded(n)` and `Single` make `Post` wait, `Newest(n)` keeps the last n items, and `Latest(seed)` starts from a seed and keeps the last item. A conduit is an agent inbox when `Reduce` runs under `Fork()` while a client posts. A reply travels on a second conduit read with `Source.Take(1).Last()`. `ProducerT`, `PipeT`, and `ConsumerT` fuse with `|` into an `EffectT`, and its `Run()` returns the underlying `K<IO, A>`.
+`Conduit.make` takes a `Buffer` policy. `Unbounded` keeps every item, `Bounded(n)` and `Single` make `Post` wait, `Newest(n)` keeps the last n items, and `Latest(seed)` starts from a seed and keeps the last item. A conduit acts as a message queue when `Reduce` runs under `Fork()` while a client posts. `Source.Take(1).Last()` reads a reply from a second conduit. `ProducerT`, `PipeT`, and `ConsumerT` compose with `|` into an `EffectT`, and its `Run()` returns the underlying `K<IO, A>`.
 
 ```csharp
 internal sealed class Replay<A>(Seq<A> items) : IObservable<A> {

@@ -13,7 +13,7 @@ internal static partial class Sequences {
 }
 ```
 
-`Seq<A>` is the strict sequence type and the default collection in domain code. This small change establishes several useful properties:
+`Seq<A>` is the strict sequence type and the default collection in domain code. This example has these properties:
 - The source is an explicit input rather than hidden data access.
 - `Filter` receives behavior as a function.
 - The source sequence is not modified.
@@ -22,7 +22,7 @@ internal static partial class Sequences {
 
 LINQ operators enable a functional style but do not enforce it. A lambda can still capture mutable state or perform side effects, and a projection can still mutate an element.
 
-The same result-oriented style applies to object construction. Define each property where the returned object is created instead of creating an empty object and assigning its properties across branches.
+The same expression-oriented style applies to object construction. Define each property where the returned object is created instead of creating an empty object and assigning its properties across branches.
 
 ```csharp
 internal static partial class Sequences {
@@ -40,13 +40,13 @@ internal static partial class Sequences {
 }
 ```
 
-Every returned property and the inputs that determine it are visible in one place. If one calculation becomes too large, extract that calculation into a small function while keeping the final construction expression central.
+Every returned property and the inputs that determine it are visible in one place. If a calculation obscures the construction, extract it into a function and keep the construction expression central.
 
-## LINQ over `IEnumerable<T>` describes deferred work
+## LINQ over `IEnumerable<T>` uses deferred execution
 
-Many LINQ operators return a description of how to produce a sequence. Creating the query does not execute it; execution normally begins when a consumer enumerates it. An enumerator exposes the current item and advances in one direction, without inherently knowing the sequence's length.
+Many LINQ operators return a description of how to produce a sequence. Creating the query does not execute it; execution begins when a consumer enumerates it. An enumerator exposes the current item and advances in one direction without knowing the sequence length.
 
-`Seq<A>` is strict. `Iterable<A>` is the lazy form over an `IEnumerable<A>`, and `AsIterable()` lifts one.
+`Iterable<A>` is the lazy form over `IEnumerable<A>`, and `AsIterable()` lifts an `IEnumerable<A>` into it.
 
 ```csharp
 internal static partial class Sequences {
@@ -61,15 +61,15 @@ internal static partial class Sequences {
 }
 ```
 
-Until enumeration, all three transformations remain pending. During enumeration, one input can pass through `First`, `Second`, and `Third` before the next input begins. This streams values through the pipeline without creating an intermediate collection after every stage.
+Until enumeration, all three transformations remain pending. During enumeration, each input passes through `First`, `Second`, and `Third` before the next input begins. This streams values through the pipeline without creating an intermediate collection after every stage.
 
-`ToSeq()` forces enumeration and materializes a `Seq<int>`. Materializing after every stage changes the execution shape: each complete stage runs before the next one and each stage stores a collection. Delaying materialization can avoid work that is never demanded. Materialization is appropriate when execution is required at that point or when a captured result will be reused; otherwise, enumerating the same query repeatedly can repeat all of its work. Long deferred or recursive compositions can also carry memory and performance costs.
+`ToSeq()` forces enumeration and materializes a `Seq<int>`. Materializing after every stage changes the evaluation order and storage: each complete stage runs before the next one and stores a collection. Delaying materialization can avoid work that is never demanded. Materialization is appropriate when execution is required at that point or when a materialized sequence will be reused; otherwise, enumerating the same query repeatedly can repeat all of its work. Long deferred or recursive compositions can carry memory and performance costs.
 
 ## Express sequence operations without mutable loop state
 
 ### Transform with `Select`
 
-Use `Select` when each input becomes one output. `Map` on a `Seq<A>` is the same projection. A fluent chain and named intermediate sequences describe the same transformation, provided neither the sequences nor their elements are mutated.
+Use `Select` when each input becomes one output. `Map` on a `Seq<A>` is the same projection. A fluent chain and named intermediate sequences describe the same transformation when neither the sequences nor their elements are mutated.
 
 ```csharp
 internal static partial class Sequences {
@@ -81,9 +81,9 @@ internal static partial class Sequences {
 }
 ```
 
-Named stages reveal intent and make intermediate values inspectable. A single chain is useful when it remains equally clear.
+Named stages state each operation and let you inspect intermediate values. Use a single chain when it remains clear.
 
-Materializing a stage changes when it executes and whether its result is stored; it does not by itself make the transformation less functional. The functional condition is that neither the resulting collection nor its elements are subsequently mutated.
+Materialization does not introduce mutation. The resulting collection and its elements must remain unchanged.
 
 ### Carry temporary context with tuples
 
@@ -104,11 +104,11 @@ internal static partial class Sequences {
 }
 ```
 
-This technique depends on tuple support from C# 7 or an equivalent package on older versions.
+Tuples require C# 7 or an equivalent package on older versions.
 
 ### Obtain positions with indexed `Select`
 
-The indexed overload supplies each element and its zero-based position, eliminating a counter that must be declared and incremented manually.
+The indexed overload supplies each element and its zero-based position, eliminating a counter that must be declared and incremented.
 
 ```csharp
 internal static partial class Sequences {
@@ -121,11 +121,11 @@ internal static partial class Sequences {
 }
 ```
 
-The indexed `Map` performs the one-to-one transformation. `string.Join` then reduces the sequence of strings to one string.
+The indexed `Map` performs the one-to-one transformation. `string.Join` reduces the sequence of strings to one string.
 
 ## Reduce many values to one
 
-Use a specific reduction when one already exists. On a `Seq` the simple `Sum()` and `Average()` calls are ambiguous between the LanguageExt and LINQ forms, so `Fold` is the reduction shown. A sum is a `Fold` with a zero seed and an addition step:
+Use a specific reduction when one exists. Because LanguageExt and LINQ define ambiguous `Sum()` and `Average()` calls on `Seq`, this example uses `Fold`. A sum is a `Fold` with a zero seed and an addition step:
 
 ```csharp
 internal static partial class Sequences {
@@ -153,7 +153,7 @@ internal static partial class Sequences {
 
 `Order` from LINQ sorts, and `toSeq` materializes the sorted `Seq<int>`. An empty sequence has no middle element, so its median is `None`.
 
-For a custom reduction, `Fold` takes a seed and a step function. The function combines the current accumulated state with the next input. A tuple seed can calculate several results in one pass:
+For a custom reduction, `Fold` takes a seed and a step function. The function combines the accumulator with the next input. A tuple seed can calculate several results:
 
 ```csharp
 internal static partial class Sequences {
@@ -168,7 +168,7 @@ internal static partial class Sequences {
 
 Each step returns a new accumulated value. No external running total is mutated, and both totals are produced in one pass rather than by two separate folds.
 
-`Fold` is a left fold, the LINQ `Aggregate`. It consumes a seed and a reducer and returns one accumulated value. `FoldBack` consumes the same seed and reducer and visits the elements from last to first:
+`Fold` is a left fold equivalent to LINQ's `Aggregate`. `FoldBack` uses the same seed and reducer but visits elements from last to first:
 
 ```text
 Fold     : (Seq<A>, S, (S, A) -> S) -> S
@@ -178,17 +178,17 @@ Fold     = f(f(f(seed, item0), item1), item2) ...
 FoldBack = f(f(f(seed, item2), item1), item0) ...
 ```
 
-The seed defines the empty-input result, and its type is independent of the element type. Examples include `0` for a sum, `0` plus an incrementing reducer for a count, or an empty immutable tree plus an insertion reducer for building a tree.
+The seed defines the empty-input result, and its type is independent of the element type. The seed can be `0` for a sum, `0` with an incrementing reducer for a count, or an empty immutable tree with an insertion reducer.
 
-`Fold` is general enough to express `Map`, `Filter`, and `Bind`.
+`Fold` can express `Map`, `Filter`, and `Bind`.
 
-## Recursion is expressive but stack-sensitive
+## Recursion uses stack space
 
-A recursive iteration has a base condition that returns the answer and a recursive step that calls the function with updated state. It models an early stop without mutable locals. A complete implementation also needs an exhaustion case, because an unreachable base condition recurses without end. C# does not guarantee tail-call optimization, so recursion carries a real stack cost.
+A recursive function has a base condition that returns the answer and a recursive step that calls the function with updated state. It models an early stop without mutable locals. An implementation needs an exhaustion case because a function without a reachable base condition does not terminate. Because C# does not guarantee tail-call optimization, recursion uses stack space.
 
 ## Non-mutating updates
 
-An indexed `Map` describes a replacement without changing the source `Seq<A>`:
+Use an indexed `Map` to replace one item:
 
 ```csharp
 internal static partial class Sequences {
@@ -202,19 +202,17 @@ The function derives the replacement from the old item at one position. `Map` re
 
 ## Immutability is deeper than private setters
 
-Private setters and read-only interfaces do not make the resulting object graph deeply immutable.
+Private setters and read-only interfaces do not make an object graph deeply immutable.
 
-## Custom enumeration
+## Sequence traversal
 
-`Seq<A>` supplies `Tail` and `Zip`. `Zip` with `Tail` pairs every element with its neighbor, and an indefinite sequence of states is `LanguageExt.List.unfold`.
-
-Pairing a sequence with its own tail allows traversal policies that ordinary single-element predicates cannot express.
+`Seq<A>` supplies `Tail` and `Zip`. `LanguageExt.List.unfold` produces a sequence of states.
 
 ### Compare adjacent elements
 
 `source.Zip(source.Tail)` produces the pairs `(First, Second)`. A quantifier over those pairs decides the result.
 
-`AnyAdjacent` uses `Exists` and returns `true` when one pair matches. Fewer than two elements produce no pair, so the result is `false`. `AllAdjacent` uses `ForAll` and returns `true` when no pair disproves the condition. Fewer than two elements therefore produce `true`.
+`AnyAdjacent` uses `Exists` and returns `true` when one pair matches. `AllAdjacent` uses `ForAll` and returns `true` when no pair disproves the condition. Because fewer than two elements produce no pairs, `AnyAdjacent` returns `false` and `AllAdjacent` returns `true`.
 
 ```csharp
 internal static partial class Sequences {
@@ -225,13 +223,13 @@ internal static partial class Sequences {
 }
 ```
 
-This is useful when a condition depends on neighboring values. For example, sort a number sequence, then test whether any adjacent pair differs by one.
+For example, sort a number sequence, then test whether any adjacent pair differs by one.
 
-## End-to-end shape: one value, many values, one value
+## Transform one value into many values and back
 
-A compact reporting pipeline can read one CSV text, split it into records, parse typed values, group them, aggregate each group, format report lines, and join those lines into one result.
+A reporting pipeline can read one CSV text, split it into records, parse typed values, group them, aggregate each group, format report lines, and join those lines into one result.
 
-The text enters as a `string` argument. `At` reads each field as an `Option`, `parseInt` parses the numbers, and `Traverse` turns the records into `Option<Seq<Story>>`. One failed parse makes the whole input `None`. An empty line parses to `None`, so the text carries no trailing newline. `Fold` into a `Map<int, ...>` groups the stories by season, and `AddOrUpdate` adds each story to its season total.
+The text enters as a `string` argument. `At` reads each field as an `Option`, `parseInt` parses the numbers, and `Traverse` turns the records into `Option<Seq<Story>>`. One failed parse makes the whole input `None`. Because an empty line parses to `None`, the text cannot have a trailing newline. `Fold` into a `Map<int, ...>` groups the stories by season, and `AddOrUpdate` adds each story to its season total.
 
 ```csharp
 internal sealed record Story(
@@ -279,10 +277,10 @@ internal static partial class Sequences {
 }
 ```
 
-The CSV parsing is intentionally simple: it does not handle quoted fields, embedded commas, or other CSV complexities. Its purpose is to expose the functional data flow:
+The CSV parser does not handle quoted fields or embedded commas. It illustrates this functional data flow:
 
 ```text
 single text -> records -> typed values -> groups -> totals -> lines -> single report
 ```
 
-Each stage produces a new value. Named stages expose the changing data shape and aid inspection; one long fluent chain is equivalent only when it preserves the same operations and remains readable.
+Each stage produces a new value.

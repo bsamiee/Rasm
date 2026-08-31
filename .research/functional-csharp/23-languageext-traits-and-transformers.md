@@ -1,10 +1,10 @@
 # LanguageExt Traits and Transformers
 
-A trait is an interface whose members are static and abstract. A witness type implements the trait for one type constructor. Generic code names the witness in a constraint and calls the trait members through it. This file owns the higher-kinded encoding, the trait vocabulary, the laws, stack safety, the transformers, and the traversal policy.
+A trait is an interface whose members are static and abstract. A witness type implements the trait for one type constructor. Generic code names the witness in a constraint and calls the trait members through it.
 
 ## Higher kinds
 
-`K<F, A>` is an empty interface with two type arguments. `F` is the witness for the type constructor and `A` is the element type. `Option<A>` implements `K<Option, A>`, and `Seq<A>` implements `K<Seq, A>`. A function that receives `K<F, A>` with `F : Functor<F>` calls `Map` once for every type that has a witness. `.As()` restores the concrete type at the concrete edge, and nothing else changes between the two calls.
+`K<F, A>` is an empty interface with two type arguments. `F` is the witness for the type constructor and `A` is the element type. `Option<A>` implements `K<Option, A>`, and `Seq<A>` implements `K<Seq, A>`. A function constrained by `F : Functor<F>` can call `Map` on any `K<F, A>`. `.As()` restores the concrete type at the API boundary.
 
 ```csharp
 internal sealed record Line(string Sku, decimal Price);
@@ -18,7 +18,7 @@ internal static class HigherKinds {
 
 ## The traits
 
-Each trait supplies one group of members. The table names the trait and the members that the code block uses.
+The table lists the members used in the code block.
 
 | Trait              | Members                                      |
 | ------------------ | -------------------------------------------- |
@@ -33,9 +33,9 @@ Each trait supplies one group of members. The table names the trait and the memb
 | `Writable<M, W>`   | `tell`                                       |
 | `Alternative<F>`   | `Empty`, `Choose`, the alternative operator  |
 
-The witness is the concrete type without its last type argument. The samples run on `Option`, `Seq`, `Fin`, `IO`, and `Validation<Error>`. The environment, state, and output samples run on `Reader<Settings>`, `ReaderT<Settings, IO>`, `State<int>`, `StateT<int, IO>`, `Writer<Seq<string>>`, and `WriterT<Seq<string>, IO>`. `Map`, `Bind`, `Fold`, `FoldBack`, `Exists`, `ForAll`, `At`, and `Catch` are extension methods that the constraint unlocks. The tuple `Apply` and LINQ query syntax come from the same constraint. `F.Pure`, `F.Apply`, `F.Fail`, `F.Empty`, `F.Choose`, `T.Traverse`, and `T.TraverseM` are calls on the witness itself. `Readable.ask`, `Stateful.get`, and `Writable.tell` are module functions that take the witness as a type argument.
+The witness is the concrete type without its last type argument. The samples run on `Option`, `Seq`, `Fin`, `IO`, and `Validation<Error>`. The environment, state, and output samples run on `Reader<Settings>`, `ReaderT<Settings, IO>`, `State<int>`, `StateT<int, IO>`, `Writer<Seq<string>>`, and `WriterT<Seq<string>, IO>`. `Map`, `Bind`, `Fold`, `FoldBack`, `Exists`, `ForAll`, `At`, and `Catch` are extension methods that the constraint makes available. The tuple `Apply` and LINQ query syntax come from the same constraint. `F.Pure`, `F.Apply`, `F.Fail`, `F.Empty`, `F.Choose`, `T.Traverse`, and `T.TraverseM` are calls on the witness. `Readable.ask`, `Stateful.get`, and `Writable.tell` are module functions that take the witness as a type argument.
 
-`Fallible<E, F>` defines `Fail` and `Catch` with the predicate selector. `Fallible<F>` fixes `E` to `Error`. The `Catch` overloads that select by code and by error value are extensions on the same constraint. One `Recovered` serves `Fin` and `IO` through the predicate selector. `Alternative<F>` extends `Choice<F>`, so `Choose` is the generic form of the operator that `Chosen` shows on `Option`.
+`Fallible<E, F>` defines `Fail` and a `Catch` overload that selects errors with a predicate. `Fallible<F>` fixes `E` to `Error`. The `Catch` overloads that select by code and by error value are extensions on the same constraint. The `Recovered` method works with both `Fin` and `IO` through the error predicate. `Alternative<F>` extends `Choice<F>`, making `Choose` the generic form of the operator that `Chosen` shows on `Option`.
 
 ```csharp
 internal sealed record Rejected() : Expected("value rejected", 2301);
@@ -81,7 +81,7 @@ internal static class Traits {
 
 ## Laws
 
-`FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>`. A failed law arrives as an accumulated `Error`, and `IsSuccess` reads the verdict. The checks hold for `Option` and `Fin`. `MonadLaw<IO>.validate()` throws inside the library, so it is not run.
+`FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>`. A failed law contains an accumulated `Error`, and `IsSuccess` indicates the result. The checks hold for `Option` and `Fin`. `MonadLaw<IO>.validate()` throws inside the library and is not run.
 
 ```csharp
 internal static class Laws {
@@ -96,9 +96,9 @@ internal static class Laws {
 
 ## Stack safety
 
-`Trampoline<A>` makes pure recursion safe. `Trampoline.Pure` ends the recursion, `Trampoline.More` defers the next step, and `Run()` evaluates the steps in a loop. `Monad.recur` loops an effect over a state. The step returns `Next.Loop` to continue and `Next.Done` to stop, and the effect has no exit restriction. `tail` marks the last bind continuation after a deferred effect and keeps the stack flat.
+`Trampoline<A>` makes recursive functions stack-safe. `Trampoline.Pure` ends the recursion, `Trampoline.More` defers the next step, and `Run()` evaluates the steps in a loop. `Monad.recur` repeats an effect while carrying state. The step returns `Next.Loop` to continue and `Next.Done` to stop. `Next.Done` can return any result type. `tail` marks the final bind continuation after a deferred effect and prevents stack growth.
 
-A `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` push a map into the tail and fail. A host that needs a `Fin` captures with `Try.lift(io.Run).Run()`, as `Exit` shows.
+An `IO` recursion that uses `tail` exits through `Run()` or `RunAsync()` only. Using `RunSafe()`, `Try()`, `Map`, or a later `Bind` adds a `Map` continuation after `tail` and causes failure. To capture the result as a `Fin`, the host uses `Try.lift(io.Run).Run()`.
 
 ```csharp
 internal static class StackSafety {
@@ -114,13 +114,13 @@ internal static class StackSafety {
 
 ## Transformers
 
-A transformer stacks one concern over an inner monad `M`. `OptionT<M, A>` holds `K<M, Option<A>>`. `FinT<M, A>` holds `K<M, Fin<A>>` and exposes it as `runFin`. `EitherT<L, M, A>` holds `K<M, Either<L, A>>`. `ValidationT<Error, IO, A>` accumulates inside an effect and serves only the case where accumulation must happen there. `ReaderT<Env, M, A>` holds `Func<Env, K<M, A>>`. `WriterT<W, M, A>` accumulates `W` beside the value, and `tell` appends one item. `RWST<R, W, S, M, A>` combines `ask`, `tell`, `get`, and `put` over one `M`.
+A transformer stacks one concern over an inner monad `M`. `OptionT<M, A>` holds `K<M, Option<A>>`. `FinT<M, A>` holds `K<M, Fin<A>>` and exposes it as `runFin`. `EitherT<L, M, A>` holds `K<M, Either<L, A>>`. `ValidationT<Error, IO, A>` accumulates inside an effect and is used only when errors must accumulate inside that effect. `ReaderT<Env, M, A>` holds `Func<Env, K<M, A>>`. `WriterT<W, M, A>` accumulates `W` beside the value, and `tell` appends one item. `RWST<R, W, S, M, A>` combines `ask`, `tell`, `get`, and `put` over one `M`.
 
-`lift` enters a transformer from an evaluated value such as `Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or from the inner monad's `K<M, A>`. `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom of the stack. Both are the named boundary where a value becomes part of the stack. `Run` removes one layer, and the host runs the layers from the outside in. `Priced` shows the order: `Run(settings)` yields `K<OptionT<IO>, int>`, the second `Run()` yields `K<IO, Option<int>>`, and `RunSafe` yields `Fin<Option<int>>`. The concrete record decides what `Run` returns, so `ReaderT` applies its function and `OptionT` returns the wrapped value.
+`lift` adds a transformer layer to an evaluated value such as `Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner monad's `K<M, A>`. `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom of the stack. `Run` removes one layer, and the host runs the layers from the outside in. `Priced` shows the order: `Run(settings)` yields `K<OptionT<IO>, int>`, the second `Run()` yields `K<IO, Option<int>>`, and `RunSafe` yields `Fin<Option<int>>`. The concrete transformer determines what `Run` returns: `ReaderT` applies its function, and `OptionT` returns the wrapped value.
 
-`Settled` folds `runFin` onto the `IO` error channel with `IO.lift(Fin<A>)`, so a rejection inside `FinT` leaves the stack as a typed `Expected`. `Both` combines two `ValidationT` values with the tuple `Apply`, and both effects run before the errors accumulate.
+`Settled` converts the `Fin` from `runFin` to an `IO` result with `IO.lift(Fin<A>)`, preserving a rejection as a typed `Expected` error. `Both` combines two `ValidationT` values with the tuple `Apply`, and both effects run before the errors accumulate.
 
-A domain wrapper hides the stack. `Counter<A>` wraps `StateT<int, IO, A>` and implements `K<Counter, A>`. The witness `Counter` implements `Deriving.Monad<Counter, StateT<int, IO>>` and `Deriving.Stateful<Counter, StateT<int, IO>, int>` with `Transform` and `CoTransform` alone. `Transform` unwraps to the stack and `CoTransform` wraps the result again. Every function constrained on `Monad<M>` or `Stateful<M, int>` runs on `Counter`, so `Tick<Counter>` compiles without a change. `Deriving.MonadIO` requires the stack to implement `MonadIO`, which `StateT` does not, so the wrapper derives `Monad` and `Stateful`. An effect enters the wrapper through `CoTransform` over `StateT.liftIO`, because the stack supplies no `LiftIO`.
+`Counter<A>` is a domain wrapper around `StateT<int, IO, A>` and implements `K<Counter, A>`. The witness `Counter` implements `Deriving.Monad<Counter, StateT<int, IO>>` and `Deriving.Stateful<Counter, StateT<int, IO>, int>` with `Transform` and `CoTransform` alone. `Transform` unwraps to the stack and `CoTransform` wraps the result. Functions constrained on `Monad<M>` or `Stateful<M, int>` run on `Counter`, including `Tick<Counter>`. `Deriving.MonadIO` requires the stack to implement `MonadIO`. Because `StateT` does not, the wrapper derives only `Monad` and `Stateful`. The wrapper lifts an effect through `CoTransform` over `StateT.liftIO` because the stack supplies no `LiftIO`.
 
 ```csharp
 internal sealed record Account(Guid Id, decimal Balance);
@@ -195,19 +195,19 @@ internal static class Counters {
 
 ## The traversal policy
 
-The dependency structure and the concurrency bound choose the traversal.
+The dependency structure and the concurrency bound determine the traversal.
 
-| Structure                    | Traversal                               | Behavior                                                            |
-| ---------------------------- | --------------------------------------- | ------------------------------------------------------------------- |
-| Independent checks           | instance `Traverse` under `Validation`  | accumulates every error                                             |
-| Independent effects          | instance `Traverse` under `IO`          | asynchronous effects overlap without a bound, one failure fails all |
-| Dependent or ordered effects | instance `TraverseM`                    | serial, short-circuit on the first failure                          |
-| Bounded concurrency          | chunk, then `TraverseM` over the chunks | one chunk in flight, the width is the bound                         |
-| Best effort                  | `PartitionFallible`, `Succs`, `Fails`   | no short-circuit, both branches returned                            |
+| Structure                    | Traversal                               | Behavior                                                                                 |
+| ---------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Independent checks           | instance `Traverse` under `Validation`  | accumulates every error                                                                  |
+| Independent effects          | instance `Traverse` under `IO`          | asynchronous effects overlap without a bound, and the traversal fails if an effect fails |
+| Dependent or ordered effects | instance `TraverseM`                    | serial, short-circuit on the first failure                                               |
+| Bounded concurrency          | chunk, then `TraverseM` over the chunks | one chunk runs at a time, and the chunk width sets the bound                             |
+| Best effort                  | `PartitionFallible`, `Succs`, `Fails`   | no short-circuit, both branches returned                                                 |
 
-`PartitionFallible` returns `(Seq<Error> Fails, Seq<A> Succs)` with the failures first. `Succs` keeps the successes and `Fails` keeps the errors. The three take a `Seq<K<IO, A>>`, so `Map<K<IO, A>>` names the type argument on the projection.
+`PartitionFallible` returns `(Seq<Error> Fails, Seq<A> Succs)` with the failures first. `Succs` keeps the successes and `Fails` keeps the errors. `PartitionFallible`, `Succs`, and `Fails` take a `Seq<K<IO, A>>`. Their projections use `Map<K<IO, A>>` to specify the result type.
 
-`Traverse` under `IO` starts every element effect before it awaits any: effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread. `TraverseM` runs the effects one after another. `Fork` takes one thread per fork, so a large fan-out chunks the collection first.
+`Traverse` under `IO` starts every element effect before it awaits any. Effects built with `IO.liftAsync` overlap. Effects built with `IO.lift` run in order on the calling thread. Because `Fork` uses one thread per fork, large fan-outs require chunking first.
 
 ```csharp
 internal sealed record Job(string Name, IO<int> Work);

@@ -1,8 +1,8 @@
 # Currying and Partial Application
 
-## The central design move
+## The central design principle
 
-A multi-argument function can be defined at a high level of generality, then specialized by supplying stable decisions before runtime data. Each supplied argument produces a narrower function whose remaining inputs belong to a later stage of the application lifecycle.
+A general multi-argument function can be specialized by supplying stable inputs before runtime data. Each supplied argument returns a specialized function whose remaining inputs become available later in the application lifecycle.
 
 ```text
 general function
@@ -12,14 +12,12 @@ general function
   -> result
 ```
 
-This separates who chooses each input and when it becomes available. The final consumer receives a function tailored to its exact need and does not need to know the configuration or construction process behind it.
+This separates who chooses each input and when it becomes available. The final consumer receives a function that accepts only its remaining inputs and does not need to know its configuration or construction process.
 
 ## Core distinction
 
-Currying changes a function's shape. Invoking some stages specializes the curried function; invoking every stage completes the application. Partial application specializes the original function directly.
-
 - **Currying** transforms a function of `N` arguments into a chain of `N` unary functions. Each call accepts exactly one argument and returns the next function; the final call returns the result.
-- **Partial application** supplies fewer than all of the original arguments at once and returns a function for the arguments that remain. The Prelude function `par` fixes a leading group of arguments, and the returned function can still accept several arguments. Supplying every argument is full application and produces the result.
+- **Partial application** supplies fewer than all of the original arguments at once and returns a function for the arguments that remain. The Prelude function `par` fixes a leading group of arguments, and the returned function can accept several arguments. Supplying every argument is full application and produces the result.
 
 For a two-argument function:
 
@@ -31,11 +29,9 @@ internal static class Shapes {
 }
 ```
 
-`Add100(200m)` is `300` and `Add100(900m)` is `1000`. The returned function retains each supplied value but does not invoke the original function until the remaining arguments arrive. A single general implementation can therefore produce many small, reusable specializations.
+`Add100(200m)` is `300` and `Add100(900m)` is `1000`. The returned function retains each supplied value but does not invoke the original function until the remaining arguments arrive. A single general implementation can produce many reusable specializations.
 
 ## Partial application
-
-Partial application gives a function fewer arguments than it ultimately needs and returns a function with the supplied values captured.
 
 ```csharp
 internal static class Greetings {
@@ -44,11 +40,11 @@ internal static class Greetings {
 }
 ```
 
-The implementation does not change; only the point at which each input is chosen changes. The captured value remains available through the returned closure. The Prelude ships `par` for each arity and bound-argument count, and `lpar` fixes the second argument of a two-argument function.
+The Prelude provides `par` for each arity and number of supplied arguments, and `lpar` fixes the second argument of a two-argument function.
 
 ### Partial application in C#
 
-Partial application avoids unnecessary unary stages when several arguments should always be fixed together. It specializes the original multi-argument function directly; it does not first require the function to be curried. `Parsing.ParseBooks` is the configurable parser of the family section:
+Partial application avoids unnecessary unary stages when several arguments are always fixed together. `Parsing.ParseBooks` is the configurable parser used later:
 
 ```csharp
 internal static class Partials {
@@ -58,20 +54,18 @@ internal static class Partials {
 }
 ```
 
-### Order arguments by lifecycle
+### Order arguments by availability
 
-Place earlier, more stable inputs first and later, operation-specific inputs last:
-1. Dependencies and configuration known during application composition
+Place stable inputs first and runtime inputs last:
+1. Dependencies and configuration known at the composition root
 2. Policies or options that select behavior
 3. The value or entity being acted upon at runtime
 
 For example, `ConnectionIO -> SqlTemplate -> QueryParameters -> Result` and `Clock -> Command -> Validation<Error, Command>`.
 
-This ordering makes left-to-right partial application useful. If an API puts a short-lived value before stable configuration, adapt its signature so that application setup can supply the stable values first. Parameter order determines which specializations are convenient: put stable configuration arguments first and the frequently changing input last when the goal is a reusable function whose final call accepts only the varying value.
+This ordering makes left-to-right partial application useful. If an API puts a short-lived value before stable configuration, adapt its signature so that application setup can supply the stable values first.
 
 ## Currying is a transformation, not application
-
-Currying converts one function that accepts several arguments into a chain of unary functions: `(T1, T2, T3) -> R` becomes `T1 -> T2 -> T3 -> R`.
 
 ```csharp
 internal static class Curried {
@@ -81,11 +75,11 @@ internal static class Curried {
 }
 ```
 
-Currying has little value when every argument is always supplied together. Its purpose is to make staged specialization convenient. A function can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete C# delegate accepts several parameters; the actual `Func` shape determines whether successive calls are possible.
+Currying has little value when every argument is always supplied together. It supports specialization in stages. A function can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete C# delegate accepts several parameters; the `Func` shape determines whether successive calls are possible.
 
 ### Currying in C#
 
-C# has no built-in automatic currying. The Prelude function `curry` transforms a function of two or more arguments. A function written in curried form from the start, such as `Shapes.CurriedAdd`, is compact when it will always be consumed one argument at a time.
+C# has no built-in automatic currying. The Prelude function `curry` transforms a function of two or more arguments. Write a function directly in curried form, such as `Shapes.CurriedAdd`, when consumers always supply one argument at a time.
 
 ```csharp
 internal static class Helper {
@@ -97,9 +91,7 @@ internal static class Helper {
 
 Explicit lambda parameter types may be needed because the compiler does not always infer the delegate's generic arguments at this call site. A delegate value with a declared `Func` type, such as `Greetings.Greet`, needs no annotation.
 
-### Building families of specialized functions
-
-Consider one configurable parser:
+### Creating related specialized functions
 
 ```csharp
 internal sealed record Book(string Title, string Author, string PublicationDate);
@@ -116,7 +108,7 @@ internal static class Parsing {
 }
 ```
 
-Currying turns its four-argument shape into `bool -> string -> string -> string -> Seq<Book>`. Each stage can be retained and branched:
+Currying turns its four-argument shape into `bool -> string -> string -> string -> Seq<Book>`. Each stage can be saved and used to create multiple specializations:
 
 ```csharp
 internal static class Families {
@@ -128,11 +120,11 @@ internal static class Families {
 }
 ```
 
-The same principle can specialize a logger by fixing its `LogLevel`. The resulting `logInfo`, `logWarning`, and `logError` functions each need only a message and can be passed wherever that focused behavior is required.
+Fixing a logger's `LogLevel` creates `logInfo`, `logWarning`, and `logError`. Each function needs only a message and can be passed where logging at that level is required.
 
 ### Curried functions in higher-order pipelines
 
-Partial application can turn general operations into unary functions suitable for mapping or composition. For noncommutative operations, choose parameter order deliberately: the first parameter is the one fixed first, while the last one is typically the pipeline value. `Pipe` is the value-level operation: it applies the function on its right to the value on its left.
+Partial application can turn general operations into unary functions suitable for mapping or composition. For noncommutative operations, choose parameter order deliberately: the first parameter is fixed first, while the last one is typically the pipeline value. `Pipe` applies the function on its right to the value on its left.
 
 ```csharp
 internal static class PipeExtensions {
@@ -149,9 +141,9 @@ internal static class Temperature {
 
 ## Working with C# method resolution
 
-C# distinguishes methods, method groups, lambdas, and delegate values. A unary method often converts cleanly where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
+C# distinguishes methods, method groups, lambdas, and delegate values. A unary method often converts where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
 
-Possible workarounds include explicit generic arguments or an explicit delegate cast, but both add noise. `fun` gives a lambda its `Func` type at the call site, so the lambda is invoked or passed without a declared local. For functions intended to participate heavily in partial application or other higher-order operations, expose a delegate value instead:
+Explicit generic arguments and delegate casts are available, but add syntax. `fun` gives a lambda its `Func` type at the call site, so the lambda can be invoked or passed without a declared local. For functions frequently used in partial application or other higher-order operations, expose a delegate value:
 
 ```csharp
 internal sealed class Greeter(string separator) {
@@ -162,18 +154,17 @@ internal sealed class Greeter(string separator) {
 }
 ```
 
-Choose the delegate-producing form deliberately:
-- A field is simple but an inline field initializer cannot depend on instance state.
+Choose the delegate-producing form:
+- A field initializer cannot depend on instance state.
 - A getter-only property can create a delegate that closes over instance state.
 - A factory method can also introduce generic type parameters, which fields and properties cannot.
 
-Returning `Func` values from adapter or factory methods is often the cleanest way to cross from method-oriented APIs into a function-composition pipeline.
+Return `Func` values from adapter or factory methods to cross from method-based APIs into a function-composition pipeline.
 
-## Designing a specialization-friendly boundary
+## Designing an API for partial application
 
-An existing API may expose arguments in an order that works poorly for partial application. A thin adapter can:
-- put stable inputs before transient ones;
-- expose semantic types instead of ambiguous primitives;
+An existing API may expose arguments in an order that works poorly for partial application. An adapter can:
+- expose domain-specific types instead of ambiguous primitives;
 - acquire a short-lived resource only when the operation runs;
 - return a `Func` so subsequent specialization benefits from delegate inference.
 
@@ -192,7 +183,7 @@ internal static class Queries {
 }
 ```
 
-The runtime `RT` supplies the connection through the trait `Has<Eff<RT>, ConnectionIO>`, and the call returns a `Func` for clean subsequent application. The runtime record holds the capability from startup, and the implementation opens the short-lived connection when the query runs. The effect type `Eff<RT, Seq<T>>` reads the trait only when the host runs the effect, not when the query function is built. The template can then be supplied to create an operation-specific query, leaving only invocation-specific parameters:
+The runtime `RT` supplies the connection through the trait `Has<Eff<RT>, ConnectionIO>`, and the call returns a `Func` for subsequent application. The runtime record holds the capability from startup, and the implementation opens the short-lived connection when the query runs. The effect type `Eff<RT, Seq<T>>` reads the trait only when the host runs the effect, not when the query function is built. The template can then be supplied to create an operation-specific query, leaving only invocation-specific parameters:
 
 ```csharp
 internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
@@ -202,11 +193,11 @@ internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
 }
 ```
 
-Custom types such as `ConnectionIO` and `SqlTemplate` make signatures intention-revealing and provide appropriate homes for extension methods that would not belong on `string`. `Seq<A>.Head` is an `Option<A>`, so lookup absence stays explicit.
+Custom types such as `ConnectionIO` and `SqlTemplate` make signatures intention-revealing and can own extension methods that do not belong on `string`. `Seq<A>.Head` is an `Option<A>`, so lookup absence stays explicit.
 
 ## Functions as dependencies
 
-A dependency should describe exactly the behavior a consumer needs. A clock is `Func<DateTime>`; a validator is `T -> Validation<Error, T>`; a persistence operation is `T -> IO<Unit>`.
+A dependency must describe the behavior a consumer needs. A clock is `Func<DateTime>`; a validator is `T -> Validation<Error, T>`; a persistence operation is `T -> IO<Unit>`.
 
 In the chapter's signatures, `Option<T>` makes lookup absence explicit, `Validation<Error, T>` carries a valid value or accumulated errors, and `IO<Unit>` is a deferred effect that completes with no result value or fails on its error channel.
 
@@ -220,28 +211,27 @@ internal static class Validators {
 }
 ```
 
-`DateNotPast` is a function factory and a curried binary function in practice. Composition supplies the clock once; request handling supplies the command later. A test supplies a deterministic clock without constructing a fake service object. The error is a typed `Expected` record and the command lifts into `Validation<Error, BookTransfer>` by implicit conversion.
+`DateNotPast` is a function factory and a curried binary function. Composition supplies the clock once; request handling supplies the command later. A test supplies a deterministic clock without constructing a fake service object. The error is a typed `Expected` record and the command lifts into `Validation<Error, BookTransfer>` by implicit conversion.
 
-Function dependencies preserve the useful properties normally sought through interfaces:
+Function dependencies provide the same properties as interfaces:
 - The consumer is decoupled from the implementation.
-- Tests can inject small deterministic functions.
-- Each signature states the minimum capability required.
+- Tests can inject deterministic functions.
 - Single-method interfaces and mock setup are unnecessary.
 
-This naturally enforces interface segregation: a consumer that only saves receives only `T -> IO<Unit>`, not a repository abstraction that also exposes lookup and unrelated operations. If a consumer truly needs several independent behaviors, those functions remain separate and explicit.
+This enforces interface segregation: a consumer that only saves receives only `T -> IO<Unit>`, not a repository abstraction that also exposes lookup and unrelated operations. If a consumer needs several independent behaviors, those functions remain separate and explicit.
 
-Objects and interfaces remain compatible with this style. Functional behavior can live behind a framework controller when that framework provides useful request and response handling there.
+Objects and interfaces remain compatible with this style. Functional behavior can live behind a framework controller that handles requests and responses.
 
 ## The composition root
 
-Construct specialized functions at the outermost bootstrap boundary:
+Construct specialized functions at the composition root:
 1. Read stable configuration.
-2. Adapt infrastructure APIs into application-shaped functions.
+2. Adapt infrastructure APIs into functions that match application needs.
 3. Partially apply dependencies, policies, and templates.
 4. Combine small domain functions into the workflow required by the host.
-5. Inject only the final narrow functions into controllers or handlers.
+5. Inject only specialized functions with the required inputs into controllers or handlers.
 
-The runtime record holds the configuration and implements one `Has` trait per capability. The workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies. The host runs the effect once with `Run(rt)`, which returns `Fin<A>`. `Eff<RT, A>.Lift(Func<Fin<A>>)` carries a `Fin` into the query, and the `IO<Unit>` dependency binds as an `IO` clause.
+The runtime record holds the configuration and implements one `Has` trait per capability. The workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies. The host runs the effect once with `Run(rt)`, which returns `Fin<A>`. `Eff<RT, A>.Lift(Func<Fin<A>>)` carries a `Fin` into the query, and `from _ in save(valid)` binds the `IO<Unit>` dependency.
 
 ```csharp
 internal sealed record OwnerNotFound() : Expected("The transfer owner is unknown", 101);
@@ -270,15 +260,13 @@ The framework entry point can remain thin while the behavior it invokes is suppl
 
 ## Choosing whether to use them
 
-These techniques are useful when they:
+Use these techniques to:
 - eliminate near-duplicate specialized functions;
 - expose reusable intermediate configurations;
 - produce unary functions that fit higher-order APIs;
-- keep one general implementation behind many focused call sites.
 
 Their costs are specific to C#:
-- no language-level currying or partial application;
 - `Func` conversion and occasional explicit type annotations;
 - nested delegate types that become difficult to read at higher arities.
 
-Use them when the resulting specialized functions simplify real call sites. If the helper machinery is larger or less readable than the duplication it removes, ordinary functions are the clearer choice.
+Use them when specialized functions simplify call sites. If the helper code is larger or less readable than the duplication it removes, use ordinary functions.

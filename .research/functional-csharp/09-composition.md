@@ -11,7 +11,7 @@ f · g : A -> C
 (f · g)(x) = f(g(x))
 ```
 
-The types are the governing constraint: the output of `g` must be assignable to the input of `f`. Nested calls express this directly but read in reverse execution order:
+Types constrain composition: the output of `g` must be assignable to the input of `f`. Nested calls express this but read in reverse execution order:
 
 ```csharp
 internal sealed record Person(string FirstName, string LastName, decimal Earnings);
@@ -36,15 +36,15 @@ internal static class Chaining {
 }
 ```
 
-Each chained method must be defined on the preceding expression's type, either as an instance method or an extension method. The methods then appear in execution order, so a long pipeline can serve as a high-level description of the program.
+Each chained method must be defined on the preceding expression's type, either as an instance method or an extension method. The methods appear in execution order. A long pipeline can describe the program at a high level.
 
-## Composition Must Survive Elevated Values
+## The Functor Composition Law
 
 When a value is inside a structure such as `Option<T>`, `Map` must preserve ordinary composition: `option.Map(g).Map(f)` must produce the same result as `option.Map(x => f(g(x)))`. This equation is the functor composition law.
 
 ## Think in Data Flow
 
-A compositional program is a sequence of typed transformations. Track what each step does to both the value and its shape:
+A compositional program is a sequence of typed transformations. Track what each step does to the value and its enclosing structure:
 
 ```csharp
 internal static class DataFlow {
@@ -56,11 +56,11 @@ internal static class DataFlow {
 }
 ```
 
-The pipeline states what is wanted. Iteration, branching, and enumeration mechanics remain inside reusable operations. Here, `Average` is also the greedy step that evaluates the preceding lazy sequence.
+The pipeline states the intended result. Reusable operations contain iteration, branching, and enumeration mechanics. `Average` is a terminal operation that immediately evaluates the preceding lazy sequence.
 
 ### Keep a Pipeline Inspectable
 
-A fluent chain is concise, but stepping through nested lambdas can obscure the first bad transition. A query whose `from` clauses name each stage preserves the same flow while exposing each result:
+Nested lambdas in a fluent chain can obscure the first incorrect transformation. A query with a `from` clause for each stage preserves the flow while exposing each result:
 
 ```csharp
 internal static class Stages {
@@ -77,18 +77,18 @@ internal static class Stages {
 }
 ```
 
-Because each range variable is bound once, every stage remains available for inspection. The tradeoff is lifetime: large intermediates remain in scope until the containing function ends. Combine stages when releasing a large value sooner matters.
+Because each range variable is bound once, every stage remains available for inspection. Large intermediate values remain in scope until the containing function ends. Combine stages if a large value must be released sooner.
 
 ### Properties of Composable Functions
 
-A function becomes easier to reuse and rearrange when it is:
+The following properties support function reuse and rearrangement:
 - **Pure:** its result depends only on its arguments, with no side effects.
-- **Chainable:** an instance or extension receiver lets its result flow naturally into the next call.
-- **General:** it performs one broadly useful operation rather than encoding one narrow use case.
-- **Shape-preserving:** when possible, it returns the same outer structure it accepts.
-- **Value-producing:** it returns data for the next function instead of ending in `void`; an `Action` is necessarily a terminal step.
+- **Chainable:** an instance or extension receiver lets its result flow into the next call.
+- **General:** it performs one operation that applies to multiple use cases.
+- **Structure-preserving:** when possible, it returns the same outer structure it accepts.
+- **Non-`void`:** it returns data for the next function. An `Action` is a terminal step.
 
-These are design heuristics, not absolute requirements. Terminal operations must eventually collapse a shape or perform effects. The important distinction is that those operations deliberately end a pipeline.
+These are heuristics, not requirements. Terminal operations materialize or reduce a structure, or perform effects.
 
 Prefer small, general building blocks over one specific aggregate operation:
 
@@ -104,11 +104,9 @@ internal static class Quartiles {
 }
 ```
 
-Splitting one specific operation into smaller, general functions creates building blocks that can participate in other workflows while improving readability.
-
 ## Model Workflows with Functional Operators
 
-A workflow is a meaningful sequence of operations leading to a result. Give each step a function, then use the operator that matches the step's type:
+A workflow is a sequence of operations that produces a result. Give each step a function and use the operator that matches the step's type:
 
 | Step shape                      | Operator                               | Meaning                                                     |
 | ------------------------------- | -------------------------------------- | ----------------------------------------------------------- |
@@ -117,9 +115,9 @@ A workflow is a meaningful sequence of operations leading to a result. Give each
 | `T -> Option<R>`, `T -> Fin<R>` | `Bind`                                 | Continue with a step that can produce no value or a reason. |
 | `T -> void`                     | `Iter`                                 | Perform the terminal effect only for a present value.       |
 
-The workflow functions do not have to compose directly. For example, validation returns `bool` while the debit requires the normalized request. The higher-order operators on `Option` and `Fin` provide the typed glue. Workflow functions are passed to `Map`, `Filter`, `Bind`, or `Iter`, and a `bool` step reaches `Fin` through `guard`. The result type controls whether the value reaches the next step.
+Workflow functions need not compose directly. For example, validation returns `bool`, but the debit requires the normalized request. Higher-order operators adapt these function types. `guard` connects the `bool` result to `Fin`.
 
-`Fin<A>` is also a gate: `Succ` means a value remains eligible to continue, while `Fail` stops all later operations and keeps the reason. In a LINQ query over `Fin`, `guard` is the validation step and a `from` clause over `Debit` is the domain step.
+`Fin<A>` controls continuation: `Succ` keeps a value available to later operations, while `Fail` stops them and preserves the reason. In a LINQ query over `Fin`, `guard` is the validation step and a `from` clause over `Debit` is the domain step.
 
 ```csharp
 internal sealed record MakeTransfer(Guid DebitedAccountId, string Bic, decimal Amount);
@@ -136,11 +134,11 @@ internal static class Workflow {
 }
 ```
 
-This reads in domain order: normalize, validate, then debit. Adding another transformation means defining one function and inserting one pipeline step. Control flow remains inside `Fin`, so the top-level workflow does not accumulate nested conditionals.
+The workflow runs in domain order: normalize, validate, then debit. Adding another transformation means defining one function and inserting one pipeline step. `Fin` handles control flow. The top-level workflow needs no nested conditionals.
 
 ## Keep Domain Transitions Pure
 
-In this functional domain model, immutable state is separated from behavior. A debit rejected by the balance rule becomes the typed error `InsufficientFunds`. A successful debit returns new state without changing the original.
+Immutable state is separate from behavior.
 
 ```csharp
 internal sealed record AccountState(decimal Balance);
@@ -154,15 +152,15 @@ internal static class Account {
 }
 ```
 
-Unlike a mutating `void Debit` that throws for insufficient funds, this function:
-- has no mutation or exception for an expected business outcome;
+`Debit`:
+- does not throw for an expected business outcome;
 - exposes possible failure in its return type;
 - produces a value that later steps can consume;
 - leaves the original state unchanged.
 
 ## Compose the End-to-End Flow
 
-Boundary services expose reads as `OptionT<IO, A>` and writes as `IO<Unit>` while the domain transition stays pure. The repository lifts its `Option` read into the transformer with `OptionT.lift`. `Require` is the boundary function that converts the transformer to `IO<AccountState>`. `Run` exposes one layer, and `IO.lift` folds the `Fin` from `ToFin` onto the error channel with the typed `AccountNotFound`.
+Boundary services expose reads as `OptionT<IO, A>` and writes as `IO<Unit>` while the domain transition stays pure. The repository lifts its `Option` read into the transformer with `OptionT.lift`. `Require` converts the transformer to `IO<AccountState>`. `Run` unwraps the `OptionT` layer. `IO.lift` lifts the `Fin` returned by `ToFin` into `IO`, preserving `AccountNotFound` as the typed error.
 
 ```csharp
 internal sealed record AccountNotFound() : Expected("account not found", 903);
@@ -198,30 +196,29 @@ internal sealed class Transfers(IRepository<AccountState> accounts, ISwiftServic
 
 ## Expressions, Effects, and Declarative Code
 
-Expressions produce values and therefore compose. Assignments, loops, and conditional statements direct execution and do not produce values for a pipeline. Declarations of classes, methods, and fields remain necessary and are best treated as a separate category. Favoring expressions shifts code from imperative instructions toward declarative descriptions.
+Expressions produce values and compose. Assignments, loops, and conditional statements direct execution and do not produce values for a pipeline. Class, method, and field declarations remain necessary but form a separate category. Using expressions shifts code from imperative instructions toward declarative descriptions.
 
-This does not eliminate effects. It moves them to explicit boundaries:
+Using expressions does not eliminate effects. It moves effects to explicit boundaries:
 1. Receive external input.
 2. Transform and validate through expressions.
 3. Compute new domain state with pure functions.
-4. Perform required persistence or communication at the terminal edge.
+4. Perform required persistence or communication at the effect boundary.
 
 If a terminal step requires multiple effects, keep each one visible.
 
 ## Layering Around a Top-Level Workflow
 
-Do not require every layer to call only its immediate neighbor. That structure spreads impurity upward: once a low-level call performs I/O, every delegating layer becomes impure.
+Do not require every layer to call only its immediate neighbor. After a low-level call performs I/O, every delegating layer becomes impure.
 
-Instead, let a top-level entry point compose functions exposed by any lower-level component, while dependencies continue to point downward. This produces:
-- a single, readable overview of the business workflow;
-- optional subworkflows for meaningful groups of steps;
+Let a top-level entry point compose functions from lower-level components while dependencies point downward. This structure provides:
+- one overview of the business workflow;
+- subworkflows for related groups of steps;
 - pure mid-level validation and domain logic;
-- effects isolated at repositories, external services, and other exit points;
 - direct testing of pure logic without mocks.
 
 ## Limits and Failure Modes
 
 - **`Option` discards the reason for failure, and `Fin` keeps it.** `Option` can short-circuit the flow, but it cannot distinguish a missing account from insufficient funds. `Fin` carries the typed `Error` without changing the compositional approach.
 - **Composition does not make distributed effects atomic.** Saving a debited account and wiring funds can fail between operations. A database transaction cannot protect an external call from process failure after the call but before commit.
-- **A thorough multi-system solution uses a durable task and idempotency.** Persist a representation of the combined work atomically, process it until all effects complete, and make repeat execution safe.
-- **Declarative code is higher-level.** Confidence should come from tests rather than from looking at the implementation and assuming its hidden work is correct.
+- **One multi-system pattern uses a persisted work item and idempotency.** Persist a representation of the combined work atomically, process it until all effects complete, and make repeat execution safe.
+- **Confidence comes from tests.** Do not inspect the implementation and assume that its abstracted operations are correct.

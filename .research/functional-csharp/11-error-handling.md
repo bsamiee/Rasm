@@ -2,7 +2,7 @@
 
 ## Errors belong in the return type
 
-An operation that can predictably fail should return both possible outcomes as data. Its signature then states the failure contract, callers can reason about it locally, and ordinary composition controls the flow. An exception, by contrast, transfers control to a handler somewhere up the call stack or escapes uncaught; understanding the next step requires tracing the surrounding call paths.
+An operation that can predictably fail should return both outcomes as data. Its signature states its failure behavior, callers can reason about it locally, and composition controls the flow. An exception, by contrast, transfers control to a handler up the call stack or escapes uncaught; understanding the next step requires tracing the surrounding call paths.
 
 Use `Option<T>` when failure means only “no value” and no explanation is useful. Use `Fin<A>` when the caller needs failure details. `Either<L, R>` stays for two value types where neither side is an error.
 
@@ -13,7 +13,7 @@ Fail = failure data, always an Error
 Succ = successful result
 ```
 
-The success side is the value being transformed. The failure side carries the error unchanged through the rest of a failed workflow. An `A` and an `Error` both convert to `Fin<A>` without a constructor call.
+The success side is the value being transformed. The failure side carries the error. An `A` and an `Error` both convert to `Fin<A>` without a constructor call.
 
 ```csharp
 internal static class Calculator {
@@ -24,17 +24,15 @@ internal static class Calculator {
 }
 ```
 
-This signature is honest: every caller knows that calculation can fail and knows the error type it must handle.
+### Why a container with result and error fields is not enough
 
-### Why a result-plus-error container is not enough
-
-Lighter wrappers around edge calls each carry a cost:
-- Returning `default` on failure is concise but swallows the exception and makes failure indistinguishable from a legitimate default result.
+Wrappers around boundary calls have these limitations:
+- Returning `default` on failure swallows the exception and makes failure indistinguishable from a valid default result.
 - Giving a reusable wrapper a logger preserves the exception, but the wrapper lacks the caller's specific context unless more information is supplied.
-- Returning result-and-error metadata preserves both possibilities, but a container with both fields forces every success to carry an unused error field and every failure to carry an unused result field.
-- An `OnError` operation on such a container reduces the caller's checking boilerplate and makes the error action explicit, while retaining that imperfect container shape.
+- Returning separate result and error fields preserves both outcomes, but every success carries an unused error field and every failure carries an unused result field.
+- An `OnError` operation on such a container reduces the caller's checking boilerplate and makes the error handler explicit, while retaining that container shape.
 
-A representation with mutually exclusive success and failure cases avoids the container's unused and potentially inconsistent fields.
+Mutually exclusive success and failure cases avoid unused fields and invalid field combinations.
 
 ## Core operations
 
@@ -55,16 +53,14 @@ internal static class Operations {
 
 - `Map` transforms a successful value with `A -> B`.
 - `Bind` composes a step with `A -> Fin<B>` and flattens the result.
-- `Iter` performs an action only for `Succ` and represents its completed action with `Unit`.
-- `Match` handles both cases and returns an ordinary value. It exits the abstraction, so delay it until a boundary.
+- `Iter` performs an action only for `Succ` and returns `Unit`.
+- `Match` handles both cases and returns a value outside `Fin`.
 
-`Fin<A>` has no `Where`. A false predicate must produce `Fail`, but a predicate supplies only `bool` and no `Error`. Turn the predicate into a validator that constructs a specific error, then compose it with `Bind`. Inside a LINQ query the same check is a `guard` clause, as `Root` shows.
-
-A function of shape `A -> Fin<B>` crosses from an ordinary value into an explicit outcome. `Bind` composes such functions while keeping the workflow inside `Fin`. `Match` is the downward crossing that finally interprets the outcome as something outside the abstraction.
+`Fin<A>` has no `Where`. A false predicate must produce `Fail`, but a predicate supplies only `bool` and no `Error`. Turn the predicate into a validator that constructs a specific error, then compose it with `Bind`. Inside a LINQ query the same check is a `guard` clause.
 
 ## Fail-fast workflows
 
-`Bind` produces a two-track pipeline. Each successful step advances on the success track. The first failure moves to the failure track, skips every later step, and reaches the final handler unchanged.
+`Bind` produces a fail-fast pipeline. Each `Succ` passes its value to the next step. The first `Fail` skips all later steps and reaches the final handler.
 
 ```csharp
 internal sealed record Request(string Account, decimal Amount);
@@ -89,13 +85,13 @@ internal static class Workflow {
 }
 ```
 
-Use `Unit` when success has no meaningful payload. The pipeline still returns an explicit success value rather than relying on `void` or an implicit absence.
+Use `Unit` when success has no payload. The pipeline returns an explicit success value instead of relying on `void` or implicit absence.
 
 All bound functions share the failure type `Error`. Choose the domain errors for the workflow before composing it.
 
 ## Typed business validation
 
-Prefer distinct error types over strings. A string is too limited for structured error details, while `Exception` has the wrong meaning for expected, business-as-usual failures. Specific `Expected` records give each failure a domain identity, a code, and room for richer data.
+Prefer distinct error types over strings. A string cannot carry structured error details. Specific `Expected` records give each failure a distinct type and code and can carry additional data.
 
 ```csharp
 internal sealed record BookTransfer(string Bic, DateOnly Date);
@@ -118,11 +114,11 @@ internal static class Transfers {
 }
 ```
 
-Each validator has the same shape: accept the request, return that request on success, or return the specific error for the violated rule. The date validator checks that the transfer is in the future and receives the clock as an argument. The BIC validator checks the identifier's format. Returning the request in `Succ` makes it available to the next validator. Because this pipeline uses `Bind`, it stops at the first invalid result. The codes live in one closed block, and a consumer classifies an error with `Is`, `HasCode`, or `IsType<E>`, never by its message text.
+Each validator has the same shape: accept the request, return it on success, or return the error for the violated rule. The date validator checks that the transfer is in the future and receives the clock as an argument. The BIC validator checks the identifier's format. Returning the request in `Succ` makes it available to the next validator. The codes are defined together in the `Codes` class, and a consumer classifies an error with `Is`, `HasCode`, or `IsType<E>`, never by its message text.
 
 ## Keep the abstraction inside the application core
 
-Within the core, continue composing with `Map` and `Bind`. Translate only in an outer adapter where the protocol, UI, or host requires a concrete response. The result type is chosen where input enters and is kept through the domain. `Match`, `RunSafe`, and `IfFail` are host operations.
+Within the core, compose with `Map` and `Bind`. Translate only in an outer adapter when the protocol, UI, or host requires another response type. Choose the result type at the input boundary and keep it through the domain. Use `Match`, `RunSafe`, and `IfFail` only at host boundaries.
 
 ```csharp
 IActionResult Post(Request request) =>
@@ -133,15 +129,15 @@ IActionResult Post(Request request) =>
 
 For an optional lookup, a boundary can translate `None` to “not found” and `Some(value)` to a successful response. For `Fin`, the boundary must decide how domain failures map to the external contract.
 
-Two viable API designs are:
+Two API designs are:
 - Map `Fail` and `Succ` to protocol status codes and payloads.
-- Always return a transport-success response whose body is a result DTO with `Succeeded` plus either `Data` or `Error`. Unlike `Fin`, this DTO exposes its values directly for serialization and client access.
+- Always return a response whose transport status indicates success and whose body is a result DTO with `Succeeded` plus either `Data` or `Error`. Unlike `Fin`, this DTO exposes its values directly for serialization and client access.
 
-Mapping business validation to an HTTP error such as 400 is debatable: the request may be syntactically valid yet violate a business rule, and concurrent changes can invalidate a request between creation and receipt. The choice is an API-design decision. The invariant is that protocol details stay in the adapter and the core retains its explicit outcome type.
+Mapping business validation to an HTTP error such as 400 has tradeoffs: the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt. The choice is an API-design decision.
 
 ## Adapting error types
 
-The usual `Map` changes only `A` and leaves the `Error` fixed. `MapFail` changes only the `Error`, and `BiMap` maps both sides at the join point:
+`MapFail` changes only the `Error`, and `BiMap` maps both sides:
 
 ```csharp
 internal static class Adapters {
@@ -156,23 +152,23 @@ internal static class Adapters {
 }
 ```
 
-`Error.New(string, Error)` keeps the original error as `Inner`, so context is added without losing the cause. Recovery belongs to the boundary that owns the error and uses the `Catch` overloads. `Catch(code, f)` selects by code, `Catch(Error, f)` by value, and `Catch(predicate, f)` by a test on the error. A consistent error model is clearer than repeatedly adapting incompatible representations.
+`Error.New(string, Error)` keeps the original error as `Inner`, so context is added without losing the cause. Recovery belongs to the boundary that owns the error and uses the `Catch` overloads. `Catch(code, f)` selects by code, `Catch(Error, f)` by value, and `Catch(predicate, f)` by a test on the error.
 
 ## Separate business failures from technical failures
 
-Two types beside `Fin<A>` make intent clearer and reduce generic noise:
+Use two types with `Fin<A>` to distinguish business failures from technical failures:
 
 ```text
 Validation<Error, A> = Fail(Error) | Success(A)
 IO<A>                = a deferred effect that fails with Error or yields A
 ```
 
-- `Validation<Error, A>` represents violated business rules. Its failure type is fixed to `Error`, whose `+` accumulates into `ManyErrors`, so multiple errors are carried at once. `IsType<E>` and `IsExceptional` on `ManyErrors` test its members.
+- `Validation<Error, A>` represents violated business rules. Its failure type is fixed to `Error`, whose `+` combines failures into `ManyErrors`. `IsType<E>` and `IsExceptional` on `ManyErrors` test its members.
 - `IO<A>` represents infrastructure, integration, or other technical work. A thrown exception arrives on its error channel as an `Exceptional` error.
 
-A class-based `Result<T>` with `Success<T>` and `Failure<T>` cases, where `Failure<T>` carries an exception, is `Fin<A>` with an `Exceptional` error under another name. Its `Success<T>` does not by itself prevent a `null` payload. Absence stays in `Option<T>`.
+A class-based `Result<T>` with `Success<T>` and `Failure<T>` cases, where `Failure<T>` carries an exception, is equivalent to `Fin<A>` with an `Exceptional` error. Its `Success<T>` does not prevent a `null` payload. Use `Option<T>` for absence.
 
-Convert an exception-throwing dependency immediately at the integration boundary. `IO.lift` captures the throw, so the capture scope is one call.
+Convert an exception-throwing dependency at the integration boundary. `IO.lift` captures exceptions from only that call.
 
 ```csharp
 internal static class Ledger {
@@ -206,17 +202,15 @@ internal static class Handler {
 ```
 
 The tuple `Apply` combines the two independent validators and reports both violations together. At the outer boundary, `RunSafe` returns one `Fin<Unit>`, and `Match` separates the three reachable outcomes:
-- `Fail` with an `Expected` error or `ManyErrors`: expose actionable business errors.
+- `Fail` with an `Expected` error or `ManyErrors`: expose the business errors.
 - `Fail` with an `Exceptional` error: log the technical detail and expose a generic failure.
 - `Succ(unit)`: return success.
 
-The host reads the accumulated leaves with `Filter<E>`, `Count`, and `Head` in the same `Match`.
-
-This prevents infrastructure details from leaking to clients while retaining useful validation feedback.
+In the same `Match`, the host reads individual accumulated errors with `Filter<E>`, `Count`, and `Head`.
 
 ## Exception policy
 
-Do not use exceptions for expected business outcomes. Reserve them for conditions the normal workflow is not meant to recover from:
-- Developer defects, such as violating a function’s required preconditions. These indicate broken program logic and should not be caught as business errors.
+Do not use exceptions for expected business outcomes. Reserve them for conditions that the workflow cannot recover from:
+- Developer defects that violate a function’s required preconditions. These indicate broken program logic. Do not catch them as business errors.
 - Configuration failures discovered during initialization that make the application unable to operate. Let them terminate initialization, apart from an outermost application handler.
 - Exception-based third-party APIs. Catch narrowly and convert immediately to an explicit functional value.

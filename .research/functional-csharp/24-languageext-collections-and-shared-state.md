@@ -1,12 +1,12 @@
 # LanguageExt Collections and Shared State
 
-Every collection in domain code is a LanguageExt collection, and `Seq<A>` is the default. A BCL `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value, and `toSeq` is the conversion at that boundary. This file owns the collection types, the fold and shape operators, the lens, and the types that share one mutable value.
+Every collection in domain code is a LanguageExt collection, and `Seq<A>` is the default. A BCL `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value, and `toSeq` is the conversion at that boundary. This file documents collection types, fold and sequence operations, lenses, and shared-state types.
 
-## The collection partition
+## Collection types
 
 | Type            | Use                             | Construction                                   |
 | --------------- | ------------------------------- | ---------------------------------------------- |
-| `Seq<A>`        | the default, ordered, memoized  | `Seq(1, 2, 3)`, `toSeq(source)`                |
+| `Seq<A>`        | ordered, memoized               | `Seq(1, 2, 3)`, `toSeq(source)`                |
 | `Arr<A>`        | indexed reads                   | `Array(10, 20, 30)`                            |
 | `Lst<A>`        | `Insert`, `RemoveAt`, `SetItem` | `List(1, 2, 3)`                                |
 | `Map<K, V>`     | keyed, ordered by key           | `Map(("b", 2), ("a", 1))`                      |
@@ -16,7 +16,7 @@ Every collection in domain code is a LanguageExt collection, and `Seq<A>` is the
 | `Iterable<A>`   | lazy over `IEnumerable`         | `source.AsIterable()`, `ToSeq()` forces it     |
 | `IterableNE<A>` | non-empty, `Head` is a value    | `IterableNE.create(1, 2, 3)`, `AsIterableNE()` |
 
-`Seq<A>` reads its source once and memoizes every item, so a second enumeration repeats no work. `toSeq` copies an array, a list, or a collection at once. `Map` and `Filter` on a `Seq` are deferred until enumeration. `Iterable<A>` holds no memory, so a second enumeration runs the source again. `Lst<A>` is the choice for `Insert`, `RemoveAt`, and `SetItem`. `IterableNE<A>` has a `Head` of type `A`, and `AsIterableNE` returns `Option<IterableNE<A>>` because a source can be empty. `Range(from, count)` takes a count as its second argument, so `Range(1, 3)` yields `1, 2, 3`. The declared type of a hash set is `LanguageExt.HashSet<A>`, because the simple name collides with `System.Collections.Generic.HashSet<T>`.
+`Seq<A>` reads its source once and memoizes every item. A second enumeration does not run the source again. `toSeq` eagerly copies an array, a list, or a collection. `Map` and `Filter` on a `Seq` are deferred until enumeration. `Iterable<A>` does not memoize items. A second enumeration runs the source again. `AsIterableNE` returns `Option<IterableNE<A>>` because a source can be empty. `Range(from, count)` takes a count as its second argument. `Range(1, 3)` yields `1, 2, 3`. The declared type of a hash set is `LanguageExt.HashSet<A>`, because the simple name collides with `System.Collections.Generic.HashSet<T>`.
 
 ```csharp
 internal static class Partition {
@@ -44,7 +44,7 @@ internal static class Partition {
 
 ## The fold family
 
-`Fold` walks head to tail with a seed, and `FoldBack` walks tail to head. `FoldWhile` reads the state and the next element before each step and stops when the predicate turns false. `FoldUntil` stops when the predicate turns true. Both predicates receive a `(State, Value)` tuple. `FoldM` binds each step through a monad and walks tail to head, so `FoldBackM` is the monadic fold that walks head to tail. Both return `K<M, S>`, so `.As()` follows. The seedless `Fold()` combines a monoid and places each element in front of the state. A sequence of sequences folds to the last group first. `Exists` stops at the first match, and `ForAll` stops at the first failure.
+`Fold` folds left to right with a seed, and `FoldBack` folds right to left. `FoldWhile` reads the state and the next element before each step and stops when the predicate returns `false`. `FoldUntil` stops when the predicate returns `true`. Both predicates receive a `(State, Value)` tuple. `FoldM` binds each step through a monad and folds right to left, while `FoldBackM` folds left to right. Both return `K<M, S>`. Call `.As()` to convert that value to the concrete monad type. The seedless `Fold()` combines a monoid and prepends each element to the accumulator. Folding a sequence of sequences returns the groups in reverse order. `Exists` stops at the first match, and `ForAll` stops at the first failure.
 
 ```csharp
 internal static class Folds {
@@ -63,9 +63,9 @@ internal static class Folds {
 }
 ```
 
-## Shape operators
+## Sequence operations
 
-`Choose` maps to `Option` and keeps the `Some` values in one pass. `Partition` splits by a predicate into a tuple that deconstructs. `Zip` pairs two sequences into `(First, Second)` tuples, and the projected form takes a function. `Scan` emits the seed first, so the result has one more entry than the source. `At(Index)` returns `Option<A>`. `Head` and `Last` are `Option<A>`, and `Tail` is a `Seq<A>` that is empty for an empty source. The indexed `Map` passes the item first and the index second. `Bind` flattens, `Somes` drops `None`, and `Rev` reverses. `LanguageExt.List.unfold` runs a state seed until the step returns `None`. The static import of `Prelude` binds the simple name `List` to `Prelude.List`, so the call names the namespace. `Cons` resolves in the extension form `head.Cons(tail)` because `LanguageExt.Pretty.Cons<A>` is a type.
+`Choose` maps to `Option` and keeps the `Some` values in one pass. `Partition` splits by a predicate into a tuple that deconstructs. `Zip` pairs two sequences, and its projection overload takes a function. `Scan` emits the seed first. The result has one more element than the source. `At(Index)` returns `Option<A>`. `Head` and `Last` are `Option<A>`, and `Tail` is a `Seq<A>` that is empty for an empty source. The indexed `Map` passes the item first and the index second. `Bind` flattens, `Somes` drops `None`, and `Rev` reverses. `LanguageExt.List.unfold` runs a state seed until the step returns `None`. The static import of `Prelude` binds `List` to `Prelude.List`. `LanguageExt.List.unfold` names the namespace explicitly. `Cons` resolves with extension-method syntax, `head.Cons(tail)`, because `LanguageExt.Pretty.Cons<A>` is a type.
 
 ```csharp
 internal static class Shapes {
@@ -88,9 +88,9 @@ internal static class Shapes {
 }
 ```
 
-## Equality and analyzer traps
+## Equality and compiler pitfalls
 
-`==` on `Seq<A>` compares the items in order. A `Zip` result carries the tuple names `First` and `Second`. A comparison against a `Seq` of unnamed tuples is ambiguous (CS9342), so the expected value declares the same names. `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121), so membership is `Exists` and a total is `Fold`. `Seq<A>.Empty` in expression context fails with CS0119 because the simple name `Seq` binds to the `Prelude` function, so the empty value is `Seq<A>()`. `Seq<A>` has no `Sort` instance, so a sort is LINQ `Order()` then `toSeq`.
+`==` on `Seq<A>` compares the items in order. `Zip` names the tuple elements `First` and `Second`. Comparing this result with a `Seq` of unnamed tuples is ambiguous (CS9342). Declare the same tuple names in the expected value. `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121). Use `Exists` for membership and `Fold` for summing values. `Seq<A>.Empty` in expression context fails with CS0119 because the simple name `Seq` binds to the `Prelude` function. Use `Seq<A>()` for the empty value. `Seq<A>` has no `Sort` instance. Sorting requires LINQ `Order()` followed by `toSeq`.
 
 ```csharp
 internal static class Equality {
@@ -108,7 +108,7 @@ internal static class Equality {
 
 ## Lenses
 
-`Lens<A, B>.New` takes a getter and a curried setter. `Get` reads the focus. `Set` writes a value, `Update` applies a function, and both return a new `A`. `lens(outer, inner)` composes two lenses into one that reaches through a nested record.
+`Lens<A, B>.New` takes a getter and a curried setter. `Get` reads the focus. `Set` writes a value, `Update` applies a function, and both return a new `A`. `lens(outer, inner)` composes two lenses into one lens that focuses on a value in a nested record.
 
 ```csharp
 internal sealed record Address(string City, string Postcode);
@@ -129,7 +129,7 @@ internal static class Lenses {
 
 ## Shared mutable state
 
-`Atom<A>` holds one value under compare-and-swap. `Swap` returns the new value. The function runs again on a conflict, so it holds no effect. `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` mutates in place under the same rule. `TryAdd` ignores a present key. `SwapKey(key, Func<V, V>)` updates a present key, and `SwapKey(key, Func<Option<V>, Option<V>>)` also inserts. `Find` reads, and `FindOrAdd` registers or returns in one step. `Ref<A>` changes inside `atomic`, where `swap` reads the transaction. `commute` applies its function inside the transaction and again at the commit point against the last committed value. `atomic(Func<R>)` returns the in-transaction result. `Isolation.Serialisable` selects the strictest isolation. `TrackingHashMap<K, V>` records each key change in `Changes`, and `Snapshot()` clears the log and keeps the data. `memo(Func<A, B>)` caches one result per argument. `memo(Func<A>)` returns a `Memo<A>` whose `Value` runs the thunk once. `memoK` caches the construction of a `K<F, A>` and not its run, so a memoized `IO` is built once and runs on every `Value`.
+`Atom<A>` manages one value with compare-and-swap. `Swap` returns the new value. A conflict can cause the update function to run again. The function must have no side effects. `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, and its update functions must have no side effects. `TryAdd` ignores a present key. `SwapKey(key, Func<V, V>)` updates a present key, and `SwapKey(key, Func<Option<V>, Option<V>>)` also inserts. `Find` reads, and `FindOrAdd` atomically adds a missing value or returns the existing value. `Ref<A>` updates occur inside `atomic`. `swap` reads the transactional value. `commute` applies its function inside the transaction and again at the commit point against the last committed value. `atomic(Func<R>)` returns the function result from the transaction. `Isolation.Serialisable` sets serializable transaction isolation. `TrackingHashMap<K, V>` records each key change in `Changes`, and `Snapshot()` clears the change log and preserves the entries. `memo(Func<A, B>)` caches one result per argument. `memo(Func<A>)` returns a `Memo<A>` whose `Value` runs the thunk once. `memoK` caches the construction of a `K<F, A>`, not its execution. A memoized `IO` is constructed once and runs each time `Value` is read.
 
 ```csharp
 internal static class SharedState {

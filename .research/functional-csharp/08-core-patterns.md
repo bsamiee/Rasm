@@ -1,16 +1,16 @@
 # Patterns in Functional Programming
 
-Functional programming repeatedly applies a small set of operations to values held inside structures. `Option<A>` represents optionality; `Seq<A>` represents aggregation. Their meanings differ, but the same operation shapes work for both.
+Functional programming applies common operations to values in contexts. `Option<A>` represents optionality; `Seq<A>` represents a sequence of values. Many operations have the same signatures for both.
 
 ## The core operations
 
-| Operation | Function shape              | Purpose                                                               |
-| --------- | --------------------------- | --------------------------------------------------------------------- |
-| `Pure`    | `A -> F<A>`                 | Lift a regular value into a structure.                                |
-| `Map`     | `(F<A>, A -> B) -> F<B>`    | Transform every available inner value while preserving the structure. |
-| `Bind`    | `(F<A>, A -> F<B>) -> F<B>` | Run a structure-producing function and flatten the nested result.     |
-| `Filter`  | `(F<A>, A -> bool) -> F<A>` | Keep inner values satisfying a predicate.                             |
-| `Iter`    | `(F<A>, Action<A>) -> Unit` | Perform a side effect for each available value.                       |
+| Operation | Signature                   | Purpose                                                        |
+| --------- | --------------------------- | -------------------------------------------------------------- |
+| `Pure`    | `A -> F<A>`                 | Lift a plain value into `F<A>`.                                |
+| `Map`     | `(F<A>, A -> B) -> F<B>`    | Apply a function to each value in `F<A>` while preserving `F`. |
+| `Bind`    | `(F<A>, A -> F<B>) -> F<B>` | Apply `A -> F<B>` and flatten the nested result.               |
+| `Filter`  | `(F<A>, A -> bool) -> F<A>` | Keep values in `F<A>` that satisfy a predicate.                |
+| `Iter`    | `(F<A>, Action<A>) -> Unit` | Perform a side effect for each value in `F<A>`.                |
 
 `Option<A>`, `Seq<A>`, and `Fin<A>` supply these operations under these names. `Fin<A>` has no `Filter`, and `Seq<A>` has no `Pure`.
 
@@ -27,8 +27,6 @@ internal static partial class CorePatterns {
 }
 ```
 
-`Map` and LINQ's `Select` are synonymous for sequences.
-
 For an option, it transforms a present value and propagates absence:
 
 ```csharp
@@ -38,7 +36,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-`Option<A>` can be understood as a container holding zero or one value. This makes its `Map` behavior consistent with sequence mapping: the function runs once for `Some` and never for `None`.
+`Option<A>` contains zero or one value. Its `Map` applies the function once for `Some` and never for `None`.
 
 ```csharp
 internal static partial class CorePatterns {
@@ -47,9 +45,9 @@ internal static partial class CorePatterns {
 }
 ```
 
-Optionality propagates automatically. The domain function `CalculateRiskProfile : Age -> Risk` stays unaware of absence; `Map` handles it.
+The domain function `CalculateRiskProfile : Age -> Risk` stays unaware of absence.
 
-For practical purposes, a type with a suitable, side-effect-free `Map` is a functor: mapping applies the function to inner values and does nothing else. LanguageExt encodes the type constructor as the `F` in `K<F, A>`, and the trait `Functor<F>` declares `Map` over `K<F, A>`. A function generic over `F : Functor<F>` works for `Option` and `Seq`, and `.As()` recovers the concrete type at the edge:
+A type whose side-effect-free `Map` obeys the functor laws is a functor. `Map` applies the function to values in the context while preserving that context. LanguageExt encodes the type constructor as the `F` in `K<F, A>`, and the trait `Functor<F>` declares `Map` over `K<F, A>`. A function generic over `F : Functor<F>` works for `Option` and `Seq`, and `.As()` recovers the concrete type at the boundary:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -65,9 +63,9 @@ internal static partial class CorePatterns {
 
 ## Iter: isolate effects
 
-`Map` is for value transformations. `Iter` accepts an `Action<A>` and exists specifically to perform effects.
+`Map` transforms values. `Iter` performs side effects through an `Action<A>`.
 
-`Iter` runs the action at once and returns `Unit`. Keep the effecting action as small as possible:
+`Iter` runs the action immediately and returns `Unit`. Limit the action to one side effect:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -78,9 +76,9 @@ internal static partial class CorePatterns {
 }
 ```
 
-This keeps formatting pure and limits the side effect to output. A dedicated `Iter` is preferable to overloading `Map` with `Action<A>` because C# overload resolution cannot reliably distinguish `Action<A>` from `Func<A, B>` using the return type.
+Formatting remains pure, and only output has a side effect. `Iter` needs a separate name because C# overload resolution cannot reliably distinguish `Action<A>` from `Func<A, B>` by return type.
 
-A pass-through `Do` operation performs a side effect and returns the same elevated value so composition can continue. `Option<A>` and `Seq<A>` supply `Do`, and `Fin<A>` supplies `IfSucc`. Inside an effect chain, the observer is an `IO` step:
+`Do` performs a side effect and returns its input `F<A>`, which lets composition continue. `Option<A>` and `Seq<A>` supply `Do`, and `Fin<A>` supplies `IfSucc`. In an `IO` computation, the side effect is an `IO` step:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -91,11 +89,11 @@ internal static partial class CorePatterns {
 }
 ```
 
-`Do` and `IfSucc` run only for a value, so a propagated `None` or failure passes every later observer in silence.
+`Do` and `IfSucc` run only for a value. Later side effects do not run after `None` or a failure.
 
 ## Bind: compose structure-producing functions
 
-`Map` is correct when the supplied function returns a regular value. If the function already returns the same kind of structure, `Map` produces an unwanted nested value:
+`Map` takes a function `A -> B`. With `A -> F<B>`, it produces a nested value:
 
 ```text
 Option<A> + (A -> Option<B>) + Map  = Option<Option<B>>
@@ -120,7 +118,7 @@ internal readonly partial struct Age {
 }
 ```
 
-`parseInt` returns `Option<int>`, so `Bind` joins the two:
+`parseInt` returns `Option<int>`. `Bind` composes parsing with validation:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -140,9 +138,9 @@ internal static partial class CorePatterns {
 }
 ```
 
-For `Seq<A>`, `Bind` and LINQ's `SelectMany` are the same operation: each source value can produce a sequence, and all produced sequences are flattened into one. `Map` would produce `Seq<Seq<Pet>>`; `Bind` produces one flat `Seq<Pet>`.
+For `Seq<A>`, each source value can produce a sequence, and `Bind` flattens all produced sequences into one. `Map` would produce `Seq<Seq<Pet>>`; `Bind` produces `Seq<Pet>`.
 
-A type with suitable `Pure` and `Bind` operations that obey the monad laws is a monad. `MonadLaw<F>.validate()` checks the laws for a type such as `Option`. The laws constrain these operations, but the essential implementation guidance here is that `Pure` must do only the minimum required to introduce the structure. `Pure(value)` converts into `Option<A>`, `Fin<A>`, and `IO<A>`:
+A type whose `Pure` and `Bind` obey the monad laws is a monad. `MonadLaw<F>.validate()` checks these laws for types such as `Option`. `Pure` only constructs `F<A>` from `A`. `Pure(value)` converts into `Option<A>`, `Fin<A>`, and `IO<A>`:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -154,11 +152,11 @@ internal static partial class CorePatterns {
 
 `Seq(value)` builds the one-element `Seq<A>`, and `F.Pure(value)` under `F : Applicative<F>` builds the structure for any `F`.
 
-`Map` can be derived from `Bind` and `Pure` by lifting the transform result before binding. A direct `Map` implementation may still be more efficient. Every monad can therefore supply `Map`, but a functor does not necessarily support `Bind`.
+`Map` can be derived from `Bind` and `Pure` by lifting the transform result before binding. A direct `Map` implementation can be more efficient. Every monad supplies `Map`, but not every functor supplies `Bind`.
 
 ## Filter: filter inside the structure
 
-For an option, `Filter` preserves a present value only when it satisfies the predicate, and LINQ `where` still works:
+For an option, `Filter` preserves a present value only when it satisfies the predicate. LINQ `where` also works:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -171,7 +169,7 @@ Both parse failure and predicate failure become `None`; a valid non-negative int
 
 ## Combining Option and Seq
 
-An option can be promoted to a zero-or-one-element sequence with `ToSeq`:
+`ToSeq` converts an option to a zero-or-one-element sequence:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -179,7 +177,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-This enables practical combinations of the two structures. `Choose` maps each element to an `Option<B>` and keeps the `Some` values in one pass, and `Somes` does the same for a `Seq<Option<A>>` that already exists:
+`Choose` maps each element to an `Option<B>` and keeps the `Some` values in one pass, and `Somes` does the same for a `Seq<Option<A>>` that already exists:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -189,7 +187,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-Each yields a plain `Seq<A>` and discards `None`. `Flattened` turns the other direction, an `Option<Seq<A>>`, into a `Seq<A>`. These conversions are valid because an option can always be represented as a sequence, though `Option` and `Seq` normally serve different purposes and are combined only when flattening between them is useful.
+`Flattened` converts `Option<Seq<A>>` to `Seq<A>`. Use these conversions when a pipeline must flatten between `Option` and `Seq`. The two types otherwise serve different purposes.
 
 ```csharp
 internal static partial class CorePatterns {
@@ -198,36 +196,31 @@ internal static partial class CorePatterns {
 }
 ```
 
-Here each `Some(age)` becomes one sequence element and each `None` becomes none, so a later aggregate can operate only on disclosed ages. `age` converts to `int` through the generated implicit conversion, so the sum reads the key.
+Each `Some(age)` becomes one sequence element, and each `None` contributes no element. The aggregate operates only on disclosed ages. The generated implicit conversion converts `age` to `int`, so the sum uses the underlying integer.
 
-## Regular and elevated values
+## Plain values and values in a context
 
-A regular value has type `A`. An elevated value has type `F<A>`, where `F` adds a computational effect. This kind of effect describes what the abstraction contributes; it is distinct from a side effect:
+A plain value has type `A`. A value in a context has type `F<A>`, where the type constructor `F` supplies a computational effect. A computational effect is distinct from a side effect:
 - `Option<A>` adds possible absence.
-- `Seq<A>` adds aggregation.
+- `Seq<A>` adds zero or more values.
 - `Func<A>` adds deferred evaluation.
 - `Fin<A>` adds expected failure with a reason.
 - `IO<A>` adds a deferred side effect with a failure channel.
 
-Functions can be classified by how they move between these levels:
+Input and output types classify these functions:
 
-| Direction            | Shape                 | Examples                           |
-| -------------------- | --------------------- | ---------------------------------- |
-| Regular to regular   | `A -> B`              | `int -> string` transformations    |
-| Elevated to elevated | `(F<A>, ...) -> F<B>` | `Map`, `Bind`, `Filter`, ordering  |
-| Regular to elevated  | `A -> F<B>`           | `parseInt`, `Pure`                 |
-| Elevated to regular  | `F<A> -> B`           | `Match`, `Count`, `Fold`, `IfNone` |
+| Input and output                         | Shape                 | Examples                           |
+| ---------------------------------------- | --------------------- | ---------------------------------- |
+| Plain value to plain value               | `A -> B`              | `int -> string` transformations    |
+| Value in a context to value in a context | `(F<A>, ...) -> F<B>` | `Map`, `Bind`, `Filter`, ordering  |
+| Plain value to value in a context        | `A -> F<B>`           | `parseInt`, `Pure`                 |
+| Value in a context to plain value        | `F<A> -> B`           | `Match`, `Count`, `Fold`, `IfNone` |
 
-These shapes describe the net movement between levels; an elevated-to-elevated operation may also take a function, predicate, or other arguments. `Match` and `RunSafe` belong to the host, and domain functions never run an effect.
+An `F<A> -> F<B>` operation can also take a function, predicate, or other arguments. `Match` and `RunSafe` belong to the host, and domain functions never run an effect.
 
-There is not always an obvious general operation from elevated to regular. An `Option<A>` may be empty, and a sequence may have zero or many values, so neither can always be reduced to one `A`.
+No general operation extracts one `A` from every `F<A>`. An `Option<A>` can be empty, and a sequence can contain zero or many values.
 
-The practical distinction between `Map` and `Bind` follows directly:
-- Use `Map` with `A -> B`.
-- Use `Bind` with `A -> F<B>`.
-- Using `Map` with `A -> F<B>` produces `F<F<B>>`.
-
-Prefer staying within one useful abstraction across a pipeline:
+Prefer keeping a pipeline within one abstraction:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -240,4 +233,4 @@ internal static partial class CorePatterns {
 }
 ```
 
-After `toSeq` elevates the range into `Seq<int>`, every remaining operation stays within `Seq`. Working only with regular values tends to reintroduce low-level loops and absence checks; stacking abstractions too deeply produces types such as `A<B<C<D<T>>>>`, where the underlying value becomes difficult to reach and compose with. When two abstractions stack, a transformer such as `OptionT<IO, A>` keeps one `Map` and one `Bind` over the pair.
+After `toSeq` converts the range to `Seq<int>`, all later operations remain in `Seq`. Using only plain values can reintroduce low-level loops and absence checks. Deeply nested contexts can produce types such as `A<B<C<D<T>>>>`, which require traversal of several layers to access and compose the value. A transformer such as `OptionT<IO, A>` provides one `Map` and one `Bind` for the pair.
