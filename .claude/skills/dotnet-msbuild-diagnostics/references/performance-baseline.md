@@ -4,22 +4,12 @@ Establish comparable evidence before you change the build. Record the measuremen
 
 ## [01]-[MEASUREMENT_CONTROLS]
 
-Change only the input or setting that the measurement selects. Keep these other values unchanged:
-- Machine and power state
-- Source revision
-- .NET SDK and MSBuild versions
-- Build command, targets, properties, and environment
-- Restore and package-cache state
-- Parallelism and node-reuse settings
-- Binary-log settings
-- MSBuild server state
+Change only the input or setting that the measurement selects. Keep the build command, properties, parallelism, node reuse, restore state, binary-log settings, and MSBuild server state unchanged across compared captures.
 
-Capture the measured build with `-bl:{}`. Keep its command, properties, and parallelism unchanged.
-
-- Binary logging can add measurable overhead to large builds. Keep it enabled for every compared capture.
-- Run `binlog_overview` for each capture. Record the status, duration, project count, error count, and warning count.
+- Keep binary logging enabled for every compared capture, because it adds overhead to the build it measures.
+- Record the status, duration, project count, error count, and warning count of each capture.
 - Do not apply universal timing or percentage thresholds. Compare the build against its own scenarios and history.
-- `binlog_compare` compares properties and packages between two binlogs. Use it for configuration drift, never for timing.
+- Use `binlog_compare` for configuration drift, never for timing.
 
 ## [02]-[MSBUILD_SERVER_STATE]
 
@@ -32,7 +22,7 @@ dotnet build-server shutdown                           # stop persistent build s
 dotnet build --disable-build-servers -bl:no-server-{}  # disable persistent build servers for this capture
 ```
 
-Record the selected state with the capture. Do not compare a warm-server build with a fresh-server build.
+Record the selected state with the capture.
 
 ## [03]-[CLEAN_OUTPUT_CAPTURE]
 
@@ -43,7 +33,7 @@ dotnet clean -bl:clean-{}
 dotnet build -bl:clean-output-{}
 ```
 
-Run `binlog_overview` on the build binlog. Do not include the clean operation in the build duration.
+Do not include the clean operation in the build duration.
 
 ## [04]-[CHANGED_INPUT_CAPTURE]
 
@@ -65,12 +55,4 @@ dotnet build -bl:prime-no-change-{}
 dotnet build -bl:no-change-{}
 ```
 
-Analyze the second binlog. Run `binlog_overview` on both binlogs to make sure that the first build succeeded.
-
-## [06]-[EVIDENCE_ROUTE]
-
-Follow the reference that matches the measured evidence:
-- For executed work, graph constraints, or task cost, follow `execution-performance.md`.
-- For evaluation cost or unexpected repeated work, follow `evaluation-and-incrementality.md`.
-
-If both classes contribute, complete both workflows. Keep each conclusion tied to its binlog evidence.
+Analyze the second binlog. Make sure that the first build succeeded.

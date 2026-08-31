@@ -1,8 +1,34 @@
-# [MULTI_LEVEL_EXAMPLES]-[DIRECTORY_BUILD]
+# [MULTI_LEVEL_EXAMPLES]-[SHARED_BUILD_FILES]
 
-Full file examples for a typical multi-level repo layout.
+Full file examples for a typical multi-level repo layout, and the before/after of settings centralized out of project files.
 
-## [01]-[ROOT]-[DIRECTORY_BUILD_PROPS]
+## [01]-[LAYOUT]
+
+```text
+Rasm/
+├── Directory.Build.props             # repo-wide defaults
+├── Directory.Packages.props          # every package version
+├── libs/dotnet/Directory.Build.props # imports the root, adds library settings
+└── tests/dotnet/
+    ├── Directory.Build.props         # imports the root, adds test settings
+    └── Directory.Packages.props      # imports the root, adds test-only packages
+```
+
+A nested `Directory.Packages.props` hides the root file, so it imports the root first:
+
+```xml
+<!-- tests/dotnet/Directory.Packages.props -->
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Packages.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <ItemGroup>
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Update="xunit.v3" Version="4.0.0" />
+  </ItemGroup>
+</Project>
+```
+
+## [02]-[ROOT]-[DIRECTORY_BUILD_PROPS]
 
 ```xml
 <Project>
@@ -15,15 +41,17 @@ Full file examples for a typical multi-level repo layout.
 </Project>
 ```
 
-## [02]-[INNER_FOLDER]-[DIRECTORY_BUILD_PROPS]
+## [03]-[INNER_FOLDER]-[DIRECTORY_BUILD_PROPS]
 
 `<folder>/Directory.Build.props`:
 
 ```xml
 <Project>
 
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
-         Condition="Exists('$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))')" />
+  <PropertyGroup>
+    <_OuterDirectoryBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterDirectoryBuildProps>
+  </PropertyGroup>
+  <Import Project="$(_OuterDirectoryBuildProps)" Condition="'$(_OuterDirectoryBuildProps)' != ''" />
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
@@ -33,32 +61,35 @@ Full file examples for a typical multi-level repo layout.
 </Project>
 ```
 
-## [03]-[INNER_FOLDER]-[TESTS]
+## [04]-[INNER_FOLDER]-[TESTS]
 
 `tests/dotnet/Directory.Build.props`:
 
 ```xml
 <Project>
 
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
-         Condition="Exists('$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))')" />
+  <PropertyGroup>
+    <_OuterDirectoryBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterDirectoryBuildProps>
+  </PropertyGroup>
+  <Import Project="$(_OuterDirectoryBuildProps)" Condition="'$(_OuterDirectoryBuildProps)' != ''" />
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
 </Project>
 ```
 
-## [04]-[BEFORE_AFTER]-[CENTRALIZING_DUPLICATED_SETTINGS]
+`xunit.v3` carries its own Microsoft.Testing.Platform runner. `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` select VSTest, which `global.json` rejects when it names `Microsoft.Testing.Platform`.
+
+## [05]-[BEFORE_AFTER]-[CENTRALIZING_DUPLICATED_SETTINGS]
 
 [BEFORE]: the same settings in every project file
 

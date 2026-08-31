@@ -4,24 +4,17 @@ Use the evaluation workflow for evaluation cost. Use the incrementality workflow
 
 ## [01]-[EVALUATION]
 
-MSBuild evaluates a project before it executes targets. A project evaluation has these passes:
-1. Environment variables
-2. Imports and properties
-3. Item definitions
-4. Items
-5. `UsingTask` elements
-6. Targets
+MSBuild evaluates a project before it executes targets.
 
 ### [01.1]-[BINLOG_DIAGNOSIS]
 
-1. Run `binlog_overview` for the total duration and build status.
-2. Run `binlog_evaluations` to identify costly project evaluations.
-3. Run `binlog_evaluation_global_properties` for each suspect evaluation.
-4. Run `binlog_evaluation_properties` when an evaluated property value is relevant.
-5. Run `binlog_imports` for the import chain.
-6. Run `binlog_items` to examine evaluated item counts and contents.
-7. Run `binlog_search_files` for glob and property-function declarations.
-8. Run `binlog_preprocess` only when the complete imported source is necessary.
+1. Run `binlog_evaluations` to identify costly project evaluations.
+2. Run `binlog_evaluation_global_properties` for each suspect evaluation.
+3. Run `binlog_evaluation_properties` when an evaluated property value is relevant.
+4. Run `binlog_imports` for the import chain.
+5. Run `binlog_items` to examine evaluated item counts and contents.
+6. Run `binlog_search_files` for glob and property-function declarations.
+7. Run `binlog_preprocess` only when the complete imported source is necessary.
 
 GLOBS:
 - Broad recursive globs can enumerate large directory trees.
@@ -47,31 +40,7 @@ PROPERTY FUNCTIONS:
 
 ## [02]-[INCREMENTALITY]
 
-TARGET INPUTS AND OUTPUTS:
-- A file-producing target declares both `Inputs` and `Outputs`.
-- A transform in `Outputs` maps each output to its corresponding input.
-- A discrete output compares against all declared inputs.
-- An output is current when its timestamp is equal to or newer than its mapped inputs.
-- MSBuild can run a partial incremental build when only some mapped outputs are stale.
-- A requested target without `Outputs` runs each time that MSBuild schedules it.
-- MSBuild uses timestamps, not content hashes, for target incrementality.
-
-```xml
-<!-- Map each output to its corresponding input. -->
-<Target Name="Transform"
-        Inputs="@(TransformFiles)"
-        Outputs="@(TransformFiles->'$(IntermediateOutputPath)%(Filename).out')">
-  <WriteLinesToFile File="$(IntermediateOutputPath)%(TransformFiles.Filename).out"
-                    Lines="%(TransformFiles.Identity)"
-                    Overwrite="true"
-                    WriteOnlyWhenDifferent="true" />
-</Target>
-```
-
-FILE  WRITES:
-- `FileWrites` records generated files for clean bookkeeping. It does not participate in a target timestamp check.
-- Add each generated file to `FileWrites` inside its producing target.
-- An intrinsic `ItemGroup` preserves the item during output inference when MSBuild skips the target.
+The `dotnet-msbuild-execution` skill owns the `Inputs`, `Outputs`, and `FileWrites` authoring rules. This workflow finds the target that breaks them.
 
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
@@ -81,47 +50,19 @@ dotnet build -bl:incremental-{}        # capture the no-change build
 ```
 
 Analyze the second binlog:
-1. Run `binlog_overview`.
-2. Run `binlog_incremental_analysis` for target decisions, triggering files, and `IncrementalClean` deletions.
-3. Run `binlog_project_target_times` for each suspect project.
-4. Keep targets with `skipped: false`.
-5. Run `binlog_target_reasons` for each unresolved target.
-6. Run `binlog_expensive_targets` to prioritize costly rebuilt targets.
-7. Run `binlog_preprocess` only when the imported target declaration is necessary.
+1. Run `binlog_incremental_analysis` for target decisions, triggering files, and `IncrementalClean` deletions.
+2. Run `binlog_project_target_times` for each suspect project.
+3. Keep targets with `skipped: false` whose `staleOutputs` names a file path. A `staleOutputs` value that repeats the target name marks a target with no file outputs, which runs on every build by design.
+4. Run `binlog_search` with `Building target "<name>" completely` for each unresolved target. The `Chain:` line of `binlog_target_reasons` reports a stale skip state and omits the reason.
+5. Run `binlog_expensive_targets` to prioritize costly rebuilt targets.
+6. Run `binlog_preprocess` only when the imported target declaration is necessary.
 
-`Building target "X" completely` and its reason identify the stale input or missing output. A target without an up-to-date reason or a `Skipped:` line has no declared `Inputs` and `Outputs`. See `dotnet-msbuild-antipatterns`, `AP-16`.
+`Building target "X" completely` and its reason identify the stale input or missing output. A target without an up-to-date reason or a `Skipped:` line has no declared `Inputs` and `Outputs`.
 
 ### [02.2]-[COMMON_DEFECTS]
 
-1. A file-producing target omits `Inputs` and `Outputs`.
-2. An output path contains a timestamp, build number, or random value.
-3. The target writes a file that `Outputs` does not declare.
-4. The declared inputs omit a file that affects the output.
-5. A changed property alters a declared input or output path.
-6. A removed glob input leaves an old output because MSBuild sees only the current input list.
-7. A task rewrites unchanged output content and changes its timestamp.
-
-### [02.3]-[CUSTOM_TARGET]
-
-- `Inputs` names the project file and each source file that affects generation.
-- `Outputs` uses one stable intermediate path.
-- `BeforeTargets="CoreCompile"` makes the generated file available to the compiler.
-- `WriteOnlyWhenDifferent="true"` preserves the output timestamp when content does not change.
-- `FileWrites` records the generated file for clean operations.
-- `Compile` adds the generated file during target execution and output inference.
-
-```xml
-<Target Name="GenerateConfig"
-        Inputs="$(MSBuildProjectFile);@(ConfigInput)"
-        Outputs="$(IntermediateOutputPath)config.generated.cs"
-        BeforeTargets="CoreCompile">
-  <WriteLinesToFile File="$(IntermediateOutputPath)config.generated.cs"
-                    Lines="@(GeneratedLines)"
-                    Overwrite="true"
-                    WriteOnlyWhenDifferent="true" />
-  <ItemGroup>
-    <FileWrites Include="$(IntermediateOutputPath)config.generated.cs" />
-    <Compile Include="$(IntermediateOutputPath)config.generated.cs" />
-  </ItemGroup>
-</Target>
-```
+1. An output path contains a timestamp, build number, or random value.
+2. The target writes a file that `Outputs` does not declare.
+3. The declared inputs omit a file that affects the output.
+4. A changed property alters a declared input or output path.
+5. A task rewrites unchanged output content and changes its timestamp.
