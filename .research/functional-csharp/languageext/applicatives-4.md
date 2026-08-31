@@ -1,4 +1,4 @@
-# Applicatives
+# [APPLICATIVES]
 
 An applicative functor extends a functor with contextual function application. It can combine values inside a context such as `Maybe`, `Either`, `Option`, `Seq`, or `IO` without imposing the sequential dependencies of monadic composition.
 
@@ -8,7 +8,7 @@ Two important uses in language-ext are:
 
 Applicative behavior is not limited to those cases. Higher-kinded types, including collection types, can provide applicative instances.
 
-## From `Map` to `Apply`
+## [01]-[FROM_MAP_TO_APPLY]
 
 A functor's `Map` lifts a unary function over a contextual value:
 
@@ -66,7 +66,7 @@ var res = lhs.Map(l => l.Map(add).Map(f => rhs.Map(r => r.Map(f))));
 
 `Apply` combines a contextual function with a contextual argument while preserving a single contextual layer.
 
-## The Trait
+## [02]-[TRAIT]
 
 ```csharp
 public interface Applicative<F> : Functor<F>
@@ -95,7 +95,7 @@ The difference is the function. `Map` receives an ordinary `Func<A, B>`; `Apply`
 
 The trait also declares `Pure`. In the `Maybe` instance below, `Pure` constructs `Just`.
 
-## `Maybe` as an Applicative
+## [03]-[MAYBE_APPLICATIVE]
 
 ```csharp
 public class Maybe :
@@ -146,7 +146,7 @@ public class Maybe :
 
 The `Foldable` trait requires `FoldWhile` and `FoldBackWhile`, which support optimized defaults for operations such as `Exists`, `ForAll`, and `IsEmpty`.
 
-## Fluent Applicative Composition
+## [04]-[FLUENT_COMPOSITION]
 
 Function-first `Map` and applicative `Apply` extensions enable a left-to-right form:
 
@@ -200,7 +200,7 @@ var res = from w in mw
 
 The distinction is evaluation structure. A monadic expression is sequential: each operand is obtained in order, and a failure can stop the remaining operations. An applicative expression exposes that its operands do not depend on one another, so an applicative instance may evaluate independent branches concurrently.
 
-## Parallel `IO`
+## [05]-[PARALLEL_IO]
 
 A simplified applicative `Apply` for `IO` forks both contextual operands and waits for both results:
 

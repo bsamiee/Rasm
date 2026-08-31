@@ -1,4 +1,4 @@
-# StateT: Pure, Composable State
+# [STATE_TRANSFORMER]
 
 `StateT` models changing state without mutating a value in place. Each computation receives a state and returns both its result and the next state inside another monad:
 
@@ -18,7 +18,7 @@ public record StateT<S, M, A>(
 
 The tuple is the hidden state context. A caller normally works with `StateT<S, M, A>` and sees the tuple only when calling `Run`.
 
-## From ReaderT to StateT
+## [01]-[FROM_READERT_TO_STATET]
 
 A reader computation has the shape `Func<Env, K<M, A>>`. Its `Bind` supplies the same `Env` to both computations, so it cannot return a changed environment for later operations.
 
@@ -30,7 +30,7 @@ result => f(result.Value).runState(result.State)
 
 That substitution makes each bind feed the previous computation's state into the next computation. `Readable.local` can alter a ReaderT environment only for a nested scope; an ordinary StateT update continues through subsequent StateT operations.
 
-## A deck as state
+## [02]-[DECK_AS_STATE]
 
 A shuffled deck combines three effects:
 - `StateT` threads the current `Deck`;
@@ -86,7 +86,7 @@ public static StateT<Deck, OptionT<IO>, int> cardsRemaining =>
 
 `gets(f)` is equivalent to mapping `f` over `get`. Domain-named state accessors concentrate knowledge of the state shape and make later refactoring local.
 
-## Sequencing the game
+## [03]-[GAME_SEQUENCING]
 
 Console operations are lifted into `IO`, so they compose with the two transformers. When an earlier result is irrelevant, language-ext's `>>` operator expresses `ma.Bind(_ => mb)` without LINQ discard variables:
 
@@ -104,7 +104,7 @@ The simple game recursively deals cards. It terminates when `Deck.deal` lifts `N
 
 This example deliberately interleaves state logic and console IO to demonstrate composition. In a real application, game rules should be pure functions over `GameState`, kept separate from IO boundaries.
 
-## Hide a deep transformer stack
+## [04]-[STACK_ENCAPSULATION]
 
 Repeatedly exposing `StateT<GameState, OptionT<IO>, A>` makes domain code noisy. The fuller Pontoon example wraps it in `Game<A>` and has a companion `Game` type derive the capabilities of the underlying transformer:
 
@@ -144,7 +144,7 @@ public static Game<A> with<A>(Player player, Game<A> ma) =>
 
 Unlike a normal propagating update, `Stateful.local` restores the prior state after the nested action. It is useful for contextual operations such as selecting the current player without leaking that selection beyond its scope.
 
-## State opacity and separation
+## [05]-[STATE_OPACITY]
 
 Removing explicit state arguments can make code terse and declarative, but it also hides which operations modify state. Used application-wide, state can begin to resemble a global variable even though its updates are pure.
 
@@ -155,7 +155,7 @@ Keep the state lifecycle deliberate:
 - use scoped state changes for temporary context and propagating updates for durable changes;
 - encapsulate deep transformer stacks behind a domain type.
 
-## Forked state
+## [06]-[FORKED_STATE]
 
 With `IO` inside StateT, forked computations - including automatically parallel work such as `Traverse` - inherit the current state but then evolve independent copies. A parent at `0` can fork two counters that each progress from `1` to `10`; after both complete, the parent is still `0`. Starting at `5` makes both branches begin from `5`, while the parent remains `5`.
 

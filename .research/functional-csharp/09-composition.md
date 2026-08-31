@@ -1,6 +1,6 @@
-# Designing Programs with Function Composition
+# [COMPOSITION]
 
-## Composition as the Program Structure
+## [01]-[PROGRAM_STRUCTURE]
 
 Function composition connects functions by feeding each output into the next input. For unary functions:
 
@@ -38,11 +38,11 @@ internal static class Chaining {
 
 Each chained method must be defined on the preceding expression's type, either as an instance method or an extension method. The methods appear in execution order. A long pipeline can describe the program at a high level.
 
-## The Functor Composition Law
+## [02]-[COMPOSITION_LAW]
 
 When a value is inside a structure such as `Option<T>`, `Map` must preserve ordinary composition: `option.Map(g).Map(f)` must produce the same result as `option.Map(x => f(g(x)))`. This equation is the functor composition law.
 
-## Think in Data Flow
+## [03]-[DATA_FLOW]
 
 A compositional program is a sequence of typed transformations. Track what each step does to the value and its enclosing structure:
 
@@ -58,7 +58,7 @@ internal static class DataFlow {
 
 The pipeline states the intended result. Reusable operations contain iteration, branching, and enumeration mechanics. `Average` is a terminal operation that immediately evaluates the preceding lazy sequence.
 
-### Keep a Pipeline Inspectable
+### [03.1]-[PIPELINE_INSPECTION]
 
 Nested lambdas in a fluent chain can obscure the first incorrect transformation. A query with a `from` clause for each stage preserves the flow while exposing each result:
 
@@ -79,7 +79,7 @@ internal static class Stages {
 
 Because each range variable is bound once, every stage remains available for inspection. Large intermediate values remain in scope until the containing function ends. Combine stages if a large value must be released sooner.
 
-### Properties of Composable Functions
+### [03.2]-[COMPOSABLE_FUNCTIONS]
 
 The following properties support function reuse and rearrangement:
 - **Pure:** its result depends only on its arguments, with no side effects.
@@ -104,16 +104,16 @@ internal static class Quartiles {
 }
 ```
 
-## Model Workflows with Functional Operators
+## [04]-[WORKFLOW_OPERATORS]
 
 A workflow is a sequence of operations that produces a result. Give each step a function and use the operator that matches the step's type:
 
-| Step shape                      | Operator                               | Meaning                                                     |
-| ------------------------------- | -------------------------------------- | ----------------------------------------------------------- |
-| `T -> R`                        | `Map`                                  | Transform a present value while preserving the result type. |
-| `T -> bool`                     | `Filter` on `Option`, `guard` on `Fin` | Keep a value only when it passes a condition.               |
-| `T -> Option<R>`, `T -> Fin<R>` | `Bind`                                 | Continue with a step that can produce no value or a reason. |
-| `T -> void`                     | `Iter`                                 | Perform the terminal effect only for a present value.       |
+| [INDEX] | [SIGNATURE]                     | [OPERATOR]                             | [DESCRIPTION]                                               |
+| :-----: | :------------------------------ | :------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `T -> R`                        | `Map`                                  | Transform a present value while preserving the result type. |
+|  [02]   | `T -> bool`                     | `Filter` on `Option`, `guard` on `Fin` | Keep a value only when it passes a condition.               |
+|  [03]   | `T -> Option<R>`, `T -> Fin<R>` | `Bind`                                 | Continue with a step that can produce no value or a reason. |
+|  [04]   | `T -> void`                     | `Iter`                                 | Perform the terminal effect only for a present value.       |
 
 Workflow functions need not compose directly. For example, validation returns `bool`, but the debit requires the normalized request. Higher-order operators adapt these function types. `guard` connects the `bool` result to `Fin`.
 
@@ -136,7 +136,7 @@ internal static class Workflow {
 
 The workflow runs in domain order: normalize, validate, then debit. Adding another transformation means defining one function and inserting one pipeline step. `Fin` handles control flow. The top-level workflow needs no nested conditionals.
 
-## Keep Domain Transitions Pure
+## [05]-[PURE_TRANSITIONS]
 
 Immutable state is separate from behavior.
 
@@ -158,7 +158,7 @@ internal static class Account {
 - produces a value that later steps can consume;
 - leaves the original state unchanged.
 
-## Compose the End-to-End Flow
+## [06]-[END_TO_END_FLOW]
 
 Boundary services expose reads as `OptionT<IO, A>` and writes as `IO<Unit>` while the domain transition stays pure. The repository lifts its `Option` read into the transformer with `OptionT.lift`. `Require` converts the transformer to `IO<AccountState>`. `Run` unwraps the `OptionT` layer. `IO.lift` lifts the `Fin` returned by `ToFin` into `IO`, preserving `AccountNotFound` as the typed error.
 
@@ -194,7 +194,7 @@ internal sealed class Transfers(IRepository<AccountState> accounts, ISwiftServic
 
 `Get` can find no account, and `MakeTransfer` can reject the transfer, so `Book` binds them on one `IO` error channel instead of nesting result types. `Save` and `Wire` run only when both succeed, and each effect is one visible step of the query. The host runs `Book` with `RunSafe`, which returns `Fin<Unit>` and carries the typed error out of the effect.
 
-## Expressions, Effects, and Declarative Code
+## [07]-[DECLARATIVE_CODE]
 
 Expressions produce values and compose. Assignments, loops, and conditional statements direct execution and do not produce values for a pipeline. Class, method, and field declarations remain necessary but form a separate category. Using expressions shifts code from imperative instructions toward declarative descriptions.
 
@@ -206,7 +206,7 @@ Using expressions does not eliminate effects. It moves effects to explicit bound
 
 If a terminal step requires multiple effects, keep each one visible.
 
-## Layering Around a Top-Level Workflow
+## [08]-[LAYERING]
 
 Do not require every layer to call only its immediate neighbor. After a low-level call performs I/O, every delegating layer becomes impure.
 
@@ -216,7 +216,7 @@ Let a top-level entry point compose functions from lower-level components while 
 - pure mid-level validation and domain logic;
 - direct testing of pure logic without mocks.
 
-## Limits and Failure Modes
+## [09]-[LIMITS]
 
 - **`Option` discards the reason for failure, and `Fin` keeps it.** `Option` can short-circuit the flow, but it cannot distinguish a missing account from insufficient funds. `Fin` carries the typed `Error` without changing the compositional approach.
 - **Composition does not make distributed effects atomic.** Saving a debited account and wiring funds can fail between operations. A database transaction cannot protect an external call from process failure after the call but before commit.

@@ -1,6 +1,6 @@
-# Thinking About Data Functionally
+# [IMMUTABLE_DATA]
 
-## The Core Shift
+## [01]-[CORE_SHIFT]
 
 Programs must represent real-world change, but change does not require mutation.
 
@@ -19,7 +19,7 @@ current state --transition--> next state
    unchanged                  new value
 ```
 
-## Why Shared Mutation Is Dangerous
+## [02]-[SHARED_MUTATION]
 
 Shared mutable state creates these problems:
 1. **Lost updates:** concurrent operations can read the same old value and overwrite one another's results.
@@ -35,7 +35,7 @@ A system that combines concurrency with state mutation cannot be proved free of 
 
 Mutation confined to a function is different. A local accumulator that cannot escape or be observed by callers does not make the function impure. A suitable operation such as `Sum` or `Aggregate` expresses the intent directly.
 
-## Values, Identity, and Snapshots
+## [03]-[VALUES_AND_IDENTITY]
 
 For a value object, value determines identity. Changing a date, number, or geometric shape produces a different value. Framework primitives are immutable, as are types such as `DateTime` and `String`; operations such as `DateTime.AddDays` return new values instead of altering the receiver. Custom immutable operations follow the same pattern:
 
@@ -62,7 +62,7 @@ internal static class Transitions {
 
 The previous state remains intact. A transition preserves its input instead of updating it in place.
 
-## Building an Immutable Domain State
+## [04]-[IMMUTABLE_DOMAIN_STATE]
 
 An immutable object needs more than getter-only properties. Immutability must extend through every referenced value.
 
@@ -99,13 +99,13 @@ An immutable top-level object containing a mutable list is mutable. A shallow co
 
 Public setters allow callers to replace properties. Private setters prevent caller replacement, but code inside the class can still reassign properties.
 
-## Copy-and-Update Strategies in C#
+## [05]-[COPY_AND_UPDATE]
 
-### Immutability by convention
+### [05.1]-[CONVENTION]
 
 Public setters or mutable collections remain available, but callers follow the discipline of using them only during initialization and use copy methods afterward. The compiler cannot prevent accidental mutation.
 
-### Explicit immutable C# types
+### [05.2]-[EXPLICIT_TYPES]
 
 Getter-only properties, constructors, immutable referenced values, and copy methods make the contract visible and prevent accidental mutation.
 
@@ -132,17 +132,17 @@ internal static class Lenses {
 }
 ```
 
-### Generic reflection-based copying
+### [05.3]-[REFLECTION_COPYING]
 
 A generic helper can identify a property and replace its backing field in a copied object. It reduces boilerplate, but reflection is slower and removes control over legal transitions. Prefer explicit copy methods where performance or domain rules require them.
 
-### Immutable data types from F#
+### [05.4]-[FSHARP_TYPES]
 
 Data can be defined separately from behavior. F# data declarations are immutable by default and provide copy-and-update expressions, while C# can implement behavior. The tradeoff is a mixed-language solution and an additional assembly boundary.
 
 No C# technique can prevent all mutation because reflection can alter private or read-only fields. The goal is to prevent accidental mutation and communicate the intended model.
 
-## Cost Model of Immutable Updates
+## [06]-[COST_MODEL]
 
 An immutable update creates another top-level object, increasing allocations and garbage collection. It normally performs a **shallow copy**: unchanged immutable children are shared, while only changed values and the new parent are allocated.
 
@@ -154,7 +154,7 @@ This creates a tradeoff:
 
 `Add` uses `Cons` to keep the newest transaction at the front. Choose a collection type that matches frequent domain operations.
 
-## Persistent Linked Lists
+## [07]-[PERSISTENT_LISTS]
 
 A functional singly linked list is recursively defined as:
 
@@ -202,7 +202,7 @@ Indexed operations use `Lst<A>`, which provides `Insert`, `RemoveAt`, and `SetIt
 
 `Head` on an empty `Seq<A>` is `None`, and `Tail` on an empty `Seq<A>` is empty. When emptiness matters, consume the sequence through `Match`. Recursive implementations can overflow the stack on long lists. Use `Fold` for long histories.
 
-## Persistent Trees and Structural Sharing
+## [08]-[PERSISTENT_TREES]
 
 A binary tree can be defined recursively:
 
@@ -233,7 +233,7 @@ L      R         ->      L    rebuilt R
 
 An `Add` rebuilds only the nodes on the path from the root to the new key and shares every untouched subtree. This reuse is **structural sharing**. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, so a higher-arity tree can remain shallow for a large collection. `Map<K, V>` balances itself on every `Add`, so the rebuilt path stays within that bound.
 
-## Practical Decision Rules
+## [09]-[DECISION_RULES]
 
 1. Represent every domain state as a complete, valid snapshot.
 2. Express change as named state-transition functions returning new snapshots.

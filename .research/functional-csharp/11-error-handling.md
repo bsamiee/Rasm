@@ -1,6 +1,6 @@
-# Functional Error Handling
+# [ERROR_HANDLING]
 
-## Errors belong in the return type
+## [01]-[ERRORS_IN_THE_RETURN_TYPE]
 
 An operation that can predictably fail should return both outcomes as data. Its signature states its failure behavior, callers can reason about it locally, and composition controls the flow. An exception, by contrast, transfers control to a handler up the call stack or escapes uncaught; understanding the next step requires tracing the surrounding call paths.
 
@@ -24,7 +24,7 @@ internal static class Calculator {
 }
 ```
 
-### Why a container with result and error fields is not enough
+### [01.1]-[RESULT_AND_ERROR_FIELDS]
 
 Wrappers around boundary calls have these limitations:
 - Returning `default` on failure swallows the exception and makes failure indistinguishable from a valid default result.
@@ -34,7 +34,7 @@ Wrappers around boundary calls have these limitations:
 
 Mutually exclusive success and failure cases avoid unused fields and invalid field combinations.
 
-## Core operations
+## [02]-[CORE_OPERATIONS]
 
 `Fin<A>` applies functions only to `Succ`. `Fail` bypasses the function and preserves its error.
 
@@ -58,7 +58,7 @@ internal static class Operations {
 
 `Fin<A>` has no `Where`. A false predicate must produce `Fail`, but a predicate supplies only `bool` and no `Error`. Turn the predicate into a validator that constructs a specific error, then compose it with `Bind`. Inside a LINQ query the same check is a `guard` clause.
 
-## Fail-fast workflows
+## [03]-[FAIL_FAST_WORKFLOWS]
 
 `Bind` produces a fail-fast pipeline. Each `Succ` passes its value to the next step. The first `Fail` skips all later steps and reaches the final handler.
 
@@ -89,7 +89,7 @@ Use `Unit` when success has no payload. The pipeline returns an explicit success
 
 All bound functions share the failure type `Error`. Choose the domain errors for the workflow before composing it.
 
-## Typed business validation
+## [04]-[TYPED_VALIDATION]
 
 Prefer distinct error types over strings. A string cannot carry structured error details. Specific `Expected` records give each failure a distinct type and code and can carry additional data.
 
@@ -116,7 +116,7 @@ internal static class Transfers {
 
 Each validator has the same shape: accept the request, return it on success, or return the error for the violated rule. The date validator checks that the transfer is in the future and receives the clock as an argument. The BIC validator checks the identifier's format. Returning the request in `Succ` makes it available to the next validator. The codes are defined together in the `Codes` class, and a consumer classifies an error with `Is`, `HasCode`, or `IsType<E>`, never by its message text.
 
-## Keep the abstraction inside the application core
+## [05]-[ABSTRACTION_SCOPE]
 
 Within the core, compose with `Map` and `Bind`. Translate only in an outer adapter when the protocol, UI, or host requires another response type. Choose the result type at the input boundary and keep it through the domain. Use `Match`, `RunSafe`, and `IfFail` only at host boundaries.
 
@@ -135,7 +135,7 @@ Two API designs are:
 
 Mapping business validation to an HTTP error such as 400 has tradeoffs: the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt. The choice is an API-design decision.
 
-## Adapting error types
+## [06]-[ERROR_ADAPTATION]
 
 `MapFail` changes only the `Error`, and `BiMap` maps both sides:
 
@@ -154,7 +154,7 @@ internal static class Adapters {
 
 `Error.New(string, Error)` keeps the original error as `Inner`, so context is added without losing the cause. Recovery belongs to the boundary that owns the error and uses the `Catch` overloads. `Catch(code, f)` selects by code, `Catch(Error, f)` by value, and `Catch(predicate, f)` by a test on the error.
 
-## Separate business failures from technical failures
+## [07]-[BUSINESS_AND_TECHNICAL_FAILURES]
 
 Use two types with `Fin<A>` to distinguish business failures from technical failures:
 
@@ -208,7 +208,7 @@ The tuple `Apply` combines the two independent validators and reports both viola
 
 In the same `Match`, the host reads individual accumulated errors with `Filter<E>`, `Count`, and `Head`.
 
-## Exception policy
+## [08]-[EXCEPTION_POLICY]
 
 Do not use exceptions for expected business outcomes. Reserve them for conditions that the workflow cannot recover from:
 - Developer defects that violate a function’s required preconditions. These indicate broken program logic. Do not catch them as business errors.

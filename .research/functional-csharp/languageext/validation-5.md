@@ -1,8 +1,8 @@
-# Validation
+# [VALIDATION]
 
 `Validation<FAIL, A>` is an applicative type for computations that should return a successful value or collect multiple independent failures. Its key advantage over short-circuiting validation is that callers can see every applicable error at once.
 
-## Lifting values and functions
+## [01]-[LIFTING]
 
 For an applicative functor `F`, `Apply` invokes a wrapped function with a wrapped argument:
 
@@ -23,7 +23,7 @@ static Validation<Error, int> CharToDigit(char ch) =>
 
 When type inference cannot resolve these intermediate types, construct the result directly with `Validation<Error, int>.Success(...)` or `.Fail(...)`. Core language-ext types also provide these conversions and `SelectMany` overloads for LINQ expressions.
 
-## Small validators accumulate into larger ones
+## [02]-[VALIDATOR_COMPOSITION]
 
 A card-details model has three validated components:
 
@@ -43,7 +43,7 @@ public record CreditCardDetails(CardNumber CardNumber, Expiry Expiry, CVV CVV)
 
 The records keep the code short, but their public construction does not enforce the represented invariants. Classes can restrict construction when that matters.
 
-### Digits and length
+### [02.1]-[DIGITS_AND_LENGTH]
 
 Traversing the characters with `CharToDigit` both converts valid characters and collects every invalid-character error:
 
@@ -73,7 +73,7 @@ static Validation<Error, string> ValidateLength(string value, int length) =>
     ValidateLength(value.AsIterable(), length).Map(_ => value);
 ```
 
-### CVV: combine independent checks with `Map` and `Apply`
+### [02.2]-[CVV]
 
 A CVV must contain only digits and have length three. Neither check consumes the other, so they combine applicatively:
 
@@ -87,7 +87,7 @@ static Validation<Error, CVV> ValidateCVV(string cvv) =>
 
 The recurring applicative shape is a lifted constructor followed by `Map` and one or more `Apply` calls. For `"xy123"`, the result contains the two digit errors and the length error rather than stopping after the first problem.
 
-### Expiry: accumulate parsing, then validate the derived value
+### [02.3]-[EXPIRY]
 
 The intended expiry rules are two numeric parts separated by a backslash, slash, hyphen, or space: a month from 1 through 12 and a four-digit year from the current year through the next ten years. `Expiry` implements addition and comparison so the month/year pair can participate in a range from the current month through the same month ten years later:
 
@@ -166,7 +166,7 @@ The code validates both parts as integers and then checks the combined month/yea
 
 For validations with the same success type, `&` requires all operands to succeed and collects their successful values; their failures are accumulated. In version 5, `|` succeeds when either operand succeeds and combines errors only when both fail. Version 4 code using `|` for the older, `&`-like behavior must migrate those uses to `&`.
 
-### Card number: accumulate prerequisites, then bind the checksum
+### [02.4]-[CARD_NUMBER]
 
 The number must be all digits, contain 16 characters, and satisfy the Luhn checksum. Digit and length checks are independent, but checksum validation depends on their successful digit sequence:
 
@@ -182,7 +182,7 @@ static Validation<Error, CardNumber> ValidateCardNumber(string cardNo) =>
 Tuple-based `Apply` is an alternative to an explicit `Map`/`Apply` chain and can avoid writing the lambda's full type signature. If C# does not coerce a tuple operand to the
 required higher-kinded interface, the explicit chain is the fallback. `Bind` is used only at the dependency boundary: the Luhn check runs after the shape checks succeed.
 
-## Compose the complete result
+## [03]-[COMPLETE_RESULT]
 
 The three component validators are independent, so the final constructor is lifted and applied to each result:
 
@@ -200,7 +200,7 @@ public static Validation<Error, CreditCardDetails> Validate(
 
 If all three succeed, the result is `CreditCardDetails`. If several fields are invalid, their errors are returned together.
 
-## Add context with `MapFail`
+## [04]-[FAILURE_CONTEXT]
 
 Character-level failures are precise but lack field context. `MapFail` can replace or wrap them where that context is known:
 
@@ -222,7 +222,7 @@ validation.MapFail(error => Error.New("card number not valid", error));
 
 This supports concise messages for callers without discarding diagnostic detail.
 
-## Why failures accumulate
+## [05]-[ACCUMULATION_SEMANTICS]
 
 `Validation`'s `Apply` handles the four meaningful combinations directly:
 - successful function and successful argument: invoke the function;

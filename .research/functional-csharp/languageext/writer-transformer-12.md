@@ -1,10 +1,10 @@
-# WriterT: Monoidal Output as State
+# [WRITER_TRANSFORMER]
 
 `WriterT` accumulates output during a monadic expression. Its output type `W` is constrained by `Monoid<W>`, so it has an empty value and can combine output values. This makes the transformer useful for logging multiple outputs or building one aggregate output with pure expressions.
 
 Operationally, `WriterT` is the same as `StateT`: the state type `S` is renamed to the output type `W` and constrained to be a monoid. The distinction remains useful because `WriterT` declares that the threaded value is accumulated output, not arbitrary state.
 
-## The classic Writer design
+## [01]-[CLASSIC_WRITER]
 
 A direct `Writer` representation returns both an output and a value:
 
@@ -42,7 +42,7 @@ static Writer<Seq<string>, Unit> example =>
     select unit;
 ```
 
-## Why combining in Bind is costly
+## [02]-[BIND_COMBINATION_COST]
 
 `Bind` is normally called far more often than `tell`, yet the classic design calls `Combine` for every bind. This causes two problems:
 - one or both outputs are often empty, so their combination is wasted work;
@@ -52,7 +52,7 @@ For example, concatenating two immutable linked lists of 100 items can require a
 
 The combination should happen in `tell`, where output is deliberately added, instead of in every `Bind`.
 
-## Thread the output through the computation
+## [03]-[OUTPUT_THREADING]
 
 Change the runner from a function with no input:
 
@@ -93,7 +93,7 @@ Writer output is commonly a collection, so `tell` usually appends or prepends a 
 
 The revised `Writer<W, A>` no longer needs a `Monoid<W>` constraint. Only `tell` combines values, so only `tell` needs the constraint.
 
-## Express Writer behavior with StateT
+## [04]-[WRITER_VIA_STATET]
 
 Because the revised implementation is otherwise identical to `State`, a `WriterT` operation can be expressed with `StateT.modify`:
 
@@ -115,7 +115,7 @@ public static K<M, Unit> tell<M, W>(W value)
 
 Any such computation can aggregate output using the `Monoid<W>` operation. Dedicated `Writer` and `WriterT` types are still worth keeping because their names communicate the intended role of the threaded value.
 
-## RWST
+## [05]-[RWST]
 
 `ReaderT`, `WriterT`, and `StateT` can be stacked over a base monad `M`:
 

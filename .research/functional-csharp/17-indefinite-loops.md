@@ -1,4 +1,4 @@
-# Indefinite Loops
+# [INDEFINITE_LOOPS]
 
 An indefinite loop advances state until a runtime condition is satisfied. Unlike a transformation over a fixed collection, its length is not known in advance. `Map` and `Fold` can consume a sequence whose producer knows when to stop, but they do not by themselves supply that stopping rule.
 
@@ -16,18 +16,18 @@ The separation is between:
 - execution: repeatedly apply the transition until termination;
 - consumption: choose whether to retain only the final state or every intermediate state.
 
-## Choosing an approach
+## [01]-[APPROACH_SELECTION]
 
-| Approach                  | Strength                                                     | Cost                                    | Appropriate when                       |
-| ------------------------- | ------------------------------------------------------------ | --------------------------------------- | -------------------------------------- |
-| Tail recursion            | Small, direct, expression-oriented                           | Unbounded calls can grow the stack      | The maximum depth is small and bounded |
-| `Trampoline<A>`           | Pure recursion, any depth, `Bind` continues from final value | Every step is a deferred call           | The transition is pure                 |
-| `Monad.recur`             | Effectful loop with constant stack usage                     | Only the final value is returned        | The transition is an effect            |
-| `LanguageExt.List.unfold` | Lazy states compose with `Seq`                               | A second `unfold` reruns the transition | Intermediate states are meaningful     |
+| [INDEX] | [APPROACH]                | [STRENGTH]                                                   | [COST]                                  | [USE_WHEN]                             |
+| :-----: | :------------------------ | :----------------------------------------------------------- | :-------------------------------------- | :------------------------------------- |
+|  [01]   | Tail recursion            | Small, direct, expression-oriented                           | Unbounded calls can grow the stack      | The maximum depth is small and bounded |
+|  [02]   | `Trampoline<A>`           | Pure recursion, any depth, `Bind` continues from final value | Every step is a deferred call           | The transition is pure                 |
+|  [03]   | `Monad.recur`             | Effectful loop with constant stack usage                     | Only the final value is returned        | The transition is an effect            |
+|  [04]   | `LanguageExt.List.unfold` | Lazy states compose with `Seq`                               | A second `unfold` reruns the transition | Intermediate states are meaningful     |
 
 The library keeps mutable loop state inside the execution mechanism while leaving the transition and stopping rule explicit.
 
-## Tail recursion
+## [02]-[TAIL_RECURSION]
 
 A tail-recursive function either returns the final value or makes its recursive call as the last operation:
 
@@ -81,7 +81,7 @@ The stopping predicate is checked before each transition. The final state is ret
 - `next` must eventually produce a state satisfying `stop`.
 - If `next` performs user interaction, I/O, or mutation, the expression remains impure. That transition belongs under `IO`.
 
-## Effectful iteration with `Monad.recur`
+## [03]-[MONAD_RECUR]
 
 `Monad.recur` exposes an expression-oriented interface while the library contains the mutation. The state function returns `Next.Loop` with the next state or `Next.Done` with the result:
 
@@ -129,7 +129,7 @@ internal static class Polling {
 }
 ```
 
-## Custom iteration
+## [04]-[CUSTOM_ITERATION]
 
 `LanguageExt.List.unfold` is the lazy state sequence, and `Seq` is its materialized form. `unfold` takes an initial state and a `Step` that returns `Some((emitted, next))` or `None` at the terminal state. `toSeq` wraps the result as a `Seq` that reads each state on demand and keeps it.
 
@@ -144,7 +144,7 @@ internal static class States {
 }
 ```
 
-### Emitting the terminal state
+### [04.1]-[TERMINAL_STATE]
 
 `None` tells the consumer that the sequence has ended. `Step` must return `Some` for the transition that first produces the terminal state, then return `None` on the following call.
 
@@ -152,7 +152,7 @@ This sequence yields each state after a transition; it does not emit the initial
 
 `Monad.recur` checks before advancing and performs zero or more transitions. `Step` emits only a state that a transition produced; an already-terminal initial state yields an empty `Seq`. If the initial state can already be terminal, decide whether enumeration is empty, emits that initial state, or advances once.
 
-## LINQ consumption semantics
+## [05]-[LINQ_CONSUMPTION]
 
 Constructing the sequence does not run the loop. Reading it does.
 

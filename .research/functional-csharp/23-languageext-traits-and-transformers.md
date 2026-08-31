@@ -1,8 +1,8 @@
-# LanguageExt Traits and Transformers
+# [LANGUAGEEXT_TRAITS_AND_TRANSFORMERS]
 
 A trait is an interface whose members are static and abstract. A witness type implements the trait for one type constructor. Generic code names the witness in a constraint and calls the trait members through it.
 
-## Higher kinds
+## [01]-[HIGHER_KINDS]
 
 `K<F, A>` is an empty interface with two type arguments. `F` is the witness for the type constructor and `A` is the element type. `Option<A>` implements `K<Option, A>`, and `Seq<A>` implements `K<Seq, A>`. A function constrained by `F : Functor<F>` can call `Map` on any `K<F, A>`. `.As()` restores the concrete type at the API boundary.
 
@@ -16,22 +16,22 @@ internal static class HigherKinds {
 }
 ```
 
-## The traits
+## [02]-[TRAITS]
 
 The table lists the members used in the code block.
 
-| Trait              | Members                                      |
-| ------------------ | -------------------------------------------- |
-| `Functor<F>`       | `Map`                                        |
-| `Applicative<F>`   | `Pure`, `Apply`, tuple `Apply`               |
-| `Monad<M>`         | `Bind`, LINQ query syntax                    |
-| `Foldable<T>`      | `Fold`, `FoldBack`, `Exists`, `ForAll`, `At` |
-| `Traversable<T>`   | `Traverse`, `TraverseM`                      |
-| `Fallible<E, F>`   | `Fail`, `Catch`                              |
-| `Readable<M, Env>` | `ask`, `asks`, `local`                       |
-| `Stateful<M, S>`   | `get`, `put`, `modify`, `state`, `local`     |
-| `Writable<M, W>`   | `tell`                                       |
-| `Alternative<F>`   | `Empty`, `Choose`, the alternative operator  |
+| [INDEX] | [TRAIT]            | [MEMBERS]                                    |
+| :-----: | :----------------- | :------------------------------------------- |
+|  [01]   | `Functor<F>`       | `Map`                                        |
+|  [02]   | `Applicative<F>`   | `Pure`, `Apply`, tuple `Apply`               |
+|  [03]   | `Monad<M>`         | `Bind`, LINQ query syntax                    |
+|  [04]   | `Foldable<T>`      | `Fold`, `FoldBack`, `Exists`, `ForAll`, `At` |
+|  [05]   | `Traversable<T>`   | `Traverse`, `TraverseM`                      |
+|  [06]   | `Fallible<E, F>`   | `Fail`, `Catch`                              |
+|  [07]   | `Readable<M, Env>` | `ask`, `asks`, `local`                       |
+|  [08]   | `Stateful<M, S>`   | `get`, `put`, `modify`, `state`, `local`     |
+|  [09]   | `Writable<M, W>`   | `tell`                                       |
+|  [10]   | `Alternative<F>`   | `Empty`, `Choose`, the alternative operator  |
 
 The witness is the concrete type without its last type argument. The samples run on `Option`, `Seq`, `Fin`, `IO`, and `Validation<Error>`. The environment, state, and output samples run on `Reader<Settings>`, `ReaderT<Settings, IO>`, `State<int>`, `StateT<int, IO>`, `Writer<Seq<string>>`, and `WriterT<Seq<string>, IO>`. `Map`, `Bind`, `Fold`, `FoldBack`, `Exists`, `ForAll`, `At`, and `Catch` are extension methods that the constraint makes available. The tuple `Apply` and LINQ query syntax come from the same constraint. `F.Pure`, `F.Apply`, `F.Fail`, `F.Empty`, `F.Choose`, `T.Traverse`, and `T.TraverseM` are calls on the witness. `Readable.ask`, `Stateful.get`, and `Writable.tell` are module functions that take the witness as a type argument.
 
@@ -79,7 +79,7 @@ internal static class Traits {
 }
 ```
 
-## Laws
+## [03]-[LAWS]
 
 `FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>`. A failed law contains an accumulated `Error`, and `IsSuccess` indicates the result. The checks hold for `Option` and `Fin`. `MonadLaw<IO>.validate()` throws inside the library and is not run.
 
@@ -94,7 +94,7 @@ internal static class Laws {
 }
 ```
 
-## Stack safety
+## [04]-[STACK_SAFETY]
 
 `Trampoline<A>` makes recursive functions stack-safe. `Trampoline.Pure` ends the recursion, `Trampoline.More` defers the next step, and `Run()` evaluates the steps in a loop. `Monad.recur` repeats an effect while carrying state. The step returns `Next.Loop` to continue and `Next.Done` to stop. `Next.Done` can return any result type. `tail` marks the final bind continuation after a deferred effect and prevents stack growth.
 
@@ -112,7 +112,7 @@ internal static class StackSafety {
 }
 ```
 
-## Transformers
+## [05]-[TRANSFORMERS]
 
 A transformer stacks one concern over an inner monad `M`. `OptionT<M, A>` holds `K<M, Option<A>>`. `FinT<M, A>` holds `K<M, Fin<A>>` and exposes it as `runFin`. `EitherT<L, M, A>` holds `K<M, Either<L, A>>`. `ValidationT<Error, IO, A>` accumulates inside an effect and is used only when errors must accumulate inside that effect. `ReaderT<Env, M, A>` holds `Func<Env, K<M, A>>`. `WriterT<W, M, A>` accumulates `W` beside the value, and `tell` appends one item. `RWST<R, W, S, M, A>` combines `ask`, `tell`, `get`, and `put` over one `M`.
 
@@ -193,17 +193,17 @@ internal static class Counters {
 }
 ```
 
-## The traversal policy
+## [06]-[TRAVERSAL_POLICY]
 
 The dependency structure and the concurrency bound determine the traversal.
 
-| Structure                    | Traversal                               | Behavior                                                                                 |
-| ---------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Independent checks           | instance `Traverse` under `Validation`  | accumulates every error                                                                  |
-| Independent effects          | instance `Traverse` under `IO`          | asynchronous effects overlap without a bound, and the traversal fails if an effect fails |
-| Dependent or ordered effects | instance `TraverseM`                    | serial, short-circuit on the first failure                                               |
-| Bounded concurrency          | chunk, then `TraverseM` over the chunks | one chunk runs at a time, and the chunk width sets the bound                             |
-| Best effort                  | `PartitionFallible`, `Succs`, `Fails`   | no short-circuit, both branches returned                                                 |
+| [INDEX] | [SCENARIO]                   | [TRAVERSAL]                             | [BEHAVIOR]                                                                               |
+| :-----: | :--------------------------- | :-------------------------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | Independent checks           | instance `Traverse` under `Validation`  | accumulates every error                                                                  |
+|  [02]   | Independent effects          | instance `Traverse` under `IO`          | asynchronous effects overlap without a bound, and the traversal fails if an effect fails |
+|  [03]   | Dependent or ordered effects | instance `TraverseM`                    | serial, short-circuit on the first failure                                               |
+|  [04]   | Bounded concurrency          | chunk, then `TraverseM` over the chunks | one chunk runs at a time, and the chunk width sets the bound                             |
+|  [05]   | Best effort                  | `PartitionFallible`, `Succs`, `Fails`   | no short-circuit, both branches returned                                                 |
 
 `PartitionFallible` returns `(Seq<Error> Fails, Seq<A> Succs)` with the failures first. `Succs` keeps the successes and `Fails` keeps the errors. `PartitionFallible`, `Succs`, and `Fails` take a `Seq<K<IO, A>>`. Their projections use `Map<K<IO, A>>` to specify the result type.
 

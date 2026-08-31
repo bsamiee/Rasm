@@ -1,6 +1,6 @@
-# Higher-Order Functions
+# [HIGHER_ORDER_FUNCTIONS]
 
-## Functions as values
+## [01]-[FUNCTIONS_AS_VALUES]
 
 A higher-order function accepts a function, returns a function, or both. C# usually represents the passed behavior with delegates:
 - `Func<T, TResult>` accepts a value and returns a value.
@@ -10,7 +10,7 @@ A higher-order function accepts a function, returns a function, or both. C# usua
 
 Delegates let C# treat behavior as a first-class value.
 
-## Delegate part of an algorithm
+## [02]-[BEHAVIOR_PARAMETERIZATION]
 
 A higher-order function can own stable control flow while the caller supplies the varying rule. For example, `Seq<A>.Filter(Func<A, bool>)` owns iteration while the caller owns the inclusion criterion. This separates concerns that would otherwise be interleaved. The pattern supports:
 - **Iteration:** invoke a selector, predicate, or comparison for each relevant element.
@@ -27,7 +27,7 @@ internal sealed record Cache<T>(HashMap<Guid, T> Entries) {
 
 `HashMap.Find` returns an `Option<T>`, and `IfNone(Func<T>)` runs the function only on `None`.
 
-### Selectors: supply the varying calculation
+### [02.1]-[SELECTORS]
 
 A selector derives a value from each input. In C#, a `Func` delegate can supply that calculation to a larger function. For example, a reporting workflow can accept a selector for its grouping key:
 
@@ -42,11 +42,11 @@ The summary construction is written once. A new report supplies a selector and t
 
 Additional parameters let a `Func` control formatting and an `Action` supply logging or event handling. Small named wrappers preserve intent.
 
-## Adapt an existing function
+## [03]-[FUNCTION_ADAPTERS]
 
 An adapter returns a new function with a different signature while delegating to the original. `flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`: for `Func<decimal, decimal, decimal> Subtract`, `flip(Subtract)` receives the right operand first.
 
-## Create specialized functions
+## [04]-[SPECIALIZATION]
 
 A function factory converts configuration data into behavior:
 
@@ -59,7 +59,7 @@ internal static class Factories {
 
 The factory centralizes a general rule and produces reusable specializations.
 
-## Encapsulate resource lifecycles
+## [05]-[RESOURCE_LIFECYCLES]
 
 Setup, body, and teardown form a higher-order pattern. Parameterize the changing body while keeping resource management in one place:
 
@@ -75,11 +75,11 @@ internal static class Lifecycles {
 
 Database operations can state only their domain-specific work. Connection acquisition, opening, and disposal remain centralized. `use` acquires the `IDisposable` `Connection` inside an `IO` query and disposes it when the scope ends. `Bracket(Use:, Fin:)` represents release as a separate `IO` action. The host runs the `IO` through `RunSafe`, and the domain code never runs it. An asynchronous body uses `IO.liftAsync`. The pattern guarantees disposal on every `IO` exit, including failure.
 
-## Combinators
+## [06]-[COMBINATORS]
 
 A combinator applies or combines functions.
 
-### Pipe: transform one whole value
+### [06.1]-[PIPE]
 
 `Pipe` applies one function to a whole value. `Map` keeps its structure-preserving meaning over a sequence. LINQ `Select` and the functor `Map` apply a function to each sequence element. With this extension, piping a sequence treats the sequence as the input value. LanguageExt has no equivalent `Pipe` operation, so this implementation is custom.
 
@@ -96,7 +96,7 @@ internal static class Piping {
 
 The generic input and output types allow each step to change type. The chain expresses a multi-stage calculation without temporary variables.
 
-### Fork: derive several values, then join
+### [06.2]-[FORK]
 
 `Fork`, also called Converge, gives the same input to multiple functions and passes their outputs to a combining function:
 
@@ -115,7 +115,7 @@ Separate generic result types let a fixed set of functions produce different kin
 
 These implementations call each function directly.
 
-### Compose: build a reusable function
+### [06.3]-[COMPOSE]
 
 `Pipe` produces a transformed value. `compose` from the Prelude joins functions and produces another function:
 
@@ -131,7 +131,7 @@ The reusable formatting function can be composed with conversions in either dire
 
 C# has no dedicated syntax for function composition. Use method chaining for value flow and `compose` when the output must be a reusable function.
 
-### Do: observe a chain without changing its value
+### [06.4]-[DO]
 
 `Do` passes the current value to an `Action`, then returns that same value so the chain can continue:
 
@@ -144,7 +144,7 @@ internal static class Observers {
 
 It can log or inspect an intermediate result between transformations. `Do` on an `Option` runs the action on `Some`, and `Do` on a `Seq` runs it for each element before the `Seq` returns.
 
-### Unless: conditionally perform an effect
+### [06.5]-[UNLESS]
 
 `unless` runs an effect only when its flag is false, and `when` runs it only when the flag is true:
 
@@ -159,7 +159,7 @@ internal static class Guards {
 
 The skipped branch has no computed result, so both return `IO<Unit>` for the host to run.
 
-## Treat functions as data
+## [07]-[FUNCTIONS_AS_DATA]
 
 Storing functions in collections, passing them into adapters, or returning them can express control flow as data:
 
@@ -170,7 +170,7 @@ In `Func<T1, ..., TResult>`, every type except the last is a parameter type; the
 - An ordered collection of predicate-transform pairs becomes a decision table.
 - A returned function can narrow access to one guarded operation; ordinary adapter functions can hide repetitive conversion branches.
 
-### Collections of transformations
+### [07.1]-[TRANSFORMATION_COLLECTIONS]
 
 Apply all functions in a `Seq` to one value:
 
@@ -187,7 +187,7 @@ internal static class Descriptions {
 
 The function collection can be assembled at runtime, extended by adding one element, and kept separate from aggregation. `Seq.Map` is deferred: the descriptor functions run when the result is enumerated. This can postpone unnecessary work, while repeated enumeration repeats the projection. The indexed form `Map((item, index) => ...)` rewrites one position and returns a new `Seq`, leaving the source unchanged.
 
-### Validation as a predicate set
+### [07.2]-[PREDICATE_SETS]
 
 A validation rule has the shape `T -> bool`. Collecting rules makes the policy explicit:
 
@@ -207,7 +207,7 @@ Short-circuiting is appropriate for a boolean answer. It is not suitable when ev
 
 Keep each rule focused on one condition.
 
-### Ordered rule tables
+### [07.3]-[RULE_TABLES]
 
 An `if`/`else if` ladder can be represented as ordered pairs:
 
@@ -234,17 +234,17 @@ This matches values with predicates, not object types. For a fixed decision, use
 
 The custom `Match<T>` accepts any `T`. `Option<T>.Match` requires a handler for every option case.
 
-### Returned functions as narrow interfaces
+### [07.4]-[RETURNED_FUNCTIONS]
 
 A returned function can capture the original value in a closure while exposing only one operation.
 
-#### Dictionary lookup with a fallback
+#### [07.4.1]-[DICTIONARY_LOOKUP]
 
 A closure over a `HashMap<int, string>` narrows it to one lookup: `number => actors.Find(number).IfNone("Unknown")`.
 
 The returned function keeps the map in scope and converts an absent-key lookup into a fallback. The restricted interface prevents callers from enumerating or modifying the map, or performing other queries against it. For this reference type, `default` is `null`. An explicit domain fallback avoids that `null`.
 
-#### Parsing with a fallback
+#### [07.4.2]-[PARSING]
 
 Move repeated parsing branches into focused conversion functions:
 
@@ -258,11 +258,11 @@ Call sites can construct a settings value directly, making every default visible
 
 The `Option`-returning forms, `parseInt` and `HashMap.Find`, preserve every outcome. `IfNone` extracts a value from the `Option` by applying a fallback. Call it at the boundary that selects that fallback.
 
-## Exceptions at the boundary
+## [08]-[EXCEPTIONS_AT_THE_BOUNDARY]
 
 Pure transformations do not fail because of external conditions. Boundary calls to databases, web APIs, and network files can fail. A higher-order wrapper can centralize `try/catch`, reduce repeated boilerplate, and prevent exception control flow from spreading across call layers. `Try.lift(f).Run()` captures a throwing synchronous dependency as a `Fin<A>`. `IO.lift(f)` defers the same call and carries the failure on the `IO` error channel for the host to run.
 
-## Choosing the technique
+## [09]-[TECHNIQUE_SELECTION]
 
 - Use function collections when behaviors share a signature and vary as data.
 - Use `ForAll` or `Exists` when only a short-circuiting boolean result is required.

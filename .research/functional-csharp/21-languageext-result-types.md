@@ -1,18 +1,18 @@
-# LanguageExt Result Types
+# [LANGUAGEEXT_RESULT_TYPES]
 
 Every function in this set returns an explicit result type.
 
-## One type per concern
+## [01]-[ONE_TYPE_PER_CONCERN]
 
-| Type                   | Concern                                         | Shape                 |
-| ---------------------- | ----------------------------------------------- | --------------------- |
-| `Option<A>`            | absence without an `Error`                      | readonly struct       |
-| `Fin<A>`               | expected failure with an `Error`, short-circuit | abstract class        |
-| `Either<L, R>`         | two value types, neither an error               | abstract record class |
-| `Validation<Error, A>` | independent failures, accumulate                | abstract record class |
-| `Try<A>`               | synchronous exception capture, deferred         | record class          |
-| `IO<A>`                | side effects with a failure channel             | abstract record class |
-| `Eff<RT, A>`           | effects that read a capability                  | record class          |
+| [INDEX] | [TYPE]                 | [CONCERN]                                       | [SHAPE]               |
+| :-----: | :--------------------- | :---------------------------------------------- | :-------------------- |
+|  [01]   | `Option<A>`            | absence without an `Error`                      | readonly struct       |
+|  [02]   | `Fin<A>`               | expected failure with an `Error`, short-circuit | abstract class        |
+|  [03]   | `Either<L, R>`         | two value types, neither an error               | abstract record class |
+|  [04]   | `Validation<Error, A>` | independent failures, accumulate                | abstract record class |
+|  [05]   | `Try<A>`               | synchronous exception capture, deferred         | record class          |
+|  [06]   | `IO<A>`                | side effects with a failure channel             | abstract record class |
+|  [07]   | `Eff<RT, A>`           | effects that read a capability                  | record class          |
 
 - `Option<A>` holds a value or `None`. A missed lookup provides no error information.
 - `Fin<A>` holds a value or an `Error`. A domain transition that rejects its input explains the rejection, and a dependent chain of `Fin` stops at the first rejection.
@@ -49,7 +49,7 @@ internal static class Concerns {
 
 `Find` returns `Option` because absence carries no `Error`. `Admit` returns `Fin` because an out-of-range age produces an `Error`. `Register` combines independent checks and reports every failure. `Load` returns `IO` whose failure channel carries the typed `NotFound`. `Stamp` reads the `Clock` capability from any runtime that declares `Has<Eff<RT>, Clock>`.
 
-## The boundary rule
+## [02]-[BOUNDARY_RULE]
 
 The input boundary selects the result type, and domain functions preserve it. Conversion between types happens at one named boundary. `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations, and domain functions never run an effect. `Register` validates the raw form and returns `Validation`. `Handle` converts with `ToFin` and binds the domain transition, and `Respond` matches at the host.
 
@@ -63,7 +63,7 @@ internal static class Boundary {
 }
 ```
 
-## Implicit lifts
+## [03]-[IMPLICIT_LIFTS]
 
 A value of type `A` lifts into `Fin<A>` and `Validation<Error, A>`. An `Error` value, including an `Expected` subclass, lifts into the failure case. `Pure(x)` and `Fail<Error>(e)` make the intended lift explicit when the two branches of a conditional differ in type. A smart constructor maps the value object's generated `Validate` to `Fin<Age>`. This gives every consumer a validated value.
 
@@ -88,7 +88,7 @@ internal static class Lifts {
 
 The return type `Fin<Age>` selects the lift for the `InvalidAge` and `item` branches.
 
-## Conversions
+## [04]-[CONVERSIONS]
 
 Each conversion is a method on the source type, and the name states the target. Converting `Option` to `Fin` or `Validation` requires an `Error`, because `Option` contains none. `Validation` becomes `Fin` at the end of input validation. A `Fin` from a smart constructor converts to `Validation` before it is combined with independent validations. `Try`, `IO`, and `Eff` return `Fin` when run.
 
@@ -107,7 +107,7 @@ internal static class Conversions {
 }
 ```
 
-## The `Error` model
+## [05]-[ERROR_MODEL]
 
 A domain error is a `sealed record` that extends `Expected` with a message and a code. The `Codes` static class defines all error codes. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. An error that a value object raises also implements `IValidationError<T>`, and the generated `Validate` returns it. The package `Errors` class holds shared values such as `Errors.TimedOut` and `Errors.None`.
 
@@ -139,7 +139,7 @@ internal static class Classify {
 
 A consumer classifies with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. The message is for the host to render.
 
-## Recovery
+## [06]-[RECOVERY]
 
 Recovery is a function from an error to the same result type. The boundary responsible for the error defines recovery. The `Catch` overloads select by code, by error value, or by predicate. The code and error-value overloads are extensions that return `K<F, A>`, so `.As()` restores the concrete type. `IO<A>` declares the predicate overload as an instance method that returns `IO<A>`. The `|` operator uses the right alternative when the left one fails. `BindFail` lets the recovery function return either `Fin` case. `MapFail` adds context by wrapping the original error as the inner error. `IfFail` returns a non-`Fin` value.
 
@@ -156,7 +156,7 @@ internal static class Recovery {
 }
 ```
 
-## Guards inside LINQ
+## [07]-[LINQ_GUARDS]
 
 `guard` raises an `Error` when its flag is false. `when` runs its alternative when the flag is true, and `unless` runs it when the flag is false. The alternative is a failed `Fin<Unit>` or a failed `IO<Unit>`, and the query continues with the same type. `guard<Error>` names the type argument because an `Expected` subclass selects the generic overload.
 
@@ -176,17 +176,17 @@ internal static class Guards {
 }
 ```
 
-## Anti-patterns
+## [08]-[ANTI_PATTERNS]
 
-| Rule                                                                               | Correct form                                                  |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `Match` in the middle of a pipeline unwraps a value that the next step lifts again | `Bind` the next step, as `Older` shows                        |
-| `IfNone` with an arbitrary default hides absence                                   | `ToFin` with an `Error`, as `Required` shows                  |
-| Matching on message text couples the consumer to prose                             | `HasCode` or `IsType<E>`                                      |
-| An `Option` nested inside an effect forces the consumer to unwrap two layers       | `OptionT<IO, A>`, as `Lookup` shows                           |
-| A `Fin` nested inside an effect duplicates the failure channel                     | a typed `Expected` on the `IO` error channel, as `Load` shows |
-| `Run` inside the domain performs the effect before the host runs the program       | keep the `IO` and `Bind` the next step                        |
-| `Some` as a null guard, because `Some(null)` holds `null`                          | `Optional` at the null boundary, as `Nickname` shows          |
+| [INDEX] | [WRONG_FORM]                                                                       | [CORRECT_FORM]                                                |
+| :-----: | :--------------------------------------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `Match` in the middle of a pipeline unwraps a value that the next step lifts again | `Bind` the next step, as `Older` shows                        |
+|  [02]   | `IfNone` with an arbitrary default hides absence                                   | `ToFin` with an `Error`, as `Required` shows                  |
+|  [03]   | Matching on message text couples the consumer to prose                             | `HasCode` or `IsType<E>`                                      |
+|  [04]   | An `Option` nested inside an effect forces the consumer to unwrap two layers       | `OptionT<IO, A>`, as `Lookup` shows                           |
+|  [05]   | A `Fin` nested inside an effect duplicates the failure channel                     | a typed `Expected` on the `IO` error channel, as `Load` shows |
+|  [06]   | `Run` inside the domain performs the effect before the host runs the program       | keep the `IO` and `Bind` the next step                        |
+|  [07]   | `Some` as a null guard, because `Some(null)` holds `null`                          | `Optional` at the null boundary, as `Nickname` shows          |
 
 At the host, evaluating `Lookup` with `Run`, `As`, and `RunSafe` produces `Fin<Option<Person>>`.
 

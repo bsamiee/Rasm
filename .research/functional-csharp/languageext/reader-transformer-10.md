@@ -1,10 +1,10 @@
-# ReaderT: A Supplied Environment for Another Monad
+# [READER_TRANSFORMER]
 
 `ReaderT<Env, M, A>` adds an environment `Env` to a monad `M`. A computation can read configuration or request context without using global state or passing the same value through every function parameter.
 
 The environment is still explicit: one value is supplied when the complete computation is run and is threaded through its stages. Until then, `ReaderT` composes functions that are waiting for that value.
 
-## Representation and execution
+## [01]-[REPRESENTATION_AND_EXECUTION]
 
 The essential representation is:
 
@@ -42,7 +42,7 @@ var text = textIO.Run();
 
 The first `Run` supplies the environment and returns the lifted `IO<string>`; the second runs that effect. The `IO` should normally be run only at the edge of the application.
 
-## How `ask` and `Bind` work
+## [02]-[ASK_AND_BIND]
 
 `ask` does not retrieve global state. It builds a function that will lift its eventual input into `M`:
 
@@ -64,7 +64,7 @@ public ReaderT<Env, M, B> Bind<B>(
 
 The environment is always available to each `ReaderT` stage because it is passed whenever the wrapped function is invoked.
 
-## Encapsulating a transformer stack
+## [03]-[STACK_ENCAPSULATION]
 
 Transformer stacks can be hidden behind a domain type. A simplified `Eff<RT, A>` is just a wrapper around `ReaderT<RT, IO, A>`:
 
@@ -115,7 +115,7 @@ public static class Eff
 
 The wrapper can gain more capabilities by enclosing a larger transformer stack.
 
-## The `Readable` capability
+## [04]-[READABLE_CAPABILITY]
 
 `Readable<M, Env>` abstracts access to an environment away from `ReaderT`, `Reader`, `Eff`, or any other concrete implementation:
 
@@ -191,7 +191,7 @@ var result = compute.Run(300).Run(); // 600
 
 `addRdr` knows neither the concrete monad nor how it stores the environment. It only requires values that are bindable and readable. Its arguments may still represent computations with IO, parallelism, resource cleanup, errors, retries, or other capabilities that this function does not need to know about. The same approach lets shared support functions operate across multiple domain monads while reading their configuration through `Readable`.
 
-## Request context and reusable authorization
+## [05]-[REQUEST_CONTEXT]
 
 A session can be supplied once per API request and then read anywhere in a compatible monad:
 
@@ -227,7 +227,7 @@ public static Eff<Session, Unit> sendInvoice() =>
     select result;
 ```
 
-## Local environments
+## [06]-[LOCAL_ENVIRONMENTS]
 
 Two operations limit the environment seen by a computation:
 - `local(f, ma)` maps `Env` to another `Env` and runs `ma` with that temporary value. The change is scoped to `ma`; subsequent computation sees the original environment.
@@ -235,7 +235,7 @@ Two operations limit the environment seen by a computation:
 
 `with` is not part of `Readable` because `Env` is fixed in the trait implementation. Use `Reader.with` or `ReaderT.with`, and expose an equivalent operation on a wrapper when environment-type mapping is useful.
 
-## Transformer position
+## [07]-[TRANSFORMER_POSITION]
 
 Any monad can be lifted into `ReaderT`; `IO` is only a concrete way to demonstrate it. For example, lifting `Validation<F, A>` gives validators access to an environment.
 

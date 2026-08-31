@@ -1,6 +1,6 @@
-# Event Sourcing as Append-Only Persistence
+# [EVENT_SOURCING]
 
-## The storage model
+## [01]-[STORAGE_MODEL]
 
 Functional design applies to persisted data as well as in-memory values. A database that overwrites rows is still shared mutable state, even when the server process is stateless.
 
@@ -25,9 +25,9 @@ Two snapshots show that state changed but do not explain why. A prior state and 
 
 Keeping every historical snapshot is wasteful: each snapshot repeats all values that did not change, while explaining a change still requires comparing snapshots. An event history records the transition itself and can derive whichever snapshot is needed.
 
-## Core model
+## [02]-[CORE_MODEL]
 
-### Events
+### [02.1]-[EVENTS]
 
 An event is an immutable, serializable data object containing the minimum information needed to represent something that already happened.
 
@@ -54,7 +54,7 @@ internal abstract partial record Event {
 
 Event types have different payload shapes. From most to least suitable, the storage options are an event store, a document database that accepts heterogeneous documents, and a relational database. A relational event table needs common headers such as entity ID, timestamp, and event type, plus a payload column for serialized event data. These headers support retrieving one entity's history in order and filtering it by time. An existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
 
-### State
+### [02.2]-[STATE]
 
 State is an immutable snapshot derived for a specific purpose. It is not necessarily the persisted source of truth.
 
@@ -78,7 +78,7 @@ internal sealed record AccountState(AccountStatus Status, string Currency, decim
 }
 ```
 
-### State transitions
+### [02.3]-[STATE_TRANSITIONS]
 
 A transition after creation is a pure function:
 
@@ -107,13 +107,13 @@ internal static partial class Account {
 }
 ```
 
-### Pattern matching tools
+### [02.4]-[PATTERN_MATCHING]
 
 Expression-oriented pattern matching keeps transitions as expressions. For a type with a fixed set of cases, such as an option or functional list, a type-specific `Match` method can require handlers for every case. `Event.Switch` takes one arm per case. A new case fails to compile until every `Switch` names it. A replayed creation event leaves an existing state unchanged.
 
 Structural matching is useful for sequences. `Seq<Event>` exposes `Head` as an `Option<Event>` and `Tail` as the remaining `Seq<Event>`. This makes the distinction between a nonexistent entity and a replayable history explicit.
 
-## Reconstructing an entity
+## [03]-[ENTITY_RECONSTRUCTION]
 
 History must be retrieved in occurrence order. An empty history means that no entity is recorded. Reconstruction returns an optional state, not a default entity.
 
@@ -135,7 +135,7 @@ internal static partial class Account {
 
 State at a past time is obtained through the same computation after excluding later events. A time value on each event defines the time boundary.
 
-## CQRS architecture
+## [04]-[CQRS]
 
 Event sourcing separates command and query flows.
 
@@ -146,7 +146,7 @@ command -> validate -> derive event -> persist and publish
 events  -> fold/map/filter -> projection or view model -> query response
 ```
 
-### Command side
+### [04.1]-[COMMAND_SIDE]
 
 A command is an imperative request, such as `MakeTransfer`. Unlike an event, it may be invalid, ignored, or interrupted before completion.
 
@@ -206,7 +206,7 @@ internal static class Commands {
 
 Expected rejection and I/O failure are different effects. Expected rejection is a `Fin` from the pure transition, and the effect carries it on the `IO` error channel through `IO.lift(Fin<A>)`. A failure while retrieving history or saving an event arrives on the same channel. `RunSafe` at the host returns one `Fin`, and one `Match` reads both outcomes.
 
-### Persisting and publishing
+### [04.2]-[PERSISTENCE_AND_PUBLISHING]
 
 An accepted event may trigger multiple subscribers: external transfers, reserve calculations, notifications, and projection updates. Persisting the event and making it available to handlers must behave atomically. Saving an event and then crashing before it reaches subscribers can leave the system inconsistent.
 
@@ -216,7 +216,7 @@ Prefer one resulting event per command. Downstream handlers can translate that e
 
 Event handlers serve two distinct roles. Command-side handlers perform follow-up actions and can emit further events. Query-side handlers update read models.
 
-### Query side
+### [04.3]-[QUERY_SIDE]
 
 Users consume view models shaped for their needs, not raw event logs or the command-side state. The query side derives each view from history using functional transformations:
 - `Fold` computes totals and balances.
@@ -244,7 +244,7 @@ As history grows, replaying it for every query becomes expensive. The query side
 
 CQRS does not require two deployed applications. Command and query concerns can remain separate inside one application, or they can be deployed and scaled independently. Query load often benefits from multiple instances, while command processing may require tighter coordination of writes.
 
-## Choosing an append-only storage model
+## [05]-[WHEN_TO_USE]
 
 The domain determines whether event sourcing or valid-time storage fits.
 

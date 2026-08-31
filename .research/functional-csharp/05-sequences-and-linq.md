@@ -1,6 +1,6 @@
-# Functional C# with Existing Language Features
+# [SEQUENCES_AND_LINQ]
 
-## Describe the result, not the procedure
+## [01]-[DECLARATIVE_STYLE]
 
 Imperative code specifies storage, mutation, iteration, branching, and ordering. Functional-style code describes the value to produce and lets expressions carry data through the transformation.
 
@@ -42,7 +42,7 @@ internal static partial class Sequences {
 
 Every returned property and the inputs that determine it are visible in one place. If a calculation obscures the construction, extract it into a function and keep the construction expression central.
 
-## LINQ over `IEnumerable<T>` uses deferred execution
+## [02]-[DEFERRED_EXECUTION]
 
 Many LINQ operators return a description of how to produce a sequence. Creating the query does not execute it; execution begins when a consumer enumerates it. An enumerator exposes the current item and advances in one direction without knowing the sequence length.
 
@@ -65,9 +65,9 @@ Until enumeration, all three transformations remain pending. During enumeration,
 
 `ToSeq()` forces enumeration and materializes a `Seq<int>`. Materializing after every stage changes the evaluation order and storage: each complete stage runs before the next one and stores a collection. Delaying materialization can avoid work that is never demanded. Materialization is appropriate when execution is required at that point or when a materialized sequence will be reused; otherwise, enumerating the same query repeatedly can repeat all of its work. Long deferred or recursive compositions can carry memory and performance costs.
 
-## Express sequence operations without mutable loop state
+## [03]-[SEQUENCE_OPERATIONS]
 
-### Transform with `Select`
+### [03.1]-[SELECT]
 
 Use `Select` when each input becomes one output. `Map` on a `Seq<A>` is the same projection. A fluent chain and named intermediate sequences describe the same transformation when neither the sequences nor their elements are mutated.
 
@@ -85,7 +85,7 @@ Named stages state each operation and let you inspect intermediate values. Use a
 
 Materialization does not introduce mutation. The resulting collection and its elements must remain unchanged.
 
-### Carry temporary context with tuples
+### [03.2]-[TUPLE_CONTEXT]
 
 A tuple can carry several short-lived related values between transformations without mutable locals or a dedicated class.
 
@@ -106,7 +106,7 @@ internal static partial class Sequences {
 
 Tuples require C# 7 or an equivalent package on older versions.
 
-### Obtain positions with indexed `Select`
+### [03.3]-[INDEXED_SELECT]
 
 The indexed overload supplies each element and its zero-based position, eliminating a counter that must be declared and incremented.
 
@@ -123,7 +123,7 @@ internal static partial class Sequences {
 
 The indexed `Map` performs the one-to-one transformation. `string.Join` reduces the sequence of strings to one string.
 
-## Reduce many values to one
+## [04]-[AGGREGATION]
 
 Use a specific reduction when one exists. Because LanguageExt and LINQ define ambiguous `Sum()` and `Average()` calls on `Seq`, this example uses `Fold`. A sum is a `Fold` with a zero seed and an addition step:
 
@@ -182,11 +182,11 @@ The seed defines the empty-input result, and its type is independent of the elem
 
 `Fold` can express `Map`, `Filter`, and `Bind`.
 
-## Recursion uses stack space
+## [05]-[RECURSION]
 
 A recursive function has a base condition that returns the answer and a recursive step that calls the function with updated state. It models an early stop without mutable locals. An implementation needs an exhaustion case because a function without a reachable base condition does not terminate. Because C# does not guarantee tail-call optimization, recursion uses stack space.
 
-## Non-mutating updates
+## [06]-[NON_MUTATING_UPDATES]
 
 Use an indexed `Map` to replace one item:
 
@@ -200,15 +200,15 @@ internal static partial class Sequences {
 
 The function derives the replacement from the old item at one position. `Map` returns a new `Seq<A>`, and the source remains unchanged.
 
-## Immutability is deeper than private setters
+## [07]-[DEEP_IMMUTABILITY]
 
 Private setters and read-only interfaces do not make an object graph deeply immutable.
 
-## Sequence traversal
+## [08]-[SEQUENCE_TRAVERSAL]
 
 `Seq<A>` supplies `Tail` and `Zip`. `LanguageExt.List.unfold` produces a sequence of states.
 
-### Compare adjacent elements
+### [08.1]-[ADJACENT_ELEMENTS]
 
 `source.Zip(source.Tail)` produces the pairs `(First, Second)`. A quantifier over those pairs decides the result.
 
@@ -225,7 +225,7 @@ internal static partial class Sequences {
 
 For example, sort a number sequence, then test whether any adjacent pair differs by one.
 
-## Transform one value into many values and back
+## [09]-[END_TO_END_PIPELINE]
 
 A reporting pipeline can read one CSV text, split it into records, parse typed values, group them, aggregate each group, format report lines, and join those lines into one result.
 

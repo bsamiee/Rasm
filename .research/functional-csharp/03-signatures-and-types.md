@@ -1,23 +1,23 @@
-# Chapter 3 - Designing Function Signatures and Types
+# [SIGNATURES_AND_TYPES]
 
-## Type design and function design are one problem
+## [01]-[TYPE_AND_FUNCTION_DESIGN]
 
 A function signature is a contract. Its input types describe every value the function accepts, and its return type describes every normal outcome callers must handle. Precise types make the contract both more informative and harder to violate.
 
 Arrow notation keeps signatures compact:
 
-| Meaning                     | Arrow notation                        | C# delegate                               |
-| --------------------------- | ------------------------------------- | ----------------------------------------- |
-| Transform a value           | `int -> string`                       | `Func<int, string>`                       |
-| Produce a value             | `() -> string`                        | `Func<string>`                            |
-| Consume a value for effects | `int -> ()`                           | `Action<int>`                             |
-| Perform an effect           | `() -> ()`                            | `Action`                                  |
-| Combine two inputs          | `(int, int) -> int`                   | `Func<int, int, int>`                     |
-| Accept a function           | `(string, (IDbConnection -> R)) -> R` | `Func<string, Func<IDbConnection, R>, R>` |
+| [INDEX] | [PURPOSE]                   | [ARROW_NOTATION]                      | [DELEGATE]                                |
+| :-----: | :-------------------------- | :------------------------------------ | :---------------------------------------- |
+|  [01]   | Transform a value           | `int -> string`                       | `Func<int, string>`                       |
+|  [02]   | Produce a value             | `() -> string`                        | `Func<string>`                            |
+|  [03]   | Consume a value for effects | `int -> ()`                           | `Action<int>`                             |
+|  [04]   | Perform an effect           | `() -> ()`                            | `Action`                                  |
+|  [05]   | Combine two inputs          | `(int, int) -> int`                   | `Func<int, int, int>`                     |
+|  [06]   | Accept a function           | `(string, (IDbConnection -> R)) -> R` | `Func<string, Func<IDbConnection, R>, R>` |
 
 `()` means no input or no returned information. Grouped inputs are treated as a tuple.
 
-### Read behavior from a function signature
+### [01.1]-[READING_SIGNATURES]
 
 Generic signatures constrain plausible behavior:
 
@@ -30,7 +30,7 @@ The first suggests filtering a sequence with a predicate. The second suggests co
 
 Functional design keeps data and logic distinct: data objects carry inputs and outputs, while functions encode behavior. A constrained type can still own the validation needed to construct it and operations, such as comparison, that protect its hidden representation.
 
-## Make invalid inputs unrepresentable
+## [02]-[INVALID_INPUTS]
 
 Primitive types can admit values outside the domain. An `int` used as an age admits values less than 0 or greater than 119. Validating inside every consumer duplicates the rule and mixes validation with the consumer's calculation.
 
@@ -64,7 +64,7 @@ internal static class Underwriting {
 
 `Age.From` has the signature `int -> Fin<Age>`. Callers cannot bypass the invariant, and consumers neither repeat validation nor inspect the underlying integer. A consumer that recovers from the failure pattern matches `InvalidAge` through `IsType` or `HasCode`, not a message. `Create` throws when the value is invalid. This behavior reports a defect in the calling code, not an expected input outcome.
 
-### Functions that honor their signatures
+### [02.1]-[HONEST_FUNCTIONS]
 
 A function honors its signature when each declared input produces a declared output. It does not return `null` or throw an exception as an intrinsic outcome that the signature fails to describe.
 
@@ -76,13 +76,13 @@ This signature is accurate when every constructible `Age` produces a `Risk`. `in
 
 A function can honor its signature without being pure. Purity also excludes observable side effects and dependence on mutable state.
 
-### Types as sets
+### [02.2]-[TYPES_AS_SETS]
 
 Types can be modeled as sets of possible values. If `Age` has 120 values and `Gender` has two, `(Age, Gender)` has `120 * 2 = 240` possible values. A tuple or object containing both is a product type: each field adds another dimension to the space of possible states.
 
 `Option<A>` is a union: all `Some(A)` values plus the single `None` value. A type with `n` values yields an option with `n + 1` values. Counting possible instances exposes types that admit states the domain does not need. Once component types are constrained, they can be composed into larger data objects without reintroducing invalid primitive states.
 
-## Represent no information with `Unit`
+## [03]-[UNIT]
 
 `void` is a language special case rather than an ordinary return type. This splits delegates into `Func` and `Action` families and can force duplicate higher-order-function implementations. The same split appears between `Task<T>` and `Task`.
 
@@ -105,7 +105,7 @@ internal static class Timing {
 
 Use `void` when an ordinary imperative API performs effects and returns no information. Use `Unit` when an ordinary return value enables uniform functional handling. Returning `Unit` does not make an effectful function pure; it only removes a special-case return type.
 
-## Represent possible absence with `Option<A>`
+## [04]-[OPTION]
 
 Framework lookup APIs show that absence omitted from the result type is unsafe: a missing key may yield `null` from one collection and throw from another, even though both indexers appear to have the signature `key -> value`.
 
@@ -130,7 +130,7 @@ internal static class Greetings {
 
 Changing a required `string` property to `Option<string>` is a breaking change: code that treats the property as a `string` stops compiling until it handles absence. This trades possible runtime `NullReferenceException`s for compile-time errors that require explicit handling.
 
-### The C# implementation
+### [04.1]-[IMPLEMENTATION]
 
 `Option<A>` is one readonly struct. It holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, and selects the case through `Match`. The Prelude supplies `Some(x)` and `None`. The implicit conversion from `A` maps `null` to `None`, and `Optional(x)` does the same when nullable input enters the domain. `Some(x)` wraps the value as given and is not a null check:
 
@@ -145,7 +145,7 @@ internal static class Construction {
 
 The default inner value in the `None` state is ignored. The contract is an empty case, a present case, and a way to handle both cases safely. The abstraction is called `Maybe`, with cases named `Nothing` and `Just`. Class-hierarchy encodings name the cases `Something<T>` and `Nothing<T>`. The abstraction is the same, and an open hierarchy cannot stop a caller from adding a third case.
 
-## Turn partial functions into total functions
+## [05]-[TOTALITY]
 
 A total function is defined for every value in its declared input domain; a partial function is not. Returning `Option` totalizes a partial computation: return `Some(result)` where the computation is defined and `None` otherwise.
 
@@ -160,7 +160,7 @@ internal static class Totality {
 
 `string -> int` hides the undefined parsing cases; `string -> Option<int>` describes every outcome. The Prelude function `parseInt` has that signature. `Find` on `HashMap<K, V>` has the signature `K -> Option<V>`. A missing key is a value, not an exception. `Bind` chains the two lookups, and `ToOption` on `Fin<Age>` drops the failure reason when the caller does not need it.
 
-## Nullable reference types at input boundaries
+## [06]-[NULLABLE_REFERENCE_TYPES]
 
 Nullable reference types are compiler analysis, not a new runtime type. Enable the analysis in the project file:
 
@@ -184,7 +184,7 @@ internal sealed record ExternalMovie {
 
 Null adds another possible state that every consumer must account for. If an external data source requires nullable values, isolate that representation in the parsing code and convert it to a validated internal type before other code uses it.
 
-## Design rules
+## [07]-[DESIGN_RULES]
 
 - Design the signature early; specify exact input and outcome types.
 - Prefer constrained domain types to primitives plus repeated validation.

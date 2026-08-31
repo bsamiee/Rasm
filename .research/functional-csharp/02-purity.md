@@ -1,6 +1,6 @@
-# Why Function Purity Matters
+# [PURITY]
 
-## Definition of Purity
+## [01]-[DEFINITION]
 
 A function is pure when both conditions hold:
 1. Its return value is determined only by its inputs, including immutable values fixed when the function or object was constructed.
@@ -27,7 +27,7 @@ A pure function call can be replaced with its result for a given input without c
 
 Purity is about observable behavior. Mutation of state that is local to a function and never escapes is not a side effect; mutation of an instance field is, even when that field is private, because other methods on the object can observe it.
 
-## Isolate Impure Operations
+## [02]-[ISOLATING_IMPURITY]
 
 Useful programs require I/O, so the goal is not universal purity. Different effects need different treatment: I/O must be isolated, argument mutation can be eliminated by returning data, errors can always be handled without exceptions, and non-local state mutation can often be avoided. Keep unavoidable I/O outside the computational core and place as much computation as possible in pure functions.
 
@@ -44,7 +44,7 @@ internal static class Greeting {
 
 `Greet` describes the console reads and writes as an `Eff<RT, Unit>`, and the host performs them at `Run(rt)`. `Greet` reads the console capability through `Console<RT>`. `GreetingFor` contains the reusable, deterministic logic. Impure functions may call pure functions.
 
-### Return information instead of mutating arguments
+### [02.1]-[RETURN_OVER_MUTATION]
 
 An output parameter represented by a mutable collection hides part of a function's result. It couples caller and callee through initialization rules and mutation order. Return every computed value explicitly instead:
 
@@ -64,7 +64,7 @@ internal static class Orders {
 
 The signature exposes the complete output. `Fold` sums the lines and `Filter` selects the lines to delete, both over the same `Seq<OrderLine>`. Neither side must know how the other manages a shared collection. Immutable objects can ensure that values do not change after construction. If one operation both mutates an object and calculates a result, separate those responsibilities so the calculation can remain pure.
 
-## Purity and Concurrency
+## [03]-[CONCURRENCY]
 
 In the chapter's list formatter, sentence casing is pure, but numbering through an instance counter is not:
 
@@ -109,7 +109,7 @@ Treat `Map` as a value transformation and keep its function pure. The API accept
 
 The compiler cannot infer whether an arbitrary delegate is pure, so parallel execution must be requested explicitly. Its overhead is justified only by sufficient work and input size.
 
-### Static methods are not the problem
+### [03.1]-[STATIC_METHODS]
 
 Pure methods can safely be static because all required data is explicit or immutable. Static methods become hazardous when they:
 - read or write mutable static fields;
@@ -117,7 +117,7 @@ Pure methods can safely be static because all required data is explicit or immut
 
 Avoid mutable static fields and direct dependencies on static I/O methods.
 
-## Purity and Testability
+## [04]-[TESTABILITY]
 
 A unit test for a pure function supplies inputs and asserts the returned output. It is isolated and repeatable by construction.
 
@@ -136,9 +136,9 @@ This explains the extra cost of testing effects. Arrange must construct substitu
 
 Parameterized tests make inputs and expected outputs explicit: each test case supplies values, adapts them into the function's input, and returns or asserts the expected output across boundary cases.
 
-## Push Effects Outward
+## [05]-[PUSHING_EFFECTS_OUTWARD]
 
-### Abstraction improves control but does not create purity
+### [05.1]-[ABSTRACTION_LIMITS]
 
 Wrapping the system clock behind an interface does not make the consuming method pure. It is pure only when the injected implementation is pure. A production implementation that reads the clock still carries I/O into the validator. This approach improves test control without reducing the production effect itself.
 
@@ -149,7 +149,7 @@ Choose the narrowest dependency that represents what the consumer needs:
 
 An interface remains appropriate as a common contract for distinct implementations. Systematically creating a one-method interface for every effect adds unnecessary infrastructure.
 
-### Inject a value when one snapshot is enough
+### [05.2]-[VALUE_INJECTION]
 
 Reading `DateTime.UtcNow` inside validation makes the result depend on the system clock. Let the code that constructs the validator read the date once and inject that value:
 
@@ -180,7 +180,7 @@ internal static class Capabilities {
 
 `DateNotPast` reads the `Clock` through `RT.Ask` and passes the snapshot to the validator. A test runtime carries a fixed `Clock`. The same runtime also carries `ConsoleIO`, so it runs `Greet`.
 
-### Inject an Effect When the Value Must Be Acquired on Demand
+### [05.3]-[EFFECT_INJECTION]
 
 A validator needs the list of valid bank codes. The caller loads the codes as an effect and passes the `Seq<string>`, so the validator is pure:
 
@@ -200,13 +200,13 @@ Production composition supplies the `IO<Seq<string>>` that queries the codes. A 
 
 A function signature is a narrow interface. Injecting an effect value can replace a one-method interface, its implementation, constructor wiring, dependency-injection registration, and test fake.
 
-## Why Purity Matters More
+## [06]-[ASYNC_AND_MULTICORE]
 
 Distributed systems perform more I/O because programs increasingly delegate computation to other processes and services. That makes fully pure programs less attainable while increasing the need for asynchronous work, where hidden mutable state is troublesome.
 
 At the same time, performance gains increasingly come from multiple processors rather than ever-faster individual CPUs. Computations built from pure functions are easier to parallelize safely. The growth of both asynchronous I/O and multicore execution therefore makes a small, explicit impure boundary more valuable even though useful software cannot eliminate effects.
 
-## Design Checklist
+## [07]-[DESIGN_CHECKLIST]
 
 - List every non-local value a function reads and every externally visible change it makes.
 - Extract deterministic computation from I/O workflows.

@@ -1,6 +1,6 @@
-# Higher Kinds in C# with LanguageExt
+# [HIGHER_KINDS]
 
-## Static interface members as traits
+## [01]-[STATIC_INTERFACE_MEMBERS]
 
 Static abstract interface members let a generic constraint describe operations that belong to a type rather than an instance:
 
@@ -84,7 +84,7 @@ A Concat<A>(IEnumerable<A> xs)
 
 This generalizes folding and concatenation across otherwise unrelated types. The trait members return the concrete value rather than a potentially boxed `Addable<A>` interface value.
 
-## Semigroups and monoids
+## [02]-[SEMIGROUPS_AND_MONOIDS]
 
 `Addable` has the structure of a monoid. A semigroup provides an associative binary operation; a monoid extends it with an identity element:
 
@@ -106,7 +106,7 @@ In LanguageExt version 5, a type becomes a semigroup or monoid by implementing t
 
 The tradeoff is ownership: a type that cannot be modified cannot be made to implement these traits directly. For example, `string` and integer types cannot retroactively become monoids. The workaround is to place the external value in a small owned wrapper that implements the needed trait, then convert at the point where monoidal behavior is required.
 
-## Why the self-type pattern cannot express mapping
+## [03]-[SELF_TYPE_LIMITATION]
 
 The self-typed trait works when every operation stays within one concrete type. Mapping is different because it must be able to change the element type while retaining the surrounding shape.
 
@@ -138,7 +138,7 @@ public interface Mappable<SELF, A>
 
 For `SELF = MyList<A>`, `Select` must return `MyList<A>`, while applying `Func<A, B>` requires `MyList<B>`. The interface can name a fully applied list type, but not the list constructor independently of its element type.
 
-## The missing type-constructor parameter
+## [04]-[TYPE_CONSTRUCTOR_PARAMETER]
 
 The relevant distinction is:
 
@@ -152,7 +152,7 @@ A parameterized type can be viewed as a type-level function: it accepts a type a
 
 This limitation also helps explain C#'s compiler-recognized method patterns. Features involving `Select`, `SelectMany`, `Where`, `Join`, `GroupJoin`, `GetEnumerator`, `GetAwaiter`, collection `Add`, index initializers, and collection initializers depend on specially recognized members rather than one general, discoverable trait mechanism.
 
-## `K<F, A>`
+## [05]-[K_INTERFACE]
 
 LanguageExt version 5 introduces this empty interface:
 

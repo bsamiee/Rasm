@@ -1,6 +1,6 @@
-# Monads
+# [MONADS]
 
-## Why monads matter in pure functional C#
+## [01]-[MOTIVATION]
 
 Pure functional programming rests on three ideas:
 1. Functions are values.
@@ -36,7 +36,7 @@ Bind : M<A> -> (A -> M<B>) -> M<B>
 
 The function receives a value from one contextual computation and returns the next computation in the same context. The particular implementation of `Bind` determines what happens between those steps.
 
-## Representing IO as a computation
+## [02]-[IO_AS_A_COMPUTATION]
 
 Reading the clock immediately yields a time snapshot. Capturing the read as a function instead represents the computation itself:
 
@@ -68,7 +68,7 @@ public static class IOExtensions
 }
 ```
 
-## From functor and applicative to monad
+## [03]-[FROM_APPLICATIVE_TO_MONAD]
 
 `Map` works within the lifted `IO` space. It runs the existing computation only when the returned computation is interpreted, transforms its result, and wraps the whole operation in another `IO`:
 
@@ -145,7 +145,7 @@ Bind : (A -> M<B>) -> M<A> -> M<B>
 
 `Map` can be expressed as `Bind` followed by `Pure`: its supplied function produces a plain value and ends that chain. `Apply` can similarly be implemented from `Bind` and `Map`. Those definitions are useful starting points, although a monad may provide a bespoke `Apply`.
 
-## LINQ flattens dependent sequencing
+## [04]-[LINQ_SEQUENCING]
 
 Directly nested `Bind` calls form a pyramid:
 
@@ -168,7 +168,7 @@ LINQ is C#'s first-class syntax for monadic sequencing, analogous to Haskell's `
 
 The conventional names are useful shared vocabulary. As an intuition aid, a monad can be thought of as "chainable" and `Bind` as "and then": computations are chained serially.
 
-## `Bind` composes across kinds
+## [05]-[BIND_ACROSS_KINDS]
 
 `Monad<M>` extends `Applicative<M>` with one operation:
 
@@ -192,7 +192,7 @@ There is no general operation `M<A> -> A`. A context may contain no `A` at all: 
 
 This monad-specific logic between computations motivates the phrase "programmable semicolon." For `IO`, the logic runs a deferred computation. For `Option`, it decides whether the following computation may run.
 
-## `Option` short-circuits dependent work
+## [06]-[OPTION_SHORT_CIRCUIT]
 
 `Option<A>` continues from `Some` and preserves `None` without invoking the continuation:
 
@@ -225,7 +225,7 @@ var res2 =
 
 When parsing returns `None`, there is no value for the next dependent step, so the rest of the expression stops. Unlike a convention of scattered null checks, the type and its `Bind` implementation make this control flow unavoidable.
 
-## Total functions make expected failure explicit
+## [07]-[TOTALITY]
 
 Expected failure belongs in the return type rather than an exception. A total function maps every allowed input to a value in its return type. Two techniques make this possible:
 1. Constrain input types so out-of-range values cannot be constructed.
@@ -239,7 +239,7 @@ Option<int> parseInt(string value);
 
 `Some<int>` represents a parsed value and `None` represents expected inability to parse. Exceptions remain for exceptional events from which the program cannot recover.
 
-## Stay in the declared effect
+## [08]-[DECLARED_EFFECTS]
 
 The monad in a return type marks a whole expression with a particular behavior. `IO<A>` declares that the expression performs IO; `Option<A>` declares that it may produce no value. Keeping those contexts visible encourages separation between effectful and non-effectful code and preserves composition.
 

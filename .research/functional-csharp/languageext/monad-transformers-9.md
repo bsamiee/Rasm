@@ -1,6 +1,6 @@
-# Monad Transformers
+# [MONAD_TRANSFORMERS]
 
-## Why transformers exist
+## [01]-[MOTIVATION]
 
 `Bind` can only continue in the same higher-kinded type:
 
@@ -35,7 +35,7 @@ MonadIO.liftIO<OptionT<IO>, Seq<string>>(readAllLines(path));
 
 This composition replaces combinations that once required dedicated types. For example, `OptionT<IO, A>` represents the former `OptionAsync<A>`, while `ValidationT<IO, A>` combines validation with IO.
 
-## The transformer contract
+## [02]-[TRANSFORMER_CONTRACT]
 
 ```csharp
 public interface MonadT<T, out M> : Monad<T>
@@ -54,7 +54,7 @@ A regular monad cannot be turned into a transformer without a bespoke transforme
 
 Transformer-related types conventionally carry a `T` suffix.
 
-## Building `MaybeT`
+## [03]-[BUILDING_MAYBE_T]
 
 An optional transformer can store an arbitrary monad containing a known `Maybe` value:
 
@@ -139,7 +139,7 @@ public class MaybeT
 
 The generic `MonadT.lift` can also perform the inner-monad lift; bespoke functions often need fewer generic arguments.
 
-## Lifting IO through a stack
+## [04]-[LIFTING_IO]
 
 There is no `IOT`. In an IO-based transformer stack, `IO<A>` is expected to be the innermost monad. Repeated `lift(lift(lift(io)))` calls would expose the stack depth, so `liftIO` forwards the action through every transformer until it reaches `IO`.
 
@@ -170,7 +170,7 @@ public static K<M, B> Bind<M, A, B>(
 
 Any abstraction that performs IO should use `IO<A>` internally.
 
-## Running a transformer
+## [05]-[EXECUTION]
 
 A `Run` extension exposes one layer of the stack:
 
@@ -184,7 +184,7 @@ Running `MaybeT<IO, A>` once yields `K<IO, Maybe<A>>`; running that IO yields `M
 
 Stack order is significant because `Run` unwraps layers one at a time, and some transformers place the lifted monad inside while others place it outside. `MaybeT<M, A>` stores `K<M, Maybe<A>>`, whereas `ReaderT<Env, M, A>` stores `Func<Env, K<M, A>>`. Inspect the concrete wrapped type to understand what each `Run` will produce.
 
-## Wrap the stack behind a domain type
+## [06]-[STACK_ENCAPSULATION]
 
 Creating a transformer is substantial work, but LanguageExt supplies common transformers. Application code usually needs to compose them and hide the resulting generic stack behind a stable type and a domain-focused API.
 
@@ -223,7 +223,7 @@ This mechanism makes many old combination-specific types unnecessary:
 - `EitherAsync<L, R>` becomes `EitherT<L, IO, R>`.
 - `ValidationAsync<F, S>` becomes `ValidationT<F, IO, S>`.
 
-## Domain monads
+## [07]-[DOMAIN_MONADS]
 
 A domain wrapper can expose only the operations meaningful to one architectural layer:
 
@@ -251,7 +251,7 @@ Running `Api<A>` requires an interpreter. It recursively handles `Pure` as compl
 
 This architecture hides representation until `Run`, centralizes environment and transaction handling, and allows the private transformer stack to change without changing its consumers.
 
-## Performance and design guidance
+## [08]-[PERFORMANCE_AND_DESIGN]
 
 Nested transformers add lambdas, allocations, and CPU cost. Build from the existing compositional pieces, hide the stack, and prioritize correctness. If profiling later shows that the stack is a bottleneck, replace its private implementation with one bespoke monad that offers the same domain surface; consumers need not change.
 

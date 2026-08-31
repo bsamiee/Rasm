@@ -1,8 +1,8 @@
-# LanguageExt Effects
+# [LANGUAGEEXT_EFFECTS]
 
 `IO<A>` is the effect type. It describes a side effect with a failure channel and performs nothing until a host runs it. It is chosen at the input boundary and preserved through the domain. `RunSafe`, `Run`, `RunAsync`, and `Match` are host operations. A domain function never runs an effect.
 
-## Constructing an effect
+## [01]-[CONSTRUCTION]
 
 `IO.lift` takes a thunk and defers it. Overload resolution reads the return type of the thunk. A `Func<Fin<A>>` selects its overload and converts a `Fail` to an `IO` failure. The type argument in `IO.lift<Fin<A>>` keeps the `Fin` as the value. `IO.lift(Fin<A>)` lifts an existing result. `IO.liftAsync` takes a `Task` thunk, and the `EnvIO` overload passes `env.Token` to the dependency. `IO.pure` lifts a value and `IO.fail` builds a failed effect from an `Error`. LINQ over `IO` binds dependent steps.
 
@@ -36,7 +36,7 @@ internal static class Construction {
 }
 ```
 
-## Running effects at the host
+## [02]-[HOST_EXECUTION]
 
 `Run` and `RunAsync` throw on failure and belong to `Main`. They represent an `Expected` error as an `ErrorException` and rethrow the exception captured by an `Exceptional` error. `RunSafe` returns `Fin<A>` for translation at the host boundary. `Try.lift(io.Run).Run()` captures the thrown error and returns the original `Expected`. `EnvIO.New` carries the cancellation token. A cancelled token escapes `RunSafe` as an exception. A host that supplies an `EnvIO` captures the exception with `Try.lift`. `Catch(code, f)` recovers one error code and `|` supplies an alternative effect.
 
@@ -53,7 +53,7 @@ internal static class Exits {
 }
 ```
 
-## Resources
+## [03]-[RESOURCES]
 
 `use` acquires an `IDisposable` inside the effect and disposes it when the scope ends, on success and on failure. The `use` overload with a release action names the release step for the acquired value. `Bracket(Use:, Fin:)` runs `Fin` after `Use` on both paths. `Finally` attaches an effect that runs after the receiver. If `Finally` is applied to an existing `IO.fail`, the finalizer does not run. The finalizer runs when a deferred effect fails during execution.
 
@@ -86,7 +86,7 @@ internal static class Resources {
 }
 ```
 
-## Concurrency
+## [04]-[CONCURRENCY]
 
 `Fork` starts the effect on one `TaskCreationOptions.LongRunning` thread and returns a `ForkIO` with `Await` and `Cancel`. `awaitAll` runs every effect of a `Seq` and collects the values. `awaitAny` returns the first value. `timeout` fails the effect after the duration. `Uninterruptible` masks cancellation for the effect.
 
@@ -121,7 +121,7 @@ internal static class Concurrency {
 }
 ```
 
-## Recursion
+## [05]-[RECURSION]
 
 `tail` marks the last bind continuation after a deferred effect and uses constant stack space. A `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` are incompatible with this form and cause it to fail. `Monad.recur` loops a state with `Next.Loop` and `Next.Done` and can use any host operation. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while the value satisfies it.
 
@@ -138,7 +138,7 @@ internal static class Recursion {
 }
 ```
 
-## Schedules
+## [06]-[SCHEDULES]
 
 `Schedule.spaced` and `Schedule.exponential` build delay sequences. `recurs` caps the attempt count, `repeat` replays the whole schedule, `jitter` randomizes each delay, and `maxDelay` caps each delay. `recurs`, `repeat`, `jitter`, and `maxDelay` are `ScheduleTransformer` values. Between two schedules `|` is a union that takes the shorter delay and `&` is an intersection that takes the longer delay. Where one side is a transformer, `|` and `&` both apply the transformer. A transformer passed alone converts to `Schedule.Forever` with the transformer applied.
 
@@ -161,7 +161,7 @@ internal static class Schedules {
 }
 ```
 
-## Runtimes
+## [07]-[RUNTIMES]
 
 `Eff<RT, A>` reads a capability from a runtime. A runtime record implements `Has<Eff<RT>, ConsoleIO>` with `Eff.runtime<RT>().Map(static rt => rt.Console)`. `Console<RT>.writeLine` and `Console<RT>.readLine` compile against that constraint, and `File<RT>` needs `FileIO` and `EncodingIO`. `Run(rt)` returns `Fin<A>`. An `IO<A>` converts implicitly to `Eff<RT, A>`.
 
@@ -186,7 +186,7 @@ internal static class Runtimes {
 }
 ```
 
-## Streams
+## [08]-[STREAMS]
 
 `Source<A>` is a stream of values. `Source.lift` accepts an `IObservable<A>` or an `IEnumerable<A>`, `Source.merge` joins sources, and `Zip` pairs them. `Reduce(seed, f)` returns `IO<S>` and is the fold that yields a value. `Fold` on a lifted finite sequence emits nothing. `ReduceIO` stops with `Reduced.DoneIO` and continues with `Reduced.ContinueIO`. `Sink<A>` receives with `Post`, adapts its input with `Comap`, and rejects `Post` after `Complete()`.
 

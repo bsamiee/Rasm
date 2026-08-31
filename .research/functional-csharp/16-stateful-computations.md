@@ -1,6 +1,6 @@
-# Stateful Programs and Stateful Computations
+# [STATEFUL_COMPUTATIONS]
 
-## Statefulness without mutation
+## [01]-[STATE_WITHOUT_MUTATION]
 
 A program is stateful when its behavior depends on previous inputs or events. The label depends on the boundary: a server can be stateless by itself while the server and its database form a stateful system.
 
@@ -13,7 +13,7 @@ stateful:  Input -> State -> (Value, NewState)
 
 The caller carries the returned state into the next operation. Earlier immutable state values are not altered. The program remains stateful because each new state affects later behavior.
 
-## An immutable cache
+## [02]-[IMMUTABLE_CACHE]
 
 A currency-rate lookup can cache results to avoid repeated network requests. Its state can be a `HashMap<string, decimal>` from currency-pair names to rates, and the lookup is a `State<HashMap<string, decimal>, decimal>`:
 
@@ -39,7 +39,7 @@ cached lookup: string -> HashMap<string, decimal> -> (decimal, HashMap<string, d
 
 The application starts with an empty `HashMap<string, decimal>`. Dependent lookups bind in one query, and the host supplies the start state through `Run(state)`, which returns the value with the final state. The implementation uses no global state.
 
-### Separate state mutation from other effects
+### [02.1]-[SEPARATING_EFFECTS]
 
 Removing mutation does not remove network and console I/O. Passing the network operation as a `Func<string, decimal>` makes that dependency explicit and lets the cache logic be tested with a deterministic function. Console functions can also be supplied explicitly.
 
@@ -67,7 +67,7 @@ internal static class EffectfulRateCache {
 
 `StateT.get` reads the whole state, `StateT.liftIO` lifts the fetch into the transformer, and `StateT.put` writes the new map. If a fetch fails on the `IO` error channel, the host retains the original cache. Only a successful lookup yields a cache containing the new rate. `Run(state)` on a `StateT` returns `K<IO, (Value, State)>`. `.As()` converts it, `RunSafe()` executes it, and the host maps the resulting `Fin` cases to its own result type. An `IO` started with `Fork` inside the transformer reads no state and writes none back. `IO` makes failure handling explicit without scattered `try/catch` blocks.
 
-## Stateful computations
+## [03]-[STATE_TRANSITIONS]
 
 A stateful computation, also called a state transition, has the general shape:
 
@@ -88,7 +88,7 @@ The produced value can be an `Option<A>`, as `OptionInt` shows. The seed advance
 
 `State.put` replaces the state. Both `State.put` and `State.modify` produce `Unit`. The module functions take explicit type arguments. `Stateful.state` and `Stateful.local` are the trait forms for a domain wrapper over `State` or `StateT`. `Stateful.local` restores the prior state after the nested computation.
 
-## Pure pseudo-random generation
+## [04]-[RANDOM_GENERATION]
 
 Composable generators support property-based testing, load testing, and simulations such as Monte Carlo methods.
 
@@ -100,7 +100,7 @@ int -> (A, int)
 
 An explicit seed makes generation repeatable and testable. `Run(seed)` returns the value with the next seed, and the host chooses the seed. A runner that seeds from the clock is impure and not testable.
 
-### The primitive generator
+### [04.1]-[PRIMITIVE_GENERATOR]
 
 The primitive generator scrambles its input seed and returns the result as both the value and the next seed:
 
@@ -117,7 +117,7 @@ internal static partial class Generator {
 
 `State<int, int>` is constructed from a `Func<int, (int Value, int State)>`. The scrambling algorithm does not affect composition. Every call exposes the state required by the next call.
 
-### Deriving values with `Map`
+### [04.2]-[DERIVING_WITH_MAP]
 
 `Map` reuses both the integer generator and its next seed while changing only the value:
 
@@ -129,7 +129,7 @@ internal static partial class Generator {
 
 `NextChar` uses `Map` to reduce an integer modulo `char.MaxValue + 1` and cast it to `char`.
 
-### Sequencing with `Bind`
+### [04.3]-[SEQUENCING_WITH_BIND]
 
 Generating a pair manually requires feeding the first generation's seed into the second. `Bind` centralizes that threading. With LINQ, composite generators describe the value being built:
 
@@ -148,7 +148,7 @@ internal static partial class Generator {
 
 The second generator always consumes the seed returned by the first. Binding order determines the sequence of generator states.
 
-### Recursive structures and generation policy
+### [04.4]-[RECURSIVE_GENERATION]
 
 `State.pure` supplies a fixed value without consuming state:
 
@@ -177,7 +177,7 @@ This produces empty lists half the time, one-element lists one quarter of the ti
 
 Generation policy determines the size distribution. For a different distribution, first generate a bounded length and then generate that number of values. To generate a string, generate a character sequence and construct the string.
 
-## Generalizing beyond integer seeds
+## [05]-[GENERALIZATION]
 
 `State<int, A>` specializes `State<S, A>` with an integer seed. Other state types use the same `Map`, `Bind`, and `State.pure` operations.
 
@@ -217,7 +217,7 @@ The numbering function returns a computation rather than a numbered tree immedia
 
 Simulations and parsers can also use state transitions. A functional parser can treat its input text as state: it returns a structured parsed value and the unconsumed remainder for the next parser. `LanguageExt.Parsec` follows this model: its `Parser<T>` maps a `PString` to a `ParserResult<T>` that carries the unconsumed input.
 
-## Choosing the representation
+## [06]-[REPRESENTATION_CHOICE]
 
 - Keep state visible in inputs and outputs to expose dependencies and sequencing.
 - Use immutable state values; the caller advances by selecting the returned value as the next state.

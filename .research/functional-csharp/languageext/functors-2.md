@@ -1,6 +1,6 @@
-# Functors
+# [FUNCTORS]
 
-## The problem: mapping must change the bound value type
+## [01]-[MAPPING_PROBLEM]
 
 A mapping trait cannot bake the element type into the trait itself. Mapping a value of type `A` must be able to produce a value of type `B`, while preserving the surrounding type constructor.
 
@@ -28,7 +28,7 @@ public interface Mappable<F>
 
 `K` is short for "kind." `F` acts as an anchor for the structure, while `A` is the value type carried by that structure. Mapping replaces `A` with `B` without changing `F`.
 
-## A list implementation
+## [02]-[LIST_IMPLEMENTATION]
 
 The generic data type represents the data, while a non-generic sibling type implements the capability:
 
@@ -71,7 +71,7 @@ public class List : Mappable<List>
 
 The cast relies on an invariant: only one concrete type should derive from `K<List, A>`. Defining another representation for the same `F` and `A` would make the downcast fail on use.
 
-## One mapping extension for every structure
+## [03]-[MAP_EXTENSION]
 
 The trait makes a single generic extension possible:
 
@@ -105,7 +105,7 @@ List<int> nlist = list.Select(x => x + 1)
 
 The compromise is a small cast at the concrete boundary. Staying in the abstract `K<F, A>` form usually avoids repeated calls to `As`.
 
-## Mapping a `Maybe`
+## [04]-[MAYBE_FUNCTOR]
 
 The same extension works for a different structure once that structure supplies its own trait implementation:
 
@@ -146,7 +146,7 @@ var r2 = my.Select(x => x + 1)
            .Select(x => x * 3); // Nothing
 ```
 
-## The main gain: generic functions over the structure
+## [05]-[GENERIC_FUNCTIONS]
 
 Per-type extension methods could provide mapping syntax, but they would not let one function work across all mappable structures. The trait constraint does:
 
@@ -158,7 +158,7 @@ public static K<F, int> Foo<F>(K<F, string> ma)
 
 `Foo` works for any `F` that implements `Mappable<F>` rather than requiring separate `List<string>` and `Maybe<string>` versions.
 
-## `Mappable` is `Functor`
+## [06]-[MAPPABLE_AS_FUNCTOR]
 
 The conventional name for this capability is `Functor`, and its conventional operation is `Map`:
 
@@ -187,7 +187,7 @@ Only the argument order differs in this illustrative C# definition; the implemen
 
 This encoding is not as general as type-system lambda abstraction in a language with native higher kinds, but it provides higher-rank polymorphism for traits. The C#-specific requirement is that each data type derive from `K<F, A>`.
 
-## Shape and capability stay separate
+## [07]-[SHAPE_AND_CAPABILITY]
 
 The data types remain simple descriptions of shape:
 
@@ -202,7 +202,7 @@ public record Nothing<A>() : Maybe<A>;
 
 The sibling types `List` and `Maybe` carry the trait implementations. This resembles type-class instances: the data type represents the shape, and the trait implementation represents a capability. Keeping behavior out of the data representation leaves the structure easier to move through parallel processing and serialization boundaries.
 
-## Why the higher rank matters
+## [08]-[HIGHER_KINDED_ABSTRACTION]
 
 Moving from concrete generic types to abstractions over type constructors avoids the same kind of duplication that ordinary generics avoid over value types.
 

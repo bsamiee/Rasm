@@ -1,6 +1,6 @@
-# Lazy Computations, Deferred Exception Handling, and Continuations
+# [LAZY_TRY_CONTINUATIONS]
 
-## 1. Laziness defers execution
+## [01]-[LAZINESS]
 
 C# evaluates arguments eagerly. If a function may not need an argument, accepting the value directly can perform unnecessary work:
 
@@ -31,7 +31,7 @@ internal static partial class Laziness {
 }
 ```
 
-### Lazy fallback APIs
+### [01.1]-[LAZY_FALLBACKS]
 
 An eager fallback defeats a cache because the database lookup runs even when the cache contains the value:
 
@@ -62,7 +62,7 @@ internal static partial class Laziness {
 - Use a direct value when its construction is negligible.
 - A `Func<A>` avoids work when the value is expensive and may not be needed.
 
-## 2. Compose first, execute later
+## [02]-[COMPOSE_THEN_EXECUTE]
 
 `Map` transforms an `IO<A>` result without running the source effect:
 
@@ -83,7 +83,7 @@ internal static partial class Composition {
 
 `RunSafe()` remains the explicit execution boundary and returns `Fin<A>` to the host. `Map` applies a function to the deferred result. `Bind` flattens the nested `IO<IO<B>>` introduced by a dependent next step.
 
-## 3. `Try<T>` describes deferred work that may throw
+## [03]-[TRY]
 
 Repeated `try/catch` blocks obscure the computation. Represent exception-prone lazy work with `Try<A>` and centralize execution. `Try<A>` wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` whose `IsExceptional` is true, and `Run()` returns `Fin<A>`.
 
@@ -115,7 +115,7 @@ For query syntax, a monadic type supplies:
 - `SelectMany` as an alias for `Bind`.
 - A projection overload of `SelectMany` for multiple `from` clauses.
 
-## 4. Monadic composition preserves effect semantics
+## [04]-[MONADIC_COMPOSITION]
 
 Ordinary functions compose when their shapes line up:
 
@@ -135,7 +135,7 @@ B -> Try<C>
 
 The rule changes with the return type. For functions returning `(value, K)`, sequencing can feed the value forward and combine both `K` values when two `K` values can be combined into one. A list works because the two lists can be concatenated. Other return types thread a seed or state through successive computations, or accept a continuation that surrounds downstream work.
 
-## 5. Reader defers computation until an environment is supplied
+## [05]-[READER]
 
 `Reader<Env, A>` stores a function that cannot run until `Run(env)` supplies its environment:
 
@@ -181,7 +181,7 @@ This avoids carrying the environment through every step in tuples. `Reader` pass
 
 The environment type is the smallest structure the workflow reads.
 
-## 6. Continuations model setup and teardown scopes
+## [06]-[CONTINUATIONS]
 
 Resource and instrumentation helpers take a callback so they can act before and after it:
 
@@ -230,7 +230,7 @@ internal static partial class Scopes {
 
 `Time` transforms `IO<A>` into `IO<A>`. `Fin` runs after the continuation succeeds and after a failure occurs while it runs. `Fin` does not run when `Time` receives a pre-built `IO.fail`; the supplied work remains deferred.
 
-## 7. Resource scopes in query syntax
+## [07]-[RESOURCE_SCOPES]
 
 Once helpers return `IO<A>`, query syntax exposes scoped behavior without callback nesting:
 
@@ -254,7 +254,7 @@ internal static partial class Scopes {
 
 `use(Func<A>)` accepts an `IDisposable` and disposes it when the effect succeeds or fails. The transaction scope depends on the connection and supplies a transaction downstream. The commit step runs only after both statements succeed. A failure skips it, and `Dispose` rolls the open transaction back. `use(Func<A>, Action<A>)` runs its release action on every exit, so a commit does not belong in a release action.
 
-## 8. Ordering determines scope
+## [08]-[SCOPE_ORDERING]
 
 The order of bracketed effects determines which downstream work each scope surrounds:
 - Timing outside connection acquisition measures acquisition and database work.

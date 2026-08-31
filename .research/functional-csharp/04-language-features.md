@@ -1,4 +1,4 @@
-# Functional Programming in C# 7 and Later Versions
+# [LANGUAGE_FEATURES]
 
 C# supports functional programming through these language features:
 - tuples carry short-lived groups of values through a pipeline;
@@ -8,7 +8,7 @@ C# supports functional programming through these language features:
 
 These features reduce casts, mutation, and repetitive copying while keeping the rules visible.
 
-## Tuples as Intermediate Values
+## [01]-[TUPLES]
 
 Tuples group related values without a class. Named elements carry lookup results together between `Map` operations on a `Seq<A>`. Here, `Catalogue` supplies the lookup data:
 
@@ -29,7 +29,7 @@ internal static class FilmReport {
 
 The first projection pairs each film with its cast. The next projection consumes both values and reduces them to one rendered result. The pipeline no longer needs the tuple after the next transformation.
 
-## Pattern Matching as Branching Logic
+## [02]-[PATTERN_MATCHING]
 
 Procedural type checks require explicit casts and nested branches. Moving the calculation into virtual methods spreads one complete rule across several classes. Pattern matching keeps recognition, extraction, guards, and results together.
 
@@ -43,7 +43,7 @@ C# provides these pattern-matching features:
 - Extended property patterns inspect nested data, such as a player's first name, without extracting each intermediate object first.
 - List patterns recognize values at the beginning, middle, or end of arrays with known headers or footers.
 
-### Interest calculation
+### [02.1]-[INTEREST_CALCULATION]
 
 Ordinary interest equals balance times rate. Premium accounts receive bonus rates above specified balance thresholds; millionaire accounts also earn interest on overflow balance; eligible Monopoly accounts add a bonus for passing Go; and closed accounts earn nothing.
 
@@ -88,11 +88,11 @@ internal static class Recognition {
 }
 ```
 
-## Modeling Alternatives Explicitly
+## [03]-[EXPLICIT_ALTERNATIVES]
 
 A discriminator flag combined with fields that are meaningful only for one flag value permits invalid combinations. Model the alternatives as distinct variants. `[Union]` on an abstract partial record with nested sealed record cases defines a closed set of cases, and the generated `Switch` takes one arm per case. `Option<A>` is a readonly struct, `Fin<A>` is an abstract class, `Either<L, R>` and `Validation<Error, A>` are record classes, and each of the four types supports `Match`.
 
-### Active patterns
+### [03.1]-[ACTIVE_PATTERNS]
 
 An active pattern runs a custom function during pattern matching and extracts a value on success. This F# example parses a date:
 
@@ -109,11 +109,11 @@ let tryParseDateTime input =
 
 `IsDateTime` both decides whether the case matches and supplies the parsed `DateTime` to the result expression.
 
-## Immutability Tools
+## [04]-[IMMUTABILITY_TOOLS]
 
 C# values are not immutable by default, but language features can prevent mutation.
 
-### Readonly structs
+### [04.1]-[READONLY_STRUCTS]
 
 Because structs are passed by value, a function receives a copy rather than the original value. A `readonly struct` prevents reassignment of its fields. In C# 7.2, a constructor initializes those fields:
 
@@ -133,7 +133,7 @@ internal readonly struct MovieFields {
 
 `readonly` protects the struct's fields, not objects reached through them. Because `Seq<A>` is immutable, it needs no defensive copy. A mutable child object still needs one.
 
-### Init-only properties
+### [04.2]-[INIT_ONLY_PROPERTIES]
 
 An `init` accessor permits object-initializer syntax but prevents reassignment after initialization:
 
@@ -147,7 +147,7 @@ internal readonly struct MovieInit {
 
 `init` avoids a constructor parameter for every property. It does not make referenced child objects immutable. An `init` property can be omitted from a struct initializer; use `required` for a property that cannot be omitted.
 
-### Records and nondestructive mutation
+### [04.3]-[RECORDS]
 
 Records support nondestructive mutation through `with`:
 
@@ -168,6 +168,6 @@ The original remains unchanged, and `with` copies unchanged properties automatic
 
 The copy does not guarantee deep immutability because referenced child objects can remain shared. Nested values must also support immutability.
 
-## Nullable Reference Types at Input Boundaries
+## [05]-[NULLABLE_REFERENCE_TYPES]
 
 Nullable reference types are compiler analysis, not a new runtime type. The compiler warns when a non-nullable property stays uninitialized and when a caller assigns null to a non-nullable reference. Write `?` only where null is a deliberate part of an external representation. A nullable reference enters the domain through `Optional(x)` as an `Option<A>`, and the domain receives no null.

@@ -1,6 +1,6 @@
-# Discriminated Unions
+# [DISCRIMINATED_UNIONS]
 
-## One type, several explicit cases
+## [01]-[EXPLICIT_CASES]
 
 A discriminated union is a type whose value is exactly one of several alternatives. A consumer pattern-matches the value to discover its case and gain access to that case's data. A component that does not care which case it has can pass the union onward unchanged.
 
@@ -8,7 +8,7 @@ F# supports discriminated unions directly. The union generator supplies them in 
 
 Cases can be unrelated alternatives that share only an API type or collection.
 
-## Model alternatives instead of flags and conditionally meaningful fields
+## [02]-[ALTERNATIVES_OVER_FLAGS]
 
 A discriminator flag combined with fields that are meaningful only for one flag value permits invalid combinations:
 
@@ -66,7 +66,7 @@ internal static class Offerings {
 
 A `BritishName` can carry first, middle, and last names with an honorific placed first; a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. A common abstract `Name` permits one collection, while the variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
 
-## Make every expected function outcome a case
+## [03]-[OUTCOMES_AS_CASES]
 
 A function's return type must describe every expected outcome. Looking up a person has three meaningful outcomes:
 1. the person was found;
@@ -103,7 +103,7 @@ internal static class Mail {
 }
 ```
 
-## Move from impure input to typed input in stages
+## [04]-[INPUT_REFINEMENT]
 
 Convert the console result to typed application data in these stages:
 1. Pass console access as a `Func<string>` dependency so another implementation can replace it.
@@ -135,13 +135,13 @@ internal static class Input {
 
 The `Catch` overload with a predicate maps the captured error to the `ConsoleError` case at the boundary. The prompt reads again after any case, so the console failure is a case the prompt matches. Code that requires an integer handles `IntegerInput` directly and can recursively prompt for the other cases. Parsing and exception handling are not duplicated at every call site. The side-effecting read is separate from deterministic classification.
 
-## Reusable generic unions
+## [05]-[GENERIC_UNIONS]
 
 `Option<A>` covers a value or nothing, and `Fin<A>` covers a value or a failure with a reason. `Either<L, R>` represents one of two value types, and independent failures accumulate in `Validation<Error, A>`. An empty `Seq<A>` is a result, not absence, so a producer wraps a collection in `Option` only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
 
 `Option` and `Fin` are closed, so a `Match` over their cases is total. `Some` does not check for `null`, so use `Optional` to convert `null` at the boundary. A generated union is closed: the base has a private constructor, and `Switch` names every case.
 
-## Design rules
+## [06]-[DESIGN_RULES]
 
 - Model each valid state as a distinct case, not as a Boolean discriminator with conditionally meaningful fields.
 - Put only shared data on the abstract base; keep case-specific data in its case.

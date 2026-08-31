@@ -1,22 +1,22 @@
-# Patterns in Functional Programming
+# [CORE_PATTERNS]
 
 Functional programming applies common operations to values in contexts. `Option<A>` represents optionality; `Seq<A>` represents a sequence of values. Many operations have the same signatures for both.
 
-## The core operations
+## [01]-[CORE_OPERATIONS]
 
-| Operation | Signature                   | Purpose                                                        |
-| --------- | --------------------------- | -------------------------------------------------------------- |
-| `Pure`    | `A -> F<A>`                 | Lift a plain value into `F<A>`.                                |
-| `Map`     | `(F<A>, A -> B) -> F<B>`    | Apply a function to each value in `F<A>` while preserving `F`. |
-| `Bind`    | `(F<A>, A -> F<B>) -> F<B>` | Apply `A -> F<B>` and flatten the nested result.               |
-| `Filter`  | `(F<A>, A -> bool) -> F<A>` | Keep values in `F<A>` that satisfy a predicate.                |
-| `Iter`    | `(F<A>, Action<A>) -> Unit` | Perform a side effect for each value in `F<A>`.                |
+| [INDEX] | [OPERATION] | [SIGNATURE]                 | [PURPOSE]                                                      |
+| :-----: | :---------- | :-------------------------- | :------------------------------------------------------------- |
+|  [01]   | `Pure`      | `A -> F<A>`                 | Lift a plain value into `F<A>`.                                |
+|  [02]   | `Map`       | `(F<A>, A -> B) -> F<B>`    | Apply a function to each value in `F<A>` while preserving `F`. |
+|  [03]   | `Bind`      | `(F<A>, A -> F<B>) -> F<B>` | Apply `A -> F<B>` and flatten the nested result.               |
+|  [04]   | `Filter`    | `(F<A>, A -> bool) -> F<A>` | Keep values in `F<A>` that satisfy a predicate.                |
+|  [05]   | `Iter`      | `(F<A>, Action<A>) -> Unit` | Perform a side effect for each value in `F<A>`.                |
 
 `Option<A>`, `Seq<A>`, and `Fin<A>` supply these operations under these names. `Fin<A>` has no `Filter`, and `Seq<A>` has no `Pure`.
 
 In LINQ terminology, `Map` is `Select`, `Bind` is `SelectMany`, and `Filter` is `Where`. Elsewhere, `Map` may be called `fMap`, `Project`, or `Lift`; `Bind` may be `FlatMap`, `Chain`, `Collect`, or `Then`; and `Iter` may be `ForEach`.
 
-## Map: transform while preserving structure
+## [02]-[MAP]
 
 For a sequence, `Map` applies a function lazily to every element:
 
@@ -61,7 +61,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-## Iter: isolate effects
+## [03]-[ITER]
 
 `Map` transforms values. `Iter` performs side effects through an `Action<A>`.
 
@@ -91,7 +91,7 @@ internal static partial class CorePatterns {
 
 `Do` and `IfSucc` run only for a value. Later side effects do not run after `None` or a failure.
 
-## Bind: compose structure-producing functions
+## [04]-[BIND]
 
 `Map` takes a function `A -> B`. With `A -> F<B>`, it produces a nested value:
 
@@ -154,7 +154,7 @@ internal static partial class CorePatterns {
 
 `Map` can be derived from `Bind` and `Pure` by lifting the transform result before binding. A direct `Map` implementation can be more efficient. Every monad supplies `Map`, but not every functor supplies `Bind`.
 
-## Filter: filter inside the structure
+## [05]-[FILTER]
 
 For an option, `Filter` preserves a present value only when it satisfies the predicate. LINQ `where` also works:
 
@@ -167,7 +167,7 @@ internal static partial class CorePatterns {
 
 Both parse failure and predicate failure become `None`; a valid non-negative integer remains `Some`.
 
-## Combining Option and Seq
+## [06]-[OPTION_AND_SEQ]
 
 `ToSeq` converts an option to a zero-or-one-element sequence:
 
@@ -198,7 +198,7 @@ internal static partial class CorePatterns {
 
 Each `Some(age)` becomes one sequence element, and each `None` contributes no element. The aggregate operates only on disclosed ages. The generated implicit conversion converts `age` to `int`, so the sum uses the underlying integer.
 
-## Plain values and values in a context
+## [07]-[VALUES_IN_CONTEXT]
 
 A plain value has type `A`. A value in a context has type `F<A>`, where the type constructor `F` supplies a computational effect. A computational effect is distinct from a side effect:
 - `Option<A>` adds possible absence.
@@ -209,12 +209,12 @@ A plain value has type `A`. A value in a context has type `F<A>`, where the type
 
 Input and output types classify these functions:
 
-| Input and output                         | Shape                 | Examples                           |
-| ---------------------------------------- | --------------------- | ---------------------------------- |
-| Plain value to plain value               | `A -> B`              | `int -> string` transformations    |
-| Value in a context to value in a context | `(F<A>, ...) -> F<B>` | `Map`, `Bind`, `Filter`, ordering  |
-| Plain value to value in a context        | `A -> F<B>`           | `parseInt`, `Pure`                 |
-| Value in a context to plain value        | `F<A> -> B`           | `Match`, `Count`, `Fold`, `IfNone` |
+| [INDEX] | [DESCRIPTION]                            | [SIGNATURE]           | [EXAMPLES]                         |
+| :-----: | :--------------------------------------- | :-------------------- | :--------------------------------- |
+|  [01]   | Plain value to plain value               | `A -> B`              | `int -> string` transformations    |
+|  [02]   | Value in a context to value in a context | `(F<A>, ...) -> F<B>` | `Map`, `Bind`, `Filter`, ordering  |
+|  [03]   | Plain value to value in a context        | `A -> F<B>`           | `parseInt`, `Pure`                 |
+|  [04]   | Value in a context to plain value        | `F<A> -> B`           | `Match`, `Count`, `Fold`, `IfNone` |
 
 An `F<A> -> F<B>` operation can also take a function, predicate, or other arguments. `Match` and `RunSafe` belong to the host, and domain functions never run an effect.
 

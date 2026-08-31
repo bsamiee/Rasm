@@ -1,6 +1,6 @@
-# Message-Passing Concurrency with Agents
+# [AGENTS]
 
-## When shared state is unavoidable
+## [01]-[SHARED_STATE]
 
 Parallel computations with independent inputs can compute partial results and combine them without shared mutation. Some multithreaded services need one application-wide sequence, cache, or representation of a unique real-world entity. Giving every thread its own copy would either break correctness or defeat the purpose of the shared resource.
 
@@ -8,16 +8,16 @@ Avoid shared mutable state by default. When one logical value must be shared, se
 
 Synchronization strategies have different scopes:
 
-| Strategy                      | Useful scope                                        | Limitation                                                      |
-| ----------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| Lock                          | Arbitrary critical section                          | Blocks threads and can deadlock or serialize unrelated work     |
-| Compare-and-swap              | One atomically replaced value                       | Too narrow for many multi-value invariants                      |
-| Software transactional memory | Coordinated in-memory updates, atomic commit        | Retries on conflict. Transaction bodies must contain no effects |
-| Message passing               | State owned by a process, changed only in a handler | Requires careful ownership, granularity, and lifecycle design   |
+| [INDEX] | [STRATEGY]                    | [SCOPE]                                             | [LIMITATION]                                                    |
+| :-----: | :---------------------------- | :-------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | Lock                          | Arbitrary critical section                          | Blocks threads and can deadlock or serialize unrelated work     |
+|  [02]   | Compare-and-swap              | One atomically replaced value                       | Too narrow for many multi-value invariants                      |
+|  [03]   | Software transactional memory | Coordinated in-memory updates, atomic commit        | Retries on conflict. Transaction bodies must contain no effects |
+|  [04]   | Message passing               | State owned by a process, changed only in a handler | Requires careful ownership, granularity, and lifecycle design   |
 
 STM gives each transaction an isolated view, commits all of its changes or none, and retries against a fresh view when a concurrent transaction invalidates its work. Some implementations can enforce consistency constraints. `Ref<A>` under `atomic` supplies these properties in process, and a transaction body holds no effects because a conflict re-runs it.
 
-## The agent model
+## [02]-[AGENT_MODEL]
 
 An agent has three parts:
 - an inbox that queues messages;
@@ -37,7 +37,7 @@ The invariants are:
 
 The implementation keeps the state in the accumulator of a fold over the inbox and does not use a private mutable field. Immutability matters: exposing a mutable state object would let code outside the loop modify it concurrently and invalidate the model.
 
-## A minimal C# implementation
+## [03]-[MINIMAL_IMPLEMENTATION]
 
 The public operations start an agent and post a message. Other interactions compose these operations. A `Conduit<M, M>` made with `Buffer<M>.Unbounded` supplies the inbox and sequential dispatch. The state type appears only in the `ForkIO<S>` returned by `Start`; callers hold the inbox and the message contract.
 
@@ -53,7 +53,7 @@ internal static class Agent {
 
 This avoids a recursively implemented loop, which is not stack-safe in C#. `Reduce` runs the fold inside the conduit and admits one handler at a time. `Reduced.ContinueIO(next)` keeps the loop running and `Reduced.DoneIO(next)` ends it from inside the reducer. `Fork()` returns an `IO<ForkIO<S>>`. Running it starts the loop, and `Await` yields the final state after `Complete()` closes the inbox. The second overload accepts an effectful processing function that returns `IO<S>`. A stateless agent uses `Unit` as its state and serializes effects without retaining a value.
 
-## Choose the unit of state ownership
+## [04]-[STATE_OWNERSHIP]
 
 Putting every request through one agent makes the whole service sequential. Align each agent with the smallest independently mutable resource whose invariant must be protected.
 
@@ -76,21 +76,21 @@ Each per-pair agent holds an `Option<decimal>` of the cached rate inside its acc
 
 Serialize by dependency on shared state, not by request type or application layer.
 
-## Agents and actors
+## [05]-[AGENTS_AND_ACTORS]
 
 Both models use exclusive state ownership, inboxes, sequential message processing, and message-based cooperation. Their operational boundaries differ:
 
-| Agents                                                              | Actors                                                                  |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Local to one application process                                    | Can run in different processes or machines                              |
-| Referenced as in-process instances                                  | Referenced by location-transparent identity                             |
-| Minimal model has no supervisor hierarchy                           | Actor systems can supervise and recover failed actors                   |
-| Mutable state can leak if an immutable-state discipline is violated | Serialized messages prevent sharing object references across boundaries |
-| Requires only in-process setup and operation                        | Provides distribution, persistence, routing, and lifecycle support      |
+| [INDEX] | [AGENTS]                                                            | [ACTORS]                                                                |
+| :-----: | :------------------------------------------------------------------ | :---------------------------------------------------------------------- |
+|  [01]   | Local to one application process                                    | Can run in different processes or machines                              |
+|  [02]   | Referenced as in-process instances                                  | Referenced by location-transparent identity                             |
+|  [03]   | Minimal model has no supervisor hierarchy                           | Actor systems can supervise and recover failed actors                   |
+|  [04]   | Mutable state can leak if an immutable-state discipline is violated | Serialized messages prevent sharing object references across boundaries |
+|  [05]   | Requires only in-process setup and operation                        | Provides distribution, persistence, routing, and lifecycle support      |
 
 Use agents when all coordinated access passes through one process. Use an actor system when state ownership or coordination must span processes or machines. Actor implementations differ in terminology, persistence, transport, lifecycle, and delivery guarantees; those details must be learned for the chosen implementation. Distribution adds operational cost. Use it only when coordination must cross process boundaries.
 
-## Relationship with functional design
+## [06]-[FUNCTIONAL_DESIGN]
 
 Agent messaging is command-oriented and can be effectful. An agent combines state with the behavior that changes it. Message-passing concurrency complements functional composition. It is not a value-returning pipeline.
 
@@ -100,7 +100,7 @@ There are two integration styles:
 
 In either style, retain pure functions for domain decisions and use the agent only to order transitions and effects whose order preserves consistency.
 
-## Return replies without exposing the agent
+## [07]-[REPLIES]
 
 Fire-and-forget `Post` supports unidirectional flows but does not compose like a value-returning function. A message carries a per-request reply `Conduit` that the agent posts the reply to after processing. The caller reads the reply with `replies.Source.Take(1).Last()`, and `Agent.Start(inbox, 0, Counting.Process)` starts the loop that serves `Counter`:
 
@@ -132,7 +132,7 @@ From the caller's perspective, this is a thread-safe, stateful function from mes
 
 The agent stays private behind a domain API, and `Counter` provides that facade. Expose `IO<A>` whenever the result depends on agent processing. The host runs it with `RunSafe()`, and the domain never runs the effect.
 
-## Coordinating event-sourced domain entities
+## [08]-[ENTITY_COORDINATION]
 
 Event sourcing can reconstruct a correct aggregate state from concurrent events, but it does not by itself protect business rules that depend on the state observed before creating an event. Two concurrent debits can each return a state computed from the same snapshot while replaying both persisted events later yields the correct balance. The problem appears when accepting both events is itself forbidden.
 
@@ -198,7 +198,7 @@ command
 
 A rejected command replies with `Overdrawn`, a typed `Expected`, and `Debit` raises it on the `IO` error channel of the caller. Persistence belongs inside this agent's processing function because the next message must not observe the new in-memory state before the corresponding event has been persisted. Otherwise memory can disagree with persisted event history. The pure transition logic stays outside the concurrency mechanism and can be understood independently.
 
-## A registry for one process per entity
+## [09]-[ENTITY_REGISTRY]
 
 Controllers need the one live process associated with an entity ID. An application-wide `AtomHashMap<Guid, AccountProcess>` owns the map from ID to process, ensuring that two processes are never registered for the same entity.
 
@@ -233,7 +233,7 @@ internal static class Registry {
 
 The public lookup is an `OptionT<IO, AccountProcess>`: the load and the registration share that stack. The query ends with `None` when storage has no such account. At the controller boundary, `Require` runs the transformer and maps `None` to `UnknownAccount`, a typed `Expected` on the `IO` error channel. A rejected command and a missing account use the same result type. The returned state reports the result. It does not persist the event again.
 
-## Design rules and failure modes
+## [10]-[DESIGN_RULES]
 
 - Give an agent responsibility for owning and transitioning state, not every activity associated with that state.
 - Move work outside the inbox when it does not use owned state or require ordering.

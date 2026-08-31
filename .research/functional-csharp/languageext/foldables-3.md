@@ -1,8 +1,8 @@
-# Foldables
+# [FOLDABLES]
 
 `Foldable<F>` abstracts aggregation over a structure. The structure decides which values participate and in what order; the caller supplies an initial state and a binary step that reduces those values to one result.
 
-## The two primitive operations
+## [01]-[PRIMITIVE_OPERATIONS]
 
 ```csharp
 public interface Foldable<F>
@@ -42,7 +42,7 @@ var reverse = values.FoldBack("", (s, x) => $"{s}{x}");
 
 For `[a, b, c]`, the results are `"abc"` and `"cba"`.
 
-## Higher-kinded representation
+## [02]-[HIGHER_KINDED_REPRESENTATION]
 
 `K<F, A>` separates the shape `F` from its contained value type `A`. A concrete data type participates by deriving from the matching higher-kinded marker, while a witness type implements the capability.
 
@@ -85,7 +85,7 @@ The witness removes the concrete type's final value parameter and lets each trai
 
 This arrangement adds capabilities without modifying the concrete value type. One witness may implement several traits, such as `Functor<F>` and `Foldable<F>`.
 
-## Shape semantics
+## [03]-[SHAPE_SEMANTICS]
 
 Implementations must preserve the meaning of their structure:
 - A list contributes every element in list order; `FoldBack` reverses that traversal.
@@ -95,7 +95,7 @@ Implementations must preserve the meaning of their structure:
 
 The fold removes the outer structure. A left value or absence is not converted into an arbitrary `A`; it simply leaves the state unchanged.
 
-## Generic dispatch
+## [04]-[GENERIC_DISPATCH]
 
 Extensions expose natural call syntax while dispatching to the concrete witness selected by `F`:
 
@@ -119,7 +119,7 @@ Keep the two dispatch paths distinct: the `FoldBack` extension must call `F.Fold
 
 The witness selected by `F` retains knowledge of the concrete representation even though the caller is generic.
 
-## Deriving an operation family
+## [05]-[DERIVED_OPERATIONS]
 
 Many useful operations can be defined once in terms of `Fold`:
 
@@ -175,7 +175,7 @@ static virtual IEnumerable<A> AsEnumerable<A>(K<F, A> fa)
 }
 ```
 
-## Defaults first, specialization second
+## [06]-[DEFAULTS_AND_SPECIALIZATION]
 
 Put universally correct implementations on `Foldable<F>` as `static virtual` members. Every witness receives the complete operation family immediately. Override only when the representation enables materially better behavior.
 
@@ -207,7 +207,7 @@ The default fold-derived `All`, `Any`, and `IsEmpty` still visit the whole struc
 
 Specialization must preserve results, traversal direction, empty behavior, and predicate evaluation order. Optimize the representation, not the semantics.
 
-## Abstraction without giving up representation
+## [07]-[ABSTRACTION_AND_REPRESENTATION]
 
 The higher-kinded marker and witness keep generic code abstract while letting each structure provide specialized implementations. A generic function can target any `Foldable<F>`; dispatch still reaches that `F`'s optimized trait members.
 

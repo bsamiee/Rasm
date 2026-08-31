@@ -1,13 +1,13 @@
-# Data Streams with `IObservable`
+# [OBSERVABLES]
 
-## The model
+## [01]-[MODEL]
 
 `IObservable<T>` represents a sequence of values delivered over time. It combines the multiplicity of `IEnumerable<T>` with the delivery over time of `Task<T>`:
 
-| Shape       | Synchronous      | Asynchronous     |
-| ----------- | ---------------- | ---------------- |
-| One value   | `T`              | `Task<T>`        |
-| Many values | `IEnumerable<T>` | `IObservable<T>` |
+| [INDEX] | [CARDINALITY] | [SYNCHRONOUS]    | [ASYNCHRONOUS]   |
+| :-----: | :------------ | :--------------- | :--------------- |
+|  [01]   | One value     | `T`              | `Task<T>`        |
+|  [02]   | Many values   | `IEnumerable<T>` | `IObservable<T>` |
 
 An `IEnumerable<T>` can be viewed as an observable that produces all its values synchronously. A `Task<T>` can be viewed as an observable that produces one value.
 
@@ -50,7 +50,7 @@ internal static class Model {
 }
 ```
 
-## Structure a reactive program in three layers
+## [02]-[PROGRAM_STRUCTURE]
 
 1. **Acquire sources.** Adapt callbacks, tasks, collections, or external event producers into observables.
 2. **Describe the dataflow.** Transform and combine streams with operators. Keep this layer declarative and free of side effects.
@@ -58,7 +58,7 @@ internal static class Model {
 
 This separation keeps stream logic composable and shows where effects run and resources are managed.
 
-## Creating streams
+## [03]-[STREAM_CREATION]
 
 ```csharp
 internal static class Sources {
@@ -84,24 +84,24 @@ The lifted single value emits immediately and completes. A lifted enumerable imm
 
 `FromEvent` and `FromEventPattern` adapt event-based APIs.
 
-## Transforming and combining streams
+## [04]-[STREAM_OPERATORS]
 
 Operators produce new observables rather than handling individual events imperatively.
 
-| Operator        | Meaning                                                                                             |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| `Select`        | Map each emitted value.                                                                             |
-| `SelectMany`    | Map each value to an observable or task, then flatten all inner values into one stream.             |
-| `Where`         | Retain values satisfying a predicate.                                                               |
-| `Take`          | Retain the first count of values, or values produced within a given timespan.                       |
-| `Skip`          | Discard an initial portion of a stream.                                                             |
-| `First`         | Reduce the stream to its first value.                                                               |
-| `Concat`        | Emit the first stream, then subscribe to the second after the first completes.                      |
-| `StartWith`     | Prefix a stream with one or more initial values.                                                    |
-| `Merge`         | Interleave values from streams as they arrive.                                                      |
-| `CombineLatest` | After both sources have emitted, recompute from their latest values whenever either source changes. |
-| `Scan`          | Emit every successive accumulated state.                                                            |
-| `GroupBy`       | Split one stream into keyed streams.                                                                |
+| [INDEX] | [OPERATOR]      | [DESCRIPTION]                                                                                       |
+| :-----: | :-------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `Select`        | Map each emitted value.                                                                             |
+|  [02]   | `SelectMany`    | Map each value to an observable or task, then flatten all inner values into one stream.             |
+|  [03]   | `Where`         | Retain values satisfying a predicate.                                                               |
+|  [04]   | `Take`          | Retain the first count of values, or values produced within a given timespan.                       |
+|  [05]   | `Skip`          | Discard an initial portion of a stream.                                                             |
+|  [06]   | `First`         | Reduce the stream to its first value.                                                               |
+|  [07]   | `Concat`        | Emit the first stream, then subscribe to the second after the first completes.                      |
+|  [08]   | `StartWith`     | Prefix a stream with one or more initial values.                                                    |
+|  [09]   | `Merge`         | Interleave values from streams as they arrive.                                                      |
+|  [10]   | `CombineLatest` | After both sources have emitted, recompute from their latest values whenever either source changes. |
+|  [11]   | `Scan`          | Emit every successive accumulated state.                                                            |
+|  [12]   | `GroupBy`       | Split one stream into keyed streams.                                                                |
 
 `Source<A>` provides the equivalent operations: `Map`, `Filter`, `Take`, `Skip`, `Zip`, `Combine`, `Source.merge`, and a query that flattens an inner source.
 
@@ -136,7 +136,7 @@ internal static class Branches {
 
 Each branch can be transformed independently, normalized to a common type, and merged with `Source.merge`.
 
-## Keep recoverable failures inside the stream
+## [05]-[FAILURE_HANDLING]
 
 `OnError` is terminal. When a derived stream reports an error, that stream and every downstream stream terminate permanently. Upstream streams may continue, so only part of the dataflow remains active.
 
@@ -172,11 +172,11 @@ internal static class Failures {
 
 This distinction prevents one malformed message from terminating a long-lived processing branch.
 
-## Logic across events
+## [06]-[LOGIC_ACROSS_EVENTS]
 
 Reactive streams express logic in which processing a new event depends on earlier events or another event source.
 
-### Adjacent values and timed patterns
+### [06.1]-[TIMED_PATTERNS]
 
 Pairing every value with its successor makes transitions explicit:
 
@@ -191,7 +191,7 @@ internal static class Transitions {
 
 This implementation subscribes to `source` twice, and each subscription observes values produced from its subscription time. Its meaning depends on how the source behaves when subscribed to more than once.
 
-### Multiple sources and backpressure
+### [06.2]-[SOURCES_AND_BACKPRESSURE]
 
 If one source emits more frequently than the output requires, reduce it before combining. The conduit's `Sink` receives values through `Post`, and `Comap` adapts it to the producer's value type. Use `CombineLatest` when either input invalidates the derived value. `Zip` is the choice when each value has one matching partner.
 
@@ -227,7 +227,7 @@ The consumer cannot slow the producer by requesting the next item. When producti
 
 Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`. The policy must reflect whether intermediate values may be dropped, delayed, grouped, or preserved.
 
-### Stateful business logic without mutable state
+### [06.3]-[STATEFUL_LOGIC]
 
 `Scan` is a running fold: unlike `Aggregate`, which waits for completion, it emits each accumulated state.
 
@@ -249,7 +249,7 @@ internal static class Ledger {
 
 `Reduce` groups the amounts of each account in a `HashMap`, and `Scan` carries each balance forward. `Zip` with `Tail` pairs each balance with its predecessor, so the filter sees only a crossing from nonnegative to negative. The seed is emitted first so the first transaction can form a transition from the opening balance.
 
-## Fit and limits
+## [07]-[FIT_AND_LIMITS]
 
 Use `IObservable` when:
 - values arrive asynchronously over time;
