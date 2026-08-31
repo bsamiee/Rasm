@@ -10,6 +10,7 @@
         <PackageVersion Include="Meziantou.Analyzer"                                      Version="3.0.190" />
         <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers"              Version="18.7.23" />
         <PackageVersion Include="Roslynator.Analyzers"                                    Version="5.0.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Analyzers"               Version="10.5.0" />
     </ItemGroup>
 
     <ItemGroup Label="Host Build Dependencies">
@@ -27,9 +28,9 @@
         <PackageVersion Include="Riok.Mapperly"                                           Version="4.3.1" />
         <PackageVersion Include="System.IO.Hashing"                                       Version="10.0.11" />
         <PackageVersion Include="System.Numerics.Tensors"                                 Version="10.0.11" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.4.0" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.4.0" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.4.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.5.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.5.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.5.0" />
         <PackageVersion Include="UnitsNet"                                                Version="5.75.1" />
         <PackageVersion Include="Wacton.Unicolour"                                        Version="8.0.0" />
     </ItemGroup>
@@ -359,7 +360,7 @@
         <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3mc"                         Version="2.1.11" />
         <PackageVersion Include="StackExchange.Redis"                                     Version="3.1.13" />
         <PackageVersion Include="System.Formats.Cbor"                                     Version="10.0.10" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.4.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.5.0" />
         <PackageVersion Include="ZstdSharp.Port"                                          Version="0.8.8" />
     </ItemGroup>
 

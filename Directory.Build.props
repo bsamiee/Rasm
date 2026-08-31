@@ -56,10 +56,11 @@
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Analyzers">
-        <PackageReference Include="ErrorProne.NET.CoreAnalyzers" PrivateAssets="all" />
-        <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+        <PackageReference Include="ErrorProne.NET.CoreAnalyzers"               PrivateAssets="all" />
+        <PackageReference Include="Meziantou.Analyzer"                         PrivateAssets="all" />
         <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
-        <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="Roslynator.Analyzers"                       PrivateAssets="all" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers"  PrivateAssets="all" />
     </ItemGroup>
 
     <PropertyGroup Label="Rhino Host Bundle">
