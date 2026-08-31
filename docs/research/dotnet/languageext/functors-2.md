@@ -212,4 +212,4 @@ Without this encoding, operations involving multiple constructors cannot be writ
 K<T, K<F, A>>
 ```
 
-The v4 implementation required more than 400 `Traverse` and `Sequence` functions and more than 1,200 tests for combinations that performed the same operation over different types. With the higher-kinded encoding, each type can implement its traversable trait once. User-defined traversable and applicative types can then compose with language-ext's types instead of requiring a new cross-product of specialized functions.
+With the higher-kinded encoding, each type can implement its traversable trait once. User-defined traversable and applicative types can then compose with language-ext's types instead of requiring a new cross-product of specialized functions.

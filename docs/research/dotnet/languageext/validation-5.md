@@ -164,7 +164,7 @@ static Validation<Error, Expiry> ValidateExpiryDate(string expiryDate) =>
 
 The code validates both parts as integers and then checks the combined month/year value against the date range. It does not actually enforce the stated two-character month or four-character year shapes, nor does it run a separate `1..12` month check.
 
-For validations with the same success type, `&` requires all operands to succeed and collects their successful values; their failures are accumulated. In version 5, `|` succeeds when either operand succeeds and combines errors only when both fail. Version 4 code using `|` for the older, `&`-like behavior must migrate those uses to `&`.
+For validations with the same success type, `&` requires all operands to succeed and collects their successful values; their failures are accumulated. `|` succeeds when either operand succeeds and combines errors only when both fail.
 
 ### [02.4]-[CARD_NUMBER]
 

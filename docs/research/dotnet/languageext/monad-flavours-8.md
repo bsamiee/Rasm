@@ -78,7 +78,7 @@ public static K<Maybe, B> Bind<A, B>(
 
 ### [04.3]-[FIN]
 
-`Fin<A>` has the same effect as `Either<Error, A>`, with `Succ<A>` and `Fail<A>` cases. Baking in `Error` makes the common error-or-result shape easier to use than supplying both type arguments to `Either`. In language-ext v5, it is the intended replacement for v4's `Result<A>`.
+`Fin<A>` has the same effect as `Either<Error, A>`, with `Succ<A>` and `Fail<A>` cases. Baking in `Error` makes the common error-or-result shape easier to use than supplying both type arguments to `Either`.
 
 ### [04.4]-[VALIDATION]
 
@@ -179,6 +179,6 @@ public static K<State<S>, B> Bind<A, B>(
 
 These are single-feature monads. A monadic expression works with one constructor at a time, so `Option` and `IO` cannot be combined directly in one monadic expression.
 
-Earlier language-ext versions addressed specific pairings with manually implemented types such as `OptionAsync`, `EitherAsync`, `TryAsync`, `TryOption`, and `TryOptionAsync`. That approach does not scale: the number of handwritten combinations grows rapidly as more monads and larger combinations are needed.
+Dedicated types for specific pairings do not scale: the number of handwritten combinations grows rapidly as more monads and larger combinations are needed.
 
-Monad transformers provide the general solution in language-ext v5 by composing existing monads into combined monads.
+Monad transformers provide the general solution by composing existing monads into combined monads.

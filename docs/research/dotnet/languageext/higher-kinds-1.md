@@ -102,7 +102,7 @@ public interface Monoid<A> : Semigroup<A>
 }
 ```
 
-In LanguageExt version 5, a type becomes a semigroup or monoid by implementing the corresponding trait. This is a shift from the ad-hoc polymorphism used in earlier versions.
+A type becomes a semigroup or monoid by implementing the corresponding trait.
 
 The tradeoff is ownership: a type that cannot be modified cannot be made to implement these traits directly. For example, `string` and integer types cannot retroactively become monoids. The workaround is to place the external value in a small owned wrapper that implements the needed trait, then convert at the point where monoidal behavior is required.
 
@@ -154,7 +154,7 @@ This limitation also helps explain C#'s compiler-recognized method patterns. Fea
 
 ## [05]-[K_INTERFACE]
 
-LanguageExt version 5 introduces this empty interface:
+LanguageExt defines this empty interface:
 
 ```csharp
 public interface K<F, A>;
@@ -162,6 +162,6 @@ public interface K<F, A>;
 
 Its importance is not in members - it has none - but in giving C# a uniform representation with both a type-constructor parameter `F` and an element type `A`.
 
-This representation enables users to define their own functors, applicatives, traversables, foldables, monads, and monad transformers, with those implementations gaining default behavior defined for the traits. It also allows the removal of 300,000 lines of generated and handwritten code that had previously simulated generalized traits.
+This representation enables users to define their own functors, applicatives, traversables, foldables, monads, and monad transformers, with those implementations gaining default behavior defined for the traits.
 
-`K<F, A>` is therefore the small type-level encoding on which LanguageExt version 5 builds higher-rank polymorphism and higher kinds in C#.
+`K<F, A>` is therefore the small type-level encoding on which LanguageExt builds higher-rank polymorphism and higher kinds in C#.

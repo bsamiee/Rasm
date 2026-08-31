@@ -215,12 +215,4 @@ This repeated member pattern is a pragmatic response to C#'s handling of nested 
 
 Operations defined for `K`, such as `Map` and `Apply`, remain available before that conversion.
 
-## [08]-[CHANGES_FROM_V4]
-
-- Roughly 500 pair-specific `Traverse` and `Sequence` extension methods were removed. Trait implementations now provide that behavior, with slightly different signatures and one fewer `Sequence` variant.
-- Prefer `Traverse` in most concrete C# code. `Sequence` remains useful when the nested input is already represented as `K<T, K<F, A>>`.
-- Some pre-v5 nested type combinations no longer have `Traverse`; the removed combinations existed largely for completeness and were unlikely to be useful.
-- `TraverseSerial` and `TraverseParallel` are deprecated. Parallelization now depends on the implementation of `Traverse`; collection implementations such as `Seq<A>` provide `TraverseM` for serial evaluation.
-- Nested generic results require `.As()` to recover concrete types unless pair-specific extension methods are reintroduced.
-
-The trait-based implementation also corrected bugs in some manually written v4 `Traverse` and `Sequence` methods. A domain type now implements `Traverse` once and gains composition with the available foldable and applicative types, rather than requiring a separate method for every pairing.
+A domain type implements `Traverse` once and gains composition with the available foldable and applicative types, rather than requiring a separate method for every pairing.

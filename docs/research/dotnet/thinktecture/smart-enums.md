@@ -48,7 +48,7 @@ The generator emits no `JsonConverterAttribute` for a keyless Smart Enum, so `Sy
 
 Items compare by identity. `GetHashCode` is computed once in the constructor from the key with the configured equality comparer. Two items with the same key throw `ArgumentException` on the first lookup.
 
-`IParsable<T>` appears when the key implements `IParsable<TKey>`, which includes `string`, and a failed `Parse` throws `FormatException` with the message of `UnknownSmartEnumIdentifierException`. `ISpanParsable<T>` appears on .NET 9 and later when the key implements `ISpanParsable<TKey>`, which also includes `string`. `IComparable`, `IComparable<T>`, and the comparison operators appear for a comparable key. `IFormattable` appears for a formattable key such as `int`. Lookups use `FrozenDictionary` on .NET 8 and later. String keys gain span overloads of `Get`, `TryGet`, `Validate`, `Parse`, and `TryParse` on .NET 9 and later.
+`IParsable<T>` appears when the key implements `IParsable<TKey>`, which includes `string`, and a failed `Parse` throws `FormatException` with the message of `UnknownSmartEnumIdentifierException`. `ISpanParsable<T>` appears when the key implements `ISpanParsable<TKey>`, which also includes `string`. `IComparable`, `IComparable<T>`, and the comparison operators appear for a comparable key. `IFormattable` appears for a formattable key such as `int`. Lookups use `FrozenDictionary`. String keys gain span overloads of `Get`, `TryGet`, `Validate`, `Parse`, and `TryParse`.
 
 `Items`, `Get`, `TryGet`, and `Validate` implement static abstract members of `ISmartEnum<TKey, T, TValidationError>`. Generic code reaches them through the constraint.
 
@@ -76,7 +76,7 @@ internal static class Lookup {
 
 ## [04]-[SWITCH_AND_MAP]
 
-`Switch` takes one `Action` per item, `Switch<TResult>` takes one `Func<TResult>` per item, and `Map<TResult>` takes one value per item. Every argument is named after its item in camel case, and unnamed arguments are an error (`TTRESG046`). Every lambda argument of `Switch` or `Map` without the `static` modifier raises `TTRESG1001`. The state-passing overloads take the state as the first argument and hand it to every `static` lambda. The state parameter is named `state` unless `SwitchMapStateParameterName` renames it, and `TState : allows ref struct` holds on .NET 9 and later. When the lambdas return different but compatible types, write `TResult` on the call so the compiler reports the one lambda that disagrees.
+`Switch` takes one `Action` per item, `Switch<TResult>` takes one `Func<TResult>` per item, and `Map<TResult>` takes one value per item. Every argument is named after its item in camel case, and unnamed arguments are an error (`TTRESG046`). Every lambda argument of `Switch` or `Map` without the `static` modifier raises `TTRESG1001`. The state-passing overloads take the state as the first argument and hand it to every `static` lambda. The state parameter is named `state` unless `SwitchMapStateParameterName` renames it, and `TState : allows ref struct` holds. When the lambdas return different but compatible types, write `TResult` on the call so the compiler reports the one lambda that disagrees.
 
 `SwitchPartially` and `MapPartially` exist only when `SwitchMethods` and `MapMethods` are set to `SwitchMapMethodsGeneration.DefaultWithPartialOverloads`. The void `SwitchPartially` takes an optional `@default` of type `Action<T>` or `Action<TState, T>`, and an unhandled item without a default is a no-op. The value-returning `SwitchPartially` and `MapPartially` require `@default`.
 
@@ -176,7 +176,7 @@ A string key uses `StringComparer.OrdinalIgnoreCase` for equality, for the hash 
 
 A comparer without an equality comparer raises `TTRESG102`. An equality comparer without a comparer raises `TTRESG103` unless the key is not comparable or `SkipIComparable` is set. `TTRESG048` applies to Value Objects only: a string-keyed Smart Enum without a comparer attribute compiles without a warning and keeps the case-insensitive default.
 
-On .NET 9 and later the span-based lookup uses the alternate lookup of `FrozenDictionary`. For a predefined accessor the generator calls `GetAlternateLookup<ReadOnlySpan<char>>()`. For a custom accessor it calls `TryGetAlternateLookup`, and when the comparer lacks `IAlternateEqualityComparer<ReadOnlySpan<char>, string>` the span overloads allocate a string per call. A comparer can be its own accessor.
+The span-based lookup uses the alternate lookup of `FrozenDictionary`. For a predefined accessor the generator calls `GetAlternateLookup<ReadOnlySpan<char>>()`. For a custom accessor it calls `TryGetAlternateLookup`, and when the comparer lacks `IAlternateEqualityComparer<ReadOnlySpan<char>, string>` the span overloads allocate a string per call. A comparer can be its own accessor.
 
 ```csharp
 internal sealed class TrimmedOrdinalComparer : IEqualityComparer<string>, IComparer<string>, IAlternateEqualityComparer<ReadOnlySpan<char>, string>, IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -249,7 +249,7 @@ A project that references `Thinktecture.Runtime.Extensions.Json`, in its own man
 
 `Thinktecture.Runtime.Extensions.Newtonsoft.Json` does the same with `ThinktectureNewtonsoftJsonConverterFactory`, and `Thinktecture.Runtime.Extensions.MessagePack` adds a `MessagePackFormatterAttribute` or the resolver `ThinktectureMessageFormatterResolver.Instance`. `SerializationFrameworks` restricts which attributes the generator emits.
 
-A keyed Smart Enum serializes as its key. An unknown key on read throws `JsonException` with the message of `UnknownSmartEnumIdentifierException`. On .NET 9 and later a string key reads through a span-based converter that rejects a non-string token with `JsonException`. `DisableSpanBasedJsonConversion = true` returns to the non-span converter.
+A keyed Smart Enum serializes as its key. An unknown key on read throws `JsonException` with the message of `UnknownSmartEnumIdentifierException`. A string key reads through a span-based converter that rejects a non-string token with `JsonException`. `DisableSpanBasedJsonConversion = true` returns to the non-span converter.
 
 A Smart Enum also serves as the discriminator of a polymorphic converter. The item names the case in the payload and reads the case back through a delegate with a `ref Utf8JsonReader` parameter.
 

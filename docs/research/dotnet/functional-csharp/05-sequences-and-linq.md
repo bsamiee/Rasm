@@ -104,8 +104,6 @@ internal static partial class Sequences {
 }
 ```
 
-Tuples require C# 7 or an equivalent package on older versions.
-
 ### [03.3]-[INDEXED_SELECT]
 
 The indexed overload supplies each element and its zero-based position, eliminating a counter that must be declared and incremented.

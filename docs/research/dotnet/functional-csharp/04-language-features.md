@@ -34,8 +34,8 @@ The first projection pairs each film with its cast. The next projection consumes
 Procedural type checks require explicit casts and nested branches. Moving the calculation into virtual methods spreads one complete rule across several classes. Pattern matching keeps recognition, extraction, guards, and results together.
 
 C# provides these pattern-matching features:
-- C# 7 type patterns test a runtime type and bind the typed value: `account is PremiumBankAccount premium`.
-- C# 7 switch cases with type patterns collect subtype rules, and `when` adds a guard.
+- Type patterns test a runtime type and bind the typed value: `account is PremiumBankAccount premium`.
+- Switch cases with type patterns collect subtype rules, and `when` adds a guard.
 - Switch expressions make the decision return a value; `_` is the discard pattern for the fallback arm.
 - Property patterns inspect the shape of an object.
 - Relational and logical patterns such as `>`, `and`, and `not` express value ranges and exclusions inside a pattern.
@@ -115,7 +115,7 @@ C# values are not immutable by default, but language features can prevent mutati
 
 ### [04.1]-[READONLY_STRUCTS]
 
-Because structs are passed by value, a function receives a copy rather than the original value. A `readonly struct` prevents reassignment of its fields. In C# 7.2, a constructor initializes those fields:
+Because structs are passed by value, a function receives a copy rather than the original value. A `readonly struct` prevents reassignment of its fields. A constructor initializes those fields:
 
 ```csharp
 internal readonly struct MovieFields {

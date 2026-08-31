@@ -33,7 +33,7 @@ var computation =
 MonadIO.liftIO<OptionT<IO>, Seq<string>>(readAllLines(path));
 ```
 
-This composition replaces combinations that once required dedicated types. For example, `OptionT<IO, A>` represents the former `OptionAsync<A>`, while `ValidationT<IO, A>` combines validation with IO.
+The same composition serves other pairings: `ValidationT<IO, A>` combines validation with IO.
 
 ## [02]-[TRANSFORMER_CONTRACT]
 
@@ -213,15 +213,7 @@ public class App : Deriving.MonadIO<App, ReaderT<AppConfig, IO>>
 
 `Transform` unwraps the implementation; `CoTransform` wraps it again. The deriving traits delegate their behavior to the hidden stack. The abbreviated declaration above shows the monad-and-IO capability; readable-environment behavior requires its deriving trait as well.
 
-The supplied transformer set covers failure and alternatives (`EitherT`, `OptionT`, `TryT`, `ValidationT`), continuations and identity (`ContT`, `IdentityT`), environment, output, and state (`ReaderT`, `WriterT`, `StateT`, `RWST`), plus streaming roles (`ProducerT`, `PipeT`, `ConsumerT`, `SinkT`, `SourceT`, `ConduitT`). `ContT` is unfinished.
-
-This mechanism makes many old combination-specific types unnecessary:
-- `TryAsync<A>` becomes `TryT<IO, A>`.
-- `TryOption<A>` becomes `OptionT<Try, A>`.
-- `TryOptionAsync<A>` becomes `OptionT<TryT<IO>, A>`.
-- `OptionAsync<A>` becomes `OptionT<IO, A>`.
-- `EitherAsync<L, R>` becomes `EitherT<L, IO, R>`.
-- `ValidationAsync<F, S>` becomes `ValidationT<F, IO, S>`.
+The supplied transformer set covers failure and alternatives (`EitherT`, `OptionT`, `TryT`, `ValidationT`), continuations and identity (`ContT`, `IdentityT`), environment, output, and state (`ReaderT`, `WriterT`, `StateT`, `RWST`), plus streaming roles (`ProducerT`, `PipeT`, `ConsumerT`, `SinkT`, `SourceT`, `ConduitT`).
 
 ## [07]-[DOMAIN_MONADS]
 
