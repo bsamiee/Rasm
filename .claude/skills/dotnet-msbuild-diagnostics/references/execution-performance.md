@@ -72,7 +72,6 @@ A task class needs `[MSBuildMultiThreadableTask]` from `Microsoft.Build.Framewor
 ## [07]-[RESOLVE_ASSEMBLY_REFERENCE]
 
 When `binlog_expensive_tasks` shows `ResolveAssemblyReference` cost:
-
 1. Run `binlog_task_details` for the slow task.
 2. Examine its references and search paths.
 3. Apply the project graph rules before you change a reference.
@@ -95,7 +94,6 @@ dotnet build -p:ReportAnalyzer=true -bl:analyzers-{} # capture analyzer and gene
 ## [09]-[COPY_TASKS]
 
 When `binlog_expensive_tasks` shows `Copy` cost:
-
 1. Run `binlog_task_details` for the slow task.
 2. Examine `SourceFiles`, `DestinationFiles`, and `DestinationFolder`.
 
