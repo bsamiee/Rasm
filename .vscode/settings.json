@@ -56,6 +56,16 @@
         "editor.defaultFormatter": "biomejs.biome"
     },
 
+    // --- [MARKDOWN] —-------------------------------------------------------------------
+    // VS Code's built-in prompt-basics extension gives SKILL.md and .claude/agents/*.md their own language ids (skill, chatagent); this maps them back to markdown so the markdown formatter applies.
+    "files.associations": {
+        "SKILL.md": "markdown",
+        "**/.claude/agents/*.md": "markdown"
+    },
+    "[markdown]": {
+        "editor.defaultFormatter": "yzhang.markdown-all-in-one"
+    },
+
     // --- [DOTNET] —---------------------------------------------------------------------
     "csharp.suppressBuildAssetsNotification": true
 }

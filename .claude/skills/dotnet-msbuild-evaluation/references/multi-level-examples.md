@@ -1,6 +1,6 @@
 # [MULTI_LEVEL_EXAMPLES]-[SHARED_BUILD_FILES]
 
-Full file examples for a typical multi-level repo layout, and the before/after of settings centralized out of project files.
+Full file examples for a multi-level repo layout, and the before/after of settings centralized out of project files.
 
 ## [01]-[LAYOUT]
 
@@ -14,7 +14,7 @@ Full file examples for a typical multi-level repo layout, and the before/after o
     └── Directory.Packages.props  # imports the root, adds test-only packages
 ```
 
-A nested `Directory.Packages.props` hides the root file, so it imports the root first:
+A nested `Directory.Packages.props` hides the root file. Import the root first:
 
 ```xml
 <!-- <tests>/Directory.Packages.props -->
@@ -87,7 +87,7 @@ A nested `Directory.Packages.props` hides the root file, so it imports the root 
 </Project>
 ```
 
-`xunit.v3` carries its own Microsoft.Testing.Platform runner. `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` select VSTest, which `global.json` rejects when it names `Microsoft.Testing.Platform`.
+`xunit.v3` ships its own Microsoft.Testing.Platform runner. `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` select VSTest, which `global.json` rejects when it names `Microsoft.Testing.Platform`.
 
 ## [05]-[BEFORE_AFTER]-[CENTRALIZING_DUPLICATED_SETTINGS]
 

@@ -18,7 +18,7 @@ The critical path is the duration-weighted project chain that sets the dependenc
 
 - `dotnet build` and `dotnet msbuild` both start multiprocess MSBuild. `MSBuildNodeCount` in the binlog reports the node count that the capture used.
 - An MSBuild node builds one project at a time. Project dependencies, limited nodes, and shared resources constrain parallel execution.
-- `ResolveProjectReferences` can invoke referenced-project builds, so its inclusive duration includes their execution and the wait while the node yields. `_GetProjectReferenceTargetFrameworkProperties` carries the same inflated duration, because it builds each reference to negotiate its framework.
+- `ResolveProjectReferences` can invoke referenced-project builds. Its inclusive duration includes their execution and the wait while the node yields. `_GetProjectReferenceTargetFrameworkProperties` has the same inflated duration. It builds each reference to negotiate its framework.
 - Do not infer underuse from project count alone. Compare the graph timeline with the available node count.
 
 ## [03]-[PROJECT_GRAPH]
@@ -37,7 +37,7 @@ After each graph change, capture the same build again. Run `binlog_build_graph` 
 Static graph mode creates the project graph from declared project references before target execution.
 
 - `-graph` schedules referenced projects before their consumers. It does not make targets incremental or cache results between builds.
-- `-isolate` enforces the graph. `MSB4252` reports only under `-isolate`, so a clean `-graph` build proves nothing about missing edges. Restore breaks isolation itself, so pass `--no-restore`.
+- `-isolate` enforces the graph. `MSB4252` reports only under `-isolate`. A clean `-graph` build proves nothing about missing edges. Restore breaks isolation. Pass `--no-restore`.
 
 ```bash
 dotnet build --no-restore -graph -isolate -bl:static-graph-{} # capture an isolated static graph build
@@ -67,7 +67,7 @@ Do not batch this task into one call per project. Batching serializes the calls 
 dotnet msbuild -mt -bl:multithreaded-{}  # capture a multi-threaded build
 ```
 
-A task class needs `[MSBuildMultiThreadableTask]` from `Microsoft.Build.Framework` to run in-process on a thread node. Every other task runs in a sidecar TaskHost process, which costs the process hop. The attribute is not inherited. `IMultiThreadableTask` supplies `TaskEnvironment` and does not opt the task in.
+A task class needs `[MSBuildMultiThreadableTask]` from `Microsoft.Build.Framework` to run in-process on a thread node. Every other task runs in a separate `TaskHost` process and pays the inter-process cost. The attribute is not inherited. `IMultiThreadableTask` supplies `TaskEnvironment` and does not opt the task in.
 
 ## [07]-[RESOLVE_ASSEMBLY_REFERENCE]
 
@@ -87,7 +87,7 @@ Use this workflow when `binlog_expensive_tasks` shows material `ResolveAssemblyR
 dotnet build -p:ReportAnalyzer=true -bl:analyzers-{} # capture analyzer and generator timing
 ```
 
-- Run `binlog_analyzer_summary`. Reported analyzer time can exceed elapsed time because analyzers run concurrently.
+- Run `binlog_analyzer_summary`. Analyzers run concurrently. Reported analyzer time can exceed elapsed time.
 - Rank analyzer outliers. Do not subtract reported analyzer time from `Csc` duration.
 - A `GlobalPackageReference` applies to every importing project unless its declaration has a condition.
 - Change analyzer coverage only when the evidence and quality policy permit it.

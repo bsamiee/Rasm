@@ -6,7 +6,7 @@ Establish comparable evidence before you change the build. Record the measuremen
 
 Change only the input or setting that the measurement selects. Keep the build command, properties, parallelism, node reuse, restore state, binary-log settings, and MSBuild server state unchanged across compared captures.
 
-- Keep binary logging enabled for every compared capture, because it adds overhead to the build it measures.
+- Binary logging adds overhead. Keep it enabled for every compared capture.
 - Record the status, duration, project count, error count, and warning count of each capture.
 - Do not apply universal timing or percentage thresholds. Compare the build against its own scenarios and history.
 - Use `binlog_compare` for configuration drift, never for timing.
@@ -26,7 +26,7 @@ Record the selected state with the capture.
 
 ## [03]-[CLEAN_OUTPUT_CAPTURE]
 
-Use this capture to measure a full build after build outputs are clean.
+Use this capture to measure a full build from clean outputs.
 
 ```bash
 dotnet clean -bl:clean-{}
@@ -55,4 +55,4 @@ dotnet build -bl:prime-no-change-{}
 dotnet build -bl:no-change-{}
 ```
 
-Analyze the second binlog. Make sure that the first build succeeded.
+Analyze the second binlog. Confirm that the first build succeeded.
