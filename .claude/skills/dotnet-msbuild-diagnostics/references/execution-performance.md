@@ -71,7 +71,7 @@ A task class needs `[MSBuildMultiThreadableTask]` from `Microsoft.Build.Framewor
 
 ## [07]-[RESOLVE_ASSEMBLY_REFERENCE]
 
-Use this workflow when `binlog_expensive_tasks` shows material `ResolveAssemblyReference` cost.
+When `binlog_expensive_tasks` shows `ResolveAssemblyReference` cost:
 
 1. Run `binlog_task_details` for the slow task.
 2. Examine its references and search paths.
@@ -94,13 +94,15 @@ dotnet build -p:ReportAnalyzer=true -bl:analyzers-{} # capture analyzer and gene
 
 ## [09]-[COPY_TASKS]
 
-Use this workflow when `binlog_expensive_tasks` shows material `Copy` cost.
+When `binlog_expensive_tasks` shows `Copy` cost:
 
 1. Run `binlog_task_details` for the slow task.
 2. Examine `SourceFiles`, `DestinationFiles`, and `DestinationFolder`.
-3. Combine independent files in one `Copy` task instead of one task per file.
-4. Use `SkipUnchangedFiles="true"` only when timestamp and size comparisons are valid for those files.
-5. Remove copies only when downstream work does not require the destination files.
+
+Then apply the fix the evidence selects:
+- Combine independent files in one `Copy` task instead of one task per file.
+- Use `SkipUnchangedFiles="true"` only when timestamp and size comparisons are valid for those files.
+- Remove a copy only when downstream work does not require the destination file.
 
 ## [10]-[RESTORE]
 

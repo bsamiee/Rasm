@@ -26,7 +26,7 @@ Record the selected state with the capture.
 
 ## [03]-[CLEAN_OUTPUT_CAPTURE]
 
-Use this capture to measure a full build from clean outputs.
+This capture measures a full build from clean outputs.
 
 ```bash
 dotnet clean -bl:clean-{}
@@ -37,18 +37,18 @@ Do not include the clean operation in the build duration.
 
 ## [04]-[CHANGED_INPUT_CAPTURE]
 
-Use this capture to measure a representative edit after a successful build.
+This capture measures a representative edit after a successful build.
 
 1. Capture the successful build that establishes the current outputs.
 2. Change one representative input.
 3. Capture the next build with the same command and properties.
 4. Run `binlog_overview` on the changed-input binlog.
 
-The changed input must represent the work that you want to measure. Record the input with the capture.
+The changed input represents the measured work. Record it with the capture.
 
 ## [05]-[NO_CHANGE_CAPTURE]
 
-Use this capture to measure work that runs when no input changed.
+This capture measures the work that runs when no input changed.
 
 ```bash
 dotnet build -bl:prime-no-change-{}

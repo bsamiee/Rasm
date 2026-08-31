@@ -50,6 +50,11 @@
         <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
     </PropertyGroup>
 
+    <!-- Routes the IKVM image files through @(None). Every consumer of Rasm.Persistence imports IKVM.Image.targets through buildTransitive, and the SDK then drops the transitive copies by TargetPath. -->
+    <PropertyGroup Label="IKVM Image">
+        <IkvmImageItemToNone>true</IkvmImageItemToNone>
+    </PropertyGroup>
+
     <ItemGroup Label="Workspace Analyzers">
         <PackageReference Include="ErrorProne.NET.CoreAnalyzers" PrivateAssets="all" />
         <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
@@ -62,7 +67,7 @@
         <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and Exists('/Applications/Rhino 9.app')">/Applications/Rhino 9.app</RhinoAppPath>
         <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and Exists('/Applications/RhinoBETA.app')">/Applications/RhinoBETA.app</RhinoAppPath>
         <RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath>
-        <!-- Derived, never assigned back: a command-line -p:RhinoAppPath is a global property that project XML cannot rewrite, so the trailing slash has to land on a separate name. -->
+        <!-- Derived, never assigned back: a command-line -p:RhinoAppPath is a global property that project XML cannot rewrite. The trailing slash must land on a separate name. -->
         <_RhinoAppDir>$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</_RhinoAppDir>
         <RhinoResourcesPath>$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
         <Grasshopper2PluginPath>$(RhinoResourcesPath)ManagedPlugIns/Grasshopper2Plugin.rhp/</Grasshopper2PluginPath>

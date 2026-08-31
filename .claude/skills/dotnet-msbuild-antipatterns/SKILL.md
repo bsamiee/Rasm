@@ -11,7 +11,9 @@ Use this catalog when you review project and build files. Each entry has:
 - RULE, when one line settles the placement
 - A `BAD` and a `GOOD` example. An `OK` example marks a form to leave alone.
 
-Delete the output directories and run `dotnet build <solution> -check -m:1` before you read the files. `BC0101` and `BC0102` report shared output paths and double writes. The checks report no property override. Read the files for those. The `dotnet-msbuild-diagnostics` skill owns the check workflow.
+Delete the output directories and run `dotnet build <solution> -check -m:1` before you read the files. `BC0101` and `BC0102` report shared output paths and double writes. The checks report no property override. Read the files for those. The `dotnet-msbuild-diagnostics` skill owns the `-check` workflow.
+
+[AGENT]: `msbuild-fixer` sweeps one scope against this catalog and returns fixes with proof. Use it when the sweep crowds the context window.
 
 ## [AP-01]-[UNQUOTED_CONDITION_OPERANDS]
 
@@ -63,7 +65,7 @@ Delete the output directories and run `dotnet build <solution> -check -m:1` befo
 - WHY: A reader cannot tell which value the build uses without a binlog.
 
 ```xml
-<!-- BAD: Directory.Build.props sets it, csproj silently overrides -->
+<!-- BAD: Directory.Build.props sets it, csproj overrides -->
 <!-- Directory.Build.props -->
 <PropertyGroup>
   <LangVersion>latest</LangVersion>
@@ -73,12 +75,12 @@ Delete the output directories and run `dotnet build <solution> -check -m:1` befo
   <LangVersion>preview</LangVersion>
 </PropertyGroup>
 
-<!-- GOOD: Use a condition so overrides are intentional -->
+<!-- GOOD: A condition makes the override explicit -->
 <!-- Directory.Build.props -->
 <PropertyGroup>
   <LangVersion Condition="'$(LangVersion)' == ''">latest</LangVersion>
 </PropertyGroup>
-<!-- MyProject.csproj can now intentionally override or leave the default -->
+<!-- MyProject.csproj can override or leave the default -->
 ```
 
 Never default `OutputPath` or `IntermediateOutputPath` this way. An assigned value replaces the SDK path and drops the `Configuration` segment. Set `BaseOutputPath` or `ArtifactsPath` instead.
@@ -86,7 +88,7 @@ Never default `OutputPath` or `IntermediateOutputPath` this way. An assigned val
 ## [AP-04]-[PROPERTY_CONDITIONED_ON_TARGETFRAMEWORK_IN_PROPS_FILES]
 
 - SMELL: `<PropertyGroup Condition="'$(TargetFramework)' == '...'">` or a property condition on `$(TargetFramework)` in `Directory.Build.props` or any `.props` file that imports before the project body.
-- WHY: A single-targeting project sets `TargetFramework` in the project body, after `.props` evaluation. The condition compares an empty string and does not match. A multi-targeting inner build receives `TargetFramework` early as a global property. A caller can also supply that global property. See `dotnet-msbuild-evaluation` skill for evaluation order.
+- WHY: A single-targeting project sets `TargetFramework` in the project body, after `.props` evaluation. The condition compares an empty string and does not match. A multi-targeting inner build receives `TargetFramework` early as a global property. A caller can also supply that global property. See the `dotnet-msbuild-evaluation` skill for evaluation order.
 
 ```xml
 <!-- BAD: In Directory.Build.props — TargetFramework is empty here -->
@@ -99,7 +101,7 @@ Never default `OutputPath` or `IntermediateOutputPath` this way. An assigned val
   <DefineConstants Condition="'$(TargetFramework)' == 'net10.0'">$(DefineConstants);MY_FEATURE</DefineConstants>
 </PropertyGroup>
 
-<!-- GOOD: In Directory.Build.targets — TargetFramework is set by now -->
+<!-- GOOD: In Directory.Build.targets — TargetFramework is set here -->
 <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
   <DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants>
 </PropertyGroup>
@@ -148,12 +150,12 @@ Do NOT flag these patterns:
 </PropertyGroup>
 ```
 
-Only `ArtifactsPath` and `UseArtifactsOutput` fail with `NETSDK1199`. Flag them in a project file even when the build is green. A value that follows `Directory.Build.props` passes the check and still splits bin from obj. The SDK reads `ArtifactsProjectName`, `ArtifactsPivots`, and the output-name properties after the project body. A project file can set them. `BaseIntermediateOutputPath` in a project file fails the same way as `ArtifactsPath`, with `MSB3539`.
+Only `ArtifactsPath` and `UseArtifactsOutput` fail with `NETSDK1199`. Flag them in a project file even when the build succeeds. A value that follows `Directory.Build.props` passes the check and still splits bin from obj. The SDK reads `ArtifactsProjectName`, `ArtifactsPivots`, and the output-name properties after the project body. A project file can set them. `BaseIntermediateOutputPath` in a project file fails the same way as `ArtifactsPath`, with `MSB3539`.
 
 ## [AP-06]-[ITEM_UPDATE_BEFORE_ITEM_INCLUDE]
 
 - SMELL: An `Update` in `Directory.Build.props`, any `Update` before the `Include` that creates the item, or an `Include` for a file the default glob already matches.
-- WHY: `Update` changes metadata on items that already exist at that point in evaluation. Items evaluate in order of appearance, across all imports. The SDK default globs import after `Directory.Build.props`. An `Update` there matches nothing and reports nothing. An `Update` after the `Include` works, in the same `ItemGroup` or a later one. The inverse defect is an `Include` for a file the default glob already matches. `Compile` then fails with `NETSDK1022`. `None` silently contains two items, one without the metadata.
+- WHY: `Update` changes metadata on items that already exist at that point in evaluation. Items evaluate in order of appearance, across all imports. The SDK default globs import after `Directory.Build.props`. An `Update` there matches nothing and reports nothing. An `Update` after the `Include` works, in the same `ItemGroup` or a later one. The inverse defect is an `Include` for a file the default glob already matches. `Compile` then fails with `NETSDK1022`. `None` contains two items, one without the metadata, and reports nothing.
 
 ```xml
 <!-- BAD: Directory.Build.props — the default None glob does not exist yet -->
@@ -262,13 +264,13 @@ Only `ArtifactsPath` and `UseArtifactsOutput` fail with `NETSDK1199`. Flag them 
 <Project Sdk="Microsoft.NET.Sdk">
 ```
 
-Exception: an unguarded `<Import>` inside a package's `build/` or `buildTransitive/` folder is a package contract. The packed layout decides whether it resolves. See `dotnet-msbuild-evaluation` skill for package `build/` folder imports.
+Exception: an unguarded `<Import>` inside a package's `build/` or `buildTransitive/` folder is a package contract. The package layout decides whether it resolves. See the `dotnet-msbuild-evaluation` skill for package `build/` folder imports.
 
 ## [AP-12]-[HARDCODED_ABSOLUTE_PATHS]
 
 - SMELL: Paths such as `C:\tools\`, `D:\packages\`, or `/usr/local/bin/` in project files.
 - WHY: The path does not exist on other machines, in CI, or on other operating systems.
-- See `dotnet-msbuild-evaluation` skill for path normalization.
+- See the `dotnet-msbuild-evaluation` skill for path normalization.
 
 ```xml
 <!-- BAD -->
@@ -301,7 +303,7 @@ Exception: an unguarded `<Import>` inside a package's `build/` or `buildTransiti
 <!-- [ERROR]: the first segment is a program, so sh deletes the backslash and cat reads "datafile.txt" -->
 <Exec Command="cat data\file.txt" />
 
-<!-- [STYLE]: \ in Import is normalized on Unix, but / is nicer -->
+<!-- [STYLE]: \ in Import is normalized on Unix, the / form is the convention -->
 <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
 
 <!-- GOOD in new code -->
@@ -369,7 +371,7 @@ Register `@(FileWrites)` from an `ItemGroup` inside the target. A skipped target
 ```
 
 - `Inputs` lists every source file that drives generation.
-- See `dotnet-msbuild-execution` skill for `Inputs`, `Outputs`, `FileWrites`, and up-to-date checks.
+- See the `dotnet-msbuild-execution` skill for `Inputs`, `Outputs`, `FileWrites`, and up-to-date checks.
 
 ## [AP-16]-[EXEC_FOR_BUILTIN_TASKS]
 
@@ -459,7 +461,7 @@ A path function resolves a relative argument against the working directory of th
 ## [AP-19]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 
 - SMELL: A target calls the `<MSBuild>` task on a project with extra `Properties` that do not change that project's output path.
-- WHY: MSBuild creates one project instance per project path and global property set. The extra property creates a second instance, `(project, {_IsPublishing=true})`, with the same `OutputPath` and `IntermediateOutputPath` as the instance the solution or graph already builds, `(project, {})`. The project builds twice. Both instances run the same targets against one output directory. A green build that does the work twice is the common result. A parallel build can race those writes and report `MSB3026` copy retries or a file-lock error. The `<MSBuild>` call can appear in the target project or in any other project in the same build.
+- WHY: MSBuild creates one project instance per project path and global property set. The extra property creates a second instance, `(project, {_IsPublishing=true})`, with the same `OutputPath` and `IntermediateOutputPath` as the instance the solution or graph already builds, `(project, {})`. The project builds twice. Both instances run the same targets against one output directory. A successful build that does the work twice is the common result. A parallel build can race those writes and report `MSB3026` copy retries or a file-lock error. The `<MSBuild>` call can appear in the target project or in any other project in the same build.
 
 ```xml
 <!-- BAD (a): forks a second instance (path + {_IsPublishing=true}) that shares this project's bin/obj; the guard only stops the recursion -->
@@ -476,7 +478,7 @@ A path function resolves a relative argument against the working directory of th
         Condition="'$(_IsPublishing)' != 'true'" />
 ```
 
-In (a), `DependsOnTargets="Publish"` runs `Publish` in the same instance, with one output path and nothing to race. The condition breaks the target cycle when `dotnet publish` is the entry point. Without it, `dotnet publish` fails with `MSB4006`. Never set `_IsPublishing` yourself. The SDK owns it, and a `true` value moves a plain build to the `PublishRuntimeIdentifier` output path. Under `dotnet build -check`, the read reports `BC0201`. Nothing sets the property in a plain build. Under `-warnaserror` that check fails the build. Set `build_check.BC0201.severity=none` in `.editorconfig`.
+In (a), `DependsOnTargets="Publish"` runs `Publish` in the same instance, with one output path and nothing to race. The condition breaks the target cycle when `dotnet publish` is the entry point. Without it, `dotnet publish` fails with `MSB4006`. Never set `_IsPublishing` yourself. The SDK owns it, and a `true` value moves a plain build to the `PublishRuntimeIdentifier` output path. Under `dotnet build -check`, the read reports `BC0202` in the BAD form and `BC0201` in the GOOD form. Nothing sets the property in a plain build. Under `-warnaserror` that check fails the build. Set `build_check.BC0201.severity=none` under a section header such as `[*.csproj]` in `.editorconfig`. BuildCheck ignores a key outside a section, and `AllowUninitializedPropertiesInConditions` does not silence the read.
 
 ```xml
 <!-- BAD (b): the consumer forks a publish instance of the tool that races the tool's own build in the graph -->
@@ -484,7 +486,7 @@ In (a), `DependsOnTargets="Publish"` runs `Publish` in the same instance, with o
   <MSBuild Projects="../tool/tool.csproj" Targets="Publish" Properties="_IsPublishing=true" />
 </Target>
 
-<!-- GOOD (b): apply the (a) fix in tool.csproj so the tool publishes its OWN build, reference it only to sequence it -->
+<!-- GOOD (b): apply the (a) fix in tool.csproj the tool publishes its own build, reference it only to sequence it -->
 <ItemGroup>
   <ProjectReference Include="../tool/tool.csproj"
                     ReferenceOutputAssembly="false"
@@ -514,15 +516,15 @@ For a single-targeting project, the TFM it already targets is path-neutral. With
 The `ProjectReference` protocol does not set `TargetFramework` for a single-targeting reference. It removes the global property. `SetTargetFramework` overrides that default and reintroduces the clash.
 
 ```xml
-<!-- GOOD: single-targeting reference needs no SetTargetFramework — just reference it -->
+<!-- GOOD: single-targeting reference needs no SetTargetFramework — reference it -->
 <ItemGroup>
   <ProjectReference Include="../Tool/Tool.csproj" />
 </ItemGroup>
 ```
 
 `SetTargetFramework` is correct in two cases:
-1. The referenced project is multi-targeting and the consumer needs one specific TFM. Each TFM has its own output path.
-2. The consumer builds a single-targeting project under a different TFM, and the effective paths contain that TFM. The injected value then gives the instance separate paths.
+- The referenced project is multi-targeting and the consumer needs one specific TFM. Each TFM has its own output path.
+- The consumer builds a single-targeting project under a different TFM, and the effective paths contain that TFM. The injected value then gives the instance separate paths.
 
 Related, a framework-incompatible reference: when the referencing and referenced projects target incompatible frameworks, for example `.NETFramework` and `.NETCoreApp`, set both metadata values:
 - `SkipGetTargetFrameworkProperties="true"` skips the target framework negotiation, which fails for incompatible frameworks.
@@ -547,4 +549,4 @@ Related, a framework-incompatible reference: when the referencing and referenced
                   ReferenceOutputAssembly="false" />
 ```
 
-Use `SetTargetFramework` or `UndefineProperties="TargetFramework"`, never both. `UndefineProperties` removes the property that `SetTargetFramework` sets, and a multi-targeting reference silently loses its pin.
+Use `SetTargetFramework` or `UndefineProperties="TargetFramework"`, never both. `UndefineProperties` removes the property that `SetTargetFramework` sets, and a multi-targeting reference loses its pin with no message.

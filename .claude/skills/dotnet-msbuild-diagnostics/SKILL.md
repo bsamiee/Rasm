@@ -8,6 +8,8 @@ description: "Use when a build fails, runs slow, or overwrites its own outputs, 
 Covers binary log capture, build failure triage, build performance, and output path clashes through the `binlog` MCP server, `Microsoft.AITools.BinlogMcp`, over a `.binlog` file.
 - `.binlog` is binary. Never read it with `cat` or `strings`. Query it through the MCP tools. A text-log replay erases the tree they read.
 
+[AGENT]: `msbuild-debugger` takes one build symptom and returns cause, change, and proof. Use it when binlog work crowds the context window.
+
 [REFERENCES]:
 - [01]-[PERFORMANCE_BASELINE](references/performance-baseline.md): Measurement controls and capture types
 - [02]-[EXECUTION_PERFORMANCE](references/execution-performance.md): Executed work, graph constraints, and task cost
@@ -19,7 +21,7 @@ Pass `-bl:{}` on every MSBuild invocation: `dotnet build`, `dotnet test`, `dotne
 - A bare `-bl` overwrites `msbuild.binlog`. A literal name without `.binlog` fails the build with `MSB1029`. Only `{}` appends the extension.
 - `-f` or `-p:TargetFramework=` runs restore as a separate MSBuild invocation, and `-bl` applies to both. With a fixed name, the build log overwrites the restore log. `{}` keeps both files.
 - A prefix or directory routes the file: `-bl:logs/build-{}`.
-- Keep the default `ProjectImports=Embed`. `None` embeds nothing, and `binlog_files` and `binlog_search_files` return nothing. `ZipFile` moves them to a `<name>.ProjectImports.zip` sidecar that the tools read only from the log's directory.
+- Keep the default `ProjectImports=Embed`. `None` embeds nothing, and `binlog_files` and `binlog_search_files` return nothing. `ZipFile` moves them to a `<name>.ProjectImports.zip` file beside the log, which the tools read only from the log's directory.
 - Confirm that the file exists before analysis. A build that fails before MSBuild starts, such as one with a malformed `-bl` value, writes no binlog.
 - `git clean -fdx` deletes ignored files, `*.binlog` included. Exclude them to keep the build history.
 
@@ -118,8 +120,8 @@ git clean -fdx -e "*.binlog"              # keep the logs
 
 ## [05]-[OUTPUT_PATH_CLASHES]
 
-A clash builds green more often than it fails. Two project instances that share one `OutputPath` or `IntermediateOutputPath` produce:
-- A green build where one project consumed the other's restore
+A clash succeeds more often than it fails. Two project instances that share one `OutputPath` or `IntermediateOutputPath` produce:
+- A successful build where one project consumed the other's restore
 - `MSB3026` copy retries and file-lock errors in a parallel build
 - A restore race that reports an existing file
 - Overwritten or missing output files, and failures that pass on retry
@@ -130,12 +132,14 @@ A clash comes from one of these sources:
 - One build invokes two solutions that both contain the project
 - A path-neutral global property creates a second instance of one project
 
-A green clash shows nothing in the console and nothing in `binlog_diagnose`. Follow these steps:
+A clash in a successful build shows nothing in the console and nothing in `binlog_diagnose`. Follow these steps:
 
-1. Delete the output directories. Run `dotnet build <solution> -check -m:1`. Read the console. `BC0101` names each directory that two projects share. `BC0102` names two tasks that write one file, which covers every extra instance of one project. `-m:1` is required. The check keeps its state per node. The reader drops part of these warnings. The console, not `binlog_warnings`, is the record.
-2. Run `binlog_compare_property` on `IntermediateOutputPath`, then `OutputPath`. An absolute value that groups two or more projects is the clash. The relative SDK default groups every project and means nothing. The tool groups by project and never reports two instances of one project.
-3. Run `binlog_double_writes` on a clean build. It reads `Copy` tasks only, and an incremental build reports no shared directory. It covers the projects that `binlog_compare_property` reports as `NOT SET`.
-4. If `binlog_compare_property` reports a project as `inconsistent`, run `binlog_evaluations` with a project filter, then `binlog_evaluation_global_properties` per evaluation. Discard the restore pass, marked `MSBuildIsRestoring=true`. The global property that differs between the remaining evaluations identifies the extra instance.
+1. Delete the output directories.
+2. Run `dotnet build <solution> -check -m:1`. `-m:1` is required. The check keeps its state per node.
+3. Read the console. `BC0101` names each directory that two projects share. `BC0102` names two tasks that write one file, which covers every extra instance of one project. When a duplicate item reaches one `Copy` task, `BC0102` names that task twice. `binlog_search` on the destination path separates the two sources. The reader drops part of these warnings. The console, not `binlog_warnings`, is the record.
+4. Run `binlog_compare_property` on `IntermediateOutputPath`, then `OutputPath`. An absolute value that groups two or more projects is the clash. The relative SDK default groups every project and means nothing. The tool groups by project and never reports two instances of one project.
+5. Run `binlog_double_writes` on a clean build. It reads `Copy` tasks only, and an incremental build reports no shared directory. It covers the projects that `binlog_compare_property` reports as `NOT SET`.
+6. If `binlog_compare_property` reports a project as `inconsistent`, run `binlog_evaluations` with a project filter, then `binlog_evaluation_global_properties` per evaluation. Discard the restore pass, marked `MSBuildIsRestoring=true`. The global property that differs between the remaining evaluations identifies the extra instance.
 
 `-check` also replays an existing log: `dotnet build msbuild.binlog -check`. That replay writes no file, and its final `BinaryLogger wrote to:` line is an echo from the original capture. `dotnet build --no-restore -graph -isolate` turns a path-neutral extra instance between projects into `MSB4252`, which names both global-property sets.
 
@@ -158,7 +162,7 @@ A green clash shows nothing in the console and nothing in `binlog_diagnose`. Fol
 ### [05.2]-[PIVOT_MISSING_FROM_OUTPUT_PATH]
 
 - PROBLEM: A multi-targeting or multi-RID project writes every framework or runtime to one path. The append property also drops the framework from `IntermediateOutputPath`, and `obj/` collapses too.
-- DETECT: The build is green and one framework output is missing. Run the build again with `-check`. `BC0102` names `Csc` twice from one project and the file they share.
+- DETECT: The build succeeds and one framework output is missing. Run the build again with `-check`. `BC0102` names `Csc` twice from one project and the file they share.
 - FIX: Keep the SDK default paths. The SDK appends the framework and runtime to explicit or default paths while the matching append properties remain `true`. If an append property is `false`, the path must contain that pivot. Under `UseArtifactsOutput` the append properties do nothing.
 
 ```xml
@@ -175,7 +179,7 @@ A green clash shows nothing in the console and nothing in `binlog_diagnose`. Fol
 
 - PROBLEM: Two projects set one `BaseOutputPath` or `BaseIntermediateOutputPath`. Restore writes `project.assets.json` to `MSBuildProjectExtensionsPath`, which defaults to `BaseIntermediateOutputPath`, with no framework suffix, and `AppendTargetFrameworkToOutputPath` does not separate them. One project restores. The other project restores as a no-op against the winner's cache and consumes the foreign assets file. The winner changes between runs.
 - DETECT: `binlog_compare_property` names both projects at one `IntermediateOutputPath`. On disk, the shared `project.assets.json` contains one `projectName`, the other project's `ProjectAssetsFile` points at it, and its own `.nuget.g.props` never exists. Restore can also fail with a message that the file already exists.
-- FIX: Give each project its own intermediate directory. The SDK default `obj/` in the project directory does this, and so does `ArtifactsPath` in `Directory.Build.props`. See `dotnet-msbuild-evaluation` skill for the artifacts layout.
+- FIX: Give each project its own intermediate directory. The SDK default `obj/` in the project directory does this, and so does `ArtifactsPath` in `Directory.Build.props`. See the `dotnet-msbuild-evaluation` skill for the artifacts layout.
 
 ```xml
 <!-- BAD: Directory.Build.props sends every project to one bin/ and one obj/ -->
@@ -199,9 +203,9 @@ A green clash shows nothing in the console and nothing in `binlog_diagnose`. Fol
 |  [03]   | `OutputPath`                           | `bin\Release/netstandard2.0/` | `bin\Release/netstandard2.0/` |
 
 - FIX: Apply one of:
-1. Build each project from one solution per build.
-2. Build the second solution under a different `Configuration`. The paths then differ.
-3. Exclude the project from the second solution with a solution filter. A filter accepts a `.slnx` path. It cannot drop a project that a listed project references.
+  - Build each project from one solution per build.
+  - Build the second solution under a different `Configuration`. The paths then differ.
+  - Exclude the project from the second solution with a solution filter. A filter accepts a `.slnx` path. It cannot drop a project that a listed project references.
 
 ### [05.5]-[PATH_NEUTRAL_GLOBAL_PROPERTY]
 
@@ -214,9 +218,9 @@ A green clash shows nothing in the console and nothing in `binlog_diagnose`. Fol
 |  [02]   | `OutputPath`        | `bin\Release/netstandard2.0/` | `bin\Release/netstandard2.0/` |
 
 - FIX: Apply one of:
-1. Find the parent target or task that passes the property. Remove it from the call for projects that never read it.
-2. Set `GlobalPropertiesToRemove="PublishReadyToRun"` on the `ProjectReference`. The referenced build then drops the property.
-3. Set the property only on the projects that consume it, such as executables.
+  - Find the parent target or task that passes the property. Remove it from the call for projects that never read it.
+  - Set `GlobalPropertiesToRemove="PublishReadyToRun"` on the `ProjectReference`. The referenced build then drops the property.
+  - Set the property only on the projects that consume it, such as executables.
 
 ### [05.6]-[MSBUILD_TASK_PUBLISH_FORK]
 
