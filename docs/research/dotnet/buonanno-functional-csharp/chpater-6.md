@@ -129,7 +129,6 @@ IActionResult BookTransfer(BookTransfer request)
 For an optional lookup, a boundary can translate `None` to “not found” and `Some(value)` to a successful response. For `Either`, the boundary must decide how domain failures map to the external contract.
 
 Two viable API designs are:
-
 - Map `Left` and `Right` to protocol status codes and payloads.
 - Always return a transport-success response whose body is a result DTO with `Succeeded` plus either `Data` or `Error`. Unlike `Either`, this DTO exposes its values directly for serialization and client access.
 
@@ -192,7 +191,6 @@ Validation<Exceptional<Unit>> Handle(BookTransfer command)
 ```
 
 The nested type makes the three reachable outcomes explicit. At the outer boundary, match the layers separately:
-
 - `Invalid(errors)`: expose actionable business errors.
 - `Valid(Exception(exception))`: log the technical detail and expose a generic failure.
 - `Valid(Success(Unit))`: return success.
@@ -202,7 +200,6 @@ This prevents infrastructure details from leaking to clients while retaining use
 ## Exception policy
 
 Do not use exceptions for expected business outcomes. Reserve them for conditions the normal workflow is not meant to recover from:
-
 - Developer defects, such as violating a function’s required preconditions. These indicate broken program logic and should not be caught as business errors.
 - Configuration failures discovered during initialization that make the application unable to operate. Let them terminate initialization, apart from an outermost application handler.
 - Exception-based third-party APIs. Catch narrowly and convert immediately to an explicit functional value.

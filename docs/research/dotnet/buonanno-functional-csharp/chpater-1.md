@@ -3,7 +3,6 @@
 ## The functional model
 
 Functional programming is a style built on two commitments:
-
 1. **Treat functions as values.** A function can be assigned to a variable, passed as an argument, returned from another function, or stored in a collection.
 2. **Avoid state mutation.** Once created, an object should not change, variables should not be reassigned, and transformations should produce new values instead of destroying prior ones.
 
@@ -46,14 +45,12 @@ Functional and object-oriented design are not opposites. Modularity, separation 
 C# supports functions as first-class values well through delegates and lambdas. Garbage collection makes non-destructive updates practical because superseded versions can be reclaimed. C#'s main weakness is that mutation is the default: fields and variables must be explicitly constrained, user-defined immutable types require effort, and the standard collections are mutable even though an immutable collections library is available.
 
 LINQ is the clearest built-in functional model:
-
 - `Select` maps each element through a function.
 - `Where` filters through a predicate.
 - `OrderBy` and `OrderByDescending` produce ordered sequences from key selectors.
 - These operators accept functions and return new sequences instead of modifying their inputs.
 
 Useful language features reduce the ceremony around functional code:
-
 - `using static` makes libraries of static functions concise to consume, but excessive use can pollute the namespace.
 - Getter-only auto-properties have a compiler-generated readonly backing field and can be assigned only inline or in the constructor, making simple immutable types easier to define.
 - Expression-bodied members keep small functions readable and composable.
@@ -75,7 +72,6 @@ The input and output types form the function's interface and contract. This pers
 A mathematical function's result is determined exclusively by its input. A C# method, delegate, or lambda only represents a function; that representation does not guarantee the same property. It may capture context, read mutable state, or perform effects even when its visible signature does not reveal those dependencies.
 
 C# can represent functions in several ways:
-
 - **Methods** are the conventional representation and participate in class and interface design. An instance method can be understood as also taking the current instance as an implicit argument.
 - **Delegates** are strongly typed function pointers. `Func<T, R>` represents value-returning functions; `Action<T>` represents operations with no return value.
 - **Lambdas** define short functions inline and are converted to a compatible delegate type.
@@ -120,7 +116,6 @@ public static IEnumerable<T> Where<T>(
 ```
 
 The function owns iteration; the caller owns the inclusion criterion. This separates concerns that would otherwise be interleaved. The same shape supports:
-
 - **Iterated execution:** invoke a selector, predicate, or comparison for each relevant element.
 - **Conditional execution:** invoke a callback only when needed, such as computing a value after a cache miss.
 - **Inversion of control:** the caller chooses what behavior to supply; the higher-order function chooses when to run it.
@@ -194,7 +189,6 @@ Database operations can now state only their domain-specific work. Connection ac
 The synchronous connection body demonstrates the abstraction without the extra complexity of asynchrony. Real I/O operations should normally be performed asynchronously.
 
 This technique becomes more valuable as lifecycle logic grows more intricate or is reused more widely. It provides:
-
 - less duplication;
 - a clear boundary between resource management and domain behavior;
 - concise callers that expose their actual intent;

@@ -5,14 +5,12 @@
 Functional design applies to persisted data as well as in-memory values. A database that overwrites rows is still shared mutable state, even when the server process itself is stateless.
 
 Append-only storage replaces create-read-update-delete with create-read-append:
-
 - Existing data is never overwritten or deleted.
 - New information is recorded as additional data.
 - Historical information remains available for audit, analysis, and reconstruction.
 - Appends avoid the hot-cell contention caused when concurrent requests overwrite the same value.
 
 Two immutable-storage models follow this rule:
-
 - **Event-based:** store an ordered history of things that happened.
 - **Assertion-based:** store facts together with the time intervals during which they are true.
 
@@ -89,7 +87,6 @@ Structural matching is also useful for sequences. An `IEnumerable` matcher can a
 History must be retrieved in occurrence order. An empty history means no entity is recorded, so reconstruction returns an optional state rather than inventing a default entity.
 
 For a non-empty history:
-
 1. Treat the first event as the required entity-creation event.
 2. Construct the initial state from that event.
 3. Fold the remaining events with the transition function.
@@ -124,7 +121,6 @@ A command is an imperative request, such as `MakeTransfer`. Unlike an event, it 
 Commands are named imperatively; events are named in the past tense because they record facts that can no longer fail. A command and its primary event generally carry the same information, so conversion is mostly field-by-field, with any required variations. The primary event directly affects one entity, then its publication may cause handlers to derive events for that or other entities.
 
 Command handling performs three jobs:
-
 1. Validate the command's general form.
 2. Load the entity's decision state and validate the requested transition against it.
 3. Convert a valid command into an event, persist it, and publish it.
@@ -164,7 +160,6 @@ Event handlers therefore serve two distinct roles: command-side handlers perform
 ### Query side
 
 Users consume view models shaped for their needs, not raw event logs or the command-side state. The query side derives each view from history using ordinary functional transformations:
-
 - `Aggregate` computes totals and balances.
 - `Map` converts relevant events into view data.
 - `Bind` with an optional result both converts matching events and omits nonmatching events.
@@ -181,7 +176,6 @@ CQRS does not require two deployed applications. Command and query concerns can 
 Event-based and assertion-based storage both preserve an audit trail, support point-in-time state, and avoid overwriting stored facts. They differ in what the domain naturally expresses.
 
 Choose event sourcing when:
-
 - Domain events are meaningful business occurrences rather than renamed CRUD operations.
 - Events naturally drive multiple consequences.
 - Commands and the views consumed by users have substantially different shapes.

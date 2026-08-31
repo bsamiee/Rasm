@@ -52,7 +52,6 @@ public static T GetOrElse<T>(this Option<T> option, Func<T> fallback) =>
 ```
 
 Offer both overloads when useful:
-
 - A direct value is clearer when its construction is negligible.
 - A `Func<T>` avoids work when the value is expensive and may not be needed.
 - If a function may ignore an argument, that argument is a candidate for lazy input.
@@ -236,7 +235,6 @@ int deleted = (
 ## 7. Ordering determines scope
 
 Middleware pipelines are U-shaped: each block can act before calling its continuation and again after downstream work returns. Reordering clauses therefore changes behavior, not just presentation:
-
 - Timing outside connection acquisition measures acquisition and database work.
 - Timing inside the connection scope measures only downstream work.
 - Transaction middleware must follow connection middleware because it depends on the connection.

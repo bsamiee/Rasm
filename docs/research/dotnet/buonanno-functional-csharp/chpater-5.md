@@ -43,7 +43,6 @@ option.Map(x => f(g(x)))
 ```
 
 Two laws make `Map` trustworthy:
-
 - Mapping the identity function changes nothing: `value.Map(x => x) == value`.
 - Mapping a composition is equivalent to mapping its parts in sequence.
 
@@ -67,7 +66,6 @@ The pipeline states what is wanted. Iteration, branching, and enumeration mechan
 ### Properties of Composable Functions
 
 A function becomes easier to reuse and rearrange when it is:
-
 - **Pure:** its result depends only on its arguments, with no side effects.
 - **Chainable:** an instance or extension receiver lets its result flow naturally into the next call.
 - **General:** it performs one broadly useful operation rather than encoding one narrow use case.
@@ -146,7 +144,6 @@ public static class Account
 ```
 
 Unlike a mutating `void Debit` that throws for insufficient funds, this function:
-
 - has no mutation or exception for an expected business outcome;
 - exposes possible failure in its return type;
 - produces a value that later steps can consume;
@@ -186,7 +183,6 @@ void Book(MakeTransfer transfer)
 Expressions produce values and therefore compose. Assignments, loops, and conditional statements direct execution and do not produce values for a pipeline. Declarations of classes, methods, and fields remain necessary and are best treated as a separate category. Favoring expressions shifts code from imperative instructions toward declarative descriptions.
 
 This does not eliminate effects. It moves them to explicit boundaries:
-
 1. Receive external input.
 2. Transform and validate through expressions.
 3. Compute new domain state with pure functions.
@@ -199,7 +195,6 @@ If a terminal step requires multiple effects, keep each one visible.
 Do not require every layer to call only its immediate neighbor. That structure spreads impurity upward: once a low-level call performs I/O, every delegating layer becomes impure.
 
 Instead, let a top-level entry point compose functions exposed by any lower-level component, while dependencies continue to point downward. This produces:
-
 - a single, readable overview of the business workflow;
 - optional subworkflows for meaningful groups of steps;
 - pure mid-level validation and domain logic;

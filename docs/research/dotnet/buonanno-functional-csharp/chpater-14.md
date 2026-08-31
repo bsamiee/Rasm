@@ -117,7 +117,6 @@ Each branch can evolve independently and later be normalized to a common type an
 `OnError` is terminal. When a derived stream reports an error, that stream and every downstream stream terminate permanently; upstream streams may continue, leaving only part of the dataflow alive.
 
 Do not use the terminal error channel for an expected per-item failure. Instead:
-
 1. Apply the asynchronous operation to each input.
 2. Map the resulting `Task<R>` into a `Task<Exceptional<R>>`, where `Exceptional<R>` explicitly represents either the computed value or the exception, so an expected failed computation becomes data rather than a terminal stream message.
 3. Use `SelectMany` to flatten the tasks into one stream of explicit outcomes.
@@ -186,7 +185,6 @@ var balanceInUsd = euroBalance.CombineLatest(
 ```
 
 An observable pushes; the consumer cannot slow the producer by requesting the next item at its own pace. When production outpaces consumption, choose a policy explicitly:
-
 - `Sample` emits the latest source value when a sampler signals.
 - `Throttle`, `Debounce`, `Buffer`, and `Window` provide other time- or grouping-based policies, such as consuming fixed-size batches or retaining only the last value in a rapid cluster.
 
@@ -212,13 +210,11 @@ IObservable<Guid> overdrawnAccounts =
 ## Fit and limits
 
 Use `IObservable` when:
-
 - values arrive asynchronously over time;
 - logic detects sequences, transitions, windows, or relationships across sources;
 - the system naturally forms a one-way dataflow, such as queue-to-database processing or fire-and-forget messaging.
 
 Avoid it when:
-
 - events are independent and ordinary callbacks or tasks are clearer;
 - every input needs a directly correlated response, as in request-response protocols;
 - synchronization requires finer control than available operators provide.

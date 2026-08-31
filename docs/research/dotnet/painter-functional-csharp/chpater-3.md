@@ -1,7 +1,6 @@
 # Functional Coding in C# 7 and Beyond
 
 Modern C# supports functional design through a set of complementary language features:
-
 - tuples carry short-lived groups of values through a pipeline;
 - patterns turn branching rules into expressions over data shapes;
 - readonly structs and init-only properties constrain reassignment, while records make copy-and-change transitions concise;
@@ -32,7 +31,6 @@ The first projection pairs each film with its cast. The next projection consumes
 Procedural type checks require explicit casts and nested branches. Moving the calculation into virtual methods spreads one complete rule across several classes. Pattern matching instead keeps recognition, extraction, guards, and results together.
 
 The language's pattern-matching additions build on one another:
-
 - C# 7 type patterns test a runtime type and bind the correctly typed value: `account is PremiumBankAccount premium`.
 - C# 7 type-switch cases collect subtype rules, and `when` adds a guard.
 - Switch expressions make the entire decision return a value; `_` is the discard pattern for the fallback arm.
@@ -50,21 +48,13 @@ The example calculates ordinary interest as balance times rate. Premium accounts
 public static decimal CalculateInterest(StandardBankAccount account) =>
     account switch
     {
-        PremiumBankAccount { Balance: > 20_000m } p =>
-            p.Balance * (p.InterestRate + p.BonusInterestRate * 1.25m),
-
-        PremiumBankAccount { Balance: > 10_000m and <= 20_000m } p =>
-            p.Balance * (p.InterestRate + p.BonusInterestRate),
-
+        PremiumBankAccount { Balance: > 20_000m } p => p.Balance * (p.InterestRate + p.BonusInterestRate * 1.25m),
+        PremiumBankAccount { Balance: > 10_000m and <= 20_000m } p => p.Balance * (p.InterestRate + p.BonusInterestRate),
         MillionairesBankAccount m =>
             (m.Balance * m.InterestRate) +
             (m.OverflowBalance * m.InterestRate),
-
-        MonopolyPlayersBankAccount { CurrSquare: not "InJail" } m =>
-            (m.Balance * m.InterestRate) + m.PassingGoBonus,
-
+        MonopolyPlayersBankAccount { CurrSquare: not "InJail" } m => (m.Balance * m.InterestRate) + m.PassingGoBonus,
         ClosedBankAccount => 0m,
-
         _ => account.Balance * account.InterestRate
     };
 ```

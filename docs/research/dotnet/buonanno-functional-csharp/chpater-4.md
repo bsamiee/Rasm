@@ -193,7 +193,6 @@ Here each `Some(age)` becomes one sequence element and each `None` becomes none,
 ## Regular and elevated values
 
 A regular value has type `T`. An elevated value has type `A<T>`, where `A` adds a computational effect. This kind of effect describes what the abstraction contributes; it is distinct from a side effect:
-
 - `Option<T>` adds possible absence.
 - `IEnumerable<T>` adds aggregation.
 - `Func<T>` adds deferred evaluation.
@@ -213,7 +212,6 @@ These shapes describe the net movement between levels; an elevated-to-elevated o
 There is not always an obvious general operation from elevated to regular. An `Option<T>` may be empty, and a sequence may have zero or many values, so neither can always be reduced to one `T`.
 
 The practical distinction between `Map` and `Bind` follows directly:
-
 - Use `Map` with `T -> R`.
 - Use `Bind` with `T -> A<R>`.
 - Using `Map` with `T -> A<R>` produces `A<A<R>>`.

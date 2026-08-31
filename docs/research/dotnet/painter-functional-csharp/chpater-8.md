@@ -149,14 +149,10 @@ public static class ValueExtensions
         transform(value);
 }
 
-Func<decimal, decimal, decimal> addBase = (fixedValue, input) =>
-    input + fixedValue;
-Func<decimal, decimal, decimal> subtractBase = (fixedValue, input) =>
-    input - fixedValue;
-Func<decimal, decimal, decimal> multiplyBase = (fixedValue, input) =>
-    input * fixedValue;
-Func<decimal, decimal, decimal> divideBase = (fixedValue, input) =>
-    input / fixedValue;
+Func<decimal, decimal, decimal> addBase = (fixedValue, input) => input + fixedValue;
+Func<decimal, decimal, decimal> subtractBase = (fixedValue, input) => input - fixedValue;
+Func<decimal, decimal, decimal> multiplyBase = (fixedValue, input) => input * fixedValue;
+Func<decimal, decimal, decimal> divideBase = (fixedValue, input) => input / fixedValue;
 
 var add = addBase.Curry();
 var subtract = subtractBase.Curry();
@@ -219,14 +215,12 @@ Add only the overloads a codebase actually uses, or provide a deliberately bound
 ## Choosing whether to use them
 
 These techniques are useful when they:
-
 - eliminate near-duplicate specialized functions;
 - expose reusable intermediate configurations;
 - produce unary functions that fit higher-order APIs;
 - keep one general implementation behind many focused call sites.
 
 Their costs are specific to C#:
-
 - no native currying or general partial-application mechanism;
 - `Func` conversion and occasional explicit type annotations;
 - one curry helper per arity;

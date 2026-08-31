@@ -85,7 +85,6 @@ S -> (T, S)
 `S` is the state before and after the operation; `T` is the produced value. A transition may also accept other arguments. The shape can occur inside a stateful or stateless application: it characterizes the function, not the architecture around it.
 
 Passing state explicitly is often clearest for an isolated transition. Repeatedly extracting and forwarding it becomes noise when several transitions must be sequenced. `Map`, `Bind`, and `Return` capture that protocol:
-
 - `Map` transforms the produced value and preserves the returned state.
 - `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the first computation's returned state.
 - `Return` lifts a value into a computation that returns the state unchanged.

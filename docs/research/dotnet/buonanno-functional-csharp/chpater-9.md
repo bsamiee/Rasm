@@ -22,7 +22,6 @@ current state --transition--> next state
 ## Why Shared Mutation Is Dangerous
 
 Shared mutable state creates several connected problems:
-
 1. **Lost updates:** concurrent operations can read the same old value and overwrite one another's results.
 2. **Temporary invalid states:** a multi-field update exposes intermediate combinations when fields are changed separately.
 3. **Hidden coupling:** every reader depends on every code path capable of changing the shared object.
@@ -99,7 +98,6 @@ public sealed class AccountState
 ```
 
 The design relies on several rules:
-
 - Remove property setters and require construction through a constructor or factory.
 - Enforce required values and business invariants during construction so invalid snapshots cannot exist.
 - Seal the type so a mutable subclass cannot weaken the guarantee.
@@ -137,7 +135,6 @@ No C# technique can make mutation absolutely impossible because reflection can a
 An immutable update creates another top-level object, increasing allocations and eventual garbage collection. It normally performs a **shallow copy**: unchanged immutable children are shared, while only changed values and the new parent are allocated.
 
 This makes the usual tradeoff:
-
 - In-place mutation is cheaper for the individual write.
 - Immutable updates improve safety, isolation, and reasoning.
 - Mutable designs may later pay for locks and defensive copying.

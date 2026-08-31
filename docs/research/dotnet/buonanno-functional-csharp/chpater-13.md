@@ -5,7 +5,6 @@
 `Task<T>` represents a computation that will deliver a `T` asynchronously. Use it when latency is significant, especially for I/O. `await` suspends the current context while the operation completes, freeing its thread for other work; synchronously waiting blocks that thread.
 
 From a functional perspective, `Task<T>` is a container that adds asynchrony and failure handling:
-
 - `Option<T>` may contain a `T`.
 - `Func<T>` can be run to obtain a `T`.
 - `Task<T>` will produce a `T` at some future time, or fault.
@@ -40,7 +39,6 @@ Remain inside `Task` for the whole workflow. A host can consume `Task<IActionRes
 `Task<T>` already captures exceptions from an asynchronous computation. Wrapping it in `Exceptional<T>` normally duplicates the same failure effect. Expected domain invalidity is different and can justify an inner `Validation<T>`.
 
 Keep three policies distinct:
-
 - **Fallback** tries a lower-priority operation if the preferred task faults: `primary().OrElse(() => fallback())`. The fallback is lazy so it starts only after failure.
 - **Recovery** maps a final fault to a normal value, usually at the workflow's end.
 - **Retry** creates a fresh attempt after a transient failure and delay.

@@ -14,7 +14,6 @@ IEnumerable<Film> FilmsByGenre(
 ```
 
 This small change establishes several useful properties:
-
 - The source is an explicit input rather than hidden data access.
 - `Where` receives behavior as a function.
 - The source sequence is not modified.
@@ -161,7 +160,6 @@ Each call may remain on the stack while the deeper call completes. Even though t
 Public setters plainly allow property replacement. Private setters limit replacement by callers, but do not make the object graph deeply immutable: code inside the class can still assign properties, a referenced list can still change, and a nested object can expose its own mutation operations.
 
 For the older C# baseline used here:
-
 - Construct a value completely, then do not reassign or mutate it.
 - Expose `IEnumerable<T>` or `IReadOnlyList<T>` when callers do not need mutation operations.
 - Apply the same discipline to every nested object.

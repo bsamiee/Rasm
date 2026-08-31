@@ -44,7 +44,6 @@ public static Func<T2, T3, R> Apply<T1, T2, T3, R>(
 ### Order arguments by lifecycle
 
 Place earlier, more stable inputs first and later, operation-specific inputs last:
-
 1. Dependencies and configuration known during application composition
 2. Policies or options that select behavior
 3. The value or entity being acted upon at runtime
@@ -81,7 +80,6 @@ var message = greetInformally("Sam");
 ```
 
 The distinction matters:
-
 - Currying supplies no values. It only changes the function's shape.
 - Partial application supplies one or more values and produces a specialized function.
 - A curried function makes partial application a normal function call.
@@ -107,7 +105,6 @@ Func<string, TName, string> CreateGreeter<TName>() =>
 ```
 
 Choose the delegate-producing form deliberately:
-
 - A field is simple but an inline field initializer cannot depend on instance state.
 - A getter-only property can create a delegate that closes over instance state.
 - A factory method can also introduce generic type parameters, which fields and properties cannot.
@@ -117,7 +114,6 @@ Returning `Func` values from adapter or factory methods is often the cleanest wa
 ## Designing a specialization-friendly boundary
 
 An existing API may expose arguments in an order that works poorly for partial application. A thin adapter can:
-
 - put stable inputs before transient ones;
 - expose semantic types instead of ambiguous primitives;
 - acquire a short-lived resource only when the operation runs;
@@ -166,7 +162,6 @@ public static Validator<BookTransfer> DateNotPast(Func<DateTime> clock)
 `DateNotPast` is a function factory and a curried binary function in practice. Composition supplies the clock once; request handling supplies the command later. A test supplies a deterministic clock without constructing a fake service object.
 
 Function dependencies preserve the useful properties normally sought through interfaces:
-
 - The consumer is decoupled from the implementation.
 - Tests can inject small deterministic functions.
 - Each signature states the minimum capability required.
@@ -179,7 +174,6 @@ Objects and interfaces remain compatible with this style. Functional behavior ca
 ## The composition root
 
 Construct specialized functions at the outermost bootstrap boundary:
-
 1. Read stable configuration.
 2. Adapt infrastructure APIs into application-shaped functions.
 3. Partially apply dependencies, policies, and templates.

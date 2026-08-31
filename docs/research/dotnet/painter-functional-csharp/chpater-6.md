@@ -5,7 +5,6 @@
 A discriminated union is a type whose value is exactly one of several alternatives. A consumer pattern-matches the value to discover its case and gain access to that case's data. A component that does not care which case it has can pass the union onward unchanged.
 
 F# supports discriminated unions directly. C# does not, but can approximate them with:
-
 - an abstract base class representing the union;
 - one concrete subclass per case;
 - pattern matching wherever behavior differs by case.
@@ -64,7 +63,6 @@ The same design handles structurally different naming conventions. A `BritishNam
 ## Make Every Expected Function Outcome a Case
 
 A function's return type should describe more than its happy-path payload. Looking up a person has three meaningful outcomes:
-
 1. the person was found;
 2. no person has that identifier;
 3. the lookup failed.
@@ -114,7 +112,6 @@ An operation with no success payload still benefits. Email sending can return ei
 ## Move from Impure Input to Typed Input in Stages
 
 External input is uncontrolled. A console boundary can return one of four cases: text, an integer, no input, or a console error. This turns the move from an impure boundary to controlled program data into a sequence:
-
 1. Keep console access behind a narrow interface, so the uncontrolled console can be replaced by a controlled implementation.
 2. Catch console failures at that boundary and return an error case.
 3. Classify successfully read text once.

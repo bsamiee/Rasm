@@ -3,7 +3,6 @@
 ## Functions as values
 
 A higher-order function accepts a function, returns a function, or both. C# usually represents the passed behavior with delegates:
-
 - `Func<T, TResult>` accepts a value and returns a value.
 - `Action<T>` accepts a value and returns nothing.
 - A lambda supplies an inline delegate, as in `items.Where(x => x.IsActive)`.
@@ -173,7 +172,6 @@ It can log or otherwise inspect an intermediate result between transformations. 
 ## Encapsulating exception handling
 
 Pure transformations should not fail because of external conditions, but calls at the edge - databases, web APIs, network files - can. A higher-order wrapper can centralize `try/catch`, reduce repeated boilerplate, and keep exception-driven jumps from being scattered across call layers. The chapter develops several versions, each with a tradeoff:
-
 - Returning `default` on failure is concise but swallows the exception and makes failure indistinguishable from a legitimate default result.
 - Giving a reusable wrapper a logger preserves the exception, but the wrapper lacks the caller's specific context unless more information is supplied.
 - Returning result-and-error metadata preserves both possibilities, but a container with both fields forces every success to carry an unused error field and every failure to carry an unused result field.

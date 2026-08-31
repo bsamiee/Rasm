@@ -3,7 +3,6 @@
 ## Put absence and failure into the value
 
 External calls create three recurring obligations before their output can enter business logic:
-
 - catch exceptions;
 - detect a missing value;
 - reject a present but unusable value.
@@ -214,7 +213,6 @@ Its bind preserves `CurrentState` and delegates transformation of `CurrentValue`
 ## Route-pricing flow: intended dependencies and listing defects
 
 The worked example intends this dependency graph:
-
 1. Resolve the origin address.
 2. Only if that succeeds, resolve the destination and retain both addresses.
 3. Determine the route asynchronously.
@@ -225,7 +223,6 @@ The worked example intends this dependency graph:
 Tuples carry values needed by later operations without reaching outside the flow. Every dependent callback runs only after its inputs exist; an earlier `Nothing` or `Error` skips its dependents.
 
 The printed code does not realize that graph as written:
-
 - the address tuple stores the destination as `Maybe<Address>` instead of flattening it to `Address`;
 - the route planner returns `Task<Maybe<Route>>`, but the shown async bind does not flatten that callback shape;
 - the traffic result is reduced to a boolean outside the flow, so a missing/error advice is not preserved in pricing;

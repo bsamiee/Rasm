@@ -11,7 +11,6 @@ Func<T, bool> isFinished;
 ```
 
 The important separation is between:
-
 - state transition: produce the next state from the current state;
 - termination: decide whether a state is final;
 - execution: repeatedly apply the transition until termination;
@@ -81,7 +80,6 @@ The state must contain everything required by both delegates. If termination dep
 `IEnumerable<T>` is not an array. It is a recipe for obtaining an `IEnumerator<T>`, and the enumerator controls how values are produced. Its `MoveNext` implementation can skip, repeat, reverse, or generate values, so a custom implementation can yield an unknown number of successive states.
 
 The protocol has four relevant responsibilities:
-
 - `Current` holds the value a consumer reads after `MoveNext` succeeds.
 - `MoveNext` performs the traversal step and reports whether `Current` should be consumed.
 - `Reset` restores the starting position when supported.

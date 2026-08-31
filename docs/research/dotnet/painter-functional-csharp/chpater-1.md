@@ -5,7 +5,6 @@
 Functional programming is a programming paradigm: a style for structuring programs, not a language, API, package, or framework. C# is multi-paradigm, so functional and object-oriented techniques can coexist. Applying functional programming in C# does not require first learning a pure functional language.
 
 The central contrast is between imperative and declarative code:
-
 - Imperative code specifies how work proceeds through ordered instructions, mutable variables, loops, and branches.
 - Declarative code describes the result and the transformations needed to produce it, leaving more execution detail to the runtime.
 
@@ -52,7 +51,6 @@ The conditional here is an expression because both alternatives produce the valu
 ### Referential transparency and pure functions
 
 A pure function:
-
 - changes nothing outside the function;
 - returns the same result for the same arguments, regardless of ambient state;
 - has no unexpected side effects, including unexpected exceptions.
@@ -84,7 +82,6 @@ Complete purity is not possible at every point in a C# application. Interaction 
 ### Recursion
 
 Recursion replaces some mutation-driven loops with a function that calls itself using new argument values. A recursive function needs:
-
 1. an end condition that returns the final value;
 2. a recursive path that calls the same function with values closer to that condition;
 3. a returned value on every path.
@@ -151,7 +148,6 @@ Code that does not mutate shared in-memory state is easier to run concurrently. 
 ## Where the style fits
 
 Functional programming is particularly strong where work is predictable and transformational:
-
 - converting data from one form to another;
 - applying business logic to input before passing the result onward;
 - highly asynchronous or concurrent processing;

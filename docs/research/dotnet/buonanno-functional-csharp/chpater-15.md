@@ -20,7 +20,6 @@ STM gives each transaction an isolated view, commits all of its changes or none,
 ## The agent model
 
 An agent has three parts:
-
 - an inbox that queues messages;
 - state that only the agent owns;
 - a processing loop that handles one message at a time.
@@ -32,7 +31,6 @@ nextState = process(currentState, message)
 ```
 
 The essential invariants are:
-
 1. No caller can directly read or mutate the owned state.
 2. Messages for one agent are processed sequentially.
 3. State values passed through the loop are immutable snapshots.
@@ -116,7 +114,6 @@ Use agents when all coordinated access passes through one process. Use an actor 
 Agent messaging is command-oriented and often effectful. A fire-and-forget `Tell` produces no value to feed into another function, and an agent combines state with at least part of the behavior that changes it. Message-passing concurrency therefore complements functional composition rather than behaving like another ordinary functional pipeline.
 
 There are two coherent integration styles:
-
 - embrace a unidirectional, event-driven flow in which agents communicate through messages;
 - keep agents as private concurrency primitives and expose conventional value-returning APIs.
 
@@ -187,7 +184,6 @@ Persistence belongs inside this agent's processing function because the next mes
 Controllers need the one live process associated with an entity ID. An application-wide registry agent can own an immutable dictionary from ID to process, ensuring that two processes are never registered for the same entity.
 
 A naive registry loads missing state from storage inside its processing function. That stalls every lookup, including unrelated IDs, while one slow read completes. The corrected workflow is:
-
 1. Send `Lookup(id)` to the registry.
 2. If present, return the existing process.
 3. If absent, load the state on the caller's asynchronous flow, outside the agent.

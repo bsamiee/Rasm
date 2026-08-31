@@ -50,7 +50,6 @@ public static bool IsInvalid<T>(
 ```
 
 Use `All` when each predicate states what valid input must satisfy. Use `Any` when each predicate describes a violation. Both short-circuit:
-
 - `All` stops at the first failed rule.
 - `Any` stops at the first detected violation.
 - An empty validity rule set returns `true`; an empty violation set returns `false`.
@@ -135,7 +134,6 @@ Call sites can then construct a settings value directly, making every default vi
 ## Custom Enumeration
 
 `IEnumerable<T>` supplies an `IEnumerator<T>`. The iterator begins before the first element:
-
 - `MoveNext()` advances and reports whether an element exists.
 - `Current` reads the element at the present position.
 - The enumerator must be disposed when traversal finishes.
@@ -145,7 +143,6 @@ Controlling the enumerator directly allows traversal policies that ordinary sing
 ### Compare Adjacent Elements
 
 An adjacent-pair operator follows this state transition:
-
 1. Advance once and retain the first value as `previous`.
 2. Advance again and evaluate `(previous, Current)`.
 3. Stop early when the quantifier is decided.
@@ -191,7 +188,6 @@ public static T AggregateUntil<T>(
 The stopping predicate is checked before each transition. The final state is returned instead of hidden in a mutable loop variable. This is functionally useful when `next` returns a new state and all required information is carried in that state.
 
 The abstraction has strict limits:
-
 - `next` must eventually produce a state satisfying `stop`.
 - Straight recursion consumes stack because C# does not guarantee tail-call optimization.
 - Large, unbounded, or externally controlled iterations need a stack-safe implementation.

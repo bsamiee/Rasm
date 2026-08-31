@@ -5,7 +5,6 @@
 The core forms of `Map` and `Bind` accept unary functions, but real functions often need several arguments. Currying turns an n-argument function into a sequence of unary functions, allowing each argument to be supplied while the computation remains inside an effect such as `Option<T>` or `Validation<T>`.
 
 There are two useful composition models:
-
 - **Applicative composition** uses `Return` and `Apply` to combine elevated values that are computed independently; an effect-specific `Apply`, such as Validation's, can accumulate their failures.
 - **Monadic composition** uses `Bind`, normally through LINQ query syntax, when a later computation depends on an earlier result.
 
@@ -167,7 +166,6 @@ var total =
 into the equivalent dependency-preserving `SelectMany` chain. The ternary overload carries both values into the final projection without deeply nesting lambdas. Queries with three or more `from` clauses also need the ordinary `SelectMany` overload.
 
 Other clauses are opt-in:
-
 - `let` is expressed with `Select`, so it works once mapping is available.
 - `where` requires a suitable `Where` implementation for the effect.
 - Collection-specific clauses such as `orderby` need not exist for `Option`, `Either`, or `Validation`.

@@ -3,12 +3,10 @@
 ## The Purity Contract
 
 A function is pure when both conditions hold:
-
 1. Its return value is wholly determined by its inputs, including any immutable values fixed when the function or object was constructed.
 2. Evaluating it causes no side effects.
 
 A side effect includes:
-
 - mutating state visible outside the function, including instance fields;
 - mutating an input argument;
 - throwing an exception;
@@ -121,7 +119,6 @@ Purity makes parallelization semantically safe, but the runtime cannot infer tha
 ### Static methods are not the problem
 
 Pure methods can safely be static because all required data is explicit or immutable. Static methods become hazardous when they:
-
 - read or write mutable static fields;
 - perform I/O that callers cannot replace in tests.
 
@@ -132,7 +129,6 @@ Practical rule: make pure functions static, avoid mutable static fields, and avo
 A pure unit test supplies inputs and asserts the returned output. It is isolated and repeatable by construction.
 
 An impure function has hidden inputs, hidden outputs, or both:
-
 - the current time, database contents, or environment are implicit inputs;
 - an email sent, file written, or field changed is an implicit output.
 
@@ -154,7 +150,6 @@ Parameterized tests encourage functional thinking: each test case supplies expli
 Wrapping the system clock behind an interface makes it replaceable in tests, but the consuming method is pure only when the injected implementation is pure. A production implementation that reads the clock still carries I/O into the validator. The interface-based approach therefore improves test control without reducing the production effect itself, and using it systematically creates one-method interfaces, implementations, registrations, and test fakes.
 
 Choose the narrowest dependency that represents what the consumer actually needs:
-
 - inject a value for a stable snapshot;
 - inject a function for an operation that must run on demand.
 
