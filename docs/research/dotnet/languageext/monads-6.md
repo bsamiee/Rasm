@@ -225,24 +225,8 @@ var res2 =
 
 When parsing returns `None`, there is no value for the next dependent step, so the rest of the expression stops. Unlike a convention of scattered null checks, the type and its `Bind` implementation make this control flow unavoidable.
 
-## [07]-[TOTALITY]
-
-Expected failure belongs in the return type rather than an exception. A total function maps every allowed input to a value in its return type. Two techniques make this possible:
-1. Constrain input types so out-of-range values cannot be constructed.
-2. When valid inputs can still fail to produce the ordinary result, augment the return type with a failure or absence case.
-
-For parsing, the type communicates the whole outcome:
-
-```csharp
-Option<int> parseInt(string value);
-```
-
-`Some<int>` represents a parsed value and `None` represents expected inability to parse. Exceptions remain for exceptional events from which the program cannot recover.
-
-## [08]-[DECLARED_EFFECTS]
+## [07]-[DECLARED_EFFECTS]
 
 The monad in a return type marks a whole expression with a particular behavior. `IO<A>` declares that the expression performs IO; `Option<A>` declares that it may produce no value. Keeping those contexts visible encourages separation between effectful and non-effectful code and preserves composition.
-
-Do not call `Run` throughout an IO expression. Internal operations such as `Map` and `Bind` use it to define composition, but application code should remain in `IO` until an owning boundary such as `Main` or a web-request handler interprets the completed computation. Collapsing `IO<A>` to `A` earlier reintroduces the effect into otherwise pure code.
 
 Different monads implement very different sequencing behavior through the same `Bind` shape. The mechanism can represent IO, absence, state, configuration, logging, validation, collection iteration, stream processing, resource tracking, and other behaviors. In every case, `Bind` is a form of function composition whose external result is `M<A> -> M<B>`; the chosen `M` supplies the behavior between the steps.

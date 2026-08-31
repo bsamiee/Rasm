@@ -240,7 +240,9 @@ int errorCount = invalid.Match(Fail: static e => e.Count, Succ: static _ => 0);
 // 3
 ```
 
-`Apply` receives each validation result after evaluation and can accumulate failures from every operand. `Error` accumulates with `+` into `ManyErrors`, and `Count`, `Head`, and `IsType<E>` read the accumulated errors. The input boundary returns `Validation<Error, PhoneNumber>`. At the host boundary, `ToFin` converts it and the host matches the resulting `Fin`.
+`Apply` receives each validation result after evaluation and can accumulate failures from every operand. `Error` accumulates with `+` into `ManyErrors`, and `Count`, `Head`, and `IsType<E>` read the accumulated errors. Accumulation requires a monoidal failure type: `Error` implements `Monoid<Error>`, and a bespoke failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it. Operands that share one success type combine with `&`, which collects the successes into `Seq<A>` and accumulates the failures. `|` returns the first success and combines the errors only when both operands fail.
+
+The input boundary returns `Validation<Error, PhoneNumber>`. At the host boundary, `ToFin` converts it and the host matches the resulting `Fin`.
 
 ## [08]-[DEPENDENT_VALIDATION]
 

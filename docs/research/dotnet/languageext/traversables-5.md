@@ -44,10 +44,6 @@ This is useful whenever `Map` leaves effects inside a structure but the next ope
 
 The transformation should therefore match the dependency structure:
 
-- Use `Traverse` when each item can be processed independently and applicative combination is correct.
-- Use `TraverseM` on collection types such as `Seq<A>` when asynchronous operations must be evaluated serially.
-- Parallelization depends on the implementation of `Traverse`; it is not a universal property of the method name.
-
 ```csharp
 Seq<string> paths = Seq(
     @"C:\input\a.txt",

@@ -1,13 +1,14 @@
 # [CONVENIENCE_METHODS]
 
-`Thinktecture.Runtime.Extensions` ships a small set of plain static members beside its generators. `Empty` and `SingleItem` return cached or single-item collections, `ToReadOnlyCollection` wraps a sequence without copying it, and `TrimOrNullify` normalizes text.
+`Thinktecture.Runtime.Extensions` ships a small set of plain static members beside its generators:
+- `Empty` and `SingleItem` return cached or single-item collections.
+- `ToReadOnlyCollection` wraps a sequence without copying it, and `TrimOrNullify` normalizes text.
 
 ## [01]-[EMPTY]
 
-`Empty.Action` is an overload set, `Action()` through `Action<T1, ..., T16>`, each with an empty body. A method group conversion picks the overload that matches the target delegate, so `Empty.Action` assigns to every `Action` delegate type in that range. `Empty.Disposable()` returns one cached `IDisposable` whose `Dispose` does nothing, and `Empty.AsyncDisposable()` returns one cached `IAsyncDisposable` whose `DisposeAsync` returns a completed `ValueTask`.
+`Empty.Action` is an overload set, `Action()` through `Action<T1, ..., T16>`, each with an empty body. A method group conversion picks the overload that matches the target delegate, `Empty.Action` assigns to every `Action` delegate type in that range. `Empty.Disposable()` returns one cached `IDisposable` whose `Dispose` does nothing, and `Empty.AsyncDisposable()` returns one cached `IAsyncDisposable` whose `DisposeAsync` returns a completed `ValueTask`.
 
-The blocks spell `Thinktecture.Empty` because a `using static` import of another `Empty` member makes the plain name ambiguous. The collection members return cached instances, so repeated calls with the same type arguments return the same reference.
-
+The blocks spell `Thinktecture.Empty` because a `using static` import of another `Empty` member makes the plain name ambiguous. The collection members return cached instances, so repeated calls with the same type arguments return the same reference:
 - `Empty.Collection()` returns the non-generic `System.Collections.IEnumerable`
 - `Empty.Collection<T>()` returns `IReadOnlyList<T>` backed by `Array.Empty<T>()`, and a parameter of type `IList<T>` needs an explicit cast
 - `Empty.Dictionary<TKey, TValue>()` requires `TKey : notnull` and returns `IReadOnlyDictionary<TKey, TValue>`
