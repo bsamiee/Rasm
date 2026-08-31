@@ -5,19 +5,19 @@ Full file examples for a typical multi-level repo layout, and the before/after o
 ## [01]-[LAYOUT]
 
 ```text
-Rasm/
-├── Directory.Build.props             # repo-wide defaults
-├── Directory.Packages.props          # every package version
-├── libs/dotnet/Directory.Build.props # imports the root, adds library settings
-└── tests/dotnet/
-    ├── Directory.Build.props         # imports the root, adds test settings
-    └── Directory.Packages.props      # imports the root, adds test-only packages
+<repo>/
+├── Directory.Build.props         # repo-wide defaults
+├── Directory.Packages.props      # every package version
+├── <libs>/Directory.Build.props  # imports the root, adds library settings
+└── <tests>/
+    ├── Directory.Build.props     # imports the root, adds test settings
+    └── Directory.Packages.props  # imports the root, adds test-only packages
 ```
 
 A nested `Directory.Packages.props` hides the root file, so it imports the root first:
 
 ```xml
-<!-- tests/dotnet/Directory.Packages.props -->
+<!-- <tests>/Directory.Packages.props -->
 <Project>
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Packages.props', '$(MSBuildThisFileDirectory)../'))" />
 
@@ -43,7 +43,7 @@ A nested `Directory.Packages.props` hides the root file, so it imports the root 
 
 ## [03]-[INNER_FOLDER]-[DIRECTORY_BUILD_PROPS]
 
-`<folder>/Directory.Build.props`:
+`<inner>/Directory.Build.props`:
 
 ```xml
 <Project>
@@ -63,7 +63,7 @@ A nested `Directory.Packages.props` hides the root file, so it imports the root 
 
 ## [04]-[INNER_FOLDER]-[TESTS]
 
-`tests/dotnet/Directory.Build.props`:
+`<tests>/Directory.Build.props`:
 
 ```xml
 <Project>
@@ -94,7 +94,7 @@ A nested `Directory.Packages.props` hides the root file, so it imports the root 
 [BEFORE]: the same settings in every project file
 
 ```xml
-<!-- libs/dotnet/LibA/LibA.csproj -->
+<!-- <libs>/LibA/LibA.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -113,7 +113,7 @@ A nested `Directory.Packages.props` hides the root file, so it imports the root 
 
 </Project>
 
-<!-- libs/dotnet/LibB/LibB.csproj -->
+<!-- <libs>/LibB/LibB.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -167,7 +167,7 @@ A nested `Directory.Packages.props` hides the root file, so it imports the root 
 
 </Project>
 
-<!-- libs/dotnet/LibA/LibA.csproj -->
+<!-- <libs>/LibA/LibA.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -180,7 +180,7 @@ A nested `Directory.Packages.props` hides the root file, so it imports the root 
 
 </Project>
 
-<!-- libs/dotnet/LibB/LibB.csproj -->
+<!-- <libs>/LibB/LibB.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
