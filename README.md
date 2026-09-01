@@ -81,7 +81,7 @@ Every `libs/` package is independently consumable and publishes a stable API.
 - Every dependency edge points toward a lower-level package, the graph stays acyclic
 - Packages expose capabilities. Python and TypeScript files declare explicit exports at the end.
 - Workflow assembly, configuration loading, and dependency wiring belong to the application
-- Sibling packages align on naming, error handling, and boundary types so they compose predictably
+- Sibling packages align on naming, the result type, and boundary types so they compose predictably
 
 ## [05]-[LANGUAGE_AREAS]
 

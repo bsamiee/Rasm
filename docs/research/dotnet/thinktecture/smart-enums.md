@@ -67,12 +67,12 @@ internal sealed partial class Tier {
 internal static class Lookup {
     public static Option<T> Find<T, TKey>(TKey key) where T : ISmartEnum<TKey, T, ValidationError> where TKey : notnull =>
         T.TryGet(key, out T? item) ? Some(item) : None;
-    public static Fin<T> Admit<T, TKey, TError>(TKey key) where T : ISmartEnum<TKey, T, TError> where TKey : notnull where TError : Error, IValidationError<TError> =>
+    public static Fin<T> Require<T, TKey, TError>(TKey key) where T : ISmartEnum<TKey, T, TError> where TKey : notnull where TError : Error, IValidationError<TError> =>
         T.Validate(key, CultureInfo.InvariantCulture, out T? item) is { } error ? error : item!;
 }
 ```
 
-`Find` returns `Option<T>` because a miss has no reason. `Admit` returns `Fin<T>` because `Validate` supplies the typed `Expected` that `[ValidationError<TError>]` names.
+`Find` returns `Option<T>` because a miss has no reason. `Require` returns `Fin<T>` because `Validate` supplies the typed `Expected` that `[ValidationError<TError>]` names.
 
 ## [04]-[SWITCH_AND_MAP]
 

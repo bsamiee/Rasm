@@ -149,7 +149,7 @@ Do not use the terminal error channel for an expected per-item failure. Instead:
 Expected failures remain ordinary stream values:
 
 ```csharp
-internal sealed record UnknownPair() : Expected("unknown currency pair", 404);
+internal sealed record UnknownPair() : Expected("unknown currency pair", 1901);
 
 internal static class Failures {
     private static readonly HashMap<string, decimal> Table = HashMap(("EURUSD", 1.1m), ("GBPUSD", 1.3m));

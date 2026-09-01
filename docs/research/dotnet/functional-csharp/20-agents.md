@@ -145,7 +145,7 @@ Associate one lightweight process with each account and separate responsibilitie
 - `AccountProcess`: the agent that owns the current state and serializes commands.
 
 ```csharp
-internal sealed record Overdrawn() : Expected("debit exceeds the overdraft limit", 1001);
+internal sealed record Overdrawn() : Expected("debit exceeds the overdraft limit", 2001);
 internal sealed record AccountState(decimal Balance, decimal OverdraftLimit);
 internal sealed record Debited(decimal Amount);
 internal sealed record Debit(decimal Amount, Conduit<Fin<AccountState>, Fin<AccountState>> Replies);
@@ -210,7 +210,7 @@ A registry that loads missing state inside its update stalls every lookup, inclu
 `FindOrAdd` performs the atomic check and add. Moving the load outside the registry restores concurrency, but it also allows multiple callers to observe a miss and load concurrently. Only the `FindOrAdd` call makes creation unique, and the process not returned by `FindOrAdd` completes its inbox.
 
 ```csharp
-internal sealed record UnknownAccount() : Expected("no account has this id", 1002);
+internal sealed record UnknownAccount() : Expected("no account has this id", 2002);
 
 internal static class Registry {
     public static OptionT<IO, AccountProcess> Lookup(

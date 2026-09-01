@@ -242,7 +242,7 @@ int errorCount = invalid.Match(Fail: static e => e.Count, Succ: static _ => 0);
 
 `Apply` receives each validation result after evaluation and can accumulate failures from every operand. `Error` accumulates with `+` into `ManyErrors`, and `Count`, `Head`, and `IsType<E>` read the accumulated errors. Accumulation requires a monoidal failure type: `Error` implements `Monoid<Error>`, and a bespoke failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it. Operands that share one success type combine with `&`, which collects the successes into `Seq<A>` and accumulates the failures. `|` returns the first success and combines the errors only when both operands fail.
 
-The input boundary returns `Validation<Error, PhoneNumber>`. At the host boundary, `ToFin` converts it and the host matches the resulting `Fin`.
+The input boundary returns `Validation<Error, PhoneNumber>`.
 
 ## [08]-[DEPENDENT_VALIDATION]
 
@@ -271,7 +271,7 @@ internal static partial class Validators {
 
 `TraverseM`, the monadic traversal, skips remaining validators after the first invalid result. An empty validator list returns the input as valid. Order cheap structural checks before expensive database or remote checks. Invalid data then fails before the expensive checks run.
 
-Use this strategy when minimizing work matters more than reporting every issue, such as validation of a programmatic request.
+Use this strategy when a check must not run after an earlier failure.
 
 ### [09.2]-[ERROR_ACCUMULATION]
 
@@ -286,7 +286,7 @@ internal static partial class Validators {
 
 On success, traversal holds one copy of the input for each validator. `Map` discards those copies and returns the original value.
 
-Error accumulation is appropriate for user-submitted forms where reporting every violated rule lets the user fix all errors before submitting again.
+Use this strategy when the checks are independent and the caller repairs every violated rule at once.
 
 ## [10]-[PROPERTY_BASED_TESTING]
 
@@ -312,7 +312,7 @@ Random sampling raises confidence but does not prove a universal law. `Sample` t
 - Use `Map` for a pure unary transformation that preserves the current effect.
 - Use the tuple `Apply` when inputs are independent and the effect has relevant combination semantics.
 - Use LINQ over `Bind` when a computation consumes an earlier result or must short-circuit.
-- Use `Traverse` to accumulate over a collection of independent checks and `TraverseM` to stop at the first failure.
+- Use `Traverse` to accumulate over a collection of independent checks and `TraverseM` to stop at the first failure; an error from one element carries the element index as a typed field.
 - Avoid explicit unwrapping followed by rewrapping; it duplicates effect handling and leaks representation details.
 - Avoid nested `Bind` calls; LINQ expresses the same semantics without nested lambdas.
 - When lifting an inline lambda, use `fun` to give it a delegate type. A lambda can represent either a delegate or an expression tree.

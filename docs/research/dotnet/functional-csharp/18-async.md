@@ -14,15 +14,9 @@ Adapt an asynchronous operation that returns a non-generic `Task` to `IO<Unit>` 
 ## [02]-[LIFT_MAP_BIND]
 
 ```csharp
-internal static class Codes {
-    public const int ProviderDown = 3001;
-    public const int UnknownAccount = 3002;
-    public const int InsufficientFunds = 3003;
-}
-
 internal sealed record Flight(string Airline, decimal Price);
 internal sealed record Airline(string Name, IO<Seq<Flight>> Flights);
-internal sealed record ProviderDown() : Expected("provider down", Codes.ProviderDown);
+internal sealed record ProviderDown() : Expected("provider down", 3001);
 
 internal static class Lifts {
     public static IO<Flight> Known(Flight flight) => IO.pure(flight);
@@ -57,7 +51,7 @@ internal static class Policies {
     public static IO<Flight> Fallback(IO<Flight> primary, IO<Flight> secondary) =>
         primary | secondary;
     public static IO<Flight> FallbackOnOutage(IO<Flight> primary, IO<Flight> secondary) =>
-        primary.Catch(Codes.ProviderDown, _ => secondary).As();
+        primary.Catch(3001, _ => secondary).As();
     public static IO<Flight> Retry(IO<Flight> attempt) =>
         attempt.Retry(Schedule.exponential(TimeSpan.FromMilliseconds(1)) | Schedule.recurs(3));
 }
@@ -161,8 +155,8 @@ An effect nested inside another cannot compose directly because each `Bind` unde
 internal sealed record AccountState(Guid Id, decimal Balance);
 internal sealed record DebitCommand(Guid DebitedAccountId, decimal Amount);
 internal sealed record Debited(AccountState NewState, string Event);
-internal sealed record UnknownAccountId() : Expected("unknown account id", Codes.UnknownAccount);
-internal sealed record InsufficientFunds() : Expected("insufficient funds", Codes.InsufficientFunds);
+internal sealed record UnknownAccountId() : Expected("unknown account id", 3002);
+internal sealed record InsufficientFunds() : Expected("insufficient funds", 3003);
 internal sealed record Runtime;
 
 internal static class Account {

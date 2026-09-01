@@ -7,7 +7,7 @@
 `IO.lift` takes a thunk and defers it. Overload resolution reads the return type of the thunk. A `Func<Fin<A>>` selects its overload and converts a `Fail` to an `IO` failure. The type argument in `IO.lift<Fin<A>>` keeps the `Fin` as the value. `IO.lift(Fin<A>)` lifts an existing result. `IO.liftAsync` takes a `Task` thunk, and the `EnvIO` overload passes `env.Token` to the dependency. `IO.pure` lifts a value and `IO.fail` builds a failed effect from an `Error`. LINQ over `IO` binds dependent steps.
 
 ```csharp
-internal sealed record Unavailable() : Expected("service unavailable", 503);
+internal sealed record Unavailable() : Expected("service unavailable", 2201);
 
 internal static class Remote {
     public static async Task<int> FetchAsync(int id, CancellationToken token) {
@@ -44,7 +44,7 @@ internal static class Construction {
 internal static class Exits {
     public static Fin<int> Safe => Construction.Failed.RunSafe();
     public static Fin<int> Thrown => Try.lift(Construction.Failed.Run).Run();
-    public static Fin<int> Recovered => Construction.Failed.Catch(503, static _ => IO.pure(9)).As().RunSafe();
+    public static Fin<int> Recovered => Construction.Failed.Catch(2201, static _ => IO.pure(9)).As().RunSafe();
     public static Fin<int> Alternative => (Construction.Failed | IO.pure(8)).RunSafe();
     public static Fin<int> Cancelled() {
         using EnvIO env = EnvIO.New(token: new CancellationToken(canceled: true));

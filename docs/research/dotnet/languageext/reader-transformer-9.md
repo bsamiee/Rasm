@@ -101,7 +101,7 @@ public static class Eff
     public static Eff<RT, A> Pure<RT, A>(A value) =>
         new(ReaderT.Pure<RT, IO, A>(value));
     public static Eff<RT, A> Fail<RT, A>(Error error) =>
-        new(ReaderT.liftIO<RT, IO, A>(IO.Fail<A>(error)));
+        new(ReaderT.liftIO<RT, IO, A>(IO.fail<A>(error)));
     public static Eff<RT, RT> runtime<RT>() =>
         new(ReaderT.ask<IO, RT>());
 }
@@ -198,18 +198,37 @@ public abstract record Right;
 public record CanViewDemographic : Right;
 public record CanSendInvoice : Right;
 public record Role(Seq<Right> Rights);
+public sealed record AccessDenied() : Expected("access denied", 9001);
 
 public static K<M, User> getLoggedInUser<M>()
     where M : Readable<M, Session> =>
     Readable.asks<M, Session, User>(session => session.LoggedIn);
 public static K<M, Unit> assertHasRight<M, R>()
     where R : Right
-    where M : Readable<M, Session>, Functor<M> =>
-    getLoggedInUser<M>().Map(user =>
+    where M : Readable<M, Session>, Monad<M>, Fallible<M> =>
+    getLoggedInUser<M>().Bind(user =>
         user.Memberships.Exists(role =>
             role.Rights.Exists(right => right is R))
-                ? Prelude.unit
-                : throw new SecurityException("Access denied"));
+                ? M.Pure(Prelude.unit)
+                : M.Fail<Unit>(new AccessDenied()));
+```
+
+`assertHasRight` refuses on the failure channel, so the simplified `Eff` gains `Fallible` by delegating to `IO`:
+
+```csharp
+public class Eff<RT> : Monad<Eff<RT>>, Readable<Eff<RT>, RT>, Fallible<Eff<RT>>
+{
+    // Monad and Readable members omitted
+
+    public static K<Eff<RT>, A> Fail<A>(Error error) =>
+        Eff.Fail<RT, A>(error);
+    public static K<Eff<RT>, A> Catch<A>(
+        K<Eff<RT>, A> ma,
+        Func<Error, bool> predicate,
+        Func<Error, K<Eff<RT>, A>> handler) =>
+        new Eff<RT, A>(ReaderT<RT, IO, A>.AsksM(rt =>
+            ma.As().runEff.Run(rt).As().Catch(predicate, e => handler(e).As().runEff.Run(rt))));
+}
 ```
 
 Running the request computation with `Run(session)` threads the read-only user, roles, and rights through the stack. Authorization logic is written once and used by every monad that exposes the session through `Readable`:

@@ -85,7 +85,7 @@ All bound functions share the failure type `Error`. Choose the domain errors for
 
 ## [04]-[TYPED_VALIDATION]
 
-Prefer distinct error types over strings. A string cannot carry structured error details. Specific `Expected` records give each failure a distinct type and code and can carry additional data.
+Prefer distinct error types over strings. A string cannot carry structured error details. Specific `Expected` records give each failure a distinct type and code and can carry additional data. Each package declares the record beside the function that returns it or the value object it protects.
 
 ```csharp
 internal sealed record BookTransfer(string Bic, DateOnly Date);
@@ -93,6 +93,7 @@ internal sealed record BookTransfer(string Bic, DateOnly Date);
 internal static class Codes {
     public const int InvalidBic = 1;
     public const int TransferDateIsPast = 2;
+    public const int TransferRejected = 3;
 }
 
 internal sealed record InvalidBic() : Expected("The beneficiary BIC is invalid", Codes.InvalidBic);
@@ -108,11 +109,11 @@ internal static class Transfers {
 }
 ```
 
-Each validator has the same shape: accept the request, return it on success, or return the error for the violated rule. The date validator checks that the transfer is in the future and receives the clock as an argument. The BIC validator checks the identifier's format. Returning the request in `Succ` makes it available to the next validator. The codes are defined together in the `Codes` class, and a consumer classifies an error with `Is`, `HasCode`, or `IsType<E>`, never by its message text.
+Each validator has the same shape: accept the request, return it on success, or return the error for the violated rule. The date validator checks that the transfer is in the future and receives the clock as an argument. The BIC validator checks the identifier's format. Returning the request in `Succ` makes it available to the next validator. A `Codes` class holds the codes of one package, and a consumer classifies an error with `Is`, `HasCode`, or `IsType<E>`, never by its message text.
 
 ## [05]-[ABSTRACTION_SCOPE]
 
-Within the core, compose with `Map` and `Bind`. Translate only in an outer adapter when the protocol, UI, or host requires another response type. Choose the result type at the input boundary and keep it through the domain. Use `Match`, `RunSafe`, and `IfFail` only at host boundaries.
+Within the core, compose with `Map` and `Bind`. Translate only in an outer adapter when the protocol, UI, or host requires another response type. Choose the result type at the input boundary and keep it through the domain. Use `Match`, `RunSafe`, and `IfFail` only at host boundaries. Every library returns its result type with its own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation.
 
 ```csharp
 IActionResult Post(Request request) =>
@@ -134,19 +135,23 @@ Mapping business validation to an HTTP error such as 400 has tradeoffs: the requ
 `MapFail` changes only the `Error`, and `BiMap` maps both sides:
 
 ```csharp
+internal sealed record TransferRejected : Expected {
+    public TransferRejected(Error cause) : base("transfer rejected", Codes.TransferRejected, cause) { }
+}
+
 internal static class Adapters {
     public static Fin<BookTransfer> WithContext(Fin<BookTransfer> result) =>
-        result.MapFail(static error => Error.New("transfer rejected", error));
+        result.MapFail(static error => new TransferRejected(error));
     public static Fin<string> Describe(Fin<BookTransfer> result) =>
         result.BiMap(
             Succ: static command => command.Bic,
-            Fail: static error => Error.New("transfer rejected", error));
+            Fail: static error => new TransferRejected(error));
     public static Fin<BookTransfer> Recover(Fin<BookTransfer> result, BookTransfer fallback) =>
         result.Catch(Codes.InvalidBic, _ => fallback).As();
 }
 ```
 
-`Error.New(string, Error)` keeps the original error as `Inner`, so context is added without losing the cause. Recovery belongs to the boundary that owns the error and uses the `Catch` overloads. `Catch(code, f)` selects by code, `Catch(Error, f)` by value, and `Catch(predicate, f)` by a test on the error.
+Each package translates the errors of a dependency that it reacts to into its own `Expected` record with `MapFail`, keeps the original as `Inner`, and passes every other error through unchanged. `Error.New(string, Error)` has code `0`, and `IsType`, `HasCode`, `Is`, and `Catch` do not descend into `Inner`, so only the typed record stays classifiable. `Catch(code, f)` selects by code, `Catch(Error, f)` by value, and `Catch(predicate, f)` by a test on the error.
 
 ## [07]-[BUSINESS_AND_TECHNICAL_FAILURES]
 
@@ -196,7 +201,7 @@ internal static class Handler {
 ```
 
 The tuple `Apply` combines the two independent validators and reports both violations together. At the outer boundary, `RunSafe` returns one `Fin<Unit>`, and `Match` separates the three reachable outcomes:
-- `Fail` with an `Expected` error or `ManyErrors`: expose the business errors.
+- `Fail` with an `Expected` error or `ManyErrors`: expose the business errors, and log the `Inner` of a translated dependency failure.
 - `Fail` with an `Exceptional` error: log the technical detail and expose a generic failure.
 - `Succ(unit)`: return success.
 

@@ -47,7 +47,7 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 
 [FLOW]: Dependent operations use one result type that short-circuits on the first error
 - ALWAYS bind an operation that consumes the previous operation's value; the error case skips the remaining operations
-- ALWAYS implement recovery as a function from an error to the same result type, owned by the package that defines the error
+- ALWAYS implement recovery as a function from an error to the same result type; the package declaring the error owns its classification, consumer with the alternative owns recovery
 - ALWAYS choose the result type at the input boundary, preserve it through domain logic, and translate it only at the host boundary
 - ALWAYS select control flow by pattern matching the result cases; status flags, out parameters, and nullable companion fields do not select the path
 - ALWAYS use one result type per expression; adapt a call returning a different result type at the call site
@@ -67,7 +67,7 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 
 [BOUNDARY]: Boundaries own every conversion between external values and domain values
 - ALWAYS emit logs, traces, and metrics when translating the result at the boundary; domain expressions stay pure and silent
-- ALWAYS publish `libs/` package APIs that return the shared result type so consumers compose them without unwrapping
+- ALWAYS return the language's one result type from every package/project API so consumers compose without unwrapping
 - ALWAYS validate host, protocol, and file input once at the boundary into domain values; domain logic receives no raw input
 - ALWAYS map external names to canonical domain names at the validating boundary; one module owns both directions
 - ALWAYS translate the result at the boundary into the host's vocabulary: exit code, status, host exception, or UI state

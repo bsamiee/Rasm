@@ -35,7 +35,7 @@ internal sealed record Runtime(Clock Clock) : Has<Eff<Runtime>, Clock> {
 
 internal static class Concerns {
     public static Option<Person> Find(Map<string, Person> people, string name) => people.Find(name);
-    public static Fin<Age> Admit(int years) => Age.From(years);
+    public static Fin<Age> Restrict(int years) => Age.From(years);
     public static Either<Guest, Member> Visitor(string name, int id) => id > 0 ? Right(new Member(id)) : Left(new Guest(name));
     public static Validation<Error, Person> Register(string name, int years) =>
         (ValidName(name), Age.From(years).ToValidation()).Apply(static (n, a) => new Person(n, a)).As();
@@ -47,7 +47,7 @@ internal static class Concerns {
 }
 ```
 
-`Find` returns `Option` because absence carries no `Error`. `Admit` returns `Fin` because an out-of-range age produces an `Error`. `Register` combines independent checks and reports every failure. `Load` returns `IO` whose failure channel carries the typed `NotFound`. `Stamp` reads the `Clock` capability from any runtime that declares `Has<Eff<RT>, Clock>`.
+`Find` returns `Option` because absence carries no `Error`. `Restrict` returns `Fin` because an out-of-range age produces an `Error`. `Register` combines independent checks and reports every failure. `Load` returns `IO` whose failure channel carries the typed `NotFound`. `Stamp` reads the `Clock` capability from any runtime that declares `Has<Eff<RT>, Clock>`.
 
 ## [02]-[BOUNDARY_RULE]
 
@@ -95,7 +95,7 @@ Each conversion is a method on the source type, and the name states the target. 
 ```csharp
 internal static class Conversions {
     public static Fin<int> Required(Option<int> value) => value.ToFin(new NotFound());
-    public static Validation<Error, int> Admitted(Option<int> value) => value.ToValidation<Error>(new NotFound());
+    public static Validation<Error, int> Checked(Option<int> value) => value.ToValidation<Error>(new NotFound());
     public static Option<Age> Present(Fin<Age> age) => age.ToOption();
     public static Either<Error, Age> Split(Fin<Age> age) => age.ToEither();
     public static Seq<int> Items(Option<int> value) => value.ToSeq();
@@ -109,7 +109,7 @@ internal static class Conversions {
 
 ## [05]-[ERROR_MODEL]
 
-A domain error is a `sealed record` that extends `Expected` with a message and a code. The `Codes` static class defines all error codes. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. An error that a value object raises also implements `IValidationError<T>`, and the generated `Validate` returns it. The package `Errors` class holds shared values such as `Errors.TimedOut` and `Errors.None`.
+A domain error is a `sealed record` that extends `Expected` with a message and a code. A `Codes` class holds the codes of the package that declares the errors. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. An error that a value object raises also implements `IValidationError<T>`, and the generated `Validate` returns it. LanguageExt's `Errors` class holds shared values such as `Errors.TimedOut` and `Errors.None`.
 
 ```csharp
 internal static class Codes {
@@ -118,6 +118,7 @@ internal static class Codes {
     public const int NotFound = 2103;
     public const int Underage = 2104;
     public const int TooLarge = 2105;
+    public const int RegistrationFailed = 2106;
 }
 
 internal sealed record InvalidAge() : Expected("age out of range", Codes.InvalidAge), IValidationError<InvalidAge> {
@@ -128,20 +129,23 @@ internal sealed record EmptyName() : Expected("name is empty", Codes.EmptyName);
 internal sealed record NotFound() : Expected("person not found", Codes.NotFound);
 internal sealed record Underage() : Expected("person is under age", Codes.Underage);
 internal sealed record TooLarge() : Expected("value is too large", Codes.TooLarge);
+internal sealed record RegistrationFailed : Expected {
+    public RegistrationFailed(Error cause) : base("registration failed", Codes.RegistrationFailed, cause) { }
+}
 
 internal static class Classify {
     public static Fin<int> Captured(string text) => Try.lift(() => int.Parse(text, CultureInfo.InvariantCulture)).Run();
-    public static bool Retryable(Error error) => error.Is(Errors.TimedOut) || error.IsType<Exceptional>();
+    public static bool Retryable(Error error) => error.Is(Errors.TimedOut) || error.HasException<IOException>();
     public static bool Rejected(Error error) => error.HasCode(Codes.InvalidAge) || error.IsType<EmptyName>();
     public static int AgeFaults(Error error) => error.Filter<InvalidAge>().Count;
 }
 ```
 
-A consumer classifies with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. The message is for the host to render.
+A consumer classifies with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. `HasCode` and `Catch(int)` select a code the same package declares; codes from several packages meet in one `ManyErrors`, and `IsType<E>` separates them. The message is for the host to render.
 
 ## [06]-[RECOVERY]
 
-Recovery is a function from an error to the same result type. The boundary responsible for the error defines recovery. The `Catch` overloads select by code, by error value, or by predicate. The code and error-value overloads are extensions that return `K<F, A>`, so `.As()` restores the concrete type. `IO<A>` declares the predicate overload as an instance method that returns `IO<A>`. The `|` operator uses the right alternative when the left one fails. `BindFail` lets the recovery function return either `Fin` case. `MapFail` adds context by wrapping the original error as the inner error. `IfFail` returns a non-`Fin` value.
+Recovery is a function from an error to the same result type. The `Catch` overloads select by code, by error value, or by predicate. The code and error-value overloads are extensions that return `K<F, A>`, so `.As()` restores the concrete type. `IO<A>` declares the predicate overload as an instance method that returns `IO<A>`. The `|` operator uses the right alternative when the left one fails. `BindFail` lets the recovery function return either `Fin` case. `MapFail` adds context by wrapping the original error as the inner error. `IfFail` returns a non-`Fin` value.
 
 ```csharp
 internal static class Recovery {
@@ -151,7 +155,7 @@ internal static class Recovery {
     public static IO<Person> Cached(IO<Person> load, Person cached) => load.Catch(Codes.NotFound, _ => IO.pure(cached)).As();
     public static IO<Person> Fallback(IO<Person> primary, IO<Person> secondary) => primary | secondary;
     public static Fin<Age> Rebound(Fin<Age> age) => age.BindFail(static error => error.HasCode(Codes.InvalidAge) ? Age.From(0) : error);
-    public static Fin<Age> WithContext(Fin<Age> age) => age.MapFail(static error => Error.New("registration", error));
+    public static Fin<Age> WithContext(Fin<Age> age) => age.MapFail(static error => new RegistrationFailed(error));
     public static int AtHost(Fin<int> result) => result.IfFail(static _ => -1);
 }
 ```
