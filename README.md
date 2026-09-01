@@ -2,9 +2,9 @@
 
 Rasm is a polyglot monorepo. Development targets macOS first, and all code and tooling remain portable to Linux and Windows. Rasm accepts only dependencies, tools, and hosts that run on macOS.
 
-- Language-specific code is organized beneath `libs/` and `tests/`.
-- Applications live in `apps/`, one directory per product, and consume internal libraries through package dependencies.
-- Shared build and release automation lives in `eng/`.
+- Language-specific code is organized beneath `libs/` and `tests/`
+- Applications live in `apps/`, one directory per product, and consume internal libraries through package dependencies
+- Shared build and release automation lives in `eng/`
 
 Dependency versions centralize in root manifests: `Directory.Packages.props` for .NET, `pyproject.toml` and `uv.lock` for Python, and `pnpm-workspace.yaml` for TypeScript.
 
@@ -68,10 +68,10 @@ Nx defines the task graph and the build, test, lint, and generate targets.
 
 Checker configuration is centralized, and each language area must pass its configured checks before code is merged.
 
-- .NET: Roslyn analyzers at `latest-all`, warnings-as-errors, code-style rules enforced during build, `.editorconfig` carries rule severity and configuration.
-- `Thinktecture.Runtime.Extensions.Analyzers` validates generated-type declarations and generated `Switch`/`Map` usage across every .NET project.
-- Python: Passes with no warnings/errors from `ruff`, `ty`, and `mypy`.
-- TypeScript: Passes `biome check` and compiles with `tsc --build` under strict settings.
+- .NET: Roslyn analyzers at `latest-all`, warnings-as-errors, code-style rules enforced during build, `.editorconfig` carries rule severity and configuration
+- `Thinktecture.Runtime.Extensions.Analyzers` validates generated-type declarations and generated `Switch`/`Map` usage across every .NET project
+- Python: Passes with no warnings/errors from `ruff`, `ty`, and `mypy`
+- TypeScript: Passes `biome check` and compiles with `tsc --build` under strict settings
 - Formatting: `dotnet format`, `ruff format`, and `biome format`
 - Do not relax checker settings; repair the code or correct a demonstrably invalid rule
 
@@ -81,7 +81,7 @@ Every `libs/` package is independently consumable and publishes a stable API.
 
 - Packages reference sibling packages through declared package dependencies
 - Every dependency edge points toward a lower-level package, the graph stays acyclic
-- Packages expose capabilities. Python and TypeScript files declare explicit exports at the end.
+- Packages expose capabilities: Python and TypeScript files declare explicit exports at the end
 - Workflow assembly, configuration loading, and dependency wiring belong to the application
 - Sibling packages align on naming, the result type, and boundary types to compose predictably
 

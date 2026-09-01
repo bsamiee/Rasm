@@ -6,10 +6,10 @@ Lambda calculus is an idealized, minimal functional language and the theoretical
 
 ### Lambda expressions
 
-Every lambda expression is built by one of three rules:
-- A variable such as `x` is an expression.
-- If `x` is a variable and `e` an expression, the function abstraction `lambda x. e` is an expression.
-- If `e1` and `e2` are expressions, the function application `e1 e2` is an expression.
+Every lambda expression is built by these rules:
+- Variables such as `x` are expressions
+- If `x` is a variable and `e` an expression, the function abstraction `lambda x. e` is an expression
+- If `e1` and `e2` are expressions, the function application `e1 e2` is an expression
 
 In BNF:
 
@@ -24,20 +24,19 @@ Parentheses remove ambiguity. `lambda x. x` is the identity function; `(lambda x
 
 ### Reduction
 
-Running a lambda-calculus program means repeatedly reducing its expression until no reduction remains; the result is its value. Variables and function abstractions are fully reduced. An application of the form `(lambda x. e1) e2` is a reducible expression, or redex; reduction substitutes the actual argument `e2` for the formal parameter `x` in `e1`. `(lambda x. x x) y` reduces to `y y`.
+Running a lambda-calculus program means repeatedly reducing its expression until no reduction remains; the result is its value. Variables and function abstractions are fully reduced. An application `(lambda x. e1) e2` is a reducible expression, or redex; reduction substitutes the actual argument `e2` for the formal parameter `x` in `e1`. `(lambda x. x x) y` reduces to `y y`.
 
 Not every expression reaches a value. `(lambda x. x x) (lambda x. x x)` reduces to itself forever and represents an undefined, non-terminating computation.
 
 ### First-class functions
 
-Variables and functions are both expressions. A function can be passed to another function or returned from one just like any other value. This first-class status enables higher-order functions. Functional languages retain this property; conventional imperative languages generally treat functions as a separate, second-class category.
+Variables and functions are both expressions. Functions serve as arguments or return values just like any other value. This first-class status enables higher-order functions. Functional languages retain this property; conventional imperative languages generally treat functions as a separate, second-class category.
 
 ### Currying and partial application
 
 Lambda calculus supports only unary functions. Currying represents a multi-argument function as nested unary functions: `λx. λy. f x y`.
 
 Applying it to `u` and `v` proceeds one argument at a time:
-
 `(λx. λy. f x y) u v` reduces to `(λy. f u y) v`, then to `f u v`.
 
 Stopping after the first application fixes `x` to `u` and returns a unary function. This is partial application.
@@ -45,8 +44,8 @@ Stopping after the first application fixes `x` to `u` and returns a unary functi
 ### Reduction strategies
 
 When both an application and its argument are redexes, evaluation order matters:
-- Call by value: fully reduce the argument, then substitute its value.
-- Call by name: substitute the unreduced argument expression.
+- Call by value: fully reduce the argument, then substitute its value
+- Call by name: substitute the unreduced argument expression
 
 For `(lambda x. x x) ((lambda y. y) z)`, call by value first reduces the argument to `z`; call by name first duplicates the argument. Both ultimately produce `z z`. In general, the paths differ but the results agree whenever both terminate.
 
@@ -62,8 +61,7 @@ The syntax below is OCaml-specific, while most of the underlying treatment of fu
 
 OCaml's `fun` corresponds to lambda abstraction; `fun x -> x *. x` accepts a float and returns its square.
 
-A function is an expression that evaluates to a function value. An anonymous function can be named with `let`; the shorter named-function syntax is equivalent:
-
+Functions are expressions that evaluate to function values. `let` names an anonymous function; the shorter named-function syntax is equivalent:
 `let square = fun x -> x *. x` and the syntactic sugar `let square x = x *. x` are equivalent.
 
 Application places the function beside its argument: `(fun x -> x *. x) 2.` evaluates to `4.`.
@@ -79,9 +77,9 @@ The analogous Haskell expression returns `42` because the body does not use the 
 
 ### Function types
 
-OCaml is strongly and statically typed, every expression has a type. A function from `t1` to `t2` has type `t1 -> t2`. OCaml infers `square : float -> float` from the floating-point operator `*.` and rejects incompatible applications at compile time.
+OCaml is strongly and statically typed, every expression has a type. Functions from `t1` to `t2` have type `t1 -> t2`. OCaml infers `square : float -> float` from the floating-point operator `*.` and rejects incompatible applications at compile time.
 
-An input or output may itself be a function type. Because `->` associates to the right, `int -> bool -> string` means `int -> (bool -> string)`: accept an integer and return a function that accepts a boolean and returns a string. One inhabitant is:
+An input or output may be a function type. Because `->` associates to the right, `int -> bool -> string` means `int -> (bool -> string)`: accept an integer and return a function that accepts a boolean and returns a string. One inhabitant is:
 
 ```ocaml
 fun x -> fun y -> if (x > 0) && y then "Hello" else "Good bye"
@@ -91,7 +89,7 @@ Function types expose the public contract and are often the fastest way to under
 
 ### Functions as black-box abstractions
 
-Naming a computation turns it into a reusable concept. A client of `square` depends on its promise, not its implementation:
+Naming a computation turns it into a reusable concept. Clients of `square` depend on its promise, not its implementation:
 
 ```ocaml
 let circle_area r = pi *. square r
@@ -101,7 +99,7 @@ let circle_area r = pi *. square r
 
 ## Currying for function chaining
 
-Currying formulates a function that accepts multiple arguments as a nested chain of unary functions. Most functional programming languages, including OCaml, incorporate this technique. In OCaml, operators are ordinary functions when parenthesized. Integer addition has type `(+) : int -> int -> int`, equivalent to `int -> (int -> int)`.
+Currying formulates a function that accepts multiple arguments as a nested chain of unary functions. Most functional programming languages incorporate this technique. In OCaml, operators are ordinary functions when parenthesized. Integer addition has type `(+) : int -> int -> int`, equivalent to `int -> (int -> int)`.
 
 Multi-argument syntax is sugar for nested unary functions:
 
@@ -126,7 +124,7 @@ Spaces in `( * )` avoid collision with the OCaml comment opener `(*`. `rectangle
 
 ## Recursive functions
 
-A functional formulation can express repetition through recursive structure rather than assignment-driven loops. The recurrence `sum(0) = 0`; `sum(n) = n + sum(n - 1)` for `n > 0` translates directly into OCaml using `rec`:
+Functional formulations express repetition through recursive structure rather than assignment-driven loops. The recurrence `sum(0) = 0`; `sum(n) = n + sum(n - 1)` for `n > 0` translates directly into OCaml using `rec`:
 
 ```ocaml
 let rec sum n = if n <= 0 then 0 else n + sum (n - 1)
@@ -146,16 +144,15 @@ let rec sum_iter s c n =
 ```
 
 The recursive call is the final operation, there is no deferred calculation after it returns. Its process advances directly:
-
 `sum_iter 0 1 5` advances through `sum_iter 1 2 5`, `sum_iter 3 3 5`, `sum_iter 6 4 5`, `sum_iter 10 5 5`, and `sum_iter 15 6 5`.
 
-OCaml and Haskell optimize tail calls, this process does not grow the call stack. Recursion can implement loops without special `for` or `while` constructs. A tail-recursive OCaml function can run forever without stack overflow, whereas Java does not generally optimize tail recursion and eventually exhausts its stack.
+OCaml and Haskell optimize tail calls, this process does not grow the call stack. Recursion can implement loops without special `for` or `while` constructs. Tail-recursive OCaml functions can run forever without stack overflow, whereas Java does not generally optimize tail recursion and eventually exhausts its stack.
 
 Tail recursion is valuable for large inputs, but is not automatically preferable: when stack depth is safe, a direct non-tail-recursive definition may express the computation more clearly. Recursive functions are especially natural for recursively structured data such as lists and trees.
 
 ## Higher-order functions as general computation methods
 
-A higher-order function accepts a function or returns one. First-class functions let such functions capture patterns that vary over another computation.
+Higher-order functions accept a function or return one. First-class functions let such functions capture patterns that vary over another computation.
 
 ### Summation
 
@@ -212,7 +209,7 @@ Calling `sum_integer_cubes n` computes `1^3 + 2^3 + ... + n^3`.
 
 ### Prime detection
 
-A number is prime when no divisor from `2` through its square root divides it. Stop once `m * m > n`:
+`n` is prime when no divisor from `2` through its square root divides it. Stop once `m * m > n`:
 
 ```ocaml
 let rec is_prime n =
@@ -279,11 +276,11 @@ For example, summing identity terms that are prime over `1..4` yields `5`; over 
 
 ## Function reasoning checkpoints
 
-- `(lambda x. x y) (lambda z. z)` reduces to `y`.
-- Higher-order functions are the distinctive abstraction mechanism enabled by first-class functions; merely defining ordinary functions is not unique to functional languages.
-- A strict OCaml application evaluates an erroneous or non-terminating argument even when the body ignores it; the corresponding non-strict Haskell application can return without evaluating it.
-- OCaml string concatenation as a function has type `(^) : string -> string -> string`, not a tuple-argument type.
-- `(fun x -> 42) (endless 1)` never terminates in OCaml because the argument is evaluated first.
-- `((>) 10) 9` is `true`: partial application fixes the left operand, it tests whether `10 > 9`.
-- If `judgment f x = if f x then "it's true" else "it's false"`, then `judgment (fun x -> x mod 2 <> 0) 11` returns `"it's true"`.
-- Accumulating terms whose sign is positive at odd indices and negative at even indices computes `1 - 2 + 3 - 4 + ...`, through the requested upper bound.
+- `(lambda x. x y) (lambda z. z)` reduces to `y`
+- Higher-order functions are the distinctive abstraction mechanism enabled by first-class functions; merely defining ordinary functions is not unique to functional languages
+- Strict OCaml applications evaluate an erroneous or non-terminating argument even when the body ignores it; the corresponding non-strict Haskell application can return without evaluating it
+- OCaml string concatenation as a function has type `(^) : string -> string -> string`, not a tuple-argument type
+- `(fun x -> 42) (endless 1)` never terminates in OCaml because the argument is evaluated first
+- `((>) 10) 9` is `true`: partial application fixes the left operand, it tests whether `10 > 9`
+- If `judgment f x = if f x then "it's true" else "it's false"`, then `judgment (fun x -> x mod 2 <> 0) 11` returns `"it's true"`
+- Accumulating terms whose sign is positive at odd indices and negative at even indices computes `1 - 2 + 3 - 4 + ...`, through the requested upper bound

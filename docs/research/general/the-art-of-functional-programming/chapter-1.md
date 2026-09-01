@@ -6,7 +6,7 @@ Functional programming is a programming paradigm: a style and way of thinking ab
 
 The governing balance is:
 - Understand the fundamental principles of the functional paradigm;
-- Apply those principles pragmatically to real problems.
+- Apply those principles pragmatically to real problems
 
 The practical emphasis includes routine programming work, collection processing for an e-commerce application, hierarchical data such as JSON, and foundational language techniques such as parsing, type checking, interpretation, and compilation.
 
@@ -14,12 +14,12 @@ The material is aimed at beginner and intermediate software engineers, engineeri
 
 ### Conceptual progression
 
-1. Expressions: composition from simpler expressions; syntax, types, and semantics; parsing, type checking, interpretation, and compilation.
-2. Functions: lambda calculus, computation patterns, currying, recursion, and higher-order functions.
-3. Complex data: tuples, lists, algebraic data types for hierarchical data, and pattern matching.
-4. Common patterns: `map`, `filter`, `fold`, and `zip` over lists and other structures.
-5. Dataflow programming: composing programs from existing components.
-6. Applications: collection processing and JSON representation and handling.
+1. Expressions: composition from simpler expressions; syntax, types, and semantics; parsing, type checking, interpretation, and compilation
+2. Functions: lambda calculus, computation patterns, currying, recursion, and higher-order functions
+3. Complex data: tuples, lists, algebraic data types for hierarchical data, and pattern matching
+4. Common patterns: `map`, `filter`, `fold`, and `zip` over lists and other structures
+5. Dataflow programming: composing programs from existing components
+6. Applications: collection processing and JSON representation and handling
 
 ## Programming paradigms
 
@@ -31,23 +31,23 @@ Imperative programming's historical dominance is connected to the von Neumann ar
 
 ## Von Neumann architecture
 
-A minimal von Neumann computer contains:
-- A CPU, including a control unit, arithmetic logic unit, and a small set of registers;
+Minimal von Neumann machines have:
+- CPU with a control unit, arithmetic logic unit, and a small set of registers;
 - Memory holding both program instructions and data;
-- A bus connecting CPU and memory.
+- Bus connecting CPU and memory
 
 Machine instructions are binary and primitive, such as arithmetic, equality tests, loads, and stores. Loads move data from memory into registers; stores move register data back into memory.
 
 Execution follows a fetch-execute cycle:
-1. Fetch an instruction from memory.
-2. Execute it in the CPU.
-3. Fetch the next instruction and continue.
+1. Fetch an instruction from memory
+2. Execute it in the CPU
+3. Fetch the next instruction and continue
 
-Jump and branch instructions alter the otherwise sequential order. A jump can return to an earlier instruction; a branch chooses an instruction when a condition holds. Together they implement constructs such as loops and conditionals.
+Jump and branch instructions alter the otherwise sequential order. Jumps return to an earlier instruction; branches choose an instruction when a condition holds. Together they implement constructs such as loops and conditionals.
 
 ## Why imperative programming is low-level
 
-Programming directly for this architecture centers on stepwise memory updates. A program is a sequence of instructions that moves data between memory and CPU, performs arithmetic or logic, and writes updated values back.
+Programming directly for this architecture centers on stepwise memory updates. Programs are sequences of instructions that move data between memory and CPU, perform arithmetic or logic, and write values back.
 
 An imperative sum of the squares from `1` through `n` illustrates this model:
 
@@ -62,7 +62,7 @@ while (i < n) {
 
 `sum` and `i` correspond to memory cells. `i = i + 1` conceptually loads `i`, adds one in the CPU, and stores the result. The loop maps to branch and jump instructions.
 
-This close conceptual coupling makes imperative programs comparatively weak at abstraction and composition. A loop often forms one monolithic unit rather than an assembly of smaller reusable parts.
+This close conceptual coupling makes imperative programs comparatively weak at abstraction and composition. Loops often form a monolithic unit rather than an assembly of reusable parts.
 
 ## Functional composition and dataflow
 
@@ -72,10 +72,10 @@ The chapter illustrates the same computation as a composition of reusable operat
 (fold (+) 0 . map square) [1..n]
 ```
 
-- `map square` applies `square` to every list element.
-- `fold (+) 0` combines the transformed elements with addition, beginning from `0`.
-- `.` feeds the output of one function into the next.
-- Only `square`, `(+)`, and `0` are specific to the task; `map`, `fold`, and composition are general-purpose components.
+- `map square` applies `square` to every list element
+- `fold (+) 0` combines the transformed elements with addition, beginning from `0`
+- `.` feeds the output of one function into the next
+- Only `square`, `(+)`, and `0` are specific to the task; `map`, `fold`, and composition are general-purpose components
 
 For a concrete input, the data flows as:
 
@@ -83,7 +83,7 @@ For a concrete input, the data flows as:
 [1; 2; 3; 4] -> map square -> [1; 4; 9; 16] -> fold (+) 0 -> 30
 ```
 
-The structural contrast between these two versions is:
+The structural contrast between these versions is:
 - The imperative version prescribes how variables are initialized and updated. Understanding it requires mentally executing its steps.
 - The functional version describes what transformation occurs. Its pipeline structure exposes the computation directly and lowers the cognitive burden of understanding it.
 
@@ -110,12 +110,12 @@ Functional programming is not universally better than imperative programming. Ea
 
 ## Why functional programming matters
 
-### A broader problem-solving toolkit
+### Broader problem-solving toolkit
 
 Functional programming is particularly suitable for:
 - Hierarchical structures and languages with well-defined syntax, including JSON, XML, and domain-specific languages;
 - Filtering, transforming, and aggregating collections in mobile applications, web applications, and backend services;
-- Managing complexity through abstraction and composition.
+- Managing complexity through abstraction and composition
 
 Composition builds complex programs from simpler programs. Abstraction captures recurring computation patterns in general, reusable functions. These capabilities improve software design and support clean, reusable code even when day-to-day work is not primarily functional.
 
@@ -130,13 +130,13 @@ Examples of declarative approaches include:
 - Declarative UI, including Flutter and Jetpack Compose;
 - Declarative build systems, including Maven and Gradle;
 - Declarative build pipelines, including declarative Jenkins pipelines;
-- Declarative infrastructure as code, including Terraform and CloudFormation.
+- Declarative infrastructure as code, including Terraform and CloudFormation
 
-Ant represents the contrasting imperative build style: it explicitly orders the commands used to perform a build. A declarative build definition operates at a higher level, hides implementation details, and makes complex builds easier to compose from smaller steps. Similar advantages apply to UI and infrastructure definitions.
+Ant represents the contrasting imperative build style: it explicitly orders the commands used to perform a build. Declarative build definitions work at a higher level, hide implementation details, and make complex builds easier to compose from smaller steps. Similar advantages apply to UI and infrastructure definitions.
 
 Learning functional programming develops declarative thinking that transfers across languages, libraries, frameworks, build tools, deployment pipelines, and infrastructure tools.
 
-### A changed mental model
+### Changed mental model
 
 Functional concepts can initially feel awkward because they require a different way of thinking. That discomfort is expected: a worthwhile programming language or paradigm changes how a programmer understands and structures problems.
 
@@ -158,9 +158,9 @@ which ocamlc
 ```
 
 The installed tools have distinct roles:
-- `ocamlc` compiles OCaml source to bytecode.
-- `ocamlopt` compiles OCaml source to native object code and links standalone executables.
-- `ocamlrun` executes bytecode produced by `ocamlc`.
+- `ocamlc` compiles OCaml source to bytecode
+- `ocamlopt` compiles OCaml source to native object code and links standalone executables
+- `ocamlrun` executes bytecode produced by `ocamlc`
 
 ### OCaml REPL: utop
 
@@ -177,10 +177,10 @@ utop # 1 + 2;;
 ```
 
 Useful interaction:
-- Tab performs completion.
-- Up arrow recalls previously entered expressions.
-- Input can span multiple lines until terminated by `;;`.
-- `#quit;;` exits.
+- Tab performs completion
+- Up arrow recalls previously entered expressions
+- Input can span multiple lines until terminated by `;;`
+- `#quit;;` exits
 
 ### Haskell compiler and REPL
 
@@ -195,7 +195,7 @@ Prelude> 1 + 2 * 3
 
 ## Quiz conclusions
 
-1. Imperative abstraction and composition are limited because the paradigm is conceptually tied to the von Neumann architecture and its movement and mutation of data. The reason is not that imperative programming lacks functions or combination operators.
-2. Imperative programming and functional programming are programming paradigms; microservice is not.
-3. Quiz 3 selects only domain-specific languages and well-defined hierarchical syntax such as JSON and XML. Filtering, transforming, and aggregating collections are nevertheless also identified as functional strengths.
-4. Maven and Terraform follow declarative approaches; Ant is imperative.
+1. Imperative abstraction and composition are limited because the paradigm is conceptually tied to the von Neumann architecture and its movement and mutation of data, not because imperative programming lacks functions or combination operators
+2. Imperative programming and functional programming are programming paradigms; microservice is not
+3. Quiz 3 selects only domain-specific languages and well-defined hierarchical syntax such as JSON and XML
+4. Maven and Terraform follow declarative approaches; Ant is imperative

@@ -12,17 +12,17 @@ Synchronization strategies have different scopes:
 | :-----: | :---------------------------- | :-------------------------------------------------- | :-------------------------------------------------------------- |
 |  [01]   | Lock                          | Arbitrary critical section                          | Blocks threads and can deadlock or serialize unrelated work     |
 |  [02]   | Compare-and-swap              | One atomically replaced value                       | Too narrow for many multi-value invariants                      |
-|  [03]   | Software transactional memory | Coordinated in-memory updates, atomic commit        | Retries on conflict. Transaction bodies must contain no effects |
+|  [03]   | Software transactional memory | Coordinated in-memory updates, atomic commit        | Retries on conflict, transaction bodies must hold no effects    |
 |  [04]   | Message passing               | State owned by a process, changed only in a handler | Requires careful ownership, granularity, and lifecycle design   |
 
 STM gives each transaction an isolated view, commits all of its changes or none, and retries against a fresh view when a concurrent transaction invalidates its work. Some implementations can enforce consistency constraints. `Ref<A>` under `atomic` supplies these properties in process, and a transaction body holds no effects because a conflict re-runs it.
 
 ## [02]-[AGENT_MODEL]
 
-An agent has three parts:
+An agent has:
 - An inbox that queues messages;
 - State that only the agent owns;
-- A processing loop that handles one message at a time.
+- Processing loop that handles one message at a time
 
 For each message, the processing function can perform effects, send messages, create agents, and compute the state used for the next message. The state is the fold of all messages received so far:
 
@@ -31,15 +31,15 @@ nextState = process(currentState, message)
 ```
 
 The invariants are:
-1. No caller can directly read or mutate the owned state.
-2. Messages for one agent are processed sequentially.
-3. State values passed through the loop are immutable snapshots.
+1. No caller can directly read or mutate the owned state
+2. Messages for one agent are processed sequentially
+3. State values passed through the loop are immutable snapshots
 
 The implementation keeps the state in the accumulator of a fold over the inbox and does not use a private mutable field. Immutability matters: exposing a mutable state object lets code outside the loop modify it concurrently and invalidates the model.
 
 ## [03]-[MINIMAL_IMPLEMENTATION]
 
-The public operations start an agent and post a message. Other interactions compose these operations. A `Conduit<M, M>` made with `Buffer<M>.Unbounded` supplies the inbox and sequential dispatch. The state type appears only in the `ForkIO<S>` returned by `Start`; callers hold the inbox and the message contract.
+The public operations start an agent and post a message. Other interactions compose these operations. `Conduit<M, M>` made with `Buffer<M>.Unbounded` supplies the inbox and sequential dispatch. The state type appears only in the `ForkIO<S>` returned by `Start`; callers hold the inbox and the message contract.
 
 ```csharp
 internal static class Agent {
@@ -51,7 +51,7 @@ internal static class Agent {
 }
 ```
 
-This avoids a recursively implemented loop, which is not stack-safe in C#. `Reduce` runs the fold inside the conduit and admits one handler at a time. `Reduced.ContinueIO(next)` keeps the loop running and `Reduced.DoneIO(next)` ends it from inside the reducer. `Fork()` returns an `IO<ForkIO<S>>`. Running it starts the loop, and `Await` yields the final state after `Complete()` closes the inbox. The second overload accepts an effectful processing function that returns `IO<S>`. A stateless agent uses `Unit` as its state and serializes effects without retaining a value.
+This avoids a recursively implemented loop, which is not stack-safe in C#. `Reduce` runs the fold inside the conduit and admits one handler at a time. `Reduced.ContinueIO(next)` keeps the loop running and `Reduced.DoneIO(next)` ends it from inside the reducer. `Fork()` returns an `IO<ForkIO<S>>`. Running it starts the loop, and `Await` yields the final state after `Complete()` closes the inbox. The second overload accepts an effectful processing function that returns `IO<S>`. Stateless agents use `Unit` as their state and serialize effects without retaining a value.
 
 ## [04]-[STATE_OWNERSHIP]
 
@@ -94,15 +94,15 @@ Use agents when all coordinated access passes through one process. Use an actor 
 
 Agent messaging is command-oriented and can be effectful. An agent combines state with the behavior that changes it. Message-passing concurrency complements functional composition; it is not a value-returning pipeline.
 
-Two integration styles apply:
+Integration styles apply:
 - Use a unidirectional, event-driven flow in which agents communicate through messages;
-- Keep agents as private concurrency primitives and expose value-returning APIs.
+- Keep agents as private concurrency primitives and expose value-returning APIs
 
 In either style, retain pure functions for domain decisions and use the agent only to order transitions and effects whose order preserves consistency.
 
 ## [07]-[REPLIES]
 
-Fire-and-forget `Post` supports unidirectional flows but does not compose like a value-returning function. A message carries a per-request reply `Conduit` that the agent posts the reply to after processing. The caller reads the reply with `replies.Source.Take(1).Last()`, and `Agent.Start(inbox, 0, Counting.Process)` starts the loop that serves `Counter`:
+Fire-and-forget `Post` supports unidirectional flows but does not compose like a value-returning function. Messages carry a per-request reply `Conduit` the agent posts to after processing. The caller reads the reply with `replies.Source.Take(1).Last()`, and `Agent.Start(inbox, 0, Counting.Process)` starts the loop that serves `Counter`:
 
 ```csharp
 internal sealed record Increment(int Amount, Conduit<int, int> Replies);
@@ -141,8 +141,8 @@ For example, an account has a balance of 1,000 and an overdraft limit of 500. Tw
 Associate one lightweight process with each account and separate responsibilities. One server process can host thousands or millions of these processes if it is the sole route for account changes; cross-process access requires actors instead.
 
 - `AccountState`: immutable snapshot of the account;
-- `Account`: pure functions that validate commands and compute an event plus next state;
-- `AccountProcess`: the agent that owns the current state and serializes commands.
+- `Account`: pure functions that validate commands and compute an event and next state;
+- `AccountProcess`: the agent that owns the current state and serializes commands
 
 ```csharp
 internal sealed record Overdrawn() : Expected("debit exceeds the overdraft limit", 2001);
@@ -196,16 +196,16 @@ command
   -> return the command result
 ```
 
-A rejected command replies with `Overdrawn`, a typed `Expected`, and `Debit` raises it on the `IO` error channel of the caller. Persistence belongs inside this agent's processing function because the next message must not observe the new in-memory state before the corresponding event has been persisted. Otherwise memory can disagree with persisted event history. The pure transition logic stays outside the concurrency mechanism and can be understood independently.
+Rejected commands reply with `Overdrawn`, a typed `Expected`, and `Debit` raises it on the caller's `IO` error channel. Persistence belongs inside this agent's processing function because the next message must not observe the new in-memory state before the corresponding event has been persisted. Otherwise memory can disagree with persisted event history. The pure transition logic stays outside the concurrency mechanism and can be understood independently.
 
 ## [09]-[ENTITY_REGISTRY]
 
-Controllers need the one live process associated with an entity ID. An application-wide `AtomHashMap<Guid, AccountProcess>` owns the map from ID to process, ensuring that two processes are never registered for the same entity.
+Controllers need the one live process associated with an entity ID. An application-wide `AtomHashMap<Guid, AccountProcess>` owns the map from ID to process, ensuring two processes are never registered for the same entity.
 
-A registry that loads missing state inside its update stalls every lookup, including unrelated IDs, until that storage read completes. Because the update re-runs on conflict, it must stay free of effects. Use this workflow:
-1. Read `Find(id)` on the registry and return the existing process when present.
-2. If absent, load the state and start the process in the caller's `IO` computation, outside the registry.
-3. Register with `FindOrAdd(id, started)`. The call adds the started process only when the ID is still absent and returns the registered process.
+Registries loading missing state inside the update stall every lookup, including unrelated IDs, until that storage read completes. Because the update re-runs on conflict, it must stay free of effects. Use this workflow:
+1. Read `Find(id)` on the registry and return the existing process when present
+2. If absent, load the state and start the process in the caller's `IO` computation, outside the registry
+3. Register with `FindOrAdd(id, started)`
 
 `FindOrAdd` performs the atomic check and add. Moving the load outside the registry restores concurrency, but it also allows multiple callers to observe a miss and load concurrently. Only the `FindOrAdd` call makes creation unique, and the process not returned by `FindOrAdd` completes its inbox.
 
@@ -231,13 +231,13 @@ internal static class Registry {
 }
 ```
 
-The public lookup is an `OptionT<IO, AccountProcess>`: the load and the registration share that stack. The query ends with `None` when storage has no such account. At the controller boundary, `Require` runs the transformer and maps `None` to `UnknownAccount`, a typed `Expected` on the `IO` error channel. A rejected command and a missing account use the same result type. The returned state reports the result. It does not persist the event again.
+The public lookup is an `OptionT<IO, AccountProcess>`: the load and the registration share that stack. The query ends with `None` when storage has no such account. At the controller boundary, `Require` runs the transformer and maps `None` to `UnknownAccount`, a typed `Expected` on the `IO` error channel. Rejected commands and missing accounts use the same result type. The returned state reports the result. It does not persist the event again.
 
 ## [10]-[DESIGN_RULES]
 
-- Give an agent responsibility for owning and transitioning state, not every activity associated with that state.
-- Move work outside the inbox when it does not use owned state or require ordering.
-- Make message types express intent, such as `Debit` and `Increment`, instead of sending ambiguous data and inferring the operation.
-- Never expose mutable agent state, even through a reply. Return immutable snapshots or derived results.
-- Plan lifecycle. Keeping every created process alive means its state is loaded at most once, but memory grows with the number and size of resident processes.
-- Do not confuse an agent with an object. Its purpose is serialized ownership; orchestration unrelated to owned state belongs in the caller's workflow.
+- Give an agent responsibility for owning and transitioning state, not every activity associated with that state
+- Move work outside the inbox when it does not use owned state or require ordering
+- Make message types express intent, such as `Debit` and `Increment`, instead of sending ambiguous data and inferring the operation
+- Return immutable snapshots or derived results, never mutable agent state, even through a reply
+- Plan lifecycle: keeping every created process alive means its state is loaded at most once, but memory grows with the number and size of resident processes
+- Do not confuse an agent with an object: its purpose is serialized ownership; orchestration unrelated to owned state belongs in the caller's workflow

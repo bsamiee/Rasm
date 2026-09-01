@@ -7,10 +7,10 @@ disable-model-invocation: true
 
 Freeze and push the full tree as one recoverable, inspectable commit; include mid-run artifacts without judgment, gating, formatting, or review.
 
-1. `git status --porcelain=v2` — Empty status returns `[SKIP] nothing to snapshot` and stops; never an empty commit.
+1. `git status --porcelain=v2` — Empty status returns `[SKIP] nothing to snapshot` and stops; never an empty commit
 2. `git add -A`
-3. `git commit -m "snapshot: <headline>"` — headline names the dominant in-flight work in a few words, read from the status concentrations, never a file list.
-4. `git push` — On rejection, return raw output and stop; retain local snapshot.
-5. Return the short hash, the file count, and one line naming what the snapshot holds.
+3. `git commit -m "snapshot: <headline>"` — headline names the dominant in-flight work in a few words, read from the status, never a file list
+4. `git push` — On rejection, return raw output and stop; retain local snapshot
+5. Return the short hash, the file count, and one line naming what the snapshot holds
 
 Snapshots stack freely; each invocation is its own labeled point, and no other command runs between stage and commit.

@@ -2,11 +2,11 @@
 
 ## 1. Dataflow programming
 
-A dataflow program is a directed graph:
-- A node is an operation that accepts inputs and produces output.
-- An edge carries one node's output to another node's input.
-- The graph makes both composition and data dependencies explicit.
-- Nodes without a dependency between them are eligible to run in parallel; a dataflow executor can infer that independence from the graph.
+Dataflow programs are directed graphs:
+- Nodes accept inputs and produce output
+- An edge carries one node's output to another node's input
+- The graph makes both composition and data dependencies explicit
+- Nodes without a dependency between them are eligible to run in parallel; a dataflow executor can infer that independence from the graph
 
 For example, given:
 
@@ -25,10 +25,10 @@ The graph form exposes small building blocks, can enable automatic parallel exec
 Pure functions behave like dataflow nodes: they map inputs to outputs, always return the same output for the same input, and produce no side effects. Functions become composable when they share an input/output representation.
 
 Lists provide such an interface:
-- `map f`: transform every element; list -> list.
-- `filter p`: retain elements satisfying `p`; list -> list.
-- `fold`: combine the input into one value, configured by an initial value and accumulation function.
-- `zipWith f`: combine corresponding elements from two input lists into one output list.
+- `map f`: transform every element; list -> list
+- `filter p`: retain elements satisfying `p`; list -> list
+- `fold`: combine the input into one value, configured by an initial value and accumulation function
+- `zipWith f`: combine corresponding elements from two input lists into one output list
 
 ### 2.1 Linear list pipelines
 
@@ -101,7 +101,7 @@ Favor small, independent programs that do one thing well, and connect them throu
 cat /usr/share/dict/words | head -5 | tail -1
 ```
 
-The command composes three focused programs to return the fifth word. The OCaml analogue uses focused functions such as `map`, `filter`, `fold`, and `zipWith`, lists as the shared interface, and `|>` to express the connection.
+The command composes focused programs to return the fifth word. The OCaml analogue uses focused functions such as `map`, `filter`, `fold`, and `zipWith`, lists as the shared interface, and `|>` to express the connection.
 
 ## 4. Why OCaml's finite lists are insufficient
 
@@ -117,18 +117,18 @@ An OCaml list cannot represent the unbounded input signal. OCaml is strict. Cons
 let rec naturals_from n = n :: naturals_from (n + 1)
 ```
 
-A finite workaround performs too much work:
+Finite workarounds perform too much work:
 
 ```ocaml
 let first_prime_between a b =
   enumerate_integers a b |> List.filter is_prime |> List.hd
 ```
 
-It constructs the entire interval and filters every element even though only the first match is required. An imperative loop can stop at the first match, but loses the declarative composition of the pipeline. The desired design combines composable components, potentially infinite signals, and incremental demand-driven computation.
+It constructs the entire interval and filters every element even though only the first match is required. An imperative loop stops at the first match, but loses the declarative composition of the pipeline. The desired design combines composable components, potentially infinite signals, and incremental demand-driven computation.
 
 ## 5. Delayed evaluation
 
-A thunk delays an expression by wrapping it in a function that accepts unit:
+Thunks delay an expression by wrapping it in a function that accepts unit:
 
 ```ocaml
 let delayed_fib40 = fun () -> fib 40
@@ -286,10 +286,10 @@ The challenge solution instead seeds the same construction with `1` and `2`; tha
 
 ## 10. Knowledge checks
 
-- Rule of composition: favor small independent programs and a simple shared interface such as plain text.
-- Functional dataflow works because pure functions have no side effects and can connect through shared representations such as lists or streams.
-- `2 |> square` is `square 2`, it evaluates to `4`.
-- `[0; 1; 2] |> List.map (fun x -> x > 0) |> List.fold_left (&&) true` evaluates to `false` because `0 > 0` is false.
-- Streams model infinite sequences and support incremental on-demand computation.
-- `[1; 2; 3; 4] |> List.filter ((<=) 3) |> List.map (( * ) 2) |> List.fold_left (+) 0` keeps `[3; 4]`, doubles to `[6; 8]`, and evaluates to `14`; none of the listed choices matches that derivation.
-- `lazy (1 / 0)` creates an `int lazy_t` value without raising; `Lazy.force` triggers the division and raises the exception.
+- Rule of composition: favor small independent programs and a simple shared interface such as plain text
+- Functional dataflow works because pure functions have no side effects and can connect through shared representations such as lists or streams
+- `2 |> square` is `square 2`, it evaluates to `4`
+- `[0; 1; 2] |> List.map (fun x -> x > 0) |> List.fold_left (&&) true` evaluates to `false` because `0 > 0` is false
+- Streams model infinite sequences and support incremental on-demand computation
+- `[1; 2; 3; 4] |> List.filter ((<=) 3) |> List.map (( * ) 2) |> List.fold_left (+) 0` keeps `[3; 4]`, doubles to `[6; 8]`, and evaluates to `14`; none of the listed choices matches that derivation
+- `lazy (1 / 0)` creates an `int lazy_t` value without raising; `Lazy.force` triggers the division and raises the exception

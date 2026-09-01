@@ -2,7 +2,7 @@
 
 ## [01]-[LAZINESS]
 
-C# uses call-by-value evaluation: every argument is evaluated before the call, including an argument the body never uses. Call-by-name evaluation substitutes the unevaluated expression instead: an unused argument never runs, even one that throws, and an argument used twice runs twice. A thunk, a `Func<A>` or an `IO<A>`, recovers call-by-name for one argument. The cost of call by value appears when a function needs only one of its arguments:
+C# uses call-by-value evaluation: every argument is evaluated before the call, including an argument the body never uses. Call-by-name evaluation substitutes the unevaluated expression instead: an unused argument never runs, even one that throws, and an argument used twice runs twice. Thunks, `Func<A>` or `IO<A>`, recover call-by-name for one argument. The cost of call by value appears when a function needs only one of its arguments:
 
 ```csharp
 internal static partial class Laziness {
@@ -20,7 +20,7 @@ internal static partial class Laziness {
 
 Wrapping an expression in `IO<A>` changes an eager value into an effect that produces a value when run. `IO.lift(Func<A>)` wraps the work as `IO<A>`. The receiving function decides which effect to return.
 
-A reused pure value is memoized instead. Memoizing a thunk gives call-by-need evaluation: `memo(Func<A>)` returns a `Memo<A>` whose `Value` runs the function once and keeps the result:
+Memoize a reused pure value instead. Memoizing a thunk gives call-by-need evaluation: `memo(Func<A>)` returns a `Memo<A>` whose `Value` runs the function once and keeps the result:
 
 ```csharp
 internal static partial class Laziness {
@@ -59,8 +59,8 @@ internal static partial class Laziness {
 ```
 
 `Option<A>` offers both overloads:
-- Use a direct value when its construction is negligible.
-- A `Func<A>` avoids work when the value is expensive and can go unused.
+- Use a direct value when its construction is negligible
+- `Func<A>` avoids work when the value is expensive and can go unused
 
 ## [02]-[COMPOSE_THEN_EXECUTE]
 
@@ -111,9 +111,9 @@ internal static partial class Parsing {
 The `Try<B>` returned by `Bind` remains deferred. When run, it runs the first stage, propagates its error unchanged, or runs the dependent stage with the successful value. `Run()` captures a property lookup that throws inside the `let` clause.
 
 For query syntax, a monadic type supplies:
-- `Select` as an alias for `Map`.
-- `SelectMany` as an alias for `Bind`.
-- A projection overload of `SelectMany` for multiple `from` clauses.
+- `Select` as an alias for `Map`
+- `SelectMany` as an alias for `Bind`
+- Projection overload of `SelectMany` for multiple `from` clauses
 
 ## [04]-[MONADIC_COMPOSITION]
 
@@ -163,7 +163,7 @@ internal static partial class Environments {
 }
 ```
 
-Each bind wraps another deferred transformation. The environment type remains fixed while the value type can change. A complete workflow can be constructed before a database connection or other shared input exists, then run once that input is supplied.
+Each bind wraps another deferred transformation. The environment type remains fixed while the value type can change. Build a complete workflow before a database connection or other shared input exists, then run it once that input arrives.
 
 An effectful workflow uses `ReaderT<Env, IO, A>`. `ReaderT.ask<IO, Env>()` reads the environment, an `IO<A>` binds directly in the query, `ReaderT.with` maps a larger environment, and `Run(env)` returns `K<IO, A>` that `.As()` narrows to the `IO<A>` the host runs with `RunSafe()`:
 
@@ -252,14 +252,14 @@ internal static partial class Scopes {
 }
 ```
 
-`use(Func<A>)` accepts an `IDisposable` and disposes it when the effect succeeds or fails. The transaction scope depends on the connection and supplies a transaction downstream. The commit step runs only after both statements succeed. A failure skips it, and `Dispose` rolls the open transaction back. `use(Func<A>, Action<A>)` runs its release action on every exit, a commit does not belong in a release action.
+`use(Func<A>)` accepts an `IDisposable` and disposes it when the effect succeeds or fails. The transaction scope depends on the connection and supplies a transaction downstream. The commit step runs only after both statements succeed. Failures skip it, and `Dispose` rolls the open transaction back. `use(Func<A>, Action<A>)` runs its release action on every exit, a commit does not belong in a release action.
 
 ## [08]-[SCOPE_ORDERING]
 
 The order of bracketed effects determines which downstream work each scope surrounds:
-- Timing outside connection acquisition measures acquisition and database work.
-- Timing inside the connection scope measures only downstream work.
-- The transaction scope must follow the connection scope because it depends on the connection.
-- Operations that must be atomic belong inside the transaction scope, before the commit step.
+- Timing outside connection acquisition measures acquisition and database work
+- Timing inside the connection scope measures only downstream work
+- The transaction scope must follow the connection scope because it depends on the connection
+- Operations that must be atomic belong inside the transaction scope, before the commit step
 
 Adding, removing, or reordering cross-cutting behavior changes the corresponding query clauses. `Bracket`, `use`, `Map`, and `Bind` are not database-specific.

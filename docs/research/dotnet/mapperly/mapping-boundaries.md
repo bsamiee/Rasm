@@ -21,7 +21,7 @@ An instance mapper remains deterministic when its stored collaborators are immut
 | Mutable boundary value to owned mutable target | Existing-target mapping | Confine mutation to the scope that owns the target |
 | Persistence query to read model | Expression projection | Materialize before domain construction or effects |
 
-A mapping that can reject input is not a plain `TSource -> TTarget` function. Validation owns rejection and its error type.
+Mappings that can reject input are not plain `TSource -> TTarget` functions. Validation owns rejection and its error type.
 
 Map a successful value inside its existing context:
 
@@ -52,11 +52,11 @@ The assembly default closes every implicit selection path that can change meanin
     EnabledConversions = MappingConversionType.None)]
 ```
 
-An inbound invariant-sensitive mapper never admits `ParseMethod`, `Constructor`, `StaticConvertMethods`, or casts as a substitute for validation. An outbound mapper admits `ImplicitCast` only for a canonical key whose valid source makes the conversion total. A named mapping selected with `Use` owns every other semantic conversion. `ToStringMethod` is formatting, not a wire contract, and uses a fixed provider or an explicit culture input.
+An inbound invariant-sensitive mapper never admits `ParseMethod`, `Constructor`, `StaticConvertMethods`, or casts as a substitute for validation. An outbound mapper admits `ImplicitCast` only for a canonical key whose valid source makes the conversion total. Named mappings selected with `Use` own every other semantic conversion. `ToStringMethod` is formatting, not a wire contract, and uses a fixed provider or an explicit culture input.
 
-Strict null settings make a missing required value a defect in an already-validated mapping. They prevent empty text, `default`, parameterless fallback objects, and skipped assignments from appearing as valid output. Nullable-to-nullable mapping remains valid when the target contract represents absence. A suppression is valid only when independent evidence proves that the declared source nullability is wrong.
+Strict null settings make a missing required value a defect in an already-validated mapping. They prevent empty text, `default`, parameterless fallback objects, and skipped assignments from appearing as valid output. Nullable-to-nullable mapping remains valid when the target contract represents absence. Suppression is valid only when independent evidence proves the declared source nullability wrong.
 
-Automatic member matching applies only when names and meanings agree. A semantic rename, path, constant, or omission is explicit, and every ignore carries a local `Justification`. With automatic user discovery disabled, `[UserMapping]` admits a method to type-pair discovery; a helper selected only through `Use` needs no attribute. One exact pair has one intentional default, alternatives have unique names, generic templates are disjoint, and no selection depends on declaration order.
+Automatic member matching applies only when names and meanings agree. Every ignore carries a `Justification`, and a semantic rename, path, constant, or omission is explicit. With automatic user discovery disabled, `[UserMapping]` admits a method to type-pair discovery; a helper selected only through `Use` needs no attribute. One exact pair has one intentional default, alternatives have unique names, generic templates are disjoint, and no selection depends on declaration order.
 
 External mappings stay local to the mapper that consumes them. Assembly-wide registrations expose only disjoint canonical pairs. Configuration inclusion applies only when direction, member meaning, null policy, and omissions are identical, because inclusion copies configuration rather than implementation. Additional parameters carry immutable values that the boundary already resolved. Before or after behavior is a pure hand-written wrapper; the host boundary owns telemetry and effects.
 
@@ -64,9 +64,9 @@ External mappings stay local to the mapper that consumes them. Assembly-wide reg
 
 Raw input reaches a Thinktecture value object through `Validate` and a typed adapter. Raw keys reach a Smart Enum through `Validate` or `TryGet`. `Create`, `Parse`, accessible constructors, static conversion methods, and explicit operators can turn expected rejection into an exception. Disabling those automatic conversions is defense in depth and does not replace validation.
 
-A valid value object or Smart Enum maps outward through its canonical key or declared representation. `ToString()` does not define that representation. Mapperly enum configuration applies only to CLR enums. Independent CLR enum contracts map by case-sensitive name or explicit value pairs, never by numeric position. A fallback is valid only when the target contract defines that value as the exact representation of unknown input.
+Valid value objects or Smart Enums map outward through the canonical key or declared representation. `ToString()` does not define that representation. Mapperly enum configuration applies only to CLR enums. Independent CLR enum contracts map by case-sensitive name or explicit value pairs, never by numeric position. Fallbacks are valid only when the target contract defines them as the exact representation of unknown input.
 
-A closed Thinktecture union uses its full generated `Switch` or `Map` as the outer dispatcher. Mapperly maps one known case inside each arm. This division keeps case selection exhaustive and member translation structural.
+Closed Thinktecture unions use the full generated `Switch` or `Map` as the outer dispatcher. Mapperly maps one known case inside each arm. This division keeps case selection exhaustive and member translation structural.
 
 ```csharp
 internal static EventDto ToDto(Event value) =>
@@ -77,11 +77,11 @@ internal static EventDto ToDto(Event value) =>
 
 `MapDerivedType`, a duplicated case list, a partial match, and a fallback arm do not preserve closed-union exhaustiveness. Generated generic, runtime-target, and ordinary derived dispatch throw for an unregistered pair or subtype. Those forms belong only to controlled runtime sets where a mismatch is a defect.
 
-Mapperly cannot consume another source generator's output from the same compilation. A referenced assembly exposes its accessible generated members as metadata, automatic conversion can change when a generated type moves between projects. Exact representation mappings prevent project topology from choosing semantics. An ordinary user-method body can bind peer-generated members after generation, but Mapperly cannot inline unresolved peer-generated members into a projection.
+Mapperly cannot consume another source generator's output from the same compilation. Referenced assemblies expose accessible generated members as metadata, automatic conversion can change when a generated type moves between projects. Exact representation mappings prevent project topology from choosing semantics. An ordinary user-method body can bind peer-generated members after generation, but Mapperly cannot inline unresolved peer-generated members into a projection.
 
-LanguageExt owns absence, failure, validation, effects, traversal, and transformer topology. A Mapperly method supplies only the total leaf function passed to `Map`, `BiMap`, `Apply`, or traversal. Automatic wrapper construction is unsafe: constructor or cast discovery can manufacture a success case, unwrap a failure, or discard source elements. A generic wrapper helper is selected explicitly with `Use` and preserves every case.
+LanguageExt owns absence, failure, validation, effects, traversal, and transformer topology. Mapperly methods supply only the total leaf function passed to `Map`, `BiMap`, `Apply`, or traversal. Automatic wrapper construction is unsafe: constructor or cast discovery can manufacture a success case, unwrap a failure, or discard source elements. Generic wrapper helpers need explicit `Use` selection and preserve every case.
 
-LanguageExt collections keep their own construction policy. Direct assignment shares an immutable collection only when sharing is intentional. An element-changing sequence uses the collection's `Map`; a mutable source is snapshotted before domain publication, and an arbitrary enumerable is forced first. A map is built only after key validation defines ordering, uniqueness, and collision behavior. Incidental enumerable-tuple construction does not define those rules.
+LanguageExt collections keep their own construction policy. Direct assignment shares an immutable collection only when sharing is intentional. An element-changing sequence uses the collection's `Map`; a mutable source is snapshotted before domain publication, and an arbitrary enumerable is forced first. Build a map only after key validation defines ordering, uniqueness, and collision behavior. Incidental enumerable-tuple construction does not define those rules.
 
 ## [04]-[CONSTRUCTION_AND_OWNERSHIP]
 
@@ -93,15 +93,15 @@ Construction form determines ownership, mutation, and failure behavior.
 | Object factory | Factory result followed by writable assignments | Constructor parameters and init-only members are not mapped |
 | Existing target | Caller-owned mutable value | Assignments and collection additions are observable mutation |
 | Reference handling | Identity graph under one handler | Registration follows construction and precedes writable members |
-| Runtime dispatch | Registered source and target pairs | An unregistered pair or subtype throws |
+| Runtime dispatch | Registered source and target pairs | Unregistered pair or subtype throws |
 
-Prefer one total constructor for an immutable external record. `[MapperConstructor]` chooses between semantically equivalent external constructors; it does not select a domain transition. Constructor arguments run before init-only assignments, and writable assignments run after construction. A type whose invariant depends on later setter repair is not a valid mapping target. An init-only assignment cannot be skipped to preserve its member initializer.
+Prefer one total constructor for an immutable external record. `[MapperConstructor]` chooses between semantically equivalent external constructors; it does not select a domain transition. Constructor arguments run before init-only assignments, and writable assignments run after construction. Types whose invariants depend on later setter repair are not valid mapping targets. An init-only assignment cannot be skipped to preserve its member initializer.
 
-A Mapperly object factory allocates or selects a direct target and exposes no typed failure channel. It is not a Thinktecture validation factory. The factory is pure, deterministic, synchronous, and non-null. A nullable result falls back to a public parameterless construction or throws `NullReferenceException`. Factories do not resolve services, allocate domain identity, or call a rejecting domain factory.
+Mapperly object factories allocate or select a direct target and expose no typed failure channel. None is a Thinktecture validation factory. The factory is pure, deterministic, synchronous, and non-null. Nullable results fall back to a public parameterless construction or throw `NullReferenceException`. Factories do not resolve services, allocate domain identity, or call a rejecting domain factory.
 
 Member and constructor visibility stays at `AllAccessible`. Unsafe accessors can invoke private constructors and write hidden members, but that capability does not grant invariant ownership. They never construct or modify a constrained domain type. Direct assignment can return the source reference, sharing is valid only when the complete reachable graph is immutable. Deep cloning is an allocation strategy, not proof of ownership, validity, or transition semantics.
 
-An existing-target mapping mutates its argument. Existing collections add without replacement: lists add, queues enqueue, and stacks push the added segment in reverse source order. A null source collection leaves the target unchanged. Keep this form inside a scope that creates and owns the target, or inside an imperative host adapter. It never updates a published domain snapshot.
+An existing-target mapping mutates its argument. Existing collections add without replacement: lists add, queues enqueue, and stacks push the added segment in reverse source order. Null source collections leave the target unchanged. Keep this form inside a scope that creates and owns the target, or inside an imperative host adapter. It never updates a published domain snapshot.
 
 Null-skipping implements merge behavior, not patch presence. It cannot distinguish omission from clearing. An explicit presence type can fold against `[MappingTargetOriginalValue]` at a mutable boundary, while constructor and init-only targets receive `default` as the original value. Domain changes remain named transitions over complete immutable values.
 
@@ -109,7 +109,7 @@ Reference handling materializes external graphs that require cycles or shared id
 
 ## [05]-[QUERY_PROJECTIONS]
 
-A query projection is an expression tree interpreted by a query provider. It belongs to the data adapter and returns a read model or transport contract. Keep projection declarations separate from in-memory mappings when their conversion, null, or user-method policies differ. The projection method obtains member configuration from an element mapping with the same source and target pair.
+Query projections are expression trees interpreted by a query provider. They live in the data adapter and return a read model or transport contract. Keep projection declarations separate from in-memory mappings when their conversion, null, or user-method policies differ. The projection method obtains member configuration from an element mapping with the same source and target pair.
 
 Mapperly must inline each user method, and the selected provider must translate the resulting expression. Additional parameters are immutable scalar query values. Services, mapper state, clocks, configuration objects, and request contexts do not enter the expression. `RMG068` proves that inlining failed; successful inlining does not prove provider translation.
 

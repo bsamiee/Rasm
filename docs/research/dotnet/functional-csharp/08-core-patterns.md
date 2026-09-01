@@ -6,11 +6,11 @@ Functional programming applies common operations to values in contexts. `Option<
 
 | [INDEX] | [OPERATION] | [SIGNATURE]                 | [PURPOSE]                                                      |
 | :-----: | :---------- | :-------------------------- | :------------------------------------------------------------- |
-|  [01]   | `Pure`      | `A -> F<A>`                 | Lift a plain value into `F<A>`.                                |
-|  [02]   | `Map`       | `(F<A>, A -> B) -> F<B>`    | Apply a function to each value in `F<A>` while preserving `F`. |
-|  [03]   | `Bind`      | `(F<A>, A -> F<B>) -> F<B>` | Apply `A -> F<B>` and flatten the nested result.               |
-|  [04]   | `Filter`    | `(F<A>, A -> bool) -> F<A>` | Keep values in `F<A>` that satisfy a predicate.                |
-|  [05]   | `Iter`      | `(F<A>, Action<A>) -> Unit` | Perform a side effect for each value in `F<A>`.                |
+|  [01]   | `Pure`      | `A -> F<A>`                 | Lift a plain value into `F<A>`                                 |
+|  [02]   | `Map`       | `(F<A>, A -> B) -> F<B>`    | Apply a function to each value in `F<A>` while preserving `F`  |
+|  [03]   | `Bind`      | `(F<A>, A -> F<B>) -> F<B>` | Apply `A -> F<B>` and flatten the nested result                |
+|  [04]   | `Filter`    | `(F<A>, A -> bool) -> F<A>` | Keep values in `F<A>` that satisfy a predicate                 |
+|  [05]   | `Iter`      | `(F<A>, Action<A>) -> Unit` | Perform a side effect for each value in `F<A>`                 |
 
 `Option<A>`, `Seq<A>`, and `Fin<A>` supply these operations under these names. `Fin<A>` has no `Filter`, and `Seq<A>` has no `Pure`.
 
@@ -47,7 +47,7 @@ internal static partial class CorePatterns {
 
 The domain function `CalculateRiskProfile : Age -> Risk` stays unaware of absence.
 
-A type whose side-effect-free `Map` obeys the functor laws is a functor. `Map` applies the function to values in the context while preserving that context. LanguageExt encodes the type constructor as the `F` in `K<F, A>`, and the trait `Functor<F>` declares `Map` over `K<F, A>`. A function generic over `F : Functor<F>` works for `Option` and `Seq`, and `.As()` recovers the concrete type at the boundary:
+Types whose side-effect-free `Map` obeys the functor laws are functors. `Map` applies the function to values in the context while preserving that context. LanguageExt encodes the type constructor as the `F` in `K<F, A>`, and the trait `Functor<F>` declares `Map` over `K<F, A>`. Functions generic over `F : Functor<F>` work for `Option` and `Seq`, and `.As()` recovers the concrete type at the boundary:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -76,7 +76,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-Formatting remains pure, and only output has a side effect. `Iter` needs a separate name because C# overload resolution cannot reliably distinguish `Action<A>` from `Func<A, B>` by return type.
+Formatting remains pure, and only output has a side effect. `Iter` needs a separate name because overload resolution cannot reliably distinguish `Action<A>` from `Func<A, B>` by return type.
 
 `Do` performs a side effect and returns its input `F<A>`, which lets composition continue. `Option<A>` and `Seq<A>` supply `Do`, and `Fin<A>` supplies `IfSucc`. In an `IO` computation, the side effect is an `IO` step:
 
@@ -140,7 +140,7 @@ internal static partial class CorePatterns {
 
 For `Seq<A>`, each source value can produce a sequence, and `Bind` flattens all produced sequences into one. `Map` produces `Seq<Seq<Pet>>`; `Bind` produces `Seq<Pet>`.
 
-A type whose `Pure` and `Bind` obey the monad laws is a monad. `MonadLaw<F>.validate()` checks these laws for types such as `Option`. `Pure` only constructs `F<A>` from `A`. `Pure(value)` converts into `Option<A>`, `Fin<A>`, and `IO<A>`:
+Types whose `Pure` and `Bind` obey the monad laws are monads. `MonadLaw<F>.validate()` checks these laws for types such as `Option`. `Pure` only constructs `F<A>` from `A`. `Pure(value)` converts into `Option<A>`, `Fin<A>`, and `IO<A>`:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -152,7 +152,7 @@ internal static partial class CorePatterns {
 
 `Seq(value)` builds the one-element `Seq<A>`, and `F.Pure(value)` under `F : Applicative<F>` builds the structure for any `F`.
 
-`Map` can be derived from `Bind` and `Pure` by lifting the transform result before binding. A direct `Map` implementation can be more efficient. Every monad supplies `Map`, but not every functor supplies `Bind`.
+`Map` can be derived from `Bind` and `Pure` by lifting the transform result before binding. Direct `Map` implementations can be more efficient. Every monad supplies `Map`, but not every functor supplies `Bind`.
 
 ## [05]-[FILTER]
 
@@ -187,7 +187,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-`Flattened` converts `Option<Seq<A>>` to `Seq<A>`. Use these conversions when a pipeline must flatten between `Option` and `Seq`. The two types otherwise serve different purposes.
+`Flattened` converts `Option<Seq<A>>` to `Seq<A>`. Use these conversions when a pipeline must flatten between `Option` and `Seq`. The types otherwise serve different purposes.
 
 ```csharp
 internal static partial class CorePatterns {
@@ -200,12 +200,12 @@ Each `Some(age)` becomes one sequence element, and each `None` contributes no el
 
 ## [07]-[VALUES_IN_CONTEXT]
 
-A plain value has type `A`. A value in a context has type `F<A>`, where the type constructor `F` supplies a computational effect. A computational effect is distinct from a side effect:
-- `Option<A>` adds possible absence.
-- `Seq<A>` adds zero or more values.
-- `Func<A>` adds deferred evaluation.
-- `Fin<A>` adds expected failure with a reason.
-- `IO<A>` adds a deferred side effect with a failure channel.
+Plain values have type `A`. Values in context have type `F<A>`, where the type constructor `F` supplies a computational effect. Computational effects differ from side effects:
+- `Option<A>` adds possible absence
+- `Seq<A>` adds zero or more values
+- `Func<A>` adds deferred evaluation
+- `Fin<A>` adds expected failure with a reason
+- `IO<A>` adds a deferred side effect with a failure channel
 
 Input and output types classify these functions:
 
@@ -233,4 +233,4 @@ internal static partial class CorePatterns {
 }
 ```
 
-After `toSeq` converts the range to `Seq<int>`, all later operations remain in `Seq`. Using only plain values can reintroduce low-level loops and absence checks. Deeply nested contexts can produce types such as `A<B<C<D<T>>>>`, which require traversal of several layers to access and compose the value. A transformer such as `OptionT<IO, A>` provides one `Map` and one `Bind` for the pair.
+After `toSeq` converts the range to `Seq<int>`, all later operations remain in `Seq`. Using only plain values can reintroduce low-level loops and absence checks. Deeply nested contexts can produce types such as `A<B<C<D<T>>>>`, which require traversal of several layers to access and compose the value. Transformers such as `OptionT<IO, A>` provide one `Map` and one `Bind` for the pair.

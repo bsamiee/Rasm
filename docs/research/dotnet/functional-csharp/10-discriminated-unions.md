@@ -2,7 +2,7 @@
 
 ## [01]-[EXPLICIT_CASES]
 
-A discriminated union is a type whose value is exactly one of several alternatives. A consumer pattern-matches the value to discover its case and gain access to that case's data. A component that does not care which case it has can pass the union onward unchanged.
+Discriminated unions are types whose value is exactly one of several alternatives. Consumers pattern-match the value to discover its case and reach that case's data. Components that do not care which case they have can pass the union unchanged.
 
 F# supports discriminated unions directly. The union generator supplies them in C#. `[Union]` marks an abstract partial record, each case is a sealed record nested inside it, and the generated `Switch` takes one arm per case.
 
@@ -10,7 +10,7 @@ Cases can be unrelated alternatives that share only an API type or collection.
 
 ## [02]-[ALTERNATIVES_OVER_FLAGS]
 
-A discriminator flag combined with fields that are meaningful only for one flag value permits invalid combinations:
+Discriminator flags with fields meaningful only for one flag value permit invalid combinations:
 
 ```csharp
 internal sealed record FlaggedCustomer(string Email, bool IsRegistered, string Name, bool IsEligible);
@@ -28,7 +28,7 @@ internal abstract partial record Customer {
 
 Consumers call `Switch` on named cases, and each case carries only its required data.
 
-A travel system sells holidays and day trips. One class with all fields and an `IsDayTrip` flag violates Interface Segregation: every instance carries properties that do not describe its case, while names such as `Destination` and `StartDate` mean concepts named `Attraction` and `DateOfTrip`.
+Travel systems sell holidays and day trips. One class with all fields and an `IsDayTrip` flag violates Interface Segregation: every instance carries properties that do not describe its case, while names such as `Destination` and `StartDate` mean concepts named `Attraction` and `DateOfTrip`.
 
 Use an abstract union base:
 
@@ -64,16 +64,16 @@ internal static class Offerings {
 }
 ```
 
-A `BritishName` can carry first, middle, and last names with an honorific placed first; a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. A common abstract `Name` permits one collection, while the variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
+`BritishName` can carry first, middle, and last names with an honorific placed first; a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. An abstract `Name` permits one collection, while the variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
 
 ## [03]-[OUTCOMES_AS_CASES]
 
-A function's return type must describe every expected outcome. Looking up a person has three meaningful outcomes:
+Function return types must describe every expected outcome. Looking up a person has meaningful outcomes:
 1. The person was found;
 2. No person has that identifier;
-3. The lookup failed.
+3. The lookup failed
 
-`OptionT<IO, Person>` names all three: `Some` is the found person, `None` is absence, and a lookup failure is on the `IO` error channel. The effectful function translates each external outcome into one case:
+`OptionT<IO, Person>` names each: `Some` is the found person, `None` is absence, and a lookup failure is on the `IO` error channel. The effectful function translates each external outcome into one case:
 
 ```csharp
 internal sealed record Person(int Id, string Name);
@@ -106,10 +106,10 @@ internal static class Mail {
 ## [04]-[INPUT_REFINEMENT]
 
 Convert the console result to typed application data in these stages:
-1. Pass console access as a `Func<string>` dependency, another implementation can replace it.
-2. `IO.lift` captures a console failure on the error channel.
-3. Classify successfully read text once.
-4. Let application code consume the already-classified case.
+1. Pass console access as a `Func<string>` dependency, another implementation can replace it
+2. `IO.lift` captures a console failure on the error channel
+3. Classify successfully read text once
+4. Let application code consume the already-classified case
 
 `parseInt` returns `Option<int>`, and `Match` builds the `IntegerInput` case from `Some`.
 
@@ -137,13 +137,13 @@ The `Catch` overload with a predicate maps the captured error to the `ConsoleErr
 
 ## [05]-[GENERIC_UNIONS]
 
-`Option<A>`, `Fin<A>`, `Either<L, R>`, and `Validation<Error, A>` are the generic unions for absence, failure with a reason, two value types, and accumulated failures. An empty `Seq<A>` is a result, not absence. A producer wraps a collection in `Option` only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
+`Option<A>`, `Fin<A>`, `Either<L, R>`, and `Validation<Error, A>` are the generic unions for absence, failure with a reason, two value types, and accumulated failures. An empty `Seq<A>` is a result, not absence. Producers wrap a collection in `Option` only where the consumer responds differently to no collection and to an empty one. Producers that map an operational failure to `None` hide the failure from the consumer.
 
 `Option` and `Fin` are closed, a `Match` over their cases is total.
 
 ## [06]-[RECURSIVE_CASES]
 
-A union case can carry the union type itself. Such a union models hierarchical data: a value is a scalar or a container of further values of the same type.
+Union cases can carry the union type itself. Such a union models hierarchical data: a value is a scalar or a container of further values of the same type.
 
 ```csharp
 [Union]
@@ -157,7 +157,7 @@ internal abstract partial record Json {
 }
 ```
 
-`Str`, `Num`, and `Flag` carry scalar payloads, and `Nil` is a stateless case. `Arr` holds a `Seq<Json>`, and `Obj` holds a `Map<string, Json>`. The four cases without recursive payloads are the leaves, and `Arr` and `Obj` are the containers. The recursive payloads are ordinary case properties, and the generator's case discovery is unaffected. The union models trees the domain owns: configuration, expressions, UI hierarchies, and document fragments. Wire serialization stays with `System.Text.Json` at the host boundary.
+`Str`, `Num`, and `Flag` carry scalar payloads, and `Nil` is a stateless case. `Arr` holds a `Seq<Json>`, and `Obj` holds a `Map<string, Json>`. The cases without recursive payloads are the leaves, and `Arr` and `Obj` are the containers. The recursive payloads are ordinary case properties, and the generator's case discovery is unaffected. The union models trees the domain owns: configuration, expressions, UI hierarchies, and document fragments. Wire serialization stays with `System.Text.Json` at the host boundary.
 
 One operation names every case through `Switch`, and the arms for recursive cases recurse:
 
@@ -176,7 +176,7 @@ internal static class Sizes {
 
 Each leaf arm answers one, and the `arr` and `obj` arms add the node to the counts of its children. Every arm is a `static` lambda that calls a static function, because an arm without the `static` modifier is `TTRESG1001`. Context that an operation needs travels through the `Switch` state overload.
 
-The union has six constructors, a fold takes six replacement functions, one per constructor. Each scalar replacement receives that case's payload, `Nil` receives nothing, and the replacements for `Arr` and `Obj` receive already-folded child results:
+The union has six constructors, a fold takes one replacement function per constructor. Each scalar replacement receives that case's payload, `Nil` receives nothing, and the replacements for `Arr` and `Obj` receive already-folded child results:
 
 ```csharp
 internal sealed record JsonFold<R>(
@@ -221,12 +221,12 @@ The remaining operations follow the return-type rules. Member lookup passes the 
 
 ## [07]-[DESIGN_RULES]
 
-- Model each valid state as a distinct case, not as a Boolean discriminator with conditionally meaningful fields.
-- Match the representation to the growth axis: a union for growing operations, abstract members for growing cases. A new case is a compile error at every `Switch` until each gains an arm.
+- Model each valid state as a distinct case, not as a Boolean discriminator with conditionally meaningful fields
+- Match the representation to the growth axis: a union for growing operations, abstract members for growing cases. New cases are compile errors at every `Switch` until each gains an arm.
 - Direct recursion over a recursive union suits document-sized trees. C# does not guarantee tail-call optimization, unbounded depth folds through `Trampoline<A>`.
-- Put only shared data on the abstract base; keep case-specific data in its case.
-- Use a domain-specific union when the consumer needs domain outcome names instead of `Option`, `Fin`, or `Either`.
-- Keep absence and failure separate whenever the consumer needs to respond differently.
-- Interpret external values once near their source, then pass typed cases inward.
-- Call `Switch` only where behavior depends on the case, and pass the union onward elsewhere.
-- Declaring a union requires one attribute and nested cases. The generated `Switch` replaces repeated case checks.
+- Put only shared data on the abstract base; keep case-specific data in its case
+- Use a domain-specific union when the consumer needs domain outcome names instead of `Option`, `Fin`, or `Either`
+- Keep absence and failure separate whenever the consumer needs to respond differently
+- Interpret external values once near their source, then pass typed cases inward
+- Call `Switch` only where behavior depends on the case, and pass the union onward elsewhere
+- Declaring a union requires one attribute and nested cases

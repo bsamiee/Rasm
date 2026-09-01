@@ -2,7 +2,7 @@
 
 ## [01]-[EFFECTS_AS_BEHAVIOR]
 
-Types such as `Option`, `Either`, `Fin`, and `Validation` enlarge a function's possible outputs with cases such as `None`, `Left`, or `Fail`. The added case is not the effect. The effect is the behavior their operations give those cases: sequencing `Option` computations terminates when one returns `None`. Monads capture effects, and side effects are a subset of effects. A monad lets pure code sequence operations whose between-step behavior `Bind` defines, while the whole remains one pure expression. Functors and applicatives carry the same effectfulness: `Option.Map` does not invoke its function for `None`.
+Types such as `Option`, `Either`, `Fin`, and `Validation` enlarge a function's possible outputs with cases such as `None`, `Left`, or `Fail`. The added case is not the effect. The effect is the behavior their operations give those cases: sequencing `Option` computations terminates when one returns `None`. Monads capture effects, and side effects are a subset of effects. Monads let pure code sequence operations whose between-step behavior `Bind` defines, while the whole remains one pure expression. Functors and applicatives carry the same effectfulness: `Option.Map` does not invoke its function for `None`.
 
 ## [02]-[FLATTEN_BIND_MAP]
 
@@ -12,7 +12,7 @@ Types such as `Option`, `Either`, `Fin`, and `Validation` enlarge a function's p
 K<M, A> Flatten<A>(K<M, K<M, A>> mma)
 ```
 
-It evaluates the outer monad far enough to obtain the inner monad — `Bind` without the mapping function. `Flatten` derives from `Bind` and `identity`:
+It evaluates the outer monad far enough to obtain the inner monad, `Bind` without the mapping function. `Flatten` derives from `Bind` and `identity`:
 
 ```csharp
 public static K<Maybe, A> Flatten<A>(K<Maybe, K<Maybe, A>> mma) =>
@@ -39,11 +39,11 @@ public static K<Maybe, B> Bind<A, B>(
     ma.Map(f).Flatten();
 ```
 
-This is why `Bind` is also called `FlatMap`. A custom monad implements `Bind` from `Flatten` and `Map`, uses the default `Flatten` derived from `Bind`, or provides bespoke versions of both — whichever is simpler or more efficient for the type.
+This is why `Bind` is also called `FlatMap`. Custom monads implement `Bind` from `Flatten` and `Map`, use the default `Flatten` derived from `Bind`, or provide bespoke versions of both, whichever is simpler or more efficient for the type.
 
 ## [03]-[BUILDING_MONADS]
 
-A monad implementation is small. The raw functor, applicative, and monad operations unlock the generic LanguageExt functionality, LINQ included; the data type's supporting functions — `ask`, `tell`, `get`, `put` — form its practical API. Custom monads are ordinary application types with cross-cutting behavior: a database monad that manages connections, sub-spaces, security, and I/O; a service monad that manages third-party access, resources, configuration, and I/O; a `Free`-based API monad that coordinates subsystems. The clearest place to see each monad's distinguishing behavior is its `Bind` implementation.
+Monad implementation is small. The raw functor, applicative, and monad operations unlock the generic LanguageExt functionality, LINQ included; the data type's supporting functions (`ask`, `tell`, `get`, `put`) form its practical API. Custom monads are ordinary application types with cross-cutting behavior: a database monad that manages connections, sub-spaces, security, and I/O; a service monad that manages third-party access, resources, configuration, and I/O; a `Free`-based API monad that coordinates subsystems. The clearest place to see each monad's distinguishing behavior is its `Bind` implementation.
 
 ## [04]-[ALTERNATIVE_VALUE_MONADS]
 
@@ -138,7 +138,7 @@ public static Writer<Out, Unit> tell<Out>(Out item)
     new(log => (default, log + item));
 ```
 
-A representation that stores output without accepting an input log concatenates collections during `Bind`; the threaded representation concentrates concatenation in `tell`.
+Representations that store output without accepting an input log concatenate collections during `Bind`; the threaded representation concentrates concatenation in `tell`.
 
 ### [06.3]-[STATE]
 
@@ -163,4 +163,4 @@ public static K<State<S>, B> Bind<A, B>(
 
 ## [08]-[COMPOSITION_LIMIT]
 
-These are single-feature monads. A monadic expression works with one constructor at a time, `Option` and `IO` do not combine directly in one expression. Dedicated types for specific pairings do not scale: the handwritten combinations grow with every monad and every larger combination. Monad transformers compose existing monads into combined monads.
+These are single-feature monads. Monadic expressions work with one constructor at a time, `Option` and `IO` do not combine directly in one expression. Dedicated types for specific pairings do not scale: the handwritten combinations grow with every monad and every larger combination. Monad transformers compose existing monads into combined monads.

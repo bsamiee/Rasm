@@ -72,13 +72,13 @@ The list, tree, and option signatures share one form:
 map : ('a -> 'b) -> 'a context -> 'b context
 ```
 
-A context may be a container or a domain such as asynchronous computation:
+Contexts may be containers or domains such as asynchronous computation:
 
 ```text
 map_future : ('a -> 'b) -> 'a future -> 'b future
 ```
 
-The computed value changes without changing the represented asynchronous computation. A `map` defined for a domain or context should transform its value without altering that context.
+The computed value changes without changing the represented asynchronous computation. `map` for a domain or context should transform its value without altering that context.
 
 With the curried signatures used here, partial application makes `map` a lifting function. Given `square : int -> int`, context-specific maps lift it to `int list -> int list`, `int bin_tree -> int bin_tree`, `int option -> int option`, or `int future -> int future`.
 
@@ -94,7 +94,7 @@ class Functor f where
 
 ## `filter`: retain elements satisfying a predicate
 
-A predicate returns `bool`. `filter` abstracts recursion that decides whether each element belongs in the result:
+Predicates return `bool`. `filter` abstracts recursion that decides whether each element belongs in the result:
 
 ```ocaml
 let rec filter p l =
@@ -289,11 +289,11 @@ Each element is compared with its successor. Empty and singleton lists are sorte
 
 ## Quiz conclusions
 
-1. `List.map ((+) 1) [1; 2; 3]` is `[2; 3; 4]`.
-2. `zipWith` has type `('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list`.
-3. `List.map fst [(0., 0.); (1., 2.); (1.5, 3.5)]` is `[0.; 1.; 1.5]`.
-4. A right fold that conditionally prepends `x` when `p x` is true implements `filter`.
-5. Folding `[1; 2]` into a parenthesized string from `"0"` yields `"(1+(2+0))"`, exposing right association.
-6. Comparing a list with its tail using `zipWith (=)` and `all` tests whether all elements are equal. It is true for `[]`, singletons, and repeated equal values, but false for `[1; 2]`.
-7. `fold_nat ((^) "-") ""` returns one hyphen per `Succ`: `""`, `"-"`, and `"--"` for zero, one, and two.
-8. Haskell's `Functor` captures a type that can be mapped over; `fmap` is its generalized map operation.
+1. `List.map ((+) 1) [1; 2; 3]` is `[2; 3; 4]`
+2. `zipWith` has type `('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list`
+3. `List.map fst [(0., 0.); (1., 2.); (1.5, 3.5)]` is `[0.; 1.; 1.5]`
+4. Right folds that prepend `x` when `p x` is true implement `filter`
+5. Folding `[1; 2]` into a parenthesized string from `"0"` yields `"(1+(2+0))"`, exposing right association
+6. Comparing a list with its tail using `zipWith (=)` and `all` tests whether all elements are equal: true for `[]`, singletons, and repeated equal values, false for `[1; 2]`
+7. `fold_nat ((^) "-") ""` returns one hyphen per `Succ`: `""`, `"-"`, and `"--"` for zero, one, and two
+8. Haskell's `Functor` captures a type that can be mapped over; `fmap` is its generalized map operation

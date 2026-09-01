@@ -199,7 +199,7 @@ def register_package(package: str, *, exempt: frozenset[str] = frozenset(), suit
 def _importable(folder: Path, /) -> str:
     """Return the import name installed by a source directory.
 
-    A workspace member installs the shallowest ``__init__.py`` package beneath its module root — the member folder
+    A workspace member installs the shallowest ``__init__.py`` package beneath its module root, the member folder
     itself for a flat layout, or ``src`` when that layout is present. Registering the directory path instead
     imports the package again under another name and creates duplicate class objects. A manifest-less
     flat folder keeps its repo-relative dotted path, which a ``sys.path``-prepended root already resolves.

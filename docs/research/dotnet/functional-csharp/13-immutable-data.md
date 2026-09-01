@@ -4,12 +4,12 @@
 
 Programs must represent real-world change, but change does not require mutation.
 
-- Mutation overwrites an existing value in place.
-- Immutable update creates a new value representing the next state.
-- State is a snapshot at a point in time.
-- Transition is a function from one snapshot to the next.
+- Mutation overwrites an existing value in place
+- Immutable update creates a new value representing the next state
+- State is a snapshot at a point in time
+- Transition is a function from one snapshot to the next
 
-An entity retains its identity through many immutable states. A bank account remains the same account after it is frozen, but its active and frozen states are distinct values. The model needs snapshots, transitions between them, and an association from the entity identity to its current snapshot.
+An entity retains its identity through many immutable states. Freezing keeps a bank account the same account, but its active and frozen states are distinct values. The model needs snapshots, transitions between them, and an association from the entity identity to its current snapshot.
 
 Avoiding mutation and enforcing immutability are separate concerns. The first is a design discipline: transitions return new values. The second uses constructors, access restrictions, and immutable referenced values to prevent accidental violations of that discipline.
 
@@ -22,18 +22,18 @@ current state --transition--> next state
 ## [02]-[SHARED_MUTATION]
 
 Shared mutable state creates these problems:
-1. Lost updates: concurrent operations can read the same old value and overwrite one another's results.
-2. Temporary invalid states: a multi-field update exposes intermediate combinations when fields are changed separately.
-3. Hidden coupling: every reader depends on every code path capable of changing the shared object.
-4. Loss of purity: changing state outside a function's local scope is an observable side effect.
+1. Lost updates: concurrent operations can read the same old value and overwrite one another's results
+2. Temporary invalid states: a multi-field update exposes intermediate combinations when fields are changed separately
+3. Hidden coupling: every reader depends on every code path capable of changing the shared object
+4. Loss of purity: changing state outside a function's local scope is an observable side effect
 
-A lock can protect one update, but coordination becomes difficult when one business action affects several objects or subsystems. The larger the scope of shared mutation, the harder it is to reason about atomicity and correctness.
+Locks protect one update, but coordination becomes difficult when one business action affects several objects or subsystems. The larger the scope of shared mutation, the harder it is to reason about atomicity and correctness.
 
 The concurrency source does not have to be multiple threads; the same shared-state hazards arise with asynchronous and parallel execution.
 
-A system that combines concurrency with state mutation cannot be proved free of race conditions; strong correctness comes from removing mutation from shared state, not from coordinating access.
+Systems combining concurrency with state mutation cannot be proved free of race conditions; strong correctness comes from removing mutation from shared state, not from coordinating access.
 
-Mutation confined to a function is different. A local accumulator that cannot escape or be observed by callers does not make the function impure. A suitable operation such as `Sum` or `Aggregate` expresses the intent directly.
+Mutation confined to a function is different. Local accumulators hidden from callers do not make the function impure. An operation such as `Sum` or `Aggregate` expresses the intent directly.
 
 ## [03]-[VALUES_AND_IDENTITY]
 
@@ -50,7 +50,7 @@ internal static class Shapes {
 }
 ```
 
-Keep C# structs immutable. Value types are copied when passed between functions; mutating one makes changes propagate down, but not back up, the call stack.
+Keep structs immutable. Value types are copied when passed between functions; mutating one makes changes propagate down, but not back up, the call stack.
 
 Entities are different: their identity persists while their state changes. Model an entity's state as an immutable snapshot and model each allowed change as a function that constructs another snapshot.
 
@@ -60,7 +60,7 @@ internal static class Transitions {
 }
 ```
 
-The previous state remains intact. A transition preserves its input instead of updating it in place.
+The previous state remains intact. Transitions preserve the input instead of updating in place.
 
 ## [04]-[IMMUTABLE_DOMAIN_STATE]
 
@@ -87,17 +87,17 @@ internal sealed record AccountState(CurrencyCode Currency, AccountStatus Status,
 ```
 
 The design relies on these rules:
-- Remove property setters and require construction through a constructor or factory.
-- Enforce required values and business invariants during construction, invalid snapshots cannot exist.
-- Seal the type to prevent a mutable subclass from weakening the guarantee.
-- Store collections in immutable collection types such as `Seq<A>`.
-- Defensively copy mutable input collections at the boundary.
-- Ensure element types such as `Transaction` and `CurrencyCode` are immutable.
-- Expose only meaningful transitions, not unrestricted copy methods.
+- Remove property setters and require construction through a constructor or factory
+- Enforce required values and business invariants during construction, invalid snapshots cannot exist
+- Seal the type to prevent a mutable subclass from weakening the guarantee
+- Store collections in immutable collection types such as `Seq<A>`
+- Defensively copy mutable input collections at the boundary
+- Ensure element types such as `Transaction` and `CurrencyCode` are immutable
+- Expose only meaningful transitions, not unrestricted copy methods
 
-An immutable top-level object containing a mutable list is mutable. A shallow copy is safe only when every shared referenced value is itself immutable. `Opened` calls `toSeq`, which copies the list argument into a `Seq<Transaction>`. Later changes to the caller's mutable list do not reach the snapshot.
+An immutable top-level object containing a mutable list is mutable. Shallow copies are safe only if every shared referenced value is immutable. `Opened` calls `toSeq`, which copies the list argument into a `Seq<Transaction>`. Later changes to the caller's mutable list do not reach the snapshot.
 
-Public setters allow callers to replace properties. Private setters prevent caller replacement, but code inside the class can still reassign properties. A read-only interface over a mutable collection does not make the graph immutable either.
+Public setters allow callers to replace properties. Private setters prevent caller replacement, but code inside the class can still reassign properties. Read-only interfaces over a mutable collection do not make the graph immutable.
 
 ## [05]-[COPY_AND_UPDATE]
 
@@ -109,7 +109,7 @@ Public setters or mutable collections remain available, but callers follow the d
 
 Getter-only properties, constructors, immutable referenced values, and copy methods make the contract visible and prevent accidental mutation.
 
-A single `With` method can update several permitted fields in one allocation. Optional `Option` parameters distinguish “not supplied” from a value, and `IfNone` keeps the current value for each absent one. Limit its parameters to domain-permitted changes: status and overdraft can change, while currency and transaction history cannot.
+One `With` method updates several permitted fields in one allocation. Optional `Option` parameters distinguish “not supplied” from a value, and `IfNone` keeps the current value for each absent one. Limit its parameters to domain-permitted changes: status and overdraft can change, while currency and transaction history cannot.
 
 Records provide copy-and-update with a `with` expression over `init`-only properties, and a `readonly struct` prevents reassignment of its fields.
 
@@ -134,7 +134,7 @@ internal static class Lenses {
 
 ### [05.3]-[REFLECTION_COPYING]
 
-A reflection helper can copy an object and replace one backing field. It removes boilerplate, but it is slower and bypasses control over legal transitions. Prefer explicit copy methods.
+Reflection can copy an object and replace one backing field. It removes boilerplate, but it is slower and bypasses control over legal transitions. Prefer explicit copy methods.
 
 ### [05.4]-[FSHARP_TYPES]
 
@@ -147,24 +147,24 @@ No C# technique can prevent all mutation because reflection can alter private or
 An immutable update creates another top-level object, increasing allocations and garbage collection. It performs a shallow copy: unchanged immutable children are shared, while only changed values and the new parent are allocated.
 
 This creates a tradeoff:
-- In-place mutation is cheaper for the individual write.
-- Immutable updates improve safety, isolation, and reasoning.
-- Mutable designs can require locks and defensive copying.
-- Prefer safety; optimize only measured hot paths.
+- In-place mutation is cheaper for the individual write
+- Immutable updates improve safety, isolation, and reasoning
+- Mutable designs can require locks and defensive copying
+- Prefer safety; optimize only measured hot paths
 
 `Add` uses `Cons` to keep the newest transaction at the front. Choose a collection type that matches frequent domain operations.
 
 ## [07]-[PERSISTENT_LISTS]
 
-A functional singly linked list is recursively defined as:
+Functional singly linked lists are recursively defined:
 
 ```text
 List<T> = Empty | Cons(head: T, tail: List<T>)
 ```
 
-Persistent means that earlier in-memory versions remain available after an update. It does not refer to disk storage. A persistent structure keeps its main operations within the same order of magnitude as the corresponding mutable structure.
+Persistent means that earlier in-memory versions remain available after an update. It does not refer to disk storage. Persistent structures keep the main operations within the same order of magnitude as the mutable structure.
 
-`Seq<A>` represents these two cases through `Head`, `Tail`, and `Match`. Traversals recurse through the tail:
+`Seq<A>` represents these cases through `Head`, `Tail`, and `Match`. Traversals recurse through the tail:
 
 ```csharp
 internal static class Histories {
@@ -182,7 +182,7 @@ internal static class Histories {
 
 `Seq(a, b, c)` and `toSeq` build a sequence in the caller's order.
 
-A prepend produces this structure:
+Prepends produce this structure:
 
 ```text
 original:       A -> B -> C
@@ -192,11 +192,11 @@ prepend Y: Y -> A -> B -> C
 
 The original and both derived lists coexist because the shared tail cannot change.
 
-- Prepend: `O(1)`, one new node.
-- Remove the head: `O(1)`, return the tail.
-- `Map`, `Where`, or full aggregation: `O(n)`.
-- Insert or remove at index `m`: `O(m)` traversal and `m` rebuilt prefix nodes.
-- Appending to the end repeatedly is a poor fit; choose another structure for queue-like workloads.
+- Prepend: `O(1)`, one new node
+- Remove the head: `O(1)`, return the tail
+- `Map`, `Where`, or full aggregation: `O(n)`
+- Insert or remove at index `m`: `O(m)` traversal and `m` rebuilt prefix nodes
+- Appending to the end repeatedly is a poor fit; choose another structure for queue-like workloads
 
 Indexed operations use `Lst<A>`, which provides `Insert`, `RemoveAt`, and `SetItem` over a balanced tree.
 
@@ -204,7 +204,7 @@ Indexed operations use `Lst<A>`, which provides `Insert`, `RemoveAt`, and `SetIt
 
 ## [08]-[PERSISTENT_TREES]
 
-A binary tree can be defined recursively:
+Binary trees can be defined recursively:
 
 ```text
 Tree<T> = Leaf(value: T) | Branch(left: Tree<T>, right: Tree<T>)
@@ -231,17 +231,17 @@ old root                 new root
 L      R         ->      L    rebuilt R
 ```
 
-An `Add` rebuilds only the nodes on the path from the root to the new key and shares every untouched subtree. This reuse is structural sharing. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, a higher-arity tree can remain shallow for a large collection. `Map<K, V>` balances itself on every `Add`, the rebuilt path stays within that bound.
+An `Add` rebuilds only the nodes from the root to the new key and shares every untouched subtree. This reuse is structural sharing. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, a higher-arity tree can remain shallow for a large collection. `Map<K, V>` balances itself on every `Add`, the rebuilt path stays within that bound.
 
 ## [09]-[DECISION_RULES]
 
-1. Represent every domain state as a complete, valid snapshot.
-2. Express change as named state-transition functions returning new snapshots.
-3. Make immutability deep before sharing references between versions.
-4. Use immutable collections rather than copying whole mutable collections manually.
-5. Shape data structures around their frequent operations.
-6. Treat the list and tree definitions as conceptual models; use the library collection types `Seq`, `Lst`, `Map`, and `HashMap`.
-7. Choose explicit copy APIs when the domain must restrict which changes are legal.
-8. Accept local mutation only when it is fully encapsulated and unobservable.
+1. Represent every domain state as a complete, valid snapshot
+2. Express change as named state-transition functions returning new snapshots
+3. Make immutability deep before sharing references between versions
+4. Use immutable collections rather than copying whole mutable collections manually
+5. Shape data structures around their frequent operations
+6. Treat the list and tree definitions as conceptual models; use the library collection types `Seq`, `Lst`, `Map`, and `HashMap`
+7. Choose explicit copy APIs when the domain must restrict which changes are legal
+8. Accept local mutation only when it is fully encapsulated and unobservable
 
 Immutable snapshots and persistent structures remove time-dependent behavior from data access. Components can share values without coordinating changes.

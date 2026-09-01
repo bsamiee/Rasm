@@ -1,6 +1,6 @@
 # [READER_TRANSFORMER]
 
-`ReaderT<Env, M, A>` adds an environment `Env` to a monad `M`. A computation reads configuration or request context without global state and without the same parameter on every function. The environment stays explicit: one value is supplied when the computation runs and is threaded through its stages. Until then, `ReaderT` composes functions that wait for that value.
+`ReaderT<Env, M, A>` adds an environment `Env` to a monad `M`. Computations read configuration or request context without global state and without the same parameter on every function. The environment stays explicit: one value is supplied when the computation runs and is threaded through its stages. Until then, `ReaderT` composes functions that wait for that value.
 
 ## [01]-[REPRESENTATION_AND_EXECUTION]
 
@@ -62,7 +62,7 @@ The environment reaches each `ReaderT` stage because it is passed whenever the w
 
 ## [03]-[STACK_ENCAPSULATION]
 
-A domain type hides the stack. A simplified `Eff<RT, A>` is a wrapper around `ReaderT<RT, IO, A>`:
+Domain types hide the stack. Simplified `Eff<RT, A>` wraps `ReaderT<RT, IO, A>`:
 
 ```csharp
 public record Eff<RT, A>(ReaderT<RT, IO, A> runEff) : K<Eff<RT>, A>;
@@ -128,7 +128,7 @@ public interface Readable<M, Env>
 }
 ```
 
-`Readable` does not require `Monad`. Its helper functions provide four operations:
+`Readable` does not require `Monad`. Its helper functions provide operations:
 
 ```csharp
 public static class Readable
@@ -183,11 +183,11 @@ var compute = addRdr(
 var result = compute.Run(300).Run(); // 600
 ```
 
-`addRdr` knows neither the concrete monad nor how it stores the environment. It requires values that are bindable and readable. Its arguments can still represent computations with IO, parallelism, resource cleanup, errors, or retries — capabilities this function does not name. Shared support functions operate across multiple domain monads by reading their configuration through `Readable`.
+`addRdr` knows neither the concrete monad nor how it stores the environment. It requires values that are bindable and readable. Its arguments can still represent computations with IO, parallelism, resource cleanup, errors, or retries, capabilities this function does not name. Shared support functions operate across multiple domain monads by reading their configuration through `Readable`.
 
 ## [05]-[REQUEST_CONTEXT]
 
-A session is supplied once per API request and read anywhere in a compatible monad:
+Each API request supplies one session that any compatible monad reads:
 
 ```csharp
 public record User(string Id, Seq<Role> Memberships);
@@ -242,9 +242,9 @@ public static Eff<Session, Unit> sendInvoice() =>
 
 ## [06]-[LOCAL_ENVIRONMENTS]
 
-Two operations limit the environment a computation sees:
+Operations limit the environment a computation sees:
 - `local(f, ma)` maps `Env` to another `Env` of the same type and runs `ma` with that temporary value. The change is scoped to `ma`; later computation sees the original environment.
-- `with(f, ma)` maps an outer environment to a different environment type, such as `AppConfig -> DbConfig`. A data layer receives only its database configuration.
+- `with(f, ma)` maps an outer environment to a different environment type, such as `AppConfig -> DbConfig`. Data layers receive only the database configuration.
 
 `with` is not part of `Readable`, because `Env` is fixed in the trait implementation. Use `Reader.with` or `ReaderT.with`, and expose an equivalent operation on a wrapper where environment-type mapping is useful.
 

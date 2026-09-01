@@ -2,7 +2,7 @@
 
 ## [01]-[MOTIVATION]
 
-Pure functional programming rests on three ideas: functions are values, everything is an expression, and expressions are pure or behave with referential transparency. A pure expression is a value or is built from pure expressions and produces no side effects. A referentially transparent expression can use an imperative implementation internally; from the outside its call is replaceable by its value.
+Pure functional programming rests on: functions are values, everything is an expression, and expressions are pure or behave with referential transparency. Pure expressions are values or combine pure expressions and produce no side effects. Referentially transparent expressions can use imperative implementations; from the outside each call is replaceable by its value.
 
 An expression-oriented program still needs readable, line-by-line sequencing. In an ML-style expression,
 
@@ -17,11 +17,11 @@ the apparent statements are nested function applications. They keep expression s
 Purity creates a second need: useful programs read clocks, files, and other external state. `DateTime.Now` cannot be replaced with one evaluated value, it is not pure. The effect must be represented without being performed while the expression is constructed. One impure operation compromises the purity of the expression that contains it, effects stay explicit and controlled.
 
 Monads answer both needs:
-- They represent effects as values, pure code composes effectful computations.
-- They sequence computations when a later computation depends on an earlier result.
-- With LINQ, a pure C# expression reads like a series of imperative statements.
+- They represent effects as values, pure code composes effectful computations
+- They sequence computations when a later computation depends on an earlier result
+- With LINQ, a pure expression reads like a series of imperative statements
 
-A monad is a design pattern for sequencing computations in a context. Its central operation is `Bind`:
+Monads are a pattern for sequencing computations in a context. Its central operation is `Bind`:
 
 ```text
 Bind : M<A> -> (A -> M<B>) -> M<B>
@@ -157,7 +157,7 @@ var diff =
     select tomorrow - today;
 ```
 
-LINQ is C#'s first-class syntax for monadic sequencing, the analogue of Haskell's `do` notation. With the higher-kinded traits, implementing `Monad<M>` makes a type work with LINQ without a separate `Select` and `SelectMany` per concrete monad. A monad chains computations serially; read `Bind` as "and then".
+LINQ is C#'s first-class syntax for monadic sequencing, the analogue of Haskell's `do` notation. With the higher-kinded traits, implementing `Monad<M>` makes a type work with LINQ without a separate `Select` and `SelectMany` per concrete monad. Monads chain computations serially; read `Bind` as "and then".
 
 ## [05]-[BIND_ACROSS_KINDS]
 
@@ -179,7 +179,7 @@ public interface Monad<M> : Applicative<M>
 M<A> -> A -> M<B>
 ```
 
-No general operation has the shape `M<A> -> A`. A context can contain no `A`: `Option<A>` can be `None`. Lowering a discriminated union to a plain value is type-specific and needs pattern matching or a default. `Bind` still produces `M<B>`, because the monad knows how to preserve its no-value case. This monad-specific logic between computations is the "programmable semicolon": for `IO` it runs a deferred computation, for `Option` it decides whether the next computation runs.
+No general operation has the shape `M<A> -> A`. Contexts can contain no `A`: `Option<A>` can be `None`. Lowering a discriminated union to a plain value is type-specific and needs pattern matching or a default. `Bind` still produces `M<B>`, because the monad knows how to preserve its no-value case. This monad-specific logic between computations is the "programmable semicolon": for `IO` it runs a deferred computation, for `Option` it decides whether the next computation runs.
 
 ## [06]-[OPTION_SHORT_CIRCUIT]
 
@@ -216,4 +216,4 @@ When parsing returns `None`, no value exists for the next dependent step, and th
 
 ## [07]-[DECLARED_EFFECTS]
 
-The monad in a return type marks the whole expression with a behavior. `IO<A>` declares that the expression performs IO; `Option<A>` declares that it can produce no value. Visible contexts separate effectful from non-effectful code and preserve composition. Different monads implement very different sequencing behavior through the same `Bind` shape — IO, absence, state, configuration, logging, validation, collection iteration, stream processing, resource tracking. In every case `Bind` is function composition with the external result `M<A> -> M<B>`; the chosen `M` supplies the behavior between the steps.
+The monad in a return type marks the whole expression with a behavior. `IO<A>` declares that the expression performs IO; `Option<A>` declares that it can produce no value. Visible contexts separate effectful from non-effectful code and preserve composition. Different monads implement very different sequencing behavior through the same `Bind` shape (IO, absence, state, configuration, logging, validation, collection iteration, stream processing, resource tracking). In every case `Bind` is function composition with the external result `M<A> -> M<B>`; the chosen `M` supplies the behavior between the steps.

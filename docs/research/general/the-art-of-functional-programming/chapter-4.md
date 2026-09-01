@@ -4,7 +4,7 @@ Compound data groups multiple data objects into one structure. Related values ca
 
 ## Tuples: fixed-size products
 
-A tuple groups a fixed number of ordered values. Its elements may have different types, it suits concepts whose number of components is known in advance.
+Tuples group a fixed number of ordered values. Elements may have different types, tuples suit concepts whose number of components is known in advance.
 
 ```ocaml
 (42, "Hi FP")           (* int * string *)
@@ -39,7 +39,7 @@ let distance_point p1 p2 = match p1, p2 with
       sqrt ((x1 -. x2) ** 2. +. (y1 -. y2) ** 2.)
 ```
 
-In OCaml, patterns can appear directly in function parameters:
+Patterns can appear directly in function parameters:
 
 ```ocaml
 let distance_point (x1, y1) (x2, y2) =
@@ -56,10 +56,9 @@ Immutability makes a value's contents stable over time. Understanding it does no
 
 ## Lists: ordered homogeneous sequences
 
-An OCaml list holds an ordered sequence of values of one element type. It is built by two constructors:
-
-- `[]` (nil) constructs the empty list.
-- `::` (cons) constructs a non-empty list from a head element and a tail list.
+An OCaml list holds an ordered sequence of values of one type. It is built by:
+- `[]` (nil) constructs the empty list
+- `::` (cons) constructs a non-empty list from a head element and a tail list
 
 ```ocaml
 2 :: []
@@ -120,14 +119,14 @@ let rec append l1 l2 = match l1 with
 
 ### Immutable lists versus mutable arrays
 
-An existing OCaml list cannot be modified. Replacing its first element means constructing a new list that reuses its tail:
+An existing OCaml list never changes. Replacing its first element means constructing a new list that reuses its tail:
 
 ```ocaml
 let l = [1; 2; 3]
 let changed = 4 :: List.tl l       (* [4; 2; 3]; l remains unchanged *)
 ```
 
-A mutable array permits indexed access and in-place updates. Aliasing makes such mutation less transparent: if `b` refers to array `a`, then updating `b[0]` also changes what is observed through `a`. Immutable lists avoid this behavior because their elements never change after construction.
+Mutable arrays permit indexed access and in-place updates. Aliasing makes such mutation less transparent: if `b` refers to array `a`, then updating `b[0]` also changes what is observed through `a`. Immutable lists avoid this behavior because their elements never change after construction.
 
 The contrast is visible in reversal. Functional code constructs a new reversed list; imperative array code swaps elements in place.
 
@@ -150,9 +149,9 @@ length : 'a list -> int
 
 ## Algebraic data types
 
-Compound types arise from two forms:
+Compound types arise from:
 - Combination (product): a value contains all listed components. `int * string` contains every integer-string pair.
-- Alternation (sum): a value is one of several alternatives. A list is either `[]` or a head-tail pair.
+- Alternation (sum): a value is one of several alternatives. Lists are either `[]` or head-tail pairs.
 
 An algebraic data type combines sums and products. Each constructor may carry zero, one, or several values.
 
@@ -180,7 +179,7 @@ For this calculation, child shapes are assumed not to overlap, the area of a com
 
 ### Parameterized and recursive types
 
-A parameterized binary tree can contain values of any one type:
+Parameterized binary trees hold values of any one type:
 
 ```ocaml
 type 'a bin_tree =
@@ -279,19 +278,19 @@ let rec add n m = match m with
 ```
 
 Key cases:
-- `longest_string [] = None`; ties keep the longest string found in the tail.
-- `concat "," [] = ""`, `concat "," ["a"] = "a"`, and `concat "," ["a"; "b"] = "a,b"`.
-- Tree height is `0` for `Leaf`; a `Node` adds one to the larger subtree height.
-- `pred Zero = None`; `pred (Succ x) = Some x`.
-- Natural-number addition moves one `Succ` at a time from the second argument to the first until the second reaches `Zero`.
+- `longest_string [] = None`; ties keep the longest string found in the tail
+- `concat "," [] = ""`, `concat "," ["a"] = "a"`, and `concat "," ["a"; "b"] = "a,b"`
+- Tree height is `0` for `Leaf`; a `Node` adds one to the larger subtree height
+- `pred Zero = None`; `pred (Succ x) = Some x`
+- Natural-number addition moves one `Succ` at a time from the second argument to the first until the second reaches `Zero`
 
 ## Quiz conclusions
 
-1. `string * int * bool` has infinitely many values because its string and integer components range over infinitely many possibilities.
-2. `type mytype = BoolVal of bool | Constant` has exactly three values: `BoolVal true`, `BoolVal false`, and `Constant`.
-3. A safe head returns `None` for `[]` and `Some hd` for a non-empty list instead of throwing on the empty case.
-4. `l[0] = "John"` is not a valid OCaml list update. Construct a new list, such as `"John" :: List.tl l`.
-5. Omitting `ComplexShape` from a match over `shape` is not a syntax error; it is a non-exhaustive match that the compiler warns may fail for that constructor.
-6. A list-to-string function that surrounds a recursively joined body with brackets produces `"[]"`, `"[1]"`, and `"[1; 2]"` for `[]`, `[1]`, and `[1; 2]`.
-7. `Option.map String.length (List.nth_opt l n)` returns `None` when the indexed string is absent and `Some length` when present: `None`, `Some 5`, and `Some 3` for the tested inputs.
-8. For `f Zero = ""`, `f (Succ Zero) = "/"`, and `f (Succ n) = "/ " ^ f n`, the tested results are `""`, `"/"`, and `"/ /"`.
+1. `string * int * bool` has infinitely many values because its string and integer components range over infinitely many possibilities
+2. `type mytype = BoolVal of bool | Constant` has exactly three values: `BoolVal true`, `BoolVal false`, and `Constant`
+3. Safe heads return `None` for `[]` and `Some hd` for a non-empty list instead of throwing on the empty case
+4. `l[0] = "John"` is not a valid OCaml list update
+5. Omitting `ComplexShape` from a match over `shape` is not a syntax error; it is a non-exhaustive match that the compiler warns may fail for that constructor
+6. List-to-string functions that surround a recursively joined body with brackets produce `"[]"`, `"[1]"`, and `"[1; 2]"` for `[]`, `[1]`, and `[1; 2]`
+7. `Option.map String.length (List.nth_opt l n)` returns `None` when the indexed string is absent and `Some length` when present: `None`, `Some 5`, and `Some 3` for the tested inputs
+8. For `f Zero = ""`, `f (Succ Zero) = "/"`, and `f (Succ n) = "/ " ^ f n`, the tested results are `""`, `"/"`, and `"/ /"`

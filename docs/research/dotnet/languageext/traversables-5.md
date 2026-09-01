@@ -10,7 +10,7 @@ Seq<Option<int>> mapped =
 // [Some(1), Some(2), None]
 ```
 
-`Traverse` transforms every value and flips the two structures:
+`Traverse` transforms every value and flips the structures:
 
 ```csharp
 Option<Seq<int>> parsed =
@@ -26,11 +26,11 @@ The general transformation is:
 Traverse : (A -> F<B>) -> T<A> -> F<T<B>>
 ```
 
-- `T` is the traversed structure.
-- `F` is the effect produced for each value.
-- The behavior that combines results comes from `F`.
+- `T` is the traversed structure
+- `F` is the effect produced for each value
+- The behavior that combines results comes from `F`
 
-Use it whenever `Map` leaves effects inside a structure and the next operation needs one effect containing the complete structure. A traversal exposes no accumulator: the applicative's own behavior performs the accumulation while the structures flip.
+Use it whenever `Map` leaves effects inside a structure and the next operation needs one effect containing the complete structure. Traversals expose no accumulator: the applicative's own behavior accumulates while the structures flip.
 
 ## [02]-[OUTER_APPLICATIVE_SEMANTICS]
 
@@ -38,9 +38,9 @@ Use it whenever `Map` leaves effects inside a structure and the next operation n
 
 | [INDEX] | [TYPE]       | [BEHAVIOR]                                                                                  |
 | :-----: | :----------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `Option`     | Any `None` makes the whole result `None`.                                                   |
-|  [02]   | `Validation` | All failures are collected.                                                                 |
-|  [03]   | `Eff`        | File-reading effects in the example run in parallel; one failure fails the whole traversal. |
+|  [01]   | `Option`     | Any `None` makes the whole result `None`                                                    |
+|  [02]   | `Validation` | All failures are collected                                                                  |
+|  [03]   | `Eff`        | File-reading effects in the example run in parallel; one failure fails the whole traversal  |
 
 Match the transformation to the dependency structure:
 
@@ -86,7 +86,7 @@ public static virtual K<M, K<T, A>> SequenceM<M, A>(
     Traversable.traverseM(x => x, ta);
 ```
 
-`Sequence` and `SequenceM` perform the same structural flip; their constraints select applicative or monadic composition. A type overrides the defaults where it provides materially better semantics or performance; `Seq<A>` overrides `TraverseM` to guarantee serial evaluation.
+`Sequence` and `SequenceM` perform the same structural flip; their constraints select applicative or monadic composition. Types override the defaults where they provide materially better semantics or performance; `Seq<A>` overrides `TraverseM` to guarantee serial evaluation.
 
 ### [03.1]-[PREFER_TRAVERSE]
 
@@ -119,16 +119,16 @@ public interface Traversable<T> : Functor<T>, Foldable<T>
 ```
 
 Two independent type constructors participate:
-- `T` maps over values and folds its shape.
-- `F` lifts values with `Pure` and combines independent computations with `Apply`.
-- `K<T, A>` is the traversed value in higher-kinded form.
-- `K<F, K<T, B>>` is the transformed `T<B>` nested inside the chosen effect.
+- `T` maps over values and folds its shape
+- `F` lifts values with `Pure` and combines independent computations with `Apply`
+- `K<T, A>` is the traversed value in higher-kinded form
+- `K<F, K<T, B>>` is the transformed `T<B>` nested inside the chosen effect
 
 One `Traverse` implementation for a type composes with every applicative the trait system supports.
 
 ## [05]-[COLLECTION_TRAVERSABLE]
 
-A sequence implementation folds from the back, starts with an empty sequence lifted into `F`, and applicatively prepends each transformed item:
+Sequence implementations fold from the back, start with an empty sequence lifted into `F`, and applicatively prepend each transformed item:
 
 ```csharp
 static K<F, K<Seq, B>> Traverse<F, A, B>(
@@ -148,10 +148,10 @@ static K<F, K<Seq, B>> Traverse<F, A, B>(
 }
 ```
 
-- `foldBack` uses `Cons` to prepend each mapped item to the accumulated sequence.
-- `F.Pure(empty<B>())` is the result for an empty input.
-- `Applicative.lift` combines `f(x)` and the accumulated sequence through `F.Apply`; failure accumulation, short-circuiting, or concurrency enters here.
-- The final `F.Map` widens the concrete inner `Seq<B>` to `K<Seq, B>` explicitly.
+- `foldBack` uses `Cons` to prepend each mapped item to the accumulated sequence
+- `F.Pure(empty<B>())` is the result for an empty input
+- `Applicative.lift` combines `f(x)` and the accumulated sequence through `F.Apply`; failure accumulation, short-circuiting, or concurrency enters here
+- The final `F.Map` widens the concrete inner `Seq<B>` to `K<Seq, B>` explicitly
 
 Keeping `Seq<B>` concrete during the fold avoids an `.As()` and `.Kind()` call per item; one outer `Map` costs less than repeated boxing of a value-type collection. Prefer the explicit widening over variance tricks that compile and then fail through nested runtime casts.
 
@@ -206,4 +206,4 @@ Option<Seq<int>> parsed =
         .As();
 ```
 
-The repeated member pattern answers C#'s handling of nested generic interfaces; it does not change traversal semantics. Operations defined for `K`, such as `Map` and `Apply`, stay available before that conversion. A domain type implements `Traverse` once and composes with the available foldable and applicative types, instead of one method per pairing.
+The repeated member pattern answers C#'s handling of nested generic interfaces; it does not change traversal semantics. Operations defined for `K`, such as `Map` and `Apply`, stay available before that conversion. Domain types implement `Traverse` once and compose with the available foldable and applicative types, instead of one method per pairing.

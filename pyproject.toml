@@ -53,7 +53,7 @@ workspace = [
     # --- [IO_TRANSPORT]
     "asyncssh",                                           # SSH and SFTP client used by remote workers
     "brotli",                                             # Compression
-    "cloudevents",                                        # Validated CloudEvents attribute algebra plus HTTP, Kafka, AMQP, and RabbitMQ protocol bindings
+    "cloudevents",                                        # Validated CloudEvents attribute algebra and HTTP, Kafka, AMQP, and RabbitMQ protocol bindings
     "confluent-kafka[schemaregistry,avro,json,protobuf]", # librdkafka client and Schema Registry serializers; msgspec supplies the JSON hooks, orjson would duplicate JSON serialization
     "connectrpc",                                         # Connect-Python — generated async service ABCs, ASGI applications, and typed clients speaking Connect, gRPC, and gRPC-Web over one HTTP interface
     "detools",                                            # Binary-delta engine
@@ -280,7 +280,7 @@ workspace = [
     "imagecodecs",                                        # Native codecs for EXR, RGBE, 16-bit PNG, float TIFF, JXL, AVIF, WebP, ICC, BCn/DDS, and meshopt
     "openexr",                                            # Named-channel, multipart, and tiled EXR documents unsupported by imagecodecs
     "pillow",                                             # Image IO and WebP decoding for the SOG Gaussian-splat container
-    "psd-tools",                                          # PSD read/inspect plus pixel author
+    "psd-tools",                                          # PSD read/inspect and pixel author
     "psdtags",                                            # Photoshop TIFF image resources and layer source data
     "pyktx",                                              # In-process KTX2 writing, Basis encoding, Zstandard supercompression, and BC7/ASTC transcoding over Forge libktx; ktx-parse reads the same files
     "pysubs2",                                            # Subtitle parse/convert/retime/restyle model
@@ -550,8 +550,7 @@ module = ["boto3", "boto3.*", "fsspec", "fsspec.*", "jsonschema", "jsonschema.*"
 ignore_missing_imports = true
 
 # --- [PYTEST] ---------------------------------------------------------------------------
-
-# `pytest-benchmark` and `pytest-xdist` conflict under `filterwarnings = ["error"]`. Do not add `-n` to default `addopts`
+# `pytest-benchmark` and `pytest-xdist` conflict under `filterwarnings = ["error"]`, do not add `-n` to default `addopts`
 [tool.pytest]
 minversion = "9.0"
 strict = true

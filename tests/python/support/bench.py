@@ -189,7 +189,7 @@ def _storage_root(config: pytest.Config) -> Path:
 
 
 def _series_from_storage(config: pytest.Config, output_json: dict[str, object]) -> dict[tuple[str, str, int], tuple[float, ...]]:
-    """Map ``(file, label, size)`` to its oldest-first median series from stored runs plus the current report."""
+    """Map ``(file, label, size)`` to its oldest-first median series from stored runs and the current report."""
     storage_root = _storage_root(config)
     prior_docs = (msgspec.json.decode(path.read_bytes(), type=_StoredDoc) for path in sorted(storage_root.glob("*/*.json")))
     current_doc = msgspec.convert(output_json, type=_StoredDoc, strict=False)

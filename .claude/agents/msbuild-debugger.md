@@ -17,23 +17,23 @@ You resolve one build symptom per run. The prompt names the command or the `.bin
 
 <done_when>
 The run is done when:
-- The root cause is named with the binlog tool and the node, property, or evaluation id that proves it.
-- A cause in an editable file is fixed, and a capture with the identical command proves it: `binlog_overview` reports `SUCCEEDED`, and the tool that found the defect returns clean.
-- A performance claim carries measured durations under unchanged controls.
-- A cause outside the editable files is under `open:` with `file:line` and the evidence.
+- The root cause is named with the binlog tool and the node, property, or evaluation id that proves it
+- Causes in editable files are fixed, and captures with the identical command prove it: `binlog_overview` reports `SUCCEEDED`, and the tool that found the defect returns clean
+- Performance claims carry measured durations under unchanged controls
+- Causes outside the editable files are under `open:` with `file:line` and evidence
 - At most three fix-and-prove cycles ran. The remainder is under `open:`.
 </done_when>
 
 <context_gathering>
 Read in order before the first tool call on a log:
-1. The route for the symptom in procedure step 2, and the reference it names, in full.
+1. The route for the symptom in procedure step 2, and the reference it names, in full
 2. One `ToolSearch` call with `+binlog` and `max_results` 50. One `ToolSearch` call with `select:` and the full `mcp__roslyn-codelens__` names: `list_solutions`, `load_solution`, `get_diagnostics`, `get_code_fixes`, `resolve_stack_trace`, `get_source_generators`, `get_generated_code`.
 3. `list_solutions`. If the solution in scope is not active, run `load_solution` with its path. `dotnet-roslyn-codelens` `[03.4.1]` owns trust.
-4. The log folder `<logs>`: `$(dotnet msbuild <project> -getProperty:ArtifactsPath)logs/`, or `logs/` at the repo root when the property is empty.
+4. The log folder `<logs>`: `$(dotnet msbuild <project> -getProperty:ArtifactsPath)logs/`, or `logs/` at the repo root when the property is empty
 5. The existing logs: `fd -I -e binlog`. The file name carries the UTC stamp.
-6. The console output of the failing command, when the prompt supplies it.
+6. The console output of the failing command, when the prompt supplies it
 
-A failed build needs no re-run when its log exists. A prompt without a command, a log path, or a symptom returns `result: not started` with the reason.
+Failed builds whose log exists need no re-run. Prompts without a command, a log path, or a symptom return `result: not started` with the reason.
 </context_gathering>
 
 <procedure>
@@ -51,25 +51,25 @@ A failed build needs no re-run when its log exists. A prompt without a command, 
 |  [07]   | `dotnet test`          | `dotnet-msbuild-diagnostics` `[01]`, the build log, never the discovery log                                 |
 
 3. Use Roslyn for compiler facts:
-   - A compiler or analyzer error that fails the build: `get_diagnostics` with `severity=error` and `includeAnalyzers=true`, then `get_code_fixes`. Return the fix, never apply it.
-   - A task exception with a stack trace: `resolve_stack_trace`.
-   - A generated file: `get_source_generators` and `get_generated_code`.
-4. Fix a cause in an editable file.
-5. Capture again with the identical command and controls.
-6. Prove with the tool that found the defect.
-7. Run `list_mcp_instances`.
-8. Run `stop_instance` on each instance that reports `isOrphaned`.
+   - Compiler or analyzer errors that fail the build: `get_diagnostics` with `severity=error` and `includeAnalyzers=true`, then `get_code_fixes`. Return the fix, never apply it.
+   - Task exceptions with a stack trace: `resolve_stack_trace`
+   - Generated files: `get_source_generators` and `get_generated_code`
+4. Fix a cause in an editable file
+5. Capture again with the identical command and controls
+6. Prove with the tool that found the defect
+7. Run `list_mcp_instances`
+8. Run `stop_instance` on each instance that reports `isOrphaned`
 </procedure>
 
 <evidence_rules>
-- Subtract the reader-loss warning of `dotnet-msbuild-diagnostics` `[02]` and the synthetic `Build failed.` error of `[03]` from every count.
-- An empty `binlog_errors` result does not prove a clean build. A target can fail without an MSBuild error. The `binlog_overview` status and the failing target decide.
-- A source file that is not on disk is read through `binlog_files`.
-- `dotnet-msbuild-diagnostics` `[05]`: the `-check` console, not `binlog_warnings`, is the record for `BC*` output.
-- A performance result is a delta between captures under the controls of `references/performance-baseline.md` `[01]`.
-- A described build output that the run never saw is fabrication.
-- Write the partial finding into the report before the next capture. A cut-off run then still returns its reasoning.
-- Nothing found is a legitimate result.
+- Subtract the reader-loss warning of `dotnet-msbuild-diagnostics` `[02]` and the synthetic `Build failed.` error of `[03]` from every count
+- An empty `binlog_errors` result does not prove a clean build. Targets can fail without an MSBuild error. The `binlog_overview` status and the failing target decide.
+- `binlog_files` reads a source file that is not on disk
+- `dotnet-msbuild-diagnostics` `[05]`: the `-check` console, not `binlog_warnings`, is the record for `BC*` output
+- Performance results are deltas between captures under the controls of `references/performance-baseline.md` `[01]`
+- Describing a build output the run never saw is fabrication
+- Write the partial finding into the report before the next capture. Cut-off runs still return their reasoning.
+- Nothing found is a legitimate result
 </evidence_rules>
 
 <output_contract>
@@ -80,5 +80,5 @@ Return one compact report, no narration:
 - `open:` rows `error class | file:line | evidence | fix to apply`
 - `proof:` the `binlog_overview` line of the last capture, the confirming tool result, and every binlog path
 - `timing:` durations before and after, with the controls, when the symptom was speed
-A `not started` result carries the exact error text.
+`not started` results carry the exact error text.
 </output_contract>

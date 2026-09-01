@@ -2,7 +2,7 @@
 
 ## [01]-[DESIGN_PRINCIPLE]
 
-A general multi-argument function can be specialized by supplying stable inputs before runtime data. Each supplied argument returns a specialized function whose remaining inputs become available later in the application lifecycle.
+Supplying stable inputs before runtime data specializes a general multi-argument function. Each supplied argument returns a specialized function whose remaining inputs become available later in the application lifecycle.
 
 ```text
 general function
@@ -29,7 +29,7 @@ internal static class Shapes {
 }
 ```
 
-`Add100(200m)` is `300` and `Add100(900m)` is `1000`. The returned function retains each supplied value but does not invoke the original function until the remaining arguments arrive. A single general implementation can produce many reusable specializations.
+`Add100(200m)` is `300` and `Add100(900m)` is `1000`. The returned function retains each supplied value but does not invoke the original function until the remaining arguments arrive. One general implementation can produce many reusable specializations.
 
 ## [03]-[PARTIAL_APPLICATION]
 
@@ -75,7 +75,7 @@ internal static class Curried {
 }
 ```
 
-Currying supports specialization in stages; it adds nothing when every argument is supplied together. A function can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete C# delegate accepts several parameters; the `Func` shape determines whether successive calls are possible.
+Currying supports specialization in stages; it adds nothing when every argument is supplied together. Functions can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete delegate accepts several parameters; the `Func` shape determines whether successive calls are possible.
 
 ### [04.1]-[IMPLEMENTATION]
 
@@ -89,7 +89,7 @@ internal static class Helper {
 }
 ```
 
-Explicit lambda parameter types can be needed because the compiler does not always infer the delegate's generic arguments at this call site. A delegate value with a declared `Func` type, such as `Greetings.Greet`, needs no annotation.
+Explicit lambda parameter types can be needed because the compiler does not always infer the delegate's generic arguments at this call site. Delegate values with a declared `Func` type, such as `Greetings.Greet`, need no annotation.
 
 ### [04.2]-[SPECIALIZED_FUNCTIONS]
 
@@ -141,7 +141,7 @@ internal static class Temperature {
 
 ## [05]-[METHOD_RESOLUTION]
 
-C# distinguishes methods, method groups, lambdas, and delegate values. A unary method converts where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
+C# distinguishes methods, method groups, lambdas, and delegate values. Unary methods convert where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
 
 Explicit generic arguments and delegate casts are available, but add syntax. `fun` gives a lambda its `Func` type at the call site, the lambda can be invoked or passed without a declared local. For functions frequently used in partial application or other higher-order operations, expose a delegate value:
 
@@ -155,9 +155,9 @@ internal sealed class Greeter(string separator) {
 ```
 
 Choose the delegate-producing form:
-- A field initializer cannot depend on instance state.
-- A getter-only property can create a delegate that closes over instance state.
-- A factory method can also introduce generic type parameters, which fields and properties cannot.
+- Field initializers cannot depend on instance state
+- Getter-only properties can create delegates that close over instance state
+- Factory methods can also introduce generic type parameters, which fields and properties cannot
 
 Return `Func` values from adapter or factory methods to cross from method-based APIs into a function-composition pipeline.
 
@@ -166,7 +166,7 @@ Return `Func` values from adapter or factory methods to cross from method-based 
 An existing API can expose arguments in an order that works poorly for partial application. An adapter can:
 - Expose domain-specific types instead of ambiguous primitives;
 - Acquire a short-lived resource only when the operation runs;
-- Return a `Func`, subsequent specialization benefits from delegate inference.
+- Return a `Func`, subsequent specialization benefits from delegate inference
 
 ```csharp
 internal sealed record SqlTemplate(string Text);
@@ -197,7 +197,7 @@ Custom types such as `ConnectionIO` and `SqlTemplate` make signatures intention-
 
 ## [07]-[FUNCTIONS_AS_DEPENDENCIES]
 
-A dependency must describe the behavior a consumer needs. A clock is `Func<DateTime>`; a validator is `T -> Validation<Error, T>`; a persistence operation is `T -> IO<Unit>`.
+Dependencies must describe the behavior consumers need. Clocks are `Func<DateTime>`; validators are `T -> Validation<Error, T>`; persistence is `T -> IO<Unit>`.
 
 In these signatures, `Option<T>` makes lookup absence explicit, `Validation<Error, T>` carries a valid value or accumulated errors, and `IO<Unit>` is a deferred effect that completes with no result value or fails on its error channel.
 
@@ -211,12 +211,12 @@ internal static class Validators {
 }
 ```
 
-`DateNotPast` is a function factory and a curried binary function. Composition supplies the clock once; request handling supplies the command later. A test supplies a deterministic clock without constructing a fake service object. The error is a typed `Expected` record and the command lifts into `Validation<Error, BookTransfer>` by implicit conversion.
+`DateNotPast` is a function factory and a curried binary function. Composition supplies the clock once; request handling supplies the command later. Tests supply a deterministic clock without constructing a fake service object. The error is a typed `Expected` record and the command lifts into `Validation<Error, BookTransfer>` by implicit conversion.
 
 Function dependencies provide the same properties as interfaces:
-- The consumer is decoupled from the implementation.
-- Tests can inject deterministic functions.
-- Single-method interfaces and mock setup are unnecessary.
+- The consumer is decoupled from the implementation
+- Tests can inject deterministic functions
+- Single-method interfaces and mock setup are unnecessary
 
 This enforces interface segregation: a consumer that only saves receives only `T -> IO<Unit>`, not a repository abstraction that also exposes lookup and unrelated operations. If a consumer needs several independent behaviors, those functions remain separate and explicit.
 
@@ -225,11 +225,11 @@ Objects and interfaces remain compatible with this style. Functional behavior ca
 ## [08]-[COMPOSITION_ROOT]
 
 Construct specialized functions at the composition root:
-1. Read stable configuration.
-2. Adapt infrastructure APIs into functions that match application needs.
-3. Partially apply dependencies, policies, and templates.
-4. Combine small domain functions into the workflow required by the host.
-5. Inject only specialized functions with the required inputs into controllers or handlers.
+1. Read stable configuration
+2. Adapt infrastructure APIs into functions that match application needs
+3. Partially apply dependencies, policies, and templates
+4. Combine small domain functions into the workflow required by the host
+5. Inject only specialized functions with the required inputs into controllers or handlers
 
 The runtime record holds the configuration and implements one `Has` trait per capability. The workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies. The host runs the effect once with `Run(rt)`, which returns `Fin<A>`. `Eff<RT, A>.Lift(Func<Fin<A>>)` carries a `Fin` into the query, and `from _ in save(valid)` binds the `IO<Unit>` dependency.
 
@@ -267,6 +267,6 @@ Use these techniques to:
 
 Their costs are specific to C#:
 - `Func` conversion and occasional explicit type annotations;
-- Nested delegate types that become difficult to read at higher arities.
+- Nested delegate types that become difficult to read at higher arities
 
 Use them when specialized functions simplify call sites. If the helper code is larger or less readable than the duplication it removes, use ordinary functions.

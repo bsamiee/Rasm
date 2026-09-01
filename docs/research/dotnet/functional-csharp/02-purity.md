@@ -2,24 +2,24 @@
 
 ## [01]-[DEFINITION]
 
-A function is pure when both conditions hold:
-1. Its return value is determined only by its inputs, including immutable values fixed when the function or object was constructed.
-2. Evaluating it causes no side effects.
+Purity means both conditions hold:
+1. Its return value is determined only by its inputs, including immutable values fixed when the function or object was constructed
+2. Evaluating it causes no side effects
 
-A side effect includes:
+Side effects include:
 - Mutating state visible outside the function, including instance fields;
 - Mutating an input argument;
 - Throwing an exception;
-- Performing I/O, including reading the clock, console, filesystem, database, network, or another process.
+- Performing I/O, including reading the clock, console, filesystem, database, network, or another process
 
 Under this definition, throwing counts as an effect even though some definitions permit it: exception handling can redirect control flow, and an unhandled exception can terminate the program.
 
-An instance method can be impure even without I/O when it reads mutable fields. A lambda can be impure by closing over mutable variables. A readonly field fixed at construction can instead be an immutable dependency. Purity depends on everything a function observes or changes, not on its parameter list and return type alone.
+An instance method can be impure even without I/O when it reads mutable fields. Lambdas can be impure by closing over mutable variables. Readonly fields fixed at construction serve as immutable dependencies. Purity depends on everything a function observes or changes, not on its parameter list and return type alone.
 
 Because a pure function always maps the same input to the same output, evaluation order does not affect its meaning. Pure computations are easier to reason about and are safe candidates for:
 - Parallel evaluation;
 - Lazy evaluation;
-- memoization.
+- memoization
 
 Applying these transformations to impure functions can change behavior.
 
@@ -113,17 +113,17 @@ The compiler cannot infer whether an arbitrary delegate is pure, parallel execut
 
 Pure methods can safely be static because all required data is explicit or immutable. Static methods become hazardous when they:
 - Read or write mutable static fields;
-- Perform I/O that callers cannot replace in tests.
+- Perform I/O that callers cannot replace in tests
 
 Avoid mutable static fields and direct dependencies on static I/O methods.
 
 ## [04]-[TESTABILITY]
 
-A unit test for a pure function supplies inputs and asserts the returned output. It is isolated and repeatable by construction.
+Unit tests for pure functions supply inputs and assert the output. They are isolated and repeatable by construction.
 
 An impure function has hidden inputs, hidden outputs, or both:
 - The current time, database contents, or environment are implicit inputs;
-- An email sent, file written, or field changed is an implicit output.
+- An email sent, file written, or field changed is an implicit output
 
 An impure function behaves like a larger pure transformation:
 
@@ -140,14 +140,14 @@ Parameterized tests make inputs and expected outputs explicit: each test case su
 
 ### [05.1]-[ABSTRACTION_LIMITS]
 
-Wrapping the system clock behind an interface does not make the consuming method pure. It is pure only when the injected implementation is pure. A production implementation that reads the clock still carries I/O into the validator. This approach improves test control without reducing the production effect itself.
+Wrapping the system clock behind an interface does not make the consuming method pure. It is pure only when the injected implementation is pure. Production implementations that read the clock still carry I/O into the validator. This approach improves test control without reducing the production effect itself.
 
 Choose the narrowest dependency that represents what the consumer needs:
 - Inject a value for a stable snapshot;
 - Inject an `IO<A>` for an operation that must run on demand;
-- Inject a runtime for a consumer that reads many capabilities.
+- Inject a runtime for a consumer that reads many capabilities
 
-An interface remains appropriate as a common contract for distinct implementations. A one-method interface for every effect adds unnecessary infrastructure.
+An interface remains appropriate as a common contract for distinct implementations. One-method interfaces for every effect add unnecessary infrastructure.
 
 ### [05.2]-[VALUE_INJECTION]
 
@@ -178,11 +178,11 @@ internal static class Capabilities {
 }
 ```
 
-`DateNotPast` reads the `Clock` through `RT.Ask` and passes the snapshot to the validator. A test runtime carries a fixed `Clock`. The same runtime also carries `ConsoleIO`, it runs `Greet`.
+`DateNotPast` reads the `Clock` through `RT.Ask` and passes the snapshot to the validator. Test runtimes carry a fixed `Clock`. The same runtime also carries `ConsoleIO`, it runs `Greet`.
 
 ### [05.3]-[EFFECT_INJECTION]
 
-A validator needs the list of valid bank codes. The caller loads the codes as an effect and passes the `Seq<string>`:
+Validators need the list of valid bank codes. The caller loads the codes as an effect and passes the `Seq<string>`:
 
 ```csharp
 internal sealed class BicExistsValidator(Seq<string> validCodes) {
@@ -196,9 +196,9 @@ internal static class Transfers {
 }
 ```
 
-Production composition supplies the `IO<Seq<string>>` that queries the codes. A test supplies `IO.pure`. The `IO<Seq<string>>` defers the query until `BicExists` binds it. The codes are read only when the check runs. The validator stays pure and the effect is explicit and replaceable. The host runs `BicExists` with `RunSafe()` and matches the `Fin<bool>`.
+Production composition supplies the `IO<Seq<string>>` that queries the codes. Tests supply `IO.pure`. The `IO<Seq<string>>` defers the query until `BicExists` binds it. The codes are read only when the check runs. The validator stays pure and the effect is explicit and replaceable. The host runs `BicExists` with `RunSafe()` and matches the `Fin<bool>`.
 
-A function signature is a narrow interface. Injecting an effect value can replace a one-method interface, its implementation, constructor wiring, dependency-injection registration, and test fake.
+Function signatures are narrow interfaces. Injecting an effect value can replace a one-method interface, its implementation, constructor wiring, dependency-injection registration, and test fake.
 
 ## [06]-[ASYNC_AND_MULTICORE]
 
@@ -206,10 +206,10 @@ Distributed systems delegate computation to other processes, which raises the am
 
 ## [07]-[DESIGN_CHECKLIST]
 
-- List every non-local value a function reads and every externally visible change it makes.
-- Extract deterministic computation from I/O workflows.
-- Return all computed information rather than mutating arguments.
-- Replace a shared counter with generated values and `Zip`.
-- Treat `Map` transformations as pure. Sequential and parallel evaluation preserve meaning.
-- Inject stable snapshots as values, deferred effects as `IO`, and many capabilities through a runtime `RT`.
-- Keep effects near application boundaries and let those boundaries call inward to pure logic.
+- List every non-local value a function reads and every externally visible change it makes
+- Extract deterministic computation from I/O workflows
+- Return all computed information rather than mutating arguments
+- Replace a shared counter with generated values and `Zip`
+- Treat `Map` transformations as pure
+- Inject stable snapshots as values, deferred effects as `IO`, and many capabilities through a runtime `RT`
+- Keep effects near application boundaries and let those boundaries call inward to pure logic

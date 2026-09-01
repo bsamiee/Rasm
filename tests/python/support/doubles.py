@@ -210,7 +210,7 @@ class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
         return tuple(self.decoder.decode(line) for line in lines)
 
     def one(self, raw: bytes) -> T:
-        assert self.expect_lines == 1, f"one() requires exactly one expected line; configured for {self.expect_lines} — use rows()"
+        assert self.expect_lines == 1, f"one() requires exactly one expected line; configured for {self.expect_lines}, use rows()"
         return self.rows(raw)[0]
 
     def from_capture(self, cap: pytest.CaptureFixture[bytes] | pytest.CaptureFixture[str]) -> T:

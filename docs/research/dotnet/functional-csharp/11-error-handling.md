@@ -45,12 +45,12 @@ internal static class Operations {
 }
 ```
 
-- `Map` transforms a successful value with `A -> B`.
-- `Bind` composes a step with `A -> Fin<B>` and flattens the result.
-- `Iter` performs an action only for `Succ` and returns `Unit`.
-- `Match` handles both cases and returns a value outside `Fin`.
+- `Map` transforms a successful value with `A -> B`
+- `Bind` composes a step with `A -> Fin<B>` and flattens the result
+- `Iter` performs an action only for `Succ` and returns `Unit`
+- `Match` handles both cases and returns a value outside `Fin`
 
-`Fin<A>` has no `Where`. A false predicate must produce `Fail`, but a predicate supplies only `bool` and no `Error`. Turn the predicate into a validator that constructs a specific error, then compose it with `Bind`. Inside a LINQ query the same check is a `guard` clause.
+`Fin<A>` has no `Where`. False predicates must produce `Fail`, but a predicate supplies only `bool` and no `Error`. Turn the predicate into a validator that constructs a specific error, then compose it with `Bind`. Inside a LINQ query the same check is a `guard` clause.
 
 ## [03]-[FAIL_FAST_WORKFLOWS]
 
@@ -85,7 +85,7 @@ All bound functions share the failure type `Error`. Choose the domain errors for
 
 ## [04]-[TYPED_VALIDATION]
 
-Prefer distinct error types over strings. A string cannot carry structured error details. Specific `Expected` records give each failure a distinct type and code and can carry additional data. Each package declares the record beside the function that returns it or the value object it protects.
+Prefer distinct error types over strings. Strings cannot carry structured error details. Specific `Expected` records give each failure a distinct type and code and can carry additional data. Each package declares the record beside the function that returns it or the value object it protects.
 
 ```csharp
 internal sealed record BookTransfer(string Bic, DateOnly Date);
@@ -109,7 +109,7 @@ internal static class Transfers {
 }
 ```
 
-Each validator has the same shape: accept the request, return it on success, or return the error for the violated rule. The date validator checks that the transfer is in the future and receives the clock as an argument. The BIC validator checks the identifier's format. Returning the request in `Succ` makes it available to the next validator. A `Codes` class holds the codes of one package, and a consumer classifies an error with `Is`, `HasCode`, or `IsType<E>`, never by its message text.
+Each validator has the same shape: accept the request, return it on success, or return the error for the violated rule. The date validator checks that the transfer is in the future and receives the clock as an argument. The BIC validator checks the identifier's format. Returning the request in `Succ` makes it available to the next validator. `Codes` classes hold the codes of one package, and a consumer classifies an error with `Is`, `HasCode`, or `IsType<E>`, never by its message text.
 
 ## [05]-[ABSTRACTION_SCOPE]
 
@@ -124,9 +124,9 @@ IActionResult Post(Request request) =>
 
 For an optional lookup, a boundary can translate `None` to “not found” and `Some(value)` to a successful response. For `Fin`, the boundary must decide how domain failures map to the external contract.
 
-Two API designs are:
-- Map `Fail` and `Succ` to protocol status codes and payloads.
-- Always return a response whose transport status indicates success and whose body is a result DTO with `Succeeded` plus either `Data` or `Error`. Unlike `Fin`, this DTO exposes its values directly for serialization and client access.
+API designs are:
+- Map `Fail` and `Succ` to protocol status codes and payloads
+- Always return a response whose transport status indicates success and whose body is a result DTO with `Succeeded` and either `Data` or `Error`, which unlike `Fin` exposes its values directly for serialization and client access
 
 Mapping business validation to an HTTP error such as 400 has tradeoffs: the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt. The choice is an API-design decision.
 
@@ -163,9 +163,9 @@ IO<A>                = a deferred effect that fails with Error or yields A
 ```
 
 - `Validation<Error, A>` represents violated business rules. Its failure type is fixed to `Error`, whose `+` combines failures into `ManyErrors`. `IsType<E>` and `IsExceptional` on `ManyErrors` test its members.
-- `IO<A>` represents infrastructure, integration, or other technical work. A thrown exception arrives on its error channel as an `Exceptional` error.
+- `IO<A>` represents infrastructure, integration, or other technical work. Thrown exceptions arrive on its error channel as `Exceptional` errors.
 
-A class-based `Result<T>` with `Success<T>` and `Failure<T>` cases, where `Failure<T>` carries an exception, is equivalent to `Fin<A>` with an `Exceptional` error. Its `Success<T>` does not prevent a `null` payload. Use `Option<T>` for absence.
+Class-based `Result<T>` with `Success<T>` and `Failure<T>` cases, where `Failure<T>` carries an exception, is equivalent to `Fin<A>` with an `Exceptional` error. Its `Success<T>` does not prevent a `null` payload. Use `Option<T>` for absence.
 
 Convert an exception-throwing dependency at the integration boundary. `IO.lift` captures exceptions from only that call.
 
@@ -200,16 +200,16 @@ internal static class Handler {
 }
 ```
 
-The tuple `Apply` combines the two independent validators and reports both violations together. At the outer boundary, `RunSafe` returns one `Fin<Unit>`, and `Match` separates the three reachable outcomes:
-- `Fail` with an `Expected` error or `ManyErrors`: expose the business errors, and log the `Inner` of a translated dependency failure.
-- `Fail` with an `Exceptional` error: log the technical detail and expose a generic failure.
-- `Succ(unit)`: return success.
+The tuple `Apply` combines the independent validators and reports both violations together. At the outer boundary, `RunSafe` returns one `Fin<Unit>`, and `Match` separates the reachable outcomes:
+- `Fail` with an `Expected` error or `ManyErrors`: expose the business errors, and log the `Inner` of a translated dependency failure
+- `Fail` with an `Exceptional` error: log the technical detail and expose a generic failure
+- `Succ(unit)`: return success
 
 In the same `Match`, the host reads individual accumulated errors with `Filter<E>`, `Count`, and `Head`.
 
 ## [08]-[EXCEPTION_POLICY]
 
 Do not use exceptions for expected business outcomes. Reserve them for conditions that the workflow cannot recover from:
-- Developer defects that violate a function’s required preconditions. These indicate broken program logic. Do not catch them as business errors.
+- Developer defects that violate a function’s required preconditions. Do not catch them as business errors.
 - Configuration failures discovered during initialization that make the application unable to operate. Let them terminate initialization, apart from an outermost application handler.
 - Exception-based third-party APIs. Catch narrowly and convert immediately to an explicit functional value.

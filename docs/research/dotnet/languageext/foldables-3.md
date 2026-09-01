@@ -19,10 +19,10 @@ public interface Foldable<F>
 }
 ```
 
-- `Fold` visits values from first to last.
-- `FoldBack` visits the same values from last to first.
-- `initial` returns unchanged when the structure contributes no value.
-- `step` receives the current state and the next value and returns the next state.
+- `Fold` visits values from first to last
+- `FoldBack` visits the same values from last to first
+- `initial` returns unchanged when the structure contributes no value
+- `step` receives the current state and the next value and returns the next state
 
 For values `a`, `b`, `c`, seed `s`, and step `f`:
 
@@ -42,7 +42,7 @@ For `[a, b, c]`, the results are `"abc"` and `"cba"`.
 
 ## [02]-[HIGHER_KINDED_REPRESENTATION]
 
-`K<F, A>` separates the shape `F` from the contained value type `A`. A concrete data type derives from the matching higher-kinded marker; a witness type implements the capability.
+`K<F, A>` separates the shape `F` from the contained value type `A`. Concrete data types derive from the matching higher-kinded marker; a witness type implements the capability.
 
 ```csharp
 public abstract record Either<L, R> : K<Either<L>, R>;
@@ -84,12 +84,12 @@ The witness removes the concrete type's final value parameter and lets each trai
 ## [03]-[SHAPE_SEMANTICS]
 
 Implementations preserve the meaning of their structure:
-- A list contributes every element in list order; `FoldBack` reverses that traversal.
-- `Just<A>` contributes its value once; `Nothing<A>` contributes none.
-- `Right<L, A>` contributes its right value once; `Left<L, A>` contributes none.
-- For a zero-element or one-element shape, `Fold` and `FoldBack` agree, because direction cannot change the visit sequence.
+- Lists contribute every element in list order; `FoldBack` reverses that traversal
+- `Just<A>` contributes its value once; `Nothing<A>` contributes none
+- `Right<L, A>` contributes its right value once; `Left<L, A>` contributes none
+- For a zero-element or one-element shape, `Fold` and `FoldBack` agree, because direction cannot change the visit sequence
 
-The fold removes the outer structure. A left value or absence is not converted into an arbitrary `A`; it leaves the state unchanged.
+The fold removes the outer structure. Left values and absence never become an arbitrary `A`; the state stays unchanged.
 
 ## [04]-[GENERIC_DISPATCH]
 
@@ -111,7 +111,7 @@ public static S FoldBack<F, A, S>(
     F.FoldBack(fa, initial, step);
 ```
 
-Keep the two dispatch paths distinct: the `FoldBack` extension calls `F.FoldBack`, not `F.Fold`. The witness retains knowledge of the concrete representation while the caller stays generic.
+Keep the dispatch paths distinct: the `FoldBack` extension calls `F.FoldBack`, not `F.Fold`. The witness retains knowledge of the concrete representation while the caller stays generic.
 
 ## [05]-[DERIVED_OPERATIONS]
 
@@ -140,14 +140,14 @@ static virtual bool Contains<A>(K<F, A> fa, A value)
 ```
 
 The seed determines empty-structure behavior:
-- `Count` and numeric `Sum` return zero.
-- `All` returns `true`, because no value disproves the predicate.
-- `Any` returns `false`, because no value satisfies the predicate.
-- `IsEmpty` stays `true` until a value is encountered.
+- `Count` and numeric `Sum` return zero
+- `All` returns `true`, because no value disproves the predicate
+- `Any` returns `false`, because no value satisfies the predicate
+- `IsEmpty` stays `true` until a value is encountered
 
 For `Nothing<int>`, `Just<int>(100)`, and `List<int>([1, 2, 3, 4, 5])`, `Count` returns `0`, `1`, and `5`, and `Sum` returns `0`, `100`, and `15`.
 
-A monoidal element type supplies both pieces of seedless aggregation: its identity is the seed and its associative operation is the step.
+Monoidal element types supply both pieces of seedless aggregation: the identity is the seed and the associative operation is the step.
 
 ```csharp
 static virtual A Fold<A>(K<F, A> fa)
@@ -187,11 +187,11 @@ public static bool Any<A>(K<List, A> values, Func<A, bool> predicate)
 ```
 
 Useful specializations:
-- `Map` by preallocating the result array and filling it in one pass.
-- `Count` and `IsEmpty` from a stored length, without traversal.
-- `AsEnumerable` from the backing array, without allocation and copying.
-- `All` and `Any` as loops that stop as soon as the answer is known.
-- `Fold` as a forward loop and `FoldBack` as an index-based reverse loop, without intermediate reversal and iterator overhead.
+- `Map` by preallocating the result array and filling it in one pass
+- `Count` and `IsEmpty` from a stored length, without traversal
+- `AsEnumerable` from the backing array, without allocation and copying
+- `All` and `Any` as loops that stop as soon as the answer is known
+- `Fold` as a forward loop and `FoldBack` as an index-based reverse loop, without intermediate reversal and iterator overhead
 
 The defaults are close to the natural implementation for zero-or-one-value shapes such as `Maybe` and `Either`; representation-specific overrides pay off most for structures such as an array-backed list. The default fold-derived `All`, `Any`, and `IsEmpty` visit the whole structure, because a strict fold cannot stop the traversal. Boolean short-circuiting inside `step` skips later predicate calls; it does not stop enumeration. True early exit requires a witness override.
 
@@ -199,10 +199,10 @@ Specialization preserves results, traversal direction, empty behavior, and predi
 
 ## [07]-[ABSTRACTION_AND_REPRESENTATION]
 
-A generic function targets any `Foldable<F>`; dispatch still reaches that `F`'s optimized trait members. This differs from exposing a collection as `IEnumerable<A>`: through that interface, generic extensions see an enumerator and lose representation facts such as a stored length or direct indexing. A foldable witness keeps those facts behind the common capability and uses them for `Count`, reverse traversal, conversion, and early exit.
+Generic functions target any `Foldable<F>`; dispatch still reaches that `F`'s optimized trait members. This differs from exposing a collection as `IEnumerable<A>`: through that interface, generic extensions see an enumerator and lose representation facts such as a stored length or direct indexing. Foldable witnesses keep those facts behind the common capability and use them for `Count`, reverse traversal, conversion, and early exit.
 
 The working sequence:
-1. Implement `Fold` and `FoldBack` for the shape.
-2. Receive the complete default operation family.
-3. Write generic functions against `Foldable<F>`.
-4. Specialize trait members where the representation provides a real advantage.
+1. Implement `Fold` and `FoldBack` for the shape
+2. Receive the complete default operation family
+3. Write generic functions against `Foldable<F>`
+4. Specialize trait members where the representation provides a real advantage

@@ -2,20 +2,20 @@
 
 ## [01]-[FUNCTIONS_AS_VALUES]
 
-A higher-order function accepts a function, returns a function, or both. C# represents the passed behavior with delegates:
-- `Func<T, TResult>` accepts a value and returns a value.
-- `Action<T>` accepts a value and returns nothing.
-- A lambda supplies an inline delegate: `items.Where(x => x.IsActive)`.
-- A function can create a new function: `Func<int, int> AddBy(int amount) => value => amount + value;`.
+Higher-order functions accept a function, return one, or both. C# represents the passed behavior with delegates:
+- `Func<T, TResult>` accepts a value and returns a value
+- `Action<T>` accepts a value and returns nothing
+- Lambdas supply an inline delegate: `items.Where(x => x.IsActive)`
+- Functions can create a new function: `Func<int, int> AddBy(int amount) => value => amount + value;`
 
-Delegates let C# treat behavior as a first-class value.
+Delegates treat behavior as a first-class value.
 
 ## [02]-[BEHAVIOR_PARAMETERIZATION]
 
-A higher-order function can own stable control flow while the caller supplies the varying rule. For example, `Seq<A>.Filter(Func<A, bool>)` owns iteration while the caller owns the inclusion criterion. This separates concerns that would otherwise be interleaved. The pattern supports:
-- Iteration: invoke a selector, predicate, or comparison for each relevant element.
-- Conditional execution: invoke a callback only when needed, such as computing a value after a cache miss.
-- Inversion of control: the caller chooses what behavior to supply; the higher-order function chooses when to run it.
+Higher-order functions can own stable control flow while the caller supplies the varying rule. For example, `Seq<A>.Filter(Func<A, bool>)` owns iteration while the caller owns the inclusion criterion. This separates concerns that would otherwise be interleaved. The pattern supports:
+- Iteration: invoke a selector, predicate, or comparison for each relevant element
+- Conditional execution: invoke a callback only when needed, such as computing a value after a cache miss
+- Inversion of control: the caller chooses what behavior to supply; the higher-order function chooses when to run it
 
 When optional work can be expensive, accept it as a function to evaluate it only when needed:
 
@@ -29,7 +29,7 @@ internal sealed record Cache<T>(HashMap<Guid, T> Entries) {
 
 ### [02.1]-[SELECTORS]
 
-A selector derives a value from each input. In C#, a `Func` delegate can supply that calculation to a larger function. For example, a reporting workflow can accept a selector for its grouping key:
+Selectors derive a value from each input. `Func` delegates can supply that calculation to a larger function. For example, a reporting workflow can accept a selector for its grouping key:
 
 ```csharp
 internal static class Reports {
@@ -38,7 +38,7 @@ internal static class Reports {
 }
 ```
 
-The summary construction is written once. A new report supplies a selector and title rather than copying the grouping and row construction. A broader higher-order function can centralize retrieval, empty-result handling, transmission, and error handling while leaving only the selector and report name variable.
+The summary construction is written once. New reports supply a selector and title rather than copying the grouping and row construction. Broader higher-order functions can centralize retrieval, empty-result handling, transmission, and error handling while leaving only the selector and report name variable.
 
 Additional parameters let a `Func` control formatting and an `Action` supply logging or event handling. Small named wrappers preserve intent.
 
@@ -48,7 +48,7 @@ An adapter returns a new function with a different signature while delegating to
 
 ## [04]-[SPECIALIZATION]
 
-A function factory converts configuration data into behavior:
+Function factories convert configuration data into behavior:
 
 ```csharp
 internal static class Factories {
@@ -77,7 +77,7 @@ Database operations can state only their domain-specific work. Connection acquis
 
 ## [06]-[COMBINATORS]
 
-A combinator applies or combines functions.
+Combinators apply or combine functions.
 
 ### [06.1]-[PIPE]
 
@@ -111,7 +111,7 @@ internal static class Forks {
 }
 ```
 
-Separate generic result types let a fixed set of functions produce different kinds of value. Supporting more fixed functions requires more overloads. A `Seq` can hold any number when each function returns the same intermediate type.
+Separate generic result types let a fixed set of functions produce different kinds of value. Supporting more fixed functions requires more overloads. `Seq` can hold any number when each function returns the same intermediate type.
 
 These implementations call each function directly.
 
@@ -127,7 +127,7 @@ internal static class Conversions {
 }
 ```
 
-The reusable formatting function can be composed with conversions in either direction. Improvements to that function are made once. `compose(f, g)` applies `f` first and then `g`. In C#, first give a lambda a delegate type, `compose` can infer its type arguments.
+The reusable formatting function can be composed with conversions in either direction. Improvements to that function are made once. `compose(f, g)` applies `f` first and then `g`. First give a lambda a delegate type, `compose` can infer its type arguments.
 
 C# has no dedicated syntax for function composition. Use method chaining for value flow and `compose` when the output must be a reusable function.
 
@@ -162,13 +162,12 @@ The skipped branch has no computed result. Both return `IO<Unit>` for the host t
 ## [07]-[FUNCTIONS_AS_DATA]
 
 Storing functions in collections, passing them into adapters, or returning them can express control flow as data:
-
 In `Func<T1, ..., TResult>`, every type except the last is a parameter type; the final type is the return type. Functions stored together need compatible signatures.
 
-- A collection of transformations applies several views to one input.
-- A collection of predicates becomes a validation policy.
-- An ordered collection of predicate-transform pairs becomes a decision table.
-- A returned function can narrow access to one guarded operation; ordinary adapter functions can hide repetitive conversion branches.
+- Collections of transformations apply several views to one input
+- Collections of predicates become validation policies
+- An ordered collection of predicate-transform pairs becomes a decision table
+- Returned functions can narrow access to one guarded operation; ordinary adapter functions can hide repetitive conversion branches
 
 ### [07.1]-[TRANSFORMATION_COLLECTIONS]
 
@@ -189,7 +188,7 @@ The function collection can be assembled at runtime, extended by adding one elem
 
 ### [07.2]-[PREDICATE_SETS]
 
-A validation rule has the shape `T -> bool`. Collecting rules makes the policy explicit:
+Validation rules have shape `T -> bool`. Collecting rules makes the policy explicit:
 
 ```csharp
 internal static class Policies {
@@ -199,11 +198,11 @@ internal static class Policies {
 ```
 
 Use `ForAll` when each predicate states what valid input must satisfy. Use `Exists` when each predicate describes a violation:
-- `ForAll` stops at the first failed rule.
-- `Exists` stops at the first detected violation.
-- An empty validity rule set returns `true`; an empty violation set returns `false`.
+- `ForAll` stops at the first failed rule
+- `Exists` stops at the first detected violation
+- An empty validity rule set returns `true`; an empty violation set returns `false`
 
-Short-circuiting is appropriate for a boolean answer. It is not suitable when every failure must be reported, because later rules do not run. A validator that returns typed errors accumulates every failure instead.
+Short-circuiting is appropriate for a boolean answer. It is not suitable when every failure must be reported, because later rules do not run. Validators that return typed errors accumulate every failure instead.
 
 Keep each rule focused on one condition.
 
@@ -228,7 +227,7 @@ internal static class RuleTables {
 }
 ```
 
-The first matching predicate wins. Ordering is part of the meaning. Each predicate can contain detailed criteria or delegate that decision to a named function. A fallback makes the operation defined for every input. `Seq.Find` returns an `Option`, the missing case is `None` and the `Match` on that `Option` selects the fallback without a null check. A staged `.Match(...).DefaultMatch(...)` design must track whether a predicate matched; it cannot infer "no match" by comparing the transformed value with `default(TOutput)`, because a matching transformation can return `0`, `false`, or `null`. Passing the fallback directly avoids that ambiguity.
+The first matching predicate wins. Ordering is part of the meaning. Each predicate can contain detailed criteria or delegate that decision to a named function. Fallbacks make the operation defined for every input. `Seq.Find` returns an `Option`, the missing case is `None` and the `Match` on that `Option` selects the fallback without a null check. Staged `.Match(...).DefaultMatch(...)` designs must track whether a predicate matched; inferring "no match" by comparing the transformed value with `default(TOutput)` fails, because a matching transformation can return `0`, `false`, or `null`. Passing the fallback directly avoids that ambiguity.
 
 This matches values with predicates, not object types. For a fixed decision, use a native switch expression. Using `KeyValuePair` instead of tuples adds syntax without changing the mechanism.
 
@@ -236,11 +235,11 @@ The custom `Match<T>` accepts any `T`. `Option<T>.Match` requires a handler for 
 
 ### [07.4]-[RETURNED_FUNCTIONS]
 
-A returned function can capture the original value in a closure while exposing only one operation.
+Returned functions can capture the original value in a closure while exposing only one operation.
 
 #### [07.4.1]-[DICTIONARY_LOOKUP]
 
-A closure over a `HashMap<int, string>` narrows it to one lookup: `number => actors.Find(number).IfNone("Unknown")`.
+Closures over a `HashMap<int, string>` narrow it to one lookup: `number => actors.Find(number).IfNone("Unknown")`.
 
 The returned function keeps the map in scope and converts an absent-key lookup into a fallback. The restricted interface prevents callers from enumerating or modifying the map, or performing other queries against it. For this reference type, `default` is `null`. An explicit domain fallback avoids that `null`.
 
@@ -260,15 +259,15 @@ The `Option`-returning forms, `parseInt` and `HashMap.Find`, preserve every outc
 
 ## [08]-[EXCEPTIONS_AT_THE_BOUNDARY]
 
-Boundary calls to databases, web APIs, and network files can fail. A higher-order wrapper centralizes `try/catch` and keeps exception control flow out of the call layers. `Try.lift(f).Run()` captures a throwing synchronous dependency as a `Fin<A>`. `IO.lift(f)` defers the same call and carries the failure on the `IO` error channel for the host to run.
+Boundary calls to databases, web APIs, and network files can fail. Higher-order wrappers centralize `try/catch` and keep exception control flow out of the call layers. `Try.lift(f).Run()` captures a throwing synchronous dependency as a `Fin<A>`. `IO.lift(f)` defers the same call and carries the failure on the `IO` error channel for the host to run.
 
 ## [09]-[TECHNIQUE_SELECTION]
 
-- Use function collections when behaviors share a signature and vary as data.
-- Use `ForAll` or `Exists` when only a short-circuiting boolean result is required.
-- Use an ordered rule table for first-match decisions, always with an explicit fallback.
-- Return a closure when intentionally narrowing an unsafe or noisy API to one operation.
-- Pair each element with its neighbor through `Zip` against `Tail` when the condition depends on adjacent elements.
-- Use recursive state transitions only when termination is bounded. For deep recursion, use `Trampoline` in pure code and `Monad.recur` in effectful code.
+- Use function collections when behaviors share a signature and vary as data
+- Use `ForAll` or `Exists` when only a short-circuiting boolean result is required
+- Use an ordered rule table for first-match decisions, always with an explicit fallback
+- Return a closure when intentionally narrowing an unsafe or noisy API to one operation
+- Pair each element with its neighbor through `Zip` against `Tail` when the condition depends on adjacent elements
+- Use recursive state transitions only when termination is bounded, with `Trampoline` in pure code and `Monad.recur` in effectful code for deep recursion
 
-Higher-order functions add callback frames. A debugger shows less direct control flow. Do not remove boilerplate at the cost of hiding ordering, effects, missing-value behavior, or termination risk.
+Higher-order functions add callback frames. Debuggers show less direct control flow. Do not remove boilerplate at the cost of hiding ordering, effects, missing-value behavior, or termination risk.

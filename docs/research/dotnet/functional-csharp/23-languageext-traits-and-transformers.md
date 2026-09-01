@@ -1,10 +1,10 @@
 # [LANGUAGEEXT_TRAITS_AND_TRANSFORMERS]
 
-A trait is an interface whose members are static and abstract. A witness type implements the trait for one type constructor. Generic code names the witness in a constraint and calls the trait members through it.
+Traits are interfaces with static abstract members. Witness types implement the trait for one type constructor. Generic code names the witness in a constraint and calls the trait members through it.
 
 ## [01]-[HIGHER_KINDS]
 
-`K<F, A>` is an empty interface with two type arguments. `F` is the witness for the type constructor and `A` is the element type. `Option<A>` implements `K<Option, A>`, and `Seq<A>` implements `K<Seq, A>`. A function constrained by `F : Functor<F>` can call `Map` on any `K<F, A>`. `.As()` restores the concrete type at the API boundary.
+`K<F, A>` is an empty interface with two type arguments. `F` is the witness for the type constructor and `A` is the element type. `Option<A>` implements `K<Option, A>`, and `Seq<A>` implements `K<Seq, A>`. Functions constrained by `F : Functor<F>` can call `Map` on any `K<F, A>`. `.As()` restores the concrete type at the API boundary.
 
 ```csharp
 internal sealed record Line(string Sku, decimal Price);
@@ -81,7 +81,7 @@ internal static class Traits {
 
 ## [03]-[LAWS]
 
-`FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>`. A failed law contains an accumulated `Error`, and `IsSuccess` indicates the result. The checks hold for `Option` and `Fin`. `MonadLaw<IO>.validate()` throws inside the library and is not run.
+`FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>`. Failed laws contain an accumulated `Error`, and `IsSuccess` indicates the result. The checks hold for `Option` and `Fin`. `MonadLaw<IO>.validate()` throws inside the library and is not run.
 
 ```csharp
 internal static class Laws {
@@ -96,7 +96,7 @@ internal static class Laws {
 
 ## [04]-[TRANSFORMERS]
 
-A transformer stacks one concern over an inner monad `M`. `OptionT<M, A>` holds `K<M, Option<A>>`. `FinT<M, A>` holds `K<M, Fin<A>>` and exposes it as `runFin`. `EitherT<L, M, A>` holds `K<M, Either<L, A>>`. `ValidationT<Error, IO, A>` accumulates inside an effect and is used only when errors must accumulate inside that effect. `ReaderT<Env, M, A>` holds `Func<Env, K<M, A>>`. `WriterT<W, M, A>` accumulates `W` beside the value, and `tell` appends one item. `RWST<R, W, S, M, A>` combines `ask`, `tell`, `get`, and `put` over one `M`.
+Transformers stack one concern over an inner monad `M`. `OptionT<M, A>` holds `K<M, Option<A>>`. `FinT<M, A>` holds `K<M, Fin<A>>` and exposes it as `runFin`. `EitherT<L, M, A>` holds `K<M, Either<L, A>>`. `ValidationT<Error, IO, A>` accumulates inside an effect and is used only when errors must accumulate inside that effect. `ReaderT<Env, M, A>` holds `Func<Env, K<M, A>>`. `WriterT<W, M, A>` accumulates `W` beside the value, and `tell` appends one item. `RWST<R, W, S, M, A>` combines `ask`, `tell`, `get`, and `put` over one `M`.
 
 `lift` adds a transformer layer to an evaluated value such as `Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner monad's `K<M, A>`. `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom of the stack. `Run` removes one layer, and the host runs the layers from the outside in. `Priced` shows the order: `Run(settings)` yields `K<OptionT<IO>, int>`, the second `Run()` yields `K<IO, Option<int>>`, and `RunSafe` yields `Fin<Option<int>>`. The concrete transformer determines what `Run` returns: `ReaderT` applies its function, and `OptionT` returns the wrapped value.
 
@@ -181,11 +181,11 @@ The dependency structure and the concurrency bound determine the traversal.
 
 | [INDEX] | [SCENARIO]                   | [TRAVERSAL]                             | [BEHAVIOR]                                                                               |
 | :-----: | :--------------------------- | :-------------------------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | Independent checks           | instance `Traverse` under `Validation`  | accumulates every error                                                                  |
-|  [02]   | Independent effects          | instance `Traverse` under `IO`          | asynchronous effects overlap without a bound, and the traversal fails if an effect fails |
-|  [03]   | Dependent or ordered effects | instance `TraverseM`                    | serial, short-circuit on the first failure                                               |
-|  [04]   | Bounded concurrency          | chunk, then `TraverseM` over the chunks | one chunk runs at a time, and the chunk width sets the bound                             |
-|  [05]   | Best effort                  | `PartitionFallible`, `Succs`, `Fails`   | no short-circuit, both branches returned                                                 |
+|  [01]   | Independent checks           | Instance `Traverse` under `Validation`  | Accumulates every error                                                                  |
+|  [02]   | Independent effects          | Instance `Traverse` under `IO`          | Asynchronous effects overlap without a bound, and the traversal fails if an effect fails |
+|  [03]   | Dependent or ordered effects | Instance `TraverseM`                    | Serial, short-circuit on the first failure                                               |
+|  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk runs at a time, and the chunk width sets the bound                             |
+|  [05]   | Best effort                  | `PartitionFallible`, `Succs`, `Fails`   | No short-circuit, both branches returned                                                 |
 
 `PartitionFallible` returns `(Seq<Error> Fails, Seq<A> Succs)` with the failures first. `Succs` keeps the successes and `Fails` keeps the errors. `PartitionFallible`, `Succs`, and `Fails` take a `Seq<K<IO, A>>`. Their projections use `Map<K<IO, A>>` to specify the result type.
 

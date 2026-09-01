@@ -14,13 +14,13 @@ internal static partial class Sequences {
 ```
 
 `Seq<A>` is the strict sequence type and the default collection in domain code. This example has these properties:
-- The source is an explicit input rather than hidden data access.
-- `Filter` receives behavior as a function.
-- The source sequence is not modified.
-- The filter is an expression rather than a loop containing mutable state.
-- The predicate is referentially transparent if it neither mutates state nor depends on changing captured values.
+- The source is an explicit input rather than hidden data access
+- `Filter` receives behavior as a function
+- The source sequence is not modified
+- The filter is an expression rather than a loop containing mutable state
+- The predicate is referentially transparent if it neither mutates state nor depends on changing captured values
 
-LINQ operators enable a functional style but do not enforce it. A lambda can still capture mutable state or perform side effects, and a projection can still mutate an element.
+LINQ operators enable a functional style but do not enforce it. Lambdas can still capture mutable state or perform side effects, and a projection can mutate an element.
 
 Expression-oriented construction defines each property where the returned object is created, instead of assigning properties across branches of an empty object.
 
@@ -61,7 +61,7 @@ internal static partial class Sequences {
 }
 ```
 
-Until enumeration, all three transformations remain pending. During enumeration, each input passes through `First`, `Second`, and `Third` before the next input begins. This streams values through the pipeline without creating an intermediate collection after every stage.
+Until enumeration, all transformations remain pending. During enumeration, each input passes through `First`, `Second`, and `Third` before the next input begins. This streams values through the pipeline without creating an intermediate collection after every stage.
 
 `ToSeq()` forces enumeration and materializes a `Seq<int>`. Materializing after every stage changes the evaluation order and storage: each complete stage runs before the next one and stores a collection. Delaying materialization can avoid work that is never demanded. Materialization is appropriate when execution is required at that point or when a materialized sequence will be reused; otherwise, enumerating the same query repeatedly can repeat all of its work. Long deferred or recursive compositions can carry memory and performance costs.
 
@@ -69,7 +69,7 @@ Until enumeration, all three transformations remain pending. During enumeration,
 
 ### [03.1]-[SELECT]
 
-Use `Select` when each input becomes one output. `Map` on a `Seq<A>` is the same projection. A fluent chain and named intermediate sequences describe the same transformation when neither the sequences nor their elements are mutated.
+Use `Select` when each input becomes one output. `Map` on a `Seq<A>` is the same projection. Fluent chains and named intermediate sequences describe the same transformation when nothing mutates the sequences or their elements.
 
 ```csharp
 internal static partial class Sequences {
@@ -87,7 +87,7 @@ Materialization does not introduce mutation. The resulting collection and its el
 
 ### [03.2]-[TUPLE_CONTEXT]
 
-A tuple can carry several short-lived related values between transformations without mutable locals or a dedicated class.
+Tuples can carry short-lived related values between transformations without mutable locals or a dedicated class.
 
 ```csharp
 internal static partial class Sequences {
@@ -123,7 +123,7 @@ The indexed `Map` performs the one-to-one transformation. `string.Join` reduces 
 
 ## [04]-[AGGREGATION]
 
-Use a specific reduction when one exists. Because LanguageExt and LINQ define ambiguous `Sum()` and `Average()` calls on `Seq`, this example uses `Fold`. A sum is a `Fold` with a zero seed and an addition step:
+Use a specific reduction when one exists. Because LanguageExt and LINQ define ambiguous `Sum()` and `Average()` calls on `Seq`, this example uses `Fold`. Sum is a `Fold` with a zero seed and an addition step:
 
 ```csharp
 internal static partial class Sequences {
@@ -151,7 +151,7 @@ internal static partial class Sequences {
 
 `Order` from LINQ sorts, and `toSeq` materializes the sorted `Seq<int>`. An empty sequence has no middle element. Its median is `None`.
 
-For a custom reduction, `Fold` takes a seed and a step function. The function combines the accumulator with the next input. A tuple seed can calculate several results:
+For a custom reduction, `Fold` takes a seed and a step function. The function combines the accumulator with the next input. Tuple seeds can calculate several results:
 
 ```csharp
 internal static partial class Sequences {
@@ -180,7 +180,7 @@ FoldBack = f(f(f(seed, item2), item1), item0) ...
 
 The seed defines the empty-input result, and its type is independent of the element type. The seed can be `0` for a sum, `0` with an incrementing reducer for a count, or an empty immutable tree with an insertion reducer.
 
-A sequence has two constructors: the empty sequence and cons, which prepends one element. `FoldBack` replaces both: the seed replaces the empty sequence, and the step replaces each cons. The same derivation produces a fold for any recursive type: one replacement per constructor, where each recursive position receives an already-folded result.
+Sequences have two constructors: the empty sequence and cons, which prepends an element. `FoldBack` replaces both: the seed replaces the empty sequence, and the step replaces each cons. The same derivation produces a fold for any recursive type: one replacement per constructor, where each recursive position receives an already-folded result.
 
 `Fold` can express `Map`, `Filter`, and `Bind`.
 
@@ -204,7 +204,7 @@ The function derives the replacement from the old item at one position. `Map` re
 
 ### [06.1]-[ADJACENT_ELEMENTS]
 
-`source.Zip(source.Tail)` produces the pairs `(First, Second)`. A quantifier over those pairs decides the result.
+`source.Zip(source.Tail)` produces the pairs `(First, Second)`. Quantifiers over those pairs decide the result.
 
 `AnyAdjacent` uses `Exists` and returns `true` when one pair matches. `AllAdjacent` uses `ForAll` and returns `true` when no pair disproves the condition. Because fewer than two elements produce no pairs, `AnyAdjacent` returns `false` and `AllAdjacent` returns `true`.
 
@@ -221,7 +221,7 @@ For example, sort a number sequence, then test whether any adjacent pair differs
 
 ## [07]-[END_TO_END_PIPELINE]
 
-A reporting pipeline can read one CSV text, split it into records, parse typed values, group them, aggregate each group, format report lines, and join those lines into one result.
+Reporting pipelines can read one CSV text, split it into records, parse typed values, group them, aggregate each group, format report lines, and join those lines into one result.
 
 The text enters as a `string` argument. `At` reads each field as an `Option`, `parseInt` parses the numbers, and `Traverse` turns the records into `Option<Seq<Story>>`. One failed parse makes the whole input `None`. Because an empty line parses to `None`, the text cannot have a trailing newline. `Fold` into a `Map<int, ...>` groups the stories by season, and `AddOrUpdate` adds each story to its season total.
 

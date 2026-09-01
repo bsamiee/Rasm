@@ -2,17 +2,17 @@
 
 ## [01]-[STORAGE_MODEL]
 
-Functional design applies to persisted data as well as in-memory values. A database that overwrites rows is still shared mutable state, even when the server process is stateless.
+Functional design applies to persisted data as well as in-memory values. Overwriting rows is still shared mutable state, even when the server process is stateless.
 
 Append-only storage replaces updates and deletes with appends:
-- Existing data is never overwritten or deleted.
-- New information is recorded as additional data.
-- Historical information remains available for audit, analysis, and reconstruction.
-- Appends avoid write contention caused by concurrent overwrites of the same record.
+- Existing data is never overwritten or deleted
+- New information is recorded as additional data
+- Historical information remains available for audit, analysis, and reconstruction
+- Appends avoid write contention caused by concurrent overwrites of the same record
 
-Two append-only storage models follow this rule:
-- Event sourcing: store an ordered history of things that happened.
-- Valid-time storage: store facts with the time intervals during which they are valid.
+Append-only storage models follow this rule:
+- Event sourcing: store an ordered history of things that happened
+- Valid-time storage: store facts with the time intervals during which they are valid
 
 Event sourcing focuses on transitions rather than snapshots. The current state is derived data:
 
@@ -21,20 +21,20 @@ initial state = Create(first event)
 current state = remaining events.Fold(initial state, Apply)
 ```
 
-Two snapshots show that state changed but do not explain why. A prior state and an event determine the next state.
+Two snapshots show that state changed but do not explain why. An event and prior state determine the next state.
 
-Keeping every historical snapshot is wasteful: each snapshot repeats all values that did not change, while explaining a change still requires comparing snapshots. An event history records the transition itself and can derive whichever snapshot is needed.
+Keeping every historical snapshot is wasteful: each snapshot repeats all values that did not change, while explaining a change still requires comparing snapshots. An event history records the transition itself and derives whichever snapshot is needed.
 
 ## [02]-[CORE_MODEL]
 
 ### [02.1]-[EVENTS]
 
-An event is an immutable, serializable data object containing the minimum information needed to represent something that already happened.
+An event is an immutable, serializable data object carrying the minimum information about something that already happened.
 
-- Its name is past tense: `CreatedAccount`, `DepositedCash`, `DebitedTransfer`.
-- It cannot be rejected or changed.
-- Its payload describes the occurrence, not a mutable entity snapshot.
-- Events that cause state transitions belong in persistent event history; transient notifications must be distinguished from them.
+- Its name is past tense: `CreatedAccount`, `DepositedCash`, `DebitedTransfer`
+- It cannot be rejected or changed
+- Its payload describes the occurrence, not a mutable entity snapshot
+- Events that cause state transitions belong in persistent event history; transient notifications must be distinguished from them
 
 Each event is a sealed record case nested in one abstract partial base record, and `[Union]` closes the set:
 
@@ -52,7 +52,7 @@ internal abstract partial record Event {
 }
 ```
 
-Event types have different payload shapes. From most to least suitable, the storage options are an event store, a document database that accepts heterogeneous documents, and a relational database. A relational event table needs common headers such as entity ID, timestamp, and event type, plus a payload column for serialized event data. These headers support retrieving one entity's history in order and filtering it by time. An existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
+Event types have different payload shapes. From most to least suitable, the storage options are an event store, a document database that accepts heterogeneous documents, and a relational database. Relational event tables need headers such as entity ID, timestamp, event type, and a payload column for serialized event data. These headers support retrieving one entity's history in order and filtering it by time. An existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
 
 ### [02.2]-[STATE]
 
@@ -80,7 +80,7 @@ internal sealed record AccountState(AccountStatus Status, string Currency, decim
 
 ### [02.3]-[STATE_TRANSITIONS]
 
-A transition after creation is a pure function:
+Transitions after creation are pure functions:
 
 ```text
 State -> Event -> State
@@ -109,18 +109,18 @@ internal static partial class Account {
 
 ### [02.4]-[PATTERN_MATCHING]
 
-Expression-oriented pattern matching keeps transitions as expressions. For a type with a fixed set of cases, such as an option or functional list, a type-specific `Match` method can require handlers for every case. `Event.Switch` takes one arm per case. A new case fails to compile until every `Switch` names it. A replayed creation event leaves an existing state unchanged.
+Expression-oriented pattern matching keeps transitions as expressions. For a type with a fixed set of cases, such as an option or functional list, a type-specific `Match` method can require handlers for every case. `Event.Switch` takes one arm per case. New cases fail to compile until each `Switch` names them. Replayed creation events leave an existing state unchanged.
 
 Structural matching is useful for sequences. `Seq<Event>` exposes `Head` as an `Option<Event>` and `Tail` as the remaining `Seq<Event>`. This makes the distinction between a nonexistent entity and a replayable history explicit.
 
 ## [03]-[ENTITY_RECONSTRUCTION]
 
-History must be retrieved in occurrence order. An empty history means that no entity is recorded. Reconstruction returns an optional state, not a default entity.
+History must be retrieved in occurrence order. An empty history means no entity is recorded. Reconstruction returns an optional state, not a default entity.
 
 Reconstruct a non-empty history as follows:
-1. Treat the first event as the required entity-creation event.
-2. Construct the initial state from that event.
-3. Fold the remaining events with the transition function.
+1. Treat the first event as the required entity-creation event
+2. Construct the initial state from that event
+3. Fold the remaining events with the transition function
 
 ```csharp
 internal static partial class Account {
@@ -133,7 +133,7 @@ internal static partial class Account {
 
 `Head` is `None` for an empty history, `Bind` keeps only a `CreatedAccount` head, and `Fold` over `Tail` applies the transition function.
 
-State at a past time is obtained through the same computation after excluding later events. A time value on each event defines the time boundary.
+State at a past time is obtained through the same computation after excluding later events. Each event's time value defines the time boundary.
 
 ## [04]-[CQRS]
 
@@ -148,14 +148,14 @@ events  -> fold/map/filter -> projection or view model -> query response
 
 ### [04.1]-[COMMAND_SIDE]
 
-A command is an imperative request, such as `MakeTransfer`. Unlike an event, it can be invalid, ignored, or interrupted before completion.
+An imperative request such as `MakeTransfer` is a command. Unlike an event, it can be invalid, ignored, or interrupted before completion.
 
-Commands are named imperatively because they are requests. A command and its resulting event can share fields, but conversion can add or derive values.
+Commands are named imperatively because they are requests. Commands and resulting events can share fields, but conversion can add or derive values.
 
-Command handling performs three jobs:
-1. Validate the command's general form.
-2. Load the entity's state and validate the requested transition against it.
-3. Convert a valid command into an event, persist it, and publish it.
+Command handling has these jobs:
+1. Validate the command's general form
+2. Load the entity's state and validate the requested transition against it
+3. Convert a valid command into an event, persist it, and publish it
 
 The transition operation can return both the event and the derived state. Each rejection is a sealed `Expected` record. The first `guard` calls `ToFin`, which establishes the LINQ query's result type. Later `guard<Error>` clauses bind without another conversion:
 
@@ -204,7 +204,7 @@ internal static class Commands {
 }
 ```
 
-Expected rejection and I/O failure are different effects. Expected rejection is a `Fin` from the pure transition, and the effect carries it on the `IO` error channel through `IO.lift(Fin<A>)`. A failure while retrieving history or saving an event arrives on the same channel. `RunSafe` at the host returns one `Fin`, and one `Match` reads both outcomes.
+Expected rejection and I/O failure are different effects. Expected rejection is a `Fin` from the pure transition, and the effect carries it on the `IO` error channel through `IO.lift(Fin<A>)`. Failures retrieving history or saving an event arrive on the same channel. `RunSafe` at the host returns one `Fin`, and one `Match` reads both outcomes.
 
 ### [04.2]-[PERSISTENCE_AND_PUBLISHING]
 
@@ -214,15 +214,15 @@ The guarantee depends on storage and messaging infrastructure. Durable subscript
 
 Prefer one resulting event per command. Downstream handlers can translate that event into further events for the same or other entities without making the original command workflow responsible for every consequence.
 
-Event handlers serve two distinct roles. Command-side handlers perform follow-up actions and can emit further events. Query-side handlers update read models.
+Event handlers serve distinct roles. Command-side handlers perform follow-up actions and can emit further events. Query-side handlers update read models.
 
 ### [04.3]-[QUERY_SIDE]
 
 Users consume view models shaped for their needs, not raw event logs or the command-side state. The query side derives each view from history using functional transformations:
-- `Fold` computes totals and balances.
-- `Map` converts relevant events into view data.
-- `Choose` with an `Option` result both converts matching events and omits nonmatching events.
-- Time filters select the history needed for a period or point-in-time view.
+- `Fold` computes totals and balances
+- `Map` converts relevant events into view data
+- `Choose` with an `Option` result both converts matching events and omits nonmatching events
+- Time filters select the history needed for a period or point-in-time view
 
 For an account statement, fold events before the period to obtain the starting balance, fold through the period to obtain the ending balance, and convert only transaction events into statement rows.
 
@@ -249,10 +249,10 @@ CQRS does not require two deployed applications. Command and query concerns can 
 The domain determines whether event sourcing or valid-time storage fits.
 
 Choose event sourcing when:
-- Domain events are meaningful business occurrences rather than renamed CRUD operations.
-- Events drive multiple consequences.
-- Commands and the views consumed by users have different shapes.
-- Reconstructing how and why an entity evolved is central.
+- Domain events are meaningful business occurrences rather than renamed CRUD operations
+- Events drive multiple consequences
+- Commands and the views consumed by users have different shapes
+- Reconstructing how and why an entity evolved is central
 
 An auction illustrates these conditions: bids and auction closure are meaningful occurrences, while clients submit individual actions but consume item details, bid histories, and purchase lists.
 

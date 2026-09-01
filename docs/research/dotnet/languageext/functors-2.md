@@ -2,7 +2,7 @@
 
 ## [01]-[MAPPING_PROBLEM]
 
-A mapping trait cannot fix the element type into the trait. Mapping an `A` must produce a `B` while it preserves the surrounding type constructor. The desired shape is not valid C#, because a type parameter `F` cannot be applied as `F<A>`:
+Mapping traits cannot fix the element type. Mapping an `A` must produce a `B` while it preserves the surrounding type constructor. The desired shape is not valid C#, because a type parameter `F` cannot be applied as `F<A>`:
 
 ```csharp
 public interface Mappable<F>
@@ -43,7 +43,7 @@ public class List : Mappable<List>
 }
 ```
 
-Because `List<A>` implements `K<List, A>`, the implementation recovers the concrete list with a downcast. A context-specific extension keeps the cast in one place:
+Because `List<A>` implements `K<List, A>`, the implementation recovers the concrete list with a downcast. Context-specific extensions keep the cast in one place:
 
 ```csharp
 public static class ListExtensions
@@ -63,7 +63,7 @@ public class List : Mappable<List>
 }
 ```
 
-The cast relies on an invariant: exactly one concrete type derives from `K<List, A>`. A second representation for the same `F` and `A` makes the downcast fail on use.
+The cast relies on an invariant: exactly one concrete type derives from `K<List, A>`. Two representations for the same `F` and `A` make the downcast fail on use.
 
 ## [03]-[MAP_EXTENSION]
 
@@ -127,7 +127,7 @@ public static class MaybeExtensions
 }
 ```
 
-`Maybe<A>` has the two cases of LanguageExt's `Option<A>`: `Just` corresponds to `Some`, and `Nothing` to `None`. Mapping transforms the `Just` value and preserves `Nothing`:
+`Maybe<A>` has the cases of LanguageExt's `Option<A>`: `Just` corresponds to `Some`, and `Nothing` to `None`. Mapping transforms the `Just` value and preserves `Nothing`:
 
 ```csharp
 var mx = new Just<int>(100);

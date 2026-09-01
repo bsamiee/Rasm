@@ -6,20 +6,20 @@ Every function in this set returns an explicit result type.
 
 | [INDEX] | [TYPE]                 | [CONCERN]                                       | [SHAPE]               |
 | :-----: | :--------------------- | :---------------------------------------------- | :-------------------- |
-|  [01]   | `Option<A>`            | absence without an `Error`                      | readonly struct       |
-|  [02]   | `Fin<A>`               | expected failure with an `Error`, short-circuit | abstract class        |
-|  [03]   | `Either<L, R>`         | two value types, neither an error               | abstract record class |
-|  [04]   | `Validation<Error, A>` | independent failures, accumulate                | abstract record class |
-|  [05]   | `Try<A>`               | synchronous exception capture, deferred         | record class          |
-|  [06]   | `IO<A>`                | side effects with a failure channel             | abstract record class |
-|  [07]   | `Eff<RT, A>`           | effects that read a capability                  | record class          |
+|  [01]   | `Option<A>`            | Absence without an `Error`                      | readonly struct       |
+|  [02]   | `Fin<A>`               | Expected failure with an `Error`, short-circuit | abstract class        |
+|  [03]   | `Either<L, R>`         | Two value types, neither an error               | abstract record class |
+|  [04]   | `Validation<Error, A>` | Independent failures, accumulate                | abstract record class |
+|  [05]   | `Try<A>`               | Synchronous exception capture, deferred         | record class          |
+|  [06]   | `IO<A>`                | Side effects with a failure channel             | abstract record class |
+|  [07]   | `Eff<RT, A>`           | Effects that read a capability                  | record class          |
 
-- `Option<A>` holds a value or `None`. A missed lookup provides no error information.
-- `Fin<A>` holds a value or an `Error`. A domain transition that rejects its input explains the rejection, and a dependent chain of `Fin` stops at the first rejection.
+- `Option<A>` holds a value or `None`. Missed lookups provide no error information.
+- `Fin<A>` holds a value or an `Error`. Domain transitions rejecting input explain the rejection, and a dependent chain of `Fin` stops at the first rejection.
 - `Either<L, R>` holds one of two values. It represents alternative data values, not success and failure.
-- `Validation<Error, A>` holds a value or all `Error` values produced by independent checks. A form with an empty name and an impossible age reports both.
+- `Validation<Error, A>` holds a value or all `Error` values produced by independent checks. Forms with an empty name and an impossible age report both.
 - `Try<A>` holds a deferred synchronous computation that can throw. Nothing runs until `Run`, and a thrown exception arrives as an `Error`.
-- `IO<A>` holds a deferred effect with an `Error` channel. A domain rejection inside an effect is a typed `Expected` on that channel.
+- `IO<A>` holds a deferred effect with an `Error` channel. Domain rejection inside an effect is a typed `Expected` on that channel.
 - `Eff<RT, A>` is an effect that reads a capability from a runtime `RT`. An `IO<A>` converts implicitly to `Eff<RT, A>`.
 
 Each type exposes `Match` with one function per case. `Match` on `IO` and `Eff` returns an effect.
@@ -65,7 +65,7 @@ internal static class Boundary {
 
 ## [03]-[IMPLICIT_LIFTS]
 
-A value of type `A` lifts into `Fin<A>` and `Validation<Error, A>`. An `Error` value, including an `Expected` subclass, lifts into the failure case. `Pure(x)` and `Fail<Error>(e)` make the intended lift explicit when the two branches of a conditional differ in type. A smart constructor maps the value object's generated `Validate` to `Fin<Age>`. This gives every consumer a validated value.
+Values of type `A` lift into `Fin<A>` and `Validation<Error, A>`. An `Error` value, including an `Expected` subclass, lifts into the failure case. `Pure(x)` and `Fail<Error>(e)` make the intended lift explicit when the two branches of a conditional differ in type. Smart constructors map the value object's generated `Validate` to `Fin<Age>`. This gives every consumer a validated value.
 
 ```csharp
 [ValueObject<int>]
@@ -90,7 +90,7 @@ The return type `Fin<Age>` selects the lift for the `InvalidAge` and `item` bran
 
 ## [04]-[CONVERSIONS]
 
-Each conversion is a method on the source type, and the name states the target. Converting `Option` to `Fin` or `Validation` requires an `Error`, because `Option` contains none. `Validation` becomes `Fin` at the end of input validation. A `Fin` from a smart constructor converts to `Validation` before it is combined with independent validations. `Try`, `IO`, and `Eff` return `Fin` when run.
+Each conversion is a method on the source type, and the name states the target. Converting `Option` to `Fin` or `Validation` requires an `Error`, because `Option` contains none. `Validation` becomes `Fin` at the end of input validation. `Fin` from a smart constructor converts to `Validation` before combining with independent validations. `Try`, `IO`, and `Eff` return `Fin` when run.
 
 ```csharp
 internal static class Conversions {
@@ -109,7 +109,7 @@ internal static class Conversions {
 
 ## [05]-[ERROR_MODEL]
 
-A domain error is a `sealed record` that extends `Expected` with a message and a code. A `Codes` class holds the codes of the package that declares the errors. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. An error that a value object raises also implements `IValidationError<T>`, and the generated `Validate` returns it. LanguageExt's `Errors` class holds shared values such as `Errors.TimedOut` and `Errors.None`.
+Domain errors are `sealed record`s extending `Expected` with a message and a code. `Codes` holds the codes of the package declaring the errors. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. An error a value object raises also implements `IValidationError<T>`, and the generated `Validate` returns it. LanguageExt's `Errors` class holds shared values such as `Errors.TimedOut` and `Errors.None`.
 
 ```csharp
 internal static class Codes {
@@ -141,7 +141,7 @@ internal static class Classify {
 }
 ```
 
-A consumer classifies with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. `HasCode` and `Catch(int)` select a code the same package declares; codes from several packages meet in one `ManyErrors`, and `IsType<E>` separates them. The message is for the host to render.
+Consumers classify with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. `HasCode` and `Catch(int)` select a code the same package declares; codes from several packages meet in one `ManyErrors`, and `IsType<E>` separates them. The message is for the host to render.
 
 ## [06]-[RECOVERY]
 
@@ -187,9 +187,9 @@ internal static class Guards {
 |  [01]   | `Match` in the middle of a pipeline unwraps a value that the next step lifts again | `Bind` the next step, as `Older` shows                        |
 |  [02]   | `IfNone` with an arbitrary default hides absence                                   | `ToFin` with an `Error`, as `Required` shows                  |
 |  [03]   | Matching on message text couples the consumer to prose                             | `HasCode` or `IsType<E>`                                      |
-|  [04]   | An `Option` nested inside an effect forces the consumer to unwrap two layers       | `OptionT<IO, A>`, as `Lookup` shows                           |
-|  [05]   | A `Fin` nested inside an effect duplicates the failure channel                     | a typed `Expected` on the `IO` error channel, as `Load` shows |
-|  [06]   | `Run` inside the domain performs the effect before the host runs the program       | keep the `IO` and `Bind` the next step                        |
+|  [04]   | `Option` nested inside an effect forces the consumer to unwrap two layers          | `OptionT<IO, A>`, as `Lookup` shows                           |
+|  [05]   | `Fin` nested inside an effect duplicates the failure channel                       | Typed `Expected` on the `IO` error channel, as `Load` shows   |
+|  [06]   | `Run` inside the domain performs the effect before the host runs the program       | Keep the `IO` and `Bind` the next step                        |
 |  [07]   | `Some` as a null guard, because `Some(null)` holds `null`                          | `Optional` at the null boundary, as `Nickname` shows          |
 
 At the host, evaluating `Lookup` with `Run`, `As`, and `RunSafe` produces `Fin<Option<Person>>`.

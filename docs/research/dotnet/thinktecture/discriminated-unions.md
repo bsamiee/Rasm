@@ -1,23 +1,23 @@
 # [DISCRIMINATED_UNIONS]
 
-A discriminated union holds one value that belongs to exactly one of its declared cases. A union names data alternatives. The source generator emits `Switch` and `Map` with one arm per case, and a missing arm is a compile error.
+Discriminated unions hold one value belonging to exactly one declared case. Unions name data alternatives. The source generator emits `Switch` and `Map` with one arm per case, and a missing arm is a compile error.
 
 ## [01]-[MOTIVATION]
 
-A tuple such as `(Order? Order, bool IsSoftDeleted, string? Error)` admits every combination of its fields, and every consumer interprets those fields by convention. A `Result<T>` class with `IsSuccess`, `Value`, and `Error` lets a consumer read `Value` after a failure, and a new status adds no compile error. An exception for an expected outcome hides that outcome from the method signature, and a missing `catch` compiles.
+Tuples like `(Order? Order, bool IsSoftDeleted, string? Error)` admit every combination of their fields, and every consumer interprets those fields by convention. `Result<T>` classes with `IsSuccess`, `Value`, and `Error` let a consumer read `Value` after a failure, and a new status adds no compile error. An exception for an expected outcome hides that outcome from the method signature, and a missing `catch` compiles.
 
-A union moves the alternatives into the type. Candidates for a union are boolean or enum fields that decide how other properties are read, chains of type tests, tuples with mutually exclusive nullable fields, and base classes whose derived classes differ only in state data.
+Unions move the alternatives into the type. Candidates for a union are boolean or enum fields that decide how other properties are read, chains of type tests, tuples with mutually exclusive nullable fields, and base classes whose derived classes differ only in state data.
 
 ## [02]-[AD_HOC_VERSUS_REGULAR]
 
-An ad hoc union combines existing types that share no base, such as `string`, `int`, or `List<ValidationError>`. A regular union is a class hierarchy whose cases derive from one abstract partial base and carry their own properties and behavior. A smart enum is a fixed set of named instances with one shape, and a union is a fixed set of shapes. A smart enum item can return a union.
+An ad hoc union combines existing types that share no base, such as `string`, `int`, or `List<ValidationError>`. Regular unions are class hierarchies whose cases derive from one abstract partial base and carry their properties and behavior. Smart enums are fixed sets of named instances with one shape, and unions are fixed sets of shapes. Smart enum items can return a union.
 
 | [INDEX] | [ASPECT]    | [AD_HOC_UNION]                                                  | [REGULAR_UNION]                                              |
 | :-----: | :---------- | :-------------------------------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | Declaration | `partial class`, `partial struct`, or `ref partial struct`      | `partial class` or `partial record`, generated as `abstract` |
 |  [02]   | Attribute   | `[Union<T1, T2>]` through `[Union<..., T5>]`, or `[AdHocUnion]` | `[Union]` on the base                                        |
-|  [03]   | Cases       | the type arguments                                              | nested types that derive from the base                       |
-|  [04]   | Generic     | `TypeParamRef1` to `TypeParamRef5` name the type parameters     | the base can be generic, a case cannot (`TTRESG053`)         |
+|  [03]   | Cases       | The type arguments                                              | Nested types that derive from the base                       |
+|  [04]   | Generic     | `TypeParamRef1` to `TypeParamRef5` name the type parameters     | The base can be generic, a case cannot (`TTRESG053`)         |
 
 ## [03]-[AD_HOC_UNIONS]
 
@@ -25,31 +25,31 @@ An ad hoc union combines existing types that share no base, such as `string`, `i
 
 `AsString` on a union that holds an `int` throws `InvalidOperationException`. The text is `'TextNumberOrFlag' is not of type 'string' but of type 'int'.` The explicit cast takes the same path. Equality compares the discriminator and then the member value, and two `string` members compare with `StringComparison.OrdinalIgnoreCase` unless `DefaultStringComparison` says otherwise. `ToString` and `GetHashCode` delegate to the member, and the generated `ToString` returns `string?`.
 
-C# forbids user-defined conversions from `object` and from interfaces. A member of one of those types receives a constructor and no operator. Every member type must be at least as accessible as the union, because the generated operators and accessors expose it (`TTRESG077`). A union needs at least two member types (`TTRESG067`) and no more than one union attribute (`TTRESG066`).
+C# forbids user-defined conversions from `object` and from interfaces. Members of one of those types receive a constructor and no operator. Every member type must be at least as accessible as the union, because the generated operators and accessors expose it (`TTRESG077`). Unions need at least two member types (`TTRESG067`) and no more than one union attribute (`TTRESG066`).
 
 ## [04]-[AD_HOC_SETTINGS]
 
 | [INDEX] | [PROPERTY]                    | [DEFAULT]           | [EFFECT]                                                                                              |
 | :-----: | :---------------------------- | :------------------ | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `T1Name` to `T5Name`          | type name           | renames `IsX`, `AsX`, `CreateX`, `NormalizeX`, and the `Switch`/`Map` arm                             |
-|  [02]   | `DefaultStringComparison`     | `OrdinalIgnoreCase` | comparison for `string` members in `Equals` and `GetHashCode`                                         |
-|  [03]   | `SkipToString`                | `false`             | suppresses the `ToString` override                                                                    |
-|  [04]   | `SkipEqualityComparison`      | `false`             | suppresses `Equals`, `GetHashCode`, `==`, `!=`, `IEquatable<T>`, and `IEqualityOperators<T, T, bool>` |
-|  [05]   | `ConstructorAccessModifier`   | `Public`            | accessibility of constructors and factory methods, never of operators                                 |
-|  [06]   | `ConversionFromValue`         | `Implicit`          | operator from a member type to the union, `None` disables                                             |
-|  [07]   | `ConversionToValue`           | `Explicit`          | operator from the union to a member type, `None` disables                                             |
-|  [08]   | `T1IsNullableReferenceType`   | `false`             | types the member as `string?` and admits `null`                                                       |
-|  [09]   | `T1IsStateless`               | `false`             | stores only the discriminator for that member                                                         |
-|  [10]   | `ValueMemberAccessModifier`   | `Public`            | accessibility of `Value`, generated code keeps reading it                                             |
-|  [11]   | `ValueMemberName`             | `Value`             | renames the raw accessor and frees `Value` for a hand-written property                                |
-|  [12]   | `UseSingleBackingField`       | `false`             | boxes every member into one `object?` field                                                           |
-|  [13]   | `SingleBackingFieldType`      | none                | types the single field and `Value`                                                                    |
+|  [01]   | `T1Name` to `T5Name`          | Type name           | Renames `IsX`, `AsX`, `CreateX`, `NormalizeX`, and the `Switch`/`Map` arm                             |
+|  [02]   | `DefaultStringComparison`     | `OrdinalIgnoreCase` | Comparison for `string` members in `Equals` and `GetHashCode`                                         |
+|  [03]   | `SkipToString`                | `false`             | Suppresses the `ToString` override                                                                    |
+|  [04]   | `SkipEqualityComparison`      | `false`             | Suppresses `Equals`, `GetHashCode`, `==`, `!=`, `IEquatable<T>`, and `IEqualityOperators<T, T, bool>` |
+|  [05]   | `ConstructorAccessModifier`   | `Public`            | Accessibility of constructors and factory methods, never of operators                                 |
+|  [06]   | `ConversionFromValue`         | `Implicit`          | Operator from a member type to the union, `None` disables                                             |
+|  [07]   | `ConversionToValue`           | `Explicit`          | Operator from the union to a member type, `None` disables                                             |
+|  [08]   | `T1IsNullableReferenceType`   | `false`             | Types the member as `string?` and admits `null`                                                       |
+|  [09]   | `T1IsStateless`               | `false`             | Stores only the discriminator for that member                                                         |
+|  [10]   | `ValueMemberAccessModifier`   | `Public`            | Accessibility of `Value`, generated code keeps reading it                                             |
+|  [11]   | `ValueMemberName`             | `Value`             | Renames the raw accessor and frees `Value` for a hand-written property                                |
+|  [12]   | `UseSingleBackingField`       | `false`             | Boxes every member into one `object?` field                                                           |
+|  [13]   | `SingleBackingFieldType`      | None                | Types the single field and `Value`                                                                    |
 |  [14]   | `FactoryMethodGeneration`     | `Default`           | `Always` or `None` overrides the trigger rule for `CreateX`                                           |
 |  [15]   | `DefaultValueHandling`        | `Disallow`          | `MapToFirstMember` makes `default` of a struct union the first member                                 |
 |  [16]   | `SwitchMethods`, `MapMethods` | `Default`           | `DefaultWithPartialOverloads` adds `SwitchPartially` and `MapPartially`, `None` removes all           |
-|  [17]   | `SwitchMapStateParameterName` | `state`             | name of the state parameter in `Switch` and `Map`                                                     |
+|  [17]   | `SwitchMapStateParameterName` | `state`             | Name of the state parameter in `Switch` and `Map`                                                     |
 
-A union that adds its own properties sets `ConversionFromValue = ConversionOperatorsGeneration.None` and `ConstructorAccessModifier = UnionConstructorAccessModifier.Private`. The hand-written constructors are then the only entry points and chain to the generated ones.
+Unions adding their own properties set `ConversionFromValue = ConversionOperatorsGeneration.None` and `ConstructorAccessModifier = UnionConstructorAccessModifier.Private`. The hand-written constructors are then the only entry points and chain to the generated ones.
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Number", ConversionFromValue = ConversionOperatorsGeneration.None, ConstructorAccessModifier = UnionConstructorAccessModifier.Private)]
@@ -71,17 +71,17 @@ internal sealed partial class NamedTextOrNumber {
 }
 ```
 
-The parameter name is the member name in camel case, and a different name compiles with `CS8826`. The call is the first statement of the generated constructor, and no null check precedes it: a `null` argument reaches the `Normalize` method body. The conversion operators delegate to that constructor. A member whose type another member repeats gets `Create{MemberName}` instead of a constructor, and the call moves there. A stateless member has no `Normalize` method. A union with an object factory reads through `Validate`, which constructs the union. Every framework read runs the `Normalize` method.
+The parameter name is the member name in camel case, and a different name compiles with `CS8826`. The call is the first statement of the generated constructor, and no null check precedes it: a `null` argument reaches the `Normalize` method body. The conversion operators delegate to that constructor. Members whose type another member repeats get `Create{MemberName}` instead of a constructor, and the call moves there. Stateless members lack a `Normalize` method. Unions with an object factory read through `Validate`, which constructs the union. Every framework read runs the `Normalize` method.
 
 ## [05]-[BACKING_FIELDS]
 
-A union with at most one reference type keeps one typed field per member. Two or more reference types share one `object?` field, and value types keep their fields without boxing. `UseSingleBackingField = true` moves the value types into the shared field and boxes them. `SingleBackingFieldType` names a common base or interface for that field, and `Value` takes that type.
+Unions with at most one reference type keep one typed field per member. Two or more reference types share one `object?` field, and value types keep their fields without boxing. `UseSingleBackingField = true` moves the value types into the shared field and boxes them. `SingleBackingFieldType` names a common base or interface for that field, and `Value` takes that type.
 
-`Value` typed as the shared interface reaches the members every case declares, without a `Switch`. `SingleBackingFieldType` implies `UseSingleBackingField = true`, and an explicit `false` beside it is `TTRESG075`. Every member type needs a built-in implicit conversion to the field type, because the stored value must stay the original instance. A user-defined conversion is `TTRESG079`. `typeof(object)` equals `UseSingleBackingField = true`.
+`Value` typed as the shared interface reaches the members every case declares, without a `Switch`. `SingleBackingFieldType` implies `UseSingleBackingField = true`, and an explicit `false` beside it is `TTRESG075`. Every member type needs a built-in implicit conversion to the field type, because the stored value must stay the original instance. User-defined ones are `TTRESG079`. `typeof(object)` equals `UseSingleBackingField = true`.
 
 ## [06]-[STATELESS_MEMBERS]
 
-A stateless member is a type whose presence is the whole information. The union stores only the discriminator, `AsX` and `Value` return `default(T)`, equality compares the discriminator alone, and `CreateX` is parameterless. Prefer a `readonly record struct`, because `default` of a class is `null`, and a stateless reference type sets `TxIsNullableReferenceType = true` on its own.
+Stateless members are types whose presence is the whole information. The union stores only the discriminator, `AsX` and `Value` return `default(T)`, equality compares the discriminator alone, and `CreateX` is parameterless. Prefer a `readonly record struct`, because `default` of a class is `null`, and a stateless reference type sets `TxIsNullableReferenceType = true` on its own.
 
 ```csharp
 internal sealed record SuccessResponse(string Data);
@@ -99,7 +99,7 @@ internal sealed partial class ApiResponse;
 - `DefaultValueHandling = UnionDefaultValueHandling.MapToFirstMember` turns `default` into the first member
 - The first member must be stateless (`TTRESG082`), and the union must be a struct (`TTRESG081`)
 - The generator then drops `IDisallowDefaultValue` from the base list, and `TTRESG047` stops
-- A hand-written `IDisallowDefaultValue` restores the analyzer check while the runtime value stays valid
+- Hand-written `IDisallowDefaultValue` restores the analyzer check while the runtime value stays valid
 - The analyzer also reports `default` inside the union itself; a hand-written property such as `MaybeInt.None` constructs the stateless member instead
 
 ```csharp
@@ -117,7 +117,7 @@ An uninitialized `MaybeInt`, such as an array element, has `IsAbsent == true`, e
 
 `TypeParamRef1` to `TypeParamRef5` name the union's own type parameters, also inside constructed types such as `List<TypeParamRef1>`.
 
-- A type parameter member gets no conversion operator, because the operator breaks for specific type arguments
+- Type parameter members get no conversion operator, because the operator breaks for specific type arguments
 - `Result<string>` makes every conversion ambiguous (`CS0457`), and an interface argument makes the conversion from an interface-typed variable fail (`CS0029`)
 - An `object` argument makes `(object)union` return the boxed union
 - An `object` argument also sends `Result<object> r = "text";` into the `string` member, because overload resolution picks the most specific parameter type
@@ -131,11 +131,11 @@ internal readonly partial struct Result<T> {
 }
 ```
 
-`Result<int>.CreateT(42)`, `new Result<int>(42)`, and the generated `Result<int>.CreateString("text")` all exist, and the `string` member keeps its implicit operator. `TypeParamRef` above the type parameter count is `TTRESG071`, and on a non-generic union it is `TTRESG072`. An `allows ref struct` type parameter is `TTRESG073`. A generic union that references no type parameter is `TTRESG107`.
+`Result<int>.CreateT(42)`, `new Result<int>(42)`, and the generated `Result<int>.CreateString("text")` all exist, and the `string` member keeps its implicit operator. `TypeParamRef` above the type parameter count is `TTRESG071`, and on a non-generic union it is `TTRESG072`. An `allows ref struct` type parameter is `TTRESG073`. Generic unions using no type parameter are `TTRESG107`.
 
 ## [08]-[REGULAR_UNIONS]
 
-The generator gives the base a private constructor. A type declared outside the base cannot derive from it. A class case is `sealed` or has private constructors only (`TTRESG054`), and a record case is `sealed` (`TTRESG055`). A non-abstract case is at least as accessible as the base (`TTRESG056`). A nested type that does not derive from the base is `TTRESG106`. A generated type never receives a primary constructor (`TTRESG043`). A positional record case is the natural shape, and the base declares no primary constructor.
+The generator gives the base a private constructor. Types declared outside the base cannot derive from it. Class cases are `sealed` or keep constructors private (`TTRESG054`), and record cases are `sealed` (`TTRESG055`). Non-abstract cases are no less accessible than the base (`TTRESG056`). Nested types not derived from the base are `TTRESG106`. Generated types never receive a primary constructor (`TTRESG043`). Positional record cases are the natural form, and the base declares no primary constructor.
 
 ```csharp
 [Union]
@@ -154,7 +154,7 @@ internal abstract partial record OrderState {
 }
 ```
 
-An abstract method suits behavior that belongs to the state and needs no dependency. A transition that reads context lives outside the union and passes that context through the `Switch` overload that takes a state parameter. The arms return different case types, and the call names `TResult`.
+An abstract method suits behavior that belongs to the state and needs no dependency. Transitions reading context live outside the union and pass that context through the `Switch` overload that takes a state parameter. The arms return different case types, and the call names `TResult`.
 
 ```csharp
 internal sealed record ShipRequest(DateTime Now, string TrackingNumber, bool CanShip);
@@ -170,7 +170,7 @@ internal static class OrderTransitions {
 
 The generator emits an implicit conversion to the base for every case with a single-parameter constructor whose parameter type is unique among those cases. `OrderState` converts from `string` into `Placed` and from `DateTime` into `Processing`: `return "me";` in a method that returns `OrderState` yields a `Placed`. `ConversionFromValue = ConversionOperatorsGeneration.None` on `[Union]` removes these operators.
 
-A class case with `[Union]` becomes an abstract nested union with a generated private constructor, and its own cases nest inside it. Records cannot nest unions, because every record case is `sealed`.
+Class cases with `[Union]` become abstract nested unions with a generated private constructor, and their cases nest inside them. Records cannot nest unions, because every record case is `sealed`.
 
 - The arm names of the outer `Switch` prefix the nested case with its parent, `failureNotFound`
 - `NestedUnionParameterNames = NestedUnionParameterNameGeneration.Simple` drops the prefix
@@ -203,9 +203,9 @@ The `StopAt` overload gives up exhaustiveness: a new case under `Failure` compil
 
 ## [09]-[SWITCH_AND_MAP]
 
-`Switch` has a void overload with one `Action` per case and a value overload with one `Func<TCase, TResult>` per case. A state overload of each passes a `TState` first. `Map` takes one `TResult` value per case. Every argument is named (`TTRESG046`), and a lambda without `static` is `TTRESG1001`. Captured context travels through the state parameter, and the lambdas are `static`. When arms return different types, `TResult` inference fails on the whole call, and an explicit `Switch<TResult>` moves the error to the one arm that differs.
+`Switch` has a void overload with one `Action` per case and a value overload with one `Func<TCase, TResult>` per case. State overloads of each pass a `TState` first. `Map` takes one `TResult` value per case. Every argument is named (`TTRESG046`), and a lambda without `static` is `TTRESG1001`. Captured context travels through the state parameter, and the lambdas are `static`. When arms return different types, `TResult` inference fails on the whole call, and an explicit `Switch<TResult>` moves the error to the one arm that differs.
 
-`SwitchMethods`, `MapMethods`, `SwitchMapStateParameterName`, and `ConversionFromValue` are declared on `[Union]` as well as on the ad hoc attributes. On an ad hoc union the `@default` arm receives the current member as `object?`, and on a regular union it receives the base type. The value overload requires `@default`, and the void overload declares it optional. A void `SwitchPartially` without `@default` does nothing for an unhandled case. `MapPartially` requires `@default` and takes the other arms as optional values.
+`SwitchMethods`, `MapMethods`, `SwitchMapStateParameterName`, and `ConversionFromValue` are declared on `[Union]` as well as on the ad hoc attributes. On an ad hoc union the `@default` arm receives the current member as `object?`, and on a regular union it receives the base type. The value overload requires `@default`, and the void overload declares it optional. Void `SwitchPartially` without `@default` does nothing for an unhandled case. `MapPartially` requires `@default` and takes the other arms as optional values.
 
 ```csharp
 [Union<string, int, bool>(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -217,11 +217,11 @@ internal static class PartialMatching {
 }
 ```
 
-Every generated `Switch` and `Map` ends in an unreachable branch. On an ad hoc union `Switch` throws `IndexOutOfRangeException` and `Map` throws `InvalidOperationException`. Both carry the text `Unexpected value index '...'.` A regular union throws `InvalidOperationException` with the text `Unexpected type '...'.` from every arm.
+Every generated `Switch` and `Map` ends in an unreachable branch. On an ad hoc union `Switch` throws `IndexOutOfRangeException` and `Map` throws `InvalidOperationException`. Both carry the text `Unexpected value index '...'.` Regular unions throw `InvalidOperationException` with the text `Unexpected type '...'.` from every arm.
 
 ## [10]-[USE_CASES]
 
-A date known to the year, the month, or the day is three cases with a shared `Year`. The base holds the shared property and a private constructor, and the record cases pass `Year` up. The hand-written operator admits `DateOnly`.
+Dates known to the year, month, or day are three cases with a shared `Year`. The base holds the shared property and a private constructor, and the record cases pass `Year` up. The hand-written operator admits `DateOnly`.
 
 ```csharp
 [System.Text.Json.Serialization.JsonDerivedType(typeof(YearOnly), "Year")]
@@ -243,7 +243,7 @@ internal abstract partial record PartiallyKnownDate {
 
 `YearOnly(int)` is the only single-parameter case. The generator also emits an implicit conversion from `int`. `System.Text.Json.JsonSerializer.Serialize<PartiallyKnownDate>(date)` writes `{"$type":"Date","Month":3,"Day":15,"Year":2024}`, and `Deserialize<PartiallyKnownDate>` returns an `Exact`.
 
-A case can be a value object or a smart enum. The union names the kind, and each case owns its value and rules. `Unknown` is a declared case with one instance, not `null`.
+Cases can be value objects or smart enums. The union names the kind, and each case owns its value and rules. `Unknown` is a declared case with one instance, not `null`.
 
 ```csharp
 [Union]
@@ -270,7 +270,7 @@ internal abstract partial class Jurisdiction {
 
 ## [11]-[FRAMEWORK_INTEGRATION]
 
-An ad hoc union carries no type discriminator. No serializer handles it on its own. `[ObjectFactory<string>]` declares one wire format: `ToValue` renders the union, `Validate` parses it back and returns a `ValidationError` for bad input. With `UseForSerialization` set and `Thinktecture.Runtime.Extensions.Json` referenced, the generator applies a `JsonConverter` attribute with `ThinktectureJsonConverterFactory<TUnion, ValidationError>` to the type. No options registration is needed. `UseForModelBinding = true` and `UseWithEntityFramework = true` reuse the same pair. A `string` factory also implements `IParsable<TUnion>`.
+An ad hoc union carries no type discriminator. No serializer handles it on its own. `[ObjectFactory<string>]` declares one wire format: `ToValue` renders the union, `Validate` parses it back and returns a `ValidationError` for bad input. With `UseForSerialization` set and `Thinktecture.Runtime.Extensions.Json` referenced, the generator applies a `JsonConverter` attribute with `ThinktectureJsonConverterFactory<TUnion, ValidationError>` to the type. No options registration is needed. `UseForModelBinding = true` and `UseWithEntityFramework = true` reuse the same pair. `string` factories also implement `IParsable<TUnion>`.
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Number")]
@@ -295,11 +295,11 @@ internal sealed partial class TextOrNumberSerializable {
 }
 ```
 
-`System.Text.Json.JsonSerializer.Serialize(union)` writes `"Text|hello"`, and `Deserialize<TextOrNumberSerializable>` returns an equal union. Invalid text surfaces as `JsonException` with the `ValidationError` message, `Parse` throws `FormatException` with the same message, and `TryParse` returns `false`. A JSON `null` deserializes to `null` without a `Validate` call. `SerializationFrameworks.All` covers System.Text.Json, Newtonsoft.Json, and MessagePack with one pair once each integration package is referenced.
+`System.Text.Json.JsonSerializer.Serialize(union)` writes `"Text|hello"`, and `Deserialize<TextOrNumberSerializable>` returns an equal union. Invalid text surfaces as `JsonException` with the `ValidationError` message, `Parse` throws `FormatException` with the same message, and `TryParse` returns `false`. JSON `null` deserializes to `null` without a `Validate` call. `SerializationFrameworks.All` covers System.Text.Json, Newtonsoft.Json, and MessagePack with one pair once each integration package is referenced.
 
 Entity Framework Core stores the ad hoc union in one column through a value converter, and ASP.NET Core binds it from a route or query value through the generated `IParsable<TUnion>`; MVC controllers use `ThinktectureModelBinderProvider`. Entity Framework Core keeps a null column null, and model binding answers a missing or empty value, `Validate` never receives a null.
 
-A regular union is a polymorphic hierarchy. System.Text.Json needs one `JsonDerivedType` on the base per case. Newtonsoft.Json needs `TypeNameHandling`, which is a deserialization risk unless the binder restricts the types. MessagePack has its own `Union` attribute, and this library does not integrate with it. `[ObjectFactory<string>]` on the base gives every framework one wire format at the cost of the property structure. Entity Framework Core maps the hierarchy with table-per-hierarchy through `HasDiscriminator<string>` and one `HasValue<TCase>` per case, or with table-per-type. Two cases that declare the same property map to one column through `HasColumnName`.
+Regular unions are polymorphic hierarchies. System.Text.Json needs one `JsonDerivedType` on the base per case. Newtonsoft.Json needs `TypeNameHandling`, which is a deserialization risk unless the binder restricts the types. MessagePack has its own `Union` attribute, and no integration exists. `[ObjectFactory<string>]` on the base gives every framework one wire format at the cost of the property structure. Entity Framework Core maps the hierarchy with table-per-hierarchy through `HasDiscriminator<string>` and one `HasValue<TCase>` per case, or with table-per-type. Two cases that declare the same property map to one column through `HasColumnName`.
 
 Serilog destructures an ad hoc union to its current `Value` and declines a regular union, which falls through to default object destructuring with a `$type` property. `SkipToString = true` on the union leaves no override, and string rendering logs the type name. An uninitialized struct union logs a capture-exception placeholder instead of failing the log call.
 
@@ -307,17 +307,17 @@ Serilog destructures an ad hoc union to its current `Value` and declines a regul
 
 | [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                        |
 | :-----: | :------------------------------------------------------------------ | :-------------------------------------------------------------------- |
-|  [01]   | A tuple or flag class with nullable fields for exclusive outcomes   | a union with one case per outcome                                     |
-|  [02]   | A native `switch` with `_ =>` over a union value hides a new case   | the generated `Switch` or `Map`                                       |
-|  [03]   | A lambda without `static` in a `Switch` arm                         | the state overload with a `static` lambda                             |
-|  [04]   | `default(TUnion)` or `new TUnion()` on a struct union               | a member value, or `MapToFirstMember` with a stateless first member   |
-|  [05]   | A `string` failure case beside a `string` success value             | a distinct failure type per case                                      |
-|  [06]   | A stateless marker as a class                                       | a `readonly record struct`                                            |
-|  [07]   | A hand-written operator for `TypeParamRef1` that bypasses `CreateT` | an operator that returns `CreateT(value)`                             |
-|  [08]   | A wrapping user-defined conversion as `SingleBackingFieldType`      | an interface or abstract base the members implement                   |
-|  [09]   | A `StopAt` overload as the default consumer                         | the exhaustive `Switch`, and `StopAt` only to delegate a nested union |
-|  [10]   | `SwitchPartially` where every case matters                          | the exhaustive `Switch`                                               |
-|  [11]   | A raw `string` serializer for an ad hoc union in application code   | `[ObjectFactory<string>]` with `ToValue` and `Validate`               |
-|  [12]   | A regular union serialized without a discriminator                  | `JsonDerivedType` per case, or `[ObjectFactory<string>]` on the base  |
-|  [13]   | A union whose cases are a success and a failure with a reason       | `Fin<A>` or `Validation<Error, A>` with typed `Expected` records      |
-|  [14]   | A union whose cases are a value and its absence                     | `Option<A>`                                                           |
+|  [01]   | Tuple or flag class with nullable fields for exclusive outcomes     | Union with one case per outcome                                       |
+|  [02]   | Native `switch` with `_ =>` over a union value hides a new case     | The generated `Switch` or `Map`                                       |
+|  [03]   | Lambda without `static` in a `Switch` arm                           | The state overload with a `static` lambda                             |
+|  [04]   | `default(TUnion)` or `new TUnion()` on a struct union               | Member value, or `MapToFirstMember` with a stateless first member     |
+|  [05]   | `string` failure case beside a `string` success value               | Distinct failure type per case                                        |
+|  [06]   | Stateless marker as a class                                         | `readonly record struct`                                              |
+|  [07]   | Hand-written operator for `TypeParamRef1` that bypasses `CreateT`   | Operator that returns `CreateT(value)`                                |
+|  [08]   | Wrapping user-defined conversion as `SingleBackingFieldType`        | Interface or abstract base the members implement                      |
+|  [09]   | `StopAt` overload as the default consumer                           | The exhaustive `Switch`, and `StopAt` only to delegate a nested union |
+|  [10]   | `SwitchPartially` where every case matters                          | The exhaustive `Switch`                                               |
+|  [11]   | Raw `string` serializer for an ad hoc union in application code     | `[ObjectFactory<string>]` with `ToValue` and `Validate`               |
+|  [12]   | Regular union serialized without a discriminator                    | `JsonDerivedType` per case, or `[ObjectFactory<string>]` on the base  |
+|  [13]   | Union whose cases are a success and a failure with a reason         | `Fin<A>` or `Validation<Error, A>` with typed `Expected` records      |
+|  [14]   | Union whose cases are a value and its absence                       | `Option<A>`                                                           |

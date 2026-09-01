@@ -8,7 +8,7 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-# BuildCheck (`dotnet build -check`): allow uninitialized property reads in conditions shared by .props and .targets files. Both values must match
+# BuildCheck (`dotnet build -check`): allow uninitialized property reads in conditions shared by .props and .targets files, both values must match
 [*.csproj]
 build_check.BC0201.AllowUninitializedPropertiesInConditions = true
 build_check.BC0202.AllowUninitializedPropertiesInConditions = true
@@ -144,7 +144,7 @@ csharp_space_between_square_brackets = false                                  # 
 dotnet_diagnostic.IDE0055.severity = error                                    # Formatting violations fail the build
 
 # --- [QUALITY_ANALYZERS] -----------------------------------------------------
-# AnalysisLevel latest-all plus TreatWarningsAsErrors makes every CA rule an error. Only exemptions and rules that latest-all leaves off belong here
+# AnalysisLevel latest-all with TreatWarningsAsErrors makes every CA rule an error, only exemptions and rules that latest-all leaves off belong here
 dotnet_diagnostic.CA1034.severity = none                                      # Nested types are part of Thinktecture union declarations
 dotnet_diagnostic.CA1720.severity = none                                      # Grasshopper parameter SmartEnum items are named after the CLR type (Integer, Boolean)
 dotnet_diagnostic.MA0008.severity = none                                      # Structs default to StructLayout Sequential; no need to restate it
@@ -251,7 +251,7 @@ MA0032.allowOverloadsWithOptionalParameters = false                           # 
 dotnet_code_quality_unused_parameters = all                                   # Unused-parameter analysis on all visibilities
 
 # --- [ROSLYNATOR_ANALYZERS] --------------------------------------------------
-# Warning-default rules already error. Entries here promote Info and Hidden rules, enable disabled rules, and disable duplicates
+# Warning-default rules already error, entries here promote Info and Hidden rules, enable disabled rules, and disable duplicates
 dotnet_diagnostic.RCS1002.severity = error                                    # Off by default: no braces on a single-statement block
 dotnet_diagnostic.RCS1004.severity = error                                    # Off by default: no braces on a single-statement if/else
 dotnet_diagnostic.RCS1006.severity = error                                    # Hidden by default: merge else with a nested if
@@ -427,7 +427,7 @@ roslynator_doc_comment_summary_style = single_line                            # 
 roslynator_object_creation_parentheses_style = omit                           # RCS1050: new T { } without parentheses
 
 # --- [IDE_QUALITY_RULES] ----------------------------------------------------
-# IDE rules without a style option key. Most default to silent and are invisible to `dotnet format --severity warn`
+# IDE rules without a style option key, most default to silent and are invisible to `dotnet format --severity warn`
 dotnet_diagnostic.IDE0004.severity = error                                    # Remove unnecessary casts
 dotnet_diagnostic.IDE0005.severity = error                                    # Remove unnecessary using directives
 dotnet_diagnostic.IDE0035.severity = error                                    # Remove unreachable code
@@ -456,7 +456,7 @@ dotnet_diagnostic.IDE0380.severity = error                                    # 
 dotnet_diagnostic.IDE1005.severity = error                                    # ?.Invoke for delegate invocation
 
 # --- [MAPPERLY_ANALYZERS] ----------------------------------------------------
-# The Mapperly source generator reports every RMG rule. Warning-default rules already error; only Info and Hidden rules are listed
+# Warning-default RMG rules already error; only Info and Hidden rules are listed
 dotnet_diagnostic.RMG009.severity = error                                     # Cannot map to a read-only member; otherwise skipped silently
 dotnet_diagnostic.RMG010.severity = error                                     # Cannot map from a write-only member
 dotnet_diagnostic.RMG011.severity = error                                     # Cannot map to a write-only member path
@@ -473,7 +473,7 @@ dotnet_diagnostic.RMG096.severity = error                                     # 
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Info by default: static lambdas in Switch/Map arms; pass state through the state parameter
 
 # --- [ERRORPRONE_ANALYZERS] --------------------------------------------------
-# Warning-default rules already error. Only Info-default and disabled rules are listed
+# Warning-default rules already error, only Info-default and disabled rules are listed
 dotnet_diagnostic.EPC15.severity = error                                      # ConfigureAwait(false) in assemblies marked UseConfigureAwaitFalse
 dotnet_diagnostic.EPC19.severity = error                                      # Dispose CancellationTokenRegistration; an unobserved one pins the callback
 dotnet_diagnostic.EPC27.severity = error                                      # No async void methods; EPC17 covers delegates
@@ -513,7 +513,7 @@ dotnet_diagnostic.CA1515.severity = none                                      # 
 dotnet_diagnostic.MA0191.severity = none                                      # Tests pass null into non-nullable parameters with the null-forgiving operator
 
 # --- [XUNIT_ANALYZERS] -------------------------------------------------------
-# xunit.analyzers is included in xunit.v3.core. Only Info and Hidden rules are listed; the rest already error
+# xunit.analyzers is included in xunit.v3.core, only Info and Hidden rules are listed; the rest already error
 dotnet_diagnostic.xUnit1004.severity = error                                  # No skipped tests
 dotnet_diagnostic.xUnit1033.severity = error                                  # Fixture declared on the class but not accepted by its constructor
 dotnet_diagnostic.xUnit1042.severity = error                                  # TheoryData<T> over untyped MemberData
@@ -531,7 +531,7 @@ dotnet_diagnostic.xUnit2032.severity = error                                  # 
 dotnet_diagnostic.xUnit2033.severity = error                                  # Info by default: Assert.Empty/NotEmpty over a count check
 
 # --- [VERIFY_SNAPSHOTS] ------------------------------------------------------
-# VerifyChecks matches this section header verbatim. Do not change it
+# VerifyChecks matches this section header verbatim
 [*.{received,verified}.{txt}]
 charset = utf-8-bom
 end_of_line = lf

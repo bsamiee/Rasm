@@ -1,9 +1,9 @@
 # Applying Functional Programming in Practice
 
-Functional programming applies directly to collection-heavy mobile, web, and backend systems. Many collection-processing problems reduce to three operations:
-- `map`: transform each element.
-- `filter`: retain elements satisfying a predicate.
-- `fold`: accumulate the elements into one result.
+Functional programming applies directly to collection-heavy mobile, web, and backend systems. Many collection-processing problems reduce to:
+- `map`: transform each element
+- `filter`: retain elements satisfying a predicate
+- `fold`: accumulate the elements into one result
 
 Specialized collection functions can often be built from these operations, then composed as a vocabulary for dataflow programming.
 
@@ -23,11 +23,10 @@ let products = [
 ]
 ```
 
-The total price of electronic products is a three-stage flow:
-
-1. Filter the products to electronic items.
-2. Map each remaining product to its price.
-3. Fold the prices by floating-point addition from `0.0`.
+The total price of electronic products is a flow:
+1. Filter the products to electronic items
+2. Map each remaining product to its price
+3. Fold the prices by floating-point addition from `0.0`
 
 ```ocaml
 products
@@ -82,7 +81,7 @@ Applied to `products`, this produces Smart TV, Mac Pro, Pride and Prejudice, the
 
 ### Retrieve a prefix
 
-`take n l` returns the first `n` elements. A non-positive `n` or an empty list yields `[]`; when `n` exceeds the list length, all elements are returned.
+`take n l` returns the first `n` elements. Non-positive `n` or an empty list yields `[]`; when `n` exceeds the list length, all elements are returned.
 
 ```ocaml
 let rec take n l =
@@ -106,15 +105,15 @@ let rec take_while p l =
 
 Sorting by price and then taking while `product.price < 1000.0` yields Pride and Prejudice, Smart TV, and iPad.
 
-### A collection DSL
+### Collection DSL
 
 In the chapter's OCaml construction, a list supplies the shared representation; functions and pattern matching supply the mechanisms; operations such as `map`, `filter`, `fold`, `find`, existence testing, `sort`, `reverse`, `take`, and `take_while` supply the collection vocabulary.
 
 This forms a domain-specific language for collections:
-- A collection is handled as one unit rather than by naming and manipulating every element.
-- Every operation accepts or returns the shared collection form, operations compose into dataflow pipelines.
-- Reusing established operations makes collection logic concise and readable.
-- The approach transfers to collection APIs in languages such as Swift, Kotlin, JavaScript, and Java.
+- One operation handles the whole collection rather than every element by name
+- Every operation accepts or returns the shared collection form, operations compose into dataflow pipelines
+- Reusing established operations makes collection logic concise and readable
+- The approach transfers to collection APIs in languages such as Swift, Kotlin, JavaScript, and Java
 
 ## JSON processing
 
@@ -175,12 +174,12 @@ let movie =
 
 ### Convert JSON to text
 
-The provided OCaml conversion follows the datatype one constructor at a time:
-- `Null` becomes an empty string in this implementation.
-- A `String` value is wrapped in quotation marks.
-- Integers, floats, and booleans use their standard string conversions.
-- An array recursively converts its elements, joins them with commas, and wraps them in brackets.
-- An object converts each key-value pair as a quoted key, a colon, and a recursively converted value; pairs are comma-separated and wrapped in braces.
+The provided conversion follows the datatype one constructor at a time:
+- `Null` becomes an empty string in this implementation
+- `String` values appear in quotation marks
+- Integers, floats, and booleans use their standard string conversions
+- An array recursively converts its elements, joins them with commas, and wraps them in brackets
+- An object converts each key-value pair as a quoted key, a colon, and a recursively converted value; commas join the pairs inside braces
 
 ```ocaml
 let rec json_to_string js =
@@ -204,7 +203,7 @@ The result is compact: it does not add line breaks or indentation. Formatting ca
 
 ### Extract an object member
 
-In the provided OCaml function, `member : string -> json -> json` looks up a field only when its input is an `Object`. Every non-object case returns `Null`. For an object, `List.find` selects the first pair whose key equals the requested field, and `snd` returns its value. If an object lacks the field, `List.find` raises an exception rather than returning `Null`.
+In the provided function, `member : string -> json -> json` looks up a field only when its input is an `Object`. Every non-object case returns `Null`. For an object, `List.find` selects the first pair whose key equals the requested field, and `snd` returns its value. If an object lacks the field, `List.find` raises an exception rather than returning `Null`.
 
 ```ocaml
 let member field json =
@@ -223,7 +222,7 @@ Here, `movie` denotes the example object represented with the `json` constructor
 
 For an algebraic datatype representing a hierarchical structure, meaningful higher-order functions provide general computation patterns over its collection cases.
 
-In the provided OCaml operations, array mapping preserves the `Array` constructor while applying a transformation to every contained JSON value, and array filtering preserves only values satisfying a predicate. Both reject a non-array input with an exception; the scalar extractors below likewise reject a constructor other than the one they expect.
+In the provided operations, array mapping preserves the `Array` constructor while applying a transformation to every contained JSON value, and array filtering preserves only values satisfying a predicate. Both reject a non-array input with an exception; the scalar extractors below likewise reject a constructor other than the one they expect.
 
 ```ocaml
 let json_array_map f json =
@@ -268,13 +267,13 @@ movie
 |> json_to_string
 ```
 
-The three results describe Marlon Brando as Vito Corleone and Al Pacino as Michael Corleone, both major characters, and Lenny Montana as Luca Brasi, a supporting character.
+The results describe Marlon Brando as Vito Corleone and Al Pacino as Michael Corleone, both major characters, and Lenny Montana as Luca Brasi, a supporting character.
 
 Filtering the actors array by `member "is_major_character" obj |> to_bool` retains only the Marlon Brando and Al Pacino objects.
 
 ### Higher-order functions on JSON objects
 
-In the chapter's representation, an object is a collection of key-value pairs. The provided OCaml object mapping transforms every pair, and object filtering retains the pairs satisfying a predicate. Both preserve the `Object` constructor and reject non-object inputs.
+In the chapter's representation, an object is a collection of key-value pairs. The provided object mapping transforms every pair, and object filtering retains the pairs satisfying a predicate. Both preserve the `Object` constructor and reject non-object inputs.
 
 ```ocaml
 let json_object_map f json =

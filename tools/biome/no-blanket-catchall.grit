@@ -17,5 +17,5 @@ or {
         `Effect.void`,
         `Effect.succeed($_)`
     },
-    register_diagnostic(span=$hit, message="Blanket swallow of the typed failure channel. Recover by tag — Effect.catchTag/catchTags — or state the intentional discard as Effect.ignore/Effect.ignoreLogged where the surrounding contract names the reason; a defect handler carries its evidence to a logger, never the void.", severity="error")
+    register_diagnostic(span=$hit, message="Blanket swallow of the typed failure channel. Recover by tag (Effect.catchTag/catchTags) or state the intentional discard as Effect.ignore/Effect.ignoreLogged where the surrounding contract names the reason; a defect handler carries its evidence to a logger, never the void.", severity="error")
 }

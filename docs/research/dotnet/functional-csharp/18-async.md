@@ -3,9 +3,9 @@
 ## [01]-[TASK]
 
 `Task<T>` represents a computation that produces a `T` asynchronously. Use it for operations that must not block a thread while waiting, above all I/O. `await` suspends the current context and frees the thread; synchronous waiting blocks it. Compare the shapes:
-- `Option<T>` can contain a `T`.
-- `Func<T>` can be run to obtain a `T`.
-- `Task<T>` will produce a `T` later, or fault.
+- `Option<T>` can contain a `T`
+- `Func<T>` can be run to obtain a `T`
+- `Task<T>` will produce a `T` later, or fault
 
 Lazy and asynchronous computations differ in how work starts and how consumers receive results. Creating a `Func<T>` does no work, and its consumer chooses when to invoke it. Calling a task-returning operation starts the work, and its consumer does not control when the result arrives. `IO<A>` is the effect type for the workflow: `IO.liftAsync` holds the `Func<Task<A>>`, and each run calls it again. Fallback and retry operate on `IO<A>` and not on a started task.
 
@@ -41,10 +41,10 @@ Remain inside `IO` throughout the workflow. The host runs the effect once at its
 
 `IO<A>` captures exceptions from an asynchronous computation as `Exceptional` errors on its error channel. An expected domain error is a typed `Expected` on the same channel, never a nested result type.
 
-Keep three policies distinct:
-- Fallback tries a lower-priority operation if the preferred effect fails: `primary | secondary`. The alternative starts only after failure, and `Catch` with an error code restricts it to one classified error.
-- Recovery maps a final error to a normal value at the workflow's end: `IfFail` on the `Fin<A>` that `RunSafe()` returns.
-- Retry creates a fresh attempt after a transient failure and delay: `Retry` with a `Schedule`.
+Keep the policies distinct:
+- Fallback tries a lower-priority operation only after the preferred effect fails: `primary | secondary`, and `Catch` with an error code restricts it to one classified error
+- Recovery maps a final error to a normal value at the workflow's end: `IfFail` on the `Fin<A>` that `RunSafe()` returns
+- Retry creates a fresh attempt after a transient failure and delay: `Retry` with a `Schedule`
 
 ```csharp
 internal static class Policies {
@@ -149,7 +149,7 @@ Using the identity function swaps nested structures, such as `Validation<Error, 
 
 ## [09]-[STACKED_EFFECTS]
 
-An effect nested inside another cannot compose directly because each `Bind` understands only its own outer effect. `OptionT<IO, A>` is the transformer stack for a lookup that can return no value: `OptionT.lift` enters it from an `Option` or from a lifted `IO`, `OptionT.liftIO` lifts an `IO<A>` through it, and `Run()` removes one layer. Reduce unnecessary effects before building the workflow.
+An effect nested inside another cannot compose directly because each `Bind` understands only its outer effect. `OptionT<IO, A>` is the transformer stack for a lookup that can return no value: `OptionT.lift` enters it from an `Option` or from a lifted `IO`, `OptionT.liftIO` lifts an `IO<A>` through it, and `Run()` removes one layer. Reduce unnecessary effects before building the workflow.
 
 ```csharp
 internal sealed record AccountState(Guid Id, decimal Balance);
@@ -215,5 +215,5 @@ At the host boundary, `RunSafe()` returns the `Fin<A>`: map an `Exceptional` err
 
 ## [10]-[OPERATIONAL_CHOICES]
 
-- Expose asynchronous operations that wait on I/O; do not provide a synchronous counterpart that blocks.
-- Decide whether collection failure is fail-fast (`TraverseM`), error-accumulating (`Traverse` under `Validation`), all-or-nothing (`Traverse` under `IO`), or best-effort (`PartitionFallible`) before choosing traversal.
+- Expose asynchronous operations that wait on I/O; do not provide a synchronous counterpart that blocks
+- Decide whether collection failure is fail-fast (`TraverseM`), error-accumulating (`Traverse` under `Validation`), all-or-nothing (`Traverse` under `IO`), or best-effort (`PartitionFallible`) before choosing traversal

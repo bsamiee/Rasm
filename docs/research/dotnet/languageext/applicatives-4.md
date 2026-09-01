@@ -2,13 +2,13 @@
 
 An applicative functor extends a functor with contextual function application. It combines values inside a context such as `Maybe`, `Either`, `Option`, `Seq`, or `IO` without the sequential dependencies of monadic composition.
 
-Two important uses in language-ext are:
+Important uses are:
 - Evaluating independent effectful computations in parallel;
-- Collecting multiple validation errors.
+- Collecting multiple validation errors
 
 ## [01]-[FROM_MAP_TO_APPLY]
 
-A functor's `Map` lifts a unary function over a contextual value:
+`Map` lifts a unary function over a contextual value:
 
 ```text
 Func<A, B>  ->  Func<F<A>, F<B>>
@@ -188,11 +188,11 @@ var res = from w in mw
           select w * x + y * z;
 ```
 
-The distinction is evaluation structure. A monadic expression is sequential: each operand is obtained in order, and a failure stops the remaining operations. An applicative expression exposes that its operands do not depend on one another, an applicative instance can evaluate independent branches concurrently.
+The distinction is evaluation structure. Monadic expressions are sequential: each operand arrives in order, and failure stops the remaining operations. An applicative expression exposes that its operands do not depend on one another, an applicative instance can evaluate independent branches concurrently.
 
 ## [05]-[PARALLEL_IO]
 
-A simplified applicative `Apply` for `IO` forks both operands and awaits both results:
+Simplified applicative `Apply` for `IO` forks both operands and awaits both results:
 
 ```csharp
 public static IO<B> Apply<A, B>(
@@ -217,7 +217,7 @@ var concat = (string txt1, string txt2, string txt3) => txt1 + txt2 + txt3;
 IO<string> res = concat.Map(io1).Apply(io2).Apply(io3);
 ```
 
-LanguageExt provides multi-argument `Map` and `Apply` overloads that curry delegates for the caller. Because `Map` is called on the ordinary `concat` function, only the three `IO` arguments are forked.
+LanguageExt provides multi-argument `Map` and `Apply` overloads that curry delegates for the caller. Because `Map` is called on the ordinary `concat` function, only the `IO` arguments are forked.
 
 The production `IO` represents `IO<A>` as a DSL, avoids `async` where possible, unpacks underlying `Task` values, and coordinates them with `Task.WhenAll`. The applicative meaning stands: automatic concurrency for independent `IO` operands.
 

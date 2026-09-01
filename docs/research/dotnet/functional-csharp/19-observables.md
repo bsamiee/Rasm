@@ -9,7 +9,7 @@
 |  [01]   | One value     | `T`              | `Task<T>`        |
 |  [02]   | Many values   | `IEnumerable<T>` | `IObservable<T>` |
 
-An `IEnumerable<T>` can be viewed as an observable that produces all its values synchronously. A `Task<T>` can be viewed as an observable that produces one value.
+View an `IEnumerable<T>` as an observable that produces all its values synchronously. View a `Task<T>` as an observable that produces one value.
 
 An observable pushes notifications to an observer. Its protocol is:
 
@@ -17,10 +17,10 @@ An observable pushes notifications to an observer. Its protocol is:
 OnNext* (OnCompleted | OnError)?
 ```
 
-- `OnNext(T)` delivers zero or more values.
-- `OnCompleted()` ends the stream successfully.
-- `OnError(Exception)` ends the stream abnormally.
-- A stream can run forever, but after either terminal notification it must never emit again.
+- `OnNext(T)` delivers zero or more values
+- `OnCompleted()` ends the stream successfully
+- `OnError(Exception)` ends the stream abnormally
+- Streams can run forever, but must never emit again after either terminal notification
 
 Subscription connects producer and consumer:
 
@@ -54,7 +54,7 @@ internal static class Model {
 
 1. Acquire sources. Adapt callbacks, tasks, collections, or external event producers into observables.
 2. Describe the dataflow. Transform and combine streams with operators. Keep this layer declarative and free of side effects.
-3. Run effects at the edge. Subscribe only to the final streams and perform output, persistence, notifications, or diagnostics in observers. A `Source<A>` is reduced once at this layer, and the host runs the resulting `IO<S>`.
+3. Run effects at the edge. Subscribe only to the final streams and perform output, persistence, notifications, or diagnostics in observers. Reduce a `Source<A>` once at this layer, and the host runs the resulting `IO<S>`.
 
 This separation keeps stream logic composable and shows where effects run and resources are managed.
 
@@ -76,7 +76,7 @@ internal static class Sources {
 }
 ```
 
-The lifted single value emits immediately and completes. A lifted enumerable immediately emits its elements and completes. A lifted observable is subscribed when the source is reduced. Not every observable is lazy; subscription behavior depends on the source.
+The lifted single value emits immediately and completes. Lifted enumerables immediately emit their elements and complete. `Reduce` subscribes a lifted observable. Not every observable is lazy; subscription behavior depends on the source.
 
 `Event.from(ref Action<A>)` adapts a callback-based producer such as a message subscription. It adds its callback to the delegate's invocation list. `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation of the delegate. The `Event` is `IDisposable`, and disposing it detaches the delegate.
 
@@ -90,22 +90,22 @@ Operators produce new observables rather than handling individual events imperat
 
 | [INDEX] | [OPERATOR]      | [DESCRIPTION]                                                                                       |
 | :-----: | :-------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `Select`        | Map each emitted value.                                                                             |
-|  [02]   | `SelectMany`    | Map each value to an observable or task, then flatten all inner values into one stream.             |
-|  [03]   | `Where`         | Retain values satisfying a predicate.                                                               |
-|  [04]   | `Take`          | Retain the first count of values, or values produced within a given timespan.                       |
-|  [05]   | `Skip`          | Discard an initial portion of a stream.                                                             |
-|  [06]   | `First`         | Reduce the stream to its first value.                                                               |
-|  [07]   | `Concat`        | Emit the first stream, then subscribe to the second after the first completes.                      |
-|  [08]   | `StartWith`     | Prefix a stream with one or more initial values.                                                    |
-|  [09]   | `Merge`         | Interleave values from streams as they arrive.                                                      |
-|  [10]   | `CombineLatest` | After both sources have emitted, recompute from their latest values whenever either source changes. |
-|  [11]   | `Scan`          | Emit every successive accumulated state.                                                            |
-|  [12]   | `GroupBy`       | Split one stream into keyed streams.                                                                |
+|  [01]   | `Select`        | Map each emitted value                                                                              |
+|  [02]   | `SelectMany`    | Map each value to an observable or task, then flatten all inner values into one stream              |
+|  [03]   | `Where`         | Retain values satisfying a predicate                                                                |
+|  [04]   | `Take`          | Retain the first count of values, or values produced within a given timespan                        |
+|  [05]   | `Skip`          | Discard an initial portion of a stream                                                              |
+|  [06]   | `First`         | Reduce the stream to its first value                                                                |
+|  [07]   | `Concat`        | Emit the first stream, then subscribe to the second after the first completes                       |
+|  [08]   | `StartWith`     | Prefix a stream with one or more initial values                                                     |
+|  [09]   | `Merge`         | Interleave values from streams as they arrive                                                       |
+|  [10]   | `CombineLatest` | After both sources have emitted, recompute from their latest values whenever either source changes  |
+|  [11]   | `Scan`          | Emit every successive accumulated state                                                             |
+|  [12]   | `GroupBy`       | Split one stream into keyed streams                                                                 |
 
 `Source<A>` provides the equivalent operations: `Map`, `Filter`, `Take`, `Skip`, `Zip`, `Combine`, `Source.merge`, and a query that flattens an inner source.
 
-A query over `Source<A>` flattens the inner source of each value instead of blocking on it:
+Queries over `Source<A>` flatten the inner source of each value instead of blocking on it:
 
 ```csharp
 internal static class Queries {
@@ -141,10 +141,10 @@ Each branch can be transformed independently, normalized to a common type, and m
 `OnError` is terminal. When a derived stream reports an error, that stream and every downstream stream terminate permanently. Upstream streams can continue. Only part of the dataflow then remains active.
 
 Do not use the terminal error channel for an expected per-item failure. Instead:
-1. Apply the operation to each input with `Map`.
-2. The operation returns a `Fin<R>`, which represents either the computed value or the `Error`. An expected failed computation becomes data rather than a terminal stream message.
-3. `Reduce` that stream into computed values and errors.
-4. Translate both cases to a common output type with `Match` and keep them in one stream.
+1. Apply the operation to each input with `Map`
+2. The operation returns a `Fin<R>`, which represents either the computed value or the `Error`
+3. `Reduce` that stream into computed values and errors
+4. Translate both cases to a common output type with `Match` and keep them in one stream
 
 Expected failures remain ordinary stream values:
 
@@ -221,9 +221,9 @@ internal static class Backpressure {
 ```
 
 The consumer cannot slow the producer by requesting the next item. When production outpaces consumption, choose a policy explicitly through the `Buffer<A>` given to `Conduit.make`:
-- `Buffer<A>.Unbounded` keeps every value.
-- `Buffer<A>.Bounded(n)` and `Buffer<A>.Single` hold `n` values or one value and block `Post` when full, the consumer is forked before the producer posts.
-- `Buffer<A>.Latest(value)` keeps only the last value, and `Buffer<A>.Newest(n)` keeps the last `n` values.
+- `Buffer<A>.Unbounded` keeps every value
+- `Buffer<A>.Bounded(n)` and `Buffer<A>.Single` hold `n` values or one value and block `Post` when full, the consumer is forked before the producer posts
+- `Buffer<A>.Latest(value)` keeps only the last value, and `Buffer<A>.Newest(n)` keeps the last `n` values
 
 Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`. The policy must reflect whether intermediate values can be dropped, delayed, grouped, or preserved.
 
@@ -254,13 +254,13 @@ internal static class Ledger {
 Use `IObservable` when:
 - Values arrive asynchronously over time;
 - Logic detects sequences, transitions, windows, or relationships across sources;
-- The system forms a one-way dataflow, such as queue-to-database processing or fire-and-forget messaging.
+- The system forms a one-way dataflow, such as queue-to-database processing or fire-and-forget messaging
 
 Avoid it when:
 - Events are independent and callbacks or tasks are clearer;
 - Every input needs a directly correlated response, as in request-response protocols;
-- Synchronization requires finer control than available operators provide.
+- Synchronization requires finer control than available operators provide
 
-`OnNext` returns no value, information flows downstream only. For coordination that requires explicit queues and exact sequencing, `Conduit` is the queue and `Pipes` is the pipeline. A `ProducerT`, a `PipeT`, and a `ConsumerT` fuse with `|` into one `EffectT` that the host runs.
+`OnNext` returns no value, information flows downstream only. For coordination that requires explicit queues and exact sequencing, `Conduit` is the queue and `Pipes` is the pipeline. `ProducerT`, `PipeT`, and `ConsumerT` fuse with `|` into one `EffectT` that the host runs.
 
 `IObservable<T>` does not specify how schedulers dispatch observer calls or how subject types behave.

@@ -348,14 +348,14 @@ def test_network_marker_auto_applied_to_socket_fixture_items(pytestconfig: pytes
     """Tests requesting ``socket_enabled`` receive the ``network`` marker during collection."""
     socket_items = [item for item in _collect_session_items(pytestconfig) if "socket_enabled" in getattr(item, "fixturenames", ())]
     for item in socket_items:
-        assert item.get_closest_marker("network") is not None, f"{item.nodeid!r} requests socket_enabled but lacks the 'network' marker — pytest_collection_modifyitems hook is not applying it"
+        assert item.get_closest_marker("network") is not None, f"{item.nodeid!r} requests socket_enabled but lacks the 'network' marker, pytest_collection_modifyitems hook is not applying it"
 
 
 def test_property_marker_auto_applied_to_hypothesis_items(pytestconfig: pytest.Config) -> None:
     """Hypothesis-backed tests receive the ``property`` marker during collection."""
     hypothesis_items = [item for item in _collect_session_items(pytestconfig) if item.function is not None and is_hypothesis_test(item.function)]
     for item in hypothesis_items:
-        assert item.get_closest_marker("property") is not None, f"{item.nodeid!r} is a hypothesis test but lacks the 'property' marker — pytest_collection_modifyitems hook is not applying it"
+        assert item.get_closest_marker("property") is not None, f"{item.nodeid!r} is a hypothesis test but lacks the 'property' marker, pytest_collection_modifyitems hook is not applying it"
 
 
 # --- [BENCHMARK_HOOK_POLICY]
@@ -365,7 +365,7 @@ def test_benchmark_regression_hook_is_registered(pytestconfig: pytest.Config) ->
     """The benchmark regression hook is live when pytest-benchmark is loaded."""
     hook = getattr(pytestconfig.pluginmanager.hook, "pytest_benchmark_update_json", None)
     if hook is None:
-        pytest.skip("pytest-benchmark plugin not loaded — no pytest_benchmark_update_json hookspec")
+        pytest.skip("pytest-benchmark plugin not loaded, no pytest_benchmark_update_json hookspec")
     impl_names = [impl.plugin_name for impl in hook.get_hookimpls()]
     assert "test-support-bench" in impl_names, f"test-support-bench hook implementation missing; registered implementations: {impl_names}"
 

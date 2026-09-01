@@ -2,7 +2,7 @@
 
 ## [01]-[STATE_WITHOUT_MUTATION]
 
-A program is stateful when its behavior depends on previous inputs or events. The label depends on the boundary: a server can be stateless by itself while the server and its database form a stateful system.
+Programs are stateful when behavior depends on previous inputs or events. The label depends on the boundary: a server can be stateless by itself while the server and its database form a stateful system.
 
 State does not have to be changed in place. Make it an explicit input and return its successor with the operation's value:
 
@@ -15,7 +15,7 @@ The caller carries the returned state into the next operation. Earlier immutable
 
 ## [02]-[IMMUTABLE_CACHE]
 
-A currency-rate lookup can cache results to avoid repeated network requests. Its state can be a `HashMap<string, decimal>` from currency-pair names to rates, and the lookup is a `State<HashMap<string, decimal>, decimal>`:
+Currency-rate lookups cache results to avoid repeated network requests. State can be a `HashMap<string, decimal>` from currency-pair names to rates, and the lookup is a `State<HashMap<string, decimal>, decimal>`:
 
 ```csharp
 internal static class RateCache {
@@ -30,7 +30,7 @@ internal static class RateCache {
 }
 ```
 
-A hit returns the cached value and the same state. A miss performs the lookup and returns a new map containing the rate. `State.gets` reads a projection of the state, `State.pure` keeps the state unchanged, and `State.modify` replaces the state with a function of it. `GetRate` changes the signature from a stateless lookup into a state transition:
+Hits return the cached value and the same state. Misses perform the lookup and return a new map with the rate. `State.gets` reads a projection of the state, `State.pure` keeps the state unchanged, and `State.modify` replaces the state with a function of it. `GetRate` changes the signature from a stateless lookup into a state transition:
 
 ```text
 remote lookup: string -> decimal
@@ -69,18 +69,18 @@ internal static class EffectfulRateCache {
 
 ## [03]-[STATE_TRANSITIONS]
 
-A stateful computation, also called a state transition, has the general shape:
+Stateful computations, also called state transitions, have this shape:
 
 ```text
 S -> (A, S)
 ```
 
-`S` is the state before and after the operation, and `A` is the produced value. `State<S, A>` wraps a `Func<S, (A Value, S State)>`, and `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. A transition can also accept other arguments. The shape can occur inside a stateful or stateless application: it characterizes the function, not the architecture around it.
+`S` is the state before and after the operation, and `A` is the produced value. `State<S, A>` wraps a `Func<S, (A Value, S State)>`, and `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Transitions can also accept other arguments. The shape can occur inside a stateful or stateless application: it characterizes the function, not the architecture around it.
 
 Use explicit state passing for an isolated transition. Extracting and forwarding state by hand repeats itself once several transitions are sequenced. `Map`, `Bind`, and `State.pure` capture that protocol:
-- `Map` transforms the produced value and preserves the returned state.
-- `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the first computation's returned state.
-- `State.pure` lifts a value into a computation that returns the state unchanged.
+- `Map` transforms the produced value and preserves the returned state
+- `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the first computation's returned state
+- `State.pure` lifts a value into a computation that returns the state unchanged
 
 `Select` and `SelectMany` expose these operations to LINQ query syntax. The syntax hides state extraction and forwarding; it preserves the dependency and its order.
 
@@ -92,13 +92,13 @@ The produced value can be an `Option<A>`, as `OptionInt` shows. The seed advance
 
 Composable generators support property-based testing, load testing, and simulations such as Monte Carlo methods.
 
-A conventional pseudo-random generator is deterministic but hides state. Its current seed is an implicit input to `Next`, and the updated seed is an implicit output affecting the next call. Make both explicit with a `State<int, A>`:
+Conventional pseudo-random generators are deterministic but hide state. The seed is an implicit input to `Next`, and the updated seed is an implicit output affecting the next call. Make both explicit with a `State<int, A>`:
 
 ```text
 int -> (A, int)
 ```
 
-An explicit seed makes generation repeatable and testable. `Run(seed)` returns the value with the next seed, and the host chooses the seed. A runner that seeds from the clock is impure and not testable.
+An explicit seed makes generation repeatable and testable. `Run(seed)` returns the value with the next seed, and the host chooses the seed. Seeding from the clock is impure and not testable.
 
 ### [04.1]-[PRIMITIVE_GENERATOR]
 
@@ -158,7 +158,7 @@ internal static partial class Generator {
 }
 ```
 
-A recursive integer-list generator chooses between an empty result and a generated head followed by another generated list:
+Recursive integer-list generators choose between an empty result and a generated head followed by another list:
 
 ```csharp
 internal static partial class Generator {
@@ -215,12 +215,12 @@ internal static class Tree {
 
 The numbering function returns a computation rather than a numbered tree immediately. Supplying the initial counter runs it: `Numbered` calls `Run(0)`, which returns the numbered tree with the next counter, and `.Value` selects the tree. LINQ sequences recursive transitions in a branch. For simpler cases, explicit state passing is clearer.
 
-Simulations and parsers can also use state transitions. A functional parser can treat its input text as state: it returns a structured parsed value and the unconsumed remainder for the next parser. `LanguageExt.Parsec` follows this model: its `Parser<T>` maps a `PString` to a `ParserResult<T>` that carries the unconsumed input.
+Simulations and parsers can also use state transitions. Functional parsers can treat input text as state: they return a parsed value and the unconsumed remainder for the next parser. `LanguageExt.Parsec` follows this model: its `Parser<T>` maps a `PString` to a `ParserResult<T>` that carries the unconsumed input.
 
 ## [06]-[REPRESENTATION_CHOICE]
 
-- Keep state visible in inputs and outputs to expose dependencies and sequencing.
-- Use immutable state values; the caller advances by selecting the returned value as the next state.
-- Keep explicit tuple passing for short state flows.
-- Use composition when many dependent transitions otherwise repeat manual state extraction and forwarding.
-- Treat sequencing as semantic: each computation receives the state produced by its predecessor.
+- Keep state visible in inputs and outputs to expose dependencies and sequencing
+- Use immutable state values; the caller advances by selecting the returned value as the next state
+- Keep explicit tuple passing for short state flows
+- Use composition when many dependent transitions otherwise repeat manual state extraction and forwarding
+- Treat sequencing as semantic: each computation receives the state produced by its predecessor

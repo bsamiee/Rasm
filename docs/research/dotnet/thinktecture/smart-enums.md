@@ -1,12 +1,12 @@
 # [SMART_ENUMS]
 
-A Smart Enum is a class with a fixed set of items declared as `public static readonly` fields. The source generator supplies the constructor, the lookup, equality, conversion, and pattern matching. Each item is an object with its own data and behavior. A consumer calls a method on the item instead of branching on it.
+Smart Enums are classes declaring a fixed set of items as `public static readonly` fields. The source generator supplies the constructor, the lookup, equality, conversion, and pattern matching. Each item is an object with its own data and behavior. Consumers call a method on the item instead of branching on it.
 
 ## [01]-[DECLARATION]
 
-Declare a `partial` class and apply `[SmartEnum<TKey>]` for a keyed Smart Enum or `[SmartEnum]` for a keyless one. Items are `public static readonly` fields of the enclosing type. A non-public item is an error (`TTRESG002`). A static property is not an item and raises `TTRESG101`. A Smart Enum without items raises `TTRESG100`.
+Declare a `partial` class and apply `[SmartEnum<TKey>]` for a keyed Smart Enum or `[SmartEnum]` for a keyless one. Items are `public static readonly` fields of the enclosing type. Non-public items are errors (`TTRESG002`). Static properties are not items and raise `TTRESG101`. Smart Enums without items raise `TTRESG100`.
 
-The generator emits one private constructor per base class constructor. The parameters arrive in a fixed order. The key comes first, then the own fields and properties in declaration order, then the base class constructor parameters. One delegate per `[UseDelegateFromConstructor]` method comes last. The hook `ValidateConstructorArguments` receives the key, the own fields and properties, and the base arguments by `ref`, not the delegates. A `null` key throws `ArgumentNullException` after the hook returns.
+The generator emits one private constructor per base class constructor. The parameters arrive in a fixed order. The key comes first, then the own fields and properties in declaration order, then the base class constructor parameters. One delegate per `[UseDelegateFromConstructor]` method comes last. The hook `ValidateConstructorArguments` receives the key, the own fields and properties, and the base arguments by `ref`, not the delegates. `null` keys throw `ArgumentNullException` after the hook returns.
 
 ```csharp
 internal abstract class IsoCoded(int numericCode) {
@@ -30,15 +30,15 @@ internal sealed partial class Country : IsoCoded {
 `Country.Germany.Key` is `"DE"` because the hook rewrites the key. The generated signature is `(string key, string name, int numericCode)`, and `numericCode` flows to the base constructor.
 
 - An instance field is read-only (`TTRESG001`), an instance property is read-only (`TTRESG003`), and `[IgnoreMember]` hides a member from the generator and the analyzer. The same two rules on a plain base class are `TTRESG034` and `TTRESG035`.
-- A primary constructor is not allowed on the Smart Enum type (`TTRESG043`). Derived nested classes and plain base classes use one.
-- The generator adds `sealed` to a Smart Enum that declares no derived types. A derived nested class that is neither abstract nor a base of another derived class must be `sealed` (`TTRESG037`).
-- Every enclosing type of a nested Smart Enum is `partial`, because the generator emits the enum as a nested partial declaration.
+- The Smart Enum type allows no primary constructor (`TTRESG043`), derived nested classes and plain base classes use one
+- The generator adds `sealed` to a Smart Enum that declares no derived types. Derived nested classes neither abstract nor a base of another derived class must be `sealed` (`TTRESG037`).
+- Every enclosing type of a nested Smart Enum is `partial`, because the generator emits the enum as a nested partial declaration
 
 ## [02]-[KEYED_AND_KEYLESS]
 
-A `string` key is the default choice for APIs, JSON, and display text. An `int` or `Guid` key serves persistence and ordering.
+`string` is the default key for APIs, JSON, and display text. An `int` or `Guid` key serves persistence and ordering.
 
-A keyless Smart Enum has no key member, no `Get`, no conversion operators, and no comparer settings. Its attribute exposes only `EqualityComparisonOperators`, `SwitchMethods`, `MapMethods`, and `SwitchMapStateParameterName`. No serializer, model binder, or value converter handles it.
+Keyless Smart Enums lack a key member, `Get`, conversion operators, and comparer settings. Its attribute exposes only `EqualityComparisonOperators`, `SwitchMethods`, `MapMethods`, and `SwitchMapStateParameterName`. No serializer, model binder, or value converter handles it.
 
 The generator emits no `JsonConverterAttribute` for a keyless Smart Enum. `System.Text.Json` writes the public instance properties and throws `NotSupportedException` on read because no usable constructor exists. `[ObjectFactory<string>]` with a static `Validate` method is the only way to serialize or bind a keyless Smart Enum. Serialization needs `UseForSerialization` set and an instance `ToValue()` (`TTRESG062`), and model binding needs `UseForModelBinding = true`. `HasCorrespondingConstructor = true` on that factory is an error (`TTRESG060`).
 
@@ -105,7 +105,7 @@ internal static class Matching {
 
 ## [05]-[ITEM_SPECIFIC_BEHAVIOR]
 
-A method whose inputs differ per item reads them from fields that the constructor filled. A method whose algorithm differs per item takes a delegate through `[UseDelegateFromConstructor]`. The attributed method is `partial` (`TTRESG050`) and has no type parameters (`TTRESG051`). The generator adds a private delegate field, appends the delegate parameter after the members, and implements the method as a call through the field. `Round` produces a `Func<decimal, decimal> _round` field. `DelegateName = "DateParser"` on a method `GetDateTime` instead emits a private nested delegate type `DateParser` and a field `_dateParser`. A parameter a `Func` cannot carry, such as `ref`, also forces a delegate type, named after the method.
+Methods whose inputs differ per item read them from fields the constructor filled. Methods whose algorithm differs per item take a delegate through `[UseDelegateFromConstructor]`. The attributed method is `partial` (`TTRESG050`) and has no type parameters (`TTRESG051`). The generator adds a private delegate field, appends the delegate parameter after the members, and implements the method as a call through the field. `Round` produces a `Func<decimal, decimal> _round` field. `DelegateName = "DateParser"` on a method `GetDateTime` instead emits a private nested delegate type `DateParser` and a field `_dateParser`. Parameters a `Func` cannot carry, such as `ref`, also force a delegate type, named after the method.
 
 Static fields initialize in declaration order. An item cannot reference a later item in its own initializer. The compiler reports a possible `null` when an initializer lambda reads a later field. `Lazy<T>` built from a static method defers the read until every item exists.
 
@@ -150,7 +150,7 @@ internal sealed partial class OrderStatus {
 }
 ```
 
-A keyless Smart Enum has no generated `ToString`. An override supplies the item name that `Switch`, `Map`, and Serilog otherwise render as the type name. A public readonly delegate field is the manual form, and `Thinktecture.Empty.Action` converts to `Action` for an item without behavior.
+Keyless Smart Enums lack a generated `ToString`. An override supplies the item name that `Switch`, `Map`, and Serilog otherwise render as the type name. Public readonly delegate fields are the manual way, and `Thinktecture.Empty.Action` converts to `Action` for an item without behavior.
 
 Inheritance carries a per-item algorithm as an override. Derived classes are nested inside the Smart Enum. First-level derived classes are `private` (`TTRESG014`), deeper derived classes are `public` (`TTRESG015`), and a derived class can be generic.
 
@@ -172,11 +172,11 @@ internal abstract partial class NotificationChannel {
 
 ## [06]-[COMPARERS]
 
-A string key uses `StringComparer.OrdinalIgnoreCase` for equality, for the hash code, for `CompareTo`, and for the comparison operators. `TryGet("PENDING")` finds `Pending`. Every other key type uses its default comparer. `[KeyMemberEqualityComparer<TAccessor, TKey>]` replaces the equality comparer, and `[KeyMemberComparer<TAccessor, TKey>]` replaces the ordering comparer. An accessor implements `IEqualityComparerAccessor<T>` with a static `EqualityComparer` property, or `IComparerAccessor<T>` with a static `Comparer` property. `ComparerAccessors.StringOrdinal`, `StringOrdinalIgnoreCase`, `CurrentCulture`, `CurrentCultureIgnoreCase`, `InvariantCulture`, `InvariantCultureIgnoreCase`, and `Default<T>` implement both interfaces. An accessor whose type does not match the key type is an error (`TTRESG041`).
+String keys use `StringComparer.OrdinalIgnoreCase` for equality, for the hash code, for `CompareTo`, and for the comparison operators. `TryGet("PENDING")` finds `Pending`. Every other key type uses its default comparer. `[KeyMemberEqualityComparer<TAccessor, TKey>]` replaces the equality comparer, and `[KeyMemberComparer<TAccessor, TKey>]` replaces the ordering comparer. An accessor implements `IEqualityComparerAccessor<T>` with a static `EqualityComparer` property, or `IComparerAccessor<T>` with a static `Comparer` property. `ComparerAccessors.StringOrdinal`, `StringOrdinalIgnoreCase`, `CurrentCulture`, `CurrentCultureIgnoreCase`, `InvariantCulture`, `InvariantCultureIgnoreCase`, and `Default<T>` implement both interfaces. An accessor whose type does not match the key type is an error (`TTRESG041`).
 
-A comparer without an equality comparer raises `TTRESG102`. An equality comparer without a comparer raises `TTRESG103` unless the key is not comparable or `SkipIComparable` is set. `TTRESG048` applies to Value Objects only: a string-keyed Smart Enum without a comparer attribute compiles without a warning and keeps the case-insensitive default.
+Comparers without an equality comparer raise `TTRESG102`. An equality comparer without a comparer raises `TTRESG103` unless the key is not comparable or `SkipIComparable` is set. `TTRESG048` applies to Value Objects only: a string-keyed Smart Enum without a comparer attribute compiles without a warning and keeps the case-insensitive default.
 
-The span-based lookup uses the alternate lookup of `FrozenDictionary`. For a predefined accessor the generator calls `GetAlternateLookup<ReadOnlySpan<char>>()`. For a custom accessor it calls `TryGetAlternateLookup`, and when the comparer lacks `IAlternateEqualityComparer<ReadOnlySpan<char>, string>` the span overloads allocate a string per call. A comparer can be its own accessor.
+The span-based lookup uses the alternate lookup of `FrozenDictionary`. For a predefined accessor the generator calls `GetAlternateLookup<ReadOnlySpan<char>>()`. For a custom accessor it calls `TryGetAlternateLookup`, and when the comparer lacks `IAlternateEqualityComparer<ReadOnlySpan<char>, string>` the span overloads allocate a string per call. Comparers can double as accessors.
 
 ```csharp
 internal sealed class TrimmedOrdinalComparer : IEqualityComparer<string>, IComparer<string>, IAlternateEqualityComparer<ReadOnlySpan<char>, string>, IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -208,9 +208,9 @@ internal sealed partial class Ticker {
 
 | [INDEX] | [PROPERTY]                                                  | [DEFAULT]                     | [EFFECT]                                                                 |
 | :-----: | :---------------------------------------------------------- | :---------------------------- | :----------------------------------------------------------------------- |
-|  [01]   | `KeyMemberName`, `KeyMemberAccessModifier`, `KeyMemberKind` | `"Key"`, `Public`, `Property` | key member shape, `"_key"` for a private field                           |
-|  [02]   | `SkipIComparable`, `SkipIParsable`, `SkipISpanParsable`     | `false`                       | drop the interface, `SkipIParsable` also drops `ISpanParsable<T>`        |
-|  [03]   | `SkipIFormattable`, `SkipToString`                          | `false`                       | drop `IFormattable`, keep a hand-written `ToString`                      |
+|  [01]   | `KeyMemberName`, `KeyMemberAccessModifier`, `KeyMemberKind` | `"Key"`, `Public`, `Property` | Key member shape, `"_key"` for a private field                           |
+|  [02]   | `SkipIComparable`, `SkipIParsable`, `SkipISpanParsable`     | `false`                       | Drop the interface, `SkipIParsable` also drops `ISpanParsable<T>`        |
+|  [03]   | `SkipIFormattable`, `SkipToString`                          | `false`                       | Drop `IFormattable`, keep a hand-written `ToString`                      |
 |  [04]   | `ComparisonOperators`, `EqualityComparisonOperators`        | `Default`                     | `None` or `DefaultWithKeyTypeOverloads`                                  |
 |  [05]   | `ConversionToKeyMemberType`, `ConversionFromKeyMemberType`  | `Implicit`, `Explicit`        | `ConversionOperatorsGeneration.None` removes an operator                 |
 |  [06]   | `SwitchMethods`, `MapMethods`                               | `Default`                     | `None` or `DefaultWithPartialOverloads`                                  |
@@ -245,13 +245,13 @@ internal sealed partial class Metric<T> where T : System.Numerics.INumber<T> {
 
 ## [09]-[FRAMEWORK_INTEGRATION]
 
-A project that references `Thinktecture.Runtime.Extensions.Json`, in its own manifest or through another package, gets a `JsonConverterAttribute` on every keyed Smart Enum. Without that reference, register `ThinktectureJsonConverterFactory` in `JsonSerializerOptions.Converters`. MVC reads the options of `AddControllers().AddJsonOptions`, and minimal APIs read the options of `ConfigureHttpJsonOptions`. One registration leaves the other path on the default handling. Its constructor `(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` skips attributed types and opts single types out of span-based deserialization.
+Projects referencing `Thinktecture.Runtime.Extensions.Json`, in their manifest or through another package, get a `JsonConverterAttribute` on every keyed Smart Enum. Without that reference, register `ThinktectureJsonConverterFactory` in `JsonSerializerOptions.Converters`. MVC reads the options of `AddControllers().AddJsonOptions`, and minimal APIs read the options of `ConfigureHttpJsonOptions`. One registration leaves the other path on the default handling. Its constructor `(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` skips attributed types and opts single types out of span-based deserialization.
 
 `Thinktecture.Runtime.Extensions.Newtonsoft.Json` does the same with `ThinktectureNewtonsoftJsonConverterFactory`, and `Thinktecture.Runtime.Extensions.MessagePack` adds a `MessagePackFormatterAttribute` or the resolver `ThinktectureMessageFormatterResolver.Instance`. `SerializationFrameworks` restricts which attributes the generator emits.
 
-A keyed Smart Enum serializes as its key. An unknown key on read throws `JsonException` with the message of `UnknownSmartEnumIdentifierException`. A string key reads through a span-based converter that rejects a non-string token with `JsonException`. `DisableSpanBasedJsonConversion = true` returns to the non-span converter.
+Keyed Smart Enums serialize as the key. An unknown key on read throws `JsonException` with the message of `UnknownSmartEnumIdentifierException`. String keys read through a span-based converter that rejects a non-string token with `JsonException`. `DisableSpanBasedJsonConversion = true` returns to the non-span converter.
 
-A Smart Enum also serves as the discriminator of a polymorphic converter. The item names the case in the payload and reads the case back through a delegate with a `ref Utf8JsonReader` parameter.
+Smart Enums also serve as the discriminator of a polymorphic converter. The item names the case in the payload and reads the case back through a delegate with a `ref Utf8JsonReader` parameter.
 
 ```csharp
 internal abstract record Shape;
@@ -292,14 +292,14 @@ services.AddDbContext<ShopDbContext>(static builder => builder.UseSqlServer(conn
 Configuration fixedWidth = new() { SmartEnums = new SmartEnumConfiguration { MaxLengthStrategy = new FixedSmartEnumMaxLengthStrategy(32) } };
 ```
 
-Serilog renders a keyed Smart Enum as its key once `Destructure.UsingThinktectureRuntimeExtensions()` is registered and the template uses the `@` operator; `TypesToRenderAsString.SmartEnums` switches the rendering to `ToString()`. A keyless Smart Enum is declined and falls through to Serilog's default object destructuring.
+Serilog renders a keyed Smart Enum as its key once `Destructure.UsingThinktectureRuntimeExtensions()` is registered and the template uses the `@` operator; `TypesToRenderAsString.SmartEnums` switches the rendering to `ToString()`. Keyless Smart Enums fall through to Serilog's default object destructuring.
 
-A Smart Enum models a closed set of named items with one shape; cases with different shapes are a discriminated union. An item is a `static readonly` field, not a constant. It cannot serve as an attribute argument or a `case` label.
+Smart Enums model a closed set of named items with one shape; cases with different shapes are a discriminated union. An item is a `static readonly` field, not a constant. It cannot serve as an attribute argument or a `case` label.
 
 ## [10]-[DESIGN_RULES]
 
-- A consumer `switch` over items skips the compiler check for new items. Use `Switch` or `Map` with named arguments.
-- Use the partial overloads only for an intended fallback.
-- A `Switch` or `Map` lambda without `static` allocates and raises `TTRESG1001`. Use the state overload with a `static` lambda, as `Matching.Label` shows.
-- `Get` at a boundary throws for user input. Map `Validate` to `Fin<T>` or `TryGet` to `Option<T>`, as `Lookup` shows.
-- Declare `[ValidationError<TError>]` with a typed `Expected` record, `Validate` returns the typed error.
+- Use `Switch` or `Map` with named arguments, consumer `switch` over items skips the compiler check for new items
+- Use the partial overloads only for an intended fallback
+- Use the state overload with a `static` lambda, as `Matching.Label` shows
+- At a boundary, map `Validate` to `Fin<T>` or `TryGet` to `Option<T>`, as `Lookup` shows
+- Declare `[ValidationError<TError>]` with a typed `Expected` record, `Validate` returns the typed error

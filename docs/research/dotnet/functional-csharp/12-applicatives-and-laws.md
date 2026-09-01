@@ -4,9 +4,9 @@
 
 The core forms of `Map` and `Bind` accept unary functions, but functions can require several arguments. Currying turns an n-argument function into a sequence of unary functions, and each argument can be supplied while the computation remains inside an effect such as `Option<T>` or `Validation<Error, T>`.
 
-Two composition models apply:
-- Applicative composition uses `Pure` and `Apply` to combine values inside an effect that are computed independently; an effect-specific `Apply`, such as Validation's, can accumulate their failures.
-- Monadic composition uses `Bind` when a later computation depends on an earlier result.
+Composition models apply:
+- Applicative composition uses `Pure` and `Apply` to combine values inside an effect that are computed independently; an effect-specific `Apply`, such as Validation's, can accumulate their failures
+- Monadic composition uses `Bind` when a later computation depends on an earlier result
 
 Validation's applicative flow can combine all available failures; its monadic flow stops before later work is evaluated after a failure.
 
@@ -23,7 +23,7 @@ Option<Func<int, int>> multiplyBy3 = Some(3).Map(multiply);
 Map   : F<T> -> (T -> R) -> F<R>
 ```
 
-When `R` is itself `T2 -> R2`, mapping a curried binary function has the effective signature `F<T1> -> (T1 -> T2 -> R2) -> F<T2 -> R2>`. C# overloads can accept `Func<T1, T2, R2>` and curry it internally. Callers need not spell the curried delegate.
+When `R` is itself `T2 -> R2`, mapping a curried binary function has the effective signature `F<T1> -> (T1 -> T2 -> R2) -> F<T2 -> R2>`. Overloads can accept `Func<T1, T2, R2>` and curry it internally. Callers need not spell the curried delegate.
 
 `Apply` supplies an argument inside an effect to a function inside the effect:
 
@@ -95,9 +95,9 @@ must produce the same result as:
 Option<int> composed = option.Map(x => f(g(x)));
 ```
 
-Two laws govern `Map`:
-- Mapping the identity function changes nothing: `value.Map(x => x) == value`.
-- Mapping a composition is equivalent to mapping its parts in sequence.
+Laws govern `Map`:
+- Mapping the identity function changes nothing: `value.Map(x => x) == value`
+- Mapping a composition is equivalent to mapping its parts in sequence
 
 An implementation of `Map` must transform only the inner value. Hidden mutation, counters, or other state changes tied to the number of `Map` calls break safe refactoring. `FunctorLaw<F>.validate` checks both laws for one value and returns `Validation<Error, Unit>`.
 
@@ -122,7 +122,7 @@ Associativity:  m.Bind(f).Bind(g)
              == m.Bind(x => f(x).Bind(g))
 ```
 
-The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. `Pure` must only place a value in the effect. `MonadLaw<F>.validate` checks the applicative laws, the two identity laws, associativity, and the equivalence of `Monad.recur` with `Bind`:
+The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. `Pure` must only place a value in the effect. `MonadLaw<F>.validate` checks the applicative laws, the identity laws, associativity, and the equivalence of `Monad.recur` with `Bind`:
 
 ```csharp
 Validation<Error, Unit> functor = FunctorLaw<Option>.validate(Some(1));
@@ -136,11 +136,11 @@ Associativity explains how multi-argument functions enter a monadic pipeline: th
 
 ## [06]-[LINQ_SYNTAX]
 
-C# translates LINQ query clauses into method calls by name and signature. A custom effect does not need to implement `IEnumerable<T>`.
+C# translates LINQ query clauses into method calls by name and signature. Custom effects do not need to implement `IEnumerable<T>`.
 
 ### [06.1]-[FUNCTOR_QUERIES]
 
-A single `from` followed by `select` requires `Select`, which `Option`, `Fin`, and `Validation` supply as an alias of `Map`.
+One `from` followed by `select` requires `Select`, which `Option`, `Fin`, and `Validation` supply as an alias of `Map`.
 
 ### [06.2]-[MONAD_QUERIES]
 
@@ -166,13 +166,13 @@ internal static class Queries {
 The compiler translates each query into an equivalent `SelectMany` chain in which later computations receive earlier results. The ternary overload carries both values into the final projection without nested lambdas.
 
 Other clauses are opt-in:
-- `let` is expressed with `Select` and works once mapping is available.
-- `where` requires `Where`, which `Option` supplies beside `Filter`.
-- Collection-specific clauses such as `orderby` need not exist for `Option`, `Either`, or `Validation`.
+- `let` is expressed with `Select` and works once mapping is available
+- `where` requires `Where`, which `Option` supplies beside `Filter`
+- Collection-specific clauses such as `orderby` need not exist for `Option`, `Either`, or `Validation`
 
 ## [07]-[INDEPENDENT_VALIDATION]
 
-Three raw fields can be validated independently. Replace permissive primitive fields with domain-specific types: a smart enum for the closed set of number types and a value object for each formatted string. Each error record implements `IValidationError<T>`. The generated `Validate` returns the corresponding `Expected` error. Each validator maps that result to `Validation<Error, T>`, and the tuple `Apply` builds the aggregate from every result:
+Raw fields can be validated independently. Replace permissive primitive fields with domain-specific types: a smart enum for the closed set of number types and a value object for each formatted string. Each error record implements `IValidationError<T>`. The generated `Validate` returns the corresponding `Expected` error. Each validator maps that result to `Validation<Error, T>`, and the tuple `Apply` builds the aggregate from every result:
 
 ```csharp
 internal sealed record InvalidNumberType() : Expected("number type is not mobile or home", 1201), IValidationError<InvalidNumberType> {
@@ -252,13 +252,13 @@ Use LINQ when each step can depend on an earlier validated value, or when later 
 
 ## [09]-[VALIDATOR_COMBINATION]
 
-A collection of validators can be folded into one validator:
+Collections of validators fold into one validator:
 
 ```text
 Seq<T -> Validation<Error, T>> -> T -> Validation<Error, T>
 ```
 
-A validator is a `Func<T, Validation<Error, T>>`. The two compositions have different behavior.
+Validators are `Func<T, Validation<Error, T>>`. The compositions have different behavior.
 
 ### [09.1]-[FAIL_FAST]
 
@@ -303,18 +303,18 @@ Fin<Unit> equivalence = Try.lift(() => {
 }).Run();
 ```
 
-`Gen.OneOf` builds an `Option` generator that produces both `Some` and `None`. A test that lifts only generated integers checks only the `Some` path and misses the `None` case. The bounded range keeps the product inside `int`.
+`Gen.OneOf` builds an `Option` generator that produces both `Some` and `None`. Tests that lift only generated integers check only the `Some` path and miss the `None` case. The bounded range keeps the product inside `int`.
 
-Random sampling raises confidence but does not prove a universal law. `Sample` throws on a counterexample, and `Try.lift` captures it into `Fin`. The case count and the ranges are configurable. A property tied to `multiply` checks that function, not every function. Properties can capture model invariants, such as removing items from a cart never increasing its total.
+Random sampling raises confidence but does not prove a universal law. `Sample` throws on a counterexample, and `Try.lift` captures it into `Fin`. The case count and the ranges are configurable. Properties tied to `multiply` check that function, not every function. Properties can capture model invariants, such as removing items from a cart never increasing its total.
 
 ## [11]-[SELECTION_GUIDE]
 
-- Use `Map` for a pure unary transformation that preserves the current effect.
-- Use the tuple `Apply` when inputs are independent and the effect has relevant combination semantics.
-- Use LINQ over `Bind` when a computation consumes an earlier result or must short-circuit.
-- Use `Traverse` to accumulate over a collection of independent checks and `TraverseM` to stop at the first failure; an error from one element carries the element index as a typed field.
-- Avoid explicit unwrapping followed by rewrapping; it duplicates effect handling and leaks representation details.
-- Avoid nested `Bind` calls; LINQ expresses the same semantics without nested lambdas.
-- When lifting an inline lambda, use `fun` to give it a delegate type. A lambda can represent either a delegate or an expression tree.
-- Deriving `Apply` from `Bind` can discard error accumulation or other effect-specific behavior.
-- Do not use applicative composition for dependent work. It computes its arguments independently and cannot express that one input requires another's successful value.
+- Use `Map` for a pure unary transformation that preserves the current effect
+- Use the tuple `Apply` when inputs are independent and the effect has relevant combination semantics
+- Use LINQ over `Bind` when a computation consumes an earlier result or must short-circuit
+- Use `Traverse` to accumulate over a collection of independent checks and `TraverseM` to stop at the first failure; an error from one element carries the element index as a typed field
+- Avoid explicit unwrapping followed by rewrapping; it duplicates effect handling and leaks representation details
+- Avoid nested `Bind` calls; LINQ expresses the same semantics without nested lambdas
+- When lifting an inline lambda, use `fun` to give it a delegate type
+- Deriving `Apply` from `Bind` can discard error accumulation or other effect-specific behavior
+- Do not use applicative composition for dependent work

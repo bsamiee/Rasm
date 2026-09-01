@@ -86,7 +86,7 @@ One definition covers folding and concatenation across otherwise unrelated types
 
 ## [02]-[SEMIGROUPS_AND_MONOIDS]
 
-`Addable` has the structure of a monoid. A semigroup provides an associative binary operation; a monoid extends it with an identity element:
+`Addable` has the structure of a monoid. Semigroups provide an associative binary operation; monoids extend them with an identity element:
 
 ```csharp
 public interface Semigroup<A>
@@ -102,11 +102,11 @@ public interface Monoid<A> : Semigroup<A>
 }
 ```
 
-A type becomes a semigroup or monoid by implementing the trait. A type outside your control, such as `string` or an integer type, cannot implement it retroactively. Place the external value in a small owned wrapper that implements the trait, and convert where monoidal behavior is required.
+Types become semigroups or monoids by implementing the trait. Types outside your control, such as `string` or an integer type, cannot implement it retroactively. Place the external value in a small owned wrapper that implements the trait, and convert where monoidal behavior is required.
 
 ## [03]-[SELF_TYPE_LIMITATION]
 
-The self-typed trait works while every operation stays within one concrete type. Mapping must change the element type while it keeps the surrounding shape, and the self-typed trait cannot express that. A trait over `SELF` alone cannot connect the stored element to the input type of `Select`:
+The self-typed trait works while every operation stays within one concrete type. Mapping must change the element type while it keeps the surrounding shape, and the self-typed trait cannot express that. Traits over `SELF` alone cannot connect the stored element to the input type of `Select`:
 
 ```csharp
 public interface Mappable<SELF>
@@ -140,7 +140,7 @@ Option<A>    - a type constructor applied to a parameter
 F<A>         - an arbitrary type constructor applied to a parameter
 ```
 
-A parameterized type is a type-level function: it accepts a type and produces a type. C# can parameterize the `A` in a known type such as `Option<A>`. C# cannot receive the `Option` part as a type parameter `F` and later form `F<A>`. The same limitation explains C#'s compiler-recognized method patterns: `Select`, `SelectMany`, `Where`, `Join`, `GroupJoin`, `GetEnumerator`, `GetAwaiter`, collection `Add`, index initializers, and collection initializers bind to specially recognized members, not to one general trait mechanism.
+Parameterized types are type-level functions: they take a type and produce a type. C# can parameterize the `A` in a known type such as `Option<A>`. C# cannot receive the `Option` part as a type parameter `F` and later form `F<A>`. The same limitation explains C#'s compiler-recognized method patterns: `Select`, `SelectMany`, `Where`, `Join`, `GroupJoin`, `GetEnumerator`, `GetAwaiter`, collection `Add`, index initializers, and collection initializers bind to specially recognized members, not to one general trait mechanism.
 
 ## [05]-[K_INTERFACE]
 

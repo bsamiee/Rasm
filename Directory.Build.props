@@ -43,7 +43,7 @@
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
     </PropertyGroup>
 
-    <!-- Template for an IKVM consumer. The condition names the project, project-body opt-in properties are invisible at .props evaluation time.
+    <!-- Template for an IKVM consumer: the condition names the project, project-body opt-in properties are invisible at .props evaluation time
     <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == '{IkvmConsumerProject}'">
         <IkvmCacheDir>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', '.cache', 'ikvm'))</IkvmCacheDir>
         <IkvmExportCacheDir>$([MSBuild]::NormalizeDirectory('$(IkvmCacheDir)', 'expcache'))</IkvmExportCacheDir>
@@ -51,7 +51,7 @@
     </PropertyGroup>
     -->
 
-    <!-- Routes IKVM image files through @(None). buildTransitive imports IKVM.Image.targets into every consumer, the SDK drops transitive copies by TargetPath -->
+    <!-- Routes IKVM image files through @(None): buildTransitive imports IKVM.Image.targets into every consumer, the SDK drops transitive copies by TargetPath -->
     <PropertyGroup Label="IKVM Image">
         <IkvmImageItemToNone>true</IkvmImageItemToNone>
     </PropertyGroup>

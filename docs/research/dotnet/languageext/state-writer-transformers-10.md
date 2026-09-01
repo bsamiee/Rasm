@@ -16,11 +16,11 @@ public record StateT<S, M, A>(
 }
 ```
 
-The tuple is the hidden state context. A caller works with `StateT<S, M, A>` and sees the tuple only at `Run`.
+The tuple is the hidden state context. Callers work with `StateT<S, M, A>` and see the tuple only at `Run`.
 
 ## [01]-[FROM_READERT_TO_STATET]
 
-A reader computation has the shape `Func<Env, K<M, A>>`. Its `Bind` supplies the same `Env` to both computations, it cannot return a changed environment for later operations. StateT changes the return type to `K<M, (A, S)>`, and its `Bind` runs the next computation with the state the previous one returned:
+Reader computations have shape `Func<Env, K<M, A>>`. Its `Bind` supplies the same `Env` to both computations, it cannot return a changed environment for later operations. StateT changes the return type to `K<M, (A, S)>`, and its `Bind` runs the next computation with the state the previous one returned:
 
 ```csharp
 result => f(result.Value).runState(result.State)
@@ -30,10 +30,10 @@ Each bind feeds the previous computation's state into the next. `Readable.local`
 
 ## [02]-[DECK_AS_STATE]
 
-A shuffled deck combines three effects:
+Shuffled decks combine effects:
 - `StateT` threads the current `Deck`;
 - `OptionT` can stop the computation when no card remains;
-- `IO` contains randomness and console interaction.
+- `IO` contains randomness and console interaction
 
 ```csharp
 public record Deck(Seq<Card> Cards)
@@ -73,7 +73,7 @@ public static StateT<Deck, OptionT<IO>, Card> deal =>
 
 `Seq<Card>.Head` returns `None` for an empty deck. Lifting that value into `OptionT` stops the computation, the deck update runs only when a card exists: the head is returned and the tail becomes the next state.
 
-A projection reads part of the state without exposing its representation:
+Projections read part of the state without exposing its representation:
 
 ```csharp
 public static StateT<Deck, OptionT<IO>, int> cardsRemaining =>
@@ -84,7 +84,7 @@ public static StateT<Deck, OptionT<IO>, int> cardsRemaining =>
 
 ## [03]-[GAME_SEQUENCING]
 
-Console operations lift into `IO` and compose with the two transformers. When an earlier result is irrelevant, the `>>` operator expresses `ma.Bind(_ => mb)` without LINQ discard variables:
+Console operations lift into `IO` and compose with the transformers. When an earlier result is irrelevant, the `>>` operator expresses `ma.Bind(_ => mb)` without LINQ discard variables:
 
 ```csharp
 public static StateT<Deck, OptionT<IO>, Unit> play =>
@@ -96,14 +96,14 @@ public static StateT<Deck, OptionT<IO>, Unit> play =>
     deal;
 ```
 
-A game loop recursively deals cards and terminates when `Deck.deal` lifts `None` after the deck is exhausted. The `IO` monad supports this recursive form without growing the CLR stack. This example interleaves state logic and console IO to show composition; production code keeps game rules as pure functions over the state, separate from IO boundaries.
+Game loops recursively deal cards and terminate when `Deck.deal` lifts `None` after the deck is exhausted. The `IO` monad supports this recursive form without growing the CLR stack. This example interleaves state logic and console IO to show composition; production code keeps game rules as pure functions over the state, separate from IO boundaries.
 
 ## [04]-[STACK_ENCAPSULATION]
 
-Exposing `StateT<GameState, OptionT<IO>, A>` throughout domain code is noisy. A `Game<A>` wrapper hides it, and a companion `Game` type derives the capabilities of the underlying transformer:
+Exposing `StateT<GameState, OptionT<IO>, A>` throughout domain code is noisy. `Game<A>` wrappers hide it, and a companion `Game` type derives the capabilities of the underlying transformer:
 - `MonadIO<Game>` for IO;
 - `Stateful<Game, GameState>` for state reads and writes;
-- `Choice<Game>` for the choice behavior of the wrapped transformer.
+- `Choice<Game>` for the choice behavior of the wrapped transformer
 
 `Stateful` is the state counterpart of `Readable`: it generalizes state reads and writes across a structure, like Haskell's `MonadState`. Transform and co-transform functions move between `K<Game, A>` and the wrapped StateT. The workflow then reads as a sequence of domain operations:
 
@@ -134,11 +134,11 @@ Removing explicit state arguments makes code terse and declarative; it also hide
 - Partition domain rules into pure functions over the state;
 - Keep IO separate from those rules;
 - Use scoped state changes for temporary context and propagating updates for durable changes;
-- Encapsulate deep transformer stacks behind a domain type.
+- Encapsulate deep transformer stacks behind a domain type
 
 ## [06]-[FORKED_STATE]
 
-With `IO` inside StateT, forked computations — including automatically parallel work such as `Traverse` — inherit the current state and then evolve independent copies. A parent at `0` forks two counters that each progress from `1` to `10`; after both complete, the parent is still `0`. A parent at `5` starts both branches at `5` and stays `5`.
+With `IO` inside StateT, forked computations (including automatically parallel work such as `Traverse`) inherit the current state and then evolve independent copies. Parents at `0` fork two counters that each progress from `1` to `10`; after both complete, each parent is still `0`. Parents at `5` start both branches at `5` and stay `5`.
 
 ```csharp
 static StateT<int, IO, Unit> countTo10(string branch) =>
@@ -156,7 +156,7 @@ Parallel StateT branches neither share nor merge state. To bring a change back, 
 
 ## [08]-[CLASSIC_WRITER]
 
-A direct `Writer` representation returns an output beside a value:
+Direct `Writer` representations return an output beside a value:
 
 ```csharp
 public record Writer<W, A>(Func<(W Output, A Value)> runWriter)
@@ -194,7 +194,7 @@ static Writer<Seq<string>, Unit> example =>
 
 ## [09]-[BIND_COMBINATION_COST]
 
-`Bind` runs far more often than `tell`, yet the classic design calls `Combine` on every bind. Two problems follow: one or both outputs are often empty, the combination is wasted work, and non-empty outputs cost real work to combine. Concatenating two immutable linked lists of 100 items traverses 100 items to build a new list; repeated combination of growing immutable outputs rebuilds the same elements many times. The combination belongs in `tell`, where output is deliberately added, not in every `Bind`.
+`Bind` runs far more often than `tell`, yet the classic design calls `Combine` on every bind. Problems follow: one or both outputs are often empty, the combination is wasted work, and non-empty outputs cost real work to combine. Concatenating two immutable linked lists of 100 items traverses 100 items to build a new list; repeated combination of growing immutable outputs rebuilds the same elements many times. The combination belongs in `tell`, where output is deliberately added, not in every `Bind`.
 
 ## [10]-[OUTPUT_THREADING]
 

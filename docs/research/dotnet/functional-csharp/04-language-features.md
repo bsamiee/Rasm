@@ -4,7 +4,7 @@ C# supports functional programming through these language features:
 - Tuples carry short-lived groups of values through a pipeline;
 - Patterns turn branching rules into expressions over input structures;
 - readonly structs and init-only properties constrain reassignment, while records support nondestructive mutation;
-- Nullable static analysis exposes unintended null use before values enter a pipeline.
+- Nullable static analysis exposes unintended null use before values enter a pipeline
 
 These features reduce casts, mutation, and repetitive copying while keeping the rules visible.
 
@@ -34,14 +34,14 @@ The first projection pairs each film with its cast. The next projection consumes
 Procedural type checks require explicit casts and nested branches. Moving the calculation into virtual methods spreads one complete rule across several classes. Pattern matching keeps recognition, extraction, guards, and results together.
 
 C# provides these pattern-matching features:
-- Type patterns test a runtime type and bind the typed value: `account is PremiumBankAccount premium`.
-- Switch cases with type patterns collect subtype rules, and `when` adds a guard.
-- Switch expressions make the decision return a value; `_` is the discard pattern for the fallback arm.
-- Property patterns inspect the shape of an object.
-- Relational and logical patterns such as `>`, `and`, and `not` express value ranges and exclusions inside a pattern.
-- A type pattern need not bind a local when the result does not need subtype data.
-- Extended property patterns inspect nested data, such as a player's first name, without extracting each intermediate object first.
-- List patterns recognize values at the beginning, middle, or end of arrays with known headers or footers.
+- Type patterns test a runtime type and bind the typed value: `account is PremiumBankAccount premium`
+- Switch cases with type patterns collect subtype rules, and `when` adds a guard
+- Switch expressions make the decision return a value; `_` is the discard pattern for the fallback arm
+- Property patterns inspect the shape of an object
+- Relational and logical patterns such as `>`, `and`, and `not` express value ranges and exclusions inside a pattern
+- Type patterns need not bind a local when the result ignores subtype data
+- Extended property patterns inspect nested data, such as a player's first name, without extracting each intermediate object first
+- List patterns recognize values at the beginning, middle, or end of arrays with known headers or footers
 
 ### [02.1]-[INTEREST_CALCULATION]
 
@@ -90,7 +90,7 @@ internal static class Recognition {
 
 ## [03]-[EXPLICIT_ALTERNATIVES]
 
-A discriminator flag combined with fields that are meaningful only for one flag value permits invalid combinations. Model the alternatives as distinct variants. `[Union]` on an abstract partial record with nested sealed record cases defines a closed set of cases, and the generated `Switch` takes one arm per case. `Option<A>` is a readonly struct, `Fin<A>` is an abstract class, `Either<L, R>` and `Validation<Error, A>` are record classes, and each of the four types supports `Match`.
+Discriminator flags with fields meaningful only for one flag value permit invalid combinations. Model the alternatives as distinct variants. `[Union]` on an abstract partial record with nested sealed record cases defines a closed set of cases, and the generated `Switch` takes one arm per case. `Option<A>` is a readonly struct, `Fin<A>` is an abstract class, `Either<L, R>` and `Validation<Error, A>` are record classes, and each supports `Match`.
 
 ### [03.1]-[ACTIVE_PATTERNS]
 
@@ -111,11 +111,11 @@ let tryParseDateTime input =
 
 ## [04]-[IMMUTABILITY_TOOLS]
 
-C# values are not immutable by default, but language features can prevent mutation.
+Values are not immutable by default, but language features can prevent mutation.
 
 ### [04.1]-[READONLY_STRUCTS]
 
-Because structs are passed by value, a function receives a copy rather than the original value. A `readonly struct` prevents reassignment of its fields. A constructor initializes those fields:
+Because structs are passed by value, a function receives a copy rather than the original value. `readonly struct` prevents reassignment of its fields. Constructors initialize those fields:
 
 ```csharp
 internal readonly struct MovieFields {
@@ -131,7 +131,7 @@ internal readonly struct MovieFields {
 }
 ```
 
-`readonly` protects the struct's fields, not objects reached through them. Because `Seq<A>` is immutable, it needs no defensive copy. A mutable child object still needs one.
+`readonly` protects the struct's fields, not objects reached through them. Because `Seq<A>` is immutable, it needs no defensive copy. Mutable child objects still need one.
 
 ### [04.2]-[INIT_ONLY_PROPERTIES]
 

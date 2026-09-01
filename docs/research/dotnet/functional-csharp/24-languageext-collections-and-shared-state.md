@@ -1,22 +1,22 @@
 # [LANGUAGEEXT_COLLECTIONS_AND_SHARED_STATE]
 
-Every collection in domain code is a LanguageExt collection, and `Seq<A>` is the default. A BCL `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value, and `toSeq` is the conversion at that boundary. This file documents collection types, fold and sequence operations, lenses, and shared-state types.
+Every collection in domain code is a LanguageExt collection, and `Seq<A>` is the default. BCL `List<T>` or `Dictionary<K, V>` stays inside a scope publishing an immutable value, and `toSeq` is the conversion at that boundary. This file documents collection types, fold and sequence operations, lenses, and shared-state types.
 
 ## [01]-[COLLECTION_TYPES]
 
 | [INDEX] | [TYPE]          | [PURPOSE]                       | [CONSTRUCTION]                                 |
 | :-----: | :-------------- | :------------------------------ | :--------------------------------------------- |
-|  [01]   | `Seq<A>`        | ordered, memoized               | `Seq(1, 2, 3)`, `toSeq(source)`                |
-|  [02]   | `Arr<A>`        | indexed reads                   | `Array(10, 20, 30)`                            |
+|  [01]   | `Seq<A>`        | Ordered, memoized               | `Seq(1, 2, 3)`, `toSeq(source)`                |
+|  [02]   | `Arr<A>`        | Indexed reads                   | `Array(10, 20, 30)`                            |
 |  [03]   | `Lst<A>`        | `Insert`, `RemoveAt`, `SetItem` | `List(1, 2, 3)`                                |
-|  [04]   | `Map<K, V>`     | keyed, ordered by key           | `Map(("b", 2), ("a", 1))`                      |
-|  [05]   | `HashMap<K, V>` | keyed, hashed                   | `HashMap(("a", 1))`, `toHashMap(pairs)`        |
-|  [06]   | `Set<A>`        | unique, ordered                 | `Set(3, 1, 2)`, `toSet(items)`                 |
-|  [07]   | `HashSet<A>`    | unique, hashed                  | `HashSet(3, 1, 2)`                             |
-|  [08]   | `Iterable<A>`   | lazy over `IEnumerable`         | `source.AsIterable()`, `ToSeq()` forces it     |
-|  [09]   | `IterableNE<A>` | non-empty, `Head` is a value    | `IterableNE.create(1, 2, 3)`, `AsIterableNE()` |
+|  [04]   | `Map<K, V>`     | Keyed, ordered by key           | `Map(("b", 2), ("a", 1))`                      |
+|  [05]   | `HashMap<K, V>` | Keyed, hashed                   | `HashMap(("a", 1))`, `toHashMap(pairs)`        |
+|  [06]   | `Set<A>`        | Unique, ordered                 | `Set(3, 1, 2)`, `toSet(items)`                 |
+|  [07]   | `HashSet<A>`    | Unique, hashed                  | `HashSet(3, 1, 2)`                             |
+|  [08]   | `Iterable<A>`   | Lazy over `IEnumerable`         | `source.AsIterable()`, `ToSeq()` forces it     |
+|  [09]   | `IterableNE<A>` | Non-empty, `Head` is a value    | `IterableNE.create(1, 2, 3)`, `AsIterableNE()` |
 
-`Seq<A>` reads its source once and memoizes every item. A second enumeration does not run the source again. `toSeq` eagerly copies an array, a list, or a collection. `Map` and `Filter` on a `Seq` are deferred until enumeration. `Iterable<A>` does not memoize items. A second enumeration runs the source again. `AsIterableNE` returns `Option<IterableNE<A>>` because a source can be empty. `Range(from, count)` takes a count as its second argument. `Range(1, 3)` yields `1, 2, 3`. The declared type of a hash set is `LanguageExt.HashSet<A>`, because the simple name collides with `System.Collections.Generic.HashSet<T>`.
+`Seq<A>` reads its source once and memoizes every item. Second enumerations do not run the source again. `toSeq` eagerly copies an array, a list, or a collection. `Map` and `Filter` on a `Seq` are deferred until enumeration. `Iterable<A>` does not memoize items. Second enumerations run the source again. `AsIterableNE` returns `Option<IterableNE<A>>` because a source can be empty. `Range(from, count)` takes a count as its second argument. `Range(1, 3)` yields `1, 2, 3`. The declared type of a hash set is `LanguageExt.HashSet<A>`, because the simple name collides with `System.Collections.Generic.HashSet<T>`.
 
 ```csharp
 internal static class Partition {
@@ -129,7 +129,7 @@ internal static class Lenses {
 
 ## [06]-[SHARED_STATE]
 
-`Atom<A>` manages one value with compare-and-swap. `Swap` returns the new value. A conflict can cause the update function to run again. The function must have no side effects. `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, and its update functions must have no side effects. `TryAdd` ignores a present key. `SwapKey(key, Func<V, V>)` updates a present key, and `SwapKey(key, Func<Option<V>, Option<V>>)` also inserts. `Find` reads, and `FindOrAdd` atomically adds a missing value or returns the existing value. `Ref<A>` updates occur inside `atomic`. `swap` reads the transactional value. `commute` applies its function inside the transaction and again at the commit point against the last committed value. `atomic(Func<R>)` returns the function result from the transaction. `Isolation.Serialisable` sets serializable transaction isolation. `TrackingHashMap<K, V>` records each key change in `Changes`, and `Snapshot()` clears the change log and preserves the entries. `memo(Func<A, B>)` caches one result per argument. `memo(Func<A>)` returns a `Memo<A>` whose `Value` runs the thunk once. `memoK` caches the construction of a `K<F, A>`, not its execution. A memoized `IO` is constructed once and runs each time `Value` is read.
+`Atom<A>` manages one value with compare-and-swap. `Swap` returns the new value. Conflicts can rerun the update function. The function must have no side effects. `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, and its update functions must have no side effects. `TryAdd` ignores a present key. `SwapKey(key, Func<V, V>)` updates a present key, and `SwapKey(key, Func<Option<V>, Option<V>>)` also inserts. `Find` reads, and `FindOrAdd` atomically adds a missing value or returns the existing value. `Ref<A>` updates occur inside `atomic`. `swap` reads the transactional value. `commute` applies its function inside the transaction and again at the commit point against the last committed value. `atomic(Func<R>)` returns the function result from the transaction. `Isolation.Serialisable` sets serializable transaction isolation. `TrackingHashMap<K, V>` records each key change in `Changes`, and `Snapshot()` clears the change log and preserves the entries. `memo(Func<A, B>)` caches one result per argument. `memo(Func<A>)` returns a `Memo<A>` whose `Value` runs the thunk once. `memoK` caches the construction of a `K<F, A>`, not its execution. Memoized `IO` is constructed once and runs each time `Value` is read.
 
 ```csharp
 internal static class SharedState {

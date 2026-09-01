@@ -1,8 +1,8 @@
 # [INDEFINITE_LOOPS]
 
-An indefinite loop advances state until a runtime condition is satisfied. Unlike a transformation over a fixed collection, its length is not known in advance. `Map` and `Fold` can consume a sequence whose producer knows when to stop, but they do not by themselves supply that stopping rule.
+An indefinite loop advances state until a runtime condition holds. Unlike a transformation over a fixed collection, its length is not known in advance. `Map` and `Fold` can consume a sequence whose producer knows when to stop, but they do not by themselves supply that stopping rule.
 
-Model the problem with three values:
+Model the problem with:
 
 ```text
 S initialState;
@@ -14,7 +14,7 @@ The separation is between:
 - State transition: produce the next state from the current state;
 - Termination: decide whether a state is final;
 - Execution: repeatedly apply the transition until termination;
-- Consumption: choose whether to retain only the final state or every intermediate state.
+- Consumption: choose whether to retain only the final state or every intermediate state
 
 ## [01]-[APPROACH_SELECTION]
 
@@ -23,13 +23,13 @@ The separation is between:
 |  [01]   | Tail recursion            | Small, direct, expression-oriented                           | Unbounded calls can grow the stack      | The maximum depth is small and bounded |
 |  [02]   | `Trampoline<A>`           | Pure recursion, any depth, `Bind` continues from final value | Every step is a deferred call           | The transition is pure                 |
 |  [03]   | `Monad.recur`             | Effectful loop with constant stack usage                     | Only the final value is returned        | The transition is an effect            |
-|  [04]   | `LanguageExt.List.unfold` | Lazy states compose with `Seq`                               | A second `unfold` reruns the transition | Intermediate states are meaningful     |
+|  [04]   | `LanguageExt.List.unfold` | Lazy states compose with `Seq`                               | Each `unfold` reruns the transition     | Intermediate states are meaningful     |
 
 The library keeps mutable loop state inside the execution mechanism while leaving the transition and stopping rule explicit.
 
 ## [02]-[TAIL_RECURSION]
 
-A tail-recursive function either returns the final value or makes its recursive call as the last operation:
+Tail-recursive functions return the final value or make their recursive call last:
 
 ```csharp
 internal static class Direct {
@@ -40,14 +40,14 @@ internal static class Direct {
 }
 ```
 
-State is not mutated, and every iteration produces a replacement value. C# does not provide the tail-call optimization needed for constant stack usage. Each recursive call can add a stack frame. A condition that takes many iterations can degrade performance or terminate the process with a stack overflow.
+State is not mutated, and every iteration produces a replacement value. C# does not provide the tail-call optimization needed for constant stack usage. Each recursive call can add a stack frame. Conditions taking many iterations can degrade performance or terminate the process with a stack overflow.
 
-Use direct recursion only when the iteration count has a small, known upper bound. An iteration count that is usually small does not remove the stack risk. `Trampoline<A>` removes it: `Trampoline.More` returns the recursive call as a deferred value, and `Run()` evaluates the deferred calls in a loop.
+Use direct recursion only when the iteration count has a small, known upper bound. Usually small iteration counts do not remove the stack risk. `Trampoline<A>` removes it: `Trampoline.More` returns the recursive call as a deferred value, and `Run()` evaluates the deferred calls in a loop.
 
-A recursive function needs:
+Recursive functions need:
 1. An end condition that returns the final value
-2. A recursive path that calls the same function with values closer to that condition
-3. A returned value on every path
+2. Recursive paths calling the same function with values closer to that condition
+3. Returned values on every path
 
 Given deltas that reach zero before they run out:
 
@@ -66,7 +66,7 @@ With deltas `2, -12, 9`, `FirstPositionAtZero(deltas, 10, 0).Run()` carries valu
 
 The function handles sequence exhaustion explicitly: `At` returns `None` when `nextIndex` is beyond the deltas, and the result is `None`. An unreachable base case loops indefinitely.
 
-A reusable trampolined loop has this form:
+Reusable trampolined loops take the form:
 
 ```csharp
 internal static class Trampolined {
@@ -78,8 +78,8 @@ internal static class Trampolined {
 ```
 
 The stopping predicate is checked before each transition. The final state is returned instead of hidden in a mutable loop variable. Use this form when `next` returns a new state and the state carries all required information. `Bind` chains a second `Trampoline` onto the final state, and `Run()` still uses a constant stack. The abstraction has these limits:
-- `next` must eventually produce a state satisfying `stop`.
-- If `next` performs user interaction, I/O, or mutation, the expression remains impure. That transition belongs under `IO`.
+- `next` must eventually produce a state satisfying `stop`
+- If `next` performs user interaction, I/O, or mutation, the expression remains impure
 
 ## [03]-[MONAD_RECUR]
 
@@ -107,7 +107,7 @@ The loop has constant stack usage and returns only the terminal state.
 
 The state must contain everything required by both delegates. If termination depends on the last action or the latest random outcome, those values belong in the returned state rather than in unrelated mutable flags. This loop checks the initial state before advancing, an already-finished initial value is returned unchanged.
 
-A deep recursive `IO` remains stack-safe when `tail` wraps the recursive call as the last bind continuation after a deferred effect:
+Deep recursive `IO` remains stack-safe when `tail` wraps the recursive call as the last bind continuation after a deferred effect:
 
 ```csharp
 internal static class Deep {
@@ -118,7 +118,7 @@ internal static class Deep {
 }
 ```
 
-A `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a mapping continuation after the tail call and fail. A host that needs a `Fin` captures with `Try.lift(io.Run).Run()`.
+`tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a mapping continuation after the tail call and fail. Hosts needing a `Fin` capture with `Try.lift(io.Run).Run()`.
 
 Polling one effect until its value satisfies a predicate is `RepeatUntil`; `RepeatWhile` is its complement.
 
@@ -163,11 +163,11 @@ internal static class Consumption {
 }
 ```
 
-- `Last` reads until the sequence ends and returns the terminal state as an `Option`, or `None` for an empty sequence.
-- `Map` defines a lazy transformation of every yielded state.
-- `Fold` can retain both accumulated output and the latest state.
-- `foreach` is a consumer, but mutating an outer variable reintroduces imperative state at the call site.
+- `Last` reads until the sequence ends and returns the terminal state as an `Option`, or `None` for an empty sequence
+- `Map` defines a lazy transformation of every yielded state
+- `Fold` can retain both accumulated output and the latest state
+- `foreach` is a consumer, but mutating an outer variable reintroduces imperative state at the call site
 
 Short-circuiting operators change the termination behavior. `Head`, `Take`, and similar operations stop enumeration before the sequence's own end condition is reached. Use these operators only for intentional early termination, such as limiting a participant to a fixed number of actions.
 
-The three methods in `Consumption` are alternatives, not operations to apply successively. One `Seq` keeps every state it has read. A second pass over the same `Seq` does not rerun `advance`. Each `unfold` call constructs a new producer and reruns the transition process. When `advance` reads input, randomness, or another effect, building the sequence twice performs the process twice and can produce different states. Build the `Seq` once and read every required result from it.
+The methods in `Consumption` are alternatives, not operations to apply successively. One `Seq` keeps every state it has read. Second passes over the same `Seq` do not rerun `advance`. Each `unfold` call constructs a new producer and reruns the transition process. When `advance` reads input, randomness, or another effect, building the sequence twice performs the process twice and can produce different states. Build the `Seq` once and read every required result from it.

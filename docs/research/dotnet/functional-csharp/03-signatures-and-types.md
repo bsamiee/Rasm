@@ -2,7 +2,7 @@
 
 ## [01]-[TYPE_AND_FUNCTION_DESIGN]
 
-A function signature is a contract. Its input types describe every value the function accepts, and its return type describes every normal outcome callers must handle. Precise types make the contract both more informative and harder to violate.
+Function signatures are contracts. Input types describe every value the function accepts, and the return type describes every normal outcome callers must handle. Precise types make the contract both more informative and harder to violate.
 
 Arrow notation keeps signatures compact:
 
@@ -26,15 +26,15 @@ Generic signatures constrain plausible behavior:
 (IEnumerable<A>, IEnumerable<B>, ((A, B) -> C)) -> IEnumerable<C>
 ```
 
-The first suggests filtering a sequence with a predicate. The second suggests combining corresponding `A` and `B` values into `C` values. `() -> ()` reveals almost nothing about the effect performed. A signature cannot express every semantic detail: `Where` and `TakeWhile` have identical type signatures. Precise types and names are necessary.
+The first suggests filtering a sequence with a predicate. The second suggests combining corresponding `A` and `B` values into `C` values. `() -> ()` reveals almost nothing about the effect performed. Signatures cannot express every semantic detail: `Where` and `TakeWhile` have identical type signatures. Precise types and names are necessary.
 
-Functional design keeps data and logic distinct: data objects carry inputs and outputs, while functions encode behavior. A constrained type can still own the validation needed to construct it and operations, such as comparison, that protect its hidden representation.
+Functional design keeps data and logic distinct: data objects carry inputs and outputs, while functions encode behavior. Constrained types can still own the validation to construct them and operations, such as comparison, that protect their hidden representation.
 
 ## [02]-[INVALID_INPUTS]
 
 Primitive types can admit values outside the domain. An `int` used as an age admits values less than 0 or greater than 119. Validating inside every consumer duplicates the rule and mixes validation with the consumer's calculation.
 
-A custom type can narrow the domain once. `Age` is a value object: the generator supplies the factory methods, equality, comparison, and the conversion to `int`. `InvalidAge` implements `IValidationError<InvalidAge>`. The validation hook raises the typed `Expected` record. `From` is the smart constructor: it maps the generated `Validate` to `Fin<Age>`:
+Custom types can narrow the domain once. `Age` is a value object: the generator supplies the factory methods, equality, comparison, and the conversion to `int`. `InvalidAge` implements `IValidationError<InvalidAge>`. The validation hook raises the typed `Expected` record. `From` is the smart constructor: it maps the generated `Validate` to `Fin<Age>`:
 
 ```csharp
 internal sealed record InvalidAge() : Expected("age out of range", 1001), IValidationError<InvalidAge> {
@@ -66,7 +66,7 @@ internal static class Underwriting {
 
 ### [02.1]-[HONEST_FUNCTIONS]
 
-A function honors its signature when each declared input produces a declared output. It does not return `null` or throw an exception as an intrinsic outcome that the signature fails to describe.
+Functions honor their signature when each declared input produces a declared output. They do not return `null` or throw an exception as an intrinsic outcome that the signature fails to describe.
 
 ```text
 Age -> Risk
@@ -74,13 +74,13 @@ Age -> Risk
 
 This signature is accurate when every constructible `Age` produces a `Risk`. `int -> Risk` is incomplete if some integers cause validation exceptions. Repair the contract either by narrowing the input to a validated type or by widening the output to represent the possibility of failure.
 
-A function can honor its signature without being pure. Purity also excludes observable side effects and dependence on mutable state.
+Honoring a signature does not require purity. Purity also excludes observable side effects and dependence on mutable state.
 
 ### [02.2]-[TYPES_AS_SETS]
 
-Types can be modeled as sets of possible values. If `Age` has 120 values and `Gender` has two, `(Age, Gender)` has `120 * 2 = 240` possible values. A tuple or object containing both is a product type: each field adds another dimension to the space of possible states.
+Types can be modeled as sets of possible values. If `Age` has 120 values and `Gender` has two, `(Age, Gender)` has `120 * 2 = 240` possible values. Tuples or objects containing both are product types: each field adds a dimension to the space of possible states.
 
-`Option<A>` is a union: all `Some(A)` values plus the single `None` value. A type with `n` values yields an option with `n + 1` values. Counting possible instances exposes types that admit states the domain does not need. Once component types are constrained, they can be composed into larger data objects without reintroducing invalid primitive states.
+`Option<A>` is a union: all `Some(A)` values and the single `None` value. Types with `n` values yield options with `n + 1` values. Counting possible instances exposes types that admit states the domain does not need. Once component types are constrained, they can be composed into larger data objects without reintroducing invalid primitive states.
 
 ## [03]-[UNIT]
 
@@ -147,7 +147,7 @@ The default inner value in the `None` state is ignored. The contract is an empty
 
 ## [05]-[TOTALITY]
 
-A total function is defined for every value in its declared input domain; a partial function is not. Returning `Option` totalizes a partial computation: return `Some(result)` where the computation is defined and `None` otherwise.
+Total functions cover every value in their declared input domains; partial functions do not. Returning `Option` totalizes a partial computation: return `Some(result)` where the computation is defined and `None` otherwise.
 
 ```csharp
 internal static class Totality {
@@ -158,7 +158,7 @@ internal static class Totality {
 }
 ```
 
-`string -> int` hides the undefined parsing cases; `string -> Option<int>` describes every outcome. The Prelude function `parseInt` has that signature. `Find` on `HashMap<K, V>` has the signature `K -> Option<V>`. A missing key is a value, not an exception. `Bind` chains the two lookups, and `ToOption` on `Fin<Age>` drops the failure reason when the caller does not need it.
+`string -> int` hides the undefined parsing cases; `string -> Option<int>` describes every outcome. The Prelude function `parseInt` has that signature. `Find` on `HashMap<K, V>` has the signature `K -> Option<V>`. Missing keys are values, not exceptions. `Bind` chains the two lookups, and `ToOption` on `Fin<Age>` drops the failure reason when the caller does not need it.
 
 ## [06]-[NULLABLE_REFERENCE_TYPES]
 
@@ -186,13 +186,13 @@ Null adds another possible state that every consumer must account for. If an ext
 
 ## [07]-[DESIGN_RULES]
 
-- Design the signature early; specify exact input and outcome types.
-- Prefer constrained domain types to primitives plus repeated validation.
-- Map the generated `Validate` to `Fin` through `From` when primitive-to-domain conversion can fail.
-- The generator keeps the constructor private, every value passes through the validation hook.
-- Do not explicitly return `null` from functions.
-- Reject unexpected `null` at public API inputs, except for optional parameters because their defaults must be compile-time constants.
-- Enable nullable reference types, the compiler exposes accidental nullability before a value enters a pipeline.
-- Use `Option<A>` for optional properties, parsing, lookup, and other computations that can produce no value.
-- Use `Match` when a concrete result must be selected from the `None` and `Some` cases.
-- Use `Unit` and `fun` to adapt `Action` into `Func`-based higher-order APIs without duplicating their behavior.
+- Design the signature early; specify exact input and outcome types
+- Prefer constrained domain types to primitives and repeated validation
+- Map the generated `Validate` to `Fin` through `From` when primitive-to-domain conversion can fail
+- The generator keeps the constructor private, every value passes through the validation hook
+- Do not explicitly return `null` from functions
+- Reject unexpected `null` at public API inputs, except for optional parameters because their defaults must be compile-time constants
+- Enable nullable reference types, the compiler exposes accidental nullability before a value enters a pipeline
+- Use `Option<A>` for optional properties, parsing, lookup, and other computations that can produce no value
+- Use `Match` when a concrete result must be selected from the `None` and `Some` cases
+- Use `Unit` and `fun` to adapt `Action` into `Func`-based higher-order APIs without duplicating their behavior
