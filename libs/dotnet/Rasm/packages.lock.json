@@ -69,11 +69,11 @@
       },
       "Generator.Equals": {
         "type": "Direct",
-        "requested": "[4.0.2, )",
-        "resolved": "4.0.2",
-        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "zqji+K7TM8tXU196G+8XLYvfByng1g8VzDZqxYqf8L6oQj0vOb8L7yIEsGSMqc3rw4mVso/LN77cjYekKiFhgQ==",
         "dependencies": {
-          "Generator.Equals.Runtime": "4.0.2"
+          "Generator.Equals.Runtime": "4.1.0"
         }
       },
       "Google.Protobuf": {
@@ -232,8 +232,8 @@
       },
       "Generator.Equals.Runtime": {
         "type": "Transitive",
-        "resolved": "4.0.2",
-        "contentHash": "DUEiBio024JA+PD0By2DjnHMELyo8sjd9KmjQCjVT3nkxf0/y9TxwP9sDkZ4yTD+V0JU0KbzJ70tTruCJhfGGg==",
+        "resolved": "4.1.0",
+        "contentHash": "iv8xZ1p1BzIwUvGiGZFP/xBOSE9o1yrRauRc8OlPdt4yr3Tg/nE1nfrpjVqbuFj5tlBx6JIvBPdK7gPBqEyvlQ==",
         "dependencies": {
           "Microsoft.Bcl.HashCode": "6.0.0"
         }
