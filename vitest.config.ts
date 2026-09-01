@@ -11,10 +11,7 @@ type VitestProjectOptions = NonNullable<ViteUserConfig['test']>;
 const rootDirectory = import.meta.dirname;
 const isCI = process.env['CI'] === 'true';
 const artifacts = {
-    benchmarks: path.resolve(
-        rootDirectory,
-        '.artifacts/typescript/bench',
-    ),
+    benchmarks: path.resolve(rootDirectory, '.artifacts/typescript/bench'),
     coverage: path.resolve(rootDirectory, '.artifacts/typescript/coverage'),
     results: path.resolve(rootDirectory, '.artifacts/typescript/test-results'),
 } as const;

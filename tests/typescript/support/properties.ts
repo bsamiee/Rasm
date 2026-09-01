@@ -432,4 +432,4 @@ const Property = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Property, PropertyViolationError, InvalidPropertyCounterexampleError };
+export { InvalidPropertyCounterexampleError, Property, PropertyViolationError };

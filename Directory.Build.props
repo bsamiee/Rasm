@@ -43,14 +43,15 @@
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
     </PropertyGroup>
 
-    <!-- MPXJ.Net compiles its Java dependencies through IKVM at build time. The owning project is named here because item-list conditions cannot run in an evaluation-time PropertyGroup. -->
-    <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
+    <!-- Template for a project that compiles Java dependencies through IKVM. The owning project is named in the condition because a project-body opt-in property is not visible at .props evaluation time.
+    <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == '{IkvmConsumerProject}'">
         <IkvmCacheDir>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', '.cache', 'ikvm'))</IkvmCacheDir>
         <IkvmExportCacheDir>$([MSBuild]::NormalizeDirectory('$(IkvmCacheDir)', 'expcache'))</IkvmExportCacheDir>
         <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
     </PropertyGroup>
+    -->
 
-    <!-- Routes the IKVM image files through @(None). Every consumer of Rasm.Persistence imports IKVM.Image.targets through buildTransitive, and the SDK then drops the transitive copies by TargetPath. -->
+    <!-- Routes the IKVM image files through @(None). Every consumer of an IKVM-based project imports IKVM.Image.targets through buildTransitive, and the SDK then drops the transitive copies by TargetPath. -->
     <PropertyGroup Label="IKVM Image">
         <IkvmImageItemToNone>true</IkvmImageItemToNone>
     </PropertyGroup>

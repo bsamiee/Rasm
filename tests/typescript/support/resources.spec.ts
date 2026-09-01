@@ -3,13 +3,13 @@ import { expect, layer } from '@effect/vitest';
 import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { Effect, Option, Schema } from 'effect';
 import {
-    TestResourceError,
     Loopback,
     LoopbackServers,
     ObjectStore,
     ObjectStoreDoubles,
     TestDatabase,
     TestDatabases,
+    TestResourceError,
 } from './resources.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

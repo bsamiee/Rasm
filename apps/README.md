@@ -8,23 +8,22 @@
 apps/
 └── <app-name>/
     ├── <Project>/          # C# project, joined to Workspace.slnx
-    ├── <project>/          # Python project, seated as a uv workspace member
-    └── <project>/          # TypeScript project, seated by the pnpm apps/*/* glob
+    ├── <project>/          # Python project, joined as a uv workspace member
+    └── <project>/          # TypeScript project, included by the pnpm apps/*/* glob
 ```
 
 - Islands stay unrelated: two apps couple only where one takes the other's published package, never through a shared parent.
 - Language mix is an app decision, and one island spans C#, Python, and TypeScript with one directory per project.
-- Path segments carry app identity alone; host reach, tier, and deployment shape ride project configuration.
-- Strata law, the consumption axis roster, and the admission ladder live at `libs/.planning/ARCHITECTURE.md`.
+- Path segments carry app identity alone; host reach and deployment shape ride project configuration.
 
 ## [02]-[HOSTS]
 
-Host roster stays open. Rhino 9 and Grasshopper 2 are the bound hosts today, and Blender or any later host admits by landing its boundary package under `libs/.planning/ARCHITECTURE.md` `[12]-[ADMISSION]` — no tree, glob, or classification here changes for it.
+The host set stays open. Rhino 9 and Grasshopper 2 are the bound hosts today, and Blender or any later host admits by landing its boundary package under `libs/` — no tree, glob, or classification here changes for it.
 
 [CRITICAL]: Rhino targets the Rhino 9 lane on macOS; GH1 `.gha`, Rhino 8, and Windows are refused targets.
 
 - Hosts earn no folder level; an app naming its host is a naming choice, never structure.
-- Host assemblies resolve through shared build properties, and `Directory.Build.props` owns classification and the reference roster.
+- Host assemblies resolve through shared build properties, and `Directory.Build.props` owns classification and the host assembly references.
 
 ## [03]-[SUBSTRATE]
 

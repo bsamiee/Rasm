@@ -9,27 +9,7 @@
     },
     "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts"],
     "references": [
-        {
-            "path": "./libs/typescript/core"
-        },
-        {
-            "path": "./libs/typescript/security"
-        },
-        {
-            "path": "./libs/typescript/data"
-        },
-        {
-            "path": "./libs/typescript/runtime"
-        },
-        {
-            "path": "./libs/typescript/ui"
-        },
-        {
-            "path": "./libs/typescript/ui/viewer"
-        },
-        {
-            "path": "./libs/typescript/iac"
-        },
+        // Add one entry per workspace package tsconfig, e.g. { "path": "./libs/typescript/{package}" }
         {
             "path": "./tests/typescript/support"
         }

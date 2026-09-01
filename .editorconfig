@@ -490,19 +490,19 @@ dotnet_diagnostic.EPC39.severity = error                                      # 
 dotnet_diagnostic.EPC40.severity = error                                      # Off by default: IEnumerable<T> parameter enumerated more than once.
 
 # --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------
-# Severity is set here only; RASM0002 rejects NoWarn and WarningsNotAsErrors in project files. IKVM exemptions live in the root targets.
+# Severity is set here only; RASM0002 rejects NoWarn and WarningsNotAsErrors in project files.
 dotnet_diagnostic.CS1591.severity = none                                      # XML docs are generated for tooling; member docs are optional.
 dotnet_diagnostic.CA2225.severity = none                                      # Operator overloads from LanguageExt and Thinktecture need no named alternatives.
 
-[{libs/dotnet/Rasm,libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper}/**.cs]
-dotnet_diagnostic.CA1416.severity = none                                      # Rhino's System.Drawing.Common implements the Windows-only members on macOS; CA1416 reads the reference assembly only.
+# Template for a project that references the Rhino host assemblies:
+# [libs/dotnet/{rhino-host-project}/**.cs]
+# dotnet_diagnostic.CA1416.severity = none                                    # Rhino's System.Drawing.Common implements the Windows-only members on macOS; CA1416 reads the reference assembly only.
+# dotnet_diagnostic.CA1724.severity = none                                    # Microsoft.macOS Phase namespace collides with same-named application types.
 
-[{libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper}/**.cs]
-dotnet_diagnostic.CA1724.severity = none                                      # Microsoft.macOS Phase namespace collides with the ComponentUi.Phase enum.
-
-[libs/dotnet/Rasm.AppHost/**.cs]
-dotnet_diagnostic.EXTEXP0002.severity = none                                  # Experimental API opt-in (HmacRedactor).
-dotnet_diagnostic.EXTEXP0008.severity = none                                  # Experimental API opt-in (resource monitoring).
+# Template for a project that opts into Microsoft.Extensions experimental APIs:
+# [libs/dotnet/{host-project}/**.cs]
+# dotnet_diagnostic.EXTEXP0002.severity = none                                # Experimental API opt-in (HmacRedactor).
+# dotnet_diagnostic.EXTEXP0008.severity = none                                # Experimental API opt-in (resource monitoring).
 
 [.artifacts/**.cs]
 dotnet_diagnostic.EPC29.severity = none                                       # xunit.v3.msbuildtasks and Microsoft.Testing.Platform.MSBuild generate ExcludeFromCodeCoverage without a Justification.

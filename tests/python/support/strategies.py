@@ -336,7 +336,7 @@ def strategy_for[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
             node = _mi.type_info(subject)
         except TypeError:
             return st.from_type(subject)  # ty: ignore[invalid-argument-type]
-        return _msgspec_strategy(node)   # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+        return _msgspec_strategy(node)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
     if subject not in _REGISTERED:
         _REGISTERED.add(subject)
         if (cases := _tagged_cases(subject)) is not None:

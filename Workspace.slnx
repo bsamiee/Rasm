@@ -1,39 +1,6 @@
 <Solution>
     <Folder Name="/libs/" />
     <Folder Name="/libs/dotnet/" />
-    <Folder Name="/libs/dotnet/Rasm/">
-        <Project Path="libs/dotnet/Rasm/Rasm.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.AppHost/">
-        <Project Path="libs/dotnet/Rasm.AppHost/Rasm.AppHost.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.AppUi/">
-        <Project Path="libs/dotnet/Rasm.AppUi/Rasm.AppUi.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Bim/">
-        <Project Path="libs/dotnet/Rasm.Bim/Rasm.Bim.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Compute/">
-        <Project Path="libs/dotnet/Rasm.Compute/Rasm.Compute.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Element/">
-        <Project Path="libs/dotnet/Rasm.Element/Rasm.Element.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Fabrication/">
-        <Project Path="libs/dotnet/Rasm.Fabrication/Rasm.Fabrication.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Grasshopper/">
-        <Project Path="libs/dotnet/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Materials/">
-        <Project Path="libs/dotnet/Rasm.Materials/Rasm.Materials.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Persistence/">
-        <Project Path="libs/dotnet/Rasm.Persistence/Rasm.Persistence.csproj" />
-    </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Rhino/">
-        <Project Path="libs/dotnet/Rasm.Rhino/Rasm.Rhino.csproj" />
-    </Folder>
     <Folder Name="/tests/" />
     <Folder Name="/tests/dotnet/" />
     <Folder Name="/tests/dotnet/support/">

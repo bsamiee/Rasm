@@ -207,7 +207,10 @@ const resolveOptions = (browser = false) => ({
         ? ['import', 'module', 'browser', 'default']
         : ['import', 'module', 'default'],
     ...(browser
-        ? { dedupe: ['react', 'react-dom'], extensions: [...defaults.extensions] }
+        ? {
+              dedupe: ['react', 'react-dom'],
+              extensions: [...defaults.extensions],
+          }
         : {}),
     tsconfigPaths: true,
 });
@@ -311,8 +314,7 @@ const pluginSets = {
                 },
                 logStats: true,
                 png: {
-                    quality: (config.imageQuality ?? defaults.imageQuality)
-                        .png,
+                    quality: (config.imageQuality ?? defaults.imageQuality).png,
                 },
                 test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
                 webp: {
@@ -530,7 +532,8 @@ const configByMode: {
                     !id.startsWith('/') &&
                     !(config.bundle ?? []).some(
                         (dependency) =>
-                            id === dependency || id.startsWith(`${dependency}/`),
+                            id === dependency ||
+                            id.startsWith(`${dependency}/`),
                     ),
                 output: { exports: 'named' as const },
             },
@@ -558,8 +561,7 @@ const createViteConfig = (
         ({ config, build }) =>
             Match.value(config).pipe(
                 Match.discriminatorsExhaustive('mode')({
-                    app: (appConfig) =>
-                        configByMode.app(appConfig, build),
+                    app: (appConfig) => configByMode.app(appConfig, build),
                     library: (libraryConfig) =>
                         configByMode.library(libraryConfig, build),
                     server: (serverConfig) =>
