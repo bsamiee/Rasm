@@ -70,4 +70,9 @@
                Text="Project manifest '$(MSBuildProjectFile)' contains a centrally managed element ('$(_RasmProjectPolicyElement.Trim())…'): package versions belong in Directory.Packages.props, analyzer severities in .editorconfig, and output and analysis settings in Directory.Build.props." />
     </Target>
 
+    <Target Name="ValidateRasmNativeReferences" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+        <Error Code="RASM0004"
+               Condition="'@(PackageReference->WithMetadataValue('Identity', 'lcms2-dotnet'))' != '' and '@(PackageReference->WithMetadataValue('Identity', 'Rasm.Native.Lcms2'))' == ''"
+               Text="Project '$(MSBuildProjectName)' references lcms2-dotnet without Rasm.Native.Lcms2. The shared library loads from that package." />
+    </Target>
 </Project>

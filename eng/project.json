@@ -1,0 +1,20 @@
+{
+    "$schema": "../node_modules/nx/schemas/project-schema.json",
+    "name": "eng",
+    "targets": {
+        "provision-tools": {
+            "command": "uv run python -m eng.scripts.provision",
+            "cache": false
+        },
+        "stage-lcms2-native": {
+            "command": "uv run python -m eng.scripts.stage_lcms2_native",
+            "cache": false,
+            "dependsOn": ["provision-tools"]
+        },
+        "pack-lcms2-native": {
+            "command": "dotnet pack eng/native/Rasm.Native.Lcms2/Rasm.Native.Lcms2.csproj -c Release -o eng/nuget --nologo",
+            "cache": false,
+            "dependsOn": ["stage-lcms2-native"]
+        }
+    }
+}

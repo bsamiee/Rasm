@@ -1,4 +1,5 @@
 <Project>
+    <!-- Group packages by domain and keep each package family together -->
     <PropertyGroup Label="Central Package Management">
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
         <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
@@ -17,22 +18,88 @@
         <PackageVersion Include="System.Drawing.Common"                                   Version="10.0.11" />
     </ItemGroup>
 
-    <ItemGroup Label="Core Dependencies">
+    <ItemGroup Label="Core">
         <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />
         <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-77" />
+        <PackageVersion Include="LanguageExt.Parsec"                                      Version="5.0.0-beta-77" />
         <PackageVersion Include="LanguageExt.Streaming"                                   Version="5.0.0-beta-77" />
+        <PackageVersion Include="LanguageExt.Sys"                                         Version="5.0.0-beta-77" />
+        <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream"                     Version="4.0.1-preview" />
         <PackageVersion Include="NodaTime"                                                Version="3.3.3" />
+        <PackageVersion Include="NodaTime.Serialization.Protobuf"                         Version="2.0.2" />
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson"                   Version="1.4.0" />
-        <PackageVersion Include="QuikGraph"                                               Version="2.5.0" />
         <PackageVersion Include="Riok.Mapperly"                                           Version="5.0.0-next.10" />
-        <PackageVersion Include="System.IO.Hashing"                                       Version="10.0.11" />
-        <PackageVersion Include="System.Numerics.Tensors"                                 Version="10.0.11" />
+        <PackageVersion Include="System.IO.Hashing"                                       Version="11.0.0-preview.7.26381.103" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.5.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.5.0" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.5.0" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.5.0" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions.Serilog"                 Version="10.5.0" />
-        <PackageVersion Include="UnitsNet"                                                Version="5.75.1" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mathematics">
+        <PackageVersion Include="CSparse"                                                 Version="4.4.1" />
+        <PackageVersion Include="MathNet.Numerics"                                        Version="6.0.0-beta2" />
+        <PackageVersion Include="MathNet.Numerics.Data.Text"                              Version="6.0.0-beta2" />
+        <PackageVersion Include="MathNet.Numerics.Data.Matlab"                            Version="6.0.0-beta2" />
+        <PackageVersion Include="MathNet.Numerics.Providers.MKL"                          Version="6.0.0-beta2" />
+        <PackageVersion Include="MathNet.Numerics.Providers.OpenBLAS"                     Version="6.0.0-beta2" />
+        <PackageVersion Include="Meta.Numerics"                                           Version="4.2.0" />
+        <PackageVersion Include="Microsoft.ML.Probabilistic"                              Version="0.4.2504.701" />
+        <PackageVersion Include="Microsoft.ML.Probabilistic.Compiler"                     Version="0.4.2504.701" />
+        <PackageVersion Include="PeterO.Numbers"                                          Version="1.8.2" />
+        <PackageVersion Include="System.Numerics.Tensors"                                 Version="11.0.0-preview.7.26381.103" />
+        <PackageVersion Include="TYoshimura.DoubleDouble"                                 Version="5.0.8" />
+        <PackageVersion Include="TYoshimura.DoubleDouble.Complex"                         Version="2.0.1" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageVersion Include="Akade.IndexedSet"                                        Version="1.5.0" />
+        <PackageVersion Include="Cloud.Unum.USearch"                                      Version="2.26.2" />
+        <PackageVersion Include="DotNext"                                                 Version="6.7.0" />
+        <PackageVersion Include="DotNext.Threading"                                       Version="6.7.0" />
+        <PackageVersion Include="QuikGraph"                                               Version="2.5.0" />
+        <PackageVersion Include="QuikGraph.Graphviz"                                      Version="2.5.0" />
+        <PackageVersion Include="QuikGraph.MSAGL"                                         Version="2.5.0" />
+        <PackageVersion Include="QuikGraph.Petri"                                         Version="2.5.0" />
+        <PackageVersion Include="QuikGraph.Serialization"                                 Version="2.5.0" />
+        <PackageVersion Include="Supercluster.KDTree.Net"                                 Version="1.0.22" />
+        <PackageVersion Include="SwiftCollections.Lean"                                   Version="7.0.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geometry">
+        <PackageVersion Include="CavalierContours"                                        Version="2.0.0" />
+        <PackageVersion Include="CDT.NET"                                                 Version="1.1.0" />
+        <PackageVersion Include="Clipper2"                                                Version="2.0.0" />
+        <PackageVersion Include="Delaunator"                                              Version="1.0.11" />
+        <PackageVersion Include="Evergine.Bindings.MeshOptimizer"                         Version="2026.8.3.18" />
+        <PackageVersion Include="GeometRi"                                                Version="1.5.0.8" />
+        <PackageVersion Include="geometry3Sharp"                                          Version="1.0.324" />
+        <PackageVersion Include="ManifoldRust"                                            Version="0.5.0" />
+        <PackageVersion Include="MIConvexHull"                                            Version="1.1.19.1019" />
+        <PackageVersion Include="RectangleBinPack.CSharp"                                 Version="1.0.4" />
+        <PackageVersion Include="SharpVoronoiLib"                                         Version="1.2.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageVersion Include="NodaMoney"                                               Version="2.7.0" />
+        <PackageVersion Include="NodaMoney.DependencyInjection"                           Version="2.7.0" />
+        <PackageVersion Include="UnitsNet"                                                Version="6.0.0-pre103" />
+        <PackageVersion Include="UnitsNet.Serialization.SystemTextJson"                   Version="6.0.0-pre103" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color">
+        <PackageVersion Include="lcms2-dotnet"                                            Version="2.19.1" />
+        <PackageVersion Include="Rasm.Native.Lcms2"                                       Version="2.19.1" />
         <PackageVersion Include="Wacton.Unicolour"                                        Version="8.0.0" />
+        <PackageVersion Include="Wacton.Unicolour.Datasets"                               Version="5.0.0" />
+        <PackageVersion Include="Wacton.Unicolour.Experimental"                           Version="3.0.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="Parsing">
+        <PackageVersion Include="Markdig"                                                 Version="1.3.2" />
+        <PackageVersion Include="Pidgin"                                                  Version="3.5.1" />
+        <PackageVersion Include="Sep"                                                     Version="0.17.0" />
     </ItemGroup>
 
     <ItemGroup Label="Serialization and RPC Dependencies">
@@ -49,50 +116,29 @@
         <PackageVersion Include="Grpc.StatusProto"                                        Version="2.83.0" />
         <PackageVersion Include="MessagePack"                                             Version="3.1.8" />
         <PackageVersion Include="MessagePackAnalyzer"                                     Version="3.1.8" />
-        <PackageVersion Include="NodaTime.Serialization.Protobuf"                         Version="2.0.2" />
-    </ItemGroup>
-
-    <ItemGroup Label="Numerical Computing Dependencies">
-        <PackageVersion Include="CSparse"                                                 Version="4.4.0" />
-        <PackageVersion Include="MathNet.Numerics"                                        Version="6.0.0-beta2" />
-        <PackageVersion Include="MathNet.Numerics.Providers.MKL"                          Version="6.0.0-beta2" />
-        <PackageVersion Include="MathNet.Numerics.Data.Text"                              Version="6.0.0-beta2" />
-        <PackageVersion Include="MathNet.Numerics.Providers.OpenBLAS"                     Version="6.0.0-beta2" />
-        <PackageVersion Include="PeterO.Numbers"                                          Version="1.8.2" />
-        <PackageVersion Include="TYoshimura.DoubleDouble"                                 Version="5.0.8" />
-    </ItemGroup>
-
-    <ItemGroup Label="Computational Geometry Dependencies">
-        <PackageVersion Include="MIConvexHull"                                            Version="1.1.19.1019" />
-        <PackageVersion Include="Supercluster.KDTree.Net"                                 Version="1.0.22" />
     </ItemGroup>
 
     <ItemGroup Label="Digital Fabrication Dependencies">
-        <PackageVersion Include="CavalierContours"                                        Version="1.0.0" />
-        <PackageVersion Include="Clipper2"                                                Version="2.0.0" />
         <PackageVersion Include="DSTV.Net"                                                Version="1.3.0" />
         <PackageVersion Include="MTConnect.NET-Common"                                    Version="6.9.0.2" />
         <PackageVersion Include="OcctNet.Wrapper"                                         Version="0.1.1" />
-        <PackageVersion Include="PicoGK"                                                  Version="2.2.0" />
-        <PackageVersion Include="RectangleBinPack.CSharp"                                 Version="1.0.4" />
+        <PackageVersion Include="PicoGK"                                                  Version="2.3.0" />
         <PackageVersion Include="Rhino3dm"                                                Version="8.32.0" />
         <PackageVersion Include="Robots"                                                  Version="2.2.5" />
     </ItemGroup>
 
     <ItemGroup Label="Geometry Interchange">
+        <PackageVersion Include="Aardvark.Data.E57"                                       Version="5.6.3" />
+        <PackageVersion Include="Aardvark.Geometry.PointTree"                             Version="5.6.3" />
         <PackageVersion Include="ACadSharp"                                               Version="3.6.51" />
+        <PackageVersion Include="Ply.Net"                                                 Version="5.6.3" />
         <PackageVersion Include="SharpGLTF.Core"                                          Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Ext.3DTiles"                                   Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Runtime"                                       Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Toolkit"                                       Version="1.0.6" />
         <PackageVersion Include="Speckle.Objects"                                         Version="2026.6.0" />
         <PackageVersion Include="Speckle.Sdk"                                             Version="2026.6.0" />
-        <PackageVersion Include="Unofficial.laszip.netstandard"                           Version="5.6.2" />
-    </ItemGroup>
-
-    <ItemGroup Label="Mesh Processing">
-        <PackageVersion Include="Alimer.Bindings.MeshOptimizer"                           Version="1.2.1" />
-        <PackageVersion Include="geometry3Sharp"                                          Version="1.0.324" />
+        <PackageVersion Include="Unofficial.laszip.netstandard"                           Version="5.6.3" />
     </ItemGroup>
 
     <ItemGroup Label="Energy Simulation">
@@ -101,6 +147,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Geospatial Dependencies">
+        <PackageVersion Include="geohash-dotnet"                                          Version="3.0.0" />
         <PackageVersion Include="NetTopologySuite"                                        Version="2.6.0" />
         <PackageVersion Include="NetTopologySuite.IO.Esri.Shapefile"                      Version="1.2.0" />
         <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ"                         Version="4.0.0" />
@@ -120,7 +167,6 @@
         <PackageVersion Include="CloudNative.CloudEvents.Protobuf"                        Version="2.9.0" />
         <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson"                  Version="2.9.0" />
         <PackageVersion Include="NATS.Net"                                                Version="3.1.0" />
-        <PackageVersion Include="Pidgin"                                                  Version="3.5.1" />
     </ItemGroup>
 
     <ItemGroup Label="Data Dependencies">
@@ -141,7 +187,6 @@
         <PackageVersion Include="Google.OrTools"                                          Version="9.15.6755" />
         <PackageVersion Include="HyperJet"                                                Version="0.2.0" />
         <PackageVersion Include="libtorch-cpu"                                            Version="2.10.0" />
-        <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream"                     Version="3.0.1" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntime"                                Version="1.28.0" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntime.Extensions"                     Version="0.14.0" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI"                           Version="0.15.1" />
@@ -171,15 +216,12 @@
         <PackageVersion Include="ids-lib"                                                 Version="1.0.121" />
         <PackageVersion Include="MaxRev.Gdal.Core"                                        Version="3.13.1.534" />
         <PackageVersion Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64"                  Version="3.13.1.534" />
-        <PackageVersion Include="NodaMoney"                                               Version="2.7.0" />
         <PackageVersion Include="Openize.Drako"                                           Version="26.2.0" />
-        <PackageVersion Include="Ply.Net"                                                 Version="5.6.2" />
         <PackageVersion Include="ProjNET"                                                 Version="2.1.0" />
         <PackageVersion Include="SharpKml.Core"                                           Version="6.1.0" />
         <PackageVersion Include="Smino.Bcf.Toolkit"                                       Version="3.2.0" />
         <PackageVersion Include="StructuralAnalysisFormat"                                Version="1.7.3" />
         <PackageVersion Include="subtree"                                                 Version="1.7.0" />
-        <PackageVersion Include="SwiftCollections.Lean"                                   Version="6.0.0" />
         <PackageVersion Include="Themis.Las"                                              Version="2025.3.5" />
         <PackageVersion Include="UniversalSceneDescription"                               Version="7.3.4" />
         <PackageVersion Include="VividOrange.Cases"                                       Version="0.1.0" />
@@ -208,7 +250,6 @@
         <PackageVersion Include="VividOrange.Standards"                                   Version="0.1.0" />
         <PackageVersion Include="VividOrange.Uncertainties"                               Version="0.2.0" />
         <PackageVersion Include="VividOrange.Uncertainties.Quantities"                    Version="0.2.0" />
-        <PackageVersion Include="Wacton.Unicolour.Datasets"                               Version="5.0.0" />
     </ItemGroup>
 
     <ItemGroup Label="Application Hosting Dependencies">
@@ -221,7 +262,6 @@
         <PackageVersion Include="BACnet"                                                  Version="4.0.0" />
         <PackageVersion Include="Cronos"                                                  Version="0.13.0" />
         <PackageVersion Include="FluentModbus"                                            Version="5.3.2" />
-        <PackageVersion Include="LanguageExt.Sys"                                         Version="5.0.0-beta-77" />
         <PackageVersion Include="Microsoft.AspNetCore.Authorization"                      Version="10.0.10" />
         <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson"           Version="10.0.10" />
         <PackageVersion Include="Microsoft.Diagnostics.Runtime"                           Version="4.0.732401" />
@@ -300,7 +340,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Data Storage Dependencies">
-        <PackageVersion Include="Aardvark.Data.E57"                                       Version="5.6.2" />
         <PackageVersion Include="Ara3D.BimOpenSchema"                                     Version="1.0.1" />
         <PackageVersion Include="Ara3D.BimOpenSchema.IO"                                  Version="1.0.1" />
         <PackageVersion Include="AWSSDK.KeyManagementService"                             Version="4.0.100.6" />
@@ -326,7 +365,6 @@
         <PackageVersion Include="JsonSchema.Net"                                          Version="9.4.0" />
         <PackageVersion Include="K4os.Compression.LZ4"                                    Version="1.3.8" />
         <PackageVersion Include="K4os.Compression.LZ4.Streams"                            Version="1.3.8" />
-        <PackageVersion Include="LanguageExt.Parsec"                                      Version="5.0.0-beta-77" />
         <PackageVersion Include="LightningDB"                                             Version="0.22.0" />
         <PackageVersion Include="linq2db.EntityFrameworkCore"                             Version="10.4.0" />
         <PackageVersion Include="Marten"                                                  Version="9.22.3" />
@@ -355,12 +393,10 @@
         <PackageVersion Include="RabbitMQ.Client"                                         Version="7.2.2" />
         <PackageVersion Include="rocksdb"                                                 Version="11.1.2.3412" />
         <PackageVersion Include="ScyllaDBCSharpDriver"                                    Version="3.22.0.4" />
-        <PackageVersion Include="Sep"                                                     Version="0.15.1" />
         <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3"                           Version="3.0.5" />
         <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3mc"                         Version="2.1.11" />
         <PackageVersion Include="StackExchange.Redis"                                     Version="3.1.13" />
         <PackageVersion Include="System.Formats.Cbor"                                     Version="10.0.10" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.5.0" />
         <PackageVersion Include="ZstdSharp.Port"                                          Version="0.8.8" />
     </ItemGroup>
 
@@ -400,12 +436,10 @@
         <PackageVersion Include="Irihi.Ursa.ReactiveUIExtension"                          Version="2.0.0" />
         <PackageVersion Include="Irihi.Ursa.Themes.Semi"                                  Version="2.2.0" />
         <PackageVersion Include="Kiwi"                                                    Version="3.0.0" />
-        <PackageVersion Include="lcmsNET"                                                 Version="1.2.1" />
         <PackageVersion Include="LiveChartsCore.SkiaSharpView.Avalonia"                   Version="2.0.5" />
         <PackageVersion Include="LoroCs"                                                  Version="1.13.7" />
         <PackageVersion Include="Mapsui.Avalonia12"                                       Version="5.1.0" />
         <PackageVersion Include="Mapsui.Nts"                                              Version="5.1.0" />
-        <PackageVersion Include="Markdig"                                                 Version="1.3.2" />
         <PackageVersion Include="Melanchall.DryWetMidi"                                   Version="8.0.3" />
         <PackageVersion Include="MessageFormat"                                           Version="8.0.0" />
         <PackageVersion Include="NodeEditorAvalonia"                                      Version="12.0.0" />
@@ -447,6 +481,7 @@
         <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing"               Version="10.8.0" />
         <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump"                  Version="2.3.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.HangDump"                   Version="2.3.3" />
+        <PackageVersion Include="NodaTime.Testing"                                        Version="3.3.3" />
         <PackageVersion Include="xunit.v3.assert"                                         Version="4.0.0" />
         <PackageVersion Include="xunit.v3.common"                                         Version="4.0.0" />
         <PackageVersion Include="xunit.v3.extensibility.core"                             Version="4.0.0" />
@@ -519,7 +554,6 @@
         <PackageVersion Include="Xbim.Ifc4"                                               Version="6.1.605" />
         <PackageVersion Include="Xbim.IO.Table"                                           Version="6.0.172" />
 
-        <PackageVersion Include="UnitsNet.Serialization.JsonNet"                          Version="5.50.0" />
         <PackageVersion Include="VividOrange.ForceMomentInteraction"                      Version="0.2.1" />
         <PackageVersion Include="VividOrange.Geometry"                                    Version="1.8.0" />
         <PackageVersion Include="VividOrange.ICartesianBase"                              Version="1.8.0" />
@@ -567,4 +601,6 @@
         <PackageVersion Include="SqlParserCS"                                             Version="0.6.5" />
         <PackageVersion Include="SSH.NET"                                                 Version="2026.0.0" />
     </ItemGroup>
+
+    <!-- Native libraries ship as runtime packages restored from the local feed -->
 </Project>

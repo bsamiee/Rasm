@@ -1,0 +1,6 @@
+<Project>
+    <!-- stops repo build inheritance so packaging projects under eng/native build in isolation -->
+    <PropertyGroup>
+        <ArtifactsPath>$(MSBuildThisFileDirectory)../../.artifacts/native/msbuild</ArtifactsPath>
+    </PropertyGroup>
+</Project>
