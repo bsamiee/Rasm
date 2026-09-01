@@ -456,14 +456,18 @@ dotnet_diagnostic.IDE0380.severity = error                                    # 
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 
 # --- [MAPPERLY_ANALYZERS] ----------------------------------------------------
-dotnet_diagnostic.RMG001.severity = error                                     # Reject registered mappings that use throwing conversions, including an explicit LanguageExt Option<T> cast.
-dotnet_diagnostic.RMG007.severity = error                                     # Reject nullable values passed to null-rejecting protobuf setters; custom mappings handle field presence explicitly.
-dotnet_diagnostic.RMG012.severity = error                                     # Reject target members omitted from a mapping.
-dotnet_diagnostic.RMG013.severity = error                                     # Fail the build when no constructor can map the contract to its serialized representation.
-dotnet_diagnostic.RMG020.severity = error                                     # Reject source members omitted from a mapping unless the mapping explicitly documents the ignored member.
-dotnet_diagnostic.RMG036.severity = error                                     # [MapDerivedType] on a protobuf oneof envelope is rejected; the generated Switch implements union dispatch.
-dotnet_diagnostic.RMG060.severity = error                                     # Define one user mapping per (T, TWire) pair so selection is unambiguous.
-dotnet_diagnostic.RMG093.severity = error                                     # Reject mappings that ignore the supplied source value.
+# Riok.Mapperly ships no separate analyzer; the source generator reports every RMG rule. Error- and
+# Warning-default rules already error under TreatWarningsAsErrors, so only the Info-default rules earn a row.
+dotnet_diagnostic.RMG009.severity = error                                     # Cannot map to a read-only target member; the member is dropped without a diagnostic at any lower severity.
+dotnet_diagnostic.RMG010.severity = error                                     # Cannot map from a write-only source member; the value never reaches the target.
+dotnet_diagnostic.RMG011.severity = error                                     # Cannot map to a write-only member path; the nested write is dropped.
+dotnet_diagnostic.RMG015.severity = error                                     # Cannot map to an init-only member path; the nested value never reaches the constructed target.
+dotnet_diagnostic.RMG033.severity = error                                     # Same-type member copied by reference under UseDeepCloning; the clone would share mutable state.
+dotnet_diagnostic.RMG068.severity = error                                     # A hand-written mapping the projection cannot inline; the expression tree stops being translatable.
+dotnet_diagnostic.RMG083.severity = error                                     # Cannot map to a read-only type; the member is skipped and no other rule reports it.
+dotnet_diagnostic.RMG088.severity = error                                     # The naming attribute that spells an enum member is missing; the emitted name is not the domain name.
+dotnet_diagnostic.RMG089.severity = error                                     # Nullable source member assigned to a non-nullable target member; MapProperty.SuppressNullMismatchDiagnostic is the per-member escape.
+dotnet_diagnostic.RMG090.severity = error                                     # Nullable source type assigned to a non-nullable target type; the null becomes a default or throws.
 
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
