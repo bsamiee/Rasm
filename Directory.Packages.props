@@ -20,12 +20,13 @@
     <ItemGroup Label="Core Dependencies">
         <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />
         <PackageVersion Include="Generator.Equals"                                        Version="4.1.0" />
+        <PackageVersion Include="Generator.Equals.Runtime"                                Version="4.1.0" />
         <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-77" />
         <PackageVersion Include="LanguageExt.Streaming"                                   Version="5.0.0-beta-77" />
         <PackageVersion Include="NodaTime"                                                Version="3.3.3" />
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson"                   Version="1.4.0" />
         <PackageVersion Include="QuikGraph"                                               Version="2.5.0" />
-        <PackageVersion Include="Riok.Mapperly"                                           Version="4.3.1" />
+        <PackageVersion Include="Riok.Mapperly"                                           Version="5.0.0-next.10" />
         <PackageVersion Include="System.IO.Hashing"                                       Version="10.0.11" />
         <PackageVersion Include="System.Numerics.Tensors"                                 Version="10.0.11" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.5.0" />

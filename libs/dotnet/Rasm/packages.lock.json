@@ -76,6 +76,15 @@
           "Generator.Equals.Runtime": "4.1.0"
         }
       },
+      "Generator.Equals.Runtime": {
+        "type": "Direct",
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "iv8xZ1p1BzIwUvGiGZFP/xBOSE9o1yrRauRc8OlPdt4yr3Tg/nE1nfrpjVqbuFj5tlBx6JIvBPdK7gPBqEyvlQ==",
+        "dependencies": {
+          "Microsoft.Bcl.HashCode": "6.0.0"
+        }
+      },
       "Google.Protobuf": {
         "type": "Direct",
         "requested": "[3.36.0, )",
@@ -228,14 +237,6 @@
         "dependencies": {
           "Celly": "1.2.0",
           "Google.Protobuf": "3.31.1"
-        }
-      },
-      "Generator.Equals.Runtime": {
-        "type": "Transitive",
-        "resolved": "4.1.0",
-        "contentHash": "iv8xZ1p1BzIwUvGiGZFP/xBOSE9o1yrRauRc8OlPdt4yr3Tg/nE1nfrpjVqbuFj5tlBx6JIvBPdK7gPBqEyvlQ==",
-        "dependencies": {
-          "Microsoft.Bcl.HashCode": "6.0.0"
         }
       },
       "Microsoft.Bcl.HashCode": {

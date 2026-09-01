@@ -10,7 +10,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Host Substrate">
-        <PackageReference Include="Generator.Equals" />
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />

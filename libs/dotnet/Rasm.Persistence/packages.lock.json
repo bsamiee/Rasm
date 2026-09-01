@@ -363,6 +363,15 @@
           "Generator.Equals.Runtime": "4.1.0"
         }
       },
+      "Generator.Equals.Runtime": {
+        "type": "Direct",
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "iv8xZ1p1BzIwUvGiGZFP/xBOSE9o1yrRauRc8OlPdt4yr3Tg/nE1nfrpjVqbuFj5tlBx6JIvBPdK7gPBqEyvlQ==",
+        "dependencies": {
+          "Microsoft.Bcl.HashCode": "6.0.0"
+        }
+      },
       "Google.Cloud.Kms.V1": {
         "type": "Direct",
         "requested": "[3.26.0, )",
@@ -885,9 +894,9 @@
       },
       "Riok.Mapperly": {
         "type": "Direct",
-        "requested": "[4.3.1, )",
-        "resolved": "4.3.1",
-        "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
+        "requested": "[5.0.0-next.10, )",
+        "resolved": "5.0.0-next.10",
+        "contentHash": "bFtga7serPecDcuH/KpKGMKPLFjNeLMzKwecuYPIL4pLNU9vGeCEbJQ2CfvQwXqF3VtHcIy9eyWbkYdoupgnpA=="
       },
       "RocksDB": {
         "type": "Direct",
@@ -1309,14 +1318,6 @@
         "contentHash": "LFtxXpQNor8az1ez3rN9oz2cqf/06i9yTrPyJ9R83qLEpFAU7Of0WL2hoSXzLHer4lh+6mO1NV4VQFiBzNRtjw==",
         "dependencies": {
           "FSharp.Core": "4.3.2"
-        }
-      },
-      "Generator.Equals.Runtime": {
-        "type": "Transitive",
-        "resolved": "4.1.0",
-        "contentHash": "iv8xZ1p1BzIwUvGiGZFP/xBOSE9o1yrRauRc8OlPdt4yr3Tg/nE1nfrpjVqbuFj5tlBx6JIvBPdK7gPBqEyvlQ==",
-        "dependencies": {
-          "Microsoft.Bcl.HashCode": "6.0.0"
         }
       },
       "Google.Api.Gax": {
@@ -2575,7 +2576,7 @@
           "CloudNative.CloudEvents.Protobuf": "[2.9.0, )",
           "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
-          "Generator.Equals": "[4.1.0, )",
+          "Generator.Equals.Runtime": "[4.1.0, )",
           "Google.Protobuf": "[3.36.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -2610,7 +2611,7 @@
           "CloudNative.CloudEvents.AspNetCore": "[2.9.0, )",
           "Cronos": "[0.13.0, )",
           "FluentModbus": "[5.3.2, )",
-          "Generator.Equals": "[4.1.0, )",
+          "Generator.Equals.Runtime": "[4.1.0, )",
           "Google.Api.CommonProtos": "[2.17.0, )",
           "Google.Protobuf": "[3.36.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.83.0, )",
@@ -2716,7 +2717,7 @@
           "Celly.Protovalidate": "[1.2.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
-          "Generator.Equals": "[4.1.0, )",
+          "Generator.Equals.Runtime": "[4.1.0, )",
           "Google.Protobuf": "[3.36.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",

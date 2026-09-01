@@ -182,7 +182,7 @@ dotnet_diagnostic.MA0170.severity = error                                     # 
 dotnet_diagnostic.MA0171.severity = error                                     # Shipped disabled: `is null` over Nullable<T>.HasValue.
 dotnet_diagnostic.MA0172.severity = error                                     # Shipped disabled: identical operands on both sides of a binary operator.
 dotnet_diagnostic.MA0186.severity = error                                     # Shipped disabled: [NotNullWhen(true)] on the Equals parameter.
-dotnet_diagnostic.MA0217.severity = error                                     # Shipped disabled: require static lambdas when nothing is captured; equivalent to TTRESG1001 outside Thinktecture APIs.
+dotnet_diagnostic.MA0217.severity = error                                     # Shipped disabled: require static lambdas when nothing is captured; overlaps TTRESG1001 on non-capturing Thinktecture arms, and both name the same fix.
 dotnet_diagnostic.MA0031.severity = error                                     # Info default: Enumerable.Count() where Any() or Length answers.
 dotnet_diagnostic.MA0036.severity = error                                     # Info default: a class with only static members is static.
 dotnet_diagnostic.MA0057.severity = error                                     # Info default: attribute class names end with Attribute.
@@ -456,21 +456,27 @@ dotnet_diagnostic.IDE0380.severity = error                                    # 
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 
 # --- [MAPPERLY_ANALYZERS] ----------------------------------------------------
-# Riok.Mapperly ships no separate analyzer; the source generator reports every RMG rule. Error- and
-# Warning-default rules already error under TreatWarningsAsErrors, so only the Info-default rules earn a row.
+# Riok.Mapperly ships no separate analyzer; the source generator reports every RMG rule, and none ship disabled.
+# Error- and Warning-default rules already error under TreatWarningsAsErrors, so only the Info- and Hidden-default rules earn a row.
 dotnet_diagnostic.RMG009.severity = error                                     # Cannot map to a read-only target member; the member is dropped without a diagnostic at any lower severity.
 dotnet_diagnostic.RMG010.severity = error                                     # Cannot map from a write-only source member; the value never reaches the target.
 dotnet_diagnostic.RMG011.severity = error                                     # Cannot map to a write-only member path; the nested write is dropped.
 dotnet_diagnostic.RMG015.severity = error                                     # Cannot map to an init-only member path; the nested value never reaches the constructed target.
 dotnet_diagnostic.RMG033.severity = error                                     # Same-type member copied by reference under UseDeepCloning; the clone would share mutable state.
-dotnet_diagnostic.RMG068.severity = error                                     # A hand-written mapping the projection cannot inline; the expression tree stops being translatable.
 dotnet_diagnostic.RMG083.severity = error                                     # Cannot map to a read-only type; the member is skipped and no other rule reports it.
 dotnet_diagnostic.RMG088.severity = error                                     # The naming attribute that spells an enum member is missing; the emitted name is not the domain name.
 dotnet_diagnostic.RMG089.severity = error                                     # Nullable source member assigned to a non-nullable target member; MapProperty.SuppressNullMismatchDiagnostic is the per-member escape.
 dotnet_diagnostic.RMG090.severity = error                                     # Nullable source type assigned to a non-nullable target type; the null becomes a default or throws.
+dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: an ignored member states no Justification. Raising it above hidden is the documented way to require one.
 
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
+# Every TTRESG rule ships enabled at an Error or Warning default and already fails the build; only the Info-default rule earns a row.
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
+
+# --- [GENERATOR_EQUALS_ANALYZERS] --------------------------------------------
+# The analyzer ships inside the generator package; Error- and Warning-default GE rules already fail the build, so only the Info-default rules earn a row.
+dotnet_diagnostic.GE002.severity = error                                      # A complex member type without [Equatable] falls back to reference equality inside the generated comparer.
+dotnet_diagnostic.GE003.severity = error                                      # A complex collection element type without [Equatable] compares by reference; element state never enters the comparison.
 
 # --- [ERRORPRONE_ANALYZERS] --------------------------------------------------
 # Warning-default rules (EPC11-13, EPC16-18, EPC20, EPC23-26, EPC30-31, EPC34, EPC41, ERP021-022, ERP031, ERP042) already error under TreatWarningsAsErrors; only Info-default and disabled rules earn a row.

@@ -114,7 +114,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Core Substrate">
-        <PackageReference Include="Generator.Equals" />
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
