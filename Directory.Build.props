@@ -63,12 +63,6 @@
         <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers"  PrivateAssets="all" />
     </ItemGroup>
 
-    <!-- Generator.Equals pairs a generator with a runtime library. The generator stays private to the compiling project; the runtime carries the attributes and comparers that generated code and public API surface both name. -->
-    <ItemGroup Label="Workspace Generators">
-        <PackageReference Include="Generator.Equals"                           PrivateAssets="all" />
-        <PackageReference Include="Generator.Equals.Runtime" />
-    </ItemGroup>
-
     <PropertyGroup Label="Rhino Host Bundle">
         <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and '$(RHINO_APP_PATH)' != ''">$(RHINO_APP_PATH)</RhinoAppPath>
         <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and Exists('/Applications/Rhino 9.app')">/Applications/Rhino 9.app</RhinoAppPath>

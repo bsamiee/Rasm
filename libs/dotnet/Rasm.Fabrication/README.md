@@ -135,7 +135,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `NodaTime.Serialization.SystemTextJson` — STJ codec carrying those instants, intervals, and zones across the content-keyed wire.
 - `QuikGraph` — Setup-precedence, assembly, and rapid-link routing graphs, bipartite fixture assignment, and the mesh-shell disjoint-set components.
 - `Riok.Mapperly` — Source-generated boundary projections over non-aliased shapes; a shape behind an `extern alias` keeps a hand copyist.
-- `Generator.Equals` — Compile-time structural equality and member-level difference results over attributed partial owners.
 - `UnitsNet` — Cut-parameter and tolerance quantity boundary.
 - `System.Numerics.Tensors` — Sampling folds across the hot toolpath and nesting lanes.
 - `CommunityToolkit.HighPerformance` — Grayscale, engagement, and layer-census raster grids.

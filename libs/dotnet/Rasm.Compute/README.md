@@ -124,7 +124,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
-- `Generator.Equals` — `[Equatable]` structural equality and `Inequalities` diff surfaces for class roots and collection members; union CASES only.
 - `NodaTime`
 - `System.IO.Hashing`
 - `CommunityToolkit.HighPerformance`

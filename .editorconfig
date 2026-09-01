@@ -473,11 +473,6 @@ dotnet_diagnostic.RMG096.severity = error                                     # 
 # Every TTRESG rule ships enabled at an Error or Warning default and already fails the build; only the Info-default rule earns a row.
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
 
-# --- [GENERATOR_EQUALS_ANALYZERS] --------------------------------------------
-# The analyzer ships inside the generator package; Error- and Warning-default GE rules already fail the build, so only the Info-default rules earn a row.
-dotnet_diagnostic.GE002.severity = error                                      # A complex member type without [Equatable] falls back to reference equality inside the generated comparer.
-dotnet_diagnostic.GE003.severity = error                                      # A complex collection element type without [Equatable] compares by reference; element state never enters the comparison.
-
 # --- [ERRORPRONE_ANALYZERS] --------------------------------------------------
 # Warning-default rules (EPC11-13, EPC16-18, EPC20, EPC23-26, EPC30-31, EPC34, EPC41, ERP021-022, ERP031, ERP042) already error under TreatWarningsAsErrors; only Info-default and disabled rules earn a row.
 dotnet_diagnostic.EPC15.severity = error                                      # Require ConfigureAwait(false) in assemblies marked with UseConfigureAwaitFalse; no assembly currently declares that attribute. EPC14 remains informational.

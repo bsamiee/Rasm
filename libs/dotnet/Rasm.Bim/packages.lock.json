@@ -99,24 +99,6 @@
           "Nito.AsyncEx": "5.1.2"
         }
       },
-      "Generator.Equals": {
-        "type": "Direct",
-        "requested": "[4.1.0, )",
-        "resolved": "4.1.0",
-        "contentHash": "zqji+K7TM8tXU196G+8XLYvfByng1g8VzDZqxYqf8L6oQj0vOb8L7yIEsGSMqc3rw4mVso/LN77cjYekKiFhgQ==",
-        "dependencies": {
-          "Generator.Equals.Runtime": "4.1.0"
-        }
-      },
-      "Generator.Equals.Runtime": {
-        "type": "Direct",
-        "requested": "[4.1.0, )",
-        "resolved": "4.1.0",
-        "contentHash": "iv8xZ1p1BzIwUvGiGZFP/xBOSE9o1yrRauRc8OlPdt4yr3Tg/nE1nfrpjVqbuFj5tlBx6JIvBPdK7gPBqEyvlQ==",
-        "dependencies": {
-          "Microsoft.Bcl.HashCode": "6.0.0"
-        }
-      },
       "geometry3Sharp": {
         "type": "Direct",
         "requested": "[1.0.324, )",
@@ -650,11 +632,6 @@
         "resolved": "13.0.3.2",
         "contentHash": "40tAAnkhW/D0IkvseSZiqLZ6EY/X+8nGNBszWtkGFIQ4nvF5v0tZt2t3VFCM+//3+vCBqhYUdzeQi2HDWbRThA=="
       },
-      "Microsoft.Bcl.HashCode": {
-        "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "GI4jcoi6eC9ZhNOQylIBaWOQjyGaR8T6N3tC1u8p3EXfndLCVNNWa+Zp+ocjvvS3kNBN09Zma2HXL0ezO0dRfw=="
-      },
       "Microsoft.Data.Sqlite.Core": {
         "type": "Transitive",
         "resolved": "10.0.10",
@@ -896,7 +873,6 @@
           "CloudNative.CloudEvents.Protobuf": "[2.9.0, )",
           "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
-          "Generator.Equals.Runtime": "[4.1.0, )",
           "Google.Protobuf": "[3.36.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -922,7 +898,6 @@
           "Celly.Protovalidate": "[1.2.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
-          "Generator.Equals.Runtime": "[4.1.0, )",
           "Google.Protobuf": "[3.36.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",

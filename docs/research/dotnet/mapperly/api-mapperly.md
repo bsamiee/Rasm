@@ -1,8 +1,6 @@
 # [MAPPERLY_API]
 
-Mapperly is a .NET source generator for object mappings. A mapper is a `partial` class marked with `MapperAttribute`. The author declares `partial` mapping methods, and the generator emits their bodies at compile time. The generated code uses no reflection.
-
-Mapperly reports diagnostics with identifiers of the form `RMG###`. Set the severity of one in an `.editorconfig` file with `dotnet_diagnostic.RMG020.severity = error`.
+Mapperly is a .NET source generator for object mappings.
 
 ## [01]-[MAPPING_METHODS]
 
@@ -94,7 +92,7 @@ TTarget CreateTargetType<TSource, TTarget>(TSource source);
 TTarget CreateTargetType<TTarget, TSource>(TSource source);
 ```
 
-`MapperIgnoreAttribute` excludes a member from every mapping. Applied to a method, it also removes that method from the conversion candidates. Those candidates are `Parse`, an instance `ToTarget` method, and a static `Create`, `CreateFrom`, `From`, or `To` method.
+`MapperIgnoreAttribute` excludes a member from every mapping. Applied to a method, it also removes that method from the conversion candidates. Those candidates are `Parse`, an instance `ToTarget` method, and a static `Create`, `CreateFrom`, `FromTSource`, or `ToTTarget` method.
 
 `MapperIgnoreAttribute`, `MapperIgnoreSourceAttribute`, `MapperIgnoreTargetAttribute`, `MapperIgnoreSourceValueAttribute`, and `MapperIgnoreTargetValueAttribute` each expose `Justification` as a `string?`. The value documents the exclusion and changes no mapping. `RMG096` reports an ignore whose `Justification` is absent or whitespace, and ships at `hidden`. Raising its severity above `hidden` is the documented way to require one.
 
@@ -145,7 +143,7 @@ The three null options do not apply to a required init property or to an `IQuery
 
 Mapperly reads four nullability attributes from `System.Diagnostics.CodeAnalysis`, on two independent axes. `MaybeNullAttribute` widens a non-nullable member for reading, and `NotNullAttribute` narrows a nullable one. `AllowNullAttribute` widens a non-nullable member for writing, and `DisallowNullAttribute` narrows a nullable one. The member's own type decides which of the pair Mapperly consults, so one lookup answers each axis. For a member that a referenced assembly declares, Mapperly also reads the getter's return attributes and the setter's value parameter, because the compiler records them there rather than on the property. All four therefore move `RMG089`, and they reach `RMG090` through the member type they imply.
 
-`EnabledConversions` excludes `ExplicitCast` by default, so an explicit cast operator converts nothing until a mapper names `All` or adds the bit. The consequence differs by type. A narrowing numeric conversion has no other route and reports `RMG008`. A type that offers an explicit operator falls through to a later conversion instead: a target of `string` reaches `ToStringMethod` and emits `ToString`, and any other target reaches member mapping, which compiles and silently produces a default or a member-wise copy. `RMG066` and `RMG020` are the only reports of that outcome.
+`EnabledConversions` excludes `ExplicitCast` by default, so an explicit cast operator converts nothing until a mapper names `All` or adds the bit. The consequence differs by type. A narrowing numeric conversion has no other route and reports `RMG008`. A type that offers an explicit operator falls through to a later conversion instead: a target of `string` reaches `ToStringMethod` and emits `ToString`, and any other target reaches member mapping, which silently produces a default or a member-wise copy when the target has an accessible parameterless constructor and otherwise fails to compile on the emitted construction. `RMG066` and `RMG020` are the only reports of the silent outcome.
 
 `IncludedMembers` and `IncludedConstructors` need .NET 8.0 or later once the `Accessible` bit is cleared, because the accessors depend on `UnsafeAccessorAttribute`. `RMG053` reports a compilation without it, and Mapperly then restores the bit. Clearing the bit also raises the metadata import level, so a referenced project must set `ProduceReferenceAssembly` to `false` before its private members become visible. A package reference ships an implementation assembly and needs no such setting.
 
@@ -267,10 +265,10 @@ Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from Pas
 |  [16]   | `Tuple`                | `1 << 15` |    6    | target is a `ValueTuple` or a tuple expression               |
 |  [17]   | `EnumUnderlyingType`   | `1 << 16` |    —    | maps an enum from or to its underlying type                  |
 |  [18]   | `ToTargetMethod`       | `1 << 17` |   16    | source has an instance `TTarget ToTTarget()`, not `ToString` |
-|  [19]   | `StaticConvertMethods` | `1 << 18` |   19    | a static `ToTTarget`, `Create`, `CreateFrom`, or `From`      |
+|  [19]   | `StaticConvertMethods` | `1 << 18` |   19    | a static `ToTTarget`, `Create`, `CreateFrom`, `FromTSource`  |
 |  [20]   | `Expression`           | `1 << 19` |    —    | declared only; the generator reads this bit nowhere          |
 
-`StaticConvertMethods` admits a static `ToTTarget` on the source type. On the target type it admits `Create`, `CreateFrom`, `CreateFromTSource`, `From`, and `FromTSource`, including their `params` forms. It excludes the two `DateTime` conversions, which rows [09] and [10] own. `Tuple` admits a tuple expression outside a queryable projection, and `ValueTuple` inside one.
+`StaticConvertMethods` admits a static `ToTTarget` on the source type. On the target type it admits `Create`, `CreateFrom`, `CreateFromTSource`, and `FromTSource`, matched without case; an array-typed source adds the `FromArray` and `CreateFromArray` spellings. It excludes the two `DateTime` conversions, which rows [09] and [10] own. `Tuple` admits a tuple expression outside a queryable projection, and `ValueTuple` inside one.
 
 The `[ORDER]` column gives the priority the docs list. Rank 1 is direct assignment, which applies when the source type is assignable to the target type and `UseDeepCloning` is `false`. Rank 20 creates a new target instance and maps its members. The docs give `EnumUnderlyingType` no rank.
 

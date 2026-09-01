@@ -66,7 +66,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [CORE_SUBSTRATE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
-- `Generator.Equals`
 - `Riok.Mapperly` — Compile-time generation of every projection mapper this folder mints.
 
 [OBSERVABILITY]:

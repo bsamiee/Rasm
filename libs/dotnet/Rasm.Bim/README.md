@@ -124,7 +124,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 Shared substrate consumed from the C# registry, whose charters own the full contracts; `libs/dotnet/.api/` holds the shared API evidence.
 
 [CORE_SUBSTRATE]:
-- `Generator.Equals` — Structural equality and member diff behind the emit change derivation.
 - `LanguageExt.Core`
 - `Riok.Mapperly` — Compile-time boundary transcription over the shared unions.
 - `Thinktecture.Runtime.Extensions`

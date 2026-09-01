@@ -161,7 +161,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `System.IO.Hashing`
 - `QuikGraph` — Models the in-process topology the synchronous `Query/topology` lane composes.
 - `Riok.Mapperly` — Generated boundary transcription for the package's structural boundaries; `Store/schema` composes generated parity messages directly.
-- `Generator.Equals` — Generated structural equality; `Version/commits` payload-true CRDT state equality; content keys stay `XxHash128`.
 - `CommunityToolkit.HighPerformance` — Spans, memory pools, and bit primitives on the cache and object-store path.
 - `System.Numerics.Tensors` — SIMD `TensorPrimitives` backing the `VECTOR_CODEBOOK` PQ k-means and ADC scan.
 

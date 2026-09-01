@@ -215,7 +215,6 @@
 
 [TOPOLOGY]:
 - Single-key domain owners declare `[ValueObject<T>]` or `[SmartEnum<TKey>]` and derive equality, conversion, validation, and codec metadata from the key; a multi-member owner declares `[ComplexValueObject]`, and a closed case set declares `[Union]` so exhaustive dispatch and codec metadata generate together.
-- `Generator.Equals` owns multi-member structural equality, so stacking both ownership models on one type mints two comparers over the same members.
 - `SerializationFrameworks` on the declaration filters which generated factories a codec sees, so a codec that rediscovers declaration attributes picks up owners the declaration excluded.
 - `Empty` and `SingleItem` mint allocation-free zero- and one-item `IReadOnlyList`, `IReadOnlySet`, `IReadOnlyDictionary`, and `ILookup` instances, so a degenerate collection result costs neither an array nor a hash table.
 
@@ -223,7 +222,6 @@
 - `Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`): `ThinktectureJsonConverterFactory` reads `MetadataLookup` and `ObjectFactoryMetadata.UseForSerialization` to select the keyed, string, or span converter, and a span-parsable owner routes `Utf8JsonReader` bytes into `StaticAbstractInvoker.Validate<T, TValidationError>(ReadOnlySpan<char>, …)` so a hot read never materializes a `string`.
 - `Thinktecture.Runtime.Extensions.MessagePack`(`.api/api-thinktecture-messagepack.md`): `ThinktectureMessageFormatterResolver` selects the class or struct formatter off the same metadata, serializing through generated `ToValue` and deserializing through generated `Validate`, so the JSON and binary wires carry one owner model.
 - `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`(`Rasm.Persistence/.api/api-thinktecture-ef.md`): the model-building convention takes `Metadata.Keyed.ConvertFromKeyExpression` and `ConvertToKeyExpression` as the EF `ValueConverter` pair, so a key column's conversion is the generated expression tree rather than a per-property `HasConversion`.
-- `Generator.Equals`(`.api/api-generator-equals.md`): key projection already decides identity for a keyed owner, so `[Equatable]` binds the class-root union and the multi-member record whose collection members declare their own bag, sequence, or set semantics.
 - `Riok.Mapperly`(`.api/api-mapperly.md`): `MappingConversionType.StaticConvertMethods` resolves the generated `Create(TValue)` inbound and `ImplicitCast`/`ExplicitCast` takes the generated conversion operator outbound, so a value object crosses a DTO boundary with no per-member configuration.
 - within-library: one declaration yields the whole owner surface — `[Union]` `Switch`/`Map` threading caller state through `SwitchMapStateParameterName` closure-free, over `IObjectFactory.Validate` admission, generated `ToValue` key projection, and `KeyMemberComparerAttribute`/`MemberEqualityComparerAttribute` accessor policy — so `Fin<T>` lifts once at the boundary and every step below reads the owner's own contracts.
 

@@ -19,8 +19,6 @@
 
     <ItemGroup Label="Core Dependencies">
         <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />
-        <PackageVersion Include="Generator.Equals"                                        Version="4.1.0" />
-        <PackageVersion Include="Generator.Equals.Runtime"                                Version="4.1.0" />
         <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-77" />
         <PackageVersion Include="LanguageExt.Streaming"                                   Version="5.0.0-beta-77" />
         <PackageVersion Include="NodaTime"                                                Version="3.3.3" />

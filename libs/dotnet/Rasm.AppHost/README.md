@@ -160,7 +160,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 Shared substrate consumed from the C# registry, whose charters own the full contracts; `libs/dotnet/.api/` holds the shared API evidence.
 
 [CORE_SUBSTRATE]:
-- `Generator.Equals` — `HostFingerprint` structural equality over its stamp map.
 - `LanguageExt.Core`
 - `NodaTime`
 - `NodaTime.Serialization.SystemTextJson`

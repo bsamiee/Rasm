@@ -203,7 +203,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
-- `Generator.Equals` — `Availability` and `ResolvedTheme` structural equality over frozen set and map members.
 - `NodaTime`
 - `System.IO.Hashing`
 - `UnitsNet`

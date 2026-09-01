@@ -261,7 +261,6 @@
 - `api-thinktecture-runtime-extensions`(`.api/api-thinktecture-runtime-extensions.md`): the host `Access`, `Requirement`, and `Side` enums fold onto `[SmartEnum]` owners, so a pin depth, presence, or side is one exhaustive dispatch value, and the typed `Add*` roster generates from one `[SmartEnum]` pin-kind vocabulary rather than an enumerated method wall.
 - `api-languageext`(`.api/api-languageext.md`): every `Get*(int, out T)` lifts onto `Fin<T>` — a missing or null pin resolving through `Requirement` onto `Option<T>` or an accumulating `Validation<Error, T>` — so `Process` reads its inputs as a fan-in reporting every unsatisfied pin at once; the `Garden` folds and `Twig<T>.Convert` compose `Seq`/`Traverse` so a `Tree<Fin<A>>` inverts to `Fin<Tree<A>>`.
 - `api-languageext`(`.api/api-languageext.md`): `ConversionServer.Convert(object, Type, out object, out Merit, out string)` and the discriminated broker folds lift the typed value onto `Fin`, so a conversion refusal is a typed `Error`; the `PluginServer.LoadPlugin` overloads lift their `bool` and `out FailureInfo` to `Fin<Unit>`.
-- `api-generator-equals`(`.api/api-generator-equals.md`): pin identity and the `IoIdAttribute` type-id key take generated structural equality, so a persistent-value or pin-descriptor compare is one generated equality.
 
 [LOCAL_ADMISSION]:
 - `Component`/`ModularComponent` is the one authoring base the folder extends.

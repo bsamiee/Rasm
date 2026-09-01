@@ -60,7 +60,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [CORE_SUBSTRATE]:
 - `CommunityToolkit.HighPerformance` — `ArrayPoolBufferWriter<byte>`, the pooled encode sink the corpus hot path writes and releases.
-- `Generator.Equals` — Structural equality and member diff feeding the 3-way merge.
 - `LanguageExt.Core`
 - `NodaTime` — Instant stamps on assessments, provenance, and headers.
 - `QuikGraph` — Built-once incidence and topology view over the graph.

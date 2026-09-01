@@ -132,7 +132,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [CORE_SUBSTRATE]:
 - `CommunityToolkit.HighPerformance` — 2D spans and pooled owners on the SoA build arenas.
-- `Generator.Equals` — Generated structural equality for carriers whose collection or memory members void synthesized record equality.
 - `LanguageExt.Core`
 - `NodaTime` — Semantic instants and spans on the stamp cell, message envelope, and objective windows.
 - `NodaTime.Serialization.SystemTextJson` — Instant and span converters on the one event-format serializer identity.
