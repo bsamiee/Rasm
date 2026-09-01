@@ -196,7 +196,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-Each `Some(age)` becomes one sequence element, and each `None` contributes no element. The aggregate operates only on disclosed ages. The generated implicit conversion converts `age` to `int`, so the sum uses the underlying integer.
+Each `Some(age)` becomes one sequence element, and each `None` contributes no element. The aggregate operates only on disclosed ages. The generated implicit conversion converts `age` to `int`, the sum uses the underlying integer.
 
 ## [07]-[VALUES_IN_CONTEXT]
 

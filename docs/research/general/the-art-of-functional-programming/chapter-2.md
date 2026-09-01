@@ -53,7 +53,7 @@ An OCaml conditional has the form:
 if e1 then e2 else e3
 ```
 
-The condition `e1` is evaluated first. If it is `true`, the entire expression has the value of `e2`; otherwise it has the value of `e3`. In this value-producing form, the explicit `else` branch supplies a value for the other outcome. Every position may contain another expression, so conditionals can nest arbitrarily.
+The condition `e1` is evaluated first. If it is `true`, the entire expression has the value of `e2`; otherwise it has the value of `e3`. In this value-producing form, the explicit `else` branch supplies a value for the other outcome. Every position may contain another expression, conditionals can nest arbitrarily.
 
 Because a conditional is an expression, it can be an operand of another expression:
 
@@ -72,7 +72,7 @@ Textual programming-language syntax is hierarchical. In the chapter's OCaml exam
 2. Those units are arranged according to grammar rules.
 3. The resulting expression has a hierarchical structure.
 
-Natural-language syntax has the same shape: letters form words, and words plus punctuation form phrases and sentences. Recognition therefore requires both valid units and a valid arrangement of those units. Recursive grammar rules also explain the hierarchy inside a phrase:
+Natural-language syntax has the same shape: letters form words, and words plus punctuation form phrases and sentences. Recognition requires both valid units and a valid arrangement of those units. Recursive grammar rules also explain the hierarchy inside a phrase:
 
 ```bnf
 <noun_phrase> ::= <noun>
@@ -98,19 +98,19 @@ BNF describes alternatives with `|` and can define expressions recursively:
 <binop> ::= + | - | * | ...
 ```
 
-Recursive productions allow expressions of unbounded depth. Their structure is a tree. For `1 + 2 * 3`, precedence makes `2 * 3` the right operand of `+`, so the tree records multiplication below the right branch of addition rather than treating the input as a flat sequence.
+Recursive productions allow expressions of unbounded depth. Their structure is a tree. For `1 + 2 * 3`, precedence makes `2 * 3` the right operand of `+`, the tree records multiplication below the right branch of addition rather than treating the input as a flat sequence.
 
 ## Parsing
 
 A compiler's parser determines whether input is syntactically valid and constructs its structural representation. Parsing proceeds in two conceptual stages:
-1. Recognize language units. Characters are grouped into literals, operators, and keywords. If a group is not a valid language unit, parsing stops. Thus `1xyz + 2` yields an invalid-literal error because `1xyz` cannot be recognized as a valid literal.
-2. Recognize grammatical structure. The units are checked against the grammar by attempting to build a parse tree. Thus `1 +` yields a syntax error: `+` requires a right operand, even though both `1` and `+` are individually recognized units.
+1. Recognize language units. Characters are grouped into literals, operators, and keywords. If a group is not a valid language unit, parsing stops. `1xyz + 2` yields an invalid-literal error because `1xyz` cannot be recognized as a valid literal.
+2. Recognize grammatical structure. The units are checked against the grammar by attempting to build a parse tree. `1 +` yields a syntax error: `+` requires a right operand, even though both `1` and `+` are individually recognized units.
 
 For `if 1 = 2 then 0 else 42`, the recognized units form an `if`-expression tree whose condition is equality between `1` and `2`, with `0` and `42` as the two branches.
 
 The parser normally produces an abstract syntax tree (AST) for later compiler phases. An AST preserves structured content while omitting concrete details that are no longer needed, such as whitespace, parentheses, and syntax keywords. The AST is subsequently used for type checking and code generation.
 
-The parser therefore partitions all possible input strings: syntactically valid expressions are accepted; every other string is rejected before later phases.
+The parser partitions all possible input strings: syntactically valid expressions are accepted; every other string is rejected before later phases.
 
 ## Types and type checking
 
@@ -151,7 +151,7 @@ At its simplest, an interpreter takes an AST and evaluates it directly by follow
 - For `e1 binop e2`, evaluate both operands, then apply `binop` to their values.
 - For `if e1 then e2 else e3`, evaluate only the condition and the selected branch: evaluate `e2` if the condition is `true`, otherwise evaluate `e3`.
 
-Values propagate from the leaves upward until the root receives its value. For `(1 + 2) > (3 - 4 * 5)`, the subexpressions evaluate to `3` and `-17`, so the root comparison evaluates to `true`. This recursive evaluation mirrors recursive type inference because both algorithms follow the expression tree.
+Values propagate from the leaves upward until the root receives its value. For `(1 + 2) > (3 - 4 * 5)`, the subexpressions evaluate to `3` and `-17`, the root comparison evaluates to `true`. This recursive evaluation mirrors recursive type inference because both algorithms follow the expression tree.
 
 ### Compilation
 

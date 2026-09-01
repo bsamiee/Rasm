@@ -189,10 +189,10 @@ Null adds another possible state that every consumer must account for. If an ext
 - Design the signature early; specify exact input and outcome types.
 - Prefer constrained domain types to primitives plus repeated validation.
 - Map the generated `Validate` to `Fin` through `From` when primitive-to-domain conversion can fail.
-- The generator keeps the constructor private, so every value passes through the validation hook.
+- The generator keeps the constructor private, every value passes through the validation hook.
 - Do not explicitly return `null` from functions.
 - Reject unexpected `null` at public API inputs, except for optional parameters because their defaults must be compile-time constants.
-- Enable nullable reference types so the compiler exposes accidental nullability before a value enters a pipeline.
+- Enable nullable reference types, the compiler exposes accidental nullability before a value enters a pipeline.
 - Use `Option<A>` for optional properties, parsing, lookup, and other computations that can produce no value.
 - Use `Match` when a concrete result must be selected from the `None` and `Some` cases.
 - Use `Unit` and `fun` to adapt `Action` into `Func`-based higher-order APIs without duplicating their behavior.

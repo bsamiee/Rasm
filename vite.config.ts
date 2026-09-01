@@ -87,7 +87,7 @@ const ViteConfigSchema = S.Union(
         react: S.optional(S.Boolean),
     }),
     S.Struct({
-        // Server builds keep bare specifiers external; bundle includes an explicitly named dependency and its subpaths.
+        // Server builds keep bare specifiers external; bundle includes an explicitly named dependency and its subpaths
         bundle: S.optional(S.Array(S.String)),
         entry: S.String,
         mode: S.Literal('server'),
@@ -123,7 +123,7 @@ const defaults = Object.freeze({
     pwa: {
         backgroundColor: '#ffffff',
     },
-    // Rolldown evaluates the specific dependency groups before the catch-all vendor group.
+    // Rolldown evaluates the specific dependency groups before the catch-all vendor group
     codeSplitting: {
         groups: [
             {
@@ -358,7 +358,7 @@ const pluginSets = {
                 ),
             }),
         ),
-        // Inspect is disabled during development because HMR restarts can produce an EEXIST race.
+        // Inspect is disabled during development because HMR restarts can produce an EEXIST race
         ...(production
             ? [
                   Inspect({
@@ -445,7 +445,7 @@ const configByMode: {
             ],
         },
         plugins: pluginSets.app(config, production),
-        // strictPort keeps preview on the URL expected by end-to-end test server configuration.
+        // strictPort keeps preview on the URL expected by end-to-end test server configuration
         preview: { port: config.port ?? defaults.port, strictPort: true },
         resolve: resolveOptions(true),
         server: {
@@ -526,7 +526,7 @@ const configByMode: {
                 name: config.name,
             },
             rolldownOptions: {
-                // Bare specifiers resolve from node_modules at run time; bundle includes each named dependency and its subpaths.
+                // Bare specifiers resolve from node_modules at run time; bundle includes each named dependency and its subpaths
                 external: (id: string) =>
                     !id.startsWith('.') &&
                     !id.startsWith('/') &&
@@ -572,7 +572,7 @@ const createViteConfig = (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-// Root configuration omits the build block because only app and package configs emit output.
+// Root configuration omits the build block because only app and package configs emit output
 const { build: _build, ...rootOptions } = Effect.runSync(
     createViteConfig({
         entry: './vite.config.ts',

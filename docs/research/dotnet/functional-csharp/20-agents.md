@@ -20,9 +20,9 @@ STM gives each transaction an isolated view, commits all of its changes or none,
 ## [02]-[AGENT_MODEL]
 
 An agent has three parts:
-- an inbox that queues messages;
-- state that only the agent owns;
-- a processing loop that handles one message at a time.
+- An inbox that queues messages;
+- State that only the agent owns;
+- A processing loop that handles one message at a time.
 
 For each message, the processing function can perform effects, send messages, create agents, and compute the state used for the next message. The state is the fold of all messages received so far:
 
@@ -95,8 +95,8 @@ Use agents when all coordinated access passes through one process. Use an actor 
 Agent messaging is command-oriented and can be effectful. An agent combines state with the behavior that changes it. Message-passing concurrency complements functional composition; it is not a value-returning pipeline.
 
 Two integration styles apply:
-- use a unidirectional, event-driven flow in which agents communicate through messages;
-- keep agents as private concurrency primitives and expose value-returning APIs.
+- Use a unidirectional, event-driven flow in which agents communicate through messages;
+- Keep agents as private concurrency primitives and expose value-returning APIs.
 
 In either style, retain pure functions for domain decisions and use the agent only to order transitions and effects whose order preserves consistency.
 

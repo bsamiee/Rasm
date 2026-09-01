@@ -94,7 +94,7 @@ diagnostics.sarif
 # Rhino writes lock and backup files beside opened .3dm files; the host exposes no relocation option
 *.rhl
 *.3dmbak
-# Grasshopper2.dll extracts embedded resources to the `dotnet build` cwd; root-anchored so the real `apps/grasshopper/` tree stays tracked
+# Grasshopper2.dll extracts embedded resources to the `dotnet build` cwd; root-anchored, the real `apps/grasshopper/` tree stays tracked
 /Grasshopper.*
 
 # --- [ENVIRONMENT_VARIABLES] --------------------------------------------------

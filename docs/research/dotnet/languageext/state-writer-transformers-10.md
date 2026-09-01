@@ -20,7 +20,7 @@ The tuple is the hidden state context. A caller works with `StateT<S, M, A>` and
 
 ## [01]-[FROM_READERT_TO_STATET]
 
-A reader computation has the shape `Func<Env, K<M, A>>`. Its `Bind` supplies the same `Env` to both computations, so it cannot return a changed environment for later operations. StateT changes the return type to `K<M, (A, S)>`, and its `Bind` runs the next computation with the state the previous one returned:
+A reader computation has the shape `Func<Env, K<M, A>>`. Its `Bind` supplies the same `Env` to both computations, it cannot return a changed environment for later operations. StateT changes the return type to `K<M, (A, S)>`, and its `Bind` runs the next computation with the state the previous one returned:
 
 ```csharp
 result => f(result.Value).runState(result.State)
@@ -71,7 +71,7 @@ public static StateT<Deck, OptionT<IO>, Card> deal =>
     select c;
 ```
 
-`Seq<Card>.Head` returns `None` for an empty deck. Lifting that value into `OptionT` stops the computation, so the deck update runs only when a card exists: the head is returned and the tail becomes the next state.
+`Seq<Card>.Head` returns `None` for an empty deck. Lifting that value into `OptionT` stops the computation, the deck update runs only when a card exists: the head is returned and the tail becomes the next state.
 
 A projection reads part of the state without exposing its representation:
 
@@ -116,7 +116,7 @@ public static Game<Unit> play =>
     playHands;
 ```
 
-The wrapper hides the transformer stack, so workflows do not change when the internal representation changes. Display operations isolate user-facing text from the flow. `when` evaluates its second computation only when its monadic Boolean condition is true, which keeps conditional steps inside the composed workflow.
+The wrapper hides the transformer stack, workflows do not change when the internal representation changes. Display operations isolate user-facing text from the flow. `when` evaluates its second computation only when its monadic Boolean condition is true, which keeps conditional steps inside the composed workflow.
 
 `Players.with` runs an action for one player under a temporary current-player context:
 
@@ -130,11 +130,11 @@ Unlike a propagating update, `Stateful.local` restores the prior state after the
 ## [05]-[STATE_OPACITY]
 
 Removing explicit state arguments makes code terse and declarative; it also hides which operations modify state. Application-wide state approaches a global variable even when its updates are pure. Keep the state lifecycle deliberate:
-- use small, descriptive state queries and updates;
-- partition domain rules into pure functions over the state;
-- keep IO separate from those rules;
-- use scoped state changes for temporary context and propagating updates for durable changes;
-- encapsulate deep transformer stacks behind a domain type.
+- Use small, descriptive state queries and updates;
+- Partition domain rules into pure functions over the state;
+- Keep IO separate from those rules;
+- Use scoped state changes for temporary context and propagating updates for durable changes;
+- Encapsulate deep transformer stacks behind a domain type.
 
 ## [06]-[FORKED_STATE]
 
@@ -194,7 +194,7 @@ static Writer<Seq<string>, Unit> example =>
 
 ## [09]-[BIND_COMBINATION_COST]
 
-`Bind` runs far more often than `tell`, yet the classic design calls `Combine` on every bind. Two problems follow: one or both outputs are often empty, so the combination is wasted work, and non-empty outputs cost real work to combine. Concatenating two immutable linked lists of 100 items traverses 100 items to build a new list; repeated combination of growing immutable outputs rebuilds the same elements many times. The combination belongs in `tell`, where output is deliberately added, not in every `Bind`.
+`Bind` runs far more often than `tell`, yet the classic design calls `Combine` on every bind. Two problems follow: one or both outputs are often empty, the combination is wasted work, and non-empty outputs cost real work to combine. Concatenating two immutable linked lists of 100 items traverses 100 items to build a new list; repeated combination of growing immutable outputs rebuilds the same elements many times. The combination belongs in `tell`, where output is deliberately added, not in every `Bind`.
 
 ## [10]-[OUTPUT_THREADING]
 
@@ -233,7 +233,7 @@ public static Writer<W, Unit> tell<W>(W value)
     new(output => (output.Combine(value), unit));
 ```
 
-Writer output is commonly a collection, so `tell` appends or prepends a single item and avoids concatenating whole accumulated collections, provided the monoid combines efficiently. The revised `Writer<W, A>` needs no `Monoid<W>` constraint; only `tell` combines, so only `tell` needs it.
+Writer output is commonly a collection, `tell` appends or prepends a single item and avoids concatenating whole accumulated collections, provided the monoid combines efficiently. The revised `Writer<W, A>` needs no `Monoid<W>` constraint; only `tell` combines, only `tell` needs it.
 
 ## [11]-[WRITER_VIA_STATET]
 

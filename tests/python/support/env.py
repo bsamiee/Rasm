@@ -56,7 +56,7 @@ class RemoteFS(msgspec.Struct, frozen=True, gc=False):
 class ObjectStore(msgspec.Struct, frozen=True, gc=False):
     """S3-compatible object-store double over one in-process threaded moto endpoint.
 
-    Endpoints are per-provision but moto account state is process-global, so teardown resets the
+    Endpoints are per-provision but moto account state is process-global, teardown resets the
     backend and a later provision always starts pristine.
     """
 

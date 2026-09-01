@@ -180,7 +180,7 @@ def test_object_store_supports_common_filesystem_operations(socket_enabled: None
 
 
 def test_object_store_teardown_resets_process_global_state(socket_enabled: None) -> None:
-    """Moto state is process-global, so teardown removes objects before the next provision."""
+    """Moto state is process-global, teardown removes objects before the next provision."""
     _ = socket_enabled
     first = provision(ObjectStore())
     first.client_factory().pipe_file("test-support-bucket/residue.bin", b"stale")

@@ -80,7 +80,7 @@ The lifted single value emits immediately and completes. A lifted enumerable imm
 
 `Event.from(ref Action<A>)` adapts a callback-based producer such as a message subscription. It adds its callback to the delegate's invocation list. `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation of the delegate. The `Event` is `IDisposable`, and disposing it detaches the delegate.
 
-`Subject<T>` is both an observer and an observable, so imperative code can call its `OnNext`, `OnError`, and `OnCompleted` methods. Use it at callback or event boundaries. Prefer `Event.from` or a dedicated source when either expresses the source directly. This keeps calls to observer methods out of the stream definition.
+`Subject<T>` is both an observer and an observable, imperative code can call its `OnNext`, `OnError`, and `OnCompleted` methods. Use it at callback or event boundaries. Prefer `Event.from` or a dedicated source when either expresses the source directly. This keeps calls to observer methods out of the stream definition.
 
 `FromEvent` and `FromEventPattern` adapt event-based APIs.
 
@@ -187,7 +187,7 @@ internal static class Transitions {
 }
 ```
 
-`Skip(1)` shifts the second subscription by one value, so `Zip` pairs each value with its successor. Filtering the pairs can recognize a multi-key sequence without an explicit mutable state machine.
+`Skip(1)` shifts the second subscription by one value, `Zip` pairs each value with its successor. Filtering the pairs can recognize a multi-key sequence without an explicit mutable state machine.
 
 This implementation subscribes to `source` twice, and each subscription observes values produced from its subscription time. Its meaning depends on how the source behaves when subscribed to more than once.
 
@@ -222,7 +222,7 @@ internal static class Backpressure {
 
 The consumer cannot slow the producer by requesting the next item. When production outpaces consumption, choose a policy explicitly through the `Buffer<A>` given to `Conduit.make`:
 - `Buffer<A>.Unbounded` keeps every value.
-- `Buffer<A>.Bounded(n)` and `Buffer<A>.Single` hold `n` values or one value and block `Post` when full, so the consumer is forked before the producer posts.
+- `Buffer<A>.Bounded(n)` and `Buffer<A>.Single` hold `n` values or one value and block `Post` when full, the consumer is forked before the producer posts.
 - `Buffer<A>.Latest(value)` keeps only the last value, and `Buffer<A>.Newest(n)` keeps the last `n` values.
 
 Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`. The policy must reflect whether intermediate values can be dropped, delayed, grouped, or preserved.
@@ -247,20 +247,20 @@ internal static class Ledger {
 }
 ```
 
-`Reduce` groups the amounts of each account in a `HashMap`, and `Scan` carries each balance forward. `Zip` with `Tail` pairs each balance with its predecessor, so the filter sees only a crossing from nonnegative to negative. The seed is emitted first so the first transaction can form a transition from the opening balance.
+`Reduce` groups the amounts of each account in a `HashMap`, and `Scan` carries each balance forward. `Zip` with `Tail` pairs each balance with its predecessor, the filter sees only a crossing from nonnegative to negative. The seed is emitted first, the first transaction can form a transition from the opening balance.
 
 ## [07]-[FIT_AND_LIMITS]
 
 Use `IObservable` when:
-- values arrive asynchronously over time;
-- logic detects sequences, transitions, windows, or relationships across sources;
-- the system forms a one-way dataflow, such as queue-to-database processing or fire-and-forget messaging.
+- Values arrive asynchronously over time;
+- Logic detects sequences, transitions, windows, or relationships across sources;
+- The system forms a one-way dataflow, such as queue-to-database processing or fire-and-forget messaging.
 
 Avoid it when:
-- events are independent and callbacks or tasks are clearer;
-- every input needs a directly correlated response, as in request-response protocols;
-- synchronization requires finer control than available operators provide.
+- Events are independent and callbacks or tasks are clearer;
+- Every input needs a directly correlated response, as in request-response protocols;
+- Synchronization requires finer control than available operators provide.
 
-`OnNext` returns no value, so information flows downstream only. For coordination that requires explicit queues and exact sequencing, `Conduit` is the queue and `Pipes` is the pipeline. A `ProducerT`, a `PipeT`, and a `ConsumerT` fuse with `|` into one `EffectT` that the host runs.
+`OnNext` returns no value, information flows downstream only. For coordination that requires explicit queues and exact sequencing, `Conduit` is the queue and `Pipes` is the pipeline. A `ProducerT`, a `PipeT`, and a `ConsumerT` fuse with `|` into one `EffectT` that the host runs.
 
 `IObservable<T>` does not specify how schedulers dispatch observer calls or how subject types behave.

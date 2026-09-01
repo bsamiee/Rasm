@@ -4,7 +4,7 @@ The source generator reads project-level MSBuild properties. They control diagno
 
 ## [01]-[MSBUILD_PROPERTIES]
 
-`Thinktecture.Runtime.Extensions` ships a props file that declares one `CompilerVisibleProperty` item per property. MSBuild forwards each item to the compiler as an analyzer config global option named `build_property.<PropertyName>`. A global analyzer configuration file sets the same option directly with a `build_property.` key and needs no MSBuild property.
+`Thinktecture.Runtime.Extensions` provides a props file that declares one `CompilerVisibleProperty` item per property. MSBuild forwards each item to the compiler as an analyzer config global option named `build_property.<PropertyName>`. A global analyzer configuration file sets the same option directly with a `build_property.` key and needs no MSBuild property.
 
 Every property name below carries the prefix `ThinktectureRuntimeExtensions_SourceGenerator_`.
 
@@ -32,7 +32,7 @@ Every property name below carries the prefix `ThinktectureRuntimeExtensions_Sour
 
 ## [02]-[LOG_FILE_RESOLUTION]
 
-An existing file supplies its folder, name, and extension. An existing folder supplies the folder, and the name defaults to `ThinktectureRuntimeExtensions_logs` with the extension `.log`. Every generator that names one path shares one sink: one compiler process writes one file, interleaves its generators, and appends to an existing file. The generator never creates folders, so the folder must exist before the build.
+An existing file supplies its folder, name, and extension. An existing folder supplies the folder, and the name defaults to `ThinktectureRuntimeExtensions_logs` with the extension `.log`. Every generator that names one path shares one sink: one compiler process writes one file, interleaves its generators, and appends to an existing file. The generator never creates folders, the folder must exist before the build.
 
 - With `LogFilePathMustBeUnique` at `true`, the file name becomes `<name>_<yyyyMMdd>_<HHmmss>_<guid><extension>` from the UTC clock, and each compiler process names a new file.
 - With `false`, the file name is `<name><extension>`, and every process appends to one file.
@@ -68,7 +68,7 @@ With the counter on, every file a code generator emits starts with the line `// 
 
 - The number `n` is a process-wide running number padded to eight characters.
 - The generated JetBrains attribute file carries no header.
-- The number increments once per code-generation attempt, before the code exists, so a generator that emits nothing consumes a number.
+- The number increments once per code-generation attempt, before the code exists. A generator that emits nothing consumes a number.
 - A number that rises between two inspections shows that the generator ran again, and the highest number marks the last file of the process.
 
 ## [06]-[DESIGN_RULES]

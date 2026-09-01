@@ -14,10 +14,10 @@ x + y
 
 the apparent statements are nested function applications. They keep expression scoping and compose and reduce as expressions.
 
-Purity creates a second need: useful programs read clocks, files, and other external state. `DateTime.Now` cannot be replaced with one evaluated value, so it is not pure. The effect must be represented without being performed while the expression is constructed. One impure operation compromises the purity of the expression that contains it, so effects stay explicit and controlled.
+Purity creates a second need: useful programs read clocks, files, and other external state. `DateTime.Now` cannot be replaced with one evaluated value, it is not pure. The effect must be represented without being performed while the expression is constructed. One impure operation compromises the purity of the expression that contains it, effects stay explicit and controlled.
 
 Monads answer both needs:
-- They represent effects as values, so pure code composes effectful computations.
+- They represent effects as values, pure code composes effectful computations.
 - They sequence computations when a later computation depends on an earlier result.
 - With LINQ, a pure C# expression reads like a series of imperative statements.
 

@@ -5,8 +5,8 @@
 Functional programming is a programming paradigm: a style and way of thinking about software. It is especially strong at abstraction, composition, concise solutions, and increased safety. The durable skill is not memorizing functional syntax in one language, but learning principles and problem-solving techniques that transfer across languages, frameworks, and tools.
 
 The governing balance is:
-- understand the fundamental principles of the functional paradigm;
-- apply those principles pragmatically to real problems.
+- Understand the fundamental principles of the functional paradigm;
+- Apply those principles pragmatically to real problems.
 
 The practical emphasis includes routine programming work, collection processing for an e-commerce application, hierarchical data such as JSON, and foundational language techniques such as parsing, type checking, interpretation, and compilation.
 
@@ -32,9 +32,9 @@ Imperative programming's historical dominance is connected to the von Neumann ar
 ## Von Neumann architecture
 
 A minimal von Neumann computer contains:
-- a CPU, including a control unit, arithmetic logic unit, and a small set of registers;
-- memory holding both program instructions and data;
-- a bus connecting CPU and memory.
+- A CPU, including a control unit, arithmetic logic unit, and a small set of registers;
+- Memory holding both program instructions and data;
+- A bus connecting CPU and memory.
 
 Machine instructions are binary and primitive, such as arithmetic, equality tests, loads, and stores. Loads move data from memory into registers; stores move register data back into memory.
 
@@ -84,7 +84,7 @@ For a concrete input, the data flows as:
 ```
 
 The structural contrast between these two versions is:
-- The imperative version prescribes how variables are initialized and updated, so understanding it requires mentally executing its steps.
+- The imperative version prescribes how variables are initialized and updated. Understanding it requires mentally executing its steps.
 - The functional version describes what transformation occurs. Its pipeline structure exposes the computation directly and lowers the cognitive burden of understanding it.
 
 ### Extending the computation
@@ -113,9 +113,9 @@ Functional programming is not universally better than imperative programming. Ea
 ### A broader problem-solving toolkit
 
 Functional programming is particularly suitable for:
-- hierarchical structures and languages with well-defined syntax, including JSON, XML, and domain-specific languages;
-- filtering, transforming, and aggregating collections in mobile applications, web applications, and backend services;
-- managing complexity through abstraction and composition.
+- Hierarchical structures and languages with well-defined syntax, including JSON, XML, and domain-specific languages;
+- Filtering, transforming, and aggregating collections in mobile applications, web applications, and backend services;
+- Managing complexity through abstraction and composition.
 
 Composition builds complex programs from simpler programs. Abstraction captures recurring computation patterns in general, reusable functions. These capabilities improve software design and support clean, reusable code even when day-to-day work is not primarily functional.
 
@@ -126,15 +126,15 @@ Industry adoption reinforces the value of the skill: Java has added functional f
 Functional programming is part of a wider transition from imperative to declarative software. Declarative systems state what result is wanted and leave the mechanism to the system; imperative systems prescribe an ordered sequence of steps.
 
 Examples of declarative approaches include:
-- functional programming;
-- declarative UI, including Flutter and Jetpack Compose;
-- declarative build systems, including Maven and Gradle;
-- declarative build pipelines, including declarative Jenkins pipelines;
-- declarative infrastructure as code, including Terraform and CloudFormation.
+- Functional programming;
+- Declarative UI, including Flutter and Jetpack Compose;
+- Declarative build systems, including Maven and Gradle;
+- Declarative build pipelines, including declarative Jenkins pipelines;
+- Declarative infrastructure as code, including Terraform and CloudFormation.
 
 Ant represents the contrasting imperative build style: it explicitly orders the commands used to perform a build. A declarative build definition operates at a higher level, hides implementation details, and makes complex builds easier to compose from smaller steps. Similar advantages apply to UI and infrastructure definitions.
 
-Learning functional programming therefore develops declarative thinking that transfers across languages, libraries, frameworks, build tools, deployment pipelines, and infrastructure tools.
+Learning functional programming develops declarative thinking that transfers across languages, libraries, frameworks, build tools, deployment pipelines, and infrastructure tools.
 
 ### A changed mental model
 

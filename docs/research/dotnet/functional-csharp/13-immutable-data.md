@@ -88,7 +88,7 @@ internal sealed record AccountState(CurrencyCode Currency, AccountStatus Status,
 
 The design relies on these rules:
 - Remove property setters and require construction through a constructor or factory.
-- Enforce required values and business invariants during construction so invalid snapshots cannot exist.
+- Enforce required values and business invariants during construction, invalid snapshots cannot exist.
 - Seal the type to prevent a mutable subclass from weakening the guarantee.
 - Store collections in immutable collection types such as `Seq<A>`.
 - Defensively copy mutable input collections at the boundary.
@@ -231,7 +231,7 @@ old root                 new root
 L      R         ->      L    rebuilt R
 ```
 
-An `Add` rebuilds only the nodes on the path from the root to the new key and shares every untouched subtree. This reuse is structural sharing. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, so a higher-arity tree can remain shallow for a large collection. `Map<K, V>` balances itself on every `Add`, so the rebuilt path stays within that bound.
+An `Add` rebuilds only the nodes on the path from the root to the new key and shares every untouched subtree. This reuse is structural sharing. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, a higher-arity tree can remain shallow for a large collection. `Map<K, V>` balances itself on every `Add`, the rebuilt path stays within that bound.
 
 ## [09]-[DECISION_RULES]
 

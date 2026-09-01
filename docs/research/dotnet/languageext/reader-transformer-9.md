@@ -13,7 +13,7 @@ public record ReaderT<Env, M, A>(Func<Env, K<M, A>> runReader) : K<ReaderT<Env, 
 }
 ```
 
-Given an `Env`, the wrapped function returns `K<M, A>`. Compare `OptionT`, whose shape is `K<M, Option<A>>`: the lifted monad wraps an optional result, while an environment-carrying computation wraps the lifted monad, so the inner computation runs with the environment.
+Given an `Env`, the wrapped function returns `K<M, A>`. Compare `OptionT`, whose shape is `K<M, Option<A>>`: the lifted monad wraps an optional result, while an environment-carrying computation wraps the lifted monad, the inner computation runs with the environment.
 
 Configuration threads through file-reading code without becoming global:
 
@@ -48,7 +48,7 @@ public static ReaderT<Env, M, Env> ask<Env, M>()
     new(M.Pure);
 ```
 
-Everything before `Run` stays lazy, so the operations are expressed through function composition. `Bind` runs both dependent stages with the same environment and lets `M.Bind` sequence their inner computations:
+Everything before `Run` stays lazy, the operations are expressed through function composition. `Bind` runs both dependent stages with the same environment and lets `M.Bind` sequence their inner computations:
 
 ```csharp
 public ReaderT<Env, M, B> Bind<B>(
@@ -213,7 +213,7 @@ public static K<M, Unit> assertHasRight<M, R>()
                 : M.Fail<Unit>(new AccessDenied()));
 ```
 
-`assertHasRight` refuses on the failure channel, so the simplified `Eff` gains `Fallible` by delegating to `IO`:
+`assertHasRight` refuses on the failure channel, the simplified `Eff` gains `Fallible` by delegating to `IO`:
 
 ```csharp
 public class Eff<RT> : Monad<Eff<RT>>, Readable<Eff<RT>, RT>, Fallible<Eff<RT>>
@@ -244,13 +244,13 @@ public static Eff<Session, Unit> sendInvoice() =>
 
 Two operations limit the environment a computation sees:
 - `local(f, ma)` maps `Env` to another `Env` of the same type and runs `ma` with that temporary value. The change is scoped to `ma`; later computation sees the original environment.
-- `with(f, ma)` maps an outer environment to a different environment type, such as `AppConfig -> DbConfig`, so a data layer receives only its database configuration.
+- `with(f, ma)` maps an outer environment to a different environment type, such as `AppConfig -> DbConfig`. A data layer receives only its database configuration.
 
 `with` is not part of `Readable`, because `Env` is fixed in the trait implementation. Use `Reader.with` or `ReaderT.with`, and expose an equivalent operation on a wrapper where environment-type mapping is useful.
 
 ## [07]-[TRANSFORMER_POSITION]
 
-Any monad lifts into `ReaderT`; `IO` is one concrete choice. Lifting `Validation<F, A>` gives validators access to an environment. `ReaderT` sits outermost in most stacks, so the inner monads reach the environment:
+Any monad lifts into `ReaderT`; `IO` is one concrete choice. Lifting `Validation<F, A>` gives validators access to an environment. `ReaderT` sits outermost in most stacks, the inner monads reach the environment:
 
 ```text
 ReaderT<Env, Inner, A>

@@ -41,7 +41,7 @@ internal static partial class Laziness {
 }
 ```
 
-The fallback must stay unevaluated until it is needed. `Option<A>` defines `operator true`, so `||` evaluates the right operand only when the left operand is `None`:
+The fallback must stay unevaluated until it is needed. `Option<A>` defines `operator true`, `||` evaluates the right operand only when the left operand is `None`:
 
 ```csharp
 internal static partial class Laziness {
@@ -183,7 +183,7 @@ The environment type is the smallest structure the workflow reads.
 
 ## [06]-[CONTINUATIONS]
 
-Resource and instrumentation helpers take a callback so they can act before and after it:
+Resource and instrumentation helpers take a callback to act before and after it:
 
 ```text
 R Connect<R>(Func<Connection, R> use)
@@ -252,7 +252,7 @@ internal static partial class Scopes {
 }
 ```
 
-`use(Func<A>)` accepts an `IDisposable` and disposes it when the effect succeeds or fails. The transaction scope depends on the connection and supplies a transaction downstream. The commit step runs only after both statements succeed. A failure skips it, and `Dispose` rolls the open transaction back. `use(Func<A>, Action<A>)` runs its release action on every exit, so a commit does not belong in a release action.
+`use(Func<A>)` accepts an `IDisposable` and disposes it when the effect succeeds or fails. The transaction scope depends on the connection and supplies a transaction downstream. The commit step runs only after both statements succeed. A failure skips it, and `Dispose` rolls the open transaction back. `use(Func<A>, Action<A>)` runs its release action on every exit, a commit does not belong in a release action.
 
 ## [08]-[SCOPE_ORDERING]
 

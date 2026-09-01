@@ -260,4 +260,4 @@ Each integration point filters the type's object factories and falls back to the
 - Give a `ReadOnlySpan<char>` factory the `SystemTextJson` flag alone.
 - Give each factory a distinct `T` and each integration point one owner.
 - Serialize an ad hoc union through a `string` factory, never through a hand-written converter.
-- A `Fin<T>` or `Validation<Error, T>` adapter calls `Validate`, never `Create`, so the host and the domain run the same `ValidateFactoryArguments`.
+- A `Fin<T>` or `Validation<Error, T>` adapter calls `Validate`, never `Create`. The host and the domain run the same `ValidateFactoryArguments`.

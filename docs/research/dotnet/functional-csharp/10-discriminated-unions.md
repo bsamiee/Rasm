@@ -69,9 +69,9 @@ A `BritishName` can carry first, middle, and last names with an honorific placed
 ## [03]-[OUTCOMES_AS_CASES]
 
 A function's return type must describe every expected outcome. Looking up a person has three meaningful outcomes:
-1. the person was found;
-2. no person has that identifier;
-3. the lookup failed.
+1. The person was found;
+2. No person has that identifier;
+3. The lookup failed.
 
 `OptionT<IO, Person>` names all three: `Some` is the found person, `None` is absence, and a lookup failure is on the `IO` error channel. The effectful function translates each external outcome into one case:
 
@@ -106,7 +106,7 @@ internal static class Mail {
 ## [04]-[INPUT_REFINEMENT]
 
 Convert the console result to typed application data in these stages:
-1. Pass console access as a `Func<string>` dependency so another implementation can replace it.
+1. Pass console access as a `Func<string>` dependency, another implementation can replace it.
 2. `IO.lift` captures a console failure on the error channel.
 3. Classify successfully read text once.
 4. Let application code consume the already-classified case.
@@ -139,7 +139,7 @@ The `Catch` overload with a predicate maps the captured error to the `ConsoleErr
 
 `Option<A>`, `Fin<A>`, `Either<L, R>`, and `Validation<Error, A>` are the generic unions for absence, failure with a reason, two value types, and accumulated failures. An empty `Seq<A>` is a result, not absence. A producer wraps a collection in `Option` only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
 
-`Option` and `Fin` are closed, so a `Match` over their cases is total.
+`Option` and `Fin` are closed, a `Match` over their cases is total.
 
 ## [06]-[RECURSIVE_CASES]
 
@@ -176,7 +176,7 @@ internal static class Sizes {
 
 Each leaf arm answers one, and the `arr` and `obj` arms add the node to the counts of its children. Every arm is a `static` lambda that calls a static function, because an arm without the `static` modifier is `TTRESG1001`. Context that an operation needs travels through the `Switch` state overload.
 
-The union has six constructors, so a fold takes six replacement functions, one per constructor. Each scalar replacement receives that case's payload, `Nil` receives nothing, and the replacements for `Arr` and `Obj` receive already-folded child results:
+The union has six constructors, a fold takes six replacement functions, one per constructor. Each scalar replacement receives that case's payload, `Nil` receives nothing, and the replacements for `Arr` and `Obj` receive already-folded child results:
 
 ```csharp
 internal sealed record JsonFold<R>(
@@ -200,7 +200,7 @@ internal static partial class Folds {
 }
 ```
 
-The recursion lives in `Fold` once, and the handler record travels as the state, so every arm stays `static`. `Count` is this fold with one for every leaf and addition for the containers. Another operation supplies other replacements to the same scheme:
+The recursion lives in `Fold` once, and the handler record travels as the state, every arm stays `static`. `Count` is this fold with one for every leaf and addition for the containers. Another operation supplies other replacements to the same scheme:
 
 ```csharp
 internal static partial class Folds {
@@ -217,13 +217,13 @@ internal static partial class Folds {
 
 `Depth` replaces each leaf with one and each container with one more than its deepest child.
 
-The remaining operations follow the return-type rules. Member lookup passes the requested key as the state and returns `Option<Json>`: an `Obj` without the key and every other case answer `None`. Typed extraction returns `Fin<A>` with distinct `Expected` records, so a consumer classifies a wrong shape by code. An operation that preserves a case takes the case type directly when the caller already holds one, and the signature removes the wrong-shape error. When the shape arrives as data, the operation covers the union and returns a `Fin` failure for every other case.
+The remaining operations follow the return-type rules. Member lookup passes the requested key as the state and returns `Option<Json>`: an `Obj` without the key and every other case answer `None`. Typed extraction returns `Fin<A>` with distinct `Expected` records, a consumer classifies a wrong shape by code. An operation that preserves a case takes the case type directly when the caller already holds one, and the signature removes the wrong-shape error. When the shape arrives as data, the operation covers the union and returns a `Fin` failure for every other case.
 
 ## [07]-[DESIGN_RULES]
 
 - Model each valid state as a distinct case, not as a Boolean discriminator with conditionally meaningful fields.
 - Match the representation to the growth axis: a union for growing operations, abstract members for growing cases. A new case is a compile error at every `Switch` until each gains an arm.
-- Direct recursion over a recursive union suits document-sized trees. C# does not guarantee tail-call optimization, so unbounded depth folds through `Trampoline<A>`.
+- Direct recursion over a recursive union suits document-sized trees. C# does not guarantee tail-call optimization, unbounded depth folds through `Trampoline<A>`.
 - Put only shared data on the abstract base; keep case-specific data in its case.
 - Use a domain-specific union when the consumer needs domain outcome names instead of `Option`, `Fin`, or `Either`.
 - Keep absence and failure separate whenever the consumer needs to respond differently.

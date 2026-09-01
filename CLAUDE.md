@@ -51,23 +51,23 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS choose the result type at the input boundary, preserve it through domain logic, and translate it only at the host boundary
 - ALWAYS select control flow by pattern matching the result cases; status flags, out parameters, and nullable companion fields do not select the path
 - ALWAYS use one result type per expression; adapt a call returning a different result type at the call site
-- ALWAYS compose asynchrony with the result type so the same bind chains asynchronous and synchronous operations
+- ALWAYS compose asynchrony with the result type, the same bind chains asynchronous and synchronous operations
 
 [INDEPENDENCE]: Results that do not consume each other combine in one step that collects every error
-- ALWAYS define a non-empty error type with associative combination so independent errors accumulate deterministically
-- ALWAYS combine independent results applicatively so the result carries every error instead of only the first one encountered
+- ALWAYS define a non-empty error type with associative combination, independent errors accumulate deterministically
+- ALWAYS combine independent results applicatively, the result carries every error instead of only the first one encountered
 - ALWAYS traverse a collection with one result-returning function and accumulate errors when the elements are independent
 - ALWAYS derive concurrency from independence: operands that do not consume each other may evaluate concurrently while result ordering remains deterministic
 
 [PURITY]: Domain functions read only their arguments and write only their return value
 - ALWAYS pass the clock, randomness, environment, and configuration as arguments; domain code reads no ambient source
-- ALWAYS pair acquisition and release in one resource scope so release also runs on the error path
+- ALWAYS pair acquisition and release in one resource scope, release also runs on the error path
 - ALWAYS carry changing context forward as a returned value; shared mutable state does not coordinate operations
 - ALWAYS confine mutation to a scope that owns it and publishes an immutable value; a buffer that never escapes stays pure
 
 [BOUNDARY]: Boundaries own every conversion between external values and domain values
 - ALWAYS emit logs, traces, and metrics when translating the result at the boundary; domain expressions stay pure and silent
-- ALWAYS return the language's one result type from every package/project API so consumers compose without unwrapping
+- ALWAYS return the language's one result type from every package/project API, consumers compose without unwrapping
 - ALWAYS validate host, protocol, and file input once at the boundary into domain values; domain logic receives no raw input
 - ALWAYS map external names to canonical domain names at the validating boundary; one module owns both directions
 - ALWAYS translate the result at the boundary into the host's vocabulary: exit code, status, host exception, or UI state

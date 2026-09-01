@@ -40,7 +40,7 @@ A `string` key is the default choice for APIs, JSON, and display text. An `int` 
 
 A keyless Smart Enum has no key member, no `Get`, no conversion operators, and no comparer settings. Its attribute exposes only `EqualityComparisonOperators`, `SwitchMethods`, `MapMethods`, and `SwitchMapStateParameterName`. No serializer, model binder, or value converter handles it.
 
-The generator emits no `JsonConverterAttribute` for a keyless Smart Enum. `System.Text.Json` therefore writes the public instance properties and throws `NotSupportedException` on read because no usable constructor exists. `[ObjectFactory<string>]` with a static `Validate` method is the only way to serialize or bind a keyless Smart Enum. Serialization needs `UseForSerialization` set and an instance `ToValue()` (`TTRESG062`), and model binding needs `UseForModelBinding = true`. `HasCorrespondingConstructor = true` on that factory is an error (`TTRESG060`).
+The generator emits no `JsonConverterAttribute` for a keyless Smart Enum. `System.Text.Json` writes the public instance properties and throws `NotSupportedException` on read because no usable constructor exists. `[ObjectFactory<string>]` with a static `Validate` method is the only way to serialize or bind a keyless Smart Enum. Serialization needs `UseForSerialization` set and an instance `ToValue()` (`TTRESG062`), and model binding needs `UseForModelBinding = true`. `HasCorrespondingConstructor = true` on that factory is an error (`TTRESG060`).
 
 ## [03]-[GENERATED_API]
 
@@ -76,7 +76,7 @@ internal static class Lookup {
 
 ## [04]-[SWITCH_AND_MAP]
 
-`Switch` takes one `Action` per item, `Switch<TResult>` takes one `Func<TResult>` per item, and `Map<TResult>` takes one value per item. Every argument is named after its item in camel case, and unnamed arguments are an error (`TTRESG046`). Every lambda argument of `Switch` or `Map` without the `static` modifier raises `TTRESG1001`. The state-passing overloads take the state as the first argument and hand it to every `static` lambda. The state parameter is named `state` unless `SwitchMapStateParameterName` renames it, and `TState : allows ref struct` holds. When the lambdas return different but compatible types, write `TResult` on the call so the compiler reports the one lambda that disagrees.
+`Switch` takes one `Action` per item, `Switch<TResult>` takes one `Func<TResult>` per item, and `Map<TResult>` takes one value per item. Every argument is named after its item in camel case, and unnamed arguments are an error (`TTRESG046`). Every lambda argument of `Switch` or `Map` without the `static` modifier raises `TTRESG1001`. The state-passing overloads take the state as the first argument and hand it to every `static` lambda. The state parameter is named `state` unless `SwitchMapStateParameterName` renames it, and `TState : allows ref struct` holds. When the lambdas return different but compatible types, write `TResult` on the call, the compiler reports the one lambda that disagrees.
 
 `SwitchPartially` and `MapPartially` exist only when `SwitchMethods` and `MapMethods` are set to `SwitchMapMethodsGeneration.DefaultWithPartialOverloads`. The void `SwitchPartially` takes an optional `@default` of type `Action<T>` or `Action<TState, T>`, and an unhandled item without a default is a no-op. The value-returning `SwitchPartially` and `MapPartially` require `@default`.
 
@@ -271,7 +271,7 @@ internal sealed partial class ShapeKind {
 }
 ```
 
-Minimal APIs bind a Smart Enum through `IParsable<T>.TryParse`. Only a `bool` reaches the host, and a failed bind answers with a generic 400 response. MVC controllers reference `Thinktecture.Runtime.Extensions.AspNetCore` and insert `ThinktectureModelBinderProvider` at index 0 of `ModelBinderProviders`, in front of the default providers. Its parameter `skipBindingFromBody` defaults to `true` and leaves body values to the JSON serializer. An unknown value adds a model error, and `[ApiController]` turns the invalid state into a 400 response with the message. The model error and the `JsonException` both carry the validation error message. `[ValidationError<TError>]` therefore shapes the response body.
+Minimal APIs bind a Smart Enum through `IParsable<T>.TryParse`. Only a `bool` reaches the host, and a failed bind answers with a generic 400 response. MVC controllers reference `Thinktecture.Runtime.Extensions.AspNetCore` and insert `ThinktectureModelBinderProvider` at index 0 of `ModelBinderProviders`, in front of the default providers. Its parameter `skipBindingFromBody` defaults to `true` and leaves body values to the JSON serializer. An unknown value adds a model error, and `[ApiController]` turns the invalid state into a 400 response with the message. The model error and the `JsonException` both carry the validation error message. `[ValidationError<TError>]` shapes the response body.
 
 ```csharp
 services.AddControllers(static options => options.ModelBinderProviders.Insert(0, new ThinktectureModelBinderProvider()));
@@ -294,7 +294,7 @@ Configuration fixedWidth = new() { SmartEnums = new SmartEnumConfiguration { Max
 
 Serilog renders a keyed Smart Enum as its key once `Destructure.UsingThinktectureRuntimeExtensions()` is registered and the template uses the `@` operator; `TypesToRenderAsString.SmartEnums` switches the rendering to `ToString()`. A keyless Smart Enum is declined and falls through to Serilog's default object destructuring.
 
-A Smart Enum models a closed set of named items with one shape; cases with different shapes are a discriminated union. An item is a `static readonly` field, not a constant, so it cannot serve as an attribute argument or a `case` label.
+A Smart Enum models a closed set of named items with one shape; cases with different shapes are a discriminated union. An item is a `static readonly` field, not a constant. It cannot serve as an attribute argument or a `case` label.
 
 ## [10]-[DESIGN_RULES]
 
@@ -302,4 +302,4 @@ A Smart Enum models a closed set of named items with one shape; cases with diffe
 - Use the partial overloads only for an intended fallback.
 - A `Switch` or `Map` lambda without `static` allocates and raises `TTRESG1001`. Use the state overload with a `static` lambda, as `Matching.Label` shows.
 - `Get` at a boundary throws for user input. Map `Validate` to `Fin<T>` or `TryGet` to `Option<T>`, as `Lookup` shows.
-- Declare `[ValidationError<TError>]` with a typed `Expected` record so `Validate` returns the typed error.
+- Declare `[ValidationError<TError>]` with a typed `Expected` record, `Validate` returns the typed error.

@@ -90,7 +90,7 @@ public static virtual K<M, K<T, A>> SequenceM<M, A>(
 
 ### [03.1]-[PREFER_TRAVERSE]
 
-C# cannot convert a concrete nested value such as `Seq<Option<int>>` to the nested higher-kinded form `K<Seq, K<Option, int>>`, so this fails at compile time:
+C# cannot convert a concrete nested value such as `Seq<Option<int>>` to the nested higher-kinded form `K<Seq, K<Option, int>>`, this fails at compile time:
 
 ```csharp
 var values = Seq(Some(1), Some(2), None);
@@ -182,7 +182,7 @@ The `Left` branch does not call `f`; it preserves the existing structure and lif
 
 ## [07]-[CONCRETE_RETURN_TYPES]
 
-The generic extension returns two nested `K` interfaces. Concrete member methods on a traversable type resolve before the generic extensions, so only the outer layer stays abstract:
+The generic extension returns two nested `K` interfaces. Concrete member methods on a traversable type resolve before the generic extensions, only the outer layer stays abstract:
 
 ```csharp
 public readonly struct Seq<A>

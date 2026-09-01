@@ -163,4 +163,4 @@ public static K<State<S>, B> Bind<A, B>(
 
 ## [08]-[COMPOSITION_LIMIT]
 
-These are single-feature monads. A monadic expression works with one constructor at a time, so `Option` and `IO` do not combine directly in one expression. Dedicated types for specific pairings do not scale: the handwritten combinations grow with every monad and every larger combination. Monad transformers compose existing monads into combined monads.
+These are single-feature monads. A monadic expression works with one constructor at a time, `Option` and `IO` do not combine directly in one expression. Dedicated types for specific pairings do not scale: the handwritten combinations grow with every monad and every larger combination. Monad transformers compose existing monads into combined monads.

@@ -12,7 +12,7 @@ public interface Addable<SELF>
 }
 ```
 
-The recursive constraint requires `SELF` to implement `Addable<SELF>`, so an implementing type passes its own concrete type to the trait. This is opt-in, trait-like polymorphism: the type itself declares the implementation.
+The recursive constraint requires `SELF` to implement `Addable<SELF>`, an implementing type passes its own concrete type to the trait. This is opt-in, trait-like polymorphism: the type itself declares the implementation.
 
 ```csharp
 public record MyList<A>(A[] values) : Addable<MyList<A>>

@@ -36,7 +36,7 @@ let rec map_tree f t =
 (* map_tree : ('a -> 'b) -> 'a bin_tree -> 'b bin_tree *)
 ```
 
-Only node values change. `Leaf` remains `Leaf`, and every `Node` retains its position and children, so the tree's shape is unchanged.
+Only node values change. `Leaf` remains `Leaf`, and every `Node` retains its position and children. The tree's shape is unchanged.
 
 ### Optional values
 
@@ -62,7 +62,7 @@ max_length []                    (* None *)
 max_length ["a"; "abc"; "ab"]    (* Some 3 *)
 ```
 
-There is no longest string for `[]`, so absence remains `None`; an existing longest string is mapped to its length.
+There is no longest string for `[]`, absence remains `None`; an existing longest string is mapped to its length.
 
 ### Containers, domains, and lifting
 

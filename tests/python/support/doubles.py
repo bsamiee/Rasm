@@ -161,7 +161,7 @@ async def loopback_server[S: _AsyncServer](listen: Callable[[], Awaitable[S]], p
 def autojump_backend(threshold: float = 0.0) -> tuple[str, dict[str, object]]:
     """Return an ``anyio_backend`` parameter using Trio's autojumping virtual clock.
 
-    Every ``anyio.sleep`` and deadline advances instantly once the loop idles past ``threshold``, so retry, drain, and
+    Every ``anyio.sleep`` and deadline advances instantly once the loop idles past ``threshold``. Retry, drain, and
     timeout tests complete without real-time sleeps; the asyncssh stub skips itself under this backend.
     """
     return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=threshold)})

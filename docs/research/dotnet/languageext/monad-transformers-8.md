@@ -44,7 +44,7 @@ public interface MonadT<T, out M> : Monad<T>
 }
 ```
 
-`T` is a transformer and a monad, so it stacks inside another transformer. `M` is the lifted monad, and `Lift` embeds an `M<A>` action in `T`. With first-class higher kinds the relationship reads `T<M<A>>`; LanguageExt expresses it with encodings such as `K<T, K<M, A>>` and a concrete transformer representation.
+`T` is a transformer and a monad, it stacks inside another transformer. `M` is the lifted monad, and `Lift` embeds an `M<A>` action in `T`. With first-class higher kinds the relationship reads `T<M<A>>`; LanguageExt expresses it with encodings such as `K<T, K<M, A>>` and a concrete transformer representation.
 
 A regular monad becomes a transformer only through a bespoke transformer implementation. The reverse holds through `Identity`: `OptionT<Identity, A>` corresponds to `Option<A>`. Dedicated regular types remain preferable for performance. Transformer types carry a `T` suffix.
 
@@ -64,7 +64,7 @@ public static class MaybeTExtensions
 }
 ```
 
-The implementation knows the cases of `Maybe<A>`. It does not know the concrete `M`, so it uses only the operations `Monad<M>` guarantees. The known and lifted monads occupy no universal nesting order: here `M` is outside `Maybe`, and other transformers arrange their representation differently. The concrete wrapped type, not the `T` suffix, determines how the layers unwrap.
+The implementation knows the cases of `Maybe<A>`. It does not know the concrete `M`, it uses only the operations `Monad<M>` guarantees. The known and lifted monads occupy no universal nesting order: here `M` is outside `Maybe`, and other transformers arrange their representation differently. The concrete wrapped type, not the `T` suffix, determines how the layers unwrap.
 
 ```csharp
 public class MaybeT<M> :
@@ -106,7 +106,7 @@ The nested operations are the implementation:
 - `Pure` makes a `Just` and lifts it with `M.Pure`.
 - `Bind` sequences `M`, continues with `f` for `Just`, and lifts `Nothing` back into `M`.
 - `Lift` maps the result of `M` into `Just` to create the required `K<M, Maybe<A>>`.
-- `Apply` uses `Bind` and `Map`; reaching the inner `Maybe` requires sequencing the outer `M`, so only the inner type's applicative operation is directly available in an expanded implementation.
+- `Apply` uses `Bind` and `Map`; reaching the inner `Maybe` requires sequencing the outer `M`, only the inner type's applicative operation is directly available in an expanded implementation.
 
 Convenience functions lift either layer and construct the optional states:
 
@@ -133,9 +133,9 @@ The generic `MonadT.lift` performs the inner-monad lift as well; bespoke functio
 
 ## [04]-[LIFTING_IO]
 
-No `IOT` exists. In an IO-based stack, `IO<A>` is the innermost monad. Repeated `lift(lift(lift(io)))` calls expose the stack depth, so `liftIO` forwards the action through every transformer to `IO`.
+No `IOT` exists. In an IO-based stack, `IO<A>` is the innermost monad. Repeated `lift(lift(lift(io)))` calls expose the stack depth, `liftIO` forwards the action through every transformer to `IO`.
 
-C# cannot make a transformer implement a trait only for the choices of `M` that contain IO. LanguageExt therefore has two related interfaces: the `MonadIO` operations inherited by monads carry default unsupported behavior, and `MonadIO<M>` declares that a type supports IO and serves as a generic constraint. Transformer types implement `MonadIO<T>` and pass IO operations to the lifted `M`; a transformer omits it only when IO is deliberately barred from every stack that uses it.
+C# cannot make a transformer implement a trait only for the choices of `M` that contain IO. LanguageExt has two related interfaces: the `MonadIO` operations inherited by monads carry default unsupported behavior, and `MonadIO<M>` declares that a type supports IO and serves as a generic constraint. Transformer types implement `MonadIO<T>` and pass IO operations to the lifted `M`; a transformer omits it only when IO is deliberately barred from every stack that uses it.
 
 For `MaybeT`, lifting maps the IO result into `Maybe` and passes the action inward; at the `IO` layer, lifting is identity:
 
@@ -223,7 +223,7 @@ public record ApiService<A>(Service<A> Action) : ApiDsl<A>;
 public record Api<A>(Free<ApiDsl, A> runApi) : K<Api, A>;
 ```
 
-The API lifts database actions through explicit read-only or read-write operations and lifts service actions separately, so a registration workflow keeps transactional database work distinct from sending an external email. Running `Api<A>` requires an interpreter: `Pure` completes, `Bind` continues, failures become failed IO, and the database and service cases run their hidden stacks with the supplied environments. Both domain stacks end in `IO`, so the interpreter returns `IO<A>`. The architecture hides representation until `Run`, centralizes environment and transaction handling, and lets the private stack change without changing consumers.
+The API lifts database actions through explicit read-only or read-write operations and lifts service actions separately, a registration workflow keeps transactional database work distinct from sending an external email. Running `Api<A>` requires an interpreter: `Pure` completes, `Bind` continues, failures become failed IO, and the database and service cases run their hidden stacks with the supplied environments. Both domain stacks end in `IO`, the interpreter returns `IO<A>`. The architecture hides representation until `Run`, centralizes environment and transaction handling, and lets the private stack change without changing consumers.
 
 ## [08]-[PERFORMANCE_AND_DESIGN]
 

@@ -1,10 +1,10 @@
 # Compound Data Types
 
-Compound data groups multiple data objects into one structure so related values can be handled as a single concept.
+Compound data groups multiple data objects into one structure. Related values can be handled as a single concept.
 
 ## Tuples: fixed-size products
 
-A tuple groups a fixed number of ordered values. Its elements may have different types, so it suits concepts whose number of components is known in advance.
+A tuple groups a fixed number of ordered values. Its elements may have different types, it suits concepts whose number of components is known in advance.
 
 ```ocaml
 (42, "Hi FP")           (* int * string *)
@@ -50,9 +50,9 @@ let translate_point (x, y) dx dy = (x +. dx, y +. dy)
 
 ## Immutability
 
-Once an immutable value is constructed, it cannot be changed. Translating a point therefore constructs a new pair rather than updating the old one.
+Once an immutable value is constructed, it cannot be changed. Translating a point constructs a new pair rather than updating the old one.
 
-Immutability makes a value's contents stable over time, so understanding it does not require tracing a history of updates. It also provides thread safety. The resulting functional style transforms input data into new output data. In the chapter's functional list-reversal example, this makes the code resemble a mathematical function: it returns a new value and gives the same output for the same input.
+Immutability makes a value's contents stable over time. Understanding it does not require tracing a history of updates. It also provides thread safety. The resulting functional style transforms input data into new output data. In the chapter's functional list-reversal example, this makes the code resemble a mathematical function: it returns a new value and gives the same output for the same input.
 
 ## Lists: ordered homogeneous sequences
 
@@ -176,7 +176,7 @@ let rec area s = match s with
       | hd :: tl -> area hd +. area (ComplexShape tl)
 ```
 
-For this calculation, child shapes are assumed not to overlap, so the area of a complex shape is the sum of its children's areas.
+For this calculation, child shapes are assumed not to overlap, the area of a complex shape is the sum of its children's areas.
 
 ### Parameterized and recursive types
 

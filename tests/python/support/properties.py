@@ -239,7 +239,7 @@ def _test_modules(suite: Path) -> frozenset[str]:
 def uncollected_test_modules() -> dict[str, tuple[str, ...]]:
     """Return package test modules that pytest did not import during collection.
 
-    Collection imports every selected test module, so a dotted name absent from ``sys.modules`` means that module's
+    Collection imports every selected test module, a dotted name absent from ``sys.modules`` means that module's
     coverage declarations were not recorded.
     """
     gaps = {package: tuple(sorted(name for name in _test_modules(registration.suite) if name not in sys.modules)) for package, registration in PACKAGES_UNDER_TEST.items() if registration.suite is not None}

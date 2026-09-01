@@ -28,13 +28,13 @@ A generic or runtime-target-type method dispatches to the mappings declared in t
 
 An additional parameter matches a target member by name, without case. It ranks below a `MapPropertyAttribute` configuration and above a by-name source member. Mapperly forwards matching parameters to explicitly declared nested mapping methods and methods selected by `Use`. It does not synthesize a nested method with additional parameters. Queryable projection parameters become captured expression values. A method that takes one cannot be the default mapping, and cannot also be a generic, runtime-target-type, or derived-type mapping.
 
-A static mapping method satisfies a `static abstract` interface member, so a `[Mapper] partial class` may implement a mapping interface.
+A static mapping method satisfies a `static abstract` interface member, a `[Mapper] partial class` may implement a mapping interface.
 
 A method with additional parameters cannot be the default mapping. `RMG081` rejects `[UserMapping(Default = true)]` on one. `RMG099` rejects two additional parameters whose names differ only in case, because matching ignores case and only the first would ever bind. `RMG082` reports an additional parameter that no target member consumed. `RMG097` reports unsatisfied parameters on a `MapValue` method, and `RMG098` reports them on a named mapping.
 
-A projection-expression method returns `Expression<Func<TSource, TTarget>>` and takes no parameters, because the mapped types come from the delegate's type arguments. It shares every rule with an `IQueryable<T>` projection, including the inlining limits and `RMG068`. `MappingConversionType.Expression` names this conversion, but the generator reads that bit nowhere, so clearing it disables nothing.
+A projection-expression method returns `Expression<Func<TSource, TTarget>>` and takes no parameters, because the mapped types come from the delegate's type arguments. It shares every rule with an `IQueryable<T>` projection, including the inlining limits and `RMG068`. `MappingConversionType.Expression` names this conversion, but the generator reads that bit nowhere, clearing it disables nothing.
 
-`MappingTargetOriginalValueAttribute` marks a parameter that receives the target member's current value, so a hand-written mapping can fold the new value into the old one. It is legal on a user-implemented method that returns a value, and its position among the parameters is free. `RMG100` rejects it on a generated `partial` method, and `RMG001` rejects it on a `void` existing-target method. Mapperly passes `default` for an init-only member or constructor parameter because the target instance is unavailable while it builds the construction expression.
+`MappingTargetOriginalValueAttribute` marks a parameter that receives the target member's current value, a hand-written mapping can fold the new value into the old one. It is legal on a user-implemented method that returns a value, and its position among the parameters is free. `RMG100` rejects it on a generated `partial` method, and `RMG001` rejects it on a `void` existing-target method. Mapperly passes `default` for an init-only member or constructor parameter because the target instance is unavailable while it builds the construction expression.
 
 ## [02]-[ATTRIBUTES]
 
@@ -72,7 +72,7 @@ A projection-expression method returns `Expression<Func<TSource, TTarget>>` and 
 |  [28]   | `MapperIgnoreSourceValueAttribute`         | method                  |    yes     | exclude a source enum value          |
 |  [29]   | `MapperIgnoreTargetValueAttribute`         | method                  |    yes     | exclude a target enum value          |
 
-`MapperDefaultsAttribute` derives from `MapperAttribute`, so it carries the same options. `MapperAttribute` overrides it, and `MapperRequiredMappingAttribute` and `MapperIgnoreObsoleteMembersAttribute` override both for one method.
+`MapperDefaultsAttribute` derives from `MapperAttribute`, it carries the same options. `MapperAttribute` overrides it, and `MapperRequiredMappingAttribute` and `MapperIgnoreObsoleteMembersAttribute` override both for one method.
 
 `UseStaticMapperAttribute(Type mapperType)` and `UseStaticMapperAttribute<T>` take the type whose static mapping methods enter the mapper. `UseMapperAttribute` marks a field or property whose instance and static mapping methods enter the mapper. The author initializes that member.
 
@@ -94,7 +94,7 @@ TTarget CreateTargetType<TTarget, TSource>(TSource source);
 
 `MapperIgnoreAttribute` excludes a member from every mapping. Applied to a method, it also removes that method from the conversion candidates. Those candidates are `Parse`, an instance `ToTarget` method, and a static `Create`, `CreateFrom`, `FromTSource`, or `ToTTarget` method.
 
-`MapperIgnoreAttribute`, `MapperIgnoreSourceAttribute`, `MapperIgnoreTargetAttribute`, `MapperIgnoreSourceValueAttribute`, and `MapperIgnoreTargetValueAttribute` each expose `Justification` as a `string?`. The value documents the exclusion and changes no mapping. `RMG096` reports an ignore whose `Justification` is absent or whitespace, and ships at `hidden`. Raising its severity above `hidden` is the documented way to require one.
+`MapperIgnoreAttribute`, `MapperIgnoreSourceAttribute`, `MapperIgnoreTargetAttribute`, `MapperIgnoreSourceValueAttribute`, and `MapperIgnoreTargetValueAttribute` each expose `Justification` as a `string?`. The value documents the exclusion and changes no mapping. `RMG096` reports an ignore whose `Justification` is absent or whitespace, and defaults to `hidden`. Raising its severity above `hidden` is the documented way to require one.
 
 `UserMappingAttribute` marks a hand-written method as a mapping method. Mapperly distinguishes an omitted `Default` from an explicit `false`: omission permits implicit default selection, `false` excludes pair-wide automatic selection, and `true` selects the pair default. Only one mapping per pair may set `true`. `Ignore = true` removes the method from discovery. Mapperly discovers unattributed hand-written methods by signature while `AutoUserMappings` is `true`. It reports `RMG060` when automatic selection finds several mappings without one explicit default.
 
@@ -102,13 +102,13 @@ A hand-written method's parameter and return types must match the mapped types e
 
 `NamedMappingAttribute(string name)` gives a mapping a name that `Use` and `IncludeMappingConfigurationAttribute` reference instead of the method name. `IncludeMappingConfigurationAttribute(string name)` merges ignored source and target members, explicit and nested member mappings, values, derived pairs, and enum fallback, ignore, and explicit-value configuration. The including method keeps its enum strategy, casing, naming, and required-enum strategy. The named method must map the same types or their base types. A colliding configuration is an error, and an ambiguous name reports `RMG062`.
 
-`IncludeMappingConfigurationAttribute` sets `AllowMultiple`, so a method may include several configurations. Lists concatenate. The including method's required-member and ignore-obsolete settings outrank included settings; otherwise, the first included value wins. `RMG074` reports two configurations that reach the same target member, `RMG091` reports a circular include, and `RMG092` and `RMG093` report a source or target type that is not assignable to the included one.
+`IncludeMappingConfigurationAttribute` sets `AllowMultiple`, a method may include several configurations. Lists concatenate. The including method's required-member and ignore-obsolete settings outrank included settings; otherwise, the first included value wins. `RMG074` reports two configurations that reach the same target member, `RMG091` reports a circular include, and `RMG092` and `RMG093` report a source or target type that is not assignable to the included one.
 
 A `Use` value and an `IncludeMappingConfigurationAttribute` name both accept a reference outside the mapper. Prefix the path with `@` inside `nameof`, or write the fully qualified path as a string. `@` also works in a `MapPropertyAttribute` path, where `nameof(@MyNamespace.Car.Make.Id)` yields the path `Make.Id`.
 
 ## [03]-[MAPPER_OPTIONS]
 
-[TYPE_SCOPE]: the settable properties of `MapperAttribute`, and therefore of `MapperDefaultsAttribute`.
+[TYPE_SCOPE]: the settable properties of `MapperAttribute`, and of `MapperDefaultsAttribute`.
 
 | [INDEX] | [PROPERTY]                           | [TYPE]                          | [DEFAULT]       | [EFFECT]                       |
 | :-----: | :----------------------------------- | :------------------------------ | :-------------- | :----------------------------- |
@@ -139,19 +139,19 @@ The three null options do not apply to a required init property or to an `IQuery
 
 `UseDeepCloning` never copies a well-known .NET immutable type. `RMG083` reports a member of an immutable type that Mapperly cannot clone.
 
-`StackCloningStrategy` decides the element order whenever Mapperly builds a `Stack<T>` through `Stack<T>(IEnumerable<T>)`, which reverses the sequence. `PreserveOrder` therefore emits a `Reverse` call, and `ReverseOrder` emits the bare constructor. It applies to every such new-instance mapping, not to deep clones alone, and it never applies to an existing-target stack or to a `Queue<T>`.
+`StackCloningStrategy` decides the element order whenever Mapperly builds a `Stack<T>` through `Stack<T>(IEnumerable<T>)`, which reverses the sequence. `PreserveOrder` emits a `Reverse` call, and `ReverseOrder` emits the bare constructor. It applies to every such new-instance mapping, not to deep clones alone, and it never applies to an existing-target stack or to a `Queue<T>`.
 
-Mapperly reads four nullability attributes from `System.Diagnostics.CodeAnalysis`, on two independent axes. `MaybeNullAttribute` widens a non-nullable member for reading, and `NotNullAttribute` narrows a nullable one. `AllowNullAttribute` widens a non-nullable member for writing, and `DisallowNullAttribute` narrows a nullable one. The member's own type decides which of the pair Mapperly consults, so one lookup answers each axis. For a member that a referenced assembly declares, Mapperly also reads the getter's return attributes and the setter's value parameter, because the compiler records them there rather than on the property. All four therefore move `RMG089`, and they reach `RMG090` through the member type they imply.
+Mapperly reads four nullability attributes from `System.Diagnostics.CodeAnalysis`, on two independent axes. `MaybeNullAttribute` widens a non-nullable member for reading, and `NotNullAttribute` narrows a nullable one. `AllowNullAttribute` widens a non-nullable member for writing, and `DisallowNullAttribute` narrows a nullable one. The member's own type decides which of the pair Mapperly consults, one lookup answers each axis. For a member that a referenced assembly declares, Mapperly also reads the getter's return attributes and the setter's value parameter, because the compiler records them there rather than on the property. All four move `RMG089`, and they reach `RMG090` through the member type they imply.
 
-`EnabledConversions` excludes `ExplicitCast` by default, so an explicit cast operator converts nothing until a mapper names `All` or adds the bit. The consequence differs by type. A narrowing numeric conversion has no other route and reports `RMG008`. A type that offers an explicit operator falls through to a later conversion instead: a target of `string` reaches `ToStringMethod` and emits `ToString`, and any other target reaches member mapping, which silently produces a default or a member-wise copy when the target has an accessible parameterless constructor and otherwise fails to compile on the emitted construction. `RMG066` and `RMG020` are the only reports of the silent outcome.
+`EnabledConversions` excludes `ExplicitCast` by default, an explicit cast operator converts nothing until a mapper names `All` or adds the bit. The consequence differs by type. A narrowing numeric conversion has no other route and reports `RMG008`. A type that offers an explicit operator falls through to a later conversion instead: a target of `string` reaches `ToStringMethod` and emits `ToString`, and any other target reaches member mapping, which silently produces a default or a member-wise copy when the target has an accessible parameterless constructor and otherwise fails to compile on the emitted construction. `RMG066` and `RMG020` are the only reports of the silent outcome.
 
-`IncludedMembers` and `IncludedConstructors` need .NET 8.0 or later once the `Accessible` bit is cleared, because the accessors depend on `UnsafeAccessorAttribute`. `RMG053` reports a compilation without it, and Mapperly then restores the bit. Clearing the bit also raises the metadata import level, so a referenced project must set `ProduceReferenceAssembly` to `false` before its private members become visible. A package reference ships an implementation assembly and needs no such setting.
+`IncludedMembers` and `IncludedConstructors` need .NET 8.0 or later once the `Accessible` bit is cleared, because the accessors depend on `UnsafeAccessorAttribute`. `RMG053` reports a compilation without it, and Mapperly then restores the bit. Clearing the bit also raises the metadata import level, a referenced project must set `ProduceReferenceAssembly` to `false` before its private members become visible. A package reference delivers an implementation assembly and needs no such setting.
 
 A `Parse` conversion accepts `TTarget Parse(string)` and `TTarget Parse(string, IFormatProvider)`. Mapperly prefers the two-parameter form when a format provider resolves, and passes `null` to a nullable provider parameter when none does.
 
-`IncludedMembers` and `IncludedConstructors` set independently. `AllAccessible` maps every member the mapper can reach directly. `All` drops the `Accessible` bit, so Mapperly emits `UnsafeAccessorAttribute` accessors for the members it cannot reach. Those accessors use no reflection.
+`IncludedMembers` and `IncludedConstructors` set independently. `AllAccessible` maps every member the mapper can reach directly. `All` drops the `Accessible` bit, Mapperly emits `UnsafeAccessorAttribute` accessors for the members it cannot reach. Those accessors use no reflection.
 
-Every option above also reads from an MSBuild property named `Mapperly` plus the property name. `Riok.Mapperly.targets` declares one `CompilerVisibleProperty` per option, and `MapperBuildConfigurationReader` enumerates the configuration record by reflection, so the two names never drift.
+Every option above also reads from an MSBuild property named `Mapperly` plus the property name. `Riok.Mapperly.targets` declares one `CompilerVisibleProperty` per option, and `MapperBuildConfigurationReader` enumerates the configuration record by reflection, the two names never drift.
 
 ```xml
 <PropertyGroup>
@@ -159,19 +159,19 @@ Every option above also reads from an MSBuild property named `Mapperly` plus the
 </PropertyGroup>
 ```
 
-A `bool` parses through `bool.TryParse`, so only `true` and `false` are accepted, in any casing. An enum parses through `Enum.Parse` without case, and also accepts the underlying number. A `[Flags]` enum combines members with `,`, `;`, or `|`, because the reader rewrites `;` and `|` to `,` first. `Enum.Parse` reads no complement operator, so a value such as `All & ~ExplicitCast` is expressible only by the member name `Default`.
+A `bool` parses through `bool.TryParse`, only `true` and `false` are accepted, in any casing. An enum parses through `Enum.Parse` without case, and also accepts the underlying number. A `[Flags]` enum combines members with `,`, `;`, or `|`, because the reader rewrites `;` and `|` to `,` first. `Enum.Parse` reads no complement operator, a value such as `All & ~ExplicitCast` is expressible only by the member name `Default`.
 
-`RMG095` reports a value that fails to parse, and names the canonical property spelling rather than the one the author typed. The failed property stays unset and the next source supplies the value. An absent or whitespace value is skipped with no diagnostic. `Enum.Parse` checks neither that a combined value targets a `[Flags]` enum nor that a number lies in range, so `RMG095` reports neither.
+`RMG095` reports a value that fails to parse, and names the canonical property spelling rather than the one the author typed. The failed property stays unset and the next source supplies the value. An absent or whitespace value is skipped with no diagnostic. `Enum.Parse` checks neither that a combined value targets a `[Flags]` enum nor that a number lies in range, `RMG095` reports neither.
 
-Precedence runs from the `MapperAttribute` initializer, through the MSBuild property, then `MapperDefaultsAttribute`, then `MapperAttribute`, and last the per-method attribute. Each option is nullable in the configuration record, so an option written explicitly is distinguishable from an omitted one at every tier. `MapEnumAttribute`, `MapperRequiredMappingAttribute`, and `MapperIgnoreObsoleteMembersAttribute` are the only per-method overrides; the remaining options are mapper-wide.
+Precedence runs from the `MapperAttribute` initializer, through the MSBuild property, then `MapperDefaultsAttribute`, then `MapperAttribute`, and last the per-method attribute. Each option is nullable in the configuration record, an option written explicitly is distinguishable from an omitted one at every tier. `MapEnumAttribute`, `MapperRequiredMappingAttribute`, and `MapperIgnoreObsoleteMembersAttribute` are the only per-method overrides; the remaining options are mapper-wide.
 
-`RequiredEnumMappingStrategy` is the one option with a longer chain: unset, it inherits `RequiredMappingStrategy` before it reaches the initializer. Relaxing `RequiredMappingStrategy` therefore also relaxes the enum diagnostics unless the mapper sets both.
+`RequiredEnumMappingStrategy` is the one option with a longer chain: unset, it inherits `RequiredMappingStrategy` before it reaches the initializer. Relaxing `RequiredMappingStrategy` also relaxes the enum diagnostics unless the mapper sets both.
 
-`Riok.Mapperly.targets` ships under `build`, not `buildTransitive`. A project that references `Riok.Mapperly` transitively still receives the generator, but declares no `CompilerVisibleProperty`, so every `Mapperly` property is ignored there and `RMG095` cannot fire. `MapperDefaultsAttribute` travels with the compilation and carries assembly-wide policy without that limit.
+`Riok.Mapperly.targets` is packaged under `build`, not `buildTransitive`. A project that references `Riok.Mapperly` transitively still receives the generator, but declares no `CompilerVisibleProperty`, every `Mapperly` property is ignored there and `RMG095` cannot fire. `MapperDefaultsAttribute` travels with the compilation and carries assembly-wide policy without that limit.
 
 ## [04]-[MEMBER_CONFIGURATION]
 
-[TYPE_SCOPE]: the attributes that configure one mapping method's members. Rows [01] to [14] carry `AllowMultiple`, so a method may repeat them. Rows [15] and [16] apply once.
+[TYPE_SCOPE]: the attributes that configure one mapping method's members. Rows [01] to [14] carry `AllowMultiple`, a method may repeat them. Rows [15] and [16] apply once.
 
 | [INDEX] | [CONSTRUCTOR]                                                                                       | [EXPOSES]                 |
 | :-----: | :-------------------------------------------------------------------------------------------------- | :------------------------ |
@@ -208,7 +208,7 @@ Settable properties past the constructor:
 
 Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from PascalCase names. It tries at most 256 member-path permutations. It does not resolve unflattening, which needs `MapPropertyAttribute`. Mapperly ignores indexed members.
 
-`MapNestedPropertiesAttribute` brings every member below one path into scope, as if the source declared them. An immediate source member outranks a nested one, and automatic flattening outranks both. Two nested paths that reach the same target member have no defined order, so name that mapping with `MapPropertyAttribute`.
+`MapNestedPropertiesAttribute` brings every member below one path into scope, as if the source declared them. An immediate source member outranks a nested one, and automatic flattening outranks both. Two nested paths that reach the same target member have no defined order. Name that mapping with `MapPropertyAttribute`.
 
 ## [05]-[ENUM_CONFIGURATION]
 
@@ -223,11 +223,11 @@ Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from Pas
 
 `MapEnumAttribute` applies to a mapping method that takes an enum. It also takes `IgnoreCase` as `bool`, which defaults to `false`, `FallbackValue` as `object?`, which defaults to null, and `NamingStrategy` as `EnumNamingStrategy`, which defaults to `MemberName`. `FallbackValue` replaces the throw for an unmapped value, and works with `ByName` and `ByValueCheckDefined` only. Neither `FallbackValue` nor `MapEnumValueAttribute` passes through the naming strategy.
 
-`MapEnumValueAttribute` applies to an enum-to-enum, enum-to-string, or string-to-enum mapping. It takes `object` for both arguments, so it pairs an enum member with another enum member or with a string literal. `MapperIgnoreSourceValueAttribute` and `MapperIgnoreTargetValueAttribute` cast their argument to `Enum`, so they take an enum member only.
+`MapEnumValueAttribute` applies to an enum-to-enum, enum-to-string, or string-to-enum mapping. It takes `object` for both arguments, it pairs an enum member with another enum member or with a string literal. `MapperIgnoreSourceValueAttribute` and `MapperIgnoreTargetValueAttribute` cast their argument to `Enum`, they take an enum member only.
 
 ## [06]-[STRATEGY_TYPES]
 
-[TYPE_SCOPE]: the strategy vocabularies the options and attributes above name. `RequiredMappingStrategy`, `IgnoreObsoleteMembersStrategy`, `MemberVisibility`, and `MappingConversionType` carry `[Flags]`, so `|` adds a member and `& ~` removes one. `EnumMappingStrategy`, `EnumNamingStrategy`, and `PropertyNameMappingStrategy` do not.
+[TYPE_SCOPE]: the strategy vocabularies the options and attributes above name. `RequiredMappingStrategy`, `IgnoreObsoleteMembersStrategy`, `MemberVisibility`, and `MappingConversionType` carry `[Flags]`, `|` adds a member and `& ~` removes one. `EnumMappingStrategy`, `EnumNamingStrategy`, and `PropertyNameMappingStrategy` do not.
 
 [EnumMappingStrategy]: `ByValue` `ByName` `ByValueCheckDefined`
 [EnumNamingStrategy]: `MemberName` `CamelCase` `PascalCase` `SnakeCase` `UpperSnakeCase` `KebabCase` `UpperKebabCase` `ComponentModelDescriptionAttribute` `SerializationEnumMemberAttribute`
@@ -243,7 +243,7 @@ Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from Pas
 
 ## [07]-[CONVERSIONS]
 
-[TYPE_SCOPE]: `MappingConversionType`, the `[Flags]` set that `EnabledConversions` admits. `None = 0` disables every automatic conversion and `All = ~None` enables every one. `Default = All & ~ExplicitCast` is what `EnabledConversions` holds when the author sets nothing, so an explicit cast operator converts nothing until the mapper names `All` or adds the bit.
+[TYPE_SCOPE]: `MappingConversionType`, the `[Flags]` set that `EnabledConversions` admits. `None = 0` disables every automatic conversion and `All = ~None` enables every one. `Default = All & ~ExplicitCast` is what `EnabledConversions` holds when the author sets nothing, an explicit cast operator converts nothing until the mapper names `All` or adds the bit.
 
 | [INDEX] | [MEMBER]               | [BIT]     | [ORDER] | [CONDITION]                                                  |
 | :-----: | :--------------------- | :-------- | :-----: | :----------------------------------------------------------- |
@@ -274,7 +274,7 @@ The `[ORDER]` column gives the priority the docs list. Rank 1 is direct assignme
 
 `MapDerivedTypeAttribute(Type sourceType, Type targetType)` and `MapDerivedTypeAttribute<TSource, TTarget>` register one pair for a base-type or interface mapping. Every source type must extend or implement the parameter type. Every target type must extend or implement the return type. Each source type appears once, and several source types may share one target type. An ordinary mapping emits a runtime switch and throws `ArgumentException` for an unregistered type. An `IQueryable` or expression mapping emits `default(TTarget)` for the unmatched branch. Derived types work for a new-instance mapping and for an existing-target mapping.
 
-An `IQueryable<T>` or expression projection compiles an element mapping into an expression tree. Dictionary and existing-target mappings are unavailable. Object factories and deep cloning do not apply. Reference handling reports `RMG029`. Nullable analysis and property null controls do not apply, so nullable-to-non-nullable paths use generated fallbacks. Unsupported enum configuration reports `RMG032` and emits a value cast.
+An `IQueryable<T>` or expression projection compiles an element mapping into an expression tree. Dictionary and existing-target mappings are unavailable. Object factories and deep cloning do not apply. Reference handling reports `RMG029`. Nullable analysis and property null controls do not apply, nullable-to-non-nullable paths use generated fallbacks. Unsupported enum configuration reports `RMG032` and emits a value cast.
 
 Mapperly inlines a hand-written mapping method when it has an expression body, one return statement, or one local declaration followed by a return. `RMG068` leaves a non-inlined method call in the generated expression.
 
@@ -298,4 +298,4 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
 
 Mapperly calls `TryGetReference` before it creates a target. A `true` result must set `target`, and Mapperly uses that instance. A `false` result makes Mapperly create a new instance and record it through `SetReference`. `PreserveReferenceHandler` returns the same target instance for the same source instance. Its own documentation reserves it for generated code and excludes it from the semantic version contract.
 
-To supply another handler, add a parameter of type `IReferenceHandler` marked `ReferenceHandlerAttribute`. A hand-written mapping method takes the same parameter to join the same handler. `ReferenceHandlerAttribute` sits in `Riok.Mapperly.Abstractions.ReferenceHandling`, not beside the other attributes, so a method that takes a handler needs a second `using` directive.
+To supply another handler, add a parameter of type `IReferenceHandler` marked `ReferenceHandlerAttribute`. A hand-written mapping method takes the same parameter to join the same handler. `ReferenceHandlerAttribute` sits in `Riok.Mapperly.Abstractions.ReferenceHandling`, not beside the other attributes. A method that takes a handler needs a second `using` directive.

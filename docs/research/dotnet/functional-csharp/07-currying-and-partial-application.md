@@ -63,7 +63,7 @@ Place stable inputs first and runtime inputs last:
 
 For example, `ConnectionIO -> SqlTemplate -> QueryParameters -> Result` and `Clock -> Command -> Validation<Error, Command>`.
 
-This ordering makes left-to-right partial application useful. If an API puts a short-lived value before stable configuration, adapt its signature so that application setup can supply the stable values first.
+This ordering makes left-to-right partial application useful. If an API puts a short-lived value before stable configuration, adapt its signature, application setup can supply the stable values first.
 
 ## [04]-[CURRYING]
 
@@ -143,7 +143,7 @@ internal static class Temperature {
 
 C# distinguishes methods, method groups, lambdas, and delegate values. A unary method converts where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
 
-Explicit generic arguments and delegate casts are available, but add syntax. `fun` gives a lambda its `Func` type at the call site, so the lambda can be invoked or passed without a declared local. For functions frequently used in partial application or other higher-order operations, expose a delegate value:
+Explicit generic arguments and delegate casts are available, but add syntax. `fun` gives a lambda its `Func` type at the call site, the lambda can be invoked or passed without a declared local. For functions frequently used in partial application or other higher-order operations, expose a delegate value:
 
 ```csharp
 internal sealed class Greeter(string separator) {
@@ -164,9 +164,9 @@ Return `Func` values from adapter or factory methods to cross from method-based 
 ## [06]-[API_DESIGN]
 
 An existing API can expose arguments in an order that works poorly for partial application. An adapter can:
-- expose domain-specific types instead of ambiguous primitives;
-- acquire a short-lived resource only when the operation runs;
-- return a `Func` so subsequent specialization benefits from delegate inference.
+- Expose domain-specific types instead of ambiguous primitives;
+- Acquire a short-lived resource only when the operation runs;
+- Return a `Func`, subsequent specialization benefits from delegate inference.
 
 ```csharp
 internal sealed record SqlTemplate(string Text);
@@ -193,7 +193,7 @@ internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
 }
 ```
 
-Custom types such as `ConnectionIO` and `SqlTemplate` make signatures intention-revealing and can own extension methods that do not belong on `string`. `Seq<A>.Head` is an `Option<A>`, so lookup absence stays explicit.
+Custom types such as `ConnectionIO` and `SqlTemplate` make signatures intention-revealing and can own extension methods that do not belong on `string`. `Seq<A>.Head` is an `Option<A>`, lookup absence stays explicit.
 
 ## [07]-[FUNCTIONS_AS_DEPENDENCIES]
 
@@ -261,12 +261,12 @@ The framework entry point can remain thin while the behavior it invokes is suppl
 ## [09]-[WHEN_TO_USE]
 
 Use these techniques to:
-- eliminate near-duplicate specialized functions;
-- expose reusable intermediate configurations;
-- produce unary functions that fit higher-order APIs;
+- Eliminate near-duplicate specialized functions;
+- Expose reusable intermediate configurations;
+- Produce unary functions that fit higher-order APIs;
 
 Their costs are specific to C#:
 - `Func` conversion and occasional explicit type annotations;
-- nested delegate types that become difficult to read at higher arities.
+- Nested delegate types that become difficult to read at higher arities.
 
 Use them when specialized functions simplify call sites. If the helper code is larger or less readable than the duplication it removes, use ordinary functions.

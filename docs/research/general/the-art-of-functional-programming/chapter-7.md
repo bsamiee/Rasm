@@ -112,7 +112,7 @@ In the chapter's OCaml construction, a list supplies the shared representation; 
 
 This forms a domain-specific language for collections:
 - A collection is handled as one unit rather than by naming and manipulating every element.
-- Every operation accepts or returns the shared collection form, so operations compose into dataflow pipelines.
+- Every operation accepts or returns the shared collection form, operations compose into dataflow pipelines.
 - Reusing established operations makes collection logic concise and readable.
 - The approach transfers to collection APIs in languages such as Swift, Kotlin, JavaScript, and Java.
 

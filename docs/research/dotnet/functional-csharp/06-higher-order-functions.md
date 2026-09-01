@@ -127,13 +127,13 @@ internal static class Conversions {
 }
 ```
 
-The reusable formatting function can be composed with conversions in either direction. Improvements to that function are made once. `compose(f, g)` applies `f` first and then `g`. In C#, first give a lambda a delegate type so `compose` can infer its type arguments.
+The reusable formatting function can be composed with conversions in either direction. Improvements to that function are made once. `compose(f, g)` applies `f` first and then `g`. In C#, first give a lambda a delegate type, `compose` can infer its type arguments.
 
 C# has no dedicated syntax for function composition. Use method chaining for value flow and `compose` when the output must be a reusable function.
 
 ### [06.4]-[DO]
 
-`Do` passes the current value to an `Action`, then returns that same value so the chain can continue:
+`Do` passes the current value to an `Action`, then returns that same value, the chain can continue:
 
 ```csharp
 internal static class Observers {
@@ -163,7 +163,7 @@ The skipped branch has no computed result. Both return `IO<Unit>` for the host t
 
 Storing functions in collections, passing them into adapters, or returning them can express control flow as data:
 
-In `Func<T1, ..., TResult>`, every type except the last is a parameter type; the final type is the return type. Functions stored together therefore need compatible signatures.
+In `Func<T1, ..., TResult>`, every type except the last is a parameter type; the final type is the return type. Functions stored together need compatible signatures.
 
 - A collection of transformations applies several views to one input.
 - A collection of predicates becomes a validation policy.
@@ -228,7 +228,7 @@ internal static class RuleTables {
 }
 ```
 
-The first matching predicate wins. Ordering is part of the meaning. Each predicate can contain detailed criteria or delegate that decision to a named function. A fallback makes the operation defined for every input. `Seq.Find` returns an `Option`, so the missing case is `None` and the `Match` on that `Option` selects the fallback without a null check. A staged `.Match(...).DefaultMatch(...)` design must track whether a predicate matched; it cannot infer "no match" by comparing the transformed value with `default(TOutput)`, because a matching transformation can return `0`, `false`, or `null`. Passing the fallback directly avoids that ambiguity.
+The first matching predicate wins. Ordering is part of the meaning. Each predicate can contain detailed criteria or delegate that decision to a named function. A fallback makes the operation defined for every input. `Seq.Find` returns an `Option`, the missing case is `None` and the `Match` on that `Option` selects the fallback without a null check. A staged `.Match(...).DefaultMatch(...)` design must track whether a predicate matched; it cannot infer "no match" by comparing the transformed value with `default(TOutput)`, because a matching transformation can return `0`, `false`, or `null`. Passing the fallback directly avoids that ambiguity.
 
 This matches values with predicates, not object types. For a fixed decision, use a native switch expression. Using `KeyValuePair` instead of tuples adds syntax without changing the mechanism.
 

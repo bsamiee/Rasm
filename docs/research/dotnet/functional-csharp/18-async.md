@@ -130,7 +130,7 @@ internal static partial class Traversals {
 }
 ```
 
-`PartitionFallible` runs every effect, does not short-circuit, and returns the `Fails` and the `Succs` inside one `IO`. `PartitionFallible` binds each effect to the previous one, so the effects run in order.
+`PartitionFallible` runs every effect, does not short-circuit, and returns the `Fails` and the `Succs` inside one `IO`. `PartitionFallible` binds each effect to the previous one, the effects run in order.
 
 ## [08]-[OPTION_TRAVERSAL]
 

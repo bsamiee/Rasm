@@ -16,7 +16,7 @@ W = Z + 4
 Y = Z^2 - (3 * Z + B)
 ```
 
-`W` and `Y` both depend on `Z`, but not on each other, so they can be computed simultaneously after `Z` is available.
+`W` and `Y` both depend on `Z`, but not on each other, they can be computed simultaneously after `Z` is available.
 
 The graph form exposes small building blocks, can enable automatic parallel execution from dependency analysis, and encourages reusable libraries of components. Components can be recombined to solve problems their creators did not anticipate. This style is common in control systems and visual programming.
 
@@ -69,7 +69,7 @@ let sum_tree_even_squares t =
   |> List.map square |> List.fold_left (+) 0
 ```
 
-The dataflow shape is therefore reusable:
+The dataflow shape is reusable:
 
 ```text
 source-specific enumeration -> filter even -> map square -> sum
@@ -111,7 +111,7 @@ Consider finding the first prime greater than or equal to `n`:
 enumerate integers from n -> filter primes -> take head
 ```
 
-An OCaml list cannot represent the unbounded input signal. OCaml is strict, so constructing `hd :: tl` evaluates both arguments. This definition therefore recurses without producing a completed list and eventually overflows the stack:
+An OCaml list cannot represent the unbounded input signal. OCaml is strict. Constructing `hd :: tl` evaluates both arguments. This definition recurses without producing a completed list and eventually overflows the stack:
 
 ```ocaml
 let rec naturals_from n = n :: naturals_from (n + 1)
@@ -162,7 +162,7 @@ let rec naturals_from n =
 let naturals = naturals_from 0
 ```
 
-The recursive call is under `lazy`, so constructing `naturals` produces `0` and a suspended tail rather than recursing forever.
+The recursive call is under `lazy`. Constructing `naturals` produces `0` and a suspended tail rather than recursing forever.
 
 Use a finite observation to inspect a stream:
 
@@ -210,7 +210,7 @@ let rec stream_zipWith f s1 s2 =
     lazy (stream_zipWith f (stream_tl s1) (stream_tl s2)))
 ```
 
-Each output requires one element from each input, so `stream_zipWith` synchronizes the streams before applying `f`. Multiplying `naturals` by itself pointwise produces square numbers.
+Each output requires one element from each input, `stream_zipWith` synchronizes the streams before applying `f`. Multiplying `naturals` by itself pointwise produces square numbers.
 
 ## 8. Stream-based dataflow
 
@@ -288,7 +288,7 @@ The challenge solution instead seeds the same construction with `1` and `2`; tha
 
 - Rule of composition: favor small independent programs and a simple shared interface such as plain text.
 - Functional dataflow works because pure functions have no side effects and can connect through shared representations such as lists or streams.
-- `2 |> square` is `square 2`, so it evaluates to `4`.
+- `2 |> square` is `square 2`, it evaluates to `4`.
 - `[0; 1; 2] |> List.map (fun x -> x > 0) |> List.fold_left (&&) true` evaluates to `false` because `0 > 0` is false.
 - Streams model infinite sequences and support incremental on-demand computation.
 - `[1; 2; 3; 4] |> List.filter ((<=) 3) |> List.map (( * ) 2) |> List.fold_left (+) 0` keeps `[3; 4]`, doubles to `[6; 8]`, and evaluates to `14`; none of the listed choices matches that derivation.

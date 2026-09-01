@@ -24,7 +24,7 @@ Parentheses remove ambiguity. `lambda x. x` is the identity function; `(lambda x
 
 ### Reduction
 
-Running a lambda-calculus program means repeatedly reducing its expression until no reduction remains; the result is its value. Variables and function abstractions are fully reduced. An application of the form `(lambda x. e1) e2` is a reducible expression, or redex; reduction substitutes the actual argument `e2` for the formal parameter `x` in `e1`. Thus `(lambda x. x x) y` reduces to `y y`.
+Running a lambda-calculus program means repeatedly reducing its expression until no reduction remains; the result is its value. Variables and function abstractions are fully reduced. An application of the form `(lambda x. e1) e2` is a reducible expression, or redex; reduction substitutes the actual argument `e2` for the formal parameter `x` in `e1`. `(lambda x. x x) y` reduces to `y y`.
 
 Not every expression reaches a value. `(lambda x. x x) (lambda x. x x)` reduces to itself forever and represents an undefined, non-terminating computation.
 
@@ -52,7 +52,7 @@ For `(lambda x. x x) ((lambda y. y) z)`, call by value first reduces the argumen
 
 They differ when an unused argument does not terminate, as in `(lambda y. z) ((lambda x. x x) (lambda x. x x))`.
 
-Call by value attempts to reduce the argument forever; call by name substitutes it into a body containing no `y`, so the result is `z`.
+Call by value attempts to reduce the argument forever; call by name substitutes it into a body containing no `y`, the result is `z`.
 
 ## Functions in OCaml
 
@@ -79,7 +79,7 @@ The analogous Haskell expression returns `42` because the body does not use the 
 
 ### Function types
 
-OCaml is strongly and statically typed, so every expression has a type. A function from `t1` to `t2` has type `t1 -> t2`. OCaml infers `square : float -> float` from the floating-point operator `*.` and rejects incompatible applications at compile time.
+OCaml is strongly and statically typed, every expression has a type. A function from `t1` to `t2` has type `t1 -> t2`. OCaml infers `square : float -> float` from the floating-point operator `*.` and rejects incompatible applications at compile time.
 
 An input or output may itself be a function type. Because `->` associates to the right, `int -> bool -> string` means `int -> (bool -> string)`: accept an integer and return a function that accepts a boolean and returns a string. One inhabitant is:
 
@@ -132,7 +132,7 @@ A functional formulation can express repetition through recursive structure rath
 let rec sum n = if n <= 0 then 0 else n + sum (n - 1)
 ```
 
-This version builds deferred additions. Evaluating `sum 5` expands through `5 + (4 + (3 + ...))`; each suspended call requires a stack frame, so stack use grows linearly with `n` and sufficiently large input such as `sum 1000000` causes `Stack_overflow`.
+This version builds deferred additions. Evaluating `sum 5` expands through `5 + (4 + (3 + ...))`; each suspended call requires a stack frame, stack use grows linearly with `n` and sufficiently large input such as `sum 1000000` causes `Stack_overflow`.
 
 ### Tail recursion
 
@@ -145,11 +145,11 @@ let rec sum_iter s c n =
   if c > n then s else sum_iter (s + c) (c + 1) n
 ```
 
-The recursive call is the final operation, so there is no deferred calculation after it returns. Its process advances directly:
+The recursive call is the final operation, there is no deferred calculation after it returns. Its process advances directly:
 
 `sum_iter 0 1 5` advances through `sum_iter 1 2 5`, `sum_iter 3 3 5`, `sum_iter 6 4 5`, `sum_iter 10 5 5`, and `sum_iter 15 6 5`.
 
-OCaml and Haskell optimize tail calls so this process does not grow the call stack. Recursion can therefore implement loops without special `for` or `while` constructs. A tail-recursive OCaml function can run forever without stack overflow, whereas Java does not generally optimize tail recursion and eventually exhausts its stack.
+OCaml and Haskell optimize tail calls, this process does not grow the call stack. Recursion can implement loops without special `for` or `while` constructs. A tail-recursive OCaml function can run forever without stack overflow, whereas Java does not generally optimize tail recursion and eventually exhausts its stack.
 
 Tail recursion is valuable for large inputs, but is not automatically preferable: when stack depth is safe, a direct non-tail-recursive definition may express the computation more clearly. Recursive functions are especially natural for recursively structured data such as lists and trees.
 
@@ -284,6 +284,6 @@ For example, summing identity terms that are prime over `1..4` yields `5`; over 
 - A strict OCaml application evaluates an erroneous or non-terminating argument even when the body ignores it; the corresponding non-strict Haskell application can return without evaluating it.
 - OCaml string concatenation as a function has type `(^) : string -> string -> string`, not a tuple-argument type.
 - `(fun x -> 42) (endless 1)` never terminates in OCaml because the argument is evaluated first.
-- `((>) 10) 9` is `true`: partial application fixes the left operand, so it tests whether `10 > 9`.
+- `((>) 10) 9` is `true`: partial application fixes the left operand, it tests whether `10 > 9`.
 - If `judgment f x = if f x then "it's true" else "it's false"`, then `judgment (fun x -> x mod 2 <> 0) 11` returns `"it's true"`.
 - Accumulating terms whose sign is positive at odd indices and negative at even indices computes `1 - 2 + 3 - 4 + ...`, through the requested upper bound.

@@ -90,7 +90,7 @@ class Rule:
 
 
 POLICY: dict[str, Rule] = {
-    _INTERP: Rule("invokes git inside an opaque one-liner; run git directly so it can be checked", starts=_ANY_ARG),
+    _INTERP: Rule("invokes git inside an opaque one-liner; run git directly", starts=_ANY_ARG),
     "branch": Rule("deletes or force-moves a branch", flags=("-d", "-D", "-M", "--delete"), starts=("--force",)),
     "checkout": Rule("discards local changes", flags=("-f", "-B", "-p", "--patch", "--ours", "--theirs"), starts=("--force",), probe=_pathspec),
     "clean": Rule("deletes untracked files", starts=_ANY_ARG),
@@ -144,7 +144,7 @@ def _leaves(command: str, depth: int = 0) -> list[list[str]]:
             level += (flat[close] == "(") - (flat[close] == ")")
             close += 1
         bodies.append(flat[opened + 2 : close - 1])
-        flat, cursor = flat[:opened] + " \0sub " + flat[close:], opened + 6  # Splice, so the residue never splits a leaf
+        flat, cursor = flat[:opened] + " \0sub " + flat[close:], opened + 6  # Splice, the residue never splits a leaf
     out: list[list[str]] = [leaf for body in bodies if depth < _MAX_DEPTH for leaf in _leaves(body, depth + 1)]
     lexer = shlex.shlex(_IFS.sub(" ", flat), posix=True, punctuation_chars=";&|<>()\n\r")
     lexer.whitespace, lexer.whitespace_split = " \t\f\v", True
@@ -179,7 +179,7 @@ def _verdict(argv: list[str], cwd: str) -> str:
 def _refusal(command: str, cwd: str) -> str:
     """Return why the first destructive leaf in a command must be blocked, or the empty string to allow it."""
     if len(command) > _MAX_COMMAND:
-        return "the command is too long to lex within the hook deadline, so it cannot be checked safely"
+        return "the command is too long to lex within the hook deadline, it cannot be checked safely"
     heads = (leaf[i:] for leaf in _leaves(command) for i, t in enumerate(leaf) if pathlib.PurePosixPath(t).name == "git")
     return next((r for head in heads if (r := _verdict(head, cwd))), "")
 

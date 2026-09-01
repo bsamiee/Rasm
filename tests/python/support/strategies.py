@@ -66,10 +66,10 @@ def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:ign
 
 
 def _multiples[N](lower: object, upper: object, step: object, convert: Callable[[Decimal], N], *, exclude_lower: bool = False, exclude_upper: bool = False) -> st.SearchStrategy[N]:
-    """Draw multiplier k directly so every value is a valid in-range multiple with zero rejection.
+    """Draw multiplier k directly, every value is a valid in-range multiple with zero rejection.
 
     Fraction bounds are exact for int, float, and Decimal inputs; an exclusive bound equal to a multiple
-    shrinks the k window by one, so the boundary itself is never drawn.
+    shrinks the k window by one, the boundary itself is never drawn.
     """
     decimal_step = Decimal(str(step))
     lower_quotient = Fraction(str(lower)) / Fraction(decimal_step)
@@ -309,7 +309,7 @@ def _tagged_cases(subject: type) -> dict[str, TypeForm[object]] | None:
     """Map an ``expression`` ``@tagged_union`` class's case fields to type hints, or ``None`` for any other subject.
 
     The decorator leaves every dataclass field ``init=False``/``kw_only`` behind a leading ``tag`` discriminator and
-    replaces ``__init__`` with an exactly-one-case constructor, so field-wise sampling constructs invalid unions;
+    replaces ``__init__`` with an exactly-one-case constructor, field-wise sampling constructs invalid unions;
     detection keys on that structural signature.
     """
     if not (dataclasses.is_dataclass(subject) and isinstance(subject, type)):

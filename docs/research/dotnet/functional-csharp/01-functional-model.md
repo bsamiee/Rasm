@@ -87,9 +87,9 @@ The conditional is an expression because both alternatives return a value. Loops
 ### [04.4]-[REFERENTIAL_TRANSPARENCY]
 
 A pure function:
-- changes nothing outside the function;
-- returns the same result for the same arguments, regardless of ambient state;
-- has no unexpected side effects, including unexpected exceptions.
+- Changes nothing outside the function;
+- Returns the same result for the same arguments, regardless of ambient state;
+- Has no unexpected side effects, including unexpected exceptions.
 
 Such a function call can be replaced with its result for a given input without changing program behavior. This is referential transparency.
 
@@ -121,9 +121,9 @@ Interaction with users, files, APIs, libraries, and other external systems intro
 ### [04.5]-[RECURSION]
 
 Recursion can replace `while` and `foreach`, and some mutation-driven loops with a function that calls itself using new argument values. A recursive function needs:
-1. a base case that returns the final value;
-2. a recursive case that calls the same function with values closer to that condition;
-3. a returned value on every path.
+1. A base case that returns the final value;
+2. A recursive case that calls the same function with values closer to that condition;
+3. A returned value on every path.
 
 ### [04.6]-[PATTERN_MATCHING]
 
@@ -235,10 +235,10 @@ Code that does not mutate shared in-memory state supports concurrent execution. 
 ## [08]-[APPLICABILITY]
 
 Functional programming fits work based on predictable data transformations:
-- converting data from one form to another;
-- applying business logic to input before passing the result onward;
-- asynchronous or concurrent processing;
-- serverless functions and independently running workers;
-- logic that benefits from deterministic behavior and extensive testing.
+- Converting data from one form to another;
+- Applying business logic to input before passing the result onward;
+- Asynchronous or concurrent processing;
+- Serverless functions and independently running workers;
+- Logic that benefits from deterministic behavior and extensive testing.
 
 C# places limits on the paradigm. Framework base classes and some libraries are object-oriented, and C# cannot express every feature of a pure functional language. Functional C# is not inherently slow, but it does not guarantee the best performance. If performance outweighs readability and modularity, another style can be a better tradeoff.

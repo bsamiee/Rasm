@@ -75,9 +75,9 @@ internal static EventDto ToDto(Event value) =>
         cancelled: EventMapper.ToDto);
 ```
 
-`MapDerivedType`, a second case roster, a partial match, and a fallback arm do not preserve closed-union exhaustiveness. Generated generic, runtime-target, and ordinary derived dispatch throw for an unregistered pair or subtype. Those forms belong only to controlled runtime sets where a mismatch is a defect.
+`MapDerivedType`, a duplicated case list, a partial match, and a fallback arm do not preserve closed-union exhaustiveness. Generated generic, runtime-target, and ordinary derived dispatch throw for an unregistered pair or subtype. Those forms belong only to controlled runtime sets where a mismatch is a defect.
 
-Mapperly cannot consume another source generator's output from the same compilation. A referenced assembly exposes its accessible generated members as metadata, so automatic conversion can change when a generated type moves between projects. Exact representation mappings prevent project topology from choosing semantics. An ordinary user-method body can bind peer-generated members after generation, but Mapperly cannot inline unresolved peer-generated members into a projection.
+Mapperly cannot consume another source generator's output from the same compilation. A referenced assembly exposes its accessible generated members as metadata, automatic conversion can change when a generated type moves between projects. Exact representation mappings prevent project topology from choosing semantics. An ordinary user-method body can bind peer-generated members after generation, but Mapperly cannot inline unresolved peer-generated members into a projection.
 
 LanguageExt owns absence, failure, validation, effects, traversal, and transformer topology. A Mapperly method supplies only the total leaf function passed to `Map`, `BiMap`, `Apply`, or traversal. Automatic wrapper construction is unsafe: constructor or cast discovery can manufacture a success case, unwrap a failure, or discard source elements. A generic wrapper helper is selected explicitly with `Use` and preserves every case.
 
@@ -99,13 +99,13 @@ Prefer one total constructor for an immutable external record. `[MapperConstruct
 
 A Mapperly object factory allocates or selects a direct target and exposes no typed failure channel. It is not a Thinktecture validation factory. The factory is pure, deterministic, synchronous, and non-null. A nullable result falls back to a public parameterless construction or throws `NullReferenceException`. Factories do not resolve services, allocate domain identity, or call a rejecting domain factory.
 
-Member and constructor visibility stays at `AllAccessible`. Unsafe accessors can invoke private constructors and write hidden members, but that capability does not grant invariant ownership. They never construct or modify a constrained domain type. Direct assignment can return the source reference, so sharing is valid only when the complete reachable graph is immutable. Deep cloning is an allocation strategy, not proof of ownership, validity, or transition semantics.
+Member and constructor visibility stays at `AllAccessible`. Unsafe accessors can invoke private constructors and write hidden members, but that capability does not grant invariant ownership. They never construct or modify a constrained domain type. Direct assignment can return the source reference, sharing is valid only when the complete reachable graph is immutable. Deep cloning is an allocation strategy, not proof of ownership, validity, or transition semantics.
 
 An existing-target mapping mutates its argument. Existing collections add without replacement: lists add, queues enqueue, and stacks push the added segment in reverse source order. A null source collection leaves the target unchanged. Keep this form inside a scope that creates and owns the target, or inside an imperative host adapter. It never updates a published domain snapshot.
 
 Null-skipping implements merge behavior, not patch presence. It cannot distinguish omission from clearing. An explicit presence type can fold against `[MappingTargetOriginalValue]` at a mutable boundary, while constructor and init-only targets receive `default` as the original value. Domain changes remain named transitions over complete immutable values.
 
-Reference handling materializes external graphs that require cycles or shared identity. One handler belongs to one graph operation. Constructor and init-only edges run before registration, so they cannot close a generated cycle. An existing-target root is not registered automatically; register that pair before mapping when a back-reference must retain the supplied root. Domain identity uses explicit identifiers rather than mapper reference state.
+Reference handling materializes external graphs that require cycles or shared identity. One handler belongs to one graph operation. Constructor and init-only edges run before registration, they cannot close a generated cycle. An existing-target root is not registered automatically; register that pair before mapping when a back-reference must retain the supplied root. Domain identity uses explicit identifiers rather than mapper reference state.
 
 ## [05]-[QUERY_PROJECTIONS]
 
@@ -113,15 +113,15 @@ A query projection is an expression tree interpreted by a query provider. It bel
 
 Mapperly must inline each user method, and the selected provider must translate the resulting expression. Additional parameters are immutable scalar query values. Services, mapper state, clocks, configuration objects, and request contexts do not enter the expression. `RMG068` proves that inlining failed; successful inlining does not prove provider translation.
 
-Projection null behavior is not in-memory null behavior. Nullable analysis and mapper property-null controls do not apply, so a nullable path can become empty text, `default`, or a conditional fallback. The read model therefore matches storage nullability. Object factories, existing-target mapping, deep cloning, and reference handling do not supply projection semantics. Unsupported enum behavior remains outside the query expression.
+Projection null behavior is not in-memory null behavior. Nullable analysis and mapper property-null controls do not apply, a nullable path can become empty text, `default`, or a conditional fallback. The read model matches storage nullability. Object factories, existing-target mapping, deep cloning, and reference handling do not supply projection semantics. Unsupported enum behavior remains outside the query expression.
 
-Project stored values, materialize the query, and then start validation and domain construction. Thinktecture factories, LanguageExt composition, result selection, and effects run after materialization. An unmatched derived projection returns `default(TTarget)`, so derived projection is valid only when that result is explicit in the target contract. `AsEnumerable` does not hide this boundary; a deliberately narrow query materializes before the in-memory pipeline begins.
+Project stored values, materialize the query, and then start validation and domain construction. Thinktecture factories, LanguageExt composition, result selection, and effects run after materialization. An unmatched derived projection returns `default(TTarget)`, derived projection is valid only when that result is explicit in the target contract. `AsEnumerable` does not hide this boundary; a deliberately narrow query materializes before the in-memory pipeline begins.
 
 ## [06]-[GENERATED_CONTRACT]
 
 Each mapper-owning project references Mapperly directly and privately. Runtime assets remain excluded unless reference handling or retained attributes require the abstractions assembly. Generated mappings use no runtime reflection, but that property does not extend to user methods, factories, query providers, mapped types, or their dependencies.
 
-Warnings fail the build. Mapperly also emits contract failures at information or hidden severity, so each mapper project promotes them explicitly.
+Warnings fail the build. Mapperly also emits contract failures at information or hidden severity, each mapper project promotes them explicitly.
 
 ```editorconfig
 [*.cs]

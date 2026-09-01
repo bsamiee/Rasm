@@ -1,6 +1,6 @@
 # [CONVENIENCE_METHODS]
 
-`Thinktecture.Runtime.Extensions` ships a small set of plain static members beside its generators:
+`Thinktecture.Runtime.Extensions` provides a small set of plain static members beside its generators:
 - `Empty` and `SingleItem` return cached or single-item collections.
 - `ToReadOnlyCollection` wraps a sequence without copying it, and `TrimOrNullify` normalizes text.
 
@@ -52,7 +52,7 @@ internal static class Recipients {
 
 `SingleItem.Dictionary` rejects a null key at creation with `ArgumentNullException` and parameter name `key`. Its indexer, `ContainsKey`, and `TryGetValue` throw the same exception for a null key. The indexer throws `KeyNotFoundException` for a key that differs under the comparer. `SingleItem.Set` accepts a null item at creation. `SingleItem.Lookup` throws `ArgumentNullException` with parameter name `elements` for a null sequence and does not inspect the key.
 
-`SingleItem.Lookup` stores the `elements` sequence by reference. The indexer returns that same sequence for the matching key and an empty array for every other key. A later change to the source list is visible through the lookup. `Aliases` therefore takes an `ImmutableArray<string>`. `Count` is always one, even when `elements` is empty. Enumeration yields one `IGrouping<TKey, TElement>` that re-enumerates `elements` on every pass.
+`SingleItem.Lookup` stores the `elements` sequence by reference. The indexer returns that same sequence for the matching key and an empty array for every other key. A later change to the source list is visible through the lookup. `Aliases` takes an `ImmutableArray<string>`. `Count` is always one, even when `elements` is empty. Enumeration yields one `IGrouping<TKey, TElement>` that re-enumerates `elements` on every pass.
 
 The single-item set applies its comparer in every comparison, and every comparison method throws `ArgumentNullException` with parameter name `other` for a null argument.
 

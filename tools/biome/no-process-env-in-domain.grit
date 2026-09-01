@@ -1,5 +1,5 @@
 language js(typescript, jsx)
 
 `process.env` as $hit where {
-    register_diagnostic(span=$hit, message="Ambient process.env read in library code. Configuration travels the requirement channel: declare Config.string/Config.redacted at the owner and let the composition root's ConfigProvider own the environment read.", severity="error")
+    register_diagnostic(span=$hit, message="Ambient process.env read in library code. Configuration travels the R channel: declare Config.string/Config.redacted at the owner and let the composition root's ConfigProvider own the environment read.", severity="error")
 }

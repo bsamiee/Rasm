@@ -43,7 +43,7 @@
     },
 
     // --- [PYTHON] ----------------------------------------------------------------------
-    // ruff and ty resolve from the environment by default; mypy defaults to a bundled copy, so its strategy is pinned here to keep the uv.lock version authoritative.
+    // ruff and ty use the environment by default; mypy needs this pin to run the uv.lock version
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "mypy-type-checker.importStrategy": "fromEnvironment",
     "[python]": {
@@ -51,13 +51,13 @@
     },
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
-    // bundled TS service stays; Biome (auto-discovered from node_modules) formats every surface biome.json owns.
+    // Bundled TS service stays; Biome (auto-discovered from node_modules) formats every surface biome.json owns
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": {
         "editor.defaultFormatter": "biomejs.biome"
     },
 
     // --- [MARKDOWN] --------------------------------------------------------------------
-    // VS Code's built-in prompt-basics extension gives SKILL.md and .claude/agents/*.md their own language ids (skill, chatagent); this maps them back to markdown so the markdown formatter applies.
+    // VS Code assigns SKILL.md and agent files their own language ids; mapping them back to markdown restores the formatter
     "files.associations": {
         "SKILL.md": "markdown",
         "**/.claude/agents/*.md": "markdown"

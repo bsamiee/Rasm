@@ -13,7 +13,7 @@ public sealed partial class MatrixNorm {
     [UseDelegateFromConstructor]
     public partial double Evaluate(int rows, int columns, Func<int, int, double> at);
 
-    // Keep this map exhaustive because keyless [SmartEnum] does not generate ToString.
+    // Keep this map exhaustive because keyless [SmartEnum] does not generate ToString
     public override string ToString() =>
         Map(maxAbsoluteEntry: nameof(MaxAbsoluteEntry), l1: nameof(L1), lInfinity: nameof(LInfinity), frobenius: nameof(Frobenius));
 }

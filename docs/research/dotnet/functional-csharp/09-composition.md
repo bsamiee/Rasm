@@ -153,10 +153,10 @@ internal static class Account {
 ```
 
 `Debit`:
-- does not throw for an expected business outcome;
-- exposes possible failure in its return type;
-- produces a value that later steps can consume;
-- leaves the original state unchanged.
+- Does not throw for an expected business outcome;
+- Exposes possible failure in its return type;
+- Produces a value that later steps can consume;
+- Leaves the original state unchanged.
 
 ## [06]-[END_TO_END_FLOW]
 
@@ -211,10 +211,10 @@ If a terminal step requires multiple effects, keep each one visible.
 Do not require every layer to call only its immediate neighbor. After a low-level call performs I/O, every delegating layer becomes impure.
 
 Let a top-level entry point compose functions from lower-level components while dependencies point downward. This structure provides:
-- one overview of the business workflow;
-- subworkflows for related groups of steps;
-- pure mid-level validation and domain logic;
-- direct testing of pure logic without mocks.
+- One overview of the business workflow;
+- Subworkflows for related groups of steps;
+- Pure mid-level validation and domain logic;
+- Direct testing of pure logic without mocks.
 
 ## [09]-[LIMITS]
 

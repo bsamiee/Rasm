@@ -7,18 +7,18 @@ A function is pure when both conditions hold:
 2. Evaluating it causes no side effects.
 
 A side effect includes:
-- mutating state visible outside the function, including instance fields;
-- mutating an input argument;
-- throwing an exception;
-- performing I/O, including reading the clock, console, filesystem, database, network, or another process.
+- Mutating state visible outside the function, including instance fields;
+- Mutating an input argument;
+- Throwing an exception;
+- Performing I/O, including reading the clock, console, filesystem, database, network, or another process.
 
 Under this definition, throwing counts as an effect even though some definitions permit it: exception handling can redirect control flow, and an unhandled exception can terminate the program.
 
 An instance method can be impure even without I/O when it reads mutable fields. A lambda can be impure by closing over mutable variables. A readonly field fixed at construction can instead be an immutable dependency. Purity depends on everything a function observes or changes, not on its parameter list and return type alone.
 
 Because a pure function always maps the same input to the same output, evaluation order does not affect its meaning. Pure computations are easier to reason about and are safe candidates for:
-- parallel evaluation;
-- lazy evaluation;
+- Parallel evaluation;
+- Lazy evaluation;
 - memoization.
 
 Applying these transformations to impure functions can change behavior.
@@ -62,7 +62,7 @@ internal static class Orders {
 }
 ```
 
-The signature exposes the complete output. `Fold` sums the lines and `Filter` selects the lines to delete, both over the same `Seq<OrderLine>`. Neither side must know how the other manages a shared collection. If one operation both mutates an object and calculates a result, separate those responsibilities so the calculation can remain pure.
+The signature exposes the complete output. `Fold` sums the lines and `Filter` selects the lines to delete, both over the same `Seq<OrderLine>`. Neither side must know how the other manages a shared collection. If one operation both mutates an object and calculates a result, separate those responsibilities, the calculation can remain pure.
 
 ## [03]-[CONCURRENCY]
 
@@ -103,17 +103,17 @@ internal static class Formatting {
 
 `Range(1, items.Count)` generates that count of indices as values, and `toSeq` makes them a `Seq<int>`. `Zip` pairs each item with an index. No running counter is updated. State is input data rather than shared mutable state. Parallel evaluation preserves behavior.
 
-`IO` determines how effects are evaluated: `Traverse` under `IO` starts every element effect before it awaits any. Effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread. `TraverseM` runs the effects one after another. `Fork` takes one thread per fork, so a large fan-out chunks the collection first.
+`IO` determines how effects are evaluated: `Traverse` under `IO` starts every element effect before it awaits any. Effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread. `TraverseM` runs the effects one after another. `Fork` takes one thread per fork, a large fan-out chunks the collection first.
 
 Treat `Map` as a value transformation and keep its function pure. The API accepts an impure delegate, but parallel execution can change its behavior.
 
-The compiler cannot infer whether an arbitrary delegate is pure, so parallel execution must be requested explicitly. Its overhead is justified only by sufficient work and input size.
+The compiler cannot infer whether an arbitrary delegate is pure, parallel execution must be requested explicitly. Its overhead is justified only by sufficient work and input size.
 
 ### [03.1]-[STATIC_METHODS]
 
 Pure methods can safely be static because all required data is explicit or immutable. Static methods become hazardous when they:
-- read or write mutable static fields;
-- perform I/O that callers cannot replace in tests.
+- Read or write mutable static fields;
+- Perform I/O that callers cannot replace in tests.
 
 Avoid mutable static fields and direct dependencies on static I/O methods.
 
@@ -122,8 +122,8 @@ Avoid mutable static fields and direct dependencies on static I/O methods.
 A unit test for a pure function supplies inputs and asserts the returned output. It is isolated and repeatable by construction.
 
 An impure function has hidden inputs, hidden outputs, or both:
-- the current time, database contents, or environment are implicit inputs;
-- an email sent, file written, or field changed is an implicit output.
+- The current time, database contents, or environment are implicit inputs;
+- An email sent, file written, or field changed is an implicit output.
 
 An impure function behaves like a larger pure transformation:
 
@@ -143,9 +143,9 @@ Parameterized tests make inputs and expected outputs explicit: each test case su
 Wrapping the system clock behind an interface does not make the consuming method pure. It is pure only when the injected implementation is pure. A production implementation that reads the clock still carries I/O into the validator. This approach improves test control without reducing the production effect itself.
 
 Choose the narrowest dependency that represents what the consumer needs:
-- inject a value for a stable snapshot;
-- inject an `IO<A>` for an operation that must run on demand;
-- inject a runtime for a consumer that reads many capabilities.
+- Inject a value for a stable snapshot;
+- Inject an `IO<A>` for an operation that must run on demand;
+- Inject a runtime for a consumer that reads many capabilities.
 
 An interface remains appropriate as a common contract for distinct implementations. A one-method interface for every effect adds unnecessary infrastructure.
 
@@ -178,7 +178,7 @@ internal static class Capabilities {
 }
 ```
 
-`DateNotPast` reads the `Clock` through `RT.Ask` and passes the snapshot to the validator. A test runtime carries a fixed `Clock`. The same runtime also carries `ConsoleIO`, so it runs `Greet`.
+`DateNotPast` reads the `Clock` through `RT.Ask` and passes the snapshot to the validator. A test runtime carries a fixed `Clock`. The same runtime also carries `ConsoleIO`, it runs `Greet`.
 
 ### [05.3]-[EFFECT_INJECTION]
 
@@ -210,6 +210,6 @@ Distributed systems delegate computation to other processes, which raises the am
 - Extract deterministic computation from I/O workflows.
 - Return all computed information rather than mutating arguments.
 - Replace a shared counter with generated values and `Zip`.
-- Treat `Map` transformations as pure so sequential and parallel evaluation preserve meaning.
+- Treat `Map` transformations as pure. Sequential and parallel evaluation preserve meaning.
 - Inject stable snapshots as values, deferred effects as `IO`, and many capabilities through a runtime `RT`.
 - Keep effects near application boundaries and let those boundaries call inward to pure logic.

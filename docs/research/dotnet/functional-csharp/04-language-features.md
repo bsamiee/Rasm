@@ -1,10 +1,10 @@
 # [LANGUAGE_FEATURES]
 
 C# supports functional programming through these language features:
-- tuples carry short-lived groups of values through a pipeline;
-- patterns turn branching rules into expressions over input structures;
+- Tuples carry short-lived groups of values through a pipeline;
+- Patterns turn branching rules into expressions over input structures;
 - readonly structs and init-only properties constrain reassignment, while records support nondestructive mutation;
-- nullable static analysis exposes unintended null use before values enter a pipeline.
+- Nullable static analysis exposes unintended null use before values enter a pipeline.
 
 These features reduce casts, mutation, and repetitive copying while keeping the rules visible.
 

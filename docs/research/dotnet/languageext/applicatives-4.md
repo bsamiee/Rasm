@@ -3,8 +3,8 @@
 An applicative functor extends a functor with contextual function application. It combines values inside a context such as `Maybe`, `Either`, `Option`, `Seq`, or `IO` without the sequential dependencies of monadic composition.
 
 Two important uses in language-ext are:
-- evaluating independent effectful computations in parallel;
-- collecting multiple validation errors.
+- Evaluating independent effectful computations in parallel;
+- Collecting multiple validation errors.
 
 ## [01]-[FROM_MAP_TO_APPLY]
 
@@ -164,7 +164,7 @@ The nested `Map` expression becomes:
 var r = multiply.Map(mw).Apply(mx); // K<Maybe, int>
 ```
 
-`Map` supplies the first argument to the curried function; each `Apply` supplies another. Haskell writes the same operation with the `<$>` and `<*>` operators; C# operators cannot be parametrically polymorphic, so the generic operation uses fluent methods:
+`Map` supplies the first argument to the curried function; each `Apply` supplies another. Haskell writes the same operation with the `<$>` and `<*>` operators; C# operators cannot be parametrically polymorphic, the generic operation uses fluent methods:
 
 ```haskell
 let r = multiply <$> mw <*> mx
@@ -188,7 +188,7 @@ var res = from w in mw
           select w * x + y * z;
 ```
 
-The distinction is evaluation structure. A monadic expression is sequential: each operand is obtained in order, and a failure stops the remaining operations. An applicative expression exposes that its operands do not depend on one another, so an applicative instance can evaluate independent branches concurrently.
+The distinction is evaluation structure. A monadic expression is sequential: each operand is obtained in order, and a failure stops the remaining operations. An applicative expression exposes that its operands do not depend on one another, an applicative instance can evaluate independent branches concurrently.
 
 ## [05]-[PARALLEL_IO]
 

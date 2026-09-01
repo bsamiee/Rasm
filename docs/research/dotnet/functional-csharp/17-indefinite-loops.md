@@ -11,10 +11,10 @@ Func<S, bool> isFinished;
 ```
 
 The separation is between:
-- state transition: produce the next state from the current state;
-- termination: decide whether a state is final;
-- execution: repeatedly apply the transition until termination;
-- consumption: choose whether to retain only the final state or every intermediate state.
+- State transition: produce the next state from the current state;
+- Termination: decide whether a state is final;
+- Execution: repeatedly apply the transition until termination;
+- Consumption: choose whether to retain only the final state or every intermediate state.
 
 ## [01]-[APPROACH_SELECTION]
 
@@ -45,9 +45,9 @@ State is not mutated, and every iteration produces a replacement value. C# does 
 Use direct recursion only when the iteration count has a small, known upper bound. An iteration count that is usually small does not remove the stack risk. `Trampoline<A>` removes it: `Trampoline.More` returns the recursive call as a deferred value, and `Run()` evaluates the deferred calls in a loop.
 
 A recursive function needs:
-1. an end condition that returns the final value
-2. a recursive path that calls the same function with values closer to that condition
-3. a returned value on every path
+1. An end condition that returns the final value
+2. A recursive path that calls the same function with values closer to that condition
+3. A returned value on every path
 
 Given deltas that reach zero before they run out:
 
@@ -105,7 +105,7 @@ The domain rules stay visible: the stopping predicate reads the state, and the t
 
 The loop has constant stack usage and returns only the terminal state.
 
-The state must contain everything required by both delegates. If termination depends on the last action or the latest random outcome, those values belong in the returned state rather than in unrelated mutable flags. This loop checks the initial state before advancing, so an already-finished initial value is returned unchanged.
+The state must contain everything required by both delegates. If termination depends on the last action or the latest random outcome, those values belong in the returned state rather than in unrelated mutable flags. This loop checks the initial state before advancing, an already-finished initial value is returned unchanged.
 
 A deep recursive `IO` remains stack-safe when `tail` wraps the recursive call as the last bind continuation after a deferred effect:
 

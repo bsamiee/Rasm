@@ -1,8 +1,10 @@
 # [RASM_WORKSPACE]
 
-Rasm is a polyglot monorepo. Development targets macOS first, and all code and tooling remain portable to Linux and Windows. Rasm admits only dependencies, tools, and hosts that run on macOS.
+Rasm is a polyglot monorepo. Development targets macOS first, and all code and tooling remain portable to Linux and Windows. Rasm accepts only dependencies, tools, and hosts that run on macOS.
 
-Language-specific code is organized beneath `libs/` and `tests/`. Applications live in `apps/`, one directory per product, and consume internal libraries through package dependencies. Shared build and release automation lives in `eng/`.
+- Language-specific code is organized beneath `libs/` and `tests/`.
+- Applications live in `apps/`, one directory per product, and consume internal libraries through package dependencies.
+- Shared build and release automation lives in `eng/`.
 
 Dependency versions centralize in root manifests: `Directory.Packages.props` for .NET, `pyproject.toml` and `uv.lock` for Python, and `pnpm-workspace.yaml` for TypeScript.
 
@@ -81,11 +83,11 @@ Every `libs/` package is independently consumable and publishes a stable API.
 - Every dependency edge points toward a lower-level package, the graph stays acyclic
 - Packages expose capabilities. Python and TypeScript files declare explicit exports at the end.
 - Workflow assembly, configuration loading, and dependency wiring belong to the application
-- Sibling packages align on naming, the result type, and boundary types so they compose predictably
+- Sibling packages align on naming, the result type, and boundary types to compose predictably
 
 ## [05]-[LANGUAGE_AREAS]
 
-Each language area follows its own ecosystem and ships independently.
+Each language area follows its own ecosystem and releases independently.
 
 - Language areas share one design approach to boundaries, errors, and immutability
 - Each area follows the idioms and standards of its language

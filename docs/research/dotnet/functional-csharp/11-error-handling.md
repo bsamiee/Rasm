@@ -151,7 +151,7 @@ internal static class Adapters {
 }
 ```
 
-Each package translates the errors of a dependency that it reacts to into its own `Expected` record with `MapFail`, keeps the original as `Inner`, and passes every other error through unchanged. `Error.New(string, Error)` has code `0`, and `IsType`, `HasCode`, `Is`, and `Catch` do not descend into `Inner`, so only the typed record stays classifiable. `Catch(code, f)` selects by code, `Catch(Error, f)` by value, and `Catch(predicate, f)` by a test on the error.
+Each package translates the errors of a dependency that it reacts to into its own `Expected` record with `MapFail`, keeps the original as `Inner`, and passes every other error through unchanged. `Error.New(string, Error)` has code `0`, and `IsType`, `HasCode`, `Is`, and `Catch` do not descend into `Inner`, only the typed record stays classifiable. `Catch(code, f)` selects by code, `Catch(Error, f)` by value, and `Catch(predicate, f)` by a test on the error.
 
 ## [07]-[BUSINESS_AND_TECHNICAL_FAILURES]
 
