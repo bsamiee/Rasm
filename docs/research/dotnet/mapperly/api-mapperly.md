@@ -26,15 +26,15 @@ An existing-target method returns `void`. The second parameter is the target unl
 
 A generic or runtime-target-type method dispatches to the mappings declared in the same mapper. An unknown pair at run time throws `ArgumentException`. Neither form accepts additional parameters. Both accept `MapDerivedTypeAttribute` on the method itself.
 
-An additional parameter matches a target member by name, without case. It ranks below a `MapPropertyAttribute` configuration and above a by-name source member. Mapperly does not pass an additional parameter to a nested mapping. A method that takes one cannot be the default mapping, and cannot also be a generic, runtime-target-type, or derived-type mapping.
+An additional parameter matches a target member by name, without case. It ranks below a `MapPropertyAttribute` configuration and above a by-name source member. Mapperly forwards matching parameters to explicitly declared nested mapping methods and methods selected by `Use`. It does not synthesize a nested method with additional parameters. Queryable projection parameters become captured expression values. A method that takes one cannot be the default mapping, and cannot also be a generic, runtime-target-type, or derived-type mapping.
 
 A static mapping method satisfies a `static abstract` interface member, so a `[Mapper] partial class` may implement a mapping interface.
 
-A method with additional parameters cannot be the default mapping. `RMG081` rejects `[UserMapping(Default = true)]` on one. `RMG099` rejects two additional parameters whose names differ only in case, because matching ignores case and only the first would ever bind. `RMG082` reports an additional parameter that no target member consumed. An additional parameter reaches a nested mapping only through a hand-written method whose parameter names match, and `Use` forwards them the same way: `RMG097` reports a `MapValue` method whose parameters cannot be satisfied, and `RMG098` reports the same for a named mapping.
+A method with additional parameters cannot be the default mapping. `RMG081` rejects `[UserMapping(Default = true)]` on one. `RMG099` rejects two additional parameters whose names differ only in case, because matching ignores case and only the first would ever bind. `RMG082` reports an additional parameter that no target member consumed. `RMG097` reports unsatisfied parameters on a `MapValue` method, and `RMG098` reports them on a named mapping.
 
 A projection-expression method returns `Expression<Func<TSource, TTarget>>` and takes no parameters, because the mapped types come from the delegate's type arguments. It shares every rule with an `IQueryable<T>` projection, including the inlining limits and `RMG068`. `MappingConversionType.Expression` names this conversion, but the generator reads that bit nowhere, so clearing it disables nothing.
 
-`MappingTargetOriginalValueAttribute` marks a parameter that receives the target member's current value, so a hand-written mapping can fold the new value into the old one. It is legal on a user-implemented method that returns a value, and its position among the parameters is free. `RMG100` rejects it on a generated `partial` method, and `RMG001` rejects it on a `void` existing-target method. Mapperly passes `default` when the target member is init-only or a constructor parameter, because no prior value exists.
+`MappingTargetOriginalValueAttribute` marks a parameter that receives the target member's current value, so a hand-written mapping can fold the new value into the old one. It is legal on a user-implemented method that returns a value, and its position among the parameters is free. `RMG100` rejects it on a generated `partial` method, and `RMG001` rejects it on a `void` existing-target method. Mapperly passes `default` for an init-only member or constructor parameter because the target instance is unavailable while it builds the construction expression.
 
 ## [02]-[ATTRIBUTES]
 
@@ -96,13 +96,13 @@ TTarget CreateTargetType<TTarget, TSource>(TSource source);
 
 `MapperIgnoreAttribute`, `MapperIgnoreSourceAttribute`, `MapperIgnoreTargetAttribute`, `MapperIgnoreSourceValueAttribute`, and `MapperIgnoreTargetValueAttribute` each expose `Justification` as a `string?`. The value documents the exclusion and changes no mapping. `RMG096` reports an ignore whose `Justification` is absent or whitespace, and ships at `hidden`. Raising its severity above `hidden` is the documented way to require one.
 
-`UserMappingAttribute` marks a hand-written method as a mapping method. `Default` names the one mapping Mapperly uses for a type pair, and only one mapping per pair may set it. `Ignore` removes the method from discovery. Both are `bool` and default to `false`. Mapperly discovers hand-written methods by signature while `AutoUserMappings` is `true`. It reports `RMG060` when a pair has several mappings and no default.
+`UserMappingAttribute` marks a hand-written method as a mapping method. Mapperly distinguishes an omitted `Default` from an explicit `false`: omission permits implicit default selection, `false` excludes pair-wide automatic selection, and `true` selects the pair default. Only one mapping per pair may set `true`. `Ignore = true` removes the method from discovery. Mapperly discovers unattributed hand-written methods by signature while `AutoUserMappings` is `true`. It reports `RMG060` when automatic selection finds several mappings without one explicit default.
 
 A hand-written method's parameter and return types must match the mapped types exactly, including nullability. To run code before or after a generated mapping, call the generated method from a hand-written wrapper and mark the wrapper `[UserMapping(Default = true)]`. A hand-written existing-target method may declare its target parameter `ref`, and the generated code then updates the caller's reference.
 
-`NamedMappingAttribute(string name)` gives a mapping a name that `Use` and `IncludeMappingConfigurationAttribute` reference instead of the method name. `IncludeMappingConfigurationAttribute(string name)` copies the `MapPropertyAttribute`, `MapPropertyFromSourceAttribute`, `MapperIgnoreTargetAttribute`, `MapperIgnoreSourceAttribute`, `MapperIgnoreObsoleteMembersAttribute`, `MapperRequiredMappingAttribute`, `MapValueAttribute`, and `MapDerivedTypeAttribute` configuration of the named method. The named method must map the same types or their base types. A colliding configuration is an error, and an ambiguous name reports `RMG062`.
+`NamedMappingAttribute(string name)` gives a mapping a name that `Use` and `IncludeMappingConfigurationAttribute` reference instead of the method name. `IncludeMappingConfigurationAttribute(string name)` merges ignored source and target members, explicit and nested member mappings, values, derived pairs, and enum fallback, ignore, and explicit-value configuration. The including method keeps its enum strategy, casing, naming, and required-enum strategy. The named method must map the same types or their base types. A colliding configuration is an error, and an ambiguous name reports `RMG062`.
 
-`IncludeMappingConfigurationAttribute` sets `AllowMultiple`, so a method may include several configurations. Mapperly concatenates the member, value, ignore, and derived-type lists, and takes the first value for `RequiredMappingStrategy` and `IgnoreObsoleteMembersStrategy`, where the including method outranks each included one in the order written. `RMG074` reports two configurations that reach the same target member, `RMG091` reports a circular include, and `RMG092` and `RMG093` report a source or target type that is not assignable to the included one.
+`IncludeMappingConfigurationAttribute` sets `AllowMultiple`, so a method may include several configurations. Lists concatenate. The including method's required-member and ignore-obsolete settings outrank included settings; otherwise, the first included value wins. `RMG074` reports two configurations that reach the same target member, `RMG091` reports a circular include, and `RMG092` and `RMG093` report a source or target type that is not assignable to the included one.
 
 A `Use` value and an `IncludeMappingConfigurationAttribute` name both accept a reference outside the mapper. Prefix the path with `@` inside `nameof`, or write the fully qualified path as a string. `@` also works in a `MapPropertyAttribute` path, where `nameof(@MyNamespace.Car.Make.Id)` yields the path `Make.Id`.
 
@@ -257,7 +257,7 @@ Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from Pas
 |  [08]   | `EnumToEnum`           | `1 << 7`  |   13    | both are enums, follows `EnumMappingStrategy`                |
 |  [09]   | `DateTimeToDateOnly`   | `1 << 8`  |   17    | `DateTime` to `DateOnly` through `FromDateTime`              |
 |  [10]   | `DateTimeToTimeOnly`   | `1 << 9`  |   18    | `DateTime` to `TimeOnly` through `FromDateTime`              |
-|  [11]   | `Queryable`            | `1 << 10` |    2    | both are `IQueryable<T>`, object initializers only           |
+|  [11]   | `Queryable`            | `1 << 10` |    2    | both are `IQueryable<T>`, expression-tree element mapping    |
 |  [12]   | `Enumerable`           | `1 << 11` |    4    | both are `IEnumerable<T>`, maps each element                 |
 |  [13]   | `Dictionary`           | `1 << 12` |    3    | both are `IDictionary` or `IReadOnlyDictionary`              |
 |  [14]   | `Span`                 | `1 << 13` |    5    | either is `Span<T>` or `ReadOnlySpan<T>`                     |
@@ -272,18 +272,11 @@ Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from Pas
 
 The `[ORDER]` column gives the priority the docs list. Rank 1 is direct assignment, which applies when the source type is assignable to the target type and `UseDeepCloning` is `false`. Rank 20 creates a new target instance and maps its members. The docs give `EnumUnderlyingType` no rank.
 
-`MapDerivedTypeAttribute(Type sourceType, Type targetType)` and `MapDerivedTypeAttribute<TSource, TTarget>` register one pair for a base-type or interface mapping. Every source type must extend or implement the parameter type. Every target type must extend or implement the return type. Each source type appears once, and several source types may share one target type. The generator emits a `switch` over the runtime type and throws `ArgumentException` for an unregistered type. Derived types work for a new-instance mapping and for an existing-target mapping.
+`MapDerivedTypeAttribute(Type sourceType, Type targetType)` and `MapDerivedTypeAttribute<TSource, TTarget>` register one pair for a base-type or interface mapping. Every source type must extend or implement the parameter type. Every target type must extend or implement the return type. Each source type appears once, and several source types may share one target type. An ordinary mapping emits a runtime switch and throws `ArgumentException` for an unregistered type. An `IQueryable` or expression mapping emits `default(TTarget)` for the unmatched branch. Derived types work for a new-instance mapping and for an existing-target mapping.
 
-An `IQueryable<T>` projection compiles to an expression tree. It therefore drops these features:
-- object factories
-- constructors with unmatched optional parameters
-- `ThrowOnPropertyMappingNullMismatch` and `AllowNullPropertyAssignment`
-- the `ByName` enum strategy
-- reference handling, which `RMG029` rejects
-- nullable reference types
-- deep cloning
+An `IQueryable<T>` or expression projection compiles an element mapping into an expression tree. Dictionary and existing-target mappings are unavailable. Object factories and deep cloning do not apply. Reference handling reports `RMG029`. Nullable analysis and property null controls do not apply, so nullable-to-non-nullable paths use generated fallbacks. Unsupported enum configuration reports `RMG032` and emits a value cast.
 
-Mapperly inlines a hand-written mapping method into the expression tree when the method is expression-bodied or holds one local variable declaration. It reports `RMG068` when it cannot inline one.
+Mapperly inlines a hand-written mapping method when it has an expression body, one return statement, or one local declaration followed by a return. `RMG068` leaves a non-inlined method call in the generated expression.
 
 ## [08]-[REFERENCE_HANDLING]
 
