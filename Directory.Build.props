@@ -1,6 +1,6 @@
 <Project>
     <PropertyGroup Label="Workspace">
-        <RasmRepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</RasmRepoRoot>
+        <RasmRepoRoot>$(MSBuildThisFileDirectory)</RasmRepoRoot>
         <ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
         <RasmLibsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'libs'))</RasmLibsRoot>
         <RasmToolsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'tools'))</RasmToolsRoot>
@@ -20,40 +20,30 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
-    <PropertyGroup Label="SDK Defaults">
+    <PropertyGroup Label="Build Defaults">
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Restore">
-        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-        <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
-        <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-        <NuGetAudit>false</NuGetAudit>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Analysis">
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-all</AnalysisLevel>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+        <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+        <NuGetAudit>false</NuGetAudit>
+        <!-- Routes IKVM image files through @(None): buildTransitive imports IKVM.Image.targets into every consumer, the SDK drops transitive copies by TargetPath -->
+        <IkvmImageItemToNone>true</IkvmImageItemToNone>
     </PropertyGroup>
 
-    <!-- Template for an IKVM consumer: the condition names the project, project-body opt-in properties are invisible at .props evaluation time
-    <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == '{IkvmConsumerProject}'">
+    <!-- IKVM consumer scope: the condition names the MPXJ.Net consumer, project-body opt-in properties are invisible at .props evaluation time -->
+    <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
         <IkvmCacheDir>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', '.cache', 'ikvm'))</IkvmCacheDir>
         <IkvmExportCacheDir>$([MSBuild]::NormalizeDirectory('$(IkvmCacheDir)', 'expcache'))</IkvmExportCacheDir>
         <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
-    </PropertyGroup>
-    -->
-
-    <!-- Routes IKVM image files through @(None): buildTransitive imports IKVM.Image.targets into every consumer, the SDK drops transitive copies by TargetPath -->
-    <PropertyGroup Label="IKVM Image">
-        <IkvmImageItemToNone>true</IkvmImageItemToNone>
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Analyzers">

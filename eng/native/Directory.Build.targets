@@ -1,3 +1,21 @@
 <Project>
-    <!-- intentionally empty, pairs with the isolation props above -->
+    <ItemGroup Condition="'$(IncludeBuildOutput)' == 'false'">
+        <None Include="$(StageRoot)runtimes/**" Pack="true" PackagePath="runtimes/" />
+        <!-- Data payloads stage under contentFiles; copyToOutput preserves the staged tree in consumer output where rid-specific publish flattens runtimes native assets -->
+        <None Include="$(StageRoot)contentFiles/**" Pack="true" PackagePath="contentFiles/any/any/" PackageCopyToOutput="true" BuildAction="None" />
+        <None Include="$(MSBuildThisFileDirectory)_._" Pack="true" PackagePath="lib/$(TargetFramework)/" />
+    </ItemGroup>
+
+    <Target Name="EnsureStagedNativeLibraries" BeforeTargets="GenerateNuspec" Condition="'$(IncludeBuildOutput)' == 'false'">
+        <Error Condition="!Exists('$(StageRoot)runtimes') and !Exists('$(StageRoot)contentFiles')"
+               Text="Nothing staged under $(StageRoot); run the eng stage-$(NativeLibraryName)-native target first." />
+    </Target>
+
+    <Target Name="EnsureManifestVersionMatch" BeforeTargets="GenerateNuspec">
+        <PropertyGroup>
+            <_ManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VcpkgManifest)')), '(?&lt;="version-string": ")[^"]+').Value)</_ManifestVersion>
+        </PropertyGroup>
+        <Error Condition="'$(_ManifestVersion)' != '$(Version)'"
+               Text="Package version $(Version) does not match version-string '$(_ManifestVersion)' in $(VcpkgManifest)." />
+    </Target>
 </Project>

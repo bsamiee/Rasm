@@ -1,9 +1,20 @@
 <Solution>
     <Folder Name="/libs/" />
     <Folder Name="/libs/dotnet/" />
+    <Folder Name="/libs/dotnet/interop/">
+        <Project Path="libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj" />
+        <Project Path="libs/dotnet/interop/Rasm.Interop.Excel/Rasm.Interop.Excel.csproj" />
+        <Project Path="libs/dotnet/interop/Rasm.Interop.Gdal/Rasm.Interop.Gdal.csproj" />
+        <Project Path="libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
+        <Project Path="libs/dotnet/interop/Rasm.Interop.Pdf/Rasm.Interop.Pdf.csproj" />
+    </Folder>
     <Folder Name="/tests/" />
     <Folder Name="/tests/dotnet/" />
     <Folder Name="/tests/dotnet/support/">
         <Project Path="tests/dotnet/support/Rasm.TestSupport.csproj" />
+    </Folder>
+    <Folder Name="/tools/" />
+    <Folder Name="/tools/dotnet/">
+        <Project Path="tools/dotnet/Rasm.Policy.Analyzers/Rasm.Policy.Analyzers.csproj" />
     </Folder>
 </Solution>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Version>5.0.0</Version>
+        <Description>Z3 .NET bindings compiled AnyCPU from the source archive the native z3 lane pins</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageId>Rasm.Z3</PackageId>
+        <AssemblyName>Microsoft.Z3</AssemblyName>
+        <IncludeBuildOutput>true</IncludeBuildOutput>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <LangVersion>8.0</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="$(StageRoot)managed/*.cs" />
+    </ItemGroup>
+    <Target Name="EnsureStagedManagedSources" BeforeTargets="CoreCompile">
+        <Error Condition="'@(Compile)' == ''" Text="no sources staged under $(StageRoot)managed, run the eng stage-z3-native target first" />
+    </Target>
+</Project>

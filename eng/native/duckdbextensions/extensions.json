@@ -1,0 +1,10 @@
+{
+    "name": "rasm-native-duckdbextensions",
+    "version-string": "1.5.5",
+    "extensions": {
+        "fts": {"osx-arm64": "b6b8d0a13e0457f3ce368e4e7c2ff8de48637eea5ca61e5ff983c05018e7f315"},
+        "httpfs": {"osx-arm64": "758acc0b0c4fbf09506f387ff6f52826b1038b7b6849ded39928d2f992945230"},
+        "spatial": {"osx-arm64": "49e17088e4c8a25a5c949be0d4acb25336da8afed3865079e614454fd2b3795f"},
+        "vss": {"osx-arm64": "74ddab07d8db831dfb97f2cbe9b30d8699da2baa6254fa8f19c2f2ec0964665b"}
+    }
+}

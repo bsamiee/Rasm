@@ -153,6 +153,7 @@ dotnet_diagnostic.MA0051.severity = none                                      # 
 dotnet_diagnostic.CS0169.severity = error                                     # Unused private fields
 dotnet_diagnostic.CA1021.severity = error                                     # Off under latest-all: no out parameters
 dotnet_diagnostic.CA1045.severity = error                                     # Off under latest-all: no ref parameters
+dotnet_diagnostic.CA1516.severity = error                                     # Off under latest-all: cross-platform intrinsics over x86-only or Arm-only ones
 dotnet_diagnostic.CS0649.severity = error                                     # Fields that are never assigned
 dotnet_diagnostic.CA1307.severity = none                                      # Covered by MA0001 and MA0074, which skip expression trees
 dotnet_diagnostic.CA1310.severity = none                                      # Covered by MA0074
@@ -200,6 +201,8 @@ dotnet_diagnostic.MA0133.severity = error                                     # 
 dotnet_diagnostic.MA0136.severity = error                                     # Info by default: raw string literal with an implicit newline
 dotnet_diagnostic.MA0152.severity = error                                     # Info by default: Unwrap over a double await
 dotnet_diagnostic.MA0154.severity = error                                     # Info by default: langword in XML doc comments
+dotnet_diagnostic.MA0161.severity = error                                     # Off by default: UseShellExecute set explicitly, the implicit value is not portable across hosts
+dotnet_diagnostic.MA0162.severity = error                                     # Off by default: Process.Start overload with ProcessStartInfo, the string overloads cannot set it
 dotnet_diagnostic.MA0173.severity = error                                     # Info by default: LazyInitializer.EnsureInitialized over a manual check
 dotnet_diagnostic.MA0180.severity = error                                     # Off by default: ILogger<T> type argument matches the containing type
 dotnet_diagnostic.MA0184.severity = error                                     # Info by default: interpolated string without holes
@@ -468,6 +471,11 @@ dotnet_diagnostic.RMG089.severity = error                                     # 
 dotnet_diagnostic.RMG090.severity = error                                     # Nullable source type to non-nullable target type
 dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: ignored member without a Justification
 
+# --- [MESSAGEPACK_ANALYZERS] -------------------------------------------------
+# Every MsgPack rule ships at Error or Warning except these two, which ship disabled
+dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: pass serializer options explicitly, the default reads a static mutable field
+dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: serializer options come from a constant, never a mutable static field
+
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
 # Every TTRESG rule defaults to Error or Warning except this one
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Info by default: static lambdas in Switch/Map arms; pass state through the state parameter
@@ -523,12 +531,12 @@ dotnet_diagnostic.xUnit1046.severity = error                                  # 
 dotnet_diagnostic.xUnit1047.severity = error                                  # TheoryDataRow whose serializability cannot be proven
 dotnet_diagnostic.xUnit1050.severity = error                                  # Untyped theory data source
 dotnet_diagnostic.xUnit2001.severity = error                                  # Hidden by default: invalid equality check
-dotnet_diagnostic.xUnit2022.severity = error                                  # Boolean assertion on a boolean literal
+dotnet_diagnostic.xUnit2022.severity = error                                  # Negated boolean assertion; call the opposite assertion instead
 dotnet_diagnostic.xUnit2023.severity = error                                  # Assert.Single over Assert.Collection with one element
-dotnet_diagnostic.xUnit2024.severity = error                                  # Collection assertion over Assert.True on Contains or Any
-dotnet_diagnostic.xUnit2025.severity = error                                  # Boolean assertion on a constant
-dotnet_diagnostic.xUnit2032.severity = error                                  # IsType where IsAssignableFrom is meant, or the reverse
-dotnet_diagnostic.xUnit2033.severity = error                                  # Info by default: Assert.Empty/NotEmpty over a count check
+dotnet_diagnostic.xUnit2024.severity = error                                  # Boolean assertion testing equality against a null, numeric, string, or enum literal
+dotnet_diagnostic.xUnit2025.severity = error                                  # Boolean assertion carrying a boolean literal in an equality test
+dotnet_diagnostic.xUnit2032.severity = error                                  # IsAssignableFrom over IsType with exactMatch set to false
+dotnet_diagnostic.xUnit2033.severity = error                                  # Info by default: use the assertion return value instead of re-deriving it
 
 # --- [VERIFY_SNAPSHOTS] ------------------------------------------------------
 # VerifyChecks matches this section header verbatim

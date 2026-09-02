@@ -1,0 +1,12 @@
+{
+    "name": "rasm-native-ffmpeg",
+    "version-string": "9.0.1",
+    "builtin-baseline": "30ef65cad98f08e7197c9a1656fbd871bcb72f2d",
+    "dependencies": [
+        {
+            "name": "ffmpeg",
+            "default-features": false,
+            "features": ["avcodec", "avdevice", "avfilter", "avformat", "gpl", "mp3lame", "opus", "svt-av1", "swresample", "swscale", "vpx", "x264", "x265"]
+        }
+    ]
+}

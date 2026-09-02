@@ -1,21 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
         <Version>2.19.1</Version>
         <Description>Little CMS shared library staged per runtime identifier</Description>
-        <Authors>bsamiee</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <IncludeBuildOutput>false</IncludeBuildOutput>
-        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
-        <NoWarn>$(NoWarn);NU5128</NoWarn>
-        <EnableDefaultItems>false</EnableDefaultItems>
-        <StageRoot>$(MSBuildThisFileDirectory)../../../.artifacts/native/lcms2/stage/</StageRoot>
     </PropertyGroup>
-    <ItemGroup>
-        <None Include="$(StageRoot)runtimes/**" Pack="true" PackagePath="runtimes/" />
-        <None Include="_._" Pack="true" PackagePath="lib/netstandard2.0/" />
-    </ItemGroup>
-    <Target Name="EnsureStagedNativeLibraries" BeforeTargets="GenerateNuspec">
-        <Error Condition="!Exists('$(StageRoot)runtimes')" Text="nothing staged under $(StageRoot), run the eng stage-lcms2-native target first" />
-    </Target>
 </Project>

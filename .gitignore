@@ -31,8 +31,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-# Vendored RID-keyed natives are deliberate LFS assets, exempt from the build-output *.so rule
-!**/vendor/runtimes/**/*.so
 .Python
 *.egg
 *.egg-info/
@@ -71,10 +69,10 @@ htmlcov/
 
 # --- [CACHES] -----------------------------------------------------------------
 
+.stryker-tmp/
+
 .cache/
-.cacheuv/
 **/.artifacts/
-/.remember/
 .nx/*
 .parcel-cache/
 .pulumi/
@@ -96,6 +94,8 @@ diagnostics.sarif
 *.3dmbak
 # Grasshopper2.dll extracts embedded resources to the `dotnet build` cwd; root-anchored, the real `apps/grasshopper/` tree stays tracked
 /Grasshopper.*
+# EnergyPlus ExpandObjects writes into the invocation cwd with no relocation option
+expanded.idf
 
 # --- [ENVIRONMENT_VARIABLES] --------------------------------------------------
 
@@ -160,5 +160,3 @@ _tmp/
 *.cert
 *.crt
 credentials.json
-# Stryker.NET mutation working directory: relative to the current directory with no upstream relocation option; reports write to .artifacts/dotnet/stryker
-.stryker-tmp/

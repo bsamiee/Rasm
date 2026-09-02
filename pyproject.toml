@@ -1,3 +1,8 @@
+[project]
+name = "rasm-workspace"
+version = "0.0.0"
+requires-python = ">=3.15"
+
 [dependency-groups]
 workspace = [
     # --- [GENERAL]
@@ -546,7 +551,7 @@ warn_unreachable = false
 disable_error_code = ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
 [[tool.mypy.overrides]]
-module = ["boto3", "boto3.*", "fsspec", "fsspec.*", "jsonschema", "jsonschema.*", "s3fs"]  # Backend and validator imports lack py.typed coverage
+module = ["fsspec", "fsspec.*", "s3fs"]  # fsspec and s3fs ship no py.typed and no stub package exists
 ignore_missing_imports = true
 
 # --- [PYTEST] ---------------------------------------------------------------------------
@@ -888,6 +893,7 @@ combine-as-imports = true
 force-sort-within-sections = true
 known-first-party = ["rasm"]
 order-by-type = false
+split-on-trailing-comma = false  # Matches skip-magic-trailing-comma in ruff format
 
 [tool.ruff.lint.mccabe]
 max-complexity = 20

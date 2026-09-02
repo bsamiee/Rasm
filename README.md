@@ -24,6 +24,7 @@ Rasm/
 │   ├── python/
 │   └── typescript/
 ├── eng/                      # Shared build and release infrastructure
+│   ├── native/               # Native packaging lanes: vcpkg pins and packaging projects
 │   └── scripts/              # Python automation that Nx targets and CI jobs invoke
 ├── tools/                    # Custom tools for developing this project
 │   └── biome/                # Python automation that Nx targets and CI jobs invoke

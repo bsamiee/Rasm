@@ -34,12 +34,17 @@
         <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" Condition="'$(HostUi)' == 'true'" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(HostGrasshopper)' == 'true'" />
-    </ItemGroup>
-
-    <ItemGroup Label="Host Platform Metadata" Condition="'$(HostPlatform)' == 'true'">
-        <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+        <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute" Condition="'$(HostPlatform)' == 'true'">
             <_Parameter1>macos</_Parameter1>
         </AssemblyAttribute>
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Policy">
+        <!-- Executables load the policy analyzer; the edge only sequences the build and carries no assembly reference -->
+        <ProjectReference Include="$(RasmToolsRoot)dotnet/Rasm.Policy.Analyzers/Rasm.Policy.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" Condition="'$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe'" />
+        <!-- Payload items that package build/ imports inject with Pack=true must not repack into consumer nupkgs -->
+        <None Update="$(NuGetPackageRoot)**" Pack="false" />
+        <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(RasmRole)' == 'tests'" />
     </ItemGroup>
 
     <Target Name="VerifyRhinoHostBundle" BeforeTargets="ResolveAssemblyReferences" Condition="'$(HostCommon)' == 'true'">
@@ -50,29 +55,109 @@
                Text="Rhino bundle '$(RhinoAppPath)' lacks @(_MissingRhinoHostFile->'%(Filename)%(Extension)', ', '); set RHINO_APP_PATH to a Rhino 9 bundle." />
     </Target>
 
-    <Target Name="ValidateRasmProjectReferences" BeforeTargets="AssignProjectConfiguration" Condition="'@(ProjectReference)' != '' and '$(DesignTimeBuild)' != 'true'">
+    <Target Name="ValidateRasmProjectPolicy" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+        <PropertyGroup>
+            <_RasmProjectDir>$([MSBuild]::EnsureTrailingSlash('$(MSBuildProjectDirectory)'))</_RasmProjectDir>
+            <_RasmProjectPolicyElement>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), '&lt;(NoWarn|MSBuildWarningsAsMessages|WarningsAsMessages|MSBuildWarningsNotAsErrors|WarningsNotAsErrors|MSBuildTreatWarningsAsErrors|TreatWarningsAsErrors|CodeAnalysisTreatWarningsAsErrors|AnalysisLevel|AnalysisMode|RunAnalyzers|EnforceCodeStyleInBuild|NuGetAudit|NuGetAuditMode|NuGetAuditLevel|ArtifactsPath|UseArtifactsOutput|BaseOutputPath|BaseIntermediateOutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|InformationalVersion)[ &gt;/]').Value)</_RasmProjectPolicyElement>
+            <_RasmPackageReferences>;@(PackageReference, ';');</_RasmPackageReferences>
+            <!-- Companion satisfied by package or project reference; the companion project itself stays exempt -->
+            <_RasmRuntimeInitReferences>;$(MSBuildProjectName);@(PackageReference, ';');@(ProjectReference->'%(Filename)', ';');</_RasmRuntimeInitReferences>
+        </PropertyGroup>
         <ItemGroup>
-            <_RasmProjectReference Include="@(ProjectReference->'%(FullPath)')" />
+            <!-- ReferenceOutputAssembly=false edges only sequence a build, such as the analyzer project, and stay exempt -->
+            <_RasmProjectReference Include="@(ProjectReference->'%(FullPath)')" Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'" />
             <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'libs' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)'))" />
             <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmToolsRoot)'))" />
             <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(RasmAppsRoot)'))" />
-            <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(MSBuildProjectDirectory)'))" />
+            <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmProjectDir)'))" />
+            <_RasmNativeBinding Include="DuckDB.NET.Data.Full" Native="Rasm.Native.DuckDBExtensions" />
+            <_RasmNativeBinding Include="lcms2-dotnet" Native="Rasm.Native.Lcms2" />
+            <_RasmNativeBinding Include="FFmpeg.AutoGen" Native="Rasm.Native.FFmpeg" />
+            <_RasmNativeBinding Include="Rasm.Z3" Native="Rasm.Native.Z3" />
+            <_RasmNativeBinding Include="Rasm.Gmsh" Native="Rasm.Native.Gmsh" />
+            <_RasmRuntimeInitBinding Include="EPPlus" Companion="Rasm.Interop.Excel" />
+            <_RasmRuntimeInitBinding Include="MaxRev.Gdal.Core" Companion="Rasm.Interop.Gdal" />
+            <_RasmRuntimeInitBinding Include="PDFsharp" Companion="Rasm.Interop.Pdf" />
+            <_RasmRuntimeInitBinding Include="PureHDF.Filters.BZip2.SharpZipLib" Companion="Rasm.Interop.Hdf5" />
+            <_RasmRuntimeInitBinding Include="PureHDF.Filters.Lzf" Companion="Rasm.Interop.Hdf5" />
         </ItemGroup>
         <Error Code="RASM0001" Condition="'@(_RasmInvalidProjectReference)' != ''"
                Text="Role '$(RasmRole)' project '$(MSBuildProjectName)' references outside its allowed set: @(_RasmInvalidProjectReference->'%(Identity)', '; ')." />
-    </Target>
-
-    <Target Name="ValidateRasmProjectPolicy" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
-        <PropertyGroup>
-            <_RasmProjectPolicyElement>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), '&lt;(NoWarn|MSBuildWarningsAsMessages|WarningsAsMessages|MSBuildWarningsNotAsErrors|WarningsNotAsErrors|MSBuildTreatWarningsAsErrors|TreatWarningsAsErrors|CodeAnalysisTreatWarningsAsErrors|AnalysisLevel|AnalysisMode|RunAnalyzers|EnforceCodeStyleInBuild|NuGetAudit|NuGetAuditMode|NuGetAuditLevel|ArtifactsPath|UseArtifactsOutput|BaseOutputPath|BaseIntermediateOutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|InformationalVersion)[ &gt;/]').Value)</_RasmProjectPolicyElement>
-        </PropertyGroup>
         <Error Code="RASM0002" Condition="'$(_RasmProjectPolicyElement)' != ''"
                Text="Project manifest '$(MSBuildProjectFile)' contains a centrally managed element ('$(_RasmProjectPolicyElement.Trim())…'): package versions belong in Directory.Packages.props, analyzer severities in .editorconfig, and output and analysis settings in Directory.Build.props." />
+        <Error Code="RASM0004"
+               Condition="$(_RasmPackageReferences.Contains(';%(_RasmNativeBinding.Identity);')) and !$(_RasmPackageReferences.Contains(';%(_RasmNativeBinding.Native);'))"
+               Text="Project '$(MSBuildProjectName)' references %(_RasmNativeBinding.Identity) without %(_RasmNativeBinding.Native). The shared libraries load from that package." />
+        <Error Code="RASM0005"
+               Condition="$(_RasmRuntimeInitReferences.Contains(';%(_RasmRuntimeInitBinding.Identity);')) and !$(_RasmRuntimeInitReferences.Contains(';%(_RasmRuntimeInitBinding.Companion);'))"
+               Text="Project '$(MSBuildProjectName)' references %(_RasmRuntimeInitBinding.Identity) without %(_RasmRuntimeInitBinding.Companion). The required runtime initialization lives in that package." />
     </Target>
 
-    <Target Name="ValidateRasmNativeReferences" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
-        <Error Code="RASM0004"
-               Condition="'@(PackageReference->WithMetadataValue('Identity', 'lcms2-dotnet'))' != '' and '@(PackageReference->WithMetadataValue('Identity', 'Rasm.Native.Lcms2'))' == ''"
-               Text="Project '$(MSBuildProjectName)' references lcms2-dotnet without Rasm.Native.Lcms2. The shared library loads from that package." />
+    <!-- Restores native payloads that a package ships only in build/, which does not flow across a transitive PackageReference chain -->
+    <Target Name="RepairRasmNativeAssets" AfterTargets="ResolvePackageAssets" Condition="'@(RuntimeCopyLocalItems)' != ''">
+        <ItemGroup>
+            <_RasmNativeAssetRepair Include="Melanchall.DryWetMidi" Anchor="Melanchall.DryWetMidi" Payload="build/Melanchall_DryWetMidi_Native64.dylib" DirectDelivery="build" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+            <_RasmNativeAssetRepair Include="Whisper.net.Runtime" Anchor="Whisper.net" Payload="build/macos-arm64/*.dylib" DestinationSubDirectory="runtimes/macos-arm64/" DirectDelivery="build" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+            <!-- Legacy RID runtimes/osx.10.14-arm64/ never resolves under the portable RID model, direct references included -->
+            <_RasmNativeAssetRepair Include="Microsoft.ML.OnnxRuntime.Extensions" Anchor="Microsoft.ML.OnnxRuntime.Managed" Payload="runtimes/osx.10.14-arm64/native/libortextensions.dylib" Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'" />
+        </ItemGroup>
+        <PropertyGroup>
+            <_RasmResolvedPackageIds>;@(RuntimeCopyLocalItems->'%(NuGetPackageId)', ';');</_RasmResolvedPackageIds>
+            <_RasmDirectPackageIds>;@(PackageReference, ';');</_RasmDirectPackageIds>
+            <_RasmCentralVersions>;@(PackageVersion->'%(Identity)=%(Version)', ';');</_RasmCentralVersions>
+        </PropertyGroup>
+        <ItemGroup>
+            <!-- DirectDelivery=build rows reach direct consumers through the package's own build/ import; the repair covers their transitive consumers only -->
+            <_RasmNativeAssetSource Include="@(_RasmNativeAssetRepair)" Condition="$(_RasmResolvedPackageIds.Contains(';%(_RasmNativeAssetRepair.Anchor);')) and ('%(_RasmNativeAssetRepair.DirectDelivery)' == '' or !$(_RasmDirectPackageIds.Contains(';%(_RasmNativeAssetRepair.Identity);')))">
+                <ResolvedVersion>$([System.Text.RegularExpressions.Regex]::Match($(_RasmCentralVersions), ';%(_RasmNativeAssetRepair.Identity)=([^;]*)').Groups[1].Value)</ResolvedVersion>
+            </_RasmNativeAssetSource>
+            <_RasmNativeAssetSource>
+                <PackageRoot>$(NuGetPackageRoot)$([System.String]::Copy('%(_RasmNativeAssetSource.Identity)/%(_RasmNativeAssetSource.ResolvedVersion)/').ToLowerInvariant())</PackageRoot>
+            </_RasmNativeAssetSource>
+            <_RasmNativeAssetPayload Include="%(_RasmNativeAssetSource.PackageRoot)%(_RasmNativeAssetSource.Payload)">
+                <NuGetPackageId>%(_RasmNativeAssetSource.Identity)</NuGetPackageId>
+                <NuGetPackageVersion>%(_RasmNativeAssetSource.ResolvedVersion)</NuGetPackageVersion>
+                <PackageRoot>%(_RasmNativeAssetSource.PackageRoot)</PackageRoot>
+                <DestinationSubDirectory>%(_RasmNativeAssetSource.DestinationSubDirectory)</DestinationSubDirectory>
+                <AssetType>native</AssetType>
+                <CopyLocal>true</CopyLocal>
+            </_RasmNativeAssetPayload>
+            <_RasmNativeAssetPayload>
+                <PathInPackage>$([MSBuild]::MakeRelative('%(_RasmNativeAssetPayload.PackageRoot)', '%(_RasmNativeAssetPayload.FullPath)'))</PathInPackage>
+            </_RasmNativeAssetPayload>
+            <NativeCopyLocalItems Include="@(_RasmNativeAssetPayload)" />
+        </ItemGroup>
+    </Target>
+
+    <!-- NETSDK1206: a referenced package pins payloads to a version- or distribution-specific RID; naming the platform keeps those deps.json entries and silences the check for these packages alone -->
+    <Target Name="TolerateRasmLegacyRidPackages" BeforeTargets="GenerateBuildDependencyFile">
+        <ItemGroup>
+            <_RasmLegacyRidPackage Include="Microsoft.ML.OnnxRuntime.Extensions" Platform="osx.10.14" />
+            <_RasmLegacyRidPackage Include="UVtools.Core" Platform="ubuntu" />
+        </ItemGroup>
+        <PropertyGroup>
+            <_RasmLegacyRidGraphIds>;@(PackageReference, ';');@(RuntimeCopyLocalItems->'%(NuGetPackageId)', ';');@(RuntimeTargetsCopyLocalItems->'%(NuGetPackageId)', ';');</_RasmLegacyRidGraphIds>
+        </PropertyGroup>
+        <ItemGroup>
+            <_KnownRuntimeIdentiferPlatforms Include="%(_RasmLegacyRidPackage.Platform)" Condition="$(_RasmLegacyRidGraphIds.Contains(';%(_RasmLegacyRidPackage.Identity);'))" />
+        </ItemGroup>
+    </Target>
+
+    <!-- libtorch_cpu.dylib hardcodes an absolute /opt/homebrew libomp load path; the output copy gets retargeted to the bundled sibling and re-signed, the NuGet cache stays untouched -->
+    <Target Name="RepairRasmTorchOmpBinding" AfterTargets="CopyFilesToOutputDirectory" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <ItemGroup>
+            <_RasmTorchCpuDylib Include="$(OutDir)runtimes/*/native/libtorch_cpu.dylib" />
+        </ItemGroup>
+        <Exec Command="install_name_tool -change /opt/homebrew/opt/libomp/lib/libomp.dylib @loader_path/libomp.dylib '%(_RasmTorchCpuDylib.FullPath)' &amp;&amp; codesign --force --sign - '%(_RasmTorchCpuDylib.FullPath)'"
+              Condition="'@(_RasmTorchCpuDylib)' != ''" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" />
+    </Target>
+
+    <!-- Publish copies the dylib from the NuGet cache again, so the publish tree needs the same retarget -->
+    <Target Name="RepairRasmTorchOmpBindingOnPublish" AfterTargets="Publish" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <ItemGroup>
+            <_RasmTorchCpuPublishDylib Include="$(PublishDir)runtimes/*/native/libtorch_cpu.dylib" />
+        </ItemGroup>
+        <Exec Command="install_name_tool -change /opt/homebrew/opt/libomp/lib/libomp.dylib @loader_path/libomp.dylib '%(_RasmTorchCpuPublishDylib.FullPath)' &amp;&amp; codesign --force --sign - '%(_RasmTorchCpuPublishDylib.FullPath)'"
+              Condition="'@(_RasmTorchCpuPublishDylib)' != ''" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" />
     </Target>
 </Project>

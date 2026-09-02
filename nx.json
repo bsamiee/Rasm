@@ -15,7 +15,8 @@
             "!{projectRoot}/dist/**/*"
         ],
         "sharedGlobals": [
-            "{workspaceRoot}/.gitignore",
+            "{workspaceRoot}/global.json",
+            "{workspaceRoot}/NuGet.config",
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/package.json",
             "{workspaceRoot}/pnpm-lock.yaml",
@@ -81,6 +82,7 @@
         },
         {
             "plugin": "@nx/dotnet",
+            "exclude": ["eng/native/**"],
             "options": {
                 "clean": false,
                 "pack": false,
@@ -92,8 +94,5 @@
     ],
     "sync": {
         "disabledTaskSyncGenerators": ["@nx/js:typescript-sync"]
-    },
-    "tui": {
-        "enabled": true
     }
 }
