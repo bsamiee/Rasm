@@ -33,7 +33,7 @@ def test_sync_stub_records_arguments_projects_and_returns(monkeypatch: pytest.Mo
 
 @pytest.mark.anyio
 async def test_async_stub_is_awaitable_and_records(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Async double yields its value only through await and records the call."""
+    """The Async double returns its value through await and records the call."""
     owner = SimpleNamespace(op=None)
     spy: CallSpy[object] = CallSpy()
     spy.install(monkeypatch, owner, "op", Async("done"))
@@ -44,7 +44,7 @@ async def test_async_stub_is_awaitable_and_records(monkeypatch: pytest.MonkeyPat
 @pytest.mark.anyio
 @pytest.mark.parametrize("anyio_backend", [pytest.param(autojump_backend(), id="autojump")])
 async def test_autojump_backend_collapses_virtual_time() -> None:
-    """Hour-long virtual sleeps and a deadline finish in milliseconds under the autojumping clock."""
+    """Hour-long virtual sleeps and a deadline finish within 5 wall-clock seconds under the autojumping clock."""
     start = time.perf_counter()
     await anyio.sleep(3600)
     with anyio.move_on_after(300) as scope:

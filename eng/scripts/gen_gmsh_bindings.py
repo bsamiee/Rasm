@@ -505,7 +505,7 @@ def _norm_mod(module: object) -> _Mod:
 
 
 def _load_definition(api_dir: Path) -> tuple[_Mod, str]:
-    """Run the pinned gen.py with tagged factories and return the normalized module tree."""
+    """Run the pinned gen.py with tagged factories and return the normalized module tree and the declared api version."""
     spec = importlib.util.spec_from_file_location("GenApi", api_dir / "GenApi.py")
     if spec is None or spec.loader is None:
         raise SystemExit(f"cannot load GenApi.py under {api_dir}")
@@ -526,7 +526,7 @@ def _load_definition(api_dir: Path) -> tuple[_Mod, str]:
 
 
 def _declared(api_dir: Path) -> set[str]:
-    """Return every function name gmshc.h from the same archive exports."""
+    """Return the function names gmshc.h from the same archive exports, without gmshFree and gmshMalloc."""
     text = (api_dir / "gmshc.h").read_text()
     return set(re.findall(r"^GMSH_API\s+[a-z_]+\s+(gmsh\w+)\(", text, re.MULTILINE)) - {"gmshFree", "gmshMalloc"}
 

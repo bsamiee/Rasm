@@ -118,7 +118,7 @@ def _flag_operand(argv: list[str], letter: str) -> str:
 
 
 def _resolve(argv: list[str], depth: int) -> list[list[str]]:
-    """Return the argv leaves a command yields once env assignments, wrappers, shells, and interpreters are stripped."""
+    """Return the argv leaves of a command after stripping env assignments, wrappers, shells, and interpreters."""
     while argv and (_ENV_ASSIGN.match(argv[0]) or argv[0] in _WRAPPERS):
         argv = argv[1:]
         while argv and ("=" in argv[0] or argv[0].isdigit() or argv[0] in _SUBCOMMANDS or argv[0].startswith("-")):

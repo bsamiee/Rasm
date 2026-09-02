@@ -1,4 +1,4 @@
-"""Provision the pinned build tools and shared staging operations every native pipeline uses."""
+"""Pinned build tool provisioning and the staging operations every native pipeline uses."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
@@ -275,7 +275,7 @@ async def _energyplus_exe() -> Path:
 
 
 async def native_build_tools() -> ToolSet:
-    """Ensure every pinned native build tool exists and return the set."""
+    """Ensure vcpkg and, except on Windows, the pkgconf host tool exist and return the set."""
     vcpkg = await _vcpkg()
     return ToolSet(vcpkg=vcpkg, env=await _pkg_config(vcpkg))
 
@@ -343,7 +343,7 @@ def stage_library(source: Path, work: Path, rid: Rid, file_name: str) -> Path:
 
 
 async def _install_name(dylib: Path) -> str:
-    """Return the install name recorded in a dylib."""
+    """Return the base name of the install name recorded in a dylib."""
     lines = (await _capture(["otool", "-L", str(dylib)])).splitlines()[1:]
     return Path(next(line.split()[0] for line in lines if line.strip())).name
 

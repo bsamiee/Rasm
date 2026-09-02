@@ -261,7 +261,7 @@ def differential[T, R](value: T, implementation: Callable[[T], R], reference: Ca
 
 
 def assert_metamorphic_relations[T, R](value: T, function: Callable[[T], R], *relations: MetamorphicRelation[T, R]) -> None:
-    """Assert every relation holds between ``f(x)`` and each follow-up output."""
+    """Assert every relation holds between ``function(value)`` and each follow-up output."""
     assert relations, "assert_metamorphic_relations requires at least one relation"
     baseline = function(value)
     functools.reduce(lambda _, relation: relation.relate(baseline, function(relation.transform(value))), relations, None)
@@ -424,7 +424,7 @@ def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder
     """Assert encode then decode equality and re-encode byte identity, the re-encode step catches non-deterministic codecs that structural equality misses.
 
     Returns:
-        The decoded value, JSON by default or MessagePack when that encoder is supplied.
+        The decoded value, JSON by default or MessagePack with that encoder.
     """
     enc = encoder if encoder is not None else _DEFAULT_ENCODER
     raw = enc.encode(value)

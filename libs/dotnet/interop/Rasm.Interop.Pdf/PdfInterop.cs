@@ -3,9 +3,10 @@ using PdfSharp.Snippets.Font;
 
 namespace Rasm.Interop.Pdf;
 
-/// <summary>PDFsharp font-resolver registration for executables to call once at the composition root</summary>
+/// <summary>Provides the PDFsharp font-resolver registration that executables run once at the composition root</summary>
 /// <remarks>
-/// <see cref="PdfSharp.Drawing.XFont"/> construction throws while <see cref="GlobalFontSettings.FontResolver"/> holds no resolver, <see cref="FailsafeFontResolver"/> substitutes a bundled face for every request the platform cannot resolve, and the setter tolerates repeated assignment
+/// <para><see cref="PdfSharp.Drawing.XFont"/> construction throws while <see cref="GlobalFontSettings.FontResolver"/> holds no resolver, and <see cref="FailsafeFontResolver"/> maps every request to a bundled SegoeWP face</para>
+/// <para>The setter ignores a repeated assignment of the same resolver type and throws for a different type after the first font use</para>
 /// </remarks>
 public static class PdfInterop {
     /// <summary>Assigns the PDFsharp failsafe font resolver</summary>

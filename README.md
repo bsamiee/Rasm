@@ -103,3 +103,11 @@ Each `apps/<name>/` is one product with its own host, lifecycle, and release.
 - One application spans as many languages and projects as its host demands
 - Applications own the composition root, where configuration, dependency wiring, effect execution, and telemetry are implemented
 - Host APIs stay inside the package named for that host or inside the application itself
+
+## [07]-[CHANGE]
+
+The workspace has one current structure, and every change replaces the previous one in place. Data schemas derive from their owning types, and a schema management library computes the delta between the model and the live database and applies it at startup or from a command, with no migration file or history table
+
+- No package, namespace, route, contract, or directory has a version suffix or `v1` folder, and a changed structure keeps the name of the one it replaces
+- No compatibility shim, fallback reader, or deprecation period keeps a replaced structure alive, and one commit holds the change and the removal
+- No `src/` directory exists at any depth, a project's files sit at its root, and no directory exists only to add a level of nesting

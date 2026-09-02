@@ -2,9 +2,10 @@ using PureHDF.Filters;
 
 namespace Rasm.Interop.Hdf5;
 
-/// <summary>PureHDF external filter registration for executables to call once at the composition root</summary>
+/// <summary>Provides the PureHDF external filter registration that executables run once at the composition root</summary>
 /// <remarks>
-/// Reading or writing a Blosc2-, BZip2-, or LZF-compressed chunk throws until the matching filter enters the process-global <see cref="H5Filter"/> registry. <see cref="H5Filter.Register"/> stores each filter under its identifier through AddOrUpdate, repeated registration overwrites the entry instead of throwing. The Blosc2 filter loads libblosc2 from Rasm.Native.Blosc2 on first use
+/// <para>Compressed chunk reads and writes throw until their filter enters the process-global <see cref="H5Filter"/> registry, and a repeated <see cref="H5Filter.Register"/> call overwrites the entry</para>
+/// <para>The Blosc2 filter loads libblosc2 on first use</para>
 /// </remarks>
 public static class Hdf5Interop {
     /// <summary>Registers the Blosc2, BZip2, and LZF compression filters with PureHDF</summary>

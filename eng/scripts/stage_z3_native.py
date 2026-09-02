@@ -48,7 +48,7 @@ def _search(pattern: str, text: str) -> str:
 
 
 async def _source_root(vcpkg: Path, install_args: list[str]) -> Path:
-    """Unpack the source archive the z3 port pins and return its root directory."""
+    """Unpack scripts/, src/api/, and CMakeLists.txt from the source archive the z3 port pins and return the source root."""
     port = vcpkg.parent / "ports" / "z3"
     version = manifest_version(port / "vcpkg.json")
     portfile = (port / "portfile.cmake").read_text()

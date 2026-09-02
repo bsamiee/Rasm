@@ -80,7 +80,7 @@ def _multiples[N](
 ) -> st.SearchStrategy[N]:
     """Return a strategy drawing the multiplier k directly, every value is a valid in-range multiple with zero rejection.
 
-    Fraction bounds are exact for int, float, and Decimal inputs, an exclusive bound equal to a multiple shrinks the k window by one and the boundary itself is never drawn.
+    Fraction bounds are exact for int, float, and Decimal inputs, an exclusive bound equal to a multiple shrinks the k window by one and excludes the boundary itself.
     """
     decimal_step = Decimal(str(step))
     lower_quotient = Fraction(str(lower)) / Fraction(decimal_step)

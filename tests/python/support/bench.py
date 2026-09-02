@@ -43,7 +43,7 @@ class BenchmarkCase(msgspec.Struct, frozen=True):
         max_relative_iqr: Dispersion ceiling for a reliable budget assertion.
         fresh_per_round: Rebuilds mutating or consuming workloads before each measured round.
         warmup_rounds: Untimed passes before measurement.
-        disable_gc: Disables GC inside pedantic, which does not honor the CLI GC flag.
+        disable_gc: Disables GC around the whole pedantic call, the CLI flag covers only the timed loop.
     """
 
     label: str
@@ -62,7 +62,7 @@ class BenchmarkCase(msgspec.Struct, frozen=True):
 
 
 class _StoredStats(msgspec.Struct, frozen=True):
-    """Persisted benchmark statistics used for regression detection."""
+    """Persisted benchmark statistics for regression detection."""
 
     median: float | None = None
 
@@ -86,7 +86,7 @@ class _StoredDoc(msgspec.Struct, frozen=True):
 
 
 def benchmark_parameters(cases: Sequence[BenchmarkCase]) -> pytest.MarkDecorator:
-    """Build the ``(row, size)`` parametrization with stable ``"{label}-{size}"`` ids."""
+    """Build the ``(case, size)`` parametrization with stable ``"{label}-{size}"`` ids."""
     parameters = [(case, size) for case in cases for size in case.sizes]
     ids = [f"{case.label}-{size}" for case, size in parameters]
     return pytest.mark.parametrize("case,size", parameters, ids=ids)

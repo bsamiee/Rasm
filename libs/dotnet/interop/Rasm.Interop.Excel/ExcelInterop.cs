@@ -2,10 +2,10 @@ using OfficeOpenXml;
 
 namespace Rasm.Interop.Excel;
 
-/// <summary>EPPlus license registration for executables to call once at the composition root</summary>
+/// <summary>Provides the EPPlus license registration that executables run once at the composition root</summary>
 /// <remarks>
-/// The <see cref="ExcelPackage.Workbook"/> getter throws <see cref="LicenseNotSetException"/> until registration runs, and EPPlus caches no negative result.
-/// The license API replaces the environment variable EPPlusLicense=NonCommercialOrganization:Rasm, which reaches CI jobs and shell sessions but not Finder-launched processes, and which a plugin cannot write without mutating state shared with every other plugin
+/// <para>The <see cref="ExcelPackage.Workbook"/> getter throws <see cref="LicenseNotSetException"/> until registration runs, and EPPlus caches no negative result</para>
+/// <para>The license API replaces the EPPlusLicense environment variable, which shells and CI inherit but Finder-launched processes do not, and which a plugin cannot set without changing every other plugin's environment</para>
 /// </remarks>
 public static class ExcelInterop {
     /// <summary>Registers the EPPlus noncommercial organization license</summary>

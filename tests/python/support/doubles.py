@@ -57,7 +57,7 @@ class Sync[R](msgspec.Struct, frozen=True, gc=False):
 
 
 class Async[R](msgspec.Struct, frozen=True, gc=False):
-    """Awaited double: ``async (*args, **kwargs) -> value`` for a coroutine the SUT ``await``s."""
+    """Awaited double, ``async (*args, **kwargs) -> value``, for a coroutine the subject awaits."""
 
     value: R
 
@@ -152,7 +152,7 @@ class Loopback(msgspec.Struct, frozen=True, gc=False):
 async def loopback_server[S: _AsyncServer](
     listen: Callable[[], Awaitable[S]], port_of: Callable[[S], int], *, host: str = "127.0.0.1"
 ) -> AsyncGenerator[Loopback]:
-    """Bind a loopback server for the duration of the ``async with``, yielding its ``Loopback``."""
+    """Bind a loopback server for the duration of the ``async with`` and yield its ``Loopback``."""
     async with await listen() as server:
         yield Loopback(host=host, port=port_of(server))
 

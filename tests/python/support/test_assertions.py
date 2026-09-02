@@ -307,7 +307,7 @@ class _Reading(msgspec.Struct, frozen=True):
 
 
 def test_close_dispatches_every_supported_value_type_and_names_the_diverging_path() -> None:
-    """The tolerance policy compares numbers, arrays, quantities, structs, results, mappings, and sequences and reports the differing path."""
+    """The tolerance policy compares numbers, arrays, quantities, structs, mappings, and sequences and reports the differing path."""
     assert_close(1.0, 1.0 + 1e-12)
     assert_close(float("nan"), float("nan"))
     assert_close(float("inf"), float("inf"))

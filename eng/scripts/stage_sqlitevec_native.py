@@ -27,7 +27,7 @@ _app = cyclopts.App(name="stage-sqlitevec-native")
 
 
 async def _stage(rid: Rid) -> Path:
-    """Extract the provisioned loadable archive into the staged runtimes layout."""
+    """Extract the loadable file from the provisioned archive into the staged runtimes layout."""
     _, archive = await sqlite_vec_archive(rid)
     file_name = _FILE_NAMES[rid]
     destination = stage_dir(_WORK, rid)

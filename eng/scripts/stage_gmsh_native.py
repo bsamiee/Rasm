@@ -67,7 +67,7 @@ def _overlay(vcpkg: Path) -> Path:
 
 
 async def _source_root(vcpkg: Path, version: str, install_args: list[str]) -> Path:
-    """Unpack the source archive the gmsh port pins and return its root directory."""
+    """Unpack api/ and CMakeLists.txt from the source archive the gmsh port pins and return the source root."""
     archive = vcpkg.parent / "downloads" / f"gmsh-{version}-source.tgz"
     if not archive.exists():  # Binary-cache hits build nothing and download no source
         await run([str(vcpkg), "install", "--only-downloads", *install_args], REPO_ROOT)

@@ -85,7 +85,7 @@ def _collect_session_items(pytestconfig: pytest.Config) -> list[pytest.Function]
 
 
 def test_property_test_coverage() -> None:
-    """Registered public APIs require a property test or explicit exemption, partially collected packages are skipped."""
+    """Registered public APIs require a property test or explicit exemption, the check skips partially collected packages."""
     if not properties_module.PACKAGES_UNDER_TEST:
         pytest.skip("no package registered for property-test coverage")
     partial = uncollected_test_modules()
@@ -291,7 +291,7 @@ class _ValidatedRow(msgspec.Struct, frozen=True):
     field: int = 0
 
     def __post_init__(self) -> None:
-        """Validate construction when the field is present."""
+        """No-op hook that marks the struct behavior-bearing."""
 
 
 class _MutableRow(msgspec.Struct):
