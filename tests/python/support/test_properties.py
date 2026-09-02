@@ -23,7 +23,17 @@ import pytest
 from tests.python.support import properties as properties_module
 from tests.python.support.assertions import capability_matrix
 from tests.python.support.bench import _series_from_storage, pytest_benchmark_update_json
-from tests.python.support.properties import assert_property_coverage, is_automatically_exempt, PackageUnderTest, property_test, PROPERTY_TESTS, PropertyRecord, record_coverage_declarations, register_package_tree, uncollected_test_modules
+from tests.python.support.properties import (
+    assert_property_coverage,
+    is_automatically_exempt,
+    PackageUnderTest,
+    property_test,
+    PROPERTY_TESTS,
+    PropertyRecord,
+    record_coverage_declarations,
+    register_package_tree,
+    uncollected_test_modules,
+)
 from tests.python.support.runtime import PROFILE_DEFAULT, PROFILE_STATEFUL, REPO_ROOT
 
 if TYPE_CHECKING:
@@ -42,7 +52,7 @@ _POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "network", "property",
 
 
 def _nav(node: dict[str, object], *keys: str) -> object:
-    """Walk a nested TOML mapping by successive keys, ``None`` when a key is absent or an intermediate is not a mapping."""
+    """Return the value at successive keys of a nested TOML mapping, ``None`` when a key is absent or an intermediate is not a mapping."""
     current: object = node
     for k in keys:
         match current:
@@ -113,7 +123,7 @@ def test_property_coverage_detects_partial_collection(tmp_path: Path, monkeypatc
     """Uncollected test modules defer coverage checks, a real API gap still fails after full collection."""
     suite = tmp_path / "suite"
     suite.mkdir()
-    (suite / "test_ghost.py").write_text("", encoding="utf-8")
+    (suite / "test_missing.py").write_text("", encoding="utf-8")
     pkg = tmp_path / "propertypkg_partial"
     pkg.mkdir()
     (pkg / "__init__.py").write_text('__all__ = ["thing"]\n\n\ndef thing() -> None: ...\n', encoding="utf-8")
@@ -157,27 +167,36 @@ def test_registered_packages_have_test_directories() -> None:
     if not properties_module.PACKAGES_UNDER_TEST:
         pytest.skip("no package registered for property-test coverage")
     for package, registration in properties_module.PACKAGES_UNDER_TEST.items():
-        assert registration.suite is not None and registration.suite.is_dir(), f"{package} registered without an existing test directory: {registration.suite!r}"
+        assert registration.suite is not None and registration.suite.is_dir(), (
+            f"{package} registered without an existing test directory: {registration.suite!r}"
+        )
 
 
 def test_test_module_names_match_live_session_imports(pytestconfig: pytest.Config) -> None:
     """Derived module names match pytest importlib-mode names used by the live session."""
-    test_files = {path for item in _collect_session_items(pytestconfig) if (path := Path(item.path)).is_relative_to(REPO_ROOT) and any(fnmatch.fnmatch(path.name, pattern) for pattern in properties_module._TEST_FILE_GLOBS)}
+    test_files = {
+        path
+        for item in _collect_session_items(pytestconfig)
+        if (path := Path(item.path)).is_relative_to(REPO_ROOT)
+        and any(fnmatch.fnmatch(path.name, pattern) for pattern in properties_module._TEST_FILE_GLOBS)
+    }
     assert test_files, "no test modules collected in this session"
     unloaded_modules = sorted(str(path) for path in test_files if properties_module._module_name(path) not in sys.modules)
     assert not unloaded_modules, f"derived test module names absent from sys.modules, naming differs from pytest importlib mode: {unloaded_modules}"
 
 
-def test_phantom_export_fails_the_census_not_silently_exempt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
-    """Undefined ``__all__`` entries are public-API inspection failures, not automatic exemptions."""
-    pkg = tmp_path / "propertypkg_phantom"
+def test_undefined_export_fails_coverage_inspection_not_silently_exempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Undefined ``__all__`` entries are public-API inspection failures, never automatic exemptions."""
+    pkg = tmp_path / "propertypkg_undefined"
     pkg.mkdir()
-    (pkg / "__init__.py").write_text('__all__ = ["ghost"]\n', encoding="utf-8")
+    (pkg / "__init__.py").write_text('__all__ = ["missing"]\n', encoding="utf-8")
     monkeypatch.syspath_prepend(str(tmp_path))
-    request.addfinalizer(lambda: sys.modules.pop("propertypkg_phantom", None))
+    request.addfinalizer(lambda: sys.modules.pop("propertypkg_undefined", None))
     monkeypatch.setattr(properties_module, "PROPERTY_TESTS", [])
-    monkeypatch.setattr(properties_module, "PACKAGES_UNDER_TEST", {"propertypkg_phantom": PackageUnderTest()})
-    with pytest.raises(AssertionError, match="ghost"):
+    monkeypatch.setattr(properties_module, "PACKAGES_UNDER_TEST", {"propertypkg_undefined": PackageUnderTest()})
+    with pytest.raises(AssertionError, match="missing"):
         assert_property_coverage()
 
 
@@ -195,20 +214,20 @@ def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytes
         tagged.append(drawn) if isinstance(drawn, int) else None
         return f"n={drawn}"
 
-    hyp_settings.register_profile("test-support-probe", max_examples=3, deadline=None, database=None, derandomize=True)
+    hyp_settings.register_profile("test-support-local", max_examples=3, deadline=None, database=None, derandomize=True)
     prior = hyp_settings.get_current_profile_name()
-    hyp_settings.load_profile("test-support-probe")
+    hyp_settings.load_profile("test-support-local")
     try:
 
-        @property_test(int, property_name="probe-follows", events=(_tag,))
-        def probe(n: int) -> None:
+        @property_test(int, property_name="follows-active-profile", events=(_tag,))
+        def follows(n: int) -> None:
             runs.append(n)
 
-        @property_test(int, profile="rasm-parity", property_name="probe-pinned")
+        @property_test(int, profile="rasm-parity", property_name="pinned-profile")
         def pinned(n: int) -> None:
             pinned_runs.append(n)
 
-        probe()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
+        follows()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
         pinned()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
     finally:
         hyp_settings.load_profile(prior)
@@ -216,26 +235,26 @@ def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytes
     assert tagged == runs, f"events tagger missed drawn examples: tagged {tagged}, ran {runs}"
     assert len(pinned_runs) == hyp_settings.get_profile("rasm-parity").max_examples, f"named profile used the wrong example count: {len(pinned_runs)}"
 
-    @property_test(int, given=False, timeout=2.5, property_name="probe-deadline")
+    @property_test(int, given=False, timeout=2.5, property_name="bounded-deadline")
     def bounded() -> None: ...
 
     resolved: object = getattr(bounded, "_hypothesis_internal_use_settings", None)
     assert getattr(resolved, "deadline", None) == timedelta(seconds=2.5), f"timeout=2.5 must mean seconds, resolved {resolved!r}"
 
     with pytest.raises(TypeError, match="applied twice"):
-        property_test(int, property_name="probe-duplicate")(probe)
+        property_test(int, property_name="duplicate")(follows)
 
     type Pair = tuple[int, int]
     alias_runs: list[tuple[int, int]] = []
 
-    @property_test(Pair, profile="test-support-probe", property_name="probe-alias")
+    @property_test(Pair, profile="test-support-local", property_name="alias")
     def alias_property(pair: tuple[int, int]) -> None:
         alias_runs.append(pair)
 
     alias_property()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
     assert len(alias_runs) == 3, f"PEP 695 alias subject did not receive a generated strategy: {len(alias_runs)} examples"
     with pytest.raises(TypeError, match="resolvable type form"):
-        property_test(record_coverage_declarations, property_name="probe-callable")(lambda: None)
+        property_test(record_coverage_declarations, property_name="callable")(lambda: None)
 
 
 def test_hypothesis_profiles_preserve_required_settings() -> None:
@@ -284,8 +303,11 @@ class _Plain:
 
 
 def test_covers_tuple_recorded_at_collection() -> None:
-    """The runtime plugin records this module's COVERS declaration during collection."""
-    assert any(record.property_name == "covers" and record.module == __name__ and record.subject == "record_coverage_declarations" for record in PROPERTY_TESTS), "COVERS declaration was not recorded during collection"
+    """The runtime plugin records the module COVERS declaration during collection."""
+    assert any(
+        record.property_name == "covers" and record.module == __name__ and record.subject == "record_coverage_declarations"
+        for record in PROPERTY_TESTS
+    ), "COVERS declaration was not recorded during collection"
 
 
 @pytest.mark.parametrize(
@@ -295,7 +317,7 @@ def test_covers_tuple_recorded_at_collection() -> None:
         pytest.param(_FrozenRow, True, id="frozen-struct-method-free"),
         pytest.param(42, True, id="value-int"),
         pytest.param((1, 2), True, id="value-tuple"),
-        pytest.param(ContextVar("probe"), True, id="value-contextvar"),
+        pytest.param(ContextVar("value"), True, id="value-contextvar"),
         pytest.param(msgspec.json.Decoder(int), True, id="value-codec"),
         pytest.param(_FrozenOwner, False, id="frozen-struct-with-method"),
         pytest.param(_ValidatedRow, False, id="frozen-struct-with-post-init"),
@@ -312,13 +334,16 @@ def test_automatic_exemption_classifies_public_symbols(subject: object, *, exemp
 def test_record_coverage_declarations_is_idempotent_and_rejects_values(monkeypatch: pytest.MonkeyPatch) -> None:
     """COVERS consumption is idempotent per module and rejects value-only entries."""
     monkeypatch.setattr(properties_module, "PROPERTY_TESTS", [])
-    monkeypatch.setattr(properties_module, "_CONSUMED", set())
+    monkeypatch.setattr(properties_module, "_RECORDED", set())
     module = SimpleNamespace(__name__="covers_probe", COVERS=(_FrozenOwner, record_coverage_declarations))
     record_coverage_declarations(module)
     record_coverage_declarations(module)
-    assert [(record.subject, record.property_name) for record in properties_module.PROPERTY_TESTS] == [("_FrozenOwner", "covers"), ("record_coverage_declarations", "covers")]
+    assert [(record.subject, record.property_name) for record in properties_module.PROPERTY_TESTS] == [
+        ("_FrozenOwner", "covers"),
+        ("record_coverage_declarations", "covers"),
+    ]
 
-    monkeypatch.setattr(properties_module, "_CONSUMED", set())
+    monkeypatch.setattr(properties_module, "_RECORDED", set())
     with pytest.raises(TypeError, match="types or callables"):
         record_coverage_declarations(SimpleNamespace(__name__="covers_bad", COVERS=(42,)))
 
@@ -348,14 +373,18 @@ def test_network_marker_auto_applied_to_socket_fixture_items(pytestconfig: pytes
     """Tests requesting ``socket_enabled`` receive the ``network`` marker during collection."""
     socket_items = [item for item in _collect_session_items(pytestconfig) if "socket_enabled" in getattr(item, "fixturenames", ())]
     for item in socket_items:
-        assert item.get_closest_marker("network") is not None, f"{item.nodeid!r} requests socket_enabled but lacks the 'network' marker, pytest_collection_modifyitems hook is not applying it"
+        assert item.get_closest_marker("network") is not None, (
+            f"{item.nodeid!r} requests socket_enabled but lacks the 'network' marker, pytest_collection_modifyitems hook is not applying it"
+        )
 
 
 def test_property_marker_auto_applied_to_hypothesis_items(pytestconfig: pytest.Config) -> None:
     """Hypothesis-backed tests receive the ``property`` marker during collection."""
     hypothesis_items = [item for item in _collect_session_items(pytestconfig) if item.function is not None and is_hypothesis_test(item.function)]
     for item in hypothesis_items:
-        assert item.get_closest_marker("property") is not None, f"{item.nodeid!r} is a hypothesis test but lacks the 'property' marker, pytest_collection_modifyitems hook is not applying it"
+        assert item.get_closest_marker("property") is not None, (
+            f"{item.nodeid!r} is a hypothesis test but lacks the 'property' marker, pytest_collection_modifyitems hook is not applying it"
+        )
 
 
 # --- [BENCHMARK_HOOK_POLICY]

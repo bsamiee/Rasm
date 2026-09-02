@@ -1,9 +1,7 @@
-"""Emit the complete C# binding surface from the gmsh api definition in the pinned archive.
+"""Emit the complete C# bindings from the gmsh api definition in the pinned archive.
 
-Upstream api/gen.py is the machine-readable definition: it registers every module and function
-through GenApi argument factories. Running it with those factories tagged captures the whole
-definition, each function then emits a DllImport extern and a marshaling wrapper, and
-gmshc.h from the same archive cross-checks that every exported C function was bound.
+Upstream api/gen.py registers every module and function through GenApi argument factories.
+Running it with those factories tagged captures the whole definition, each function then emits a DllImport extern and a marshaling wrapper, and gmshc.h from the same archive cross-checks that every exported C function was bound.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -29,7 +27,7 @@ class _Factory(Protocol):
 
 
 class _Kind(msgspec.Struct, frozen=True, gc=False):
-    """C# emission recipe for a GenApi argument kind."""
+    """C# emission template for a GenApi argument kind."""
 
     extern: str
     param: str
@@ -86,31 +84,143 @@ _KINDS: dict[str, _Kind] = {
     "iint": _Kind(extern="int {p}", param="int {p}", default="int"),
     "isize": _Kind(extern="long {p}", param="long {p}", default="int"),
     "idouble": _Kind(extern="double {p}", param="double {p}", default="double"),
-    "istring": _Kind(extern="[MarshalAs((UnmanagedType)48)] string {p}", param="string {p}", default="string"),  # 48 is LPUTF8Str, absent from netstandard2.0 references and honored by every current runtime
+    "istring": _Kind(extern="[MarshalAs((UnmanagedType)48)] string {p}", param="string {p}", default="string"),
     "ivoidstar": _Kind(extern="IntPtr {p}", param="IntPtr {p}"),
-    "ivectorint": _Kind(extern="int[] {p}, long {p}_n", param="int[] {p}", pre="int[] {n}_ = {p} ?? Array.Empty<int>();", call="{n}_, (long){n}_.Length", default="vector"),
-    "ivectorsize": _Kind(extern="long[] {p}, long {p}_n", param="long[] {p}", pre="long[] {n}_ = {p} ?? Array.Empty<long>();", call="{n}_, (long){n}_.Length", default="vector"),
-    "ivectordouble": _Kind(extern="double[] {p}, long {p}_n", param="double[] {p}", pre="double[] {n}_ = {p} ?? Array.Empty<double>();", call="{n}_, (long){n}_.Length", default="vector"),
-    "ivectorstring": _Kind(extern="IntPtr[] {p}, long {p}_n", param="string[] {p}", pre="IntPtr[] {n}_ = GmshMarshal.InStrings({p});", call="{n}_, (long){n}_.Length", free="GmshMarshal.FreeAll({n}_);", default="vector"),
-    "ivectorpair": _Kind(extern="int[] {p}, long {p}_n", param="(int, int)[] {p}", pre="int[] {n}_ = GmshMarshal.Flatten({p});", call="{n}_, (long){n}_.Length", default="vector"),
-    "ivectorvectorint": _Kind(extern="IntPtr[] {p}, long[] {p}_n, long {p}_nn", param="int[][] {p}", pre="IntPtr[] {n}_ = GmshMarshal.InJagged({p} ?? Array.Empty<int[]>(), out long[] {n}_n_);", call="{n}_, {n}_n_, (long){n}_.Length", free="GmshMarshal.FreeAll({n}_);", default="vector"),
-    "ivectorvectorsize": _Kind(extern="IntPtr[] {p}, long[] {p}_n, long {p}_nn", param="long[][] {p}", pre="IntPtr[] {n}_ = GmshMarshal.InJagged({p} ?? Array.Empty<long[]>(), out long[] {n}_n_);", call="{n}_, {n}_n_, (long){n}_.Length", free="GmshMarshal.FreeAll({n}_);", default="vector"),
-    "ivectorvectordouble": _Kind(extern="IntPtr[] {p}, long[] {p}_n, long {p}_nn", param="double[][] {p}", pre="IntPtr[] {n}_ = GmshMarshal.InJagged({p} ?? Array.Empty<double[]>(), out long[] {n}_n_);", call="{n}_, {n}_n_, (long){n}_.Length", free="GmshMarshal.FreeAll({n}_);", default="vector"),
-    "iargcargv": _Kind(extern="int argc, IntPtr[] argv", param="string[] {p}", pre="IntPtr[] {n}_ = GmshMarshal.InStrings({p});", call="{n}_.Length, {n}_", free="GmshMarshal.FreeAll({n}_);", default="argv"),
+    "ivectorint": _Kind(extern="int[] {p}, long {p}_n",
+        param="int[] {p}",
+        pre="int[] {n}_ = {p} ?? Array.Empty<int>();",
+        call="{n}_, (long){n}_.Length",
+        default="vector",
+    ),
+    "ivectorsize": _Kind(
+        extern="long[] {p}, long {p}_n",
+        param="long[] {p}",
+        pre="long[] {n}_ = {p} ?? Array.Empty<long>();",
+        call="{n}_, (long){n}_.Length",
+        default="vector",
+    ),
+    "ivectordouble": _Kind(
+        extern="double[] {p}, long {p}_n",
+        param="double[] {p}",
+        pre="double[] {n}_ = {p} ?? Array.Empty<double>();",
+        call="{n}_, (long){n}_.Length",
+        default="vector",
+    ),
+    "ivectorstring": _Kind(
+        extern="IntPtr[] {p}, long {p}_n",
+        param="string[] {p}",
+        pre="IntPtr[] {n}_ = GmshMarshal.InStrings({p});",
+        call="{n}_, (long){n}_.Length",
+        free="GmshMarshal.FreeAll({n}_);",
+        default="vector",
+    ),
+    "ivectorpair": _Kind(
+        extern="int[] {p}, long {p}_n",
+        param="(int, int)[] {p}",
+        pre="int[] {n}_ = GmshMarshal.Flatten({p});",
+        call="{n}_, (long){n}_.Length",
+        default="vector",
+    ),
+    "ivectorvectorint": _Kind(
+        extern="IntPtr[] {p}, long[] {p}_n, long {p}_nn",
+        param="int[][] {p}",
+        pre="IntPtr[] {n}_ = GmshMarshal.InJagged({p} ?? Array.Empty<int[]>(), out long[] {n}_n_);",
+        call="{n}_, {n}_n_, (long){n}_.Length",
+        free="GmshMarshal.FreeAll({n}_);",
+        default="vector",
+    ),
+    "ivectorvectorsize": _Kind(
+        extern="IntPtr[] {p}, long[] {p}_n, long {p}_nn",
+        param="long[][] {p}",
+        pre="IntPtr[] {n}_ = GmshMarshal.InJagged({p} ?? Array.Empty<long[]>(), out long[] {n}_n_);",
+        call="{n}_, {n}_n_, (long){n}_.Length",
+        free="GmshMarshal.FreeAll({n}_);",
+        default="vector",
+    ),
+    "ivectorvectordouble": _Kind(
+        extern="IntPtr[] {p}, long[] {p}_n, long {p}_nn",
+        param="double[][] {p}",
+        pre="IntPtr[] {n}_ = GmshMarshal.InJagged({p} ?? Array.Empty<double[]>(), out long[] {n}_n_);",
+        call="{n}_, {n}_n_, (long){n}_.Length",
+        free="GmshMarshal.FreeAll({n}_);",
+        default="vector",
+    ),
+    "iargcargv": _Kind(
+        extern="int argc, IntPtr[] argv",
+        param="string[] {p}",
+        pre="IntPtr[] {n}_ = GmshMarshal.InStrings({p});",
+        call="{n}_.Length, {n}_",
+        free="GmshMarshal.FreeAll({n}_);",
+        default="argv",
+    ),
     "isizefun": _Kind(extern="GmshSizeFunc {p}, IntPtr {p}_data", param="GmshSizeFunc {p}", pre="GmshMarshal.KeepAlive({p});", call="{p}, IntPtr.Zero"),
     "oint": _Kind(extern="out int {p}", param="out int {p}", call="out {p}", out=True),
     "osize": _Kind(extern="out long {p}", param="out long {p}", call="out {p}", out=True),
     "odouble": _Kind(extern="out double {p}", param="out double {p}", call="out {p}", out=True),
     "ostring": _Kind(extern="out IntPtr {p}", param="out string {p}", call="out IntPtr {n}_", post="{p} = GmshMarshal.OutString({n}_);", out=True),
-    "ovectorint": _Kind(extern="out IntPtr {p}, out long {p}_n", param="out int[] {p}", call="out IntPtr {n}_, out long {n}_n_", post="{p} = GmshMarshal.OutInts({n}_, {n}_n_);", out=True),
-    "ovectorsize": _Kind(extern="out IntPtr {p}, out long {p}_n", param="out long[] {p}", call="out IntPtr {n}_, out long {n}_n_", post="{p} = GmshMarshal.OutLongs({n}_, {n}_n_);", out=True),
-    "ovectordouble": _Kind(extern="out IntPtr {p}, out long {p}_n", param="out double[] {p}", call="out IntPtr {n}_, out long {n}_n_", post="{p} = GmshMarshal.OutDoubles({n}_, {n}_n_);", out=True),
-    "ovectorstring": _Kind(extern="out IntPtr {p}, out long {p}_n", param="out string[] {p}", call="out IntPtr {n}_, out long {n}_n_", post="{p} = GmshMarshal.OutStrings({n}_, {n}_n_);", out=True),
-    "ovectorpair": _Kind(extern="out IntPtr {p}, out long {p}_n", param="out (int, int)[] {p}", call="out IntPtr {n}_, out long {n}_n_", post="{p} = GmshMarshal.OutPairs({n}_, {n}_n_);", out=True),
-    "ovectorvectorint": _Kind(extern="out IntPtr {p}, out IntPtr {p}_n, out long {p}_nn", param="out int[][] {p}", call="out IntPtr {n}_, out IntPtr {n}_n_, out long {n}_nn_", post="{p} = GmshMarshal.OutJaggedInts({n}_, {n}_n_, {n}_nn_);", out=True),
-    "ovectorvectorsize": _Kind(extern="out IntPtr {p}, out IntPtr {p}_n, out long {p}_nn", param="out long[][] {p}", call="out IntPtr {n}_, out IntPtr {n}_n_, out long {n}_nn_", post="{p} = GmshMarshal.OutJaggedLongs({n}_, {n}_n_, {n}_nn_);", out=True),
-    "ovectorvectordouble": _Kind(extern="out IntPtr {p}, out IntPtr {p}_n, out long {p}_nn", param="out double[][] {p}", call="out IntPtr {n}_, out IntPtr {n}_n_, out long {n}_nn_", post="{p} = GmshMarshal.OutJaggedDoubles({n}_, {n}_n_, {n}_nn_);", out=True),
-    "ovectorvectorpair": _Kind(extern="out IntPtr {p}, out IntPtr {p}_n, out long {p}_nn", param="out (int, int)[][] {p}", call="out IntPtr {n}_, out IntPtr {n}_n_, out long {n}_nn_", post="{p} = GmshMarshal.OutJaggedPairs({n}_, {n}_n_, {n}_nn_);", out=True),
+    "ovectorint": _Kind(
+        extern="out IntPtr {p}, out long {p}_n",
+        param="out int[] {p}",
+        call="out IntPtr {n}_, out long {n}_n_",
+        post="{p} = GmshMarshal.OutInts({n}_, {n}_n_);",
+        out=True,
+    ),
+    "ovectorsize": _Kind(
+        extern="out IntPtr {p}, out long {p}_n",
+        param="out long[] {p}",
+        call="out IntPtr {n}_, out long {n}_n_",
+        post="{p} = GmshMarshal.OutLongs({n}_, {n}_n_);",
+        out=True,
+    ),
+    "ovectordouble": _Kind(
+        extern="out IntPtr {p}, out long {p}_n",
+        param="out double[] {p}",
+        call="out IntPtr {n}_, out long {n}_n_",
+        post="{p} = GmshMarshal.OutDoubles({n}_, {n}_n_);",
+        out=True,
+    ),
+    "ovectorstring": _Kind(
+        extern="out IntPtr {p}, out long {p}_n",
+        param="out string[] {p}",
+        call="out IntPtr {n}_, out long {n}_n_",
+        post="{p} = GmshMarshal.OutStrings({n}_, {n}_n_);",
+        out=True,
+    ),
+    "ovectorpair": _Kind(
+        extern="out IntPtr {p}, out long {p}_n",
+        param="out (int, int)[] {p}",
+        call="out IntPtr {n}_, out long {n}_n_",
+        post="{p} = GmshMarshal.OutPairs({n}_, {n}_n_);",
+        out=True,
+    ),
+    "ovectorvectorint": _Kind(
+        extern="out IntPtr {p}, out IntPtr {p}_n, out long {p}_nn",
+        param="out int[][] {p}",
+        call="out IntPtr {n}_, out IntPtr {n}_n_, out long {n}_nn_",
+        post="{p} = GmshMarshal.OutJaggedInts({n}_, {n}_n_, {n}_nn_);",
+        out=True,
+    ),
+    "ovectorvectorsize": _Kind(
+        extern="out IntPtr {p}, out IntPtr {p}_n, out long {p}_nn",
+        param="out long[][] {p}",
+        call="out IntPtr {n}_, out IntPtr {n}_n_, out long {n}_nn_",
+        post="{p} = GmshMarshal.OutJaggedLongs({n}_, {n}_n_, {n}_nn_);",
+        out=True,
+    ),
+    "ovectorvectordouble": _Kind(
+        extern="out IntPtr {p}, out IntPtr {p}_n, out long {p}_nn",
+        param="out double[][] {p}",
+        call="out IntPtr {n}_, out IntPtr {n}_n_, out long {n}_nn_",
+        post="{p} = GmshMarshal.OutJaggedDoubles({n}_, {n}_n_, {n}_nn_);",
+        out=True,
+    ),
+    "ovectorvectorpair": _Kind(
+        extern="out IntPtr {p}, out IntPtr {p}_n, out long {p}_nn",
+        param="out (int, int)[][] {p}",
+        call="out IntPtr {n}_, out IntPtr {n}_n_, out long {n}_nn_",
+        post="{p} = GmshMarshal.OutJaggedPairs({n}_, {n}_n_, {n}_nn_);",
+        out=True,
+    ),
 }
 
 _SUPPORT = """
@@ -386,7 +496,12 @@ def _norm_fn(rtype: object, name: str, args: Iterable[object], doc: str, _specia
 
 def _norm_mod(module: object) -> _Mod:
     data = vars(module)
-    return _Mod(name=str(data["name"]), doc=" ".join(str(data["doc"]).split()), fns=tuple(starmap(_norm_fn, data["fs"])), subs=tuple(_norm_mod(sub) for sub in data["submodules"]))
+    return _Mod(
+        name=str(data["name"]),
+        doc=" ".join(str(data["doc"]).split()),
+        fns=tuple(starmap(_norm_fn, data["fs"])),
+        subs=tuple(_norm_mod(sub) for sub in data["submodules"]),
+    )
 
 
 def _load_definition(api_dir: Path) -> tuple[_Mod, str]:
@@ -484,7 +599,14 @@ def _wrapper(fn: _Fn, cname: str, indent: str) -> list[str]:
             if source is not None:
                 target.append(source.format(p=_escape(arg.name), n=arg.name))
     call = f"GmshNative.{cname}({', '.join([*calls, 'out int ierr_'])});"
-    body = [*pre, f"{ret} result_ = {call}" if fn.rtype else call, *free, "GmshMarshal.Check(ierr_);", *post, *(["return result_;"] if fn.rtype else [])]
+    body = [
+        *pre,
+        f"{ret} result_ = {call}" if fn.rtype else call,
+        *free,
+        "GmshMarshal.Check(ierr_);",
+        *post,
+        *(["return result_;"] if fn.rtype else []),
+    ]
     name = fn.name[0].upper() + fn.name[1:]
     lines = [f"{indent}/// <summary>{_xml(fn.doc)}</summary>", f"{indent}public static {ret} {name}({', '.join(parameters)})", f"{indent}{{"]
     lines += [f"{indent}    {line}" for line in body]
@@ -520,7 +642,7 @@ def _native_file(version: str, externs: list[str]) -> str:
         "    /// <summary>Mesh size callback passed to gmshModelMeshSetSizeCallback.</summary>",
         "    public delegate double GmshSizeFunc(int dim, int tag, double x, double y, double z, double lc, IntPtr data);",
         "",
-        "    /// <summary>Raw P/Invoke surface over every exported gmsh C function.</summary>",
+        "    /// <summary>Raw P/Invoke declarations for every exported gmsh C function.</summary>",
         "    public static class GmshNative",
         "    {",
         "        /// <summary>Library name dotnet resolves to the staged gmsh binary per runtime identifier.</summary>",
@@ -537,7 +659,16 @@ def _native_file(version: str, externs: list[str]) -> str:
 
 
 def _api_file(version: str, body: list[str]) -> str:
-    header = [f"// Generated from api/gen.py of gmsh {version}, do not edit", "#pragma warning disable 0465 // static Finalize on a static class cannot collide with a destructor", "using System;", "using System.Runtime.InteropServices;", "using System.Text;", "", "namespace Rasm.Gmsh", "{"]
+    header = [
+        f"// Generated from api/gen.py of gmsh {version}, do not edit",
+        "#pragma warning disable 0465 // static Finalize on a static class cannot collide with a destructor",
+        "using System;",
+        "using System.Runtime.InteropServices;",
+        "using System.Text;",
+        "",
+        "namespace Rasm.Gmsh",
+        "{",
+    ]
     return "\n".join([*header, *body[:-1], _SUPPORT, "}", ""])
 
 
@@ -554,7 +685,7 @@ def generate(api_dir: Path, out_dir: Path, version: str) -> int:
     declared = _declared(api_dir)
     names = {cname for cname, _fn in bound}
     if names != declared:
-        raise SystemExit(f"binding surface mismatch, missing {sorted(declared - names)}, extra {sorted(names - declared)}")
+        raise SystemExit(f"bound functions differ from the gmshc.h exports, missing {sorted(declared - names)}, extra {sorted(names - declared)}")
     out_dir.mkdir(parents=True, exist_ok=True)
     _ = (out_dir / "GmshNative.g.cs").write_text(_native_file(version, externs))
     _ = (out_dir / "Gmsh.g.cs").write_text(_api_file(version, body))

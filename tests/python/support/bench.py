@@ -35,17 +35,15 @@ _REGRESSION_TOLERANCE = 0.70
 class BenchmarkCase(msgspec.Struct, frozen=True):
     """Benchmark subject, workload generator, and performance budget.
 
-    ``workload(size)`` builds the tuple passed as the positional argument to ``subject``.
-    ``budget_ms`` is an absolute ceiling over ``budget_statistic``, samples above ``max_relative_iqr`` skip
-    rather than emit flaky verdicts.
+    ``workload(size)`` builds the tuple passed to ``subject``, ``budget_ms`` is an absolute ceiling over ``budget_statistic``, and over-dispersed samples skip in place of unreliable failures.
 
     Attributes:
         enforce_budget: False records timings without asserting the absolute budget.
-        budget_statistic: Statistic compared with the budget; ``mean`` is tail-sensitive.
-        max_relative_iqr: Dispersion ceiling for a trustworthy budget assertion.
-        fresh_per_round: Rebuilds mutating or consuming payloads before each measured round.
+        budget_statistic: Statistic compared with the budget, ``mean`` is tail-sensitive.
+        max_relative_iqr: Dispersion ceiling for a reliable budget assertion.
+        fresh_per_round: Rebuilds mutating or consuming workloads before each measured round.
         warmup_rounds: Untimed passes before measurement.
-        disable_gc: Disables GC inside pedantic because this path does not honor the CLI GC flag.
+        disable_gc: Disables GC inside pedantic, which does not honor the CLI GC flag.
     """
 
     label: str
@@ -97,16 +95,20 @@ def benchmark_parameters(cases: Sequence[BenchmarkCase]) -> pytest.MarkDecorator
 def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -> object:
     """Measure a benchmark case and enforce its dispersion and performance budget."""
     process = psutil.Process(os.getpid())
-    payload = case.workload(size)
+    arguments = case.workload(size)
     benchmark.group = case.label
 
     process.cpu_percent(interval=None)
     rss_before = process.memory_info().rss
 
-    probe_start = time.perf_counter_ns()
-    case.subject(payload)
-    probe_duration_ns = time.perf_counter_ns() - probe_start
-    iterations = min(_ITERATIONS_CAP, max(1, ceil(_CALIBRATION_FLOOR_NS / max(probe_duration_ns, 1)))) if (case.iterations == 1 and not case.fresh_per_round and probe_duration_ns < _CALIBRATION_FLOOR_NS) else case.iterations
+    calibration_start = time.perf_counter_ns()
+    case.subject(arguments)
+    calibration_ns = time.perf_counter_ns() - calibration_start
+    iterations = (
+        min(_ITERATIONS_CAP, max(1, ceil(_CALIBRATION_FLOOR_NS / max(calibration_ns, 1))))
+        if (case.iterations == 1 and not case.fresh_per_round and calibration_ns < _CALIBRATION_FLOOR_NS)
+        else case.iterations
+    )
 
     def _measure() -> object:
         return (
@@ -115,7 +117,7 @@ def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -
             )
             if case.fresh_per_round
             else benchmark.pedantic(  # type: ignore[no-untyped-call]
-                case.subject, args=(payload,), rounds=case.rounds, iterations=iterations, warmup_rounds=case.warmup_rounds
+                case.subject, args=(arguments,), rounds=case.rounds, iterations=iterations, warmup_rounds=case.warmup_rounds
             )
         )
 
@@ -132,7 +134,16 @@ def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -
     statistics = benchmark.stats.stats
     relative_iqr = statistics.iqr / statistics.median if statistics.median > 0 else inf
     observed_ms = getattr(statistics, case.budget_statistic) * 1000.0
-    benchmark.extra_info.update(rss_delta_bytes=process.memory_info().rss - rss_before, rss_after_bytes=process.memory_info().rss, cpu_percent_delta=process.cpu_percent(interval=None), budget_ms=case.budget_ms, observed_ms=observed_ms, rel_iqr=relative_iqr, iterations=iterations, size=size)
+    benchmark.extra_info.update(
+        rss_delta_bytes=process.memory_info().rss - rss_before,
+        rss_after_bytes=process.memory_info().rss,
+        cpu_percent_delta=process.cpu_percent(interval=None),
+        budget_ms=case.budget_ms,
+        observed_ms=observed_ms,
+        rel_iqr=relative_iqr,
+        iterations=iterations,
+        size=size,
+    )
 
     match (relative_iqr > case.max_relative_iqr, case.enforce_budget and observed_ms > case.budget_ms):
         case (True, _):
@@ -216,10 +227,21 @@ def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, outp
         last_level = sum(segments[-1]) / len(segments[-1])
         return (last_level - prior_level) / prior_level if prior_level > 0 else 0.0
 
-    regressions = [(key, ratio) for key, series in series_by_key.items() if len(segments := _potts_segments(series)) >= 2 and (ratio := _regression(segments)) > _REGRESSION_TOLERANCE]
-    (pytest.fail("sustained benchmark regression: " + "; ".join(f"{file}::{label}-{size}: +{ratio:.1%}" for (file, label, size), ratio in regressions), pytrace=False) if regressions else None)
+    regressions = [
+        (key, ratio)
+        for key, series in series_by_key.items()
+        if len(segments := _potts_segments(series)) >= 2 and (ratio := _regression(segments)) > _REGRESSION_TOLERANCE
+    ]
+    (
+        pytest.fail(
+            "sustained benchmark regression: " + "; ".join(f"{file}::{label}-{size}: +{ratio:.1%}" for (file, label, size), ratio in regressions),
+            pytrace=False,
+        )
+        if regressions
+        else None
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BenchmarkCase", "benchmark_parameters", "run_benchmark", "register_benchmarks"]
+__all__ = ["BenchmarkCase", "benchmark_parameters", "run_benchmark", "register_benchmarks", "pytest_benchmark_update_json"]

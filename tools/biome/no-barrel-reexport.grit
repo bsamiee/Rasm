@@ -2,7 +2,7 @@ language js(typescript, jsx)
 
 or {
     `export * from $source`,
-    `export * as $ns from $source`
+    `export * as $namespace from $source`
 } where {
-    register_diagnostic(span=$source, message="Star re-export is a barrel. Name each deep owner the entrypoint exposes and leave the interior unresolvable.", severity="error")
+    register_diagnostic(span=$source, message="Star re-export creates a barrel, export each module the entry point exposes by name and keep internal modules unexported", severity="error")
 }

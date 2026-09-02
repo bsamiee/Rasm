@@ -2,12 +2,8 @@ language js(typescript, jsx)
 
 or {
     `Effect.catchAll($self, $handler)` where { $self <: not arrow_function() },
-    `Effect.catchAllCause($self, $handler)` where {
-        $self <: not arrow_function()
-    },
-    `Effect.catchAllDefect($self, $handler)` where {
-        $self <: not arrow_function()
-    },
+    `Effect.catchAllCause($self, $handler)` where { $self <: not arrow_function() },
+    `Effect.catchAllDefect($self, $handler)` where { $self <: not arrow_function() },
     `Effect.catchAll($handler)`,
     `Effect.catchAllCause($handler)`,
     `Effect.catchAllDefect($handler)`
@@ -17,5 +13,5 @@ or {
         `Effect.void`,
         `Effect.succeed($_)`
     },
-    register_diagnostic(span=$hit, message="Blanket swallow of the typed failure channel. Recover by tag (Effect.catchTag/catchTags) or state the intentional discard as Effect.ignore/Effect.ignoreLogged where the contract names the reason. Defect handlers carry their evidence to a logger, never the void.", severity="error")
+    register_diagnostic(span=$hit, message="Handler discards every typed failure, recover by tag with Effect.catchTag or Effect.catchTags, state an intentional discard as Effect.ignore or Effect.ignoreLogged where the contract names the reason, and log the cause in a defect handler", severity="error")
 }

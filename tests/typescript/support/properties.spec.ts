@@ -6,9 +6,9 @@ import { InvalidPropertyCounterexampleError, Property } from './properties.ts';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Combine = (left: number, right: number) => number;
-type Tally = { readonly count: number };
-type Bumper = { readonly bump: () => number };
-type AsyncBumper = { readonly bump: () => Promise<number> };
+type CounterModel = { readonly count: number };
+type Counter = { readonly increment: () => number };
+type AsyncCounter = { readonly increment: () => Promise<number> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,8 +23,7 @@ const _SAME = (left: number, right: number): boolean => left === right;
 const _associativity = Property.define<Combine, typeof _ARGS>({
     name: 'combine is associative',
     arbitraries: _ARGS,
-    predicate: (combine, { x, y, z }) =>
-        Effect.succeed(combine(combine(x, y), z) === combine(x, combine(y, z))),
+    predicate: (combine, { x, y, z }) => Effect.succeed(combine(combine(x, y), z) === combine(x, combine(y, z))),
     counterexample: {
         label: 'subtraction counterexample',
         implementation: (left, right) => left - right,
@@ -48,44 +47,44 @@ const _TruncatingLabelSchema = Schema.Struct({
     version: Schema.Int,
 });
 
-class Bump implements FastCheck.Command<Tally, Bumper> {
+class Increment implements FastCheck.Command<CounterModel, Counter> {
     check(): boolean {
         return true;
     }
-    run(model: { count: number }, real: Bumper): void {
+    run(model: { count: number }, real: Counter): void {
         model.count += 1;
-        if (real.bump() !== model.count) {
+        if (real.increment() !== model.count) {
             throw new Error(`counter value differed from ${model.count}`);
         }
     }
     toString(): string {
-        return 'bump';
+        return 'increment';
     }
 }
 
-class BumpAsync implements FastCheck.AsyncCommand<Tally, AsyncBumper> {
+class IncrementAsync implements FastCheck.AsyncCommand<CounterModel, AsyncCounter> {
     check(): boolean {
         return true;
     }
-    async run(model: { count: number }, real: AsyncBumper): Promise<void> {
+    async run(model: { count: number }, real: AsyncCounter): Promise<void> {
         model.count += 1;
-        if ((await real.bump()) !== model.count) {
+        if ((await real.increment()) !== model.count) {
             throw new Error(`counter value differed from ${model.count}`);
         }
     }
     toString(): string {
-        return 'bump';
+        return 'increment';
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _counter = (step: number) => (): { model: Tally; real: Bumper } => {
+const _counter = (step: number) => (): { model: CounterModel; real: Counter } => {
     let current = 0;
     return {
         model: { count: 0 },
         real: {
-            bump: () => {
+            increment: () => {
                 current += step;
                 return current;
             },
@@ -93,30 +92,27 @@ const _counter = (step: number) => (): { model: Tally; real: Bumper } => {
     };
 };
 
-const _asyncCounter =
-    (step: number) => (): { model: Tally; real: AsyncBumper } => {
-        let current = 0;
-        return {
-            model: { count: 0 },
-            real: {
-                bump: () => {
-                    current += step;
-                    return Promise.resolve(current);
-                },
+const _asyncCounter = (step: number) => (): { model: CounterModel; real: AsyncCounter } => {
+    let current = 0;
+    return {
+        model: { count: 0 },
+        real: {
+            increment: () => {
+                current += step;
+                return Promise.resolve(current);
             },
-        };
+        },
     };
+};
 
 const _scheduledCombination =
     (combine: Combine) =>
     async (schedule: FastCheck.Scheduler): Promise<boolean> => {
         let result = 0;
         const scheduleValue = (value: number): Promise<void> =>
-            schedule
-                .schedule(Promise.resolve(value), `combine ${value}`)
-                .then((scheduledValue) => {
-                    result = combine(result, scheduledValue);
-                });
+            schedule.schedule(Promise.resolve(value), `combine ${value}`).then((scheduledValue) => {
+                result = combine(result, scheduledValue);
+            });
         const tasks = [scheduleValue(3), scheduleValue(7)];
         await schedule.waitAll();
         await Promise.all(tasks);
@@ -193,24 +189,20 @@ describe('order property', () => {
 });
 
 describe('inverse property', () => {
-    Property.register(
-        it,
-        { to: (value: number) => String(value), from: Number },
-        [
-            Property.inverse({
-                arb: _INTS,
-                equals: _SAME,
-                counterexample: {
-                    label: 'sign-erasing isomorphism',
-                    implementation: {
-                        to: (value: number) => String(Math.abs(value)),
-                        from: Number,
-                    },
-                    args: { a: -1 },
+    Property.register(it, { to: (value: number) => String(value), from: Number }, [
+        Property.inverse({
+            arb: _INTS,
+            equals: _SAME,
+            counterexample: {
+                label: 'sign-erasing isomorphism',
+                implementation: {
+                    to: (value: number) => String(Math.abs(value)),
+                    from: Number,
                 },
-            }),
-        ],
-    );
+                args: { a: -1 },
+            },
+        }),
+    ]);
 });
 
 describe('deterministic property', () => {
@@ -269,10 +261,7 @@ describe('totality property', () => {
             arb: _INTS,
             counterexample: {
                 label: 'partial decoder',
-                implementation: (input: number) =>
-                    input < 0
-                        ? Effect.fail('rejected' as const)
-                        : Effect.succeed(input),
+                implementation: (input: number) => (input < 0 ? Effect.fail('rejected' as const) : Effect.succeed(input)),
                 args: { input: -1 },
             },
         }),
@@ -295,11 +284,11 @@ describe('roundtrip property', () => {
 describe('machine property', () => {
     Property.register(it, _counter(1), [
         Property.machine({
-            commands: [FastCheck.constant(new Bump())],
+            commands: [FastCheck.constant(new Increment())],
             counterexample: {
                 label: 'double-stepping counter',
                 implementation: _counter(2),
-                args: { run: [new Bump()] },
+                args: { run: [new Increment()] },
             },
         }),
     ]);
@@ -308,11 +297,11 @@ describe('machine property', () => {
 describe('async machine property', () => {
     Property.register(it, _asyncCounter(1), [
         Property.machineAsync({
-            commands: [FastCheck.constant(new BumpAsync())],
+            commands: [FastCheck.constant(new IncrementAsync())],
             counterexample: {
                 label: 'double-stepping async counter',
                 implementation: _asyncCounter(2),
-                args: { run: [new BumpAsync()] },
+                args: { run: [new IncrementAsync()] },
             },
         }),
     ]);
@@ -336,10 +325,7 @@ describe('counterexample verification', () => {
             Property.verifyCounterexample({
                 name: 'combine is associative',
                 arbitraries: _ARGS,
-                predicate: (combine: Combine, { x, y, z }) =>
-                    Effect.succeed(
-                        combine(combine(x, y), z) === combine(x, combine(y, z)),
-                    ),
+                predicate: (combine: Combine, { x, y, z }) => Effect.succeed(combine(combine(x, y), z) === combine(x, combine(y, z))),
                 counterexample: {
                     label: 'subtraction counterexample',
                     implementation: (left, right) => left - right,
@@ -349,32 +335,22 @@ describe('counterexample verification', () => {
         ),
     );
 
-    it.effect(
-        'implementations satisfying the property are rejected as counterexamples',
-        () =>
-            Effect.gen(function* () {
-                const error = yield* Effect.flip(
-                    Property.verifyCounterexample({
-                        name: 'invalid counterexample registration',
-                        arbitraries: _ARGS,
-                        predicate: (combine: Combine, { x, y, z }) =>
-                            Effect.succeed(
-                                combine(combine(x, y), z) ===
-                                    combine(x, combine(y, z)),
-                            ),
-                        counterexample: {
-                            label: 'valid implementation',
-                            implementation: Math.min,
-                            args: { x: 1, y: 2, z: 3 },
-                        },
-                    }),
-                );
-                expect(error).toBeInstanceOf(
-                    InvalidPropertyCounterexampleError,
-                );
-                expect(error.property).toBe(
-                    'invalid counterexample registration',
-                );
-            }),
+    it.effect('implementations satisfying the property are rejected as counterexamples', () =>
+        Effect.gen(function* () {
+            const error = yield* Effect.flip(
+                Property.verifyCounterexample({
+                    name: 'invalid counterexample registration',
+                    arbitraries: _ARGS,
+                    predicate: (combine: Combine, { x, y, z }) => Effect.succeed(combine(combine(x, y), z) === combine(x, combine(y, z))),
+                    counterexample: {
+                        label: 'valid implementation',
+                        implementation: Math.min,
+                        args: { x: 1, y: 2, z: 3 },
+                    },
+                }),
+            );
+            expect(error).toBeInstanceOf(InvalidPropertyCounterexampleError);
+            expect(error.property).toBe('invalid counterexample registration');
+        }),
     );
 });

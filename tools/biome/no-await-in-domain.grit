@@ -1,11 +1,11 @@
 language js(typescript, jsx)
 
 or {
-    `await $step` as $hit,
+    `await $promise` as $hit,
     `for await (const $row of $source) { $body }` as $hit
 } where {
     $hit <: not within `Effect.tryPromise($_)` ,
     $hit <: not within `Effect.promise($_)` ,
     $hit <: not within `Effect.tryMapPromise($_)` ,
-    register_diagnostic(span=$hit, message="Await in domain flow. Promises convert once at the boundary (Effect.tryPromise/Effect.promise/Effect.tryMapPromise) and the interior composes Effect values. Async iterables drain through Stream.fromAsyncIterable, never a for-await loop.", severity="error")
+    register_diagnostic(span=$hit, message="Await in domain code, convert the promise once at the boundary with Effect.tryPromise, Effect.promise, or Effect.tryMapPromise, compose Effect values inside, and read async iterables through Stream.fromAsyncIterable in place of for-await", severity="error")
 }

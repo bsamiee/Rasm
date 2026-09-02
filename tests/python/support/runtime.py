@@ -97,8 +97,22 @@ match _gh_replay.split("/", 1) if _gh_replay else []:
 set_hypothesis_home_dir(HYPOTHESIS_HOME)
 hyp_settings.register_profile(PROFILE_DEFAULT, database=_EXAMPLE_DB, deadline=None, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile("rasm-ci", database=_EXAMPLE_DB, deadline=None, max_examples=200, suppress_health_check=_SUPPRESSIONS)
-hyp_settings.register_profile("rasm-stress", database=_EXAMPLE_DB, deadline=None, max_examples=1000, phases=(Phase.explicit, Phase.reuse, Phase.generate, Phase.target, Phase.shrink, Phase.explain), suppress_health_check=_SUPPRESSIONS)
-hyp_settings.register_profile("rasm-debug", database=_EXAMPLE_DB, deadline=None, max_examples=25, phases=(Phase.explicit, Phase.reuse, Phase.generate, Phase.explain), suppress_health_check=_SUPPRESSIONS)
+hyp_settings.register_profile(
+    "rasm-stress",
+    database=_EXAMPLE_DB,
+    deadline=None,
+    max_examples=1000,
+    phases=(Phase.explicit, Phase.reuse, Phase.generate, Phase.target, Phase.shrink, Phase.explain),
+    suppress_health_check=_SUPPRESSIONS,
+)
+hyp_settings.register_profile(
+    "rasm-debug",
+    database=_EXAMPLE_DB,
+    deadline=None,
+    max_examples=25,
+    phases=(Phase.explicit, Phase.reuse, Phase.generate, Phase.explain),
+    suppress_health_check=_SUPPRESSIONS,
+)
 hyp_settings.register_profile("rasm-adversarial", database=_EXAMPLE_DB, deadline=None, max_examples=2000, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile(PROFILE_STATEFUL, database=_EXAMPLE_DB, deadline=None, stateful_step_count=200, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile("rasm-parity", database=None, deadline=None, derandomize=True, suppress_health_check=_SUPPRESSIONS)
@@ -117,7 +131,11 @@ if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
 
 def pytest_configure(config: pytest.Config) -> None:
     """Register the bench module's regression hook when pytest-benchmark is loaded."""
-    (config.pluginmanager.register(importlib.import_module("tests.python.support.bench"), "test-support-bench") if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and not config.pluginmanager.hasplugin("test-support-bench") else None)
+    (
+        config.pluginmanager.register(importlib.import_module("tests.python.support.bench"), "test-support-bench")
+        if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and not config.pluginmanager.hasplugin("test-support-bench")
+        else None
+    )
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

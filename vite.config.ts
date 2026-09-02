@@ -1,8 +1,4 @@
 /// <reference types="vite/client" />
-/**
- * createViteConfig validates app, library, and server options into a Vite configuration.
- * The root default omits build output because app and package configs own their output paths.
- */
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
@@ -13,12 +9,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { DateTime, Effect, Match, Option, pipe, Schema as S } from 'effect';
 import { visualizer } from 'rollup-plugin-visualizer';
-import {
-    defineConfig,
-    type Plugin,
-    type UserConfig,
-    type ViteBuilder,
-} from 'vite';
+import { defineConfig, type Plugin, type UserConfig, type ViteBuilder } from 'vite';
 import { compression } from 'vite-plugin-compression2';
 import csp from 'vite-plugin-csp-guard';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
@@ -52,9 +43,7 @@ const ViteConfigSchema = S.Union(
             }),
         ),
         compressionThreshold: S.optional(pipe(S.Number, S.int(), S.positive())),
-        cspPolicy: S.optional(
-            S.Record({ key: S.String, value: S.Array(S.String) }),
-        ),
+        cspPolicy: S.optional(S.Record({ key: S.String, value: S.Array(S.String) })),
         imageQuality: S.optional(
             S.Struct({
                 avif: S.Number,
@@ -141,17 +130,8 @@ const defaults = Object.freeze({
         minSize: 10240,
     },
     ssr: {
-        external: [
-            'react',
-            'react-dom',
-            'react/jsx-runtime',
-            'react/compiler-runtime',
-        ],
-        noExternal: [
-            '@effect/platform',
-            '@effect/platform-browser',
-            '@effect/experimental',
-        ],
+        external: ['react', 'react-dom', 'react/jsx-runtime', 'react/compiler-runtime'],
+        noExternal: ['@effect/platform', '@effect/platform-browser', '@effect/experimental'],
     },
     svgr: {
         exportType: 'default',
@@ -184,12 +164,7 @@ const cssOptions = (development = false) => ({
     devSourcemap: development,
     transformer: 'lightningcss' as const,
 });
-const runtimeCache = <Handler extends 'CacheFirst' | 'NetworkFirst'>(
-    handler: Handler,
-    name: string,
-    maxAgeSeconds: number,
-    urlPattern: RegExp,
-) => ({
+const runtimeCache = <Handler extends 'CacheFirst' | 'NetworkFirst'>(handler: Handler, name: string, maxAgeSeconds: number, urlPattern: RegExp) => ({
     handler,
     options: {
         cacheName: name,
@@ -203,9 +178,7 @@ const outputNames = (prefix = '') => ({
     entryFileNames: `${prefix}${prefix ? '' : 'entries/'}[name]-[hash].js`,
 });
 const resolveOptions = (browser = false) => ({
-    conditions: browser
-        ? ['import', 'module', 'browser', 'default']
-        : ['import', 'module', 'default'],
+    conditions: browser ? ['import', 'module', 'browser', 'default'] : ['import', 'module', 'default'],
     ...(browser
         ? {
               dedupe: ['react', 'react-dom'],
@@ -216,16 +189,12 @@ const resolveOptions = (browser = false) => ({
 });
 const clientPlugin = (plugin: Plugin): Plugin => ({
     ...plugin,
-    applyToEnvironment: (environment: EnvironmentConsumer) =>
-        environment.config.consumer === 'client',
+    applyToEnvironment: (environment: EnvironmentConsumer) => environment.config.consumer === 'client',
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const buildClient = ({
-    build,
-    environments: { client },
-}: ViteBuilder): Promise<void> =>
+const buildClient = ({ build, environments: { client } }: ViteBuilder): Promise<void> =>
     pipe(
         Option.fromNullable(client),
         Option.match({
@@ -234,19 +203,14 @@ const buildClient = ({
         }),
     );
 const pluginSets = {
-    app: (
-        config: Extract<ViteConfig, { mode: 'app' }>,
-        production: boolean,
-    ) => [
+    app: (config: Extract<ViteConfig, { mode: 'app' }>, production: boolean) => [
         react(),
         babel({ presets: [reactCompilerPreset()] }),
         tailwindcss({ optimize: { minify: true } }),
         ...(config.pwa
             ? VitePWA({
                   devOptions: { enabled: false },
-                  includeAssets: (
-                      config.assetExtensions ?? defaults.assets
-                  ).map((extension) => `**/*.${extension}`),
+                  includeAssets: (config.assetExtensions ?? defaults.assets).map((extension) => `**/*.${extension}`),
                   manifest: {
                       background_color: defaults.pwa.backgroundColor,
                       description: config.pwa.description,
@@ -276,18 +240,8 @@ const pluginSets = {
                       clientsClaim: true,
                       globPatterns: [defaults.assetGlob],
                       runtimeCaching: [
-                          runtimeCache(
-                              'CacheFirst',
-                              'cdn-cache',
-                              defaults.cache.cdn,
-                              /^https:\/\/cdn\./,
-                          ),
-                          runtimeCache(
-                              'NetworkFirst',
-                              'api-cache',
-                              defaults.cache.api,
-                              /^https:\/\/api\./,
-                          ),
+                          runtimeCache('CacheFirst', 'cdn-cache', defaults.cache.cdn, /^https:\/\/cdn\./),
+                          runtimeCache('NetworkFirst', 'api-cache', defaults.cache.api, /^https:\/\/api\./),
                       ],
                       skipWaiting: true,
                   },
@@ -302,15 +256,13 @@ const pluginSets = {
             ViteImageOptimizer({
                 avif: {
                     lossless: false,
-                    quality: (config.imageQuality ?? defaults.imageQuality)
-                        .avif,
+                    quality: (config.imageQuality ?? defaults.imageQuality).avif,
                 },
                 exclude: /^(?:virtual:|node_modules)/,
                 includePublic: true,
                 jpeg: {
                     progressive: true,
-                    quality: (config.imageQuality ?? defaults.imageQuality)
-                        .jpeg,
+                    quality: (config.imageQuality ?? defaults.imageQuality).jpeg,
                 },
                 logStats: true,
                 png: {
@@ -319,8 +271,7 @@ const pluginSets = {
                 test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
                 webp: {
                     lossless: false,
-                    quality: (config.imageQuality ?? defaults.imageQuality)
-                        .webp,
+                    quality: (config.imageQuality ?? defaults.imageQuality).webp,
                 },
             }),
         ),
@@ -340,9 +291,7 @@ const pluginSets = {
                           algorithms: ['brotliCompress', 'gzip'],
                           include: defaults.compression.include,
                           skipIfLargerOrEqual: true,
-                          threshold:
-                              config.compressionThreshold ??
-                              defaults.compression.threshold,
+                          threshold: config.compressionThreshold ?? defaults.compression.threshold,
                       }),
                   ),
               ]
@@ -351,11 +300,7 @@ const pluginSets = {
             csp({
                 algorithm: 'sha256',
                 build: { sri: true },
-                policy: Object.fromEntries(
-                    Object.entries(config.cspPolicy ?? defaults.csp).map(
-                        ([directive, values]) => [directive, [...values]],
-                    ),
-                ),
+                policy: Object.fromEntries(Object.entries(config.cspPolicy ?? defaults.csp).map(([directive, values]) => [directive, [...values]])),
             }),
         ),
         // Inspect is disabled during development because HMR restarts can produce an EEXIST race
@@ -364,21 +309,14 @@ const pluginSets = {
                   Inspect({
                       build: true,
                       dev: false,
-                      outputDir: pathResolve(
-                          config.root ?? ROOT_DIRECTORY,
-                          '.cache/vite-inspect',
-                      ),
+                      outputDir: pathResolve(config.root ?? ROOT_DIRECTORY, '.cache/vite-inspect'),
                   }),
               ]
             : []),
     ],
     library: (config: Extract<ViteConfig, { mode: 'library' }>) => [
-        ...(config.react === true
-            ? [react(), babel({ presets: [reactCompilerPreset()] })]
-            : []),
-        ...(config.css === undefined
-            ? []
-            : [tailwindcss({ optimize: { minify: true } })]),
+        ...(config.react === true ? [react(), babel({ presets: [reactCompilerPreset()] })] : []),
+        ...(config.css === undefined ? [] : [tailwindcss({ optimize: { minify: true } })]),
     ],
     server: () => [],
 } as const;
@@ -390,9 +328,7 @@ const configByMode: {
 } = {
     app: (config, { production, time, version }) => ({
         appType: 'spa',
-        assetsInclude: (config.assetExtensions ?? defaults.assets).map(
-            (extension) => `**/*.${extension}`,
-        ),
+        assetsInclude: (config.assetExtensions ?? defaults.assets).map((extension) => `**/*.${extension}`),
         ...(config.root ? { root: config.root } : {}),
         build: {
             chunkImportMap: true,
@@ -413,47 +349,31 @@ const configByMode: {
         },
         builder: {
             buildApp: buildClient,
-            sharedConfigBuild:
-                config.builder?.sharedConfigBuild ??
-                defaults.builder.sharedConfigBuild,
-            sharedPlugins:
-                config.builder?.sharedPlugins ?? defaults.builder.sharedPlugins,
+            sharedConfigBuild: config.builder?.sharedConfigBuild ?? defaults.builder.sharedConfigBuild,
+            sharedPlugins: config.builder?.sharedPlugins ?? defaults.builder.sharedPlugins,
         },
-        cacheDir: config.root
-            ? pathResolve(config.root, 'node_modules/.vite')
-            : pathResolve(ROOT_DIRECTORY, '.cache/vite'),
+        cacheDir: config.root ? pathResolve(config.root, 'node_modules/.vite') : pathResolve(ROOT_DIRECTORY, '.cache/vite'),
         css: cssOptions(true),
         define: {
             'import.meta.env.APP_VERSION': JSON.stringify(version),
-            'import.meta.env.BUILD_MODE': JSON.stringify(
-                production ? 'production' : 'development',
-            ),
+            'import.meta.env.BUILD_MODE': JSON.stringify(production ? 'production' : 'development'),
             'import.meta.env.BUILD_TIME': JSON.stringify(time),
-            'import.meta.env.VITE_API_URL': JSON.stringify(
-                environment.VITE_API_URL ?? '/api',
-            ),
+            'import.meta.env.VITE_API_URL': JSON.stringify(environment.VITE_API_URL ?? '/api'),
         },
         devtools: true,
         future: 'warn',
         optimizeDeps: {
             exclude: [...defaults.ssr.noExternal],
-            include: [
-                ...defaults.ssr.external,
-                'react-aria-components',
-                '@floating-ui/react',
-                'effect',
-            ],
+            include: [...defaults.ssr.external, 'react-aria-components', '@floating-ui/react', 'effect'],
         },
         plugins: pluginSets.app(config, production),
-        // strictPort keeps preview on the URL expected by end-to-end test server configuration
+        // `strictPort` keeps preview on the URL expected by end-to-end test server configuration
         preview: { port: config.port ?? defaults.port, strictPort: true },
         resolve: resolveOptions(true),
         server: {
             cors: true,
             port: config.port ?? defaults.port,
-            ...(config.warmup === undefined
-                ? {}
-                : { warmup: { clientFiles: [...config.warmup] } }),
+            ...(config.warmup === undefined ? {} : { warmup: { clientFiles: [...config.warmup] } }),
             watch: {
                 ignored: [
                     '**/node_modules/**',
@@ -488,10 +408,7 @@ const configByMode: {
         },
         worker: {
             format: 'es',
-            plugins: () => [
-                react(),
-                babel({ presets: [reactCompilerPreset()] }),
-            ],
+            plugins: () => [react(), babel({ presets: [reactCompilerPreset()] })],
             rolldownOptions: { output: outputNames('workers/') },
         },
     }),
@@ -499,8 +416,7 @@ const configByMode: {
         build: {
             lib: {
                 entry: config.entry,
-                fileName: (format: string, name: string) =>
-                    format === 'es' ? `${name}.js` : `${name}.${format}.js`,
+                fileName: (format: string, name: string) => (format === 'es' ? `${name}.js` : `${name}.${format}.js`),
                 formats: ['es', 'cjs'],
                 name: config.name,
             },
@@ -526,15 +442,10 @@ const configByMode: {
                 name: config.name,
             },
             rolldownOptions: {
-                // Bare specifiers resolve from node_modules at run time except each bundle entry and its subpaths
                 external: (id: string) =>
                     !id.startsWith('.') &&
                     !id.startsWith('/') &&
-                    !(config.bundle ?? []).some(
-                        (dependency) =>
-                            id === dependency ||
-                            id.startsWith(`${dependency}/`),
-                    ),
+                    !(config.bundle ?? []).some((dependency) => id === dependency || id.startsWith(`${dependency}/`)),
                 output: { exports: 'named' as const },
             },
             sourcemap: true,
@@ -546,9 +457,7 @@ const configByMode: {
         ssr: { target: 'node' as const },
     }),
 };
-const createViteConfig = (
-    input: unknown,
-): Effect.Effect<UserConfig, never, never> =>
+const createViteConfig = (input: unknown): Effect.Effect<UserConfig, never, never> =>
     Effect.map(
         Effect.all({
             config: Effect.orDie(S.decodeUnknown(ViteConfigSchema)(input)),
@@ -562,10 +471,8 @@ const createViteConfig = (
             Match.value(config).pipe(
                 Match.discriminatorsExhaustive('mode')({
                     app: (appConfig) => configByMode.app(appConfig, build),
-                    library: (libraryConfig) =>
-                        configByMode.library(libraryConfig, build),
-                    server: (serverConfig) =>
-                        configByMode.server(serverConfig, build),
+                    library: (libraryConfig) => configByMode.library(libraryConfig, build),
+                    server: (serverConfig) => configByMode.server(serverConfig, build),
                 }),
             ),
     );

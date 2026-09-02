@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""PreToolUse gate over Bash and Monitor: exit 2 blocks the git leaf POLICY names destructive, anything else passes.
+"""PreToolUse hook over Bash and Monitor, exit 2 blocks a git command _POLICY names destructive and anything else passes.
 
-Stdlib only: a non-2 exit fails OPEN, and a uv shebang exits 127 off PATH. POLICY is the sole edit surface.
+Stdlib only, a non-2 exit fails open and a uv shebang exits 127 off PATH. _POLICY is the only table to edit.
 """
 
 from collections.abc import Callable
@@ -14,7 +14,7 @@ import sys
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Probe = Callable[[list[str], str], str]
+type _Refinement = Callable[[list[str], str], str]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ _GIT_VALUE_OPTS = ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--con
 _INLINE_FLAGS = ("--eval", "--command", "--print", "--execute")
 _INTERPRETERS = ("python", "node", "ruby", "perl")
 _SHELLS = ("sh", "bash", "zsh", "dash", "ksh", "eval")
-_SUBVERBS = ("run", "exec", "tool", "x")
+_SUBCOMMANDS = ("run", "exec", "tool", "x")
 _TOOLS = ("Bash", "Monitor")
 _VALUE_OPTS = ("-u", "-I", "-n", "-g", "--user", "--replace")
 _RUNNERS = frozenset(("uv", "npm", "npx", "pnpm", "poetry", "hatch"))
@@ -46,7 +46,7 @@ _ADVICE = "Blocked by git-guard: destructive git actions are disabled. Keep all 
 
 
 def _allow(_args: list[str], _cwd: str) -> str:
-    """Return the empty verdict for rows the flag and prefix sets already decided."""
+    """Return the empty reason for rows the flag and prefix sets decide alone."""
     return ""
 
 
@@ -66,7 +66,7 @@ def _restore(args: list[str], _cwd: str) -> str:
 
 
 def _pathspec(args: list[str], cwd: str) -> str:
-    """Return why a checkout would overwrite working-tree files, or the empty string for a pure ref move."""
+    """Return why a checkout overwrites working-tree files, or the empty string for a pure ref move."""
     if "--" not in args and any(t in _CHECKOUT_CREATE for t in args):
         return ""
     targets = [t for t in args if t == "-" or not t.startswith("-")]
@@ -74,54 +74,54 @@ def _pathspec(args: list[str], cwd: str) -> str:
         return "git checkout with a pathspec overwrites working-tree files"
     if not targets or targets == ["-"]:
         return ""
-    probe = pathlib.Path(cwd or ".", targets[0])
-    return f"git checkout {targets[0]} names an existing path and would overwrite it" if probe.exists(follow_symlinks=False) else ""
+    path = pathlib.Path(cwd or ".", targets[0])
+    return f"git checkout {targets[0]} names an existing path and would overwrite it" if path.exists(follow_symlinks=False) else ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
-class Rule:
-    """Destructive surface of a git subcommand path: exact flags, flag prefixes, and a filesystem refinement."""
+class _Rule:
+    """Destructive flags and flag prefixes of a git subcommand path, with its safe first arguments and a filesystem refinement."""
 
     why: str
     flags: tuple[str, ...] = ()
     starts: tuple[str, ...] = ()
     safe: tuple[str, ...] = ()
-    probe: _Probe = _allow
+    refine: _Refinement = _allow
 
 
-POLICY: dict[str, Rule] = {
-    _INTERP: Rule("invokes git inside an opaque one-liner, run git directly", starts=_ANY_ARG),
-    "branch": Rule("deletes or force-moves a branch", flags=("-d", "-D", "-M", "--delete"), starts=("--force",)),
-    "checkout": Rule("discards local changes", flags=("-f", "-B", "-p", "--patch", "--ours", "--theirs"), starts=("--force",), probe=_pathspec),
-    "clean": Rule("deletes untracked files", starts=_ANY_ARG),
-    "config": Rule("defines a git alias that can hide a blocked verb", starts=("alias.",)),
-    "push": Rule("rewrites or deletes remote history", flags=("-f", "-d", "--delete", "--mirror", "--prune"), starts=("--force", "+", ":")),
-    "rebase": Rule("rewrites commits other agents may already hold", starts=_ANY_ARG),
-    "reflog delete": Rule("erases reflog entries, the last recovery path", starts=_ANY_ARG),
-    "reflog drop": Rule("erases reflog entries, the last recovery path", starts=_ANY_ARG),
-    "reflog expire": Rule("erases reflog entries, the last recovery path", starts=_ANY_ARG),
-    "reset": Rule("wipes working-tree or index state", flags=("--hard", "--merge", "--keep"), probe=_reset),
-    "restore": Rule("discards working-tree state", probe=_restore),
-    "revert": Rule("reverses committed history", starts=_ANY_ARG),
-    "stash": Rule("hides in-flight work other agents depend on", starts=_ANY_ARG, safe=("list", "show")),
-    "switch": Rule("discards local changes", flags=("-f", "-C", "--discard-changes"), starts=("--force",)),
+_POLICY: dict[str, _Rule] = {
+    _INTERP: _Rule("invokes git inside an opaque one-liner, run git directly", starts=_ANY_ARG),
+    "branch": _Rule("deletes or force-moves a branch", flags=("-d", "-D", "-M", "--delete"), starts=("--force",)),
+    "checkout": _Rule("discards local changes", flags=("-f", "-B", "-p", "--patch", "--ours", "--theirs"), starts=("--force",), refine=_pathspec),
+    "clean": _Rule("deletes untracked files", starts=_ANY_ARG),
+    "config": _Rule("defines a git alias that can hide a blocked subcommand", starts=("alias.",)),
+    "push": _Rule("rewrites or deletes remote history", flags=("-f", "-d", "--delete", "--mirror", "--prune"), starts=("--force", "+", ":")),
+    "rebase": _Rule("rewrites commits other agents can already hold", starts=_ANY_ARG),
+    "reflog delete": _Rule("erases reflog entries, the last recovery path", starts=_ANY_ARG),
+    "reflog drop": _Rule("erases reflog entries, the last recovery path", starts=_ANY_ARG),
+    "reflog expire": _Rule("erases reflog entries, the last recovery path", starts=_ANY_ARG),
+    "reset": _Rule("wipes working-tree or index state", flags=("--hard", "--merge", "--keep"), refine=_reset),
+    "restore": _Rule("discards working-tree state", refine=_restore),
+    "revert": _Rule("reverses committed history", starts=_ANY_ARG),
+    "stash": _Rule("hides uncommitted work other agents depend on", starts=_ANY_ARG, safe=("list", "show")),
+    "switch": _Rule("discards local changes", flags=("-f", "-C", "--discard-changes"), starts=("--force",)),
 }
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _flag_operand(argv: list[str], letter: str) -> str:
-    """Return the operand following a bare, clustered, or long inline flag carrying the given letter."""
+    """Return the operand after a bare, clustered, or long inline flag with the given letter, or the empty string."""
     hit = next((i for i, t in enumerate(argv) if t in _INLINE_FLAGS or (t[:1] == "-" and t[:2] != "--" and t.endswith(letter))), -1)
     tail = [t for t in argv[hit + 1 :] if t != "--"] if hit >= 0 else []
     return tail[0] if tail else ""
 
 
 def _resolve(argv: list[str], depth: int) -> list[list[str]]:
-    """Return the argv leaves a command word yields once env prefixes, wrappers, shells, and interpreters are peeled."""
+    """Return the argv leaves a command yields once env assignments, wrappers, shells, and interpreters are stripped."""
     while argv and (_ENV_ASSIGN.match(argv[0]) or argv[0] in _WRAPPERS):
         argv = argv[1:]
-        while argv and ("=" in argv[0] or argv[0].isdigit() or argv[0] in _SUBVERBS or argv[0].startswith("-")):
+        while argv and ("=" in argv[0] or argv[0].isdigit() or argv[0] in _SUBCOMMANDS or argv[0].startswith("-")):
             argv = argv[2:] if argv[0] in _VALUE_OPTS else argv[1:]
     if not argv:
         return []
@@ -130,12 +130,12 @@ def _resolve(argv: list[str], depth: int) -> list[list[str]]:
         body = _flag_operand(argv, "c")
         return _leaves(body, depth + 1) if body and depth < _MAX_DEPTH else [["git", _INTERP]]
     if name.startswith(_INTERPRETERS) and (body := _flag_operand(argv, "c") or _flag_operand(argv, "e")):
-        return [["git", _INTERP]] if _GIT_WORD.search(body) else []  # Implied verdict, never keyword-scanned
+        return [["git", _INTERP]] if _GIT_WORD.search(body) else []  # Implied reason, never keyword-scanned
     return [argv]
 
 
 def _leaves(command: str, depth: int = 0) -> list[list[str]]:
-    """Return every argv leaf of a shell command: substitution bodies lifted and descended, then a quote-aware split."""
+    """Return every argv leaf of a shell command, substitution bodies parse first and the rest splits quote-aware."""
     command = _HEREDOC.sub(" ", command)
     bodies, flat, cursor = _BACKTICK.findall(command), _BACKTICK.sub(" ", _CONTINUE.sub(" ", command)), 0
     while (opened := flat.find("$(", cursor)) >= 0:
@@ -158,19 +158,19 @@ def _leaves(command: str, depth: int = 0) -> list[list[str]]:
     return out + (_resolve(argv, depth) if argv else [])
 
 
-def _verdict(argv: list[str], cwd: str) -> str:
-    """Return why a git argv is destructive under POLICY, or the empty string when it may run."""
+def _reason(argv: list[str], cwd: str) -> str:
+    """Return why a git argv is destructive under _POLICY, or the empty string when it can run."""
     i = 1
     while i < len(argv) and argv[i].startswith("-"):  # Skip global options, consuming the operand of each value-taking one
         i += 2 if argv[i] in _GIT_VALUE_OPTS else 1
     if any(t.startswith("alias.") for t in argv[1:i]):
-        return "an inline git alias (-c alias.*) can hide a blocked verb"
+        return "an inline git alias (-c alias.*) can hide a blocked subcommand"
     words = argv[i:]
-    key, args = next(((" ".join(words[:n]), words[n:]) for n in (2, 1) if " ".join(words[:n]) in POLICY), ("", []))
-    if (row := POLICY.get(key)) is None or (args[:1] and args[0] in row.safe):
+    key, args = next(((" ".join(words[:n]), words[n:]) for n in (2, 1) if " ".join(words[:n]) in _POLICY), ("", []))
+    if (row := _POLICY.get(key)) is None or (args[:1] and args[0] in row.safe):
         return ""
     hit = next((t for t in ["", *args] if t in row.flags or t.startswith(row.starts)), None)
-    return " ".join(w for w in ("git", key, hit, row.why) if w) if hit is not None else row.probe(args, cwd)
+    return " ".join(w for w in ("git", key, hit, row.why) if w) if hit is not None else row.refine(args, cwd)
 
 
 # --- [ENTRY] ----------------------------------------------------------------------------
@@ -181,11 +181,11 @@ def _refusal(command: str, cwd: str) -> str:
     if len(command) > _MAX_COMMAND:
         return "the command is too long to lex within the hook deadline, it cannot be checked safely"
     heads = (leaf[i:] for leaf in _leaves(command) for i, t in enumerate(leaf) if pathlib.PurePosixPath(t).name == "git")
-    return next((r for head in heads if (r := _verdict(head, cwd))), "")
+    return next((r for head in heads if (r := _reason(head, cwd))), "")
 
 
 def main() -> int:
-    """Return the hook exit status: 2 with a stderr reason blocks the first destructive leaf, 0 allows."""
+    """Return the hook exit status, 2 with a stderr reason blocks the first destructive leaf and 0 allows."""
     command = ""
     try:
         payload = json.loads(sys.stdin.buffer.read(_MAX_PAYLOAD) or b"{}")

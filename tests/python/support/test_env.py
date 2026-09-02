@@ -24,15 +24,17 @@ if TYPE_CHECKING:
 def _assert_filesystem_operations(fs: AbstractFileSystem, root: str) -> None:
     """Assert shared write, read, metadata, copy, move, find, and remove behavior."""
     fs.makedirs(f"{root}nest/deep", exist_ok=True)
-    fs.pipe_file(f"{root}nest/deep/blob.bin", b"payload")
-    assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"payload", "write/cat round-trip returned the wrong payload"
+    fs.pipe_file(f"{root}nest/deep/blob.bin", b"content")
+    assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"content", "write/cat round-trip returned the wrong content"
     assert (fs.exists(f"{root}nest/deep/blob.bin"), fs.isdir(f"{root}nest/deep")) == (True, True), "exists/isdir disagree with the write"
-    assert fs.info(f"{root}nest/deep/blob.bin")["size"] == len(b"payload"), "info reported the wrong payload size"
+    assert fs.info(f"{root}nest/deep/blob.bin")["size"] == len(b"content"), "info reported the wrong content size"
     fs.copy(f"{root}nest/deep/blob.bin", f"{root}nest/copy.bin")
-    assert (fs.cat_file(f"{root}nest/copy.bin"), fs.exists(f"{root}nest/deep/blob.bin")) == (b"payload", True), "copy moved instead of duplicating"
+    assert (fs.cat_file(f"{root}nest/copy.bin"), fs.exists(f"{root}nest/deep/blob.bin")) == (b"content", True), "copy moved instead of duplicating"
     fs.mv(f"{root}nest/copy.bin", f"{root}nest/moved.bin")
     assert (fs.exists(f"{root}nest/moved.bin"), fs.exists(f"{root}nest/copy.bin")) == (True, False), "mv left the source behind"
-    assert sorted(fs.find(f"{root}nest")) == [f"{root}nest/deep/blob.bin", f"{root}nest/moved.bin"], f"find returned unexpected paths: {fs.find(f'{root}nest')!r}"
+    assert sorted(fs.find(f"{root}nest")) == [f"{root}nest/deep/blob.bin", f"{root}nest/moved.bin"], (
+        f"find returned unexpected paths: {fs.find(f'{root}nest')!r}"
+    )
     fs.rm(f"{root}nest", recursive=True)
     assert not fs.exists(f"{root}nest/deep/blob.bin"), "recursive rm left content behind"
 
@@ -75,8 +77,10 @@ async def test_ssh_handler_owns_reply_and_exit_code() -> None:
     provisioned = provision(SshHost(handler=lambda command: (f"custom:{command}", 17)))
     conn = await provisioned.client_factory()
     try:
-        done = await conn.run("payload", encoding=None, check=False)
-        assert (done.stdout, done.exit_status) == (b"custom:payload", 17), f"handler returned an unexpected reply or exit code: {done.stdout!r}/{done.exit_status}"
+        done = await conn.run("input", encoding=None, check=False)
+        assert (done.stdout, done.exit_status) == (b"custom:input", 17), (
+            f"handler returned an unexpected reply or exit code: {done.stdout!r}/{done.exit_status}"
+        )
     finally:
         conn.close()
         await conn.wait_closed()
@@ -115,14 +119,14 @@ async def test_ssh_factory_yields_fresh_connections() -> None:
 @pytest.mark.anyio
 async def test_ssh_sftp_chroot_serves_and_confines(tmp_path: Path) -> None:
     """``sftp_root`` confines relative reads and absolute writes to the chroot."""
-    (tmp_path / "hello.txt").write_text("payload", encoding="utf-8")
+    (tmp_path / "hello.txt").write_text("content", encoding="utf-8")
     provisioned = provision(SshHost(sftp_root=tmp_path))
     conn = await provisioned.client_factory()
     try:
         async with conn.start_sftp_client() as sftp:
             assert "hello.txt" in await sftp.listdir("."), "chroot listing omitted the seeded file"
             async with sftp.open("hello.txt") as handle:
-                assert await handle.read() == "payload", "chroot read returned the wrong payload"
+                assert await handle.read() == "content", "chroot read returned the wrong content"
             async with sftp.open("/escape.txt", "w") as handle:
                 await handle.write("contained")
         assert (tmp_path / "escape.txt").read_text(encoding="utf-8") == "contained", "absolute sftp path escaped the chroot"
@@ -155,7 +159,7 @@ def test_remote_fs_supports_common_operations_without_presigning() -> None:
     try:
         fs = provisioned.client_factory()
         _assert_filesystem_operations(fs, "")
-        fs.pipe_file("blob.bin", b"payload")
+        fs.pipe_file("blob.bin", b"content")
         match getattr(fs, "url", None):
             case None:
                 pass
@@ -193,16 +197,16 @@ def test_object_store_teardown_resets_process_global_state(socket_enabled: None)
 
 
 def test_object_store_round_trips_presigns_and_isolates_endpoints(socket_enabled: None) -> None:
-    """Endpoints stay disjoint, put/cat/info round-trips with an e-tag, presigned GET serves the exact payload over HTTP."""
+    """Endpoints stay disjoint, put/cat/info round-trips with an e-tag, presigned GET serves the exact content over HTTP."""
     _ = socket_enabled
     first, second = provision(ObjectStore()), provision(ObjectStore(bucket="peer-bucket"))
     try:
         assert first.url != second.url, "moto endpoints collided"
         fs = first.client_factory()
         fs.pipe_file("test-support-bucket/nest/blob.bin", b"alpha")
-        assert fs.cat_file("test-support-bucket/nest/blob.bin") == b"alpha", "put/cat round-trip returned the wrong payload"
+        assert fs.cat_file("test-support-bucket/nest/blob.bin") == b"alpha", "put/cat round-trip returned the wrong content"
         info = fs.info("test-support-bucket/nest/blob.bin")
-        assert info["size"] == len(b"alpha"), "info reported the wrong payload size"
+        assert info["size"] == len(b"alpha"), "info reported the wrong content size"
         assert info.get("ETag"), "object metadata did not include an e-tag"
         signed = fs.url("test-support-bucket/nest/blob.bin", expires=60)
         assert signed.startswith(first.url), f"presigned URL escaped the provisioned endpoint: {signed!r}"
@@ -210,7 +214,9 @@ def test_object_store_round_trips_presigns_and_isolates_endpoints(socket_enabled
         assert (fetched.status_code, fetched.content) == (200, b"alpha"), "presigned GET did not serve the object"
         peer = second.client_factory()
         peer.pipe_file("peer-bucket/nest/blob.bin", b"beta")
-        assert (fs.cat_file("test-support-bucket/nest/blob.bin"), peer.cat_file("peer-bucket/nest/blob.bin")) == (b"alpha", b"beta"), "object-store endpoints did not remain isolated"
+        assert (fs.cat_file("test-support-bucket/nest/blob.bin"), peer.cat_file("peer-bucket/nest/blob.bin")) == (b"alpha", b"beta"), (
+            "object-store endpoints did not remain isolated"
+        )
     finally:
         first.teardown()
         first.teardown()

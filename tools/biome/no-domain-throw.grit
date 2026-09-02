@@ -1,7 +1,7 @@
 language js(typescript, jsx)
 
-`throw $err` where {
-    $err <: not within `Effect.try($_)` ,
-    $err <: not within `Effect.tryPromise($_)` ,
-    register_diagnostic(span=$err, message="Raw throw in domain flow. Fail through the typed error channel: Effect.fail with a tagged error, or wrap the throwing call in Effect.try/Effect.tryPromise.", severity="error")
+`throw $error` where {
+    $error <: not within `Effect.try($_)` ,
+    $error <: not within `Effect.tryPromise($_)` ,
+    register_diagnostic(span=$error, message="Throw in domain code, fail through the typed error channel with Effect.fail and a tagged error, or wrap the throwing call in Effect.try or Effect.tryPromise", severity="error")
 }

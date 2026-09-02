@@ -6,9 +6,8 @@ namespace Rasm.Policy.Analyzers;
 
 /// <summary>Reports RASM0006 when an executable or plugin host references an interop facade but never invokes its initialization</summary>
 /// <remarks>
-/// Rasm.Interop.RuntimeInitialization.Initialize covers the Initialize entry point of every interop facade. Hosts referencing a
-/// facade without any of those calls fail their libraries at first use. Method references to an entry point count because the delegate reaches a startup
-/// hook the analyzer cannot trace. Libraries opt in as hosts through the RasmPluginHost build property
+/// Rasm.Interop.RuntimeInitialization.Initialize covers the Initialize entry point of every facade, and a host without any of those calls fails its libraries at first use.
+/// Method references count because the delegate reaches a startup hook the analyzer cannot trace, and libraries opt in as hosts through the RasmPluginHost build property
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {
@@ -22,7 +21,7 @@ public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Interop facade packages carry mandatory runtime initialization that referencing executables and plugin hosts must invoke before first library use.",
+        description: "Interop facade packages require runtime initialization that referencing executables and plugin hosts invoke before first library use.",
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly ImmutableArray<(string PackageName, string FacadeTypeName)> Facades =

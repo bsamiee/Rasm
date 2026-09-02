@@ -1,7 +1,6 @@
 """Stage the pinned sqlite-vec loadable extension for a runtime identifier for packing.
 
-The payload packs as runtimes/<rid>/native/, the flat loadable a SqliteConnection
-LoadExtension call resolves from consumer output.
+The loadable packs as runtimes/<rid>/native/, the flat file a SqliteConnection LoadExtension call resolves from consumer output.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -22,7 +21,7 @@ _WORK = REPO_ROOT / ".artifacts" / "native" / "sqlitevec"
 _FILE_NAMES: dict[Rid, str] = {"osx-arm64": "vec0.dylib", "linux-x64": "vec0.so", "linux-arm64": "vec0.so", "win-x64": "vec0.dll"}
 
 _log = structlog.get_logger(__name__)
-app = cyclopts.App(name="stage-sqlitevec-native")
+_app = cyclopts.App(name="stage-sqlitevec-native")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -44,7 +43,7 @@ async def _stage(rid: Rid) -> Path:
     return destination / file_name
 
 
-@app.default
+@_app.default
 def main(rid: Rid | None = None) -> None:
     """Stage the sqlite-vec loadable for the given or host runtime identifier."""
     resolved = rid or host_rid()
@@ -53,7 +52,7 @@ def main(rid: Rid | None = None) -> None:
 
 
 if __name__ == "__main__":
-    app()
+    _app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

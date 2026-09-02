@@ -1,11 +1,8 @@
 """Build the gmsh shared library for a runtime identifier and stage it for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
-collects .artifacts/native/gmsh/stage and runs the eng pack-gmsh-native and pack-gmsh-managed
-targets alone. The managed binding sources generate from the api definition inside the same
-pinned archive the gmsh port downloads. Rasm.Gmsh and Rasm.Native.Gmsh always share the
-upstream version. The staged overlay re-enables the mesh module and bundled Eigen the port
-hard-codes off, everything else stays at the port's configuration.
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job collects .artifacts/native/gmsh/stage and runs the eng pack-gmsh-native and pack-gmsh-managed targets alone.
+The managed binding sources generate from the api definition inside the same pinned archive the gmsh port downloads, Rasm.Gmsh and Rasm.Native.Gmsh share the upstream version.
+The staged overlay re-enables the mesh module and bundled Eigen the port hard-codes off, everything else stays at the port's configuration.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -20,16 +17,27 @@ import cyclopts
 import structlog
 
 from eng.scripts.gen_gmsh_bindings import generate
-from eng.scripts.provision import host_rid, manifest_version, native_build_tools, REPO_ROOT, Rid, run, stage_library, vcpkg_args, vcpkg_install, vcpkg_target
+from eng.scripts.provision import (
+    host_rid,
+    manifest_version,
+    native_build_tools,
+    REPO_ROOT,
+    Rid,
+    run,
+    stage_library,
+    vcpkg_args,
+    vcpkg_install,
+    vcpkg_target,
+)
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _MANIFEST_ROOT = REPO_ROOT / "eng" / "native" / "gmsh"
 _WORK = REPO_ROOT / ".artifacts" / "native" / "gmsh"
-_PORT_FLIPS = ("-DENABLE_MESH=OFF", "-DENABLE_EIGEN=OFF")
+_PORT_DISABLED = ("-DENABLE_MESH=OFF", "-DENABLE_EIGEN=OFF")
 
 _log = structlog.get_logger(__name__)
-app = cyclopts.App(name="stage-gmsh-native")
+_app = cyclopts.App(name="stage-gmsh-native")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -50,7 +58,7 @@ def _overlay(vcpkg: Path) -> Path:
     shutil.copytree(vcpkg.parent / "ports" / "gmsh", root / "gmsh")
     portfile = root / "gmsh" / "portfile.cmake"
     text = portfile.read_text()
-    for flag in _PORT_FLIPS:
+    for flag in _PORT_DISABLED:
         if flag not in text:
             raise SystemExit(f"{flag} not found in the pinned gmsh portfile")
         text = text.replace(flag, flag.replace("=OFF", "=ON"))
@@ -72,7 +80,7 @@ async def _source_root(vcpkg: Path, version: str, install_args: list[str]) -> Pa
 
 
 async def _stage_managed(vcpkg: Path, version: str, install_args: list[str]) -> Path:
-    """Generate the complete C# binding surface from the pinned api definition."""
+    """Generate the complete C# bindings from the pinned api definition."""
     root = await _source_root(vcpkg, version, install_args)
     managed = _WORK / "stage" / "managed"
     shutil.rmtree(managed, ignore_errors=True)
@@ -93,7 +101,7 @@ async def _stage(rid: Rid) -> Path:
     return destination
 
 
-@app.default
+@_app.default
 def main(rid: Rid | None = None) -> None:
     """Stage the gmsh library for the given or host runtime identifier."""
     resolved = rid or host_rid()
@@ -102,7 +110,7 @@ def main(rid: Rid | None = None) -> None:
 
 
 if __name__ == "__main__":
-    app()
+    _app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

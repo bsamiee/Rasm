@@ -58,8 +58,10 @@ _VCPKG_ROOT = REPO_ROOT / ".cache" / "vcpkg"
 _HOST_TOOLS = REPO_ROOT / ".cache" / "vcpkg-hosttools"
 
 _ENERGYPLUS_RELEASES = "https://github.com/NatLabRockies/EnergyPlus/releases/download"
-_ENERGYPLUS_VERSION = "25.2.0"  # The EnergyPlus release the catalog's NREL.OpenStudio 3.11.0 translates models for
-_ENERGYPLUS_ASSETS: dict[Rid, tuple[str, str]] = {"osx-arm64": ("EnergyPlus-25.2.0-cf7368216c-Darwin-macOS13-arm64.tar.gz", "e7976e82509d961bcf484963a1a7109db4cae318dfc318898f97183f4097deda")}
+_ENERGYPLUS_VERSION = "25.2.0"  # EnergyPlus release the catalog's NREL.OpenStudio 3.11.0 translates models for
+_ENERGYPLUS_ASSETS: dict[Rid, tuple[str, str]] = {
+    "osx-arm64": ("EnergyPlus-25.2.0-cf7368216c-Darwin-macOS13-arm64.tar.gz", "e7976e82509d961bcf484963a1a7109db4cae318dfc318898f97183f4097deda")
+}
 
 _DUCKDB_EXTENSION_REPOSITORY = "https://extensions.duckdb.org"
 _DUCKDB_EXTENSIONS_MANIFEST = REPO_ROOT / "eng" / "native" / "duckdbextensions" / "extensions.json"
@@ -67,14 +69,26 @@ _DUCKDB_PLATFORMS: dict[Rid, str] = {"osx-arm64": "osx_arm64", "linux-x64": "lin
 
 _SQLITE_VEC_RELEASES = "https://github.com/asg017/sqlite-vec/releases/download"
 _SQLITE_VEC_MANIFEST = REPO_ROOT / "eng" / "native" / "sqlitevec" / "loadable.json"
-_SQLITE_VEC_PLATFORMS: dict[Rid, str] = {"osx-arm64": "macos-aarch64", "linux-x64": "linux-x86_64", "linux-arm64": "linux-aarch64", "win-x64": "windows-x86_64"}
+_SQLITE_VEC_PLATFORMS: dict[Rid, str] = {
+    "osx-arm64": "macos-aarch64",
+    "linux-x64": "linux-x86_64",
+    "linux-arm64": "linux-aarch64",
+    "win-x64": "windows-x86_64",
+}
 
 _EMGUCV_URL = "https://github.com/emgucv/emgucv"
 _EMGUCV_MANIFEST = REPO_ROOT / "eng" / "native" / "emgucv" / "source.json"
-_EMGUCV_SUBMODULES = ("opencv", "opencv_contrib", "eigen", "hdf5", "Emgu.CV.Extern/tesseract/libtesseract/tesseract-ocr.git", "Emgu.CV.Extern/tesseract/libtesseract/leptonica/leptonica.git")
+_EMGUCV_SUBMODULES = (
+    "opencv",
+    "opencv_contrib",
+    "eigen",
+    "hdf5",
+    "Emgu.CV.Extern/tesseract/libtesseract/tesseract-ocr.git",
+    "Emgu.CV.Extern/tesseract/libtesseract/leptonica/leptonica.git",
+)
 
 _log = structlog.get_logger(__name__)
-app = cyclopts.App(name="provision")
+_app = cyclopts.App(name="provision")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -131,12 +145,24 @@ async def _pkg_config(vcpkg: Path) -> dict[str, str]:
         return {}
     tool = _HOST_TOOLS / "installed" / _host_triplet() / "tools" / "pkgconf" / "pkgconf"
     if not tool.exists():
-        # The pkgconf port validates its own pc file with pkg-config, which this machine lacks
+        # pkgconf port validates its own pc file with pkg-config, absent on this machine
         overlay = _HOST_TOOLS / "overlay"
         shutil.copytree(_VCPKG_ROOT / "ports" / "pkgconf", overlay / "pkgconf", dirs_exist_ok=True)
         portfile = overlay / "pkgconf" / "portfile.cmake"
         _ = portfile.write_text(portfile.read_text().replace("vcpkg_fixup_pkgconfig()", "vcpkg_fixup_pkgconfig(SKIP_CHECK)"))
-        await run([str(vcpkg), "install", f"pkgconf:{_host_triplet()}", "--overlay-ports", str(overlay), "--x-install-root", str(_HOST_TOOLS / "installed"), "--no-print-usage"], REPO_ROOT)
+        await run(
+            [
+                str(vcpkg),
+                "install",
+                f"pkgconf:{_host_triplet()}",
+                "--overlay-ports",
+                str(overlay),
+                "--x-install-root",
+                str(_HOST_TOOLS / "installed"),
+                "--no-print-usage",
+            ],
+            REPO_ROOT,
+        )
     return {"PKG_CONFIG": str(tool)}
 
 
@@ -352,18 +378,27 @@ async def stage_closure(built: list[Path], work: Path, rid: Rid, rename: Callabl
 # --- [CLI] ------------------------------------------------------------------------------
 
 
-@app.default
+@_app.default
 def main() -> None:
-    """Provision the pinned tool set for this machine."""
+    """Provision the pinned build tools, EnergyPlus runtime, and DuckDB and sqlite-vec archives for the host."""
     tools = anyio.run(native_build_tools)
     energyplus = anyio.run(_energyplus_exe)
     duckdb, extensions = anyio.run(duckdb_extension_archives, host_rid())
     sqlitevec, loadable = anyio.run(sqlite_vec_archive, host_rid())
-    _log.info("provisioned", vcpkg=str(tools.vcpkg), env=tools.env, energyplus=str(energyplus), duckdb=duckdb, extensions=[archive.name for archive in extensions], sqlitevec=sqlitevec, loadable=loadable.name)
+    _log.info(
+        "provisioned",
+        vcpkg=str(tools.vcpkg),
+        env=tools.env,
+        energyplus=str(energyplus),
+        duckdb=duckdb,
+        extensions=[archive.name for archive in extensions],
+        sqlitevec=sqlitevec,
+        loadable=loadable.name,
+    )
 
 
 if __name__ == "__main__":
-    app()
+    _app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

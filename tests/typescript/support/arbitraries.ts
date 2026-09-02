@@ -25,21 +25,14 @@ const _optionalKeys = (schema: Schema.Schema.Any): ReadonlyArray<_Key> =>
                 ? Option.some<_Key>({
                       name: signature.name,
                       undefinable: SchemaAST.isUnion(signature.type)
-                          ? Array.some(
-                                signature.type.types,
-                                SchemaAST.isUndefinedKeyword,
-                            )
+                          ? Array.some(signature.type.types, SchemaAST.isUndefinedKeyword)
                           : SchemaAST.isUndefinedKeyword(signature.type),
                   })
                 : Option.none(),
         ),
     );
 
-const _withOptionalFields = <A>(
-    value: A,
-    dropped: ReadonlyArray<string>,
-    unset: ReadonlyArray<string>,
-): A => {
+const _withOptionalFields = <A>(value: A, dropped: ReadonlyArray<string>, unset: ReadonlyArray<string>): A => {
     const draft: Record<string, unknown> = {
         ...(value as Record<string, unknown>),
     };
@@ -52,44 +45,23 @@ const _withOptionalFields = <A>(
     return draft as A;
 };
 
-const _varyOptionalFields = <A>(
-    base: FastCheck.Arbitrary<A>,
-    keys: ReadonlyArray<_Key>,
-): FastCheck.Arbitrary<A> =>
+const _varyOptionalFields = <A>(base: FastCheck.Arbitrary<A>, keys: ReadonlyArray<_Key>): FastCheck.Arbitrary<A> =>
     base.chain((value) =>
         FastCheck.tuple(
             FastCheck.subarray(Array.map(keys, (key) => key.name)),
-            FastCheck.subarray(
-                Array.filterMap(keys, (key) =>
-                    key.undefinable ? Option.some(key.name) : Option.none(),
-                ),
-            ),
+            FastCheck.subarray(Array.filterMap(keys, (key) => (key.undefinable ? Option.some(key.name) : Option.none()))),
         ).map(([dropped, unset]) => _withOptionalFields(value, dropped, unset)),
     );
 
-function optionalFields<S extends Schema.Schema.Any>(
-    schema: S,
-): FastCheck.Arbitrary<Schema.Schema.Encoded<S>>;
-function optionalFields<A>(
-    arb: FastCheck.Arbitrary<A>,
-    keys: ReadonlyArray<string>,
-): FastCheck.Arbitrary<A>;
-function optionalFields<T>(
-    model: Arbitraries.Model<T>,
-    required?: ReadonlyArray<keyof T & string>,
-): FastCheck.Arbitrary<Partial<T>>;
+function optionalFields<S extends Schema.Schema.Any>(schema: S): FastCheck.Arbitrary<Schema.Schema.Encoded<S>>;
+function optionalFields<A>(arb: FastCheck.Arbitrary<A>, keys: ReadonlyArray<string>): FastCheck.Arbitrary<A>;
+function optionalFields<T>(model: Arbitraries.Model<T>, required?: ReadonlyArray<keyof T & string>): FastCheck.Arbitrary<Partial<T>>;
 function optionalFields(
-    input:
-        | Schema.Schema.Any
-        | FastCheck.Arbitrary<unknown>
-        | Arbitraries.Model<Record<string, unknown>>,
+    input: Schema.Schema.Any | FastCheck.Arbitrary<unknown> | Arbitraries.Model<Record<string, unknown>>,
     keys?: ReadonlyArray<string>,
 ): FastCheck.Arbitrary<unknown> {
     return Schema.isSchema(input)
-        ? _varyOptionalFields(
-              Arbitrary.make(Schema.encodedBoundSchema(input)),
-              _optionalKeys(input),
-          )
+        ? _varyOptionalFields(Arbitrary.make(Schema.encodedBoundSchema(input)), _optionalKeys(input))
         : input instanceof FastCheck.Arbitrary
           ? _varyOptionalFields(
                 input,

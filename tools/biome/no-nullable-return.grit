@@ -10,5 +10,5 @@ or {
         }
     }
 } as $hit where {
-    register_diagnostic(span=$hit, message="Absence sentinel returned from domain flow. Absence is Option: Array.head, Option.fromNullable at the boundary, Option.none in the interior. Arrow bodies that are only the sentinel are the same defect.", severity="error")
+    register_diagnostic(span=$hit, message="Null or undefined returned from domain code (an arrow body of only the sentinel included), represent absence with Option through Array.head, Option.fromNullable at the boundary, and Option.none inside", severity="error")
 }

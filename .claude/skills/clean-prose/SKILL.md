@@ -37,6 +37,9 @@ Words that fail the tests take the current term for the thing they name, listed 
 |  [14]   | verb (for a CLI action), twin, sibling variant     | subcommand, overload, suffix variant           |
 |  [15]   | rides, carries, travels, lives (for a value)       | holds, stores, sets, belongs to                |
 |  [16]   | probe (as a test double), fan-out degree           | spy, degree of parallelism                     |
+|  [17]   | phantom, ghost, census, sweep                      | missing, undefined, coverage check, assertion  |
+|  [18]   | materialize, egress, pristine, in-flight           | write, exporter, empty, uncommitted            |
+|  [19]   | interior, flips, autosave, mirrors (verb)          | inside, disabled, output file, matches         |
 
 The repository, product, or organization name belongs in identifiers the ecosystem requires, in package descriptions, in CLI help text, and in prose only as a contrast with another product. Text under a heading that names its subject refers to the subject by pronoun or by its parts.
 

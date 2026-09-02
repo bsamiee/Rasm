@@ -2,12 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, layer } from '@effect/vitest';
 import { Array, Effect, String } from 'effect';
-import {
-    Benchmark,
-    BenchmarkDirectory,
-    BenchmarkError,
-    BenchmarkResult,
-} from './bench.ts';
+import { Benchmark, BenchmarkDirectory, BenchmarkError, BenchmarkResult } from './bench.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,11 +22,7 @@ const _SLOW_LATEST = JSON.stringify({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _run = (
-    name: string,
-    hzRuns: ReadonlyArray<number>,
-    rme = 1,
-): ReadonlyArray<BenchmarkResult> =>
+const _results = (name: string, hzRuns: ReadonlyArray<number>, rme = 1): ReadonlyArray<BenchmarkResult> =>
     Array.map(
         hzRuns,
         (hz, index) =>
@@ -47,7 +38,7 @@ const _seededDirectory = (history: ReadonlyArray<BenchmarkResult>) =>
     Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const home = yield* fs.makeTempDirectoryScoped();
+        const directory = yield* fs.makeTempDirectoryScoped();
         const lines = Array.map(history, (row) =>
             JSON.stringify({
                 timestamp: row.timestamp,
@@ -56,50 +47,35 @@ const _seededDirectory = (history: ReadonlyArray<BenchmarkResult>) =>
                 rme: row.rme,
             }),
         );
-        yield* fs.writeFileString(
-            path.join(home, 'history.ndjson'),
-            `${lines.join('\n')}\n`,
-        );
-        yield* fs.writeFileString(path.join(home, 'latest.json'), _SLOW_LATEST);
-        return home;
+        yield* fs.writeFileString(path.join(directory, 'history.ndjson'), `${lines.join('\n')}\n`);
+        yield* fs.writeFileString(path.join(directory, 'latest.json'), _SLOW_LATEST);
+        return directory;
     });
 
 describe('sustained regression detection', () => {
     it('consecutive slow runs against the baseline are a regression', () => {
-        const report = Benchmark.summarize(
-            _run('summarize', [100, 101, 99, 100, 100, 60, 58, 61]),
-        );
+        const report = Benchmark.summarize(_results('summarize', [100, 101, 99, 100, 100, 60, 58, 61]));
         expect(report.verdict).toBe('regression');
-        expect(
-            Array.map(report.benchmarks, (benchmark) => benchmark.verdict),
-        ).toEqual(['regression']);
+        expect(Array.map(report.benchmarks, (benchmark) => benchmark.verdict)).toEqual(['regression']);
     });
 
     it('single slow results do not count as a sustained regression', () => {
-        const report = Benchmark.summarize(
-            _run('spike', [100, 101, 99, 100, 60, 100, 101]),
-        );
+        const report = Benchmark.summarize(_results('spike', [100, 101, 99, 100, 60, 100, 101]));
         expect(report.verdict).toBe('pass');
     });
 
     it('performance changes inside tolerance pass', () => {
-        const report = Benchmark.summarize(
-            _run('within-tolerance', [100, 101, 99, 100, 100, 95, 94, 96]),
-        );
+        const report = Benchmark.summarize(_results('within-tolerance', [100, 101, 99, 100, 100, 95, 94, 96]));
         expect(report.verdict).toBe('pass');
     });
 
     it('noisy recent windows are reported, not silently passed', () => {
-        const report = Benchmark.summarize(
-            _run('noisy', [100, 101, 99, 100, 100, 98, 97, 99], 25),
-        );
+        const report = Benchmark.summarize(_results('noisy', [100, 101, 99, 100, 100, 98, 97, 99], 25));
         expect(report.verdict).toBe('noisy');
     });
 
     it('short history passes because it cannot establish a sustained regression', () => {
-        const report = Benchmark.summarize(
-            _run('short-history', [100, 60, 58, 61]),
-        );
+        const report = Benchmark.summarize(_results('short-history', [100, 60, 58, 61]));
         expect(report.verdict).toBe('pass');
     });
 
@@ -111,133 +87,68 @@ describe('sustained regression detection', () => {
 });
 
 layer(NodeContext.layer)('benchmark regression check', (it) => {
-    it.effect(
-        'the check returns a typed error for a sustained regression',
-        () =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const home = yield* _seededDirectory(
-                        _run(
-                            'test support benchmarks::summarize',
-                            [100, 101, 99, 100, 60, 58],
-                        ),
-                    );
-                    const error = yield* Effect.flip(
-                        Effect.provideService(
-                            Benchmark.checkRegression(),
-                            BenchmarkDirectory,
-                            home,
-                        ),
-                    );
-                    expect(error).toBeInstanceOf(BenchmarkError);
-                    expect(error.reason).toBe('regression');
-                    expect(error.detail).toContain(
-                        'test support benchmarks::summarize',
-                    );
-                }),
-            ),
+    it.effect('the check returns a typed error for a sustained regression', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const directory = yield* _seededDirectory(_results('test support benchmarks::summarize', [100, 101, 99, 100, 60, 58]));
+                const error = yield* Effect.flip(Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory));
+                expect(error).toBeInstanceOf(BenchmarkError);
+                expect(error.reason).toBe('regression');
+                expect(error.detail).toContain('test support benchmarks::summarize');
+            }),
+        ),
     );
 
-    it.effect(
-        'the check returns every benchmark result for history without regressions',
-        () =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const home = yield* _seededDirectory(
-                        _run(
-                            'test support benchmarks::summarize',
-                            [60, 59, 61, 60, 58, 61],
-                        ),
-                    );
-                    const report = yield* Effect.provideService(
-                        Benchmark.checkRegression(),
-                        BenchmarkDirectory,
-                        home,
-                    );
-                    expect(report.verdict).toBe('pass');
-                    expect(
-                        Array.map(
-                            report.benchmarks,
-                            (benchmark) => benchmark.name,
-                        ),
-                    ).toEqual(['test support benchmarks::summarize']);
-                }),
-            ),
+    it.effect('the check returns every benchmark result for history without regressions', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const directory = yield* _seededDirectory(_results('test support benchmarks::summarize', [60, 59, 61, 60, 58, 61]));
+                const report = yield* Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory);
+                expect(report.verdict).toBe('pass');
+                expect(Array.map(report.benchmarks, (benchmark) => benchmark.name)).toEqual(['test support benchmarks::summarize']);
+            }),
+        ),
     );
 
-    it.effect(
-        'reprocessing one autosave does not duplicate benchmark history',
-        () =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const fs = yield* FileSystem.FileSystem;
-                    const path = yield* Path.Path;
-                    const home = yield* _seededDirectory(
-                        _run('test support benchmarks::summarize', [60, 61]),
-                    );
-                    const check = Effect.provideService(
-                        Benchmark.checkRegression(),
-                        BenchmarkDirectory,
-                        home,
-                    );
-                    yield* check;
-                    yield* check;
-                    const raw = yield* fs.readFileString(
-                        path.join(home, 'history.ndjson'),
-                    );
-                    const appended = Array.filter(
-                        String.split(raw, '\n'),
-                        (line) =>
-                            String.isNonEmpty(line) && line.includes('"hz":58'),
-                    );
-                    expect(appended).toHaveLength(1);
-                }),
-            ),
-    );
-
-    it.effect('missing autosaves return a typed unreadable error', () =>
+    it.effect('reprocessing one benchmark output file does not duplicate history', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const fs = yield* FileSystem.FileSystem;
-                const home = yield* fs.makeTempDirectoryScoped();
-                const error = yield* Effect.flip(
-                    Effect.provideService(
-                        Benchmark.checkRegression(),
-                        BenchmarkDirectory,
-                        home,
-                    ),
-                );
+                const path = yield* Path.Path;
+                const directory = yield* _seededDirectory(_results('test support benchmarks::summarize', [60, 61]));
+                const check = Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory);
+                yield* check;
+                yield* check;
+                const raw = yield* fs.readFileString(path.join(directory, 'history.ndjson'));
+                const appended = Array.filter(String.split(raw, '\n'), (line) => String.isNonEmpty(line) && line.includes('"hz":58'));
+                expect(appended).toHaveLength(1);
+            }),
+        ),
+    );
+
+    it.effect('missing benchmark output files return a typed unreadable error', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const directory = yield* fs.makeTempDirectoryScoped();
+                const error = yield* Effect.flip(Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory));
                 expect(error.reason).toBe('unreadable');
             }),
         ),
     );
 
-    it.effect(
-        'corrupted history lines return a typed malformed error rather than an Effect defect',
-        () =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const fs = yield* FileSystem.FileSystem;
-                    const path = yield* Path.Path;
-                    const home = yield* fs.makeTempDirectoryScoped();
-                    yield* fs.writeFileString(
-                        path.join(home, 'history.ndjson'),
-                        'not-a-benchmark-result\n',
-                    );
-                    yield* fs.writeFileString(
-                        path.join(home, 'latest.json'),
-                        _SLOW_LATEST,
-                    );
-                    const error = yield* Effect.flip(
-                        Effect.provideService(
-                            Benchmark.checkRegression(),
-                            BenchmarkDirectory,
-                            home,
-                        ),
-                    );
-                    expect(error).toBeInstanceOf(BenchmarkError);
-                    expect(error.reason).toBe('malformed');
-                }),
-            ),
+    it.effect('corrupted history lines return a typed malformed error rather than an Effect defect', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const path = yield* Path.Path;
+                const directory = yield* fs.makeTempDirectoryScoped();
+                yield* fs.writeFileString(path.join(directory, 'history.ndjson'), 'not-a-benchmark-result\n');
+                yield* fs.writeFileString(path.join(directory, 'latest.json'), _SLOW_LATEST);
+                const error = yield* Effect.flip(Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory));
+                expect(error).toBeInstanceOf(BenchmarkError);
+                expect(error.reason).toBe('malformed');
+            }),
+        ),
     );
 });

@@ -1,10 +1,7 @@
 """Build the c-blosc2 shared library for a runtime identifier and stage it for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
-collects .artifacts/native/blosc2/stage and runs the eng pack-blosc2-native target alone. On
-macOS every install name is rewritten to @loader_path and re-signed ad hoc, dotnet default
-probing loads the codec dependency closure from the output directory. Only the blosc2 library
-itself takes the canonical name the managed DllImport probes for.
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job collects .artifacts/native/blosc2/stage and runs the eng pack-blosc2-native target alone.
+On macOS every install name is rewritten to @loader_path and re-signed ad hoc, dotnet default probing loads the codec dependency closure from the output directory, and only the blosc2 library itself takes the canonical name the managed DllImport probes for.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -23,7 +20,7 @@ _MANIFEST_ROOT = REPO_ROOT / "eng" / "native" / "blosc2"
 _WORK = REPO_ROOT / ".artifacts" / "native" / "blosc2"
 
 _log = structlog.get_logger(__name__)
-app = cyclopts.App(name="stage-blosc2-native")
+_app = cyclopts.App(name="stage-blosc2-native")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -36,7 +33,7 @@ async def _stage(rid: Rid) -> Path:
     return await stage_closure(built, _WORK, rid, rename=lambda name: target.file_name if name.removeprefix("lib").startswith("blosc2") else name)
 
 
-@app.default
+@_app.default
 def main(rid: Rid | None = None) -> None:
     """Stage the c-blosc2 libraries for the given or host runtime identifier."""
     resolved = rid or host_rid()
@@ -45,7 +42,7 @@ def main(rid: Rid | None = None) -> None:
 
 
 if __name__ == "__main__":
-    app()
+    _app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

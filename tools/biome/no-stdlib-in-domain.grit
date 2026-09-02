@@ -25,5 +25,5 @@ or {
     `setTimeout($_)`,
     `setInterval($_)`
 } as $hit where {
-    register_diagnostic(span=$hit, message="Stdlib primitive in domain code. Effect owns this concern: HashMap/HashSet for collections, Effect for async, Clock/DateTime for time, Random for entropy, Effect.sleep/Schedule for timers, Effect.yieldNow for scheduling.", severity="error")
+    register_diagnostic(span=$hit, message="Standard library primitive in domain code, use the Effect equivalent (HashMap and HashSet for collections, Effect for async, Clock and DateTime for time, Random for entropy, Effect.sleep and Schedule for timers, Effect.yieldNow for scheduling)", severity="error")
 }

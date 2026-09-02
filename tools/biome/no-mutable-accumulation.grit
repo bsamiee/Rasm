@@ -5,5 +5,5 @@ or {
     `$collection.unshift($items)`,
     `$collection.splice($items)`
 } as $hit where {
-    register_diagnostic(span=$hit, message="Mutable accumulation in domain flow. Collapse the loop into an immutable fold or Array combinator. Concurrent accumulation uses Ref.", severity="error")
+    register_diagnostic(span=$hit, message="Mutable accumulation in domain code, replace the loop with an immutable fold or Array combinator, and accumulate across fibers with Ref", severity="error")
 }

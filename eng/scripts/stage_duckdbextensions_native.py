@@ -1,7 +1,6 @@
 """Stage the pinned DuckDB extension files for a runtime identifier for packing.
 
-The payload packs as contentFiles, consumer output carries duckdb_extensions/v<engine>/<platform>/,
-the local repository layout a DuckDB extension_directory setting resolves for offline LOAD.
+The extension files pack as contentFiles, consumer output holds duckdb_extensions/v<engine>/<platform>/, the local repository layout a DuckDB extension_directory setting resolves for offline LOAD.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -21,7 +20,7 @@ from eng.scripts.provision import duckdb_extension_archives, duckdb_platform, ho
 _WORK = REPO_ROOT / ".artifacts" / "native" / "duckdbextensions"
 
 _log = structlog.get_logger(__name__)
-app = cyclopts.App(name="stage-duckdbextensions-native")
+_app = cyclopts.App(name="stage-duckdbextensions-native")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -38,7 +37,7 @@ async def _stage(rid: Rid) -> Path:
     return destination
 
 
-@app.default
+@_app.default
 def main(rid: Rid | None = None) -> None:
     """Stage the DuckDB extension files for the given or host runtime identifier."""
     resolved = rid or host_rid()
@@ -47,7 +46,7 @@ def main(rid: Rid | None = None) -> None:
 
 
 if __name__ == "__main__":
-    app()
+    _app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

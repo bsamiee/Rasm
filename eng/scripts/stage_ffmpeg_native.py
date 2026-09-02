@@ -1,9 +1,7 @@
 """Build the FFmpeg shared libraries for a runtime identifier and stage them for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
-collects .artifacts/native/ffmpeg/stage and runs the eng pack-ffmpeg-native target alone. On
-macOS every install name is rewritten to @loader_path and re-signed ad hoc, dotnet default
-probing loads the encoder-capable set from the output directory.
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job collects .artifacts/native/ffmpeg/stage and runs the eng pack-ffmpeg-native target alone.
+On macOS every install name is rewritten to @loader_path and re-signed ad hoc, dotnet default probing loads the encoder-capable set from the output directory.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -22,7 +20,7 @@ _MANIFEST_ROOT = REPO_ROOT / "eng" / "native" / "ffmpeg"
 _WORK = REPO_ROOT / ".artifacts" / "native" / "ffmpeg"
 
 _log = structlog.get_logger(__name__)
-app = cyclopts.App(name="stage-ffmpeg-native")
+_app = cyclopts.App(name="stage-ffmpeg-native")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -35,7 +33,7 @@ async def _stage(rid: Rid) -> Path:
     return await stage_closure(built, _WORK, rid)
 
 
-@app.default
+@_app.default
 def main(rid: Rid | None = None) -> None:
     """Stage the FFmpeg libraries for the given or host runtime identifier."""
     resolved = rid or host_rid()
@@ -44,7 +42,7 @@ def main(rid: Rid | None = None) -> None:
 
 
 if __name__ == "__main__":
-    app()
+    _app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -40,7 +40,9 @@ _CAP = 64
 _NUM_CEILING = 1_000_000
 
 _EMPTY: _Schema = {}
-_JSON_SCALAR: st.SearchStrategy[object] = st.one_of(st.none(), st.booleans(), st.integers(min_value=-1_000, max_value=1_000), st.text(min_size=0, max_size=16))
+_JSON_SCALAR: st.SearchStrategy[object] = st.one_of(
+    st.none(), st.booleans(), st.integers(min_value=-1_000, max_value=1_000), st.text(min_size=0, max_size=16)
+)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -48,7 +50,15 @@ _JSON_SCALAR: st.SearchStrategy[object] = st.one_of(st.none(), st.booleans(), st
 
 
 def _json_value(depth: int = 0) -> st.SearchStrategy[object]:
-    return _JSON_SCALAR if depth >= 2 else st.one_of(_JSON_SCALAR, st.lists(_json_value(depth + 1), max_size=3), st.dictionaries(st.text(min_size=1, max_size=8), _json_value(depth + 1), max_size=3))
+    return (
+        _JSON_SCALAR
+        if depth >= 2
+        else st.one_of(
+            _JSON_SCALAR,
+            st.lists(_json_value(depth + 1), max_size=3),
+            st.dictionaries(st.text(min_size=1, max_size=8), _json_value(depth + 1), max_size=3),
+        )
+    )
 
 
 _RAW_VALUES: st.SearchStrategy[msgspec.Raw] = _json_value().map(lambda value: msgspec.Raw(msgspec.json.encode(value)))
@@ -65,24 +75,35 @@ def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:ign
     return st.none() if tz is False else st.timezones() if tz else st.none() | st.timezones()
 
 
-def _multiples[N](lower: object, upper: object, step: object, convert: Callable[[Decimal], N], *, exclude_lower: bool = False, exclude_upper: bool = False) -> st.SearchStrategy[N]:
-    """Draw multiplier k directly, every value is a valid in-range multiple with zero rejection.
+def _multiples[N](
+    lower: object, upper: object, step: object, convert: Callable[[Decimal], N], *, exclude_lower: bool = False, exclude_upper: bool = False
+) -> st.SearchStrategy[N]:
+    """Return a strategy drawing the multiplier k directly, every value is a valid in-range multiple with zero rejection.
 
-    Fraction bounds are exact for int, float, and Decimal inputs, an exclusive bound equal to a multiple
-    shrinks the k window by one, the boundary itself is never drawn.
+    Fraction bounds are exact for int, float, and Decimal inputs, an exclusive bound equal to a multiple shrinks the k window by one and the boundary itself is never drawn.
     """
     decimal_step = Decimal(str(step))
     lower_quotient = Fraction(str(lower)) / Fraction(decimal_step)
     upper_quotient = Fraction(str(upper)) / Fraction(decimal_step)
     minimum_multiplier = ceil(lower_quotient) + (1 if exclude_lower and lower_quotient == ceil(lower_quotient) else 0)
     maximum_multiplier = floor(upper_quotient) - (1 if exclude_upper and upper_quotient == floor(upper_quotient) else 0)
-    return st.integers(min_value=minimum_multiplier, max_value=maximum_multiplier).map(lambda multiplier: convert(Decimal(multiplier) * decimal_step)) if minimum_multiplier <= maximum_multiplier else st.nothing()
+    return (
+        st.integers(min_value=minimum_multiplier, max_value=maximum_multiplier).map(lambda multiplier: convert(Decimal(multiplier) * decimal_step))
+        if minimum_multiplier <= maximum_multiplier
+        else st.nothing()
+    )
 
 
 def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
     lo = mn if isinstance(mn, int) else 1
     hi = min(mx, _CAP) if isinstance(mx, int) else _CAP
-    return st.nothing() if lo > hi else st.from_regex(pattern, fullmatch=True).filter(lambda s: lo <= len(s) <= hi) if isinstance(pattern, str) else st.text(min_size=lo, max_size=hi)
+    return (
+        st.nothing()
+        if lo > hi
+        else st.from_regex(pattern, fullmatch=True).filter(lambda s: lo <= len(s) <= hi)
+        if isinstance(pattern, str)
+        else st.text(min_size=lo, max_size=hi)
+    )
 
 
 def _decimal_max(md: object, dp: object) -> Decimal | None:
@@ -93,10 +114,10 @@ def _decimal_max(md: object, dp: object) -> Decimal | None:
 
 
 def _msgspec_strategy(schema: _mi.Type) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]
-    """Build a bounded strategy from a ``msgspec.inspect`` schema.
+    """Return a bounded strategy for a ``msgspec.inspect`` schema.
 
     Raises:
-        AssertionError: When the schema kind is not supported.
+        AssertionError: The schema kind is unsupported.
     """
     match schema:
         case _mi.IntType(ge=ge, gt=gt, le=le, lt=lt):
@@ -109,14 +130,24 @@ def _msgspec_strategy(schema: _mi.Type) -> st.SearchStrategy[object]:  # ruff:ig
             hi_f = le if le is not None else (lt if lt is not None else float(_NUM_CEILING))
             open_lo, open_hi = ge is None and gt is not None, le is None and lt is not None
             step_f = schema.multiple_of
-            return _multiples(lo_f, hi_f, step_f, float, exclude_lower=open_lo, exclude_upper=open_hi) if isinstance(step_f, int | float) else st.floats(min_value=lo_f, max_value=hi_f, exclude_min=open_lo, exclude_max=open_hi, allow_nan=False, allow_infinity=False)
+            return (
+                _multiples(lo_f, hi_f, step_f, float, exclude_lower=open_lo, exclude_upper=open_hi)
+                if isinstance(step_f, int | float)
+                else st.floats(min_value=lo_f, max_value=hi_f, exclude_min=open_lo, exclude_max=open_hi, allow_nan=False, allow_infinity=False)
+            )
         case _mi.StrType(min_length=mn, max_length=mx, pattern=pat):
             return _text(mn, mx, pat)
         case _mi.BoolType():
             return st.booleans()
         case _mi.BytesType() | _mi.ByteArrayType() | _mi.MemoryViewType():
             binary = st.binary(**_size(schema, 256))
-            return binary.map(bytearray) if isinstance(schema, _mi.ByteArrayType) else binary.map(memoryview) if isinstance(schema, _mi.MemoryViewType) else binary
+            return (
+                binary.map(bytearray)
+                if isinstance(schema, _mi.ByteArrayType)
+                else binary.map(memoryview)
+                if isinstance(schema, _mi.MemoryViewType)
+                else binary
+            )
         case _mi.EnumType(cls=cls):
             return st.sampled_from(list(cls))
         case _mi.LiteralType(values=values):
@@ -187,11 +218,17 @@ def _integer_bound(schema: _Schema, inclusive_key: str, exclusive_key: str, offs
 def _numeric_bound(schema: _Schema, inclusive_key: str, exclusive_key: str) -> tuple[float | Decimal | None, bool]:
     inclusive = schema.get(inclusive_key)
     exclusive = schema.get(exclusive_key)
-    return (inclusive if isinstance(inclusive, Decimal) else float(inclusive), False) if isinstance(inclusive, int | float | Decimal) else (exclusive if isinstance(exclusive, Decimal) else float(exclusive), True) if isinstance(exclusive, int | float | Decimal) else (None, False)
+    return (
+        (inclusive if isinstance(inclusive, Decimal) else float(inclusive), False)
+        if isinstance(inclusive, int | float | Decimal)
+        else (exclusive if isinstance(exclusive, Decimal) else float(exclusive), True)
+        if isinstance(exclusive, int | float | Decimal)
+        else (None, False)
+    )
 
 
 def _construct(cls: type) -> Callable[[object], object]:
-    return lambda payload: cls(**payload) if _is_schema(payload) else cls()
+    return lambda fields: cls(**fields) if _is_schema(fields) else cls()
 
 
 def _unwrap_function_schema(schema: _Schema) -> _Schema:
@@ -199,22 +236,40 @@ def _unwrap_function_schema(schema: _Schema) -> _Schema:
 
 
 def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]
-    """Build a constraint-aware strategy from a ``pydantic-core`` schema and its definitions."""
+    """Return a constraint-aware strategy for a ``pydantic-core`` schema and its definitions."""
     leaf = _unwrap_function_schema(schema)
     match leaf.get("type"):
         case "int":
             lower = _integer_bound(leaf, "ge", "gt", 1)
             upper = _integer_bound(leaf, "le", "lt", -1)
             multiple_of = leaf.get("multiple_of")
-            return _multiples(lower if lower is not None else -_NUM_CEILING, upper if upper is not None else _NUM_CEILING, multiple_of, int) if isinstance(multiple_of, int) else st.integers(min_value=lower, max_value=upper)
+            return (
+                _multiples(lower if lower is not None else -_NUM_CEILING, upper if upper is not None else _NUM_CEILING, multiple_of, int)
+                if isinstance(multiple_of, int)
+                else st.integers(min_value=lower, max_value=upper)
+            )
         case "float":
             float_lower, exclude_lower = _numeric_bound(leaf, "ge", "gt")
             float_upper, exclude_upper = _numeric_bound(leaf, "le", "lt")
             multiple_of = leaf.get("multiple_of")
             return (
-                _multiples(float_lower if float_lower is not None else -float(_NUM_CEILING), float_upper if float_upper is not None else float(_NUM_CEILING), multiple_of, float, exclude_lower=exclude_lower, exclude_upper=exclude_upper)
+                _multiples(
+                    float_lower if float_lower is not None else -float(_NUM_CEILING),
+                    float_upper if float_upper is not None else float(_NUM_CEILING),
+                    multiple_of,
+                    float,
+                    exclude_lower=exclude_lower,
+                    exclude_upper=exclude_upper,
+                )
                 if isinstance(multiple_of, int | float)
-                else st.floats(min_value=float_lower, max_value=float_upper, exclude_min=exclude_lower, exclude_max=exclude_upper, allow_nan=False, allow_infinity=False)
+                else st.floats(
+                    min_value=float_lower,
+                    max_value=float_upper,
+                    exclude_min=exclude_lower,
+                    exclude_max=exclude_upper,
+                    allow_nan=False,
+                    allow_infinity=False,
+                )
             )
         case "decimal":
             decimal_lower, exclude_lower = _numeric_bound(leaf, "ge", "gt")
@@ -226,14 +281,32 @@ def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.S
             effective_upper = decimal_upper if decimal_upper is not None else digit_max
             multiple_of = leaf.get("multiple_of")
             if isinstance(multiple_of, int | float | Decimal):
-                return _multiples(effective_lower if effective_lower is not None else -_NUM_CEILING, effective_upper if effective_upper is not None else _NUM_CEILING, multiple_of, lambda value: value, exclude_lower=exclude_lower, exclude_upper=exclude_upper)
+                return _multiples(
+                    effective_lower if effective_lower is not None else -_NUM_CEILING,
+                    effective_upper if effective_upper is not None else _NUM_CEILING,
+                    multiple_of,
+                    lambda value: value,
+                    exclude_lower=exclude_lower,
+                    exclude_upper=exclude_upper,
+                )
             values = st.decimals(min_value=effective_lower, max_value=effective_upper, places=dp, allow_nan=False, allow_infinity=False)
-            return values.filter(lambda value: (not exclude_lower or effective_lower is None or value > effective_lower) and (not exclude_upper or effective_upper is None or value < effective_upper)) if (exclude_lower or exclude_upper) else values
+            return (
+                values.filter(
+                    lambda value: (
+                        (not exclude_lower or effective_lower is None or value > effective_lower)
+                        and (not exclude_upper or effective_upper is None or value < effective_upper)
+                    )
+                )
+                if (exclude_lower or exclude_upper)
+                else values
+            )
         case "str":
             return _text(leaf.get("min_length"), leaf.get("max_length"), leaf.get("pattern"))
         case "bytes":
             minimum_length, maximum_length = leaf.get("min_length"), leaf.get("max_length")
-            return st.binary(min_size=minimum_length if isinstance(minimum_length, int) else 0, max_size=maximum_length if isinstance(maximum_length, int) else 256)
+            return st.binary(
+                min_size=minimum_length if isinstance(minimum_length, int) else 0, max_size=maximum_length if isinstance(maximum_length, int) else 256
+            )
         case "bool":
             return st.booleans()
         case "none":
@@ -263,7 +336,11 @@ def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.S
         case "list":
             minimum_length = leaf.get("min_length")
             maximum_length = leaf.get("max_length")
-            return st.lists(_pydantic_strategy(_schema_member(leaf, "items_schema"), definitions), min_size=minimum_length if isinstance(minimum_length, int) else 0, max_size=maximum_length if isinstance(maximum_length, int) else 3)
+            return st.lists(
+                _pydantic_strategy(_schema_member(leaf, "items_schema"), definitions),
+                min_size=minimum_length if isinstance(minimum_length, int) else 0,
+                max_size=maximum_length if isinstance(maximum_length, int) else 3,
+            )
         case "set" | "frozenset":
             elements = st.lists(_pydantic_strategy(_schema_member(leaf, "items_schema"), definitions), max_size=3, unique=True)
             return elements.map(frozenset) if leaf.get("type") == "frozenset" else elements.map(set)
@@ -271,12 +348,20 @@ def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.S
             items = _schema_members(leaf, "items_schema")
             return st.tuples(*(_pydantic_strategy(item, definitions) for item in items)) if items else st.tuples()
         case "dict":
-            return st.dictionaries(_pydantic_strategy(_schema_member(leaf, "keys_schema"), definitions), _pydantic_strategy(_schema_member(leaf, "values_schema"), definitions), max_size=3)
+            return st.dictionaries(
+                _pydantic_strategy(_schema_member(leaf, "keys_schema"), definitions),
+                _pydantic_strategy(_schema_member(leaf, "values_schema"), definitions),
+                max_size=3,
+            )
         case "union":
             return st.one_of(*(_pydantic_strategy(choice, definitions) for choice in _schema_members(leaf, "choices")))
         case "tagged-union":
             choices = leaf.get("choices")
-            return st.one_of(*(_pydantic_strategy(choice, definitions) for choice in choices.values() if _is_schema(choice))) if isinstance(choices, Mapping) else st.none()
+            return (
+                st.one_of(*(_pydantic_strategy(choice, definitions) for choice in choices.values() if _is_schema(choice)))
+                if isinstance(choices, Mapping)
+                else st.none()
+            )
         case "model" | "dataclass":
             cls = leaf.get("cls")
             field_values = _pydantic_strategy(_schema_member(leaf, "schema"), definitions)
@@ -285,14 +370,24 @@ def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.S
             fields = leaf.get("fields")
             if not _is_schema(fields):
                 return st.fixed_dictionaries({})
-            required = {str(name): _pydantic_strategy(_schema_member(field, "schema"), definitions) for name, field in fields.items() if _is_schema(field) and _schema_member(field, "schema").get("type") != "default"}
-            optional = {str(name): _pydantic_strategy(_schema_member(field, "schema"), definitions) for name, field in fields.items() if _is_schema(field) and _schema_member(field, "schema").get("type") == "default"}
+            required = {
+                str(name): _pydantic_strategy(_schema_member(field, "schema"), definitions)
+                for name, field in fields.items()
+                if _is_schema(field) and _schema_member(field, "schema").get("type") != "default"
+            }
+            optional = {
+                str(name): _pydantic_strategy(_schema_member(field, "schema"), definitions)
+                for name, field in fields.items()
+                if _is_schema(field) and _schema_member(field, "schema").get("type") == "default"
+            }
             return st.fixed_dictionaries(required, optional=optional)
         case "model-field" | "dataclass-field" | "typed-dict-field":
             return _pydantic_strategy(_schema_member(leaf, "schema"), definitions)
         case "definitions":
             merged = dict(definitions)
-            merged.update({reference: definition for definition in _schema_members(leaf, "definitions") if isinstance(reference := definition.get("ref"), str)})
+            merged.update({
+                reference: definition for definition in _schema_members(leaf, "definitions") if isinstance(reference := definition.get("ref"), str)
+            })
             return _pydantic_strategy(_schema_member(leaf, "schema"), merged)
         case "definition-ref":
             ref = leaf.get("schema_ref")
@@ -306,11 +401,9 @@ def _deferred_reference(reference: str, definitions: dict[str, _Schema]) -> Call
 
 
 def _tagged_cases(subject: type) -> dict[str, TypeForm[object]] | None:
-    """Map an ``expression`` ``@tagged_union`` class's case fields to type hints, or ``None`` for any other subject.
+    """Return the case fields of an ``expression`` ``@tagged_union`` class mapped to type hints, or ``None`` for any other subject.
 
-    The decorator leaves every dataclass field ``init=False``/``kw_only`` behind a leading ``tag`` discriminator and
-    replaces ``__init__`` with an exactly-one-case constructor, field-wise sampling builds invalid unions.
-    Detection keys on that structural signature.
+    The decorator leaves every dataclass field ``init=False`` and ``kw_only`` behind a leading ``tag`` discriminator and replaces ``__init__`` with an exactly-one-case constructor, field-wise sampling builds invalid unions, and detection keys on that structural signature.
     """
     if not (dataclasses.is_dataclass(subject) and isinstance(subject, type)):
         return None
@@ -371,7 +464,10 @@ def strategy_for[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
                 case _mi.TypedDictType(fields=fields):
 
                     def _td_build() -> st.SearchStrategy[object]:
-                        return st.fixed_dictionaries({field.name: _msgspec_strategy(field.type) for field in fields if field.required}, optional={field.name: _msgspec_strategy(field.type) for field in fields if not field.required})
+                        return st.fixed_dictionaries(
+                            {field.name: _msgspec_strategy(field.type) for field in fields if field.required},
+                            optional={field.name: _msgspec_strategy(field.type) for field in fields if not field.required},
+                        )
 
                     st.register_type_strategy(subject, st.deferred(_td_build))
                 case _:

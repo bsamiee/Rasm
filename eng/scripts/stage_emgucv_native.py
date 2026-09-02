@@ -1,11 +1,8 @@
 """Build the full Emgu CV native library for macOS arm64 and stage it for packing.
 
-The recipe is the pinned checkout's own platforms/macos/configure arm64 full: static eigen and
-hdf5 prebuilds feed the OpenCV configure with the contrib modules and tesseract, and the
-cvextern target builds alone, in parallel. Build trees stay inside the cached checkout,
-rebuilds are incremental, and a commit-keyed artifact under .cache makes a repeat run a no-op
-that never touches CMake. CI packs from that artifact or rebuilds it on demand, the compile
-stays out of routine pipelines.
+The build follows the pinned checkout's own platforms/macos/configure arm64 full, static eigen and hdf5 prebuilds feed the OpenCV configure with the contrib modules and tesseract, and the cvextern target builds alone, in parallel.
+Build trees stay inside the cached checkout, rebuilds are incremental, and a commit-keyed artifact under .cache makes a repeat run a no-op that never touches CMake.
+CI packs from that artifact or rebuilds it on demand, the compile stays out of routine pipelines.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -24,7 +21,13 @@ from eng.scripts.provision import cmake_tool, emgucv_pins, emgucv_source, host_r
 
 _WORK = REPO_ROOT / ".artifacts" / "native" / "emgucv"
 _BUILD_DIR = "build_arm64"  # Upstream's in-tree build folder name for the eigen, hdf5, and opencv steps
-_HDF5_FLAGS = ("-DBUILD_SHARED_LIBS:BOOL=OFF", "-DBUILD_TESTING:BOOL=FALSE", "-DHDF5_BUILD_EXAMPLES:BOOL=FALSE", "-DHDF5_BUILD_TOOLS:BOOL=FALSE", "-DHDF5_BUILD_UTILS:BOOL=FALSE")
+_HDF5_FLAGS = (
+    "-DBUILD_SHARED_LIBS:BOOL=OFF",
+    "-DBUILD_TESTING:BOOL=FALSE",
+    "-DHDF5_BUILD_EXAMPLES:BOOL=FALSE",
+    "-DHDF5_BUILD_TOOLS:BOOL=FALSE",
+    "-DHDF5_BUILD_UTILS:BOOL=FALSE",
+)
 _OPENCV_FLAGS = (
     "-DOPENCV_FORCE_3RDPARTY_BUILD:BOOL=TRUE",
     "-DBUILD_PERF_TESTS=FALSE",
@@ -51,17 +54,17 @@ _OPENCV_FLAGS = (
     "-DBUILD_SHARED_LIBS:BOOL=OFF",
     "-DEMGU_CV_WITH_TESSERACT:BOOL=TRUE",
     "-DEMGU_CV_WITH_FREETYPE:BOOL=FALSE",
-    "-DCMAKE_IGNORE_PREFIX_PATH:STRING=/usr/local;/opt/homebrew",  # Upstream ignores the runner's /usr/local, arm64 Homebrew lives in /opt/homebrew
+    "-DCMAKE_IGNORE_PREFIX_PATH:STRING=/usr/local;/opt/homebrew",  # Upstream ignores the runner's /usr/local, arm64 Homebrew installs to /opt/homebrew
 )
 
 _log = structlog.get_logger(__name__)
-app = cyclopts.App(name="stage-emgucv-native")
+_app = cyclopts.App(name="stage-emgucv-native")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 async def _configure(cmake: Path, source: Path, build: Path, flags: list[str]) -> None:
-    """Configure a CMake tree at the upstream recipe's Release settings."""
+    """Configure a CMake tree at the upstream Release settings."""
     await run([str(cmake), "-S", str(source), "-B", str(build), "-DCMAKE_BUILD_TYPE:STRING=Release", *flags], REPO_ROOT)
 
 
@@ -84,7 +87,7 @@ async def _build(src: Path) -> Path:
     contrib = [f"-DOPENCV_EXTRA_MODULES_PATH={src / 'opencv_contrib' / 'modules'}", f"-DEigen3_DIR:STRING={install / 'share' / 'eigen3' / 'cmake'}"]
     await _configure(cmake, src, build, [*arch, f"-DCMAKE_FIND_ROOT_PATH:STRING={install}", *_OPENCV_FLAGS, *contrib])
     await _compile(cmake, build, "cvextern")
-    # The post-build lipo step assembles the deliverable here regardless of architecture
+    # Post-build lipo step writes the library here regardless of architecture
     return src / "libs" / "runtimes" / "osx" / "native" / "libcvextern.dylib"
 
 
@@ -102,7 +105,7 @@ async def _stage(rid: Rid) -> Path:
     return stage_library(artifact, _WORK, rid, "libcvextern.dylib")
 
 
-@app.default
+@_app.default
 def main(rid: Rid | None = None) -> None:
     """Stage the Emgu CV library for the given or host runtime identifier."""
     resolved = rid or host_rid()
@@ -111,7 +114,7 @@ def main(rid: Rid | None = None) -> None:
 
 
 if __name__ == "__main__":
-    app()
+    _app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

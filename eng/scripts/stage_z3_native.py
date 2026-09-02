@@ -1,9 +1,7 @@
 """Build the z3 shared library for a runtime identifier and stage it for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
-collects .artifacts/native/z3/stage and runs the eng pack-z3-native and pack-z3-managed
-targets alone. The managed binding sources stage from the same pinned archive the z3 port
-downloads. Rasm.Z3 and Rasm.Native.Z3 always share the upstream version.
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job collects .artifacts/native/z3/stage and runs the eng pack-z3-native and pack-z3-managed targets alone.
+The managed binding sources stage from the same pinned archive the z3 port downloads, Rasm.Z3 and Rasm.Native.Z3 share the upstream version.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -18,7 +16,18 @@ import anyio
 import cyclopts
 import structlog
 
-from eng.scripts.provision import host_rid, manifest_version, native_build_tools, REPO_ROOT, Rid, run, stage_library, vcpkg_args, vcpkg_install, vcpkg_target
+from eng.scripts.provision import (
+    host_rid,
+    manifest_version,
+    native_build_tools,
+    REPO_ROOT,
+    Rid,
+    run,
+    stage_library,
+    vcpkg_args,
+    vcpkg_install,
+    vcpkg_target,
+)
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -26,7 +35,7 @@ _MANIFEST_ROOT = REPO_ROOT / "eng" / "native" / "z3"
 _WORK = REPO_ROOT / ".artifacts" / "native" / "z3"
 
 _log = structlog.get_logger(__name__)
-app = cyclopts.App(name="stage-z3-native")
+_app = cyclopts.App(name="stage-z3-native")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -82,7 +91,7 @@ async def _stage(rid: Rid) -> Path:
     return destination
 
 
-@app.default
+@_app.default
 def main(rid: Rid | None = None) -> None:
     """Stage the z3 library for the given or host runtime identifier."""
     resolved = rid or host_rid()
@@ -91,7 +100,7 @@ def main(rid: Rid | None = None) -> None:
 
 
 if __name__ == "__main__":
-    app()
+    _app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

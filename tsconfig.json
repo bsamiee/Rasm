@@ -9,7 +9,7 @@
     },
     "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts"],
     "references": [
-        // Add one entry per workspace package tsconfig, e.g. { "path": "./libs/typescript/{package}" }
+        // One reference per workspace package tsconfig ({ "path": "./libs/typescript/{package}" })
         {
             "path": "./tests/typescript/support"
         }

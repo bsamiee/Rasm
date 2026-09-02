@@ -9,11 +9,7 @@
     },
     "namedInputs": {
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
-        "production": [
-            "default",
-            "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}",
-            "!{projectRoot}/dist/**/*"
-        ],
+        "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}", "!{projectRoot}/dist/**/*"],
         "sharedGlobals": [
             "{workspaceRoot}/global.json",
             "{workspaceRoot}/NuGet.config",

@@ -53,7 +53,7 @@
             <_MissingRhinoHostFile Include="@(Reference->'%(HintPath)')" Condition="'%(Reference.HintPath)' != '' and !Exists('%(Reference.HintPath)')" />
         </ItemGroup>
         <Error Code="RASM0003" Condition="'@(_MissingRhinoHostFile)' != ''"
-               Text="Rhino bundle '$(RhinoAppPath)' lacks @(_MissingRhinoHostFile->'%(Filename)%(Extension)', ', '); set RHINO_APP_PATH to a Rhino 9 bundle." />
+               Text="Rhino bundle '$(RhinoAppPath)' lacks @(_MissingRhinoHostFile->'%(Filename)%(Extension)', ', '), set RHINO_APP_PATH to a Rhino 9 bundle" />
     </Target>
 
     <Target Name="ValidateRasmProjectPolicy" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
@@ -87,18 +87,18 @@
             <_RasmRuntimeInitBinding Include="PureHDF.Filters.Lzf" Companion="Rasm.Interop.Hdf5" />
         </ItemGroup>
         <Error Code="RASM0001" Condition="'@(_RasmInvalidProjectReference)' != ''"
-               Text="Role '$(RasmRole)' project '$(MSBuildProjectName)' references outside its allowed set: @(_RasmInvalidProjectReference->'%(Identity)', '; ')." />
+               Text="Role '$(RasmRole)' project '$(MSBuildProjectName)' references outside its allowed set: @(_RasmInvalidProjectReference->'%(Identity)', '; ')" />
         <Error Code="RASM0002" Condition="'$(_RasmProjectPolicyElement)' != ''"
-               Text="Project manifest '$(MSBuildProjectFile)' contains a centrally managed element ('$(_RasmProjectPolicyElement.Trim())…'): package versions belong in Directory.Packages.props, analyzer severities in .editorconfig, and output and analysis settings in Directory.Build.props." />
+               Text="Project manifest '$(MSBuildProjectFile)' contains a centrally managed element ('$(_RasmProjectPolicyElement.Trim())…'): package versions belong in Directory.Packages.props, analyzer severities in .editorconfig, and output and analysis settings in Directory.Build.props" />
         <Error Code="RASM0004"
                Condition="$(_RasmPackageReferences.Contains(';%(_RasmNativeBinding.Identity);')) and !$(_RasmPackageReferences.Contains(';%(_RasmNativeBinding.Native);'))"
-               Text="Project '$(MSBuildProjectName)' references %(_RasmNativeBinding.Identity) without %(_RasmNativeBinding.Native). The shared libraries load from that package." />
+               Text="Project '$(MSBuildProjectName)' references %(_RasmNativeBinding.Identity) without %(_RasmNativeBinding.Native), which supplies the shared libraries" />
         <Error Code="RASM0005"
                Condition="$(_RasmRuntimeInitReferences.Contains(';%(_RasmRuntimeInitBinding.Identity);')) and !$(_RasmRuntimeInitReferences.Contains(';%(_RasmRuntimeInitBinding.Companion);'))"
-               Text="Project '$(MSBuildProjectName)' references %(_RasmRuntimeInitBinding.Identity) without %(_RasmRuntimeInitBinding.Companion). The required runtime initialization lives in that package." />
+               Text="Project '$(MSBuildProjectName)' references %(_RasmRuntimeInitBinding.Identity) without %(_RasmRuntimeInitBinding.Companion), which holds the required runtime initialization" />
     </Target>
 
-    <!-- Adds native assets a package carries only in build/, which never flows across a transitive PackageReference chain -->
+    <!-- Adds native assets a package holds only in build/, which never flows across a transitive PackageReference chain -->
     <Target Name="RepairRasmNativeAssets" AfterTargets="ResolvePackageAssets" Condition="'@(RuntimeCopyLocalItems)' != ''">
         <ItemGroup>
             <_RasmNativeAssetRepair Include="Melanchall.DryWetMidi" ManagedPackage="Melanchall.DryWetMidi" PackageRelativePath="build/Melanchall_DryWetMidi_Native64.dylib" SkipDirectConsumers="true" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />

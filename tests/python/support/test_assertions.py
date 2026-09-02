@@ -80,7 +80,11 @@ _ASSERTION_CASES: tuple[tuple[str, _Thunk, _Thunk], ...] = (
     ("absorbing", lambda: absorbing(9, operator.mul, 0), lambda: absorbing(9, operator.add, 0)),
     ("identity_element", lambda: identity_element(9, operator.add, 0), lambda: identity_element(9, operator.add, 1)),
     ("monotone", lambda: monotone(2, 5, lambda n: n * n), lambda: monotone(2, 5, operator.neg)),
-    ("permutation_invariant", lambda: permutation_invariant((1, 2, 3), (3, 2, 1), sorted), lambda: permutation_invariant((1, 2, 3), (3, 2, 1), tuple)),
+    (
+        "permutation_invariant",
+        lambda: permutation_invariant((1, 2, 3), (3, 2, 1), sorted),
+        lambda: permutation_invariant((1, 2, 3), (3, 2, 1), tuple),
+    ),
     ("differential", lambda: differential(4, lambda n: n + n, lambda n: 2 * n), lambda: differential(4, lambda n: n + n, lambda n: n * n)),
     ("custom-eq", lambda: identity(-1, abs, eq=lambda a, b: abs(a) == abs(b)), lambda: identity(-1, abs, eq=operator.is_)),
 )
@@ -157,7 +161,7 @@ class _Pool(RuleBasedStateMachine):
         self.retired: set[str] = set()
 
     @initialize()
-    def seeded(self) -> None:
+    def initialized(self) -> None:
         self.counter = 0
 
     @rule(target=slots)
@@ -195,7 +199,7 @@ def _must_fail(label: str, failing_case: _Thunk) -> None:
     """Assert the known failing case raises ``AssertionError``.
 
     Raises:
-        AssertionError: When the assertion accepts the failing case.
+        AssertionError: The assertion accepts the failing case.
     """
     try:
         failing_case()
@@ -212,7 +216,7 @@ def test_every_algebraic_assertion_accepts_valid_and_rejects_invalid_cases() -> 
 
 
 def test_rejects_counterexample_requires_property_failure_and_preserves_other_exceptions() -> None:
-    """The helper requires an assertion failure and does not hide unrelated exceptions."""
+    """``rejects_counterexample`` requires an assertion failure and does not hide unrelated exceptions."""
     rejects_counterexample(-1, lambda counterexample: identity(counterexample, abs))
     with pytest.raises(AssertionError, match="accepts its counterexample"):
         rejects_counterexample(1, lambda counterexample: identity(counterexample, abs))
@@ -233,7 +237,10 @@ def test_validity_matrix_accepts_structs_and_tuples_and_reports_the_failed_case(
 
 def test_projection_matrix_prefers_reference_function_and_reports_the_failed_case() -> None:
     """Reference functions compute expected results, other cases use fixed expected values."""
-    cases = [ProjectionCase(label="derived", intent=4, expected=None, reference=lambda n: n * 2), ProjectionCase(label="static", intent=3, expected=6, reference=None)]
+    cases = [
+        ProjectionCase(label="derived", intent=4, expected=None, reference=lambda n: n * 2),
+        ProjectionCase(label="static", intent=3, expected=6, reference=None),
+    ]
     projection_matrix(cases, project=lambda n: n * 2)
     with pytest.raises(AssertionError, match="static"):
         projection_matrix([ProjectionCase(label="static", intent=3, expected=7, reference=None)], project=lambda n: n * 2)
@@ -277,7 +284,7 @@ def test_matrix_assertions_require_nonempty_case_sets() -> None:
 
 
 def test_metamorphic_assertion_enforces_every_relation() -> None:
-    """Every relation must hold between source and follow-up outputs, any violation fails the sweep."""
+    """Every relation must hold between source and follow-up outputs, any violation fails the assertion."""
 
     def _doubles(base: int, follow: int) -> None:
         assert follow == base * 2, f"scaling relation failed: {base} -> {follow}"
@@ -328,7 +335,7 @@ def test_close_dispatches_every_supported_value_type_and_names_the_diverging_pat
 
 
 def test_close_recurses_results_and_blocks_and_reports_the_diverging_case() -> None:
-    """Result, option, and ``Block`` payloads compare recursively and report tag or value differences."""
+    """Result, option, and ``Block`` values compare recursively and report tag or value differences."""
     assert_close(Ok(_Reading(label="a", values=(0.1,))), Ok(_Reading(label="a", values=(0.1 + 1e-12,))))
     assert_close(Error((1.0, 2.0)), Error((1.0, 2.0 + 1e-12)))
     assert_close(Some(1.0), Some(1.0 + 1e-12))
@@ -412,7 +419,7 @@ def test_run_state_machine_supports_hypothesis_stateful_primitives() -> None:
     run_state_machine(_Pool, settings=_MACHINE)
 
 
-def test_target_steers_the_search_toward_extremal_observations() -> None:
+def test_target_moves_the_search_toward_the_objective() -> None:
     """The target phase approaches a chosen numeric objective more closely than generation alone."""
     objective = 41733
 
@@ -421,11 +428,11 @@ def test_target_steers_the_search_toward_extremal_observations() -> None:
 
         @hyp_settings(max_examples=80, database=None, derandomize=True, deadline=None, phases=phases)
         @given(st.integers(min_value=0, max_value=1 << 20))
-        def probe(n: int) -> None:
+        def observe(n: int) -> None:
             misses.append(abs(n - objective))
             target(-float(abs(n - objective)))
 
-        probe()
+        observe()
         return min(misses)
 
     assert nearest((Phase.generate, Phase.target)) < nearest((Phase.generate,)), "target phase produced no measurable hill-climb"

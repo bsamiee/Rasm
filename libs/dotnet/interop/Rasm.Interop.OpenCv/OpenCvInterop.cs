@@ -5,18 +5,10 @@ namespace Rasm.Interop.OpenCv;
 
 /// <summary>OpenCV error policy and process-global configuration for executables to call once at the composition root</summary>
 /// <remarks>
-/// <para>No native error handler survives a native error on .NET 10. The default <see cref="CvInvoke.CvErrorHandlerThrowException"/> raises a managed exception
-/// that escapes the reverse P/Invoke frame and terminates the process. <see cref="CvInvoke.CvErrorHandlerIgnoreError"/> aborts through libc++abi. The
-/// facade contract is managed pre-validation: callers prove every argument valid before a native call. <see cref="Initialize"/> installs the throw-exception
-/// handler only to make that policy explicit, sets <see cref="CvInvoke.LogLevel"/>, which works on every platform, and sets <see cref="CvInvoke.NumThreads"/>,
-/// ignored on macOS builds scheduling through Grand Central Dispatch. Because the CLR caches a failed type initializer, unlike the other facades a
-/// failed <see cref="Initialize"/> stays failed for the process lifetime until a runtime package reference and a restart</para>
-/// <para><see cref="MissingModules"/> answers capability questions from the "To be built:" and "Disabled:" lines of <see cref="CvInvoke.BuildInformation"/>,
-/// because OpenCVModuleList returns library names rather than built modules and even full builds omit modules, for example freetype on macOS. The facade
-/// references Emgu.CV alone because the native library travels in Rasm.Native.EmguCv on macOS, a full build with the contrib modules, and in the full
-/// runtime packages Emgu.CV.runtime.windows, Emgu.CV.runtime.ubuntu-26.04-x64, and Emgu.CV.runtime.debian-trixie-arm64 elsewhere, referenced by each
-/// executable to match the RIDs it publishes for. Linux x64 publishes RID ubuntu-x64, the Ubuntu package's non-portable RID, with the direct reference
-/// supplying UseRidGraph through the package's own build props</para>
+/// <para>No native error handler survives a native error on .NET 10: the default <see cref="CvInvoke.CvErrorHandlerThrowException"/> raises a managed exception that escapes the reverse P/Invoke frame and terminates the process, and <see cref="CvInvoke.CvErrorHandlerIgnoreError"/> aborts through libc++abi. Callers prove every argument valid before a native call, and <see cref="Initialize"/> installs the throw-exception handler only to make that policy explicit</para>
+/// <para><see cref="CvInvoke.LogLevel"/> works on every platform, and macOS builds schedule through Grand Central Dispatch and ignore <see cref="CvInvoke.NumThreads"/>. The CLR caches a failed type initializer, a failed <see cref="Initialize"/> stays failed for the process lifetime until a runtime package reference and a restart</para>
+/// <para><see cref="MissingModules"/> reads the "To be built:" and "Disabled:" lines of <see cref="CvInvoke.BuildInformation"/> because OpenCVModuleList returns library names rather than built modules and even full builds omit modules, for example freetype on macOS</para>
+/// <para>The facade references Emgu.CV alone, the native library sits in Rasm.Native.EmguCv on macOS, a full build with the contrib modules, and in the runtime packages Emgu.CV.runtime.windows, Emgu.CV.runtime.ubuntu-26.04-x64, and Emgu.CV.runtime.debian-trixie-arm64 elsewhere, each referenced by the executables that publish for its RID. Linux x64 publishes RID ubuntu-x64, the Ubuntu package's non-portable RID, and the direct reference supplies UseRidGraph through the package's own build props</para>
 /// </remarks>
 public static class OpenCvInterop {
     /// <summary>Installs the throw-exception error handler and sets the process-global log level and thread count</summary>
@@ -25,7 +17,7 @@ public static class OpenCvInterop {
             _ = CvInvoke.RedirectError(CvInvoke.CvErrorHandlerThrowException, IntPtr.Zero, IntPtr.Zero);
         } catch (TypeInitializationException exception) {
             throw new InvalidOperationException(
-                "OpenCV native runtime failed to load and the CLR caches the failed type initializer. Reference the native runtime package for this RID and restart",
+                "OpenCV native runtime failed to load. The CLR caches the failed type initializer, reference the runtime package for this RID and restart",
                 exception);
         }
         CvInvoke.LogLevel = LogLevel.Warning;

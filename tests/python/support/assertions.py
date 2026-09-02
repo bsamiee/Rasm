@@ -15,7 +15,17 @@ from typing import overload, Protocol, runtime_checkable, Self, TYPE_CHECKING
 from expression import Option, Result
 from expression.collections import Block
 from hypothesis import settings as hyp_settings, target
-from hypothesis.stateful import Bundle, consumes, initialize, invariant, multiple, precondition, rule, RuleBasedStateMachine, run_state_machine_as_test
+from hypothesis.stateful import (
+    Bundle,
+    consumes,
+    initialize,
+    invariant,
+    multiple,
+    precondition,
+    rule,
+    RuleBasedStateMachine,
+    run_state_machine_as_test,
+)
 import msgspec
 import msgspec.json
 import msgspec.msgpack
@@ -133,7 +143,10 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
                 return None
             index = tuple(int(i) for i in np.argwhere(~near)[0])
             return f"{path}{list(index)}: {np.atleast_1d(left)[index]!r} !~ {np.atleast_1d(right)[index]!r}"
-        case ((int() | float() | complex() | Decimal() | fractions.Fraction()) as num_a, (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_b):
+        case (
+            (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_a,
+            (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_b,
+        ):
             return None if _num_close(num_a, num_b, rel_tol, abs_tol) else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
         case (_QuantityLike() as qty_a, _QuantityLike() as qty_b):
             if qty_b.units != qty_a.units:
@@ -258,7 +271,7 @@ def rejects_counterexample[T](counterexample: T, property_assertion: Callable[..
     """Assert a property assertion rejects a known counterexample.
 
     Raises:
-        AssertionError: When the property accepts the counterexample.
+        AssertionError: The property accepts the counterexample.
     """
     try:
         property_assertion(counterexample, *args, **kwargs)
@@ -283,7 +296,9 @@ def validity_matrix[T](cases: Iterable[ValidityCase[T]], valid: Callable[[T], bo
 def validity_matrix[T](cases: Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None) -> None: ...
 
 
-def validity_matrix[T](cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None) -> None:
+def validity_matrix[T](
+    cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None
+) -> None:
     """Assert each case's expected validity as an independent subtest when available."""
     count = 0
     for raw in cases:
@@ -298,9 +313,9 @@ def validity_matrix[T](cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T,
 def capability_matrix(*rows: tuple[str, Callable[[], bool], bool], subtests: SubtestReporter | None = None) -> None:
     """Assert labeled capability checks as independent subtests when available."""
     assert rows, "capability_matrix requires at least one case"
-    for label, probe, expected in rows:
+    for label, check, expected in rows:
         with _subtest_context(subtests, label):
-            actual = probe()
+            actual = check()
             assert actual == expected, f"capability_matrix[{label!r}]: expected {expected}, got {actual}"
 
 
@@ -323,10 +338,13 @@ MSGPACK_ENCODER: msgspec.msgpack.Encoder = msgspec.msgpack.Encoder(order="determ
 
 
 def assert_ok[T, E](result: Result[T, E], *, then: Callable[[T], None] | None = None) -> T:
-    """Assert ``Ok`` and return the inner value, running ``then`` over it, an ``Error`` reports its payload.
+    """Assert ``Ok`` and run ``then`` over the inner value.
+
+    Returns:
+        The inner value.
 
     Raises:
-        AssertionError: When the result is ``Error`` or has an unexpected variant.
+        AssertionError: The result is ``Error`` or an unexpected variant.
     """
     match result:
         case Result(tag="ok", ok=v):
@@ -340,10 +358,13 @@ def assert_ok[T, E](result: Result[T, E], *, then: Callable[[T], None] | None = 
 
 
 def assert_error[T, E](result: Result[T, E], *, then: Callable[[E], None] | None = None) -> E:
-    """Assert ``Error`` and return the error, running ``then`` over it, an ``Ok`` reports its value.
+    """Assert ``Error`` and run ``then`` over the error.
+
+    Returns:
+        The error.
 
     Raises:
-        AssertionError: When the result is ``Ok`` or has an unexpected variant.
+        AssertionError: The result is ``Ok`` or an unexpected variant.
     """
     match result:
         case Result(tag="error", error=e):
@@ -365,10 +386,13 @@ def assert_error_status[T, E](result: Result[T, E], status: object, *, attr: str
 
 
 def assert_some[T](opt: Option[T], *, then: Callable[[T], None] | None = None) -> T:
-    """Assert ``Some`` and return the inner value, running ``then`` over it.
+    """Assert ``Some`` and run ``then`` over the inner value.
+
+    Returns:
+        The inner value.
 
     Raises:
-        AssertionError: When the option is ``Nothing`` or has an unexpected variant.
+        AssertionError: The option is ``Nothing`` or an unexpected variant.
     """
     match opt:
         case Option(tag="some", some=v):
@@ -385,7 +409,7 @@ def assert_none(opt: Option[object]) -> None:
     """Assert ``Nothing``.
 
     Raises:
-        AssertionError: When the option is ``Some`` or has an unexpected variant.
+        AssertionError: The option is ``Some`` or an unexpected variant.
     """
     match opt:
         case Option(tag="none"):
@@ -397,10 +421,10 @@ def assert_none(opt: Option[object]) -> None:
 
 
 def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder | msgspec.msgpack.Encoder | None = None) -> T:
-    """Assert encode → decode equality and re-encode byte identity, returning the decoded value.
+    """Assert encode then decode equality and re-encode byte identity, the re-encode step catches non-deterministic codecs that structural equality misses.
 
-    The re-encode step catches non-deterministic codecs that structural equality misses. The encoder type selects
-    JSON by default or MessagePack when supplied.
+    Returns:
+        The decoded value, JSON by default or MessagePack when that encoder is supplied.
     """
     enc = encoder if encoder is not None else _DEFAULT_ENCODER
     raw = enc.encode(value)

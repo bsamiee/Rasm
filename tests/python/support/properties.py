@@ -49,8 +49,8 @@ class PackageUnderTest(msgspec.Struct, frozen=True):
 
 PROPERTY_TESTS: list[PropertyRecord] = []
 PACKAGES_UNDER_TEST: dict[str, PackageUnderTest] = {}
-_CONSUMED: set[str] = set()
-_STAMPED: weakref.WeakSet[object] = weakref.WeakSet()
+_RECORDED: set[str] = set()
+_DECORATED: weakref.WeakSet[object] = weakref.WeakSet()
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -65,12 +65,18 @@ def _resolvable(subject: object) -> TypeIs[TypeForm[object]]:
 
 
 def is_automatically_exempt(subject: object) -> bool:
-    """Return whether public-API test coverage excludes this value-only symbol."""
+    """Return whether public-API test coverage excludes a value-only symbol."""
     match subject:
         case type() if issubclass(subject, enum.StrEnum):
             return True
         case type() if issubclass(subject, msgspec.Struct):
-            declared = any(callable(member) or isinstance(member, (property, classmethod, staticmethod, functools.cached_property)) for klass in subject.__mro__ if klass not in {msgspec.Struct, object} for name, member in vars(klass).items() if name == "__post_init__" or not name.startswith("__"))
+            declared = any(
+                callable(member) or isinstance(member, (property, classmethod, staticmethod, functools.cached_property))
+                for klass in subject.__mro__
+                if klass not in {msgspec.Struct, object}
+                for name, member in vars(klass).items()
+                if name == "__post_init__" or not name.startswith("__")
+            )
             return bool(subject.__struct_config__.frozen) and not declared
         case type():
             return False
@@ -100,7 +106,9 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
     public_api: dict[str, object] = {}
     for mod in modules:
         all_names: object = getattr(mod, "__all__", None)
-        names = [n for n in all_names if isinstance(n, str)] if isinstance(all_names, (list, tuple)) else [n for n in dir(mod) if not n.startswith("_")]
+        names = (
+            [n for n in all_names if isinstance(n, str)] if isinstance(all_names, (list, tuple)) else [n for n in dir(mod) if not n.startswith("_")]
+        )
         for name in names:
             member = getattr(mod, name, _ABSENT)
             if member is _ABSENT:
@@ -111,7 +119,16 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
     return public_api, tuple(failures)
 
 
-def property_test[**P](subject: object, *, given: bool = True, profile: str | None = None, markers: tuple[str, ...] = (), timeout: float | None = None, property_name: str | None = None, events: tuple[Callable[[object], str], ...] = ()) -> Callable[[Callable[P, None]], Callable[P, None]]:
+def property_test[**P](
+    subject: object,
+    *,
+    given: bool = True,
+    profile: str | None = None,
+    markers: tuple[str, ...] = (),
+    timeout: float | None = None,
+    property_name: str | None = None,
+    events: tuple[Callable[[object], str], ...] = (),
+) -> Callable[[Callable[P, None]], Callable[P, None]]:
     """Register a property test and optionally inject a Hypothesis strategy.
 
     Args:
@@ -119,13 +136,16 @@ def property_test[**P](subject: object, *, given: bool = True, profile: str | No
         given: True injects ``strategy_for(subject)`` as the rightmost positional argument.
         profile: Registered Hypothesis profile name to pin, ``None`` follows the session-active profile.
         markers: Extra pytest mark names to apply.
-        timeout: Hypothesis deadline in seconds, ``None`` inherits from the governing profile.
-        property_name: Override the recorded property name; defaults to the function name.
+        timeout: Hypothesis deadline in seconds, ``None`` inherits from the active profile.
+        property_name: Recorded property name, ``None`` uses the function name.
         events: Drawn-value event taggers for Hypothesis statistics.
+
+    Returns:
+        The decorator recording the test in ``PROPERTY_TESTS``.
     """
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
-        if fn in _STAMPED:
+        if fn in _DECORATED:
             msg = f"@property_test applied twice to {fn!r}, remove the duplicate decorator"
             raise TypeError(msg)
 
@@ -135,7 +155,16 @@ def property_test[**P](subject: object, *, given: bool = True, profile: str | No
                     msg = f"@property_test given=True requires a resolvable type form, got {subject!r}"
                     raise TypeError(msg)
                 drawn = next(reversed(inspect.signature(fn).parameters), "")
-                target = functools.wraps(fn)(lambda *args, **kwargs: ([hyp_event(tag(kwargs[drawn] if drawn in kwargs else args[-1])) for tag in events], fn(*args, **kwargs))[-1]) if events else fn
+                target = (
+                    functools.wraps(fn)(
+                        lambda *args, **kwargs: (
+                            [hyp_event(tag(kwargs[drawn] if drawn in kwargs else args[-1])) for tag in events],
+                            fn(*args, **kwargs),
+                        )[-1]
+                    )
+                    if events
+                    else fn
+                )
                 with_given = hyp_given(strategy_for(subject))(target)
             case _:
                 with_given = fn
@@ -153,10 +182,17 @@ def property_test[**P](subject: object, *, given: bool = True, profile: str | No
                 with_settings = hyp_settings(parent=parent, deadline=ceiling)(with_given)
 
         result = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), markers, with_settings)
-        _STAMPED.add(result)
+        _DECORATED.add(result)
 
         fn_name: str = getattr(fn, "__name__", repr(fn))
-        PROPERTY_TESTS.append(PropertyRecord(subject=_qualname(subject), property_name=property_name or fn_name, module=getattr(fn, "__module__", "<unknown>"), subject_module=getattr(subject, "__module__", "") or ""))
+        PROPERTY_TESTS.append(
+            PropertyRecord(
+                subject=_qualname(subject),
+                property_name=property_name or fn_name,
+                module=getattr(fn, "__module__", "<unknown>"),
+                subject_module=getattr(subject, "__module__", "") or "",
+            )
+        )
 
         return result
 
@@ -167,18 +203,20 @@ def record_coverage_declarations(module: object) -> None:
     """Record a test module's declarative ``COVERS`` tuple once.
 
     Raises:
-        TypeError: When a ``COVERS`` entry is neither a type nor a callable.
+        TypeError: A ``COVERS`` entry is neither a type nor a callable.
     """
     name: str = getattr(module, "__name__", "")
     covers = getattr(module, "COVERS", None)
-    if not name or name in _CONSUMED or covers is None:
+    if not name or name in _RECORDED or covers is None:
         return
-    _CONSUMED.add(name)
+    _RECORDED.add(name)
     for subject in covers:
         if not (isinstance(subject, type) or inspect.isroutine(subject)):
             msg = f"COVERS in {name} lists {subject!r}: entries must be types or callables"
             raise TypeError(msg)
-        PROPERTY_TESTS.append(PropertyRecord(subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", "") or ""))
+        PROPERTY_TESTS.append(
+            PropertyRecord(subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", "") or "")
+        )
 
 
 def register_package(package: str, *, exempt: frozenset[str] = frozenset(), suite: Path | None = None) -> None:
@@ -193,16 +231,17 @@ def register_package(package: str, *, exempt: frozenset[str] = frozenset(), suit
     caller_file = frame.f_back.f_globals.get("__file__") if frame is not None and frame.f_back is not None else None
     derived = suite if suite is not None else (Path(caller_file).resolve().parent if isinstance(caller_file, str) else None)
     prior = PACKAGES_UNDER_TEST.get(package)
-    PACKAGES_UNDER_TEST[package] = PackageUnderTest(exempt=(prior.exempt if prior is not None else frozenset()) | exempt, suite=prior.suite if prior is not None and prior.suite is not None else derived)
+    PACKAGES_UNDER_TEST[package] = PackageUnderTest(
+        exempt=(prior.exempt if prior is not None else frozenset()) | exempt,
+        suite=prior.suite if prior is not None and prior.suite is not None else derived,
+    )
 
 
 def _importable(folder: Path, /) -> str:
     """Return the import name installed by a source directory.
 
-    Workspace members install the shallowest ``__init__.py`` package beneath their module root, the member
-    folder itself for a flat layout, or ``src`` when present. Registering the directory path instead
-    imports the package again under another name and creates duplicate class objects. Manifest-less flat
-    folders keep their repo-relative dotted path, which a ``sys.path``-prepended root resolves.
+    Workspace members install the shallowest ``__init__.py`` package beneath their module root, the member folder for a flat layout or ``src`` when present, and registering the directory path instead imports the package twice and duplicates class objects.
+    Manifest-less flat folders keep their repo-relative dotted path, which a ``sys.path``-prepended root resolves.
     """
     src = folder / "src"
     base = src if src.is_dir() else (folder if (folder / "pyproject.toml").is_file() else None)
@@ -214,10 +253,10 @@ def _importable(folder: Path, /) -> str:
 
 
 def register_package_tree(source_root: Path, suite_root: Path) -> tuple[str, ...]:
-    """Register each Python package directly beneath ``source_root``.
+    """Register each Python package directly beneath ``source_root`` under the name its modules import by, with the same-named folder under ``suite_root`` as the test directory.
 
-    Folders register under the name their modules import by, with the same-named folder under ``suite_root``
-    as the test directory, a directory without Python source does not register.
+    Returns:
+        The registered names, a directory without Python source does not register.
     """
     children = sorted(p for p in source_root.iterdir() if p.is_dir()) if source_root.is_dir() else []
     authored = tuple(child for child in children if any(child.rglob("*.py")))
@@ -237,12 +276,15 @@ def _test_modules(suite: Path) -> frozenset[str]:
 
 
 def uncollected_test_modules() -> dict[str, tuple[str, ...]]:
-    """Return package test modules that pytest did not import during collection.
+    """Return package test modules that pytest did not import during collection, their coverage declarations were not recorded.
 
-    Collection imports every selected test module, a dotted name absent from ``sys.modules`` means that module's
-    coverage declarations were not recorded.
+    Collection imports every selected test module, a dotted name absent from ``sys.modules`` marks an uncollected module.
     """
-    gaps = {package: tuple(sorted(name for name in _test_modules(registration.suite) if name not in sys.modules)) for package, registration in PACKAGES_UNDER_TEST.items() if registration.suite is not None}
+    gaps = {
+        package: tuple(sorted(name for name in _test_modules(registration.suite) if name not in sys.modules))
+        for package, registration in PACKAGES_UNDER_TEST.items()
+        if registration.suite is not None
+    }
     return {package: missing for package, missing in gaps.items() if missing}
 
 
@@ -250,7 +292,7 @@ def assert_property_coverage(*, only: frozenset[str] | None = None) -> None:
     """Assert every registered public API has a property test or an explicit exemption.
 
     Args:
-        only: Packages to inspect; ``None`` inspects every registration.
+        only: Packages to inspect, ``None`` inspects every registration.
     """
     global_covered = frozenset(record.subject.rsplit(".", 1)[-1] for record in PROPERTY_TESTS if not record.subject_module)
 
@@ -258,12 +300,35 @@ def assert_property_coverage(*, only: frozenset[str] | None = None) -> None:
         if only is not None and package not in only:
             continue
         public_api, failures = _public_api(package)
-        covered = global_covered | frozenset(record.subject.rsplit(".", 1)[-1] for record in PROPERTY_TESTS if record.subject_module == package or record.subject_module.startswith(f"{package}."))
-        uncovered = frozenset(name for name, member in public_api.items() if name not in covered and name not in registration.exempt and not is_automatically_exempt(member))
+        covered = global_covered | frozenset(
+            record.subject.rsplit(".", 1)[-1]
+            for record in PROPERTY_TESTS
+            if record.subject_module == package or record.subject_module.startswith(f"{package}.")
+        )
+        uncovered = frozenset(
+            name
+            for name, member in public_api.items()
+            if name not in covered and name not in registration.exempt and not is_automatically_exempt(member)
+        )
         gaps = [*(f"  - {name}" for name in sorted(uncovered)), *(f"  ! {mod}: {err}" for mod, err in failures)]
-        assert not gaps, f"Property-test coverage gap in '{package}': {len(uncovered)} public symbol(s) are untested and {len(failures)} module(s) failed to import:\n" + "\n".join(gaps)
+        assert not gaps, (
+            f"Property-test coverage gap in '{package}': {len(uncovered)} public symbol(s) are untested and {len(failures)} module(s) failed to import:\n"
+            + "\n".join(gaps)
+        )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["property_test", "record_coverage_declarations", "register_package", "register_package_tree", "assert_property_coverage", "is_automatically_exempt", "uncollected_test_modules", "PROPERTY_TESTS", "PropertyRecord", "PackageUnderTest"]
+__all__ = [
+    "property_test",
+    "record_coverage_declarations",
+    "register_package",
+    "register_package_tree",
+    "assert_property_coverage",
+    "is_automatically_exempt",
+    "uncollected_test_modules",
+    "PROPERTY_TESTS",
+    "PACKAGES_UNDER_TEST",
+    "PropertyRecord",
+    "PackageUnderTest",
+]

@@ -57,13 +57,9 @@ const defaults = {
     },
     reporters: {
         coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
-        test: isCI
-            ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const)
-            : (['tree'] as const),
+        test: isCI ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const) : (['tree'] as const),
     },
-    setupFiles: [
-        path.resolve(rootDirectory, 'tests/typescript/support/setup.ts'),
-    ],
+    setupFiles: [path.resolve(rootDirectory, 'tests/typescript/support/setup.ts')],
     snapshot: { format: { printBasicPrototype: false } },
     timeouts: { hook: 10_000, slow: 5_000, test: 10_000 },
     workers: { max: '50%' },
@@ -71,17 +67,12 @@ const defaults = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const createVitestProject = (
-    directory: string,
-): { test: VitestProjectOptions } => ({
+const createVitestProject = (directory: string): { test: VitestProjectOptions } => ({
     test: {
         benchmark: {
             exclude: [...defaults.patterns.benchmarkExclude],
             include: [...defaults.patterns.benchmarkInclude],
-            outputJson: path.resolve(
-                artifacts.benchmarks,
-                `${path.basename(directory)}.json`,
-            ),
+            outputJson: path.resolve(artifacts.benchmarks, `${path.basename(directory)}.json`),
         },
         deps: { ...defaults.dependencies },
         environment: 'node',
@@ -135,11 +126,7 @@ const rootConfig: ViteUserConfig = defineConfig({
         },
         diff: { ...defaults.output.diff },
         fileParallelism: true,
-        forceRerunTriggers: [
-            '**/package.json/**',
-            '**/{vitest,vite}.config.*/**',
-            '**/tsconfig*.json',
-        ],
+        forceRerunTriggers: ['**/package.json/**', '**/{vitest,vite}.config.*/**', '**/tsconfig*.json'],
         hideSkippedTests: isCI,
         maxWorkers: defaults.workers.max,
         onConsoleLog: (log) => !log.includes('Download the React DevTools'),
