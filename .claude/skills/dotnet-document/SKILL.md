@@ -5,80 +5,60 @@ description: "Use when adding or reviewing XML doc comments on a C# member, or w
 
 # [DOTNET_DOCUMENT]
 
-Covers XML documentation comments (`///`) on C# members: the Microsoft conventions for summaries, parameters, return values, and remarks, the tag and cross-reference syntax, and the phrasing for each member kind. Member documentation is optional (`CS1591` is off), and a member that gets a doc comment follows these patterns.
+Covers XML documentation comments (`///`) on C# members: the tag and cross-reference syntax, the summary standard, the opening phrase and tag set for each member kind, and the diagnostics the build raises on them. `GenerateDocumentationFile` is on in every project, member documentation is optional (`CS1591`, `RCS1140`, `RCS1141`, `RCS1142`, and `RCS1181` are off), and every member that has a doc comment follows these patterns.
 
 [REFERENCES]:
-- [01]-[REVIEW](references/review.md): Severity taxonomy, source-first review procedure, factual, example, and quality checks, and the closing report
+- [01]-[REVIEW](references/review.md): Severity classes, the procedure, the factual, example, and quality checks, and the closing report
 
 ## [01]-[PRINCIPLES]
 
-Follow Microsoft Documentation Conventions:
-- Write XML doc comments (`///`) on the members the code documentation standard selects, never on trivial getters and setters without side effects
-- Use `<see cref="..."/>` for cross-references, not plain text names
-- Refer to parameters in descriptions with `<paramref name="..."/>`
-- Document what, not how, the code shows the implementation
-- Document every `DllImport` P/Invoke method with the C function it calls and its marshaling behavior
-
-C# documentation must be lean and precise. It assumes developers understand modern FP/expression, OOP patterns, async/await, and standard .NET idioms and documents the parts specific to the architecture:
-- Threading constraints — why something must run on a specific thread
-- Native interop details — why the code uses a specific marshalling approach
-- Platform differences — why code branches by platform
-
-The same summary in both forms:
-
-```csharp
-// BAD: Overly verbose
-/// <summary>
-/// This method is responsible for handling the event that occurs when
-/// the user taps on the screen. It takes the tap coordinates and
-/// determines which grid cell was tapped, then sends the appropriate
-/// command to the native library through the interop layer.
-/// </summary>
-
-// GOOD: Concise and technical
-/// <summary>Handles a screen tap by translating touch coordinates to grid coordinates and dispatching the corresponding command to the native library</summary>
-```
+- Write doc comments on the members a caller uses without opening the source, never on trivial accessors with no side effect
+- Name types and members with `<see cref="..."/>` and parameters with `<paramref name="..."/>`, the compiler does not resolve a plain-text name and a rename leaves it unchanged
+- State what the member does, not how the body does it, a sentence that names a private field, a loop, or a called helper describes the implementation and goes
+- Put the reason for a marshaling choice or a platform branch in `<remarks>`, the code shows the branch without its reason
+- Document every `DllImport` or `LibraryImport` method with the C function it calls and its marshaling behavior
 
 ## [02]-[SYNTAX]
 
-Every documented member uses the same tag layout:
-
-```csharp
-/// <summary>Brief description of the member</summary>
-/// <param name="paramName">Description of the parameter</param>
-/// <returns>Description of the return value</returns>
-/// <remarks>Additional context, edge cases, or threading considerations</remarks>
-```
-
 ### [02.1]-[TAGS]
 
-Each tag has one use, and an element with no content is omitted (`RCS1228` fails the build on an empty element):
+Each tag has one use, and an element with no content goes (`RCS1228` fails the build on an empty element):
 
-| [INDEX] | [TAG]                    | [USAGE]                                                             |
-| :-----: | :----------------------- | :------------------------------------------------------------------ |
-|  [01]   | `<summary>`              | Brief description (required)                                        |
-|  [02]   | `<param name="x">`       | Parameter description, every parameter or none (`CS1573`)           |
-|  [03]   | `<typeparam name="T">`   | Type parameter description, every type parameter or none (`CS1712`) |
-|  [04]   | `<returns>`              | Return value description                                            |
-|  [05]   | `<value>`                | Property value description                                          |
-|  [06]   | `<remarks>`              | Extended details, one `<para>` per topic                            |
-|  [07]   | `<list type="bullet">`   | Parallel items inside `<remarks>`                                   |
-|  [08]   | `<exception cref="...">` | Exception the member throws                                         |
-|  [09]   | `<inheritdoc/>`          | Inherits the base or interface documentation into the XML file      |
+| [INDEX] | [TAG]                      | [USAGE]                                                                                             |
+| :-----: | :------------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `<summary>`                | One-sentence description, required on every documented member                                       |
+|  [02]   | `<param name="x">`         | Parameter description, every parameter or none (`CS1573`), in declaration order (`RCS1232`)         |
+|  [03]   | `<typeparam name="T">`     | Type parameter description, every type parameter or none (`CS1712`)                                 |
+|  [04]   | `<returns>`                | Return value description                                                                            |
+|  [05]   | `<value>`                  | Property value description                                                                          |
+|  [06]   | `<remarks>`                | Usage facts the other tags do not state, one `<para>` per topic                                     |
+|  [07]   | `<para>`                   | Paragraph inside `<summary>`, `<remarks>`, or `<returns>`, required past one paragraph (`RCS1226`)  |
+|  [08]   | `<list type="bullet">`     | List inside `<remarks>`, one `<item>` per entry, `type` is `bullet`, `number`, or `table`           |
+|  [09]   | `<c language="csharp">`    | Inline code, `<code>` for more than one line (`RCS1247`), `language` required unless one keyword    |
+|  [10]   | `<code language="csharp">` | Preformatted block on its own lines inside `<example>`, `language` required (`MA0219`, `MA0218`)    |
+|  [11]   | `<example>`                | Usage example, one sentence and one `<code>` block                                                  |
+|  [12]   | `<exception cref="...">`   | Exception the member throws, the text states the condition                                          |
+|  [13]   | `<inheritdoc/>`            | Copies the base or interface documentation into the XML file, tags on the member stay               |
+
+`<inheritdoc cref="..."/>` copies from the named member, `path` filters the copied tags with an XPath expression, and Visual Studio inherits documentation for an override or implementation in the IDE only, the XML file the compiler writes holds nothing without the tag.
 
 ### [02.2]-[CROSS_REFERENCES]
 
 Cross-references name types, members, parameters, and keywords through these tags:
-- `cref` names a code element and the compiler resolves it (`CS1574`), a generic target is written as `List{T}`
-- `<see href="...">` names a URL
-- `<see langword>` names `true`, `false`, and `null`, never backticks
+- `cref` names a type or member, the compiler resolves it through the `using` directives (`CS1574` when unresolved, `CS1584` when the syntax is wrong, `CS1580` when it names a type parameter), a generic target takes the form `List{T}`, and link text sits between `<see cref="...">` and `</see>`
+- `<see href="...">` names a URL, `cref` produces no link for a URL
+- `<see langword="...">` names a keyword (`true`, `false`, `null`), `<c>true</c>` and backticks fail `MA0154`
+- `<paramref name="..."/>` names a parameter and `<typeparamref name="T"/>` names a type parameter
+- `<seealso cref="..."/>` lists a related member and cannot sit inside `<summary>`
 
 ```xml
 <see cref="Drawing.Canvas" />            <!-- Type -->
 <see cref="Drawing.Canvas.DrawRect" />   <!-- Method -->
 <see cref="Drawing.Paint.Color" />       <!-- Property -->
 <see cref="Drawing.Colors.Red" />        <!-- Field -->
-<paramref name="paint" />                    <!-- Parameter in same method -->
+<see cref="Seq{T}" />                    <!-- Generic type -->
+<paramref name="paint" />                <!-- Parameter of the same member -->
+<typeparamref name="T" />                <!-- Type parameter of the same member -->
 
 <!-- Keywords -->
 <see langword="true" />
@@ -88,7 +68,7 @@ Cross-references name types, members, parameters, and keywords through these tag
 
 ### [02.3]-[ESCAPING]
 
-Escape these characters inside documentation text:
+Escape these characters inside documentation text, an unescaped one fails `CS1570`:
 
 | [INDEX] | [CHARACTER] | [ESCAPE] |
 | :-----: | :---------- | :------- |
@@ -98,39 +78,39 @@ Escape these characters inside documentation text:
 
 ## [03]-[SUMMARIES]
 
-Every documented member requires a `<summary>` tag, and its text follows these patterns:
-- One line, one sentence, no trailing period (`RCS1253` with `roslynator_doc_comment_summary_style = single_line`)
-- Begin with a present-tense, third-person verb
-- Do not repeat the member name, provide meaningful context
-- Use language-neutral text (no C#/VB-specific terms)
-- Avoid parameter names and self-referential names
+Every documented member has a `<summary>` on one line (`RCS1253` with `roslynator_doc_comment_summary_style = single_line`), and its text is one sentence in the third person that states what the member does, returns, or represents, with no filler, no hedge, and no trailing period:
+- Open with a present-tense verb, except the exception class ("The exception that is thrown when"), the enum member (a noun phrase), and the abstract or virtual member ("When overridden in a derived class,")
+- Name the behavior, not the member name: `String.Format` reads "Replaces each format item in a specified string with the string representation of a specified object", not "Formats a string"
+- Restate no part of the signature: no parameter name, no member name, and no type name, except the type name in a constructor or `Dispose` summary
+- Give overloads one general summary broad enough for every overload, and each overload a summary that names what its parameters add
 
 ## [04]-[MEMBERS]
 
-Each member kind has its own opening phrase and tag set, and parameter and return descriptions are noun phrases without the data type.
+Each member kind has its own opening phrase and tag set. Parameter, return, and value descriptions are noun phrases that open with an article and omit the data type, a boolean parameter reads "true to ...; otherwise, false", and a boolean return or property value reads "true if ...; otherwise, false".
 
 ### [04.1]-[CLASSES_AND_STRUCTS]
 
-- A class summary states what the type holds or does
-- Include `<remarks>` only for a class with non-obvious architectural significance
+- Class and struct summaries state what the type holds, does, or represents, an interface opens with "Defines", "Provides", or "Exposes", an abstract base class reads "Defines the core behavior of X and provides a base for Y", and an exception class reads "The exception that is thrown when ..."
+- `<remarks>` on a type holds usage facts the summary does not state, one `<para>` per topic, and a type with none has no `<remarks>`
 
-The class summary:
+The class summary, and for a type that owns a native resource the `<remarks>` that state how to create an instance (constructor or factory) and that the caller disposes it, with the `using` form in an `<example>`:
 
 ```xml
 <summary>Holds the style and color information about how to draw geometries, text and bitmaps</summary>
+<remarks><para>Instances come from the constructor, and the caller disposes each one after its last draw call</para></remarks>
+<example>
+Draws a rectangle with a paint the caller owns:
+<code language="csharp">
+using var paint = new Paint { Color = Colors.Red };
+canvas.DrawRect(rect, paint);
+</code>
+</example>
 ```
-
-Types that wrap native resources (`IDisposable`) must have remarks that cover:
-- What the type does
-- How to create instances (constructor vs factory)
-- Disposal pattern — always show `using` in examples
-- Threading constraints if any
 
 ### [04.2]-[CONSTRUCTORS]
 
-- Always open with the exact .NET phrase "Initializes a new instance of the `<see cref>` class"
-- Use "struct" instead of "class" for value types, the declaration shows the type kind
-- Shortened forms ("Initializes a new `<see cref>` from a packed value") violate the guideline
+- Open with the exact .NET phrase "Initializes a new instance of the `<see cref>` class", "struct" for a value type, and "Called from constructors in derived classes to initialize the `<see cref>` class" for an abstract class
+- Keep the full phrase, a shortened form ("Initializes a new `<see cref>` from a packed value") drops it, and the overload text follows "class" or "struct"
 
 Constructor summaries by kind:
 
@@ -138,58 +118,49 @@ Constructor summaries by kind:
 <!-- Class constructor -->
 <summary>Initializes a new instance of the <see cref="Drawing.Paint" /> class</summary>
 
-<!-- With parameters - describe what makes this overload different -->
+<!-- With parameters, the text after the phrase names what this overload adds -->
 <summary>Initializes a new instance of the <see cref="Drawing.Bitmap" /> class with the specified dimensions</summary>
-<param name="width">The width of the bitmap</param>
-<param name="height">The height of the bitmap</param>
+<param name="width">The width of the bitmap, in pixels</param>
+<param name="height">The height of the bitmap, in pixels</param>
 
-<!-- Struct constructor (note "struct", not "class") -->
+<!-- Struct constructor -->
 <summary>Initializes a new instance of the <see cref="Drawing.Point" /> struct</summary>
 
 <!-- Abstract class constructor -->
 <summary>Called from constructors in derived classes to initialize the <see cref="Drawing.NativeObject" /> class</summary>
-
-<!-- BAD: omits "instance of the ... struct" -->
-<summary>Initializes a new <see cref="Drawing.Color" /> from a packed BGRA value.</summary>
-<!-- GOOD: full phrase with "struct" -->
-<summary>Initializes a new instance of the <see cref="Drawing.Color" /> struct from a packed BGRA value</summary>
 ```
 
 ### [04.3]-[PROPERTIES]
 
-The declaration's accessor decides the opening verb, read it and do not infer the verb from the property's purpose:
-- `{ get; set; }` → "Gets or sets"
-- `{ get; }` → "Gets"
-- Struct properties are a trap: many look read-only but are settable
-- Boolean properties open with "Gets a value indicating whether"
-- `<value>` describes a state, like a return value, and reads "true if", never "true to"
+The accessor list decides the opening verb, read it and never infer the verb from the property's purpose:
+- `{ get; set; }` opens with "Gets or sets", `{ get; }` with "Gets", and `{ get; init; }` with "Gets or initializes"
+- Boolean properties open with "Gets a value that indicates whether" or "Gets or sets a value that indicates whether"
+- Struct properties with a `set` accessor are settable, value semantics do not make them read-only
+- `<value>` names the value with its unit ("The width, in pixels"), a default is a second sentence "The default is X" only when the source shows the initializer, and the sentence "This property is read-only" goes
 
 Property summaries and values by accessor:
 
 ```xml
-<!-- Read/write — signature: public Color Color { get; set; } -->
+<!-- Read/write, signature public Color Color { get; set; } -->
 <summary>Gets or sets the color</summary>
 <value>The color value</value>
 
-<!-- Read-only — signature: public int Width { get; } (do NOT say "This property is read-only") -->
+<!-- Read-only, signature public int Width { get; } -->
 <summary>Gets the width of the bitmap</summary>
-<value>The width in pixels</value>
+<value>The width, in pixels</value>
 
-<!-- Boolean read/write -->
-<summary>Gets or sets a value indicating whether anti-aliasing is enabled</summary>
-<value><see langword="true" /> if anti-aliasing is enabled; otherwise, <see langword="false" /></value>
+<!-- Boolean read/write, signature public bool Antialias { get; set; } = true; -->
+<summary>Gets or sets a value that indicates whether anti-aliasing is enabled</summary>
+<value><see langword="true" /> if anti-aliasing is enabled; otherwise, <see langword="false" />. The default is <see langword="true" /></value>
 
 <!-- Boolean read-only -->
-<summary>Gets a value indicating whether the path is empty</summary>
+<summary>Gets a value that indicates whether the path is empty</summary>
 <value><see langword="true" /> if the path contains no lines or curves; otherwise, <see langword="false" /></value>
-
-<!-- BAD: signature is { get; set; } but summary says only "Gets" -->
-<summary>Gets the variation axis minimum value.</summary>   <!-- should be "Gets or sets" -->
 ```
 
 ### [04.4]-[METHODS]
 
-Each method pattern has its own phrasing:
+Each method pattern has its own opening phrase:
 
 ```xml
 <!-- General method -->
@@ -197,8 +168,9 @@ Each method pattern has its own phrasing:
 <param name="rect">The rectangle to draw</param>
 <param name="paint">The paint to use</param>
 
-<!-- Async method -->
+<!-- Task-returning method -->
 <summary>Asynchronously encodes the image to the specified format</summary>
+<returns>A task object that, when awaited, produces the encoded bytes</returns>
 
 <!-- Factory method -->
 <summary>Creates a new image from encoded data</summary>
@@ -208,31 +180,34 @@ Each method pattern has its own phrasing:
 <!-- Try pattern -->
 <summary>Attempts to parse the color from a string</summary>
 <param name="value">The string to parse</param>
-<param name="color">When this method returns, contains the parsed color if successful. This parameter is treated as uninitialized</param>
+<param name="color">When this method returns, contains the parsed color if the parsing succeeded. This parameter is treated as uninitialized</param>
 <returns><see langword="true" /> if the parsing succeeded; otherwise, <see langword="false" /></returns>
+
+<!-- Abstract or virtual member of an abstract class -->
+<summary>When overridden in a derived class, reads the next byte from the stream</summary>
 
 <!-- Dispose() -->
 <summary>Releases the resources used by the current instance of the <see cref="Drawing.Paint" /> class</summary>
 
 <!-- Dispose(Boolean) -->
 <summary>Called by the <see cref="Drawing.Paint.Dispose" /> and <see cref="System.Object.Finalize" /> methods to release the managed and unmanaged resources used by the current instance of the <see cref="Drawing.Paint" /> class</summary>
+<param name="disposing"><see langword="true" /> to release managed and unmanaged resources; <see langword="false" /> to release only unmanaged resources</param>
 ```
-
-Async methods:
-- Document what the method awaits and whether it runs on a background thread
 
 ### [04.5]-[EVENTS]
 
-Event summaries open with "Occurs when":
+Event summaries open with "Occurs when", the `On` method that raises the event reads "Raises the `<see cref>` event", and an `EventArgs` class reads "Provides data for the `<see cref>` event":
 
 ```xml
 <summary>Occurs when the surface needs to be repainted</summary>
+<summary>Raises the <see cref="Drawing.Surface.Paint" /> event</summary>
+<summary>Provides data for the <see cref="Drawing.Surface.Paint" /> event</summary>
 ```
 
 ### [04.6]-[ENUMS]
 
-- Document the enum and non-obvious members
-- For `[Flags]`, document combination semantics
+- The type summary opens with "Specifies" or "Describes", a member summary is a noun phrase or a sentence with no opening verb, and a mask member reads "A mask used to retrieve X"
+- `[Flags]` enums state which members combine and which stand alone
 
 Enum type and member summaries:
 
@@ -240,17 +215,17 @@ Enum type and member summaries:
 <!-- Type -->
 <summary>Specifies the blend mode for drawing operations</summary>
 
-<!-- Members - no verb needed -->
-<summary>Source pixels replace destination pixels</summary>
-<summary>Source and destination pixels are blended</summary>
+<!-- Members -->
+<summary>The source pixel in place of the destination pixel</summary>
+<summary>A blend of the source and destination pixels</summary>
 ```
 
 ### [04.7]-[PARAMETERS]
 
 - Cover every parameter or none (`CS1573`), in declaration order (`RCS1232`)
-- Begin with an article (The, A, An)
-- Write "true to..." for booleans, not "true if..."
-- Write `<see langword="null" />` for a nullable parameter, not `default`
+- Open with an article, state the unit, the valid range, and the default in the description, and write `<see langword="null" />` for a nullable parameter, not `default`
+- Write "One of the enumeration values that specifies ..." for an enum parameter and "A bitwise combination of the enumeration values that specifies ..." for a `[Flags]` parameter
+- Write "When this method returns, contains ... This parameter is treated as uninitialized" for an `out` parameter, ", passed by reference" at the end of a `ref` parameter, and "The zero-based index of ..." for an indexer integer
 
 Parameter descriptions by kind:
 
@@ -258,7 +233,10 @@ Parameter descriptions by kind:
 <!-- Class/struct parameter -->
 <param name="rect">The rectangle to draw</param>
 
-<!-- Boolean parameter: "true to...", NOT "true if..." -->
+<!-- Primitive with unit, range, and default -->
+<param name="bufferSize">The size of the buffer, in bytes. This value must be greater than zero. The default size is 4096</param>
+
+<!-- Boolean parameter -->
 <param name="antialias"><see langword="true" /> to enable anti-aliasing; otherwise, <see langword="false" /></param>
 
 <!-- Enum parameter -->
@@ -268,14 +246,13 @@ Parameter descriptions by kind:
 <param name="flags">A bitwise combination of the enumeration values that specifies the options</param>
 
 <!-- out parameter -->
-<param name="result">When this method returns, contains the parsed value if successful. This parameter is treated as uninitialized</param>
+<param name="result">When this method returns, contains the parsed value if the parsing succeeded. This parameter is treated as uninitialized</param>
 ```
 
 ### [04.8]-[RETURN_VALUES]
 
-- Write `<returns>` when the summary does not open with "Returns"
-- For a result type, state the success value and each failure case, never the carrier name
-- Write "true if..." for booleans, not "true to..."
+- LanguageExt returns name the success value and each failure case, never the result type: `Option<A>` reads "The X, or none when ...", `Fin<A>` reads "The X, or a `<see cref>` error when ...", `Validation<Error, A>` reads "The X, or every error from ...", and `Either<L, R>` reads "The L when ..., or the R when ..."
+- `Task` and `ValueTask` returns read "A task object that, when awaited, produces ...", enums "One of the enumeration values that indicates ...", and `[Flags]` enums "A bitwise combination of the enumeration values that ..."
 
 Return descriptions by kind:
 
@@ -286,27 +263,39 @@ Return descriptions by kind:
 <!-- Nullable -->
 <returns>A new image, or <see langword="null" /> if the data is invalid</returns>
 
-<!-- Boolean: "true if...", NOT "true to..." -->
+<!-- Boolean -->
 <returns><see langword="true" /> if the operation succeeded; otherwise, <see langword="false" /></returns>
 
 <!-- Enum -->
 <returns>One of the enumeration values that indicates the result</returns>
+
+<!-- Option<Person> -->
+<returns>The person with the specified name, or none when no person has that name</returns>
+
+<!-- Fin<Age> -->
+<returns>The validated age, or an <see cref="InvalidAge" /> error when the value is negative or at least 120</returns>
+
+<!-- Validation<Error, Person> -->
+<returns>The registered person, or every error from the name and age checks</returns>
 ```
 
 ### [04.9]-[EXCEPTIONS]
 
-- Document explicitly thrown exceptions with `<exception>` tags, a failure returned as data belongs in `<returns>`
-- Document `InvalidOperationException` for state preconditions
+- Document each exception the member throws with `<exception cref>`, a failure returned as data belongs in `<returns>`
+- State the condition as if "if" preceded it, in the present tense, with `<paramref>` for the parameter, separate conditions of one exception with "-or-", and end a condition of an exception stored in the returned task with "This exception is stored into the returned task"
+- Document `InvalidOperationException` with the instance state that rejects the call as the condition ("The path is empty"), and a call after `Dispose` with `ObjectDisposedException`
 
 Exception descriptions:
 
 ```xml
 <exception cref="System.ArgumentNullException"><paramref name="paint" /> is <see langword="null" /></exception>
 <exception cref="System.ArgumentOutOfRangeException"><paramref name="width" /> is less than zero</exception>
+<exception cref="System.InvalidOperationException">The path is empty</exception>
+<exception cref="System.ObjectDisposedException">The surface is disposed</exception>
 ```
 
 ## [05]-[THREADING]
 
-Thread safety requirements go in `<remarks>` and name the thread, lock, or monitor involved:
-- State when a method must run on the UI thread
-- Detail any `lock()` or `Monitor.TryEnter` requirements
+Thread constraints go in `<remarks>` and name the thread, lock, or monitor:
+- State the thread a member must run on (the UI thread) and whether an awaited continuation resumes on it
+- Detail any `lock()` or `Monitor.TryEnter` requirement the caller must satisfy
