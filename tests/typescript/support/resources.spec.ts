@@ -42,7 +42,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
     );
 
     it.effect(
-        'an invalid statement returns a typed database error without throwing',
+        'invalid statements return a typed database error without throwing',
         () =>
             Effect.gen(function* () {
                 const database = yield* TestDatabase;
@@ -89,7 +89,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
     );
 
     it.effect(
-        'a control notification is not delivered as application payload',
+        'control notifications are not delivered as application payload',
         () =>
             Effect.scoped(
                 Effect.gen(function* () {
@@ -109,7 +109,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
     );
 
     it.effect(
-        'a rollback-only transaction does not retain database state across tests',
+        'rollback-only transactions retain no database state across tests',
         () =>
             Effect.gen(function* () {
                 const database = yield* TestDatabase;
@@ -134,7 +134,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
     );
 
     it.effect(
-        'a failed transaction rolls back and preserves the original error',
+        'failed transactions roll back and preserve the original error',
         () =>
             Effect.gen(function* () {
                 const database = yield* TestDatabase;
@@ -157,7 +157,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
             }),
     );
 
-    it.effect('an unavailable extension returns a typed database error', () =>
+    it.effect('unavailable extensions return a typed database error', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
             const error = yield* Effect.flip(
@@ -175,7 +175,7 @@ layer(
         seed: 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";',
     }),
 )('PGlite extension configuration', (it) => {
-    it.effect('a configured extension exposes its SQL function', () =>
+    it.effect('configured extensions expose their SQL function', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
             const rows = yield* database.decoded(
@@ -261,7 +261,7 @@ layer(
         }),
     );
 
-    it.effect('an unrouted path returns 404 over the loopback socket', () =>
+    it.effect('unrouted paths return 404 over the loopback socket', () =>
         Effect.gen(function* () {
             const loop = yield* Loopback;
             const reply = yield* Effect.scoped(loop.client.get('/absent'));

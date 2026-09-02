@@ -1,10 +1,10 @@
 # [HOSTINGER_REACH]
 
-Email-marketing law: confirm a sender profile's domain authentication, import contacts, then segment on behavior and read the resulting audience. REST rows on `/api/reach/v1` map one-to-one onto the `hostinger` MCP `reach_*` tools; every contact, profile, and segment identifier is a UUID.
+Email marketing: confirm a sender profile's domain authentication, import contacts, then segment on behavior and read the resulting audience. REST entries on `/api/reach/v1` map one-to-one onto the `hostinger` MCP `reach_*` tools, every contact, profile, and segment identifier is a UUID.
 
 ## [01]-[PROFILES_AND_DELIVERABILITY]
 
-A sender profile owns a domain, and `getProfileDomainDNSStatusV1` is the deliverability gate: it returns the `mx`, `spf`, `dkim`, and `dmarc` record blocks, each pairing the `actual` records against the `suggested` set, so a mismatch names the exact DNS record to add before a profile is trusted for sending. A profile also carries plan-derived `limits` (sending quota, trial state).
+Sender profiles own a domain, and `getProfileDomainDNSStatusV1` is the deliverability gate: it returns the `mx`, `spf`, `dkim`, and `dmarc` record blocks, each pairing the `actual` records against the `suggested` set, a mismatch names the exact DNS record to add before a profile is trusted for sending. Profiles also carry plan-derived `limits` (sending quota, trial state).
 
 ```bash
 curl -X GET "https://developers.hostinger.com/api/reach/v1/profiles" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
@@ -13,7 +13,7 @@ curl -X GET "https://developers.hostinger.com/api/reach/v1/profiles/{profileUuid
 
 ## [02]-[CONTACTS]
 
-A contact takes `email` (required) with nullable `name`, `surname`, `phone`, and `note`. Two create paths differ by scope: `POST /contacts` is account-wide, and `POST /profiles/{profileUuid}/contacts` binds the contact to one sender profile — the scoped form when a contact must belong to a single profile. Under double opt-in a new contact lands `pending` and receives no campaigns until it confirms; deletion is permanent.
+Contacts take `email` (required) with nullable `name`, `surname`, `phone`, and `note`. Create paths differ by scope: `POST /contacts` is account-wide, and `POST /profiles/{profileUuid}/contacts` binds the contact to one sender profile, the scoped form when a contact must belong to a single profile. Under double opt-in a new contact lands `pending` and receives no campaigns until it confirms, deletion is permanent.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/reach/v1/contacts" \
@@ -21,11 +21,11 @@ curl -X POST "https://developers.hostinger.com/api/reach/v1/contacts" \
   -d '{ "email": "subscriber@example.com", "name": "Ada", "surname": "Lovelace" }'
 ```
 
-A create response carries a message only, never the contact body, so a follow-up `GET /contacts` reads the assigned UUID and `subscription_status`. Contact groups are the legacy surface superseded by segments; the `group_uuid` filter and `listContactGroupsV1` remain for old data.
+Create responses carry a message only, never the contact body, a follow-up `GET /contacts` reads the assigned UUID and `subscription_status`. Contact groups are the legacy feature superseded by segments, the `group_uuid` filter and `listContactGroupsV1` remain for old data.
 
 ## [03]-[SEGMENTS]
 
-A segment is a named rule of `logic` (`and` or `or`) over a `conditions[]` array, each condition a `{ field, operator, value }` triple. Behavioral operators — `opened`, `clicked`, `bounced`, `unsubscribed`, `within_last_days` and their negations, beside the scalar `equals`, `contains`, `gte`, `lte`, `exists` — turn engagement history into an audience.
+Segments are named rules of `logic` (`and` or `or`) over a `conditions[]` array, each condition a `{ field, operator, value }` triple. Behavioral operators (`opened`, `clicked`, `bounced`, `unsubscribed`, `within_last_days` and their negations, beside the scalar `equals`, `contains`, `gte`, `lte`, `exists`) turn engagement history into an audience.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/reach/v1/segmentation/segments" \
@@ -35,13 +35,13 @@ curl -X POST "https://developers.hostinger.com/api/reach/v1/segmentation/segment
                         { "field": "email_engagement", "operator": "opened" } ] }'
 ```
 
-A segment's audience reads through `listSegmentContactsV1` (`GET .../segments/{segmentUuid}/contacts`) or its profile-scoped variant, paginated by `page` and `per_page` (default 25); account-wide contact listing paginates by `page` alone.
+Segment audiences read through `listSegmentContactsV1` (`GET .../segments/{segmentUuid}/contacts`) or its profile-scoped variant, paginated by `page` and `per_page` (default 25), account-wide contact listing paginates by `page` alone.
 
 ## [04]-[API_REFERENCE]
 
 | [INDEX] | [METHOD]          | [ENDPOINT]                                            | [DESCRIPTION]                     |
 | :-----: | :---------------- | :---------------------------------------------------- | :-------------------------------- |
-|  [01]   | `GET`             | `/api/reach/v1/profiles[/{uuid}/domains/dns-status]`  | Profiles; sender-domain DNS gate  |
+|  [01]   | `GET`             | `/api/reach/v1/profiles[/{uuid}/domains/dns-status]`  | Profiles, sender-domain DNS gate  |
 |  [02]   | `GET/POST/DELETE` | `/api/reach/v1/contacts[/{uuid}]`                     | List, create account-wide, delete |
 |  [03]   | `POST`            | `/api/reach/v1/profiles/{uuid}/contacts`              | Create scoped to a sender profile |
 |  [04]   | `GET`             | `/api/reach/v1/contacts/groups`                       | Legacy contact groups             |

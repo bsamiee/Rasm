@@ -14,8 +14,8 @@ public abstract partial record StubBehavior<TValue> {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct ProbeCall<TArgs>(string Member, Option<TArgs> Payload) {
-    public bool Equals(ProbeCall<TArgs> other) =>
+public readonly record struct SpyCall<TArgs>(string Member, Option<TArgs> Payload) {
+    public bool Equals(SpyCall<TArgs> other) =>
         string.Equals(Member, other.Member, StringComparison.Ordinal)
         && (Payload.Case, other.Payload.Case) switch {
             (null, null) => true,
@@ -32,10 +32,10 @@ public readonly record struct RestoreHandle(Action Restore) : IDisposable {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public sealed class CallProbe<TArgs> {
-    private readonly Atom<Seq<ProbeCall<TArgs>>> calls = Atom(Seq<ProbeCall<TArgs>>());
+public sealed class CallSpy<TArgs> {
+    private readonly Atom<Seq<SpyCall<TArgs>>> calls = Atom(Seq<SpyCall<TArgs>>());
 
-    public Seq<ProbeCall<TArgs>> Calls => calls.Value;
+    public Seq<SpyCall<TArgs>> Calls => calls.Value;
 
     public Seq<TArgs> Payloads => calls.Value.Bind(static call => call.Payload.ToSeq());
 
@@ -45,7 +45,7 @@ public sealed class CallProbe<TArgs> {
         ArgumentNullException.ThrowIfNull(bind);
         StrongBox<int> cursor = new(0);
         TResult Record(string label, Option<TArgs> payload, TResult value) {
-            _ = calls.Swap(log => log.Add(new ProbeCall<TArgs>(label, payload)));
+            _ = calls.Swap(log => log.Add(new SpyCall<TArgs>(label, payload)));
             return value;
         }
         TResult Substitute(TArgs args) => behavior.Switch(

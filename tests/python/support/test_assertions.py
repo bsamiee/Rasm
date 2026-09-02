@@ -118,7 +118,7 @@ class _SubtestRecorder:
 
 
 class _Ledger(RuleBasedStateMachine):
-    """State machine whose guarded withdrawals preserve a nonnegative balance."""
+    """State machine that guards withdrawals to keep a nonnegative balance."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -232,7 +232,7 @@ def test_validity_matrix_accepts_structs_and_tuples_and_reports_the_failed_case(
 
 
 def test_projection_matrix_prefers_reference_function_and_reports_the_failed_case() -> None:
-    """A reference function computes expected results; other cases use fixed expected values."""
+    """Reference functions compute expected results, other cases use fixed expected values."""
     cases = [ProjectionCase(label="derived", intent=4, expected=None, reference=lambda n: n * 2), ProjectionCase(label="static", intent=3, expected=6, reference=None)]
     projection_matrix(cases, project=lambda n: n * 2)
     with pytest.raises(AssertionError, match="static"):
@@ -247,7 +247,7 @@ def test_capability_matrix_checks_each_case() -> None:
 
 
 def test_matrices_report_independent_subtests_and_stop_without_reporter(subtests: SubtestReporter) -> None:
-    """A subtest reporter records every case; without one, the first assertion failure stops execution."""
+    """Subtest reporters record every case, without them the first assertion failure stops execution."""
     recorder = _SubtestRecorder()
     validity_matrix([("first", 1, True), ("broken", -1, True), ("last", 2, True)], valid=lambda n: n > 0, subtests=recorder)
     assert recorder.labels == ["first", "broken", "last"], f"subtest reporting stopped before all cases ran: {recorder.labels}"
@@ -277,7 +277,7 @@ def test_matrix_assertions_require_nonempty_case_sets() -> None:
 
 
 def test_metamorphic_assertion_enforces_every_relation() -> None:
-    """Every relation must hold between source and follow-up outputs; one violation fails the sweep."""
+    """Every relation must hold between source and follow-up outputs, any violation fails the sweep."""
 
     def _doubles(base: int, follow: int) -> None:
         assert follow == base * 2, f"scaling relation failed: {base} -> {follow}"
@@ -300,7 +300,7 @@ class _Reading(msgspec.Struct, frozen=True):
 
 
 def test_close_dispatches_every_supported_value_type_and_names_the_diverging_path() -> None:
-    """One tolerance policy compares numbers, arrays, quantities, structs, results, mappings, and sequences and reports the differing path."""
+    """The tolerance policy compares numbers, arrays, quantities, structs, results, mappings, and sequences and reports the differing path."""
     assert_close(1.0, 1.0 + 1e-12)
     assert_close(float("nan"), float("nan"))
     assert_close(float("inf"), float("inf"))
@@ -388,7 +388,7 @@ def test_assert_error_status_matches_by_identity_not_equality() -> None:
 
 
 def test_assert_roundtrip_proves_byte_identity_and_fails_on_lossy_decode() -> None:
-    """A serialized struct round-trips byte-identically; a type-changing decode fails equality."""
+    """Serialized structs round-trip byte-identically, a type-changing decode fails equality."""
     assert assert_roundtrip(_VersionedRecord(key="a", version=2), _VersionedRecord) == _VersionedRecord(key="a", version=2)
     assert assert_roundtrip(_VersionedRecord(key="a", version=2), _VersionedRecord, encoder=MSGPACK_ENCODER) == _VersionedRecord(key="a", version=2)
     with pytest.raises(AssertionError, match="decode mismatch"):
@@ -408,7 +408,7 @@ def test_run_state_machine_accepts_valid_and_rejects_invalid_machines() -> None:
 
 
 def test_run_state_machine_supports_hypothesis_stateful_primitives() -> None:
-    """``initialize``, ``precondition``, ``Bundle``, ``consumes``, and ``multiple`` support one resource lifecycle."""
+    """``initialize``, ``precondition``, ``Bundle``, ``consumes``, and ``multiple`` support a resource lifecycle."""
     run_state_machine(_Pool, settings=_MACHINE)
 
 

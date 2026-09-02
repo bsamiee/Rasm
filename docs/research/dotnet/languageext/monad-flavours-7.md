@@ -2,7 +2,7 @@
 
 ## [01]-[EFFECTS_AS_BEHAVIOR]
 
-Types such as `Option`, `Either`, `Fin`, and `Validation` enlarge a function's possible outputs with cases such as `None`, `Left`, or `Fail`. The added case is not the effect. The effect is the behavior their operations give those cases: sequencing `Option` computations terminates when one returns `None`. Monads capture effects, and side effects are a subset of effects. Monads let pure code sequence operations whose between-step behavior `Bind` defines, while the whole remains one pure expression. Functors and applicatives carry the same effectfulness: `Option.Map` does not invoke its function for `None`.
+`Option`, `Either`, `Fin`, and `Validation` enlarge a function's possible outputs with a `None`, `Left`, or `Fail` case. The added case is not the effect. The effect is the behavior their operations give those cases: sequencing `Option` computations terminates when one returns `None`. Monads capture effects, and side effects are a subset of effects. Monads let pure code sequence operations with between-step behavior `Bind` defines, while the whole remains one pure expression. Functors and applicatives carry the same effectfulness: `Option.Map` does not invoke its function for `None`.
 
 ## [02]-[FLATTEN_BIND_MAP]
 
@@ -43,7 +43,7 @@ This is why `Bind` is also called `FlatMap`. Custom monads implement `Bind` from
 
 ## [03]-[BUILDING_MONADS]
 
-Monad implementation is small. The raw functor, applicative, and monad operations unlock the generic LanguageExt functionality, LINQ included; the data type's supporting functions (`ask`, `tell`, `get`, `put`) form its practical API. Custom monads are ordinary application types with cross-cutting behavior: a database monad that manages connections, sub-spaces, security, and I/O; a service monad that manages third-party access, resources, configuration, and I/O; a `Free`-based API monad that coordinates subsystems. The clearest place to see each monad's distinguishing behavior is its `Bind` implementation.
+Monad implementation is small. The raw functor, applicative, and monad operations unlock the generic LanguageExt functionality, LINQ included. The data type's supporting functions (`ask`, `tell`, `get`, `put`) form its practical API. Custom monads are ordinary application types with cross-cutting behavior: a database monad that manages connections, sub-spaces, security, and I/O, a service monad that manages third-party access, resources, configuration, and I/O, and a `Free`-based API monad that coordinates subsystems. The clearest place to see each monad's distinguishing behavior is its `Bind` implementation.
 
 ## [04]-[ALTERNATIVE_VALUE_MONADS]
 
@@ -62,7 +62,7 @@ public static K<Maybe, B> Bind<A, B>(
     };
 ```
 
-`Pure` constructs `Just`; `Map` and `Apply` inherit the absent-value behavior through `Bind`.
+`Pure` constructs `Just`, `Map` and `Apply` inherit the absent-value behavior through `Bind`.
 
 ### [04.2]-[EITHER]
 
@@ -86,7 +86,7 @@ public static K<Maybe, B> Bind<A, B>(
 };
 ```
 
-The monadic effect is early termination; the applicative effect aggregates failures.
+The monadic effect is early termination, the applicative effect aggregates failures.
 
 ### [04.5]-[TRY]
 
@@ -96,7 +96,7 @@ The monadic effect is early termination; the applicative effect aggregates failu
 
 ### [05.1]-[ITERABLE]
 
-`Iterable<A>` wraps `IEnumerable<A>` with higher-kinded traits. Its effect is iteration over multiple values; an empty collection terminates that branch. Its `Bind` is nested iteration:
+`Iterable<A>` wraps `IEnumerable<A>` with higher-kinded traits. Its effect is iteration over multiple values, an empty collection terminates that branch. Its `Bind` is nested iteration:
 
 ```csharp
 IEnumerable<B> Go()
@@ -126,11 +126,11 @@ public static K<Reader<Env>, B> Bind<A, B>(
     new Reader<Env, B>(env => f(ma.Run(env)).Run(env));
 ```
 
-Both stages receive the same environment. `ask<Env>()` obtains the whole environment; `asks` projects a value from it. Environments hold configuration or dependencies, which makes Reader a pure functional form of dependency injection.
+Both stages receive the same environment. `ask<Env>()` obtains the whole environment, `asks` projects a value from it. Environments hold configuration or dependencies, which makes Reader a pure functional form of dependency injection.
 
 ### [06.2]-[WRITER]
 
-`Writer<Out, A>` produces a result and an output log. `Out` is a monoid with `Empty` and `+` for appending. The representation accepts the current log and returns the result with the updated log; `Bind` runs the first computation with the input log, then gives its updated log to the next. `tell` appends one item:
+`Writer<Out, A>` produces a result and an output log. `Out` is a monoid with `Empty` and `+` for appending. The representation accepts the current log and returns the result with the updated log. `Bind` runs the first computation with the input log, then gives its updated log to the next. `tell` appends one item:
 
 ```csharp
 public static Writer<Out, Unit> tell<Out>(Out item)
@@ -138,7 +138,7 @@ public static Writer<Out, Unit> tell<Out>(Out item)
     new(log => (default, log + item));
 ```
 
-Representations that store output without accepting an input log concatenate collections during `Bind`; the threaded representation concentrates concatenation in `tell`.
+Representations that store output without accepting an input log concatenate collections during `Bind`, the threaded representation concentrates concatenation in `tell`.
 
 ### [06.3]-[STATE]
 
@@ -155,7 +155,7 @@ public static K<State<S>, B> Bind<A, B>(
     });
 ```
 
-`get` returns the current state, `gets` projects from it, and `put` updates it. Writer and State share the binding structure; Writer specializes the threaded value to monoidal output and adds `tell`.
+`get` returns the current state, `gets` projects from it, and `put` updates it. Writer and State share the binding structure, Writer specializes the threaded value to monoidal output and adds `tell`.
 
 ## [07]-[OTHER_MONADS]
 

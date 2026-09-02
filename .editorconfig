@@ -8,7 +8,7 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-# BuildCheck (`dotnet build -check`): allow uninitialized property reads in conditions shared by .props and .targets files, both values must match
+# BuildCheck (`dotnet build -check`): both keys allow uninitialized property reads in conditions shared by .props and .targets files
 [*.csproj]
 build_check.BC0201.AllowUninitializedPropertiesInConditions = true
 build_check.BC0202.AllowUninitializedPropertiesInConditions = true
@@ -144,10 +144,10 @@ csharp_space_between_square_brackets = false                                  # 
 dotnet_diagnostic.IDE0055.severity = error                                    # Formatting violations fail the build
 
 # --- [QUALITY_ANALYZERS] -----------------------------------------------------
-# AnalysisLevel latest-all with TreatWarningsAsErrors makes every CA rule an error, only exemptions and rules that latest-all leaves off belong here
+# AnalysisLevel latest-all with TreatWarningsAsErrors makes every CA rule an error, leaving only exemptions and rules latest-all omits here
 dotnet_diagnostic.CA1034.severity = none                                      # Nested types are part of Thinktecture union declarations
 dotnet_diagnostic.CA1720.severity = none                                      # Grasshopper parameter SmartEnum items are named after the CLR type (Integer, Boolean)
-dotnet_diagnostic.MA0008.severity = none                                      # Structs default to StructLayout Sequential; no need to restate it
+dotnet_diagnostic.MA0008.severity = none                                      # Structs already default to StructLayout Sequential
 dotnet_diagnostic.MA0048.severity = none                                      # Multiple types per file allowed
 dotnet_diagnostic.MA0051.severity = none                                      # No method length limit
 dotnet_diagnostic.CS0169.severity = error                                     # Unused private fields
@@ -173,7 +173,7 @@ dotnet_diagnostic.MA0028.severity = error                                     # 
 dotnet_diagnostic.MA0029.severity = error                                     # Merge adjacent LINQ operations
 dotnet_diagnostic.MA0032.severity = error                                     # CancellationToken overloads when available
 dotnet_diagnostic.MA0042.severity = error                                     # No blocking calls in async methods
-dotnet_diagnostic.MA0001.severity = error                                     # Info by default: explicit StringComparison; skips expression trees
+dotnet_diagnostic.MA0001.severity = error                                     # Info by default: explicit StringComparison except expression trees
 dotnet_diagnostic.MA0043.severity = none                                      # Covered by RCS1015
 dotnet_diagnostic.MA0075.severity = error                                     # Info by default: implicit culture-sensitive ToString
 dotnet_diagnostic.MA0121.severity = error                                     # Off by default: do not reassign parameters
@@ -183,7 +183,7 @@ dotnet_diagnostic.MA0170.severity = error                                     # 
 dotnet_diagnostic.MA0171.severity = error                                     # Off by default: is null over Nullable<T>.HasValue
 dotnet_diagnostic.MA0172.severity = error                                     # Off by default: identical operands in a binary expression
 dotnet_diagnostic.MA0186.severity = error                                     # Off by default: [NotNullWhen(true)] on the Equals parameter
-dotnet_diagnostic.MA0217.severity = error                                     # Off by default: static lambdas when nothing is captured; overlaps TTRESG1001 with the same fix
+dotnet_diagnostic.MA0217.severity = error                                     # Off by default: static lambdas when nothing is captured, same fix as TTRESG1001
 dotnet_diagnostic.MA0031.severity = error                                     # Info by default: Any() or Length over Count()
 dotnet_diagnostic.MA0036.severity = error                                     # Info by default: class with only static members is static
 dotnet_diagnostic.MA0057.severity = error                                     # Info by default: attribute class names end with Attribute
@@ -201,8 +201,8 @@ dotnet_diagnostic.MA0133.severity = error                                     # 
 dotnet_diagnostic.MA0136.severity = error                                     # Info by default: raw string literal with an implicit newline
 dotnet_diagnostic.MA0152.severity = error                                     # Info by default: Unwrap over a double await
 dotnet_diagnostic.MA0154.severity = error                                     # Info by default: langword in XML doc comments
-dotnet_diagnostic.MA0161.severity = error                                     # Off by default: UseShellExecute set explicitly, the implicit value is not portable across hosts
-dotnet_diagnostic.MA0162.severity = error                                     # Off by default: Process.Start overload with ProcessStartInfo, the string overloads cannot set it
+dotnet_diagnostic.MA0161.severity = error                                     # Off by default: explicit UseShellExecute since the implicit value varies by host
+dotnet_diagnostic.MA0162.severity = error                                     # Off by default: Process.Start with ProcessStartInfo since the string overloads cannot set it
 dotnet_diagnostic.MA0173.severity = error                                     # Info by default: LazyInitializer.EnsureInitialized over a manual check
 dotnet_diagnostic.MA0180.severity = error                                     # Off by default: ILogger<T> type argument matches the containing type
 dotnet_diagnostic.MA0184.severity = error                                     # Info by default: interpolated string without holes
@@ -238,7 +238,7 @@ dotnet_diagnostic.MA0134.severity = none                                      # 
 dotnet_diagnostic.MA0158.severity = none                                      # Covered by IDE0330
 dotnet_diagnostic.MA0159.severity = error                                     # Order() over OrderBy(x => x)
 dotnet_diagnostic.MA0160.severity = error                                     # ContainsKey when the TryGetValue value is unused
-dotnet_diagnostic.MA0166.severity = error                                     # Forward TimeProvider to methods that accept one
+dotnet_diagnostic.MA0166.severity = error                                     # Forward TimeProvider to methods that accept it
 dotnet_diagnostic.MA0167.severity = error                                     # TimeProvider overloads when available
 dotnet_diagnostic.MA0168.severity = error                                     # readonly struct for in parameters
 dotnet_diagnostic.MA0178.severity = error                                     # TimeSpan.Zero over new TimeSpan(0)
@@ -254,7 +254,7 @@ MA0032.allowOverloadsWithOptionalParameters = false                           # 
 dotnet_code_quality_unused_parameters = all                                   # Unused-parameter analysis on all visibilities
 
 # --- [ROSLYNATOR_ANALYZERS] --------------------------------------------------
-# Warning-default rules already error, entries here promote Info and Hidden rules, enable disabled rules, and disable duplicates
+# Entries promote Info and Hidden rules, enable disabled rules, and disable duplicates since Warning-default rules already error
 dotnet_diagnostic.RCS1002.severity = error                                    # Off by default: no braces on a single-statement block
 dotnet_diagnostic.RCS1004.severity = error                                    # Off by default: no braces on a single-statement if/else
 dotnet_diagnostic.RCS1006.severity = error                                    # Hidden by default: merge else with a nested if
@@ -275,7 +275,7 @@ dotnet_diagnostic.RCS1068.severity = error                                    # 
 dotnet_diagnostic.RCS1069.severity = error                                    # Hidden by default: remove case label beside default
 dotnet_diagnostic.RCS1070.severity = error                                    # Hidden by default: remove default section with only break
 dotnet_diagnostic.RCS1071.severity = error                                    # Hidden by default: remove explicit : base()
-dotnet_diagnostic.RCS1073.severity = error                                    # if/else returning constants becomes one return
+dotnet_diagnostic.RCS1073.severity = error                                    # if/else returning constants becomes a return
 dotnet_diagnostic.RCS1074.severity = error                                    # Hidden by default: remove empty parameterless constructor
 dotnet_diagnostic.RCS1077.severity = error                                    # Fold LINQ chains to one operator
 dotnet_diagnostic.RCS1078.severity = error                                    # Off by default: "" over string.Empty
@@ -285,7 +285,7 @@ dotnet_diagnostic.RCS1089.severity = error                                    # 
 dotnet_diagnostic.RCS1093.severity = error                                    # File without code
 dotnet_diagnostic.RCS1098.severity = error                                    # Constant on the right of a comparison
 dotnet_diagnostic.RCS1099.severity = error                                    # default label last in its switch section
-dotnet_diagnostic.RCS1103.severity = error                                    # if/else assigning a condition becomes one assignment
+dotnet_diagnostic.RCS1103.severity = error                                    # if/else assigning a condition becomes an assignment
 dotnet_diagnostic.RCS1105.severity = error                                    # No literal inside an interpolation hole
 dotnet_diagnostic.RCS1107.severity = error                                    # Remove ToCharArray before foreach
 dotnet_diagnostic.RCS1108.severity = error                                    # static on every partial declaration
@@ -326,7 +326,7 @@ dotnet_diagnostic.RCS1201.severity = error                                    # 
 dotnet_diagnostic.RCS1202.severity = error                                    # FirstOrDefault().Member dereferences null
 dotnet_diagnostic.RCS1204.severity = error                                    # EventArgs.Empty over new EventArgs()
 dotnet_diagnostic.RCS1205.severity = error                                    # Named arguments follow parameter order
-dotnet_diagnostic.RCS1208.severity = none                                     # Guard-clause rewrite of a trailing if; not enforced
+dotnet_diagnostic.RCS1208.severity = none                                     # Unenforced guard-clause rewrite of a trailing if
 dotnet_diagnostic.RCS1209.severity = error                                    # Type-parameter constraints follow declaration order
 dotnet_diagnostic.RCS1218.severity = error                                    # if/else and loops with one live branch
 dotnet_diagnostic.RCS1222.severity = error                                    # Merge adjacent #pragma directives
@@ -334,7 +334,7 @@ dotnet_diagnostic.RCS1224.severity = error                                    # 
 dotnet_diagnostic.RCS1226.severity = error                                    # <para> for multi-paragraph doc summaries
 dotnet_diagnostic.RCS1228.severity = error                                    # Hidden by default: remove empty doc element
 dotnet_diagnostic.RCS1230.severity = error                                    # foreach over an explicit enumerator loop
-dotnet_diagnostic.RCS1231.severity = none                                     # in on every readonly struct hurts small structs; MA0168 covers the reverse
+dotnet_diagnostic.RCS1231.severity = none                                     # in on every readonly struct hurts small ones (MA0168 covers the reverse)
 dotnet_diagnostic.RCS1232.severity = error                                    # Doc elements follow parameter order
 dotnet_diagnostic.RCS1233.severity = error                                    # No & and | on booleans
 dotnet_diagnostic.RCS1234.severity = error                                    # Duplicate enum value
@@ -430,7 +430,7 @@ roslynator_doc_comment_summary_style = single_line                            # 
 roslynator_object_creation_parentheses_style = omit                           # RCS1050: new T { } without parentheses
 
 # --- [IDE_QUALITY_RULES] ----------------------------------------------------
-# IDE rules without a style option key, most default to silent and are invisible to `dotnet format --severity warn`
+# IDE rules without a style option key, mostly silent by default and invisible to `dotnet format --severity warn`
 dotnet_diagnostic.IDE0004.severity = error                                    # Remove unnecessary casts
 dotnet_diagnostic.IDE0005.severity = error                                    # Remove unnecessary using directives
 dotnet_diagnostic.IDE0035.severity = error                                    # Remove unreachable code
@@ -459,52 +459,52 @@ dotnet_diagnostic.IDE0380.severity = error                                    # 
 dotnet_diagnostic.IDE1005.severity = error                                    # ?.Invoke for delegate invocation
 
 # --- [MAPPERLY_ANALYZERS] ----------------------------------------------------
-# Warning-default RMG rules already error; only Info and Hidden rules are listed
-dotnet_diagnostic.RMG009.severity = error                                     # Cannot map to a read-only member; otherwise skipped silently
+# Only Info and Hidden RMG rules are listed since Warning-default already error
+dotnet_diagnostic.RMG009.severity = error                                     # Report read-only member targets instead of silent skips
 dotnet_diagnostic.RMG010.severity = error                                     # Cannot map from a write-only member
 dotnet_diagnostic.RMG011.severity = error                                     # Cannot map to a write-only member path
 dotnet_diagnostic.RMG015.severity = error                                     # Cannot map to an init-only member path
 dotnet_diagnostic.RMG033.severity = error                                     # Same-type member copied by reference under UseDeepCloning
-dotnet_diagnostic.RMG083.severity = error                                     # Cannot map to a read-only type; otherwise skipped silently
+dotnet_diagnostic.RMG083.severity = error                                     # Report read-only type targets instead of silent skips
 dotnet_diagnostic.RMG088.severity = error                                     # Enum member naming attribute is missing
-dotnet_diagnostic.RMG089.severity = error                                     # Nullable source member to non-nullable target member; suppress per member with SuppressNullMismatchDiagnostic
+dotnet_diagnostic.RMG089.severity = error                                     # Nullable source to non-nullable target member, suppressed per member with SuppressNullMismatchDiagnostic
 dotnet_diagnostic.RMG090.severity = error                                     # Nullable source type to non-nullable target type
 dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: ignored member without a Justification
 
 # --- [MESSAGEPACK_ANALYZERS] -------------------------------------------------
-# Every MsgPack rule defaults to Error or Warning except these two
-dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: pass serializer options explicitly, the default reads a static mutable field
-dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: serializer options come from a constant, never a mutable static field
+# Every MsgPack rule defaults to Error or Warning except these
+dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: explicit serializer options since the default reads a static mutable field
+dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: serializer options from a constant, never a mutable static field
 
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
-# Every TTRESG rule defaults to Error or Warning except this one
-dotnet_diagnostic.TTRESG1001.severity = error                                 # Info by default: static lambdas in Switch/Map arms; pass state through the state parameter
+# All TTRESG rules but TTRESG1001 default to Error or Warning
+dotnet_diagnostic.TTRESG1001.severity = error                                 # Info by default: static lambdas in Switch/Map arms with state through the state parameter
 
 # --- [ERRORPRONE_ANALYZERS] --------------------------------------------------
-# Warning-default rules already error, only Info-default and disabled rules are listed
+# Only Info-default and disabled rules are listed since Warning-default already error
 dotnet_diagnostic.EPC15.severity = error                                      # ConfigureAwait(false) in assemblies marked UseConfigureAwaitFalse
-dotnet_diagnostic.EPC19.severity = error                                      # Dispose CancellationTokenRegistration; an unobserved one pins the callback
-dotnet_diagnostic.EPC27.severity = error                                      # No async void methods; EPC17 covers delegates
+dotnet_diagnostic.EPC19.severity = error                                      # Unobserved CancellationTokenRegistration pins the callback until disposed
+dotnet_diagnostic.EPC27.severity = error                                      # No async void method (EPC17 covers delegates)
 dotnet_diagnostic.EPC28.severity = error                                      # No [ExcludeFromCodeCoverage] on a partial class
-dotnet_diagnostic.EPC29.severity = error                                      # Justification required on ExcludeFromCodeCoverage; the .artifacts section exempts generated code
+dotnet_diagnostic.EPC29.severity = error                                      # ExcludeFromCodeCoverage needs a Justification except generated code under the .artifacts section
 dotnet_diagnostic.EPC32.severity = error                                      # TaskCompletionSource requires RunContinuationsAsynchronously
 dotnet_diagnostic.EPC33.severity = error                                      # Task.Delay over Thread.Sleep in async methods
 dotnet_diagnostic.EPC35.severity = error                                      # No .Result, .Wait(), or .GetAwaiter().GetResult() in async methods
 dotnet_diagnostic.EPC36.severity = error                                      # No async delegate under TaskCreationOptions.LongRunning
 dotnet_diagnostic.EPC37.severity = error                                      # Argument validation in an async method throws at await, not at the call
-dotnet_diagnostic.ERP041.severity = error                                     # Seal EventSource subclasses; ERP042 covers the wider pattern
+dotnet_diagnostic.ERP041.severity = error                                     # Seal EventSource subclasses (ERP042 covers the wider case)
 dotnet_diagnostic.EPC38.severity = error                                      # Off by default: IEnumerable<Task> enumerated twice starts the tasks twice
 dotnet_diagnostic.EPC39.severity = error                                      # Off by default: enumerable re-enumerated inside a loop
 dotnet_diagnostic.EPC40.severity = error                                      # Off by default: IEnumerable<T> parameter enumerated more than once
 
 # --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------
-# Severity is set here only; RASM0002 rejects NoWarn and WarningsNotAsErrors in project files
-dotnet_diagnostic.CS1591.severity = none                                      # XML docs are generated for tooling; member docs are optional
+# RASM0002 rejects NoWarn and WarningsNotAsErrors in project files, keeping severity here
+dotnet_diagnostic.CS1591.severity = none                                      # XML docs are generated for tooling with optional member docs
 dotnet_diagnostic.CA2225.severity = none                                      # Operator overloads from LanguageExt and Thinktecture need no named alternatives
 
 # Template for a project that references the Rhino host assemblies:
 # [libs/dotnet/{rhino-host-project}/**.cs]
-# dotnet_diagnostic.CA1416.severity = none                                    # Rhino's System.Drawing.Common implements the Windows-only members on macOS; CA1416 reads the reference assembly only
+# dotnet_diagnostic.CA1416.severity = none                                    # CA1416 reads the reference assembly, not Rhino's System.Drawing.Common implementing Windows-only members on macOS
 # dotnet_diagnostic.CA1724.severity = none                                    # Microsoft.macOS Phase namespace collides with same-named application types
 
 # Template for a project that opts into Microsoft.Extensions experimental APIs:
@@ -521,17 +521,17 @@ dotnet_diagnostic.CA1515.severity = none                                      # 
 dotnet_diagnostic.MA0191.severity = none                                      # Tests pass null into non-nullable parameters with the null-forgiving operator
 
 # --- [XUNIT_ANALYZERS] -------------------------------------------------------
-# xunit.analyzers is included in xunit.v3.core, only Info and Hidden rules are listed; the rest already error
+# xunit.v3.core bundles xunit.analyzers with only Info and Hidden rules listed since the rest already error
 dotnet_diagnostic.xUnit1004.severity = error                                  # No skipped tests
 dotnet_diagnostic.xUnit1033.severity = error                                  # Fixture declared on the class but not accepted by its constructor
 dotnet_diagnostic.xUnit1042.severity = error                                  # TheoryData<T> over untyped MemberData
 dotnet_diagnostic.xUnit1044.severity = error                                  # Theory data that cannot be serialized loses per-row discovery
-dotnet_diagnostic.xUnit1045.severity = error                                  # Theory data whose serializability cannot be proven
+dotnet_diagnostic.xUnit1045.severity = error                                  # Theory data with unprovable serializability
 dotnet_diagnostic.xUnit1046.severity = error                                  # TheoryDataRow over an unserializable type
-dotnet_diagnostic.xUnit1047.severity = error                                  # TheoryDataRow whose serializability cannot be proven
+dotnet_diagnostic.xUnit1047.severity = error                                  # TheoryDataRow with unprovable serializability
 dotnet_diagnostic.xUnit1050.severity = error                                  # Untyped theory data source
 dotnet_diagnostic.xUnit2001.severity = error                                  # Hidden by default: invalid equality check
-dotnet_diagnostic.xUnit2022.severity = error                                  # Negated boolean assertion; call the opposite assertion instead
+dotnet_diagnostic.xUnit2022.severity = error                                  # Opposite assertion over a negated boolean assertion
 dotnet_diagnostic.xUnit2023.severity = error                                  # Assert.Single over Assert.Collection with one element
 dotnet_diagnostic.xUnit2024.severity = error                                  # Boolean assertion testing equality against a null, numeric, string, or enum literal
 dotnet_diagnostic.xUnit2025.severity = error                                  # Boolean assertion carrying a boolean literal in an equality test

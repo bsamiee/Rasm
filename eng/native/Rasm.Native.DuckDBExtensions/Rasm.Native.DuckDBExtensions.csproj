@@ -3,15 +3,8 @@
         <Version>1.5.5</Version>
         <Description>DuckDB extension files staged per platform for offline LOAD from a package-delivered extension directory</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <!-- Pins signed release files instead of a vcpkg port; the shared version guard reads the pin manifest's version-string -->
-        <VcpkgManifest>$(MSBuildThisFileDirectory)../duckdbextensions/extensions.json</VcpkgManifest>
+        <!-- Signed release files pinned in extensions.json replace a vcpkg port, the extension set is locked to the engine version -->
+        <VersionManifestFileName>extensions.json</VersionManifestFileName>
+        <CentralPackageId>DuckDB.NET.Data.Full</CentralPackageId>
     </PropertyGroup>
-    <Target Name="EnsureEnginePinMatch" BeforeTargets="GenerateNuspec">
-        <PropertyGroup>
-            <_CatalogPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '..', 'Directory.Packages.props'))</_CatalogPath>
-            <_EnginePin>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(_CatalogPath)')), '(?&lt;=Include="DuckDB.NET.Data.Full"\s+Version=")[^"]+').Value)</_EnginePin>
-        </PropertyGroup>
-        <Error Condition="'$(_EnginePin)' != '$(Version)'"
-               Text="Package version $(Version) does not match the DuckDB.NET.Data.Full pin '$(_EnginePin)' in Directory.Packages.props; the extension set is engine-locked." />
-    </Target>
 </Project>

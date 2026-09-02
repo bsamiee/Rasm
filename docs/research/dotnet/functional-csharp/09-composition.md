@@ -40,7 +40,7 @@ Each chained method must be defined on the preceding expression's type, either a
 
 ## [02]-[COMPOSITION_LAW]
 
-When a value is inside a structure such as `Option<T>`, `Map` must preserve ordinary composition: `option.Map(g).Map(f)` must produce the same result as `option.Map(x => f(g(x)))`. This equation is the functor composition law.
+When a value is inside a structure (`Option<T>`), `Map` must preserve ordinary composition: `option.Map(g).Map(f)` must produce the same result as `option.Map(x => f(g(x)))`. This equation is the functor composition law.
 
 ## [03]-[DATA_FLOW]
 
@@ -88,7 +88,7 @@ The following properties support function reuse and rearrangement:
 - Structure-preserving: when possible, it returns the same outer structure it accepts
 - Non-`void`: it returns data for the next function
 
-The properties are guidance, not requirements. Terminal operations materialize or reduce a structure, or perform effects; they end a chain instead of continuing it.
+The properties are guidance, not requirements. Terminal operations materialize or reduce a structure, or perform effects. They end a chain instead of continuing it.
 
 Prefer small, general building blocks over one specific aggregate operation:
 
@@ -153,9 +153,9 @@ internal static class Account {
 ```
 
 `Debit`:
-- Does not throw for an expected business outcome;
-- Exposes possible failure in its return type;
-- Produces a value that later steps can consume;
+- Does not throw for an expected business outcome
+- Exposes possible failure in its return type
+- Produces a value that later steps can consume
 - Leaves the original state unchanged
 
 ## [06]-[END_TO_END_FLOW]
@@ -211,9 +211,9 @@ If a terminal step requires multiple effects, keep each one visible.
 Do not require every layer to call only its immediate neighbor. After a low-level call performs I/O, every delegating layer becomes impure.
 
 Let a top-level entry point compose functions from lower-level components while dependencies point downward. This structure provides:
-- One overview of the business workflow;
-- Subworkflows for related groups of steps;
-- Pure mid-level validation and domain logic;
+- One overview of the business workflow
+- Subworkflows for related groups of steps
+- Pure mid-level validation and domain logic
 - Direct testing of pure logic without mocks
 
 ## [09]-[LIMITS]

@@ -1,9 +1,9 @@
-"""Build the gmsh shared library for one runtime identifier and stage it for packing.
+"""Build the gmsh shared library for a runtime identifier and stage it for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 each stage their runtime identifier, one job
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
 collects .artifacts/native/gmsh/stage and runs the eng pack-gmsh-native and pack-gmsh-managed
 targets alone. The managed binding sources generate from the api definition inside the same
-pinned archive the gmsh port downloads. Rasm.Gmsh and Rasm.Native.Gmsh always carry one
+pinned archive the gmsh port downloads. Rasm.Gmsh and Rasm.Native.Gmsh always share the
 upstream version. The staged overlay re-enables the mesh module and bundled Eigen the port
 hard-codes off, everything else stays at the port's configuration.
 """
@@ -61,7 +61,7 @@ def _overlay(vcpkg: Path) -> Path:
 async def _source_root(vcpkg: Path, version: str, install_args: list[str]) -> Path:
     """Unpack the source archive the gmsh port pins and return its root directory."""
     archive = vcpkg.parent / "downloads" / f"gmsh-{version}-source.tgz"
-    if not archive.exists():  # A binary-cache hit builds nothing and downloads no source
+    if not archive.exists():  # Binary-cache hits build nothing and download no source
         await run([str(vcpkg), "install", "--only-downloads", *install_args], REPO_ROOT)
     source = _WORK / "src"
     shutil.rmtree(source, ignore_errors=True)
@@ -82,7 +82,7 @@ async def _stage_managed(vcpkg: Path, version: str, install_args: list[str]) -> 
 
 
 async def _stage(rid: Rid) -> Path:
-    """Build the manifest with vcpkg, stage the library for one rid and the binding sources."""
+    """Build the manifest with vcpkg, stage the library for the rid and the binding sources."""
     target = vcpkg_target(rid, "gmsh")
     tools = await native_build_tools()
     version = _version(tools.vcpkg)

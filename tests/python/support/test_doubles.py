@@ -44,7 +44,7 @@ async def test_async_stub_is_awaitable_and_records(monkeypatch: pytest.MonkeyPat
 @pytest.mark.anyio
 @pytest.mark.parametrize("anyio_backend", [pytest.param(autojump_backend(), id="autojump")])
 async def test_autojump_backend_collapses_virtual_time() -> None:
-    """An hour of virtual sleeps and a deadline complete in milliseconds under the autojumping clock."""
+    """Hour-long virtual sleeps and a deadline finish in milliseconds under the autojumping clock."""
     start = time.perf_counter()
     await anyio.sleep(3600)
     with anyio.move_on_after(300) as scope:
@@ -54,7 +54,7 @@ async def test_autojump_backend_collapses_virtual_time() -> None:
 
 
 def test_batch_stub_records_items_as_sole_positional(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The batch stub returns its fixed results and records the item collection as one argument."""
+    """The batch stub returns its fixed results and records the item collection as its argument."""
     owner = SimpleNamespace(op=None)
     probe: CallProbe[object] = CallProbe()
     probe.install(monkeypatch, owner, "op", Batch((10, 20)))
@@ -89,7 +89,7 @@ def test_variant_writer_emits_raw_encodes_objects_and_withholds_absent(tmp_path:
 
 
 def test_ndjson_decoder_decodes_every_row_and_checks_the_exact_count() -> None:
-    """A multiline decoder preserves row order, checks the count, and rejects one() for multiple rows."""
+    """Multiline decoders preserve row order, check the count, and reject one() for multiple rows."""
     stream: NdjsonOracle[dict[str, int]] = NdjsonOracle(msgspec.json.Decoder(dict[str, int]), expect_lines=2)
     assert stream.rows(b'{"a":1}\n{"a":2}\n') == ({"a": 1}, {"a": 2})
     with pytest.raises(AssertionError, match="expected exactly 2"):
@@ -99,7 +99,7 @@ def test_ndjson_decoder_decodes_every_row_and_checks_the_exact_count() -> None:
 
 
 def test_ndjson_one_write_contract_reds_on_double_write(capsys: pytest.CaptureFixture[str]) -> None:
-    """The default oracle is the one-write contract: a second NDJSON line is a failure, and capture decodes."""
+    """The default oracle expects a single write, an extra NDJSON line fails, and capture decodes."""
     oracle: NdjsonOracle[dict[str, int]] = NdjsonOracle(msgspec.json.Decoder(dict[str, int]))
     assert oracle.one(b'{"a":1}\n') == {"a": 1}
     with pytest.raises(AssertionError, match="expected exactly 1"):

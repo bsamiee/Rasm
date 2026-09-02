@@ -1,4 +1,4 @@
-"""Root pytest configuration for tests/python; SUT registration follows the filesystem layout."""
+"""Pytest configuration for tests/python, SUT registration follows the filesystem layout."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 

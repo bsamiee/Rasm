@@ -167,20 +167,20 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 @pytest.fixture
 def otel_spans(_otel_provider: InMemorySpanExporter) -> InMemorySpanExporter:
-    """Clear and return the session exporter for one test."""
+    """Clear and return the session exporter for a test."""
     _otel_provider.clear()
     return _otel_provider
 
 
 @pytest.fixture
 def log_processors() -> tuple[Processor, ...]:
-    """Processors inserted before the ``log_events`` capture sink; empty unless a package conftest overrides it."""
+    """Processors inserted before the ``log_events`` capture sink, empty unless a package conftest overrides it."""
     return ()
 
 
 @pytest.fixture
 def log_events(log_processors: tuple[Processor, ...]) -> Generator[list[EventDict]]:
-    """Capture structlog events as plain dictionaries for one test."""
+    """Capture structlog events as plain dictionaries for a test."""
     with capture_logs(processors=log_processors) as events:
         yield events
 

@@ -1,0 +1,6 @@
+language js(typescript, jsx)
+
+`const $name = $init` where {
+    $name <: r"^(?:\w+(?:Many|All|ByIds)|(?:get|list|find|fetch|load|read|put|delete)[A-Z]\w*By[A-Z]\w*)$",
+    register_diagnostic(span=$name, message="Suffix variant declaration, collapse into one polymorphic function that discriminates on input shape, data-first and data-last pairs are one Function.dual", severity="error")
+}

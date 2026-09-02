@@ -41,7 +41,7 @@
     },
     "plugins": [
         {
-            "path": "./tools/biome/no-arity-sibling.grit",
+            "path": "./tools/biome/no-suffix-variant.grit",
             "includes": [
                 "**/libs/typescript/**",
                 "!**/*.spec.*",

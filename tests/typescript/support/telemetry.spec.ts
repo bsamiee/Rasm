@@ -25,7 +25,7 @@ const _metricChange = (
 ) => Array.findFirst(changes, (row) => row.name === name);
 
 describe('metric changes', () => {
-    it.effect('a changed counter records its previous and current values', () =>
+    it.effect('changed counters record their previous and current values', () =>
         Effect.gen(function* () {
             yield* Metric.increment(_reuse);
             const capture = yield* Telemetry.capture(
@@ -43,7 +43,7 @@ describe('metric changes', () => {
         }),
     );
 
-    it.effect('an unchanged metric is absent from the change set', () =>
+    it.effect('unchanged metrics are absent from the change set', () =>
         Effect.gen(function* () {
             yield* Metric.increment(_inert);
             const capture = yield* Telemetry.capture(Effect.void);
@@ -55,7 +55,7 @@ describe('metric changes', () => {
         }),
     );
 
-    it.effect('a tagged counter keeps its tag rows on the reading', () =>
+    it.effect('tagged counters keep their tag rows on the reading', () =>
         Effect.gen(function* () {
             const capture = yield* Telemetry.capture(
                 Metric.increment(_taggedReuse),
@@ -71,7 +71,7 @@ describe('metric changes', () => {
         }),
     );
 
-    it.effect('a frequency metric emits one reading per recorded value', () =>
+    it.effect('frequency metrics emit one reading per recorded value', () =>
         Effect.gen(function* () {
             const capture = yield* Telemetry.capture(
                 Effect.zipRight(
@@ -94,7 +94,7 @@ describe('metric changes', () => {
     );
 
     it.effect(
-        'a failing effect still records metric changes from its failure path',
+        'failing effects still record metric changes from their failure path',
         () =>
             Effect.gen(function* () {
                 const capture = yield* Telemetry.capture(
@@ -118,7 +118,7 @@ describe('metric changes', () => {
 
 describe('span capture', () => {
     it.effect(
-        'a successful span records its name, attributes, and success outcome',
+        'successful spans record their name, attributes, and success outcome',
         () =>
             Effect.gen(function* () {
                 const capture = yield* Telemetry.capture(
@@ -138,7 +138,7 @@ describe('span capture', () => {
             }),
     );
 
-    it.effect('a failing span records the failure outcome', () =>
+    it.effect('failing spans record the failure outcome', () =>
         Effect.gen(function* () {
             const capture = yield* Telemetry.capture(
                 Effect.withSpan(Effect.fail('rejected' as const), 'operation'),
@@ -152,7 +152,7 @@ describe('span capture', () => {
     );
 
     it.effect(
-        'a nested span records its parent name and each span event as a separate record',
+        'nested spans record their parent name and each span event as a separate record',
         () =>
             Effect.gen(function* () {
                 const capture = yield* Telemetry.capture(

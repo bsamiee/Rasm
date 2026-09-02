@@ -1,6 +1,6 @@
 # [DOTNET_LIBS]
 
-The .NET library area holds the interop layer. Each `Rasm.Interop.*` facade runs the process-global setup one external library requires before first use, and `Rasm.Interop` aggregates every facade into one initialization call.
+The .NET library area holds the interop layer. Each `Rasm.Interop.*` facade runs the process-global setup its external library requires before first use, and `Rasm.Interop` aggregates every facade into one initialization call.
 
 ## [01]-[DEPENDENCIES]
 

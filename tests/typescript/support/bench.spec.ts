@@ -11,7 +11,7 @@ import {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _SLUMPED_LATEST = JSON.stringify({
+const _SLOW_LATEST = JSON.stringify({
     files: [
         {
             filepath: '/abs/support.bench.ts',
@@ -29,11 +29,11 @@ const _SLUMPED_LATEST = JSON.stringify({
 
 const _run = (
     name: string,
-    hzTrail: ReadonlyArray<number>,
+    hzRuns: ReadonlyArray<number>,
     rme = 1,
 ): ReadonlyArray<BenchmarkResult> =>
     Array.map(
-        hzTrail,
+        hzRuns,
         (hz, index) =>
             new BenchmarkResult({
                 timestamp: `2026-01-0${index + 1}T00:00:00Z`,
@@ -60,15 +60,12 @@ const _seededDirectory = (history: ReadonlyArray<BenchmarkResult>) =>
             path.join(home, 'history.ndjson'),
             `${lines.join('\n')}\n`,
         );
-        yield* fs.writeFileString(
-            path.join(home, 'latest.json'),
-            _SLUMPED_LATEST,
-        );
+        yield* fs.writeFileString(path.join(home, 'latest.json'), _SLOW_LATEST);
         return home;
     });
 
 describe('sustained regression detection', () => {
-    it('a window of consecutive slow runs against the baseline is a regression', () => {
+    it('consecutive slow runs against the baseline are a regression', () => {
         const report = Benchmark.summarize(
             _run('summarize', [100, 101, 99, 100, 100, 60, 58, 61]),
         );
@@ -78,21 +75,21 @@ describe('sustained regression detection', () => {
         ).toEqual(['regression']);
     });
 
-    it('a single slow result does not count as a sustained regression', () => {
+    it('single slow results do not count as a sustained regression', () => {
         const report = Benchmark.summarize(
             _run('spike', [100, 101, 99, 100, 60, 100, 101]),
         );
         expect(report.verdict).toBe('pass');
     });
 
-    it('a performance change inside tolerance passes', () => {
+    it('performance changes inside tolerance pass', () => {
         const report = Benchmark.summarize(
             _run('within-tolerance', [100, 101, 99, 100, 100, 95, 94, 96]),
         );
         expect(report.verdict).toBe('pass');
     });
 
-    it('a noisy recent window is reported, not silently passed', () => {
+    it('noisy recent windows are reported, not silently passed', () => {
         const report = Benchmark.summarize(
             _run('noisy', [100, 101, 99, 100, 100, 98, 97, 99], 25),
         );
@@ -198,7 +195,7 @@ layer(NodeContext.layer)('benchmark regression check', (it) => {
             ),
     );
 
-    it.effect('a missing autosave returns a typed unreadable error', () =>
+    it.effect('missing autosaves return a typed unreadable error', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const fs = yield* FileSystem.FileSystem;
@@ -216,7 +213,7 @@ layer(NodeContext.layer)('benchmark regression check', (it) => {
     );
 
     it.effect(
-        'a corrupted history line returns a typed malformed error rather than an Effect defect',
+        'corrupted history lines return a typed malformed error rather than an Effect defect',
         () =>
             Effect.scoped(
                 Effect.gen(function* () {
@@ -229,7 +226,7 @@ layer(NodeContext.layer)('benchmark regression check', (it) => {
                     );
                     yield* fs.writeFileString(
                         path.join(home, 'latest.json'),
-                        _SLUMPED_LATEST,
+                        _SLOW_LATEST,
                     );
                     const error = yield* Effect.flip(
                         Effect.provideService(

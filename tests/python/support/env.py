@@ -54,7 +54,7 @@ class RemoteFS(msgspec.Struct, frozen=True, gc=False):
 
 
 class ObjectStore(msgspec.Struct, frozen=True, gc=False):
-    """S3-compatible object-store double over one in-process threaded moto endpoint.
+    """S3-compatible object-store double over an in-process threaded moto endpoint.
 
     Endpoints are per-provision but moto account state is process-global, teardown resets the
     backend and a later provision always starts pristine.
@@ -109,7 +109,7 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
 
 
 def _provision_fs(spec: RemoteFS) -> Provisioned[AbstractFileSystem]:
-    """Scope an in-memory filesystem double to one isolated root."""
+    """Scope an in-memory filesystem double to an isolated root."""
     scoped = spec.root or f"/env-fs/{uuid.uuid4().hex}"
     memory = MemoryFileSystem()
     memory.makedirs(scoped, exist_ok=True)
@@ -121,7 +121,7 @@ def _provision_fs(spec: RemoteFS) -> Provisioned[AbstractFileSystem]:
 
 
 def _provision_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
-    """Serve one moto endpoint through ``s3fs`` with object metadata and presigned URLs."""
+    """Serve a moto endpoint through ``s3fs`` with object metadata and presigned URLs."""
     server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False)
     server.start()
     host, port = server.get_host_and_port()

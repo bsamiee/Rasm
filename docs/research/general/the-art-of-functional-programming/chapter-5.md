@@ -1,12 +1,12 @@
 # Common Computation Patterns
 
-`map`, `filter`, `fold`, and `zip` capture recurring computation shapes. Each replaces repeated recursion with a higher-order operation whose arguments express the part that varies.
+`map`, `filter`, `fold`, and `zip` capture recurring computation shapes. Each replaces repeated recursion with a higher-order operation with arguments expressing the part that varies.
 
 ## `map`: transform values while preserving context
 
 ### Lists
 
-Functions that square or cube every list element have identical recursion; only the element transformation differs. Factoring that transformation into `f` gives:
+Functions that square or cube every list element have identical recursion, only the element transformation differs. Factoring that transformation into `f` gives:
 
 ```ocaml
 let rec map f l =
@@ -47,7 +47,7 @@ let map_option f o =
 (* map_option : ('a -> 'b) -> 'a option -> 'b option *)
 ```
 
-`None` stays empty; `Some x` becomes `Some (f x)`. This transforms a successful value while propagating the empty case.
+`None` stays empty, `Some x` becomes `Some (f x)`. This transforms a successful value while propagating the empty case.
 
 ```ocaml
 let rec longest_string l =
@@ -62,7 +62,7 @@ max_length []                    (* None *)
 max_length ["a"; "abc"; "ab"]    (* Some 3 *)
 ```
 
-There is no longest string for `[]`, absence remains `None`; an existing longest string is mapped to its length.
+There is no longest string for `[]`, absence remains `None`. An existing longest string is mapped to its length.
 
 ### Containers, domains, and lifting
 
@@ -72,7 +72,7 @@ The list, tree, and option signatures share one form:
 map : ('a -> 'b) -> 'a context -> 'b context
 ```
 
-Contexts may be containers or domains such as asynchronous computation:
+Contexts may be containers or domains (asynchronous computation):
 
 ```text
 map_future : ('a -> 'b) -> 'a future -> 'b future
@@ -90,7 +90,7 @@ class Functor f where
   (<$) :: a -> f b -> f a
 ```
 
-`fmap` transforms every contextual value; `<$` preserves the context while replacing every value with a constant.
+`fmap` transforms every contextual value, `<$` preserves the context while replacing every value with a constant.
 
 ## `filter`: retain elements satisfying a predicate
 
@@ -144,7 +144,7 @@ let rec fold_right f init l =
 fold_right f init [x1; x2; x3] = f x1 (f x2 (f x3 init))
 ```
 
-The grouping is right-associative; `init` is the result for the empty list.
+The grouping is right-associative, `init` is the result for the empty list.
 
 ```ocaml
 let sum_list = fold_right (+) 0
@@ -158,7 +158,7 @@ let filter p l = List.fold_right (fun x acc -> if p x then x :: acc else acc) l 
 
 In many mainstream languages, `fold` is called `reduce`: a combining function and initial value accumulate all elements into one result. The `map`, `fold`, and `reduce` abstractions inspired the MapReduce approach to large-data processing, with Apache Hadoop as an implementation.
 
-OCaml's library order is `List.fold_right : ('a -> 'b -> 'b) -> 'a list -> 'b -> 'b`; unlike the local definition, the list precedes the initial value, which limits convenient partial application with other functions. Haskell's `foldr` uses the local order.
+OCaml's library order is `List.fold_right : ('a -> 'b -> 'b) -> 'a list -> 'b -> 'b`. Unlike the local definition, the list precedes the initial value, which limits convenient partial application with other functions. Haskell's `foldr` uses the local order.
 
 ### Left fold
 
@@ -254,7 +254,7 @@ let total_abs_diff l = List.fold_right (+) (List.map abs (diff l)) 0
 total_abs_diff [1; 9; 100; 37] (* 162 *)
 ```
 
-Adjacent differences align the tail with the original list, compute `next - current`, map absolute value over the differences, then sum them. Because `List.tl []` raises, `diff` and `total_abs_diff` as written require a nonempty input; a singleton yields an empty difference list and total `0`.
+Adjacent differences align the tail with the original list, compute `next - current`, map absolute value over the differences, then sum them. Because `List.tl []` raises, `diff` and `total_abs_diff` as written require a nonempty input, a singleton yields an empty difference list and total `0`.
 
 ## Challenge solutions
 
@@ -275,7 +275,7 @@ let map_either f e =
 let tree_to_list t = fold_tree (fun l x r -> [x] @ l @ r) [] t
 ```
 
-The empty tree becomes `[]`; each node places its value before the accumulated left and right lists.
+The empty tree becomes `[]`, each node places its value before the accumulated left and right lists.
 
 ### Check nondecreasing order with `zipWith`
 
@@ -285,7 +285,7 @@ let is_ascending_sorted l =
   if l = [] then true else all (zipWith (<=) l (List.tl l))
 ```
 
-Each element is compared with its successor. Empty and singleton lists are sorted; adjacent equal values are accepted. The `fold_left` challenge is the tail-recursive definition given above.
+Each element is compared with its successor. Empty and singleton lists are sorted, adjacent equal values are accepted. The `fold_left` challenge is the tail-recursive definition given above.
 
 ## Quiz conclusions
 
@@ -296,4 +296,4 @@ Each element is compared with its successor. Empty and singleton lists are sorte
 5. Folding `[1; 2]` into a parenthesized string from `"0"` yields `"(1+(2+0))"`, exposing right association
 6. Comparing a list with its tail using `zipWith (=)` and `all` tests whether all elements are equal: true for `[]`, singletons, and repeated equal values, false for `[1; 2]`
 7. `fold_nat ((^) "-") ""` returns one hyphen per `Succ`: `""`, `"-"`, and `"--"` for zero, one, and two
-8. Haskell's `Functor` captures a type that can be mapped over; `fmap` is its generalized map operation
+8. Haskell's `Functor` captures a type that can be mapped over, `fmap` is its generalized map operation

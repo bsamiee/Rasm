@@ -13,7 +13,7 @@ public record ReaderT<Env, M, A>(Func<Env, K<M, A>> runReader) : K<ReaderT<Env, 
 }
 ```
 
-Given an `Env`, the wrapped function returns `K<M, A>`. Compare `OptionT`, whose shape is `K<M, Option<A>>`: the lifted monad wraps an optional result, while an environment-carrying computation wraps the lifted monad, the inner computation runs with the environment.
+Given an `Env`, the wrapped function returns `K<M, A>`. Compare `OptionT`, with shape `K<M, Option<A>>`: the lifted monad wraps an optional result, while an environment-carrying computation wraps the lifted monad, the inner computation runs with the environment.
 
 Configuration threads through file-reading code without becoming global:
 
@@ -36,7 +36,7 @@ var textIO = readSourceText("test.cs").Run(config);
 var text = textIO.Run();
 ```
 
-The first `Run` supplies the environment and returns the lifted `IO<string>`; the second runs that effect. Run the `IO` at the edge of the application.
+The first `Run` supplies the environment and returns the lifted `IO<string>`, the second runs that effect. Run the `IO` at the edge of the application.
 
 ## [02]-[ASK_AND_BIND]
 
@@ -243,14 +243,14 @@ public static Eff<Session, Unit> sendInvoice() =>
 ## [06]-[LOCAL_ENVIRONMENTS]
 
 Operations limit the environment a computation sees:
-- `local(f, ma)` maps `Env` to another `Env` of the same type and runs `ma` with that temporary value. The change is scoped to `ma`; later computation sees the original environment.
-- `with(f, ma)` maps an outer environment to a different environment type, such as `AppConfig -> DbConfig`. Data layers receive only the database configuration.
+- `local(f, ma)` maps `Env` to another `Env` of the same type and runs `ma` with that temporary value. The change is scoped to `ma`, later computation sees the original environment.
+- `with(f, ma)` maps an outer environment to a different environment type (`AppConfig -> DbConfig`). Data layers receive only the database configuration.
 
 `with` is not part of `Readable`, because `Env` is fixed in the trait implementation. Use `Reader.with` or `ReaderT.with`, and expose an equivalent operation on a wrapper where environment-type mapping is useful.
 
 ## [07]-[TRANSFORMER_POSITION]
 
-Any monad lifts into `ReaderT`; `IO` is one concrete choice. Lifting `Validation<F, A>` gives validators access to an environment. `ReaderT` sits outermost in most stacks, the inner monads reach the environment:
+Any monad lifts into `ReaderT`, `IO` is one concrete choice. Lifting `Validation<F, A>` gives validators access to an environment. `ReaderT` sits outermost in most stacks, the inner monads reach the environment:
 
 ```text
 ReaderT<Env, Inner, A>

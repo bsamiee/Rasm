@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 /**
- * createViteConfig validates shared app, library, and server options and returns the corresponding
- * Vite configuration. The root default omits build output; app and package configs own their output paths.
+ * createViteConfig validates app, library, and server options into a Vite configuration.
+ * The root default omits build output because app and package configs own their output paths.
  */
 
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -87,7 +87,7 @@ const ViteConfigSchema = S.Union(
         react: S.optional(S.Boolean),
     }),
     S.Struct({
-        // Server builds keep bare specifiers external; bundle includes an explicitly named dependency and its subpaths
+        // Server builds keep bare specifiers external except each bundle entry and its subpaths
         bundle: S.optional(S.Array(S.String)),
         entry: S.String,
         mode: S.Literal('server'),
@@ -526,7 +526,7 @@ const configByMode: {
                 name: config.name,
             },
             rolldownOptions: {
-                // Bare specifiers resolve from node_modules at run time; bundle includes each named dependency and its subpaths
+                // Bare specifiers resolve from node_modules at run time except each bundle entry and its subpaths
                 external: (id: string) =>
                     !id.startsWith('.') &&
                     !id.startsWith('/') &&

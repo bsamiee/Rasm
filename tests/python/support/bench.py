@@ -33,10 +33,10 @@ _REGRESSION_TOLERANCE = 0.70
 
 
 class BenchmarkCase(msgspec.Struct, frozen=True):
-    """One benchmark subject, workload generator, and performance budget.
+    """Benchmark subject, workload generator, and performance budget.
 
-    ``workload(size)`` builds the tuple passed as the single positional argument to ``subject``.
-    ``budget_ms`` is an absolute ceiling over ``budget_statistic``; samples above ``max_relative_iqr`` skip
+    ``workload(size)`` builds the tuple passed as the positional argument to ``subject``.
+    ``budget_ms`` is an absolute ceiling over ``budget_statistic``, samples above ``max_relative_iqr`` skip
     rather than emit flaky verdicts.
 
     Attributes:
@@ -95,7 +95,7 @@ def benchmark_parameters(cases: Sequence[BenchmarkCase]) -> pytest.MarkDecorator
 
 
 def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -> object:
-    """Measure one benchmark case and enforce its dispersion and performance budget."""
+    """Measure a benchmark case and enforce its dispersion and performance budget."""
     process = psutil.Process(os.getpid())
     payload = case.workload(size)
     benchmark.group = case.label
@@ -136,7 +136,7 @@ def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -
 
     match (relative_iqr > case.max_relative_iqr, case.enforce_budget and observed_ms > case.budget_ms):
         case (True, _):
-            pytest.skip(f"{case.label}-{size}: relative IQR {relative_iqr:.3f} exceeds {case.max_relative_iqr}; performance budget not evaluated")
+            pytest.skip(f"{case.label}-{size}: relative IQR {relative_iqr:.3f} exceeds {case.max_relative_iqr}, performance budget not evaluated")
         case (_, True):
             pytest.fail(f"{case.label}-{size}: {case.budget_statistic}={observed_ms:.4f}ms exceeds budget {case.budget_ms:.4f}ms")
         case _:

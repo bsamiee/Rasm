@@ -49,7 +49,7 @@ List.find (fun product -> product.price <= 1000.0) products
 (* iPad, ELECTRONIC, 800. *)
 ```
 
-The filter-and-head formulation and `List.find` raise an exception when no element matches. “First” depends on order; for an unordered collection such as a set, the corresponding operation can only promise some matching element.
+The filter-and-head formulation and `List.find` raise an exception when no element matches. “First” depends on order. For an unordered collection (a set), the corresponding operation can only promise some matching element.
 
 `contains` is the corresponding reusable existence test:
 
@@ -81,7 +81,7 @@ Applied to `products`, this produces Smart TV, Mac Pro, Pride and Prejudice, the
 
 ### Retrieve a prefix
 
-`take n l` returns the first `n` elements. Non-positive `n` or an empty list yields `[]`; when `n` exceeds the list length, all elements are returned.
+`take n l` returns the first `n` elements. Non-positive `n` or an empty list yields `[]`, when `n` exceeds the list length, all elements are returned.
 
 ```ocaml
 let rec take n l =
@@ -107,17 +107,17 @@ Sorting by price and then taking while `product.price < 1000.0` yields Pride and
 
 ### Collection DSL
 
-In the chapter's OCaml construction, a list supplies the shared representation; functions and pattern matching supply the mechanisms; operations such as `map`, `filter`, `fold`, `find`, existence testing, `sort`, `reverse`, `take`, and `take_while` supply the collection vocabulary.
+In the chapter's OCaml construction, a list supplies the shared representation, functions and pattern matching supply the mechanisms, and operations (`map`, `filter`, `fold`, `find`, existence testing, `sort`, `reverse`, `take`, `take_while`) supply the collection vocabulary.
 
 This forms a domain-specific language for collections:
 - One operation handles the whole collection rather than every element by name
 - Every operation accepts or returns the shared collection form, operations compose into dataflow pipelines
 - Reusing established operations makes collection logic concise and readable
-- The approach transfers to collection APIs in languages such as Swift, Kotlin, JavaScript, and Java
+- The approach transfers to collection APIs in Swift, Kotlin, JavaScript, and Java
 
 ## JSON processing
 
-JSON is hierarchical data that can originate in local application storage or a network service such as a REST API. Algebraic datatypes represent its alternatives directly, while recursive and higher-order functions provide reusable transformations.
+JSON is hierarchical data that can originate in local application storage or a network service (a REST API). Algebraic datatypes represent its alternatives directly, while recursive and higher-order functions provide reusable transformations.
 
 ### Example structure
 
@@ -137,7 +137,7 @@ JSON is hierarchical data that can originate in local application storage or a n
 
 ### Algebraic representation
 
-In the chapter's algebraic representation, the primitive cases are null, string, integer, float, and boolean. An array contains JSON values, which may have different cases. An object contains string keys paired with arbitrary JSON values.
+In the chapter's algebraic representation, the primitive cases are null, string, integer, float, and boolean. Arrays contain JSON values, which may have different cases. Objects contain string keys paired with arbitrary JSON values.
 
 ```ocaml
 type json =
@@ -178,8 +178,8 @@ The provided conversion follows the datatype one constructor at a time:
 - `Null` becomes an empty string in this implementation
 - `String` values appear in quotation marks
 - Integers, floats, and booleans use their standard string conversions
-- An array recursively converts its elements, joins them with commas, and wraps them in brackets
-- An object converts each key-value pair as a quoted key, a colon, and a recursively converted value; commas join the pairs inside braces
+- Arrays recursively convert their elements, join them with commas, and wrap them in brackets
+- Objects convert each key-value pair as a quoted key, a colon, and a recursively converted value, commas join the pairs inside braces
 
 ```ocaml
 let rec json_to_string js =
@@ -203,7 +203,7 @@ The result is compact: it does not add line breaks or indentation. Formatting ca
 
 ### Extract an object member
 
-In the provided function, `member : string -> json -> json` looks up a field only when its input is an `Object`. Every non-object case returns `Null`. For an object, `List.find` selects the first pair whose key equals the requested field, and `snd` returns its value. If an object lacks the field, `List.find` raises an exception rather than returning `Null`.
+In the provided function, `member : string -> json -> json` looks up a field only when its input is an `Object`. Every non-object case returns `Null`. For an object, `List.find` selects the first pair keyed by the requested field, and `snd` returns its value. If an object lacks the field, `List.find` raises an exception rather than returning `Null`.
 
 ```ocaml
 let member field json =
@@ -222,7 +222,7 @@ Here, `movie` denotes the example object represented with the `json` constructor
 
 For an algebraic datatype representing a hierarchical structure, meaningful higher-order functions provide general computation patterns over its collection cases.
 
-In the provided operations, array mapping preserves the `Array` constructor while applying a transformation to every contained JSON value, and array filtering preserves only values satisfying a predicate. Both reject a non-array input with an exception; the scalar extractors below likewise reject a constructor other than the one they expect.
+In the provided operations, array mapping preserves the `Array` constructor while applying a transformation to every contained JSON value, and array filtering preserves only values satisfying a predicate. Both reject a non-array input with an exception, the scalar extractors below likewise reject a constructor other than the one they expect.
 
 ```ocaml
 let json_array_map f json =
@@ -246,7 +246,7 @@ let to_bool json =
   | _ -> failwith "Not a JSON boolean"
 ```
 
-The actor transformation extracts `actor`, `character`, and `is_major_character`; extracts their string and Boolean values; chooses "major character" or "supporting character"; and returns a one-field object:
+The actor transformation extracts `actor`, `character`, and `is_major_character`, extracts their string and Boolean values, chooses "major character" or "supporting character", and returns a one-field object:
 
 ```ocaml
 let to_compact_actor obj =

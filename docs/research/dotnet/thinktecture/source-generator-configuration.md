@@ -1,6 +1,6 @@
 # [SOURCE_GENERATOR_CONFIGURATION]
 
-The source generator reads project-level MSBuild properties. They control diagnostics logging, the generated JetBrains annotation, and a debugging counter, and they apply to every generated type in the project. The generator keeps a second file named `ThinktectureRuntimeExtensionsSourceGenerator.log` in the temp folder of the process that hosts the compiler; setting `UseSharedCompilation` to `false` starts the compiler from the build, and the self-log follows the build's temp folder.
+The source generator reads project-level MSBuild properties. They control diagnostics logging, the generated JetBrains annotation, and a debugging counter, and they apply to every generated type in the project. The generator keeps a second file named `ThinktectureRuntimeExtensionsSourceGenerator.log` in the temp folder of the process that hosts the compiler. Setting `UseSharedCompilation` to `false` starts the compiler from the build, and the self-log follows the build's temp folder.
 
 ## [01]-[MSBUILD_PROPERTIES]
 
@@ -32,7 +32,7 @@ Every property name below carries the prefix `ThinktectureRuntimeExtensions_Sour
 
 ## [02]-[LOG_FILE_RESOLUTION]
 
-An existing file supplies its folder, name, and extension. An existing folder supplies the folder, and the name defaults to `ThinktectureRuntimeExtensions_logs` with the extension `.log`. Every generator that names one path shares one sink: one compiler process writes one file, interleaves its generators, and appends to an existing file. The generator never creates folders, the folder must exist before the build.
+Existing files supply their folder, name, and extension. Existing folders supply the folder, and the name defaults to `ThinktectureRuntimeExtensions_logs` with the extension `.log`. Every generator that names one path shares one sink: one compiler process writes one file, interleaves its generators, and appends to an existing file. The generator never creates folders, the folder must exist before the build.
 
 - With `LogFilePathMustBeUnique` at `true`, the file name becomes `<name>_<yyyyMMdd>_<HHmmss>_<guid><extension>` from the UTC clock, and each compiler process names a new file
 - With `false`, the file name is `<name><extension>`, and every process appends to one file
@@ -60,7 +60,7 @@ Every generated `Switch` and `SwitchPartially` method marks each delegate parame
 - It skips the file when the compilation declares a class `JetBrains.Annotations.InstantHandleAttribute` in source
 - It also skips the file when a metadata reference contains the module `JetBrains.Annotations.dll`, or when the property turns the generation off
 
-The core runtime assembly carries its own internal copy of the attribute. Turning the generation off in a project without the `JetBrains.Annotations` package binds the generated `Switch` methods to that internal copy. Where the generator already skips the file, the property is redundant; everywhere else it fails the compilation with `CS0122` on every delegate parameter.
+The core runtime assembly carries its own internal copy of the attribute. Turning the generation off in a project without the `JetBrains.Annotations` package binds the generated `Switch` methods to that internal copy. Where the generator already skips the file, the property is redundant, everywhere else it fails the compilation with `CS0122` on every delegate parameter.
 
 ## [05]-[COUNTER]
 
@@ -76,7 +76,7 @@ With the counter on, every file a code generator emits starts with the line `// 
 - Keep the generator properties out of the committed project file. Pass them with `-p:` for one diagnostic build, or keep them in a local, ignored props file.
 - Set `LogLevel` to `Information` to see the generator run
 - Point `LogFilePath` at a folder that exists before the build
-- Set `LogFilePathMustBeUnique` to `false` to collect every compiler process in one file; keep the default `true` to read one process alone
+- Set `LogFilePathMustBeUnique` to `false` to collect every compiler process in one file, keep the default `true` to read one process alone
 - Delete the log file before a measurement
 - Leave `GenerateJetBrainsAnnotations` unset
 - Use `Counter` only to detect regeneration, and turn it off before generated files are compared or committed, because every run changes the header

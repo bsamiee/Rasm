@@ -62,7 +62,7 @@ class _QuantityLike(Protocol):
 
 
 class ValidityCase[T](msgspec.Struct, frozen=True, gc=False):
-    """One labeled input and expected result for ``validity_matrix``."""
+    """Labeled input and expected result for ``validity_matrix``."""
 
     label: str
     value: T
@@ -70,7 +70,7 @@ class ValidityCase[T](msgspec.Struct, frozen=True, gc=False):
 
 
 class ProjectionCase[I](msgspec.Struct, frozen=True, gc=False):
-    """One projection input with a fixed or computed expected result."""
+    """Projection input with a fixed or computed expected result."""
 
     label: str
     intent: I
@@ -79,7 +79,7 @@ class ProjectionCase[I](msgspec.Struct, frozen=True, gc=False):
 
 
 class MetamorphicRelation[T, R](msgspec.Struct, frozen=True, gc=False):
-    """One metamorphic transformation and its output relation assertion."""
+    """Metamorphic transformation and its output relation assertion."""
 
     name: str
     transform: Callable[[T], T]
@@ -105,7 +105,7 @@ def _num_close(a: _Numeric, b: _Numeric, rel_tol: float, abs_tol: float) -> bool
 
 
 def _result_diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
-    """Compare two Result or Option values and recurse into matching cases."""
+    """Compare Result or Option pairs and recurse into matching cases."""
     match (a, b):
         case (Result(tag="ok", ok=left), Result(tag="ok", ok=right)):
             return _diverge(left, right, rel_tol, abs_tol, f"{path}.ok")
@@ -164,11 +164,7 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
 
 
 def close(*, rel_tol: float = 1e-9, abs_tol: float = 0.0) -> Callable[[object, object], bool]:
-    """Return a recursive approximate-equality function.
-
-    The comparison supports numbers, arrays, quantity
-    values, structs, dataclasses, ``Result``/``Option`` values, ``Block`` collections, mappings, and sequences.
-    """
+    """Return a recursive approximate-equality function over numbers, arrays, quantity values, structs, dataclasses, ``Result``/``Option`` values, ``Block`` collections, mappings, and sequences."""
     return lambda a, b: _diverge(a, b, rel_tol, abs_tol, "$") is None
 
 
@@ -234,7 +230,7 @@ def identity_element[T](x: T, op: Callable[[T, T], T], unit: T, *, eq: _Eq[T] = 
 
 
 def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K], *, compare: _Cmp[K] = None) -> None:
-    """Assert ``compare(projection(lo), projection(hi)) <= 0``; ``compare`` defaults to the built-in ordering."""
+    """Assert ``compare(projection(lo), projection(hi)) <= 0``, ``compare`` defaults to the built-in ordering."""
     p_lo = projection(lo)
     p_hi = projection(hi)
     result = compare(p_lo, p_hi) if compare is not None else (0 if p_lo == p_hi else (-1 if p_lo < p_hi else 1))
@@ -247,7 +243,7 @@ def permutation_invariant[T, R](original: T, shuffled: T, f: Callable[[T], R], *
 
 
 def differential[T, R](value: T, implementation: Callable[[T], R], reference: Callable[[T], R], *, eq: _Eq[R] = None) -> None:
-    """Compare an implementation with an independent reference over one input."""
+    """Compare an implementation with an independent reference over an input."""
     _assert_equal(implementation(value), reference(value), eq)
 
 
@@ -288,7 +284,7 @@ def validity_matrix[T](cases: Iterable[tuple[str, T, bool]], valid: Callable[[T]
 
 
 def validity_matrix[T](cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None) -> None:
-    """Assert each case's expected validity; report each case as an independent subtest when available."""
+    """Assert each case's expected validity as an independent subtest when available."""
     count = 0
     for raw in cases:
         case_ = raw if isinstance(raw, ValidityCase) else ValidityCase(label=raw[0], value=raw[1], expected=raw[2])
@@ -327,7 +323,7 @@ MSGPACK_ENCODER: msgspec.msgpack.Encoder = msgspec.msgpack.Encoder(order="determ
 
 
 def assert_ok[T, E](result: Result[T, E], *, then: Callable[[T], None] | None = None) -> T:
-    """Assert ``Ok`` and return the inner value, running ``then`` over it; an ``Error`` reports its payload.
+    """Assert ``Ok`` and return the inner value, running ``then`` over it, an ``Error`` reports its payload.
 
     Raises:
         AssertionError: When the result is ``Error`` or has an unexpected variant.
@@ -344,7 +340,7 @@ def assert_ok[T, E](result: Result[T, E], *, then: Callable[[T], None] | None = 
 
 
 def assert_error[T, E](result: Result[T, E], *, then: Callable[[E], None] | None = None) -> E:
-    """Assert ``Error`` and return the error, running ``then`` over it; an ``Ok`` reports its value.
+    """Assert ``Error`` and return the error, running ``then`` over it, an ``Ok`` reports its value.
 
     Raises:
         AssertionError: When the result is ``Ok`` or has an unexpected variant.
@@ -361,7 +357,7 @@ def assert_error[T, E](result: Result[T, E], *, then: Callable[[E], None] | None
 
 
 def assert_error_status[T, E](result: Result[T, E], status: object, *, attr: str = "status") -> E:
-    """Assert ``Error`` whose ``attr`` is identical (``is``) to ``status`` and return the error."""
+    """Assert ``Error`` with ``attr`` identical (``is``) to ``status`` and return the error."""
     e = assert_error(result)
     actual = getattr(e, attr)
     assert actual is status, f"expected {attr}={status!r}, got {actual!r}"

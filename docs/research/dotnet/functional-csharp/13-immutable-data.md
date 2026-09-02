@@ -29,15 +29,15 @@ Shared mutable state creates these problems:
 
 Locks protect one update, but coordination becomes difficult when one business action affects several objects or subsystems. The larger the scope of shared mutation, the harder it is to reason about atomicity and correctness.
 
-The concurrency source does not have to be multiple threads; the same shared-state hazards arise with asynchronous and parallel execution.
+The concurrency source does not have to be multiple threads. The same shared-state hazards arise with asynchronous and parallel execution.
 
-Systems combining concurrency with state mutation cannot be proved free of race conditions; strong correctness comes from removing mutation from shared state, not from coordinating access.
+Systems combining concurrency with state mutation cannot be proved free of race conditions. Strong correctness comes from removing mutation from shared state, not from coordinating access.
 
-Mutation confined to a function is different. Local accumulators hidden from callers do not make the function impure. Operations such as `Sum` or `Aggregate` express the intent directly.
+Mutation confined to a function is different. Local accumulators hidden from callers do not make the function impure. `Sum` and `Aggregate` express the intent directly.
 
 ## [03]-[VALUES_AND_IDENTITY]
 
-For a value object, value determines identity. Changing a date, number, or geometric shape produces a different value. Framework primitives are immutable, as are types such as `DateTime` and `String`; operations such as `DateTime.AddDays` return new values instead of altering the receiver. Custom immutable operations follow the same pattern:
+For a value object, value determines identity. Changing a date, number, or geometric shape produces a different value. Framework primitives are immutable, as are `DateTime` and `String`. Their operations (`DateTime.AddDays`) return new values instead of altering the receiver. Custom immutable operations follow the same pattern:
 
 ```csharp
 internal readonly record struct Point(double X, double Y);
@@ -50,7 +50,7 @@ internal static class Shapes {
 }
 ```
 
-Keep structs immutable. Value types are copied when passed between functions; mutating one makes changes propagate down, but not back up, the call stack.
+Keep structs immutable. Value types are copied when passed between functions. Mutating one makes changes propagate down, but not back up, the call stack.
 
 Entities are different: their identity persists while their state changes. Model an entity's state as an immutable snapshot and model each allowed change as a function that constructs another snapshot.
 
@@ -90,9 +90,9 @@ The design relies on these rules:
 - Remove property setters and require construction through a constructor or factory
 - Enforce required values and business invariants during construction, invalid snapshots cannot exist
 - Seal the type to prevent a mutable subclass from weakening the guarantee
-- Store collections in immutable collection types such as `Seq<A>`
+- Store collections in immutable collection types (`Seq<A>`)
 - Defensively copy mutable input collections at the boundary
-- Ensure element types such as `Transaction` and `CurrencyCode` are immutable
+- Ensure element types (`Transaction`, `CurrencyCode`) are immutable
 - Expose only meaningful transitions, not unrestricted copy methods
 
 Immutable top-level objects containing a mutable list are mutable. Shallow copies are safe only if every shared referenced value is immutable. `Opened` calls `toSeq`, which copies the list argument into a `Seq<Transaction>`. Later changes to the caller's mutable list do not reach the snapshot.
@@ -138,7 +138,7 @@ Reflection can copy an object and replace one backing field. It removes boilerpl
 
 ### [05.4]-[FSHARP_TYPES]
 
-Data can live in F#, whose declarations are immutable by default and provide copy-and-update expressions, while C# implements the behavior; the cost is a mixed-language solution and an extra assembly boundary.
+Data can live in F#, where declarations are immutable by default and support copy-and-update expressions, while C# implements the behavior. The cost is a mixed-language solution and an extra assembly boundary.
 
 No C# technique can prevent all mutation because reflection can alter private or read-only fields. The goal is to prevent accidental mutation and communicate the intended model.
 
@@ -150,7 +150,7 @@ This creates a tradeoff:
 - In-place mutation is cheaper for the individual write
 - Immutable updates improve safety, isolation, and reasoning
 - Mutable designs can require locks and defensive copying
-- Prefer safety; optimize only measured hot paths
+- Prefer safety and optimize only measured hot paths
 
 `Add` uses `Cons` to keep the newest transaction at the front. Choose a collection type that matches frequent domain operations.
 
@@ -196,7 +196,7 @@ The original and both derived lists coexist because the shared tail cannot chang
 - Remove the head: `O(1)`, return the tail
 - `Map`, `Where`, or full aggregation: `O(n)`
 - Insert or remove at index `m`: `O(m)` traversal and `m` rebuilt prefix nodes
-- Appending to the end repeatedly is a poor fit; choose another structure for queue-like workloads
+- Appending to the end repeatedly is a poor fit, choose another structure for queue-like workloads
 
 Indexed operations use `Lst<A>`, which provides `Insert`, `RemoveAt`, and `SetItem` over a balanced tree.
 
@@ -240,7 +240,7 @@ L      R         ->      L    rebuilt R
 3. Make immutability deep before sharing references between versions
 4. Use immutable collections rather than copying whole mutable collections manually
 5. Shape data structures around their frequent operations
-6. Treat the list and tree definitions as conceptual models; use the library collection types `Seq`, `Lst`, `Map`, and `HashMap`
+6. Treat the list and tree definitions as conceptual models and use the library collection types `Seq`, `Lst`, `Map`, and `HashMap`
 7. Choose explicit copy APIs when the domain must restrict which changes are legal
 8. Accept local mutation only when it is fully encapsulated and unobservable
 

@@ -42,7 +42,7 @@ _POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "network", "property",
 
 
 def _nav(node: dict[str, object], *keys: str) -> object:
-    """Walk a nested TOML mapping by successive keys; ``None`` when a key is absent or an intermediate is not a mapping."""
+    """Walk a nested TOML mapping by successive keys, ``None`` when a key is absent or an intermediate is not a mapping."""
     current: object = node
     for k in keys:
         match current:
@@ -75,7 +75,7 @@ def _collect_session_items(pytestconfig: pytest.Config) -> list[pytest.Function]
 
 
 def test_property_test_coverage() -> None:
-    """Registered public APIs require a property test or explicit exemption; partially collected packages are skipped."""
+    """Registered public APIs require a property test or explicit exemption, partially collected packages are skipped."""
     if not properties_module.PACKAGES_UNDER_TEST:
         pytest.skip("no package registered for property-test coverage")
     partial = uncollected_test_modules()
@@ -86,7 +86,7 @@ def test_property_test_coverage() -> None:
 
 
 def test_property_coverage_is_scoped_by_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
-    """A property test for one package does not cover another package's same-named symbol."""
+    """Property tests for a package do not cover another package's same-named symbol."""
     names = ("propertypkg_alpha", "propertypkg_beta")
     for name in names:
         pkg = tmp_path / name
@@ -110,7 +110,7 @@ def test_property_coverage_is_scoped_by_package(tmp_path: Path, monkeypatch: pyt
 
 
 def test_property_coverage_detects_partial_collection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
-    """Uncollected test modules defer coverage checks; a real API gap still fails after full collection."""
+    """Uncollected test modules defer coverage checks, a real API gap still fails after full collection."""
     suite = tmp_path / "suite"
     suite.mkdir()
     (suite / "test_ghost.py").write_text("", encoding="utf-8")
@@ -165,11 +165,11 @@ def test_test_module_names_match_live_session_imports(pytestconfig: pytest.Confi
     test_files = {path for item in _collect_session_items(pytestconfig) if (path := Path(item.path)).is_relative_to(REPO_ROOT) and any(fnmatch.fnmatch(path.name, pattern) for pattern in properties_module._TEST_FILE_GLOBS)}
     assert test_files, "no test modules collected in this session"
     unloaded_modules = sorted(str(path) for path in test_files if properties_module._module_name(path) not in sys.modules)
-    assert not unloaded_modules, f"derived test module names absent from sys.modules; naming differs from pytest importlib mode: {unloaded_modules}"
+    assert not unloaded_modules, f"derived test module names absent from sys.modules, naming differs from pytest importlib mode: {unloaded_modules}"
 
 
 def test_phantom_export_fails_the_census_not_silently_exempt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
-    """An undefined ``__all__`` entry is a public-API inspection failure, not an automatic exemption."""
+    """Undefined ``__all__`` entries are public-API inspection failures, not automatic exemptions."""
     pkg = tmp_path / "propertypkg_phantom"
     pkg.mkdir()
     (pkg / "__init__.py").write_text('__all__ = ["ghost"]\n', encoding="utf-8")
@@ -253,7 +253,7 @@ def test_hypothesis_profiles_preserve_required_settings() -> None:
 # --- [COVERS_AND_AUTO_EXEMPTION]
 
 
-class _Vocabulary(enum.StrEnum):
+class _Role(enum.StrEnum):
     PRIMARY = "primary"
 
 
@@ -291,7 +291,7 @@ def test_covers_tuple_recorded_at_collection() -> None:
 @pytest.mark.parametrize(
     "subject, exempt",
     [
-        pytest.param(_Vocabulary, True, id="strenum"),
+        pytest.param(_Role, True, id="strenum"),
         pytest.param(_FrozenRow, True, id="frozen-struct-method-free"),
         pytest.param(42, True, id="value-int"),
         pytest.param((1, 2), True, id="value-tuple"),
@@ -305,7 +305,7 @@ def test_covers_tuple_recorded_at_collection() -> None:
     ],
 )
 def test_automatic_exemption_classifies_public_symbols(subject: object, *, exempt: bool) -> None:
-    """StrEnums, method-free frozen structs, and value-only objects are exempt; behavior-bearing symbols never are."""
+    """StrEnums, method-free frozen structs, and value-only objects are exempt, behavior-bearing symbols never are."""
     assert is_automatically_exempt(subject) is exempt, f"is_automatically_exempt({subject!r}) != {exempt}"
 
 
@@ -327,7 +327,7 @@ def test_record_coverage_declarations_is_idempotent_and_rejects_values(monkeypat
 
 
 def test_property_records_have_named_subjects_and_modules() -> None:
-    """Every property record has a subject, property name, and module; subjects cannot be anonymous lambdas."""
+    """Every property record has a subject, property name, and module, subjects cannot be anonymous lambdas."""
     if not PROPERTY_TESTS:
         pytest.skip("no property tests were recorded in this session")
     for record in PROPERTY_TESTS:
@@ -367,7 +367,7 @@ def test_benchmark_regression_hook_is_registered(pytestconfig: pytest.Config) ->
     if hook is None:
         pytest.skip("pytest-benchmark plugin not loaded, no pytest_benchmark_update_json hookspec")
     impl_names = [impl.plugin_name for impl in hook.get_hookimpls()]
-    assert "test-support-bench" in impl_names, f"test-support-bench hook implementation missing; registered implementations: {impl_names}"
+    assert "test-support-bench" in impl_names, f"test-support-bench hook implementation missing, registered implementations: {impl_names}"
 
 
 def test_bench_series_keying_is_file_disjoint(tmp_path: Path) -> None:
@@ -419,7 +419,7 @@ def test_sustained_regression_check_fails_on_step_change_and_accepts_flat_histor
 
 @pytest.mark.subprocess
 def test_observability_flag_writes_hypothesis_observations_to_artifacts() -> None:
-    """``TESTS_OBSERVABILITY`` writes decodable observations; without it, the artifact is unchanged."""
+    """``TESTS_OBSERVABILITY`` writes decodable observations, without it the artifact is unchanged."""
     test_node = "tests/python/support/test_strategies.py::test_literal_form_generates_only_declared_values"
     artifact = REPO_ROOT / ".artifacts" / "python" / "hypothesis" / f"{datetime.now(tz=UTC).date().isoformat()}_testcases.jsonl"
 
@@ -449,4 +449,4 @@ def test_package_manager_and_type_checker_caches_route_under_owned_roots() -> No
     assert mypy.get("cache_dir") == ".cache/mypy", "native mypy must never write .mypy_cache at repo root"
     assert "\nstoreDir: .cache/pnpm/store\n" in workspace, "native pnpm must never write .pnpm-store at repo root"
     assert "\ncacheDir: .cache/pnpm/cache\n" in workspace, "pnpm metadata cache must stay under .cache"
-    assert "\nstateDir:" not in workspace, "pnpm stateDir is retired; pnpm has no supported state-directory setting"
+    assert "\nstateDir:" not in workspace, "pnpm stateDir is retired, pnpm has no supported state-directory setting"

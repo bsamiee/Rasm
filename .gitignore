@@ -22,7 +22,7 @@ public/build/
 **/dist/**/*.d.ts
 **/dist/**/*.d.ts.map
 *.js.map
-# Vite's transient config bundle may remain next to vite.config.ts after a crashed run
+# Vite config bundle left beside vite.config.ts after a crashed run
 *.timestamp-*.mjs
 
 # --- [PYTHON_ARTIFACTS] -------------------------------------------------------
@@ -47,7 +47,7 @@ env/
 .pytest_cache/
 .ruff_cache/
 .ty_cache/
-# Python test support routes the Hypothesis database to .cache/hypothesis; this catches runs without that configuration
+# Hypothesis database from runs without the .cache/hypothesis configuration
 .hypothesis/
 .dmypy.json
 *.prof
@@ -89,12 +89,12 @@ diagnostics.sarif
 *.user
 *.suo
 *.lscache
-# Rhino writes lock and backup files beside opened .3dm files; the host exposes no relocation option
+# Rhino lock and backup files beside opened .3dm files, not relocatable
 *.rhl
 *.3dmbak
-# Grasshopper2.dll extracts embedded resources to the `dotnet build` cwd; root-anchored, the real `apps/grasshopper/` tree stays tracked
+# Grasshopper2.dll extracts embedded resources into the `dotnet build` cwd, root pattern keeps `apps/grasshopper/` tracked
 /Grasshopper.*
-# EnergyPlus ExpandObjects writes into the invocation cwd with no relocation option
+# EnergyPlus ExpandObjects output in the invocation cwd, not relocatable
 expanded.idf
 
 # --- [ENVIRONMENT_VARIABLES] --------------------------------------------------

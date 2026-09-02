@@ -117,16 +117,16 @@ def property_test[**P](subject: object, *, given: bool = True, profile: str | No
     Args:
         subject: Type or callable covered by the property test.
         given: True injects ``strategy_for(subject)`` as the rightmost positional argument.
-        profile: Registered Hypothesis profile name to pin; ``None`` follows the session-active profile.
+        profile: Registered Hypothesis profile name to pin, ``None`` follows the session-active profile.
         markers: Extra pytest mark names to apply.
-        timeout: Hypothesis deadline in seconds; ``None`` inherits from the governing profile.
+        timeout: Hypothesis deadline in seconds, ``None`` inherits from the governing profile.
         property_name: Override the recorded property name; defaults to the function name.
         events: Drawn-value event taggers for Hypothesis statistics.
     """
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
         if fn in _STAMPED:
-            msg = f"@property_test applied twice to {fn!r}; remove the duplicate decorator."
+            msg = f"@property_test applied twice to {fn!r}, remove the duplicate decorator"
             raise TypeError(msg)
 
         match given:
@@ -182,12 +182,12 @@ def record_coverage_declarations(module: object) -> None:
 
 
 def register_package(package: str, *, exempt: frozenset[str] = frozenset(), suite: Path | None = None) -> None:
-    """Register a package for public-API test coverage; repeat calls merge exemptions.
+    """Register a package for public-API test coverage, repeat calls merge exemptions.
 
     Args:
         package: Fully-qualified package name.
         exempt: Public names explicitly exempt from the coverage requirement.
-        suite: Package test directory; ``None`` derives the caller's directory.
+        suite: Package test directory, ``None`` derives the caller's directory.
     """
     frame = inspect.currentframe()
     caller_file = frame.f_back.f_globals.get("__file__") if frame is not None and frame.f_back is not None else None
@@ -217,7 +217,7 @@ def register_package_tree(source_root: Path, suite_root: Path) -> tuple[str, ...
     """Register each Python package directly beneath ``source_root``.
 
     Folders register under the name their modules import by, with the same-named folder under ``suite_root``
-    as the test directory; a directory without Python source does not register.
+    as the test directory, a directory without Python source does not register.
     """
     children = sorted(p for p in source_root.iterdir() if p.is_dir()) if source_root.is_dir() else []
     authored = tuple(child for child in children if any(child.rglob("*.py")))

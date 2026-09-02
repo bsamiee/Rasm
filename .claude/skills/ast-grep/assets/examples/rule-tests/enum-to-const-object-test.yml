@@ -1,6 +1,6 @@
-id: enum-to-vocabulary-table
+id: enum-to-const-object
 valid:
-    - | # the target form
+    - | # The target form
       const Phase = { Draft: 0, Sealed: 1 } as const;
       type Phase = (typeof Phase)[keyof typeof Phase];
     - 'enum Bare { Draft, Sealed }'

@@ -1,6 +1,6 @@
 # [PULUMI_BEST_PRACTICES]
 
-Program-level law for writing, reviewing, and refactoring Pulumi code.
+Program rules for writing, reviewing, and refactoring Pulumi code.
 
 ## [01]-[NO_RESOURCES_IN_APPLY]
 
@@ -16,16 +16,16 @@ bucket.id.apply((bucketId) => {
 ```typescript
 const bucket = new aws.s3.Bucket('bucket');
 const object = new aws.s3.BucketObject('object', {
-    bucket: bucket.id, // Output<string> passes directly; Pulumi owns the dependency
+    bucket: bucket.id, // Output<string> passes directly, Pulumi owns the dependency
     content: 'hello',
 });
 ```
 
-`apply()` remains correct for transforming output values into tags, names, or computed strings, for logging, and for conditional logic that affects resource properties — never resource existence.
+`apply()` remains correct for transforming output values into tags, names, or computed strings, for logging, and for conditional logic that affects resource properties, never resource existence.
 
 ## [02]-[OUTPUTS_AS_INPUTS]
 
-Pulumi builds its DAG from input/output relationships; manually unwrapped values break the chain, so resources deploy out of order or reference values that never resolved. Detection signals: variables extracted from `.apply()` used later as inputs, `await` on outputs outside apply, string concatenation with outputs.
+Pulumi builds its DAG from input/output relationships, manually unwrapped values break the chain and resources deploy out of order or reference values that never resolved. Detection signals: variables extracted from `.apply()` used later as inputs, `await` on outputs outside apply, string concatenation with outputs.
 
 ```typescript
 const vpc = new aws.ec2.Vpc('vpc', { cidrBlock: '10.0.0.0/16' });
@@ -47,7 +47,7 @@ const alt = pulumi.concat('prefix-', bucket.id, '-suffix');
 
 ## [03]-[COMPONENTS_FOR_RELATED_RESOURCES]
 
-Related resources group into `ComponentResource` classes; a flat top-level graph hides ownership and blocks reuse. Detection signals: repeated resource patterns across stacks, related resources created at top level without grouping.
+Related resources group into `ComponentResource` classes, a flat top-level graph hides ownership and blocks reuse. Detection signals: repeated resource patterns across stacks, related resources created at top level without grouping.
 
 ```typescript
 class StaticSite extends pulumi.ComponentResource {
@@ -64,7 +64,7 @@ class StaticSite extends pulumi.ComponentResource {
 
 ## [04]-[PARENT_THIS]
 
-Every child inside a component carries `{ parent: this }`; without it children land at the stack root, the console hierarchy collapses, and aliases on the component stop reaching them. Parenting also cascades deletion and provider inheritance.
+Every child inside a component carries `{ parent: this }`, without it children land at the stack root, the console hierarchy collapses, and aliases on the component stop reaching them. Parenting also cascades deletion and provider inheritance.
 
 ```typescript
 class MyComponent extends pulumi.ComponentResource {
@@ -86,7 +86,7 @@ class MyComponent extends pulumi.ComponentResource {
 
 ## [05]-[SECRETS_FROM_DAY_ONE]
 
-Values marked `--secret` are encrypted in state, masked in CLI output, and tracked through transformations; starting plaintext and converting later forces credential rotation and an audit of leaked values in logs and state history. Secrets are passwords, API keys, tokens, private keys, certificates, connection strings with credentials, OAuth client secrets, and encryption keys.
+Values marked `--secret` are encrypted in state, masked in CLI output, and tracked through transformations, starting plaintext and converting later forces credential rotation and an audit of leaked values in logs and state history. Secrets are passwords, API keys, tokens, private keys, certificates, connection strings with credentials, OAuth client secrets, and encryption keys.
 
 ```bash
 pulumi config set --secret databasePassword hunter2
@@ -104,7 +104,7 @@ ESC centralizes secrets across stacks: a `Pulumi.yaml` `environment:` list pulls
 
 ## [06]-[ALIASES_WHEN_REFACTORING]
 
-Renaming a resource, moving it into a component, or changing its parent reads as `delete+create` without an alias — destruction and recreation of live infrastructure. Detection signal: preview shows replace or delete+create where update was intended.
+Renaming a resource, moving it into a component, or changing its parent reads as `delete+create` without an alias, destruction and recreation of live infrastructure. Detection signal: preview shows replace or delete+create where update was intended.
 
 ```typescript
 // was: new aws.s3.Bucket("my-bucket")
@@ -138,7 +138,7 @@ Lifecycle: add the alias, run `pulumi up` on every stack, then optionally drop t
 
 ## [07]-[PREVIEW_BEFORE_UP]
 
-`pulumi preview` shows exactly what will be created, updated, or destroyed at zero cost; `pulumi up --yes` without a reviewed preview is deploying blind. Preview vocabulary: `+ create`, `~ update`, `- delete`, `+-replace` (destroy then recreate — potential downtime), `~+-replace`. Warning signs: unexpected replaces (immutable property changes), deletions of resources meant to stay, more changes than the code diff explains.
+`pulumi preview` shows exactly what will be created, updated, or destroyed at zero cost, `pulumi up --yes` without a reviewed preview is deploying blind. Preview symbols: `+ create`, `~ update`, `- delete`, `+-replace` (destroy then recreate, potential downtime), `~+-replace`. Warning signs: unexpected replaces (immutable property changes), deletions of resources meant to stay, more changes than the code diff explains.
 
 ```yaml
 # CI shape: preview on every PR, deploy only on merge to main
@@ -163,7 +163,7 @@ jobs:
 
 | [INDEX] | [PRACTICE]            | [KEY_SIGNAL]                          | [FIX]                                  |
 | :-----: | :-------------------- | :------------------------------------ | :------------------------------------- |
-|  [01]   | No resources in apply | `new Resource()` inside `.apply()`    | Move outside; pass the Output directly |
+|  [01]   | No resources in apply | `new Resource()` inside `.apply()`    | Move outside, pass the Output directly |
 |  [02]   | Outputs as inputs     | Extracted values used as inputs       | Output objects, `pulumi.interpolate`   |
 |  [03]   | Components            | Flat graph, repeated patterns         | `ComponentResource` classes            |
 |  [04]   | Parent this           | Component children at root level      | `{ parent: this }` on every child      |

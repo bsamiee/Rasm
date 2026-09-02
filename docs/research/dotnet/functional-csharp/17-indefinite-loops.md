@@ -1,6 +1,6 @@
 # [INDEFINITE_LOOPS]
 
-An indefinite loop advances state until a runtime condition holds. Unlike a transformation over a fixed collection, its length is not known in advance. `Map` and `Fold` can consume a sequence whose producer knows when to stop, but they do not by themselves supply that stopping rule.
+Indefinite loops advance state until a runtime condition holds. Unlike a transformation over a fixed collection, their length is not known in advance. `Map` and `Fold` can consume a sequence from a producer that knows when to stop, but they do not by themselves supply that stopping rule.
 
 Model the problem with:
 
@@ -11,9 +11,9 @@ Func<S, bool> isFinished;
 ```
 
 The separation is between:
-- State transition: produce the next state from the current state;
-- Termination: decide whether a state is final;
-- Execution: repeatedly apply the transition until termination;
+- State transition: produce the next state from the current state
+- Termination: decide whether a state is final
+- Execution: repeatedly apply the transition until termination
 - Consumption: choose whether to retain only the final state or every intermediate state
 
 ## [01]-[APPROACH_SELECTION]
@@ -45,7 +45,7 @@ State is not mutated, and every iteration produces a replacement value. C# does 
 Use direct recursion only when the iteration count has a small, known upper bound. Usually small iteration counts do not remove the stack risk. `Trampoline<A>` removes it: `Trampoline.More` returns the recursive call as a deferred value, and `Run()` evaluates the deferred calls in a loop.
 
 Recursive functions need:
-1. An end condition that returns the final value
+1. End condition that returns the final value
 2. Recursive paths calling the same function with values closer to that condition
 3. Returned values on every path
 
@@ -64,7 +64,7 @@ internal static class Positions {
 
 With deltas `2, -12, 9`, `FirstPositionAtZero(deltas, 10, 0).Run()` carries values `10`, `12`, then `0`, returning `Some(1)` without evaluating `9`.
 
-The function handles sequence exhaustion explicitly: `At` returns `None` when `nextIndex` is beyond the deltas, and the result is `None`. An unreachable base case loops indefinitely.
+The function handles sequence exhaustion explicitly: `At` returns `None` when `nextIndex` is beyond the deltas, and the result is `None`. Unreachable base cases loop indefinitely.
 
 Reusable trampolined loops take the form:
 
@@ -120,7 +120,7 @@ internal static class Deep {
 
 `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a mapping continuation after the tail call and fail. Hosts needing a `Fin` capture with `Try.lift(io.Run).Run()`.
 
-Polling one effect until its value satisfies a predicate is `RepeatUntil`; `RepeatWhile` is its complement.
+Polling one effect until its value satisfies a predicate is `RepeatUntil`, and `RepeatWhile` is its complement.
 
 ## [04]-[CUSTOM_ITERATION]
 
@@ -141,9 +141,9 @@ internal static class States {
 
 `None` tells the consumer that the sequence has ended. `Step` must return `Some` for the transition that first produces the terminal state, then return `None` on the following call.
 
-This sequence yields each state after a transition; it does not emit the initial state. It checks `HasExited` before it calls `advance`.
+This sequence yields each state after a transition and does not emit the initial state. It checks `HasExited` before it calls `advance`.
 
-`Monad.recur` checks before advancing and performs zero or more transitions. `Step` emits only a state that a transition produced; an already-terminal initial state yields an empty `Seq`. If the initial state can already be terminal, decide whether enumeration is empty, emits that initial state, or advances once.
+`Monad.recur` checks before advancing and performs zero or more transitions. `Step` emits only a state that a transition produced. Already-terminal initial states yield an empty `Seq`. If the initial state can already be terminal, decide whether enumeration is empty, emits that initial state, or advances once.
 
 ## [05]-[LINQ_CONSUMPTION]
 
@@ -168,6 +168,6 @@ internal static class Consumption {
 - `Fold` can retain both accumulated output and the latest state
 - `foreach` is a consumer, but mutating an outer variable reintroduces imperative state at the call site
 
-Short-circuiting operators change the termination behavior. `Head`, `Take`, and similar operations stop enumeration before the sequence's own end condition is reached. Use these operators only for intentional early termination, such as limiting a participant to a fixed number of actions.
+Short-circuiting operators change the termination behavior. `Head`, `Take`, and similar operations stop enumeration before the sequence's own end condition is reached. Use these operators only for intentional early termination (limiting a participant to a fixed number of actions).
 
 The methods in `Consumption` are alternatives, not operations to apply successively. One `Seq` keeps every state it has read. Second passes over the same `Seq` do not rerun `advance`. Each `unfold` call constructs a new producer and reruns the transition process. When `advance` reads input, randomness, or another effect, building the sequence twice performs the process twice and can produce different states. Build the `Seq` once and read every required result from it.

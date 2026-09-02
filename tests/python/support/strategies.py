@@ -68,7 +68,7 @@ def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:ign
 def _multiples[N](lower: object, upper: object, step: object, convert: Callable[[Decimal], N], *, exclude_lower: bool = False, exclude_upper: bool = False) -> st.SearchStrategy[N]:
     """Draw multiplier k directly, every value is a valid in-range multiple with zero rejection.
 
-    Fraction bounds are exact for int, float, and Decimal inputs; an exclusive bound equal to a multiple
+    Fraction bounds are exact for int, float, and Decimal inputs, an exclusive bound equal to a multiple
     shrinks the k window by one, the boundary itself is never drawn.
     """
     decimal_step = Decimal(str(step))
@@ -93,7 +93,7 @@ def _decimal_max(md: object, dp: object) -> Decimal | None:
 
 
 def _msgspec_strategy(schema: _mi.Type) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]
-    """Build a bounded strategy from one ``msgspec.inspect`` schema.
+    """Build a bounded strategy from a ``msgspec.inspect`` schema.
 
     Raises:
         AssertionError: When the schema kind is not supported.
@@ -199,7 +199,7 @@ def _unwrap_function_schema(schema: _Schema) -> _Schema:
 
 
 def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]
-    """Build a constraint-aware strategy from one ``pydantic-core`` schema and its definitions."""
+    """Build a constraint-aware strategy from a ``pydantic-core`` schema and its definitions."""
     leaf = _unwrap_function_schema(schema)
     match leaf.get("type"):
         case "int":
@@ -309,8 +309,8 @@ def _tagged_cases(subject: type) -> dict[str, TypeForm[object]] | None:
     """Map an ``expression`` ``@tagged_union`` class's case fields to type hints, or ``None`` for any other subject.
 
     The decorator leaves every dataclass field ``init=False``/``kw_only`` behind a leading ``tag`` discriminator and
-    replaces ``__init__`` with an exactly-one-case constructor, field-wise sampling constructs invalid unions;
-    detection keys on that structural signature.
+    replaces ``__init__`` with an exactly-one-case constructor, field-wise sampling builds invalid unions.
+    Detection keys on that structural signature.
     """
     if not (dataclasses.is_dataclass(subject) and isinstance(subject, type)):
         return None

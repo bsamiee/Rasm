@@ -1,9 +1,9 @@
-"""Build the c-blosc2 shared library for one runtime identifier and stage it for packing.
+"""Build the c-blosc2 shared library for a runtime identifier and stage it for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 each stage their runtime identifier, one job
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
 collects .artifacts/native/blosc2/stage and runs the eng pack-blosc2-native target alone. On
-macOS every install name is rewritten to @loader_path and re-signed ad hoc so dotnet default
-probing loads the codec dependency closure from one output directory. Only the blosc2 library
+macOS every install name is rewritten to @loader_path and re-signed ad hoc, dotnet default
+probing loads the codec dependency closure from the output directory. Only the blosc2 library
 itself takes the canonical name the managed DllImport probes for.
 """
 
@@ -29,7 +29,7 @@ app = cyclopts.App(name="stage-blosc2-native")
 
 
 async def _stage(rid: Rid) -> Path:
-    """Build the manifest with vcpkg and stage every runtime library for one rid."""
+    """Build the manifest with vcpkg and stage every runtime library for the rid."""
     target = vcpkg_target(rid, "blosc2", windows_stem="libblosc2", closure=True)
     tools = await native_build_tools()
     built = await vcpkg_install(tools, _WORK, target, vcpkg_args(_MANIFEST_ROOT, _WORK, target.triplet))

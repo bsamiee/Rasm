@@ -1,6 +1,6 @@
-"""Build the lcms2 shared library for one runtime identifier and stage it for packing.
+"""Build the lcms2 shared library for a runtime identifier and stage it for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 each stage their runtime identifier, one job
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
 collects .artifacts/native/lcms2/stage and runs the eng pack-lcms2-native target alone.
 """
 
@@ -26,7 +26,7 @@ app = cyclopts.App(name="stage-lcms2-native")
 
 
 async def _stage(rid: Rid) -> Path:
-    """Build the manifest with vcpkg and stage the library for one rid."""
+    """Build the manifest with vcpkg and stage the library for the rid."""
     target = vcpkg_target(rid, "lcms2")
     tools = await native_build_tools()
     built = await vcpkg_install(tools, _WORK, target, vcpkg_args(_MANIFEST_ROOT, _WORK, target.triplet))

@@ -6,7 +6,7 @@
 
 ## [01]-[EMPTY]
 
-`Empty.Action` is an overload set, `Action()` through `Action<T1, ..., T16>`, each with an empty body. Method group conversions pick the overload matching the target delegate, `Empty.Action` assigns to every `Action` delegate type in that range. `Empty.Disposable()` returns one cached `IDisposable` whose `Dispose` does nothing, and `Empty.AsyncDisposable()` returns one cached `IAsyncDisposable` whose `DisposeAsync` returns a completed `ValueTask`.
+`Empty.Action` is an overload set, `Action()` through `Action<T1, ..., T16>`, each with an empty body. Method group conversions pick the overload matching the target delegate, `Empty.Action` assigns to every `Action` delegate type in that range. `Empty.Disposable()` returns one cached `IDisposable` with a no-op `Dispose`, and `Empty.AsyncDisposable()` returns one cached `IAsyncDisposable` with a `DisposeAsync` returning a completed `ValueTask`.
 
 Spell `Thinktecture.Empty` where a `using static` import of another `Empty` member makes the plain name ambiguous. The collection members return cached instances, and repeated calls with the same type arguments return the same reference:
 - `Empty.Collection()` returns the non-generic `System.Collections.IEnumerable`

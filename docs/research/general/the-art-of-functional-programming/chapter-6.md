@@ -4,9 +4,9 @@
 
 Dataflow programs are directed graphs:
 - Nodes accept inputs and produce output
-- An edge carries one node's output to another node's input
+- Edges carry one node's output to another node's input
 - The graph makes both composition and data dependencies explicit
-- Nodes without a dependency between them are eligible to run in parallel; a dataflow executor can infer that independence from the graph
+- Nodes without a dependency between them are eligible to run in parallel, a dataflow executor can infer that independence from the graph
 
 For example, given:
 
@@ -25,8 +25,8 @@ The graph form exposes small building blocks, can enable automatic parallel exec
 Pure functions behave like dataflow nodes: they map inputs to outputs, always return the same output for the same input, and produce no side effects. Functions become composable when they share an input/output representation.
 
 Lists provide such an interface:
-- `map f`: transform every element; list -> list
-- `filter p`: retain elements satisfying `p`; list -> list
+- `map f`: transform every element, list -> list
+- `filter p`: retain elements satisfying `p`, list -> list
 - `fold`: combine the input into one value, configured by an initial value and accumulation function
 - `zipWith f`: combine corresponding elements from two input lists into one output list
 
@@ -77,7 +77,7 @@ source-specific enumeration -> filter even -> map square -> sum
 
 ### 2.2 Multiple input signals
 
-`zipWith` is a two-input component. One input can be the integers `1..n`; another can be the prime numbers selected from that same interval. Zipping them formats each prime with its one-based position:
+`zipWith` is a two-input component. One input can be the integers `1..n`, another can be the prime numbers selected from that same interval. Zipping them formats each prime with its one-based position:
 
 ```ocaml
 let count_primes n =
@@ -101,7 +101,7 @@ Favor small, independent programs that do one thing well, and connect them throu
 cat /usr/share/dict/words | head -5 | tail -1
 ```
 
-The command composes focused programs to return the fifth word. The OCaml analogue uses focused functions such as `map`, `filter`, `fold`, and `zipWith`, lists as the shared interface, and `|>` to express the connection.
+The command composes focused programs to return the fifth word. The OCaml analogue uses focused functions (`map`, `filter`, `fold`, `zipWith`), lists as the shared interface, and `|>` to express the connection.
 
 ## 4. Why OCaml's finite lists are insufficient
 
@@ -111,7 +111,7 @@ Consider finding the first prime greater than or equal to `n`:
 enumerate integers from n -> filter primes -> take head
 ```
 
-An OCaml list cannot represent the unbounded input signal. OCaml is strict. Constructing `hd :: tl` evaluates both arguments. This definition recurses without producing a completed list and eventually overflows the stack:
+OCaml lists cannot represent the unbounded input signal. OCaml is strict. Constructing `hd :: tl` evaluates both arguments. This definition recurses without producing a completed list and eventually overflows the stack:
 
 ```ocaml
 let rec naturals_from n = n :: naturals_from (n + 1)
@@ -124,7 +124,7 @@ let first_prime_between a b =
   enumerate_integers a b |> List.filter is_prime |> List.hd
 ```
 
-It constructs the entire interval and filters every element even though only the first match is required. An imperative loop stops at the first match, but loses the declarative composition of the pipeline. The desired design combines composable components, potentially infinite signals, and incremental demand-driven computation.
+It constructs the entire interval and filters every element even though only the first match is required. Imperative loops stop at the first match, but lose the declarative composition of the pipeline. The desired design combines composable components, potentially infinite signals, and incremental demand-driven computation.
 
 ## 5. Delayed evaluation
 
@@ -142,7 +142,7 @@ let delayed_fib40 = lazy (fib 40)  (* int Lazy.t *)
 let result = Lazy.force delayed_fib40
 ```
 
-`lazy expression` does not evaluate `expression`. The first `Lazy.force` evaluates it and memoizes the result; later forces return the cached value. Delaying an exceptional expression also delays its exception: `lazy (1 / 0)` is a value, while forcing it raises division by zero.
+`lazy expression` does not evaluate `expression`. The first `Lazy.force` evaluates it and memoizes the result, later forces return the cached value. Delaying an exceptional expression also delays its exception: `lazy (1 / 0)` is a value, while forcing it raises division by zero.
 
 ## 6. An OCaml stream: a list with a delayed tail
 
@@ -154,7 +154,7 @@ let stream_hd (Cons (h, _)) = h
 let stream_tl (Cons (_, t)) = Lazy.force t
 ```
 
-This definition has no `Nil`; it models streams that continue indefinitely. `stream_hd` observes the available element, while `stream_tl` forces exactly one delayed step.
+This definition has no `Nil`, it models streams that continue indefinitely. `stream_hd` observes the available element, while `stream_tl` forces exactly one delayed step.
 
 ```ocaml
 let rec naturals_from n =
@@ -172,7 +172,7 @@ let rec stream_take n s =
   else stream_hd s :: stream_take (n - 1) (stream_tl s)
 ```
 
-`stream_take 10 naturals` returns `[0; 1; 2; 3; 4; 5; 6; 7; 8; 9]`; converting a demanded finite prefix to a list bounds evaluation instead of attempting to realize the infinite stream.
+`stream_take 10 naturals` returns `[0; 1; 2; 3; 4; 5; 6; 7; 8; 9]`. Converting a demanded finite prefix to a list bounds evaluation instead of attempting to realize the infinite stream.
 
 ## 7. Higher-order stream components
 
@@ -221,9 +221,9 @@ let first_prime_greater_equal n =
   naturals_from n |> stream_filter is_prime |> stream_hd
 ```
 
-Evaluation proceeds only as far as needed: candidates are generated and tested one at a time; once the first prime is found, no later candidates are produced.
+Evaluation proceeds only as far as needed: candidates are generated and tested one at a time, once the first prime is found, no later candidates are produced.
 
-In a non-strict language such as Haskell, ordinary lists can fill the same role because the tail is not evaluated until demanded:
+In Haskell, a non-strict language, ordinary lists can fill the same role because the tail is not evaluated until demanded:
 
 ```haskell
 naturals_from n = n : naturals_from (n + 1)
@@ -260,7 +260,7 @@ let max_circle shapes =
   shapes |> List.filter is_circle |> List.map area |> List.fold_left max 0.
 ```
 
-The initial value makes the empty-list result `0.0`; a largest radius of `2.0` gives area `12.56` under this `3.14` approximation.
+The initial value makes the empty-list result `0.0`, a largest radius of `2.0` gives area `12.56` under this `3.14` approximation.
 
 ### 9.2 Alternating merge
 
@@ -271,7 +271,7 @@ let rec stream_merge (Cons (x, xs)) s2 =
   Cons (x, lazy (stream_merge s2 (Lazy.force xs)))
 ```
 
-Merging evens with odds begins `[0; 1; 2; 3; ...]`; reversing the inputs begins `[1; 0; 3; 2; ...]`.
+Merging evens with odds begins `[0; 1; 2; 3; ...]`, reversing the inputs begins `[1; 0; 3; 2; ...]`.
 
 ### 9.3 Self-referential Fibonacci stream
 
@@ -282,14 +282,14 @@ let rec fibs = Cons (1, lazy (Cons (1, lazy (
   stream_zipWith (+) fibs (stream_tl fibs)))))
 ```
 
-The challenge solution instead seeds the same construction with `1` and `2`; that version generates `<1; 2; 3; 5; ...>` and does not match the stated stream. Laziness permits either self-reference without demanding the unfinished tail during construction.
+The challenge solution instead seeds the same construction with `1` and `2`, that version generates `<1; 2; 3; 5; ...>` and does not match the stated stream. Laziness permits either self-reference without demanding the unfinished tail during construction.
 
 ## 10. Knowledge checks
 
-- Rule of composition: favor small independent programs and a simple shared interface such as plain text
-- Functional dataflow works because pure functions have no side effects and can connect through shared representations such as lists or streams
+- Rule of composition: favor small independent programs and a simple shared interface (plain text)
+- Functional dataflow works because pure functions have no side effects and can connect through shared representations (lists, streams)
 - `2 |> square` is `square 2`, it evaluates to `4`
 - `[0; 1; 2] |> List.map (fun x -> x > 0) |> List.fold_left (&&) true` evaluates to `false` because `0 > 0` is false
 - Streams model infinite sequences and support incremental on-demand computation
-- `[1; 2; 3; 4] |> List.filter ((<=) 3) |> List.map (( * ) 2) |> List.fold_left (+) 0` keeps `[3; 4]`, doubles to `[6; 8]`, and evaluates to `14`; none of the listed choices matches that derivation
-- `lazy (1 / 0)` creates an `int lazy_t` value without raising; `Lazy.force` triggers the division and raises the exception
+- `[1; 2; 3; 4] |> List.filter ((<=) 3) |> List.map (( * ) 2) |> List.fold_left (+) 0` keeps `[3; 4]`, doubles to `[6; 8]`, and evaluates to `14`, none of the listed choices matches that derivation
+- `lazy (1 / 0)` creates an `int lazy_t` value without raising, `Lazy.force` triggers the division and raises the exception

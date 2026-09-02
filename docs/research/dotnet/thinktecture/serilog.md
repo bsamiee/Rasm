@@ -29,11 +29,11 @@ The `{Message:j}` format renders every captured property as JSON. String scalars
 
 `TryDestructure` receives the boxed value and calls `MetadataLookup.Find` on its runtime type. The lookup walks base types, and a Smart Enum item declared as a derived class unwraps to its key. Types without Thinktecture metadata return `null`, and the policy declines. Keyed Smart Enums and simple Value Objects pass `GetKey(value)` to `CreatePropertyValue` with `destructureObjects: true`, and an ad hoc union passes `GetValue(value)`. Complex Value Objects, keyless Smart Enums, and regular unions return `null`. `TryDestructure` then returns `false`, and Serilog reflection renders them.
 
-`GetKey` reads the key member, and `GetValue` reads the union's current `Value`. The `destructureObjects: true` argument hands the inner value back to the Serilog pipeline. The policy runs again on that inner value: a union that holds a Smart Enum unwraps through both layers. An inner value without metadata reaches Serilog reflection with the same limits as any `{@Property}`.
+`GetKey` reads the key member, and `GetValue` reads the union's current `Value`. The `destructureObjects: true` argument hands the inner value back to the Serilog pipeline. The policy runs again on that inner value: a union that holds a Smart Enum unwraps through both layers. Inner values without metadata reach Serilog reflection with the same limits as any `{@Property}`.
 
 ## [03]-[TYPE_FAMILY_BEHAVIOR]
 
-`Order` is a plain record whose members are Thinktecture types.
+`Order` is a plain record with Thinktecture-typed members.
 
 ```csharp
 [SmartEnum<string>]
@@ -122,7 +122,7 @@ union holding value object: {"IsAmount": true, "IsString": false, "AsAmount": {"
 record with members: {"Status": {"Key": "Paid", "$type": "OrderStatus"}, "Total": {"$type": "Amount"}, "$type": "Order"}
 ```
 
-The generated key member of a simple Value Object is a private field. Reflection finds no property, and the amount disappears. An ad hoc union exposes every `IsX` and `AsX` accessor, and the inactive `AsX` accessor throws into the log line.
+The generated key member of a simple Value Object is a private field. Reflection finds no property, and the amount disappears. Ad hoc unions expose every `IsX` and `AsX` accessor, and the inactive `AsX` accessor throws into the log line.
 
 ## [04]-[DEPTH_LIMITS]
 
@@ -182,7 +182,7 @@ The same calls print these results under `None`, `All`, and `AdHocUnions`.
 
 String-keyed Smart Enums print the same text under both settings, because their `ToString()` returns the key. Decimal keys change from a number to a string. Unions under `AdHocUnions` stop unwrapping and render through the generated `ToString()` of the union. That method returns the active member's text. Under `AdHocUnions` alone the bare `Amount` still unwraps to a number: the flags act per family, not per graph.
 
-`SkipToString = true` removes the generated `ToString()` override and keeps the generated `IFormattable` implementation. An interpolated string still prints the key through `IFormattable`, and Serilog then prints the full type name, namespace included. Plain output templates render the scalar through `IFormattable` and print the key. JSON sinks expose the type name first. Nothing at runtime detects this case. Confirm that no type in a family declares `SkipToString = true` before that family receives its flag.
+`SkipToString = true` removes the generated `ToString()` override and keeps the generated `IFormattable` implementation. Interpolated strings still print the key through `IFormattable`, and Serilog then prints the full type name, namespace included. Plain output templates render the scalar through `IFormattable` and print the key. JSON sinks expose the type name first. Nothing at runtime detects this case. Confirm that no type in a family declares `SkipToString = true` before that family receives its flag.
 
 ## [06]-[CAVEATS]
 
@@ -223,7 +223,7 @@ record without @: "Order { Status = Paid, Total = 99.95 }"
 
 Object factories do not reach the log. The metadata carries the factories, and the policy reads the key alone: `Percentage` logs `42` while `ToValue()` returns `42%`. Model binding and Entity Framework Core need `UseForModelBinding` and `UseWithEntityFramework`.
 
-An ad hoc union struct that was never assigned has no active member. Its `Value` throws `InvalidOperationException` with the message `This struct of type 'StatusOrText' is not initialized. Make sure all fields, properties and variables are initialized with non-default values.` Serilog catches the exception during property capture and writes the placeholder string shown above. The log call does not throw, and the event survives without the value. The analyzer reports `TTRESG047` on `default(StatusOrText)` and on `new StatusOrText()`. Fields of a struct union type draw `TTRESG104`, which requires the member to be `required`. An array element and a generic `default` draw nothing: an uninitialized union reaches a logger through those routes. `DefaultValueHandling = UnionDefaultValueHandling.MapToFirstMember` on a struct union with a stateless first member makes `default` a valid value. `Value` returns `default` of the first member type. Reference-type first members log `null`, and a struct first member logs its type tag.
+An ad hoc union struct that was never assigned has no active member. Its `Value` throws `InvalidOperationException` with the message `This struct of type 'StatusOrText' is not initialized. Make sure all fields, properties and variables are initialized with non-default values.` Serilog catches the exception during property capture and writes the placeholder string shown above. The log call does not throw, and the event survives without the value. The analyzer reports `TTRESG047` on `default(StatusOrText)` and on `new StatusOrText()`. Fields of a struct union type draw `TTRESG104`, which requires the member to be `required`. Array elements and generic `default` draw nothing: an uninitialized union reaches a logger through those routes. `DefaultValueHandling = UnionDefaultValueHandling.MapToFirstMember` on a struct union with a stateless first member makes `default` a valid value. `Value` returns `default` of the first member type. Reference-type first members log `null`, and a struct first member logs its type tag.
 
 The `@` operator selects destructuring. Without it Serilog calls `ToString()` and the policy never runs. String-keyed Smart Enums print the same text either way. Decimal Value Objects become a string, and a record collapses into one string.
 

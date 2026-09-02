@@ -1,6 +1,6 @@
 # [CORE_PATTERNS]
 
-Functional programming applies common operations to values in contexts. `Option<A>` represents optionality; `Seq<A>` represents a sequence of values. Many operations have the same signatures for both.
+Functional programming applies common operations to values in contexts. `Option<A>` represents optionality, `Seq<A>` represents a sequence of values. Many operations have the same signatures for both.
 
 ## [01]-[CORE_OPERATIONS]
 
@@ -14,7 +14,7 @@ Functional programming applies common operations to values in contexts. `Option<
 
 `Option<A>`, `Seq<A>`, and `Fin<A>` supply these operations under these names. `Fin<A>` has no `Filter`, and `Seq<A>` has no `Pure`.
 
-In LINQ terminology, `Map` is `Select`, `Bind` is `SelectMany`, and `Filter` is `Where`. Other libraries name `Map` as `fMap`, `Project`, or `Lift`; `Bind` as `FlatMap`, `Chain`, `Collect`, or `Then`; and `Iter` as `ForEach`.
+In LINQ terminology, `Map` is `Select`, `Bind` is `SelectMany`, and `Filter` is `Where`. Other libraries name `Map` as `fMap`, `Project`, or `Lift`. They name `Bind` as `FlatMap`, `Chain`, `Collect`, or `Then`, and `Iter` as `ForEach`.
 
 ## [02]-[MAP]
 
@@ -47,7 +47,7 @@ internal static partial class CorePatterns {
 
 The domain function `CalculateRiskProfile : Age -> Risk` stays unaware of absence.
 
-Types whose side-effect-free `Map` obeys the functor laws are functors. `Map` applies the function to values in the context while preserving that context. LanguageExt encodes the type constructor as the `F` in `K<F, A>`, and the trait `Functor<F>` declares `Map` over `K<F, A>`. Functions generic over `F : Functor<F>` work for `Option` and `Seq`, and `.As()` recovers the concrete type at the boundary:
+Functors are types with a side-effect-free `Map` that obeys the functor laws. `Map` applies the function to values in the context while preserving that context. LanguageExt encodes the type constructor as the `F` in `K<F, A>`, and the trait `Functor<F>` declares `Map` over `K<F, A>`. Functions generic over `F : Functor<F>` work for `Option` and `Seq`, and `.As()` recovers the concrete type at the boundary:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -138,9 +138,9 @@ internal static partial class CorePatterns {
 }
 ```
 
-For `Seq<A>`, each source value can produce a sequence, and `Bind` flattens all produced sequences into one. `Map` produces `Seq<Seq<Pet>>`; `Bind` produces `Seq<Pet>`.
+For `Seq<A>`, each source value can produce a sequence, and `Bind` flattens all produced sequences into one. `Map` produces `Seq<Seq<Pet>>`, and `Bind` produces `Seq<Pet>`.
 
-Types whose `Pure` and `Bind` obey the monad laws are monads. `MonadLaw<F>.validate()` checks these laws for types such as `Option`. `Pure` only constructs `F<A>` from `A`. `Pure(value)` converts into `Option<A>`, `Fin<A>`, and `IO<A>`:
+Monads are types with a `Pure` and `Bind` that obey the monad laws. `MonadLaw<F>.validate()` checks these laws for a monad (`Option`). `Pure` only constructs `F<A>` from `A`. `Pure(value)` converts into `Option<A>`, `Fin<A>`, and `IO<A>`:
 
 ```csharp
 internal static partial class CorePatterns {
@@ -165,7 +165,7 @@ internal static partial class CorePatterns {
 }
 ```
 
-Both parse failure and predicate failure become `None`; a valid non-negative integer remains `Some`.
+Both parse failure and predicate failure become `None`, and a valid non-negative integer remains `Some`.
 
 ## [06]-[OPTION_AND_SEQ]
 
@@ -233,4 +233,4 @@ internal static partial class CorePatterns {
 }
 ```
 
-After `toSeq` converts the range to `Seq<int>`, all later operations remain in `Seq`. Using only plain values can reintroduce low-level loops and absence checks. Deeply nested contexts can produce types such as `A<B<C<D<T>>>>`, which require traversal of several layers to access and compose the value. Transformers such as `OptionT<IO, A>` provide one `Map` and one `Bind` for the pair.
+After `toSeq` converts the range to `Seq<int>`, all later operations remain in `Seq`. Using only plain values can reintroduce low-level loops and absence checks. Deeply nested contexts can produce types (`A<B<C<D<T>>>>`) that require traversal of several layers to access and compose the value. Transformers (`OptionT<IO, A>`) provide one `Map` and one `Bind` for the pair.

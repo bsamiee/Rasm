@@ -11,7 +11,7 @@
 
 View an `IEnumerable<T>` as an observable that produces all its values synchronously. View a `Task<T>` as an observable that produces one value.
 
-An observable pushes notifications to an observer. Its protocol is:
+Observables push notifications to an observer. The protocol is:
 
 ```text
 OnNext* (OnCompleted | OnError)?
@@ -76,9 +76,9 @@ internal static class Sources {
 }
 ```
 
-The lifted single value emits immediately and completes. Lifted enumerables immediately emit their elements and complete. `Reduce` subscribes a lifted observable. Not every observable is lazy; subscription behavior depends on the source.
+The lifted single value emits immediately and completes. Lifted enumerables immediately emit their elements and complete. `Reduce` subscribes a lifted observable. Not every observable is lazy, subscription behavior depends on the source.
 
-`Event.from(ref Action<A>)` adapts a callback-based producer such as a message subscription. It adds its callback to the delegate's invocation list. `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation of the delegate. The `Event` is `IDisposable`, and disposing it detaches the delegate.
+`Event.from(ref Action<A>)` adapts a callback-based producer (a message subscription). It adds its callback to the delegate's invocation list. `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation of the delegate. The `Event` is `IDisposable`, and disposing it detaches the delegate.
 
 `Subject<T>` is both an observer and an observable, imperative code can call its `OnNext`, `OnError`, and `OnCompleted` methods. Use it at callback or event boundaries. Prefer `Event.from` or a dedicated source when either expresses the source directly. This keeps calls to observer methods out of the stream definition.
 
@@ -252,13 +252,13 @@ internal static class Ledger {
 ## [07]-[FIT_AND_LIMITS]
 
 Use `IObservable` when:
-- Values arrive asynchronously over time;
-- Logic detects sequences, transitions, windows, or relationships across sources;
-- The system forms a one-way dataflow, such as queue-to-database processing or fire-and-forget messaging
+- Values arrive asynchronously over time
+- Logic detects sequences, transitions, windows, or relationships across sources
+- The system forms a one-way dataflow (queue-to-database processing, fire-and-forget messaging)
 
 Avoid it when:
-- Events are independent and callbacks or tasks are clearer;
-- Every input needs a directly correlated response, as in request-response protocols;
+- Events are independent and callbacks or tasks are clearer
+- Every input needs a directly correlated response, as in request-response protocols
 - Synchronization requires finer control than available operators provide
 
 `OnNext` returns no value, information flows downstream only. For coordination that requires explicit queues and exact sequencing, `Conduit` is the queue and `Pipes` is the pipeline. `ProducerT`, `PipeT`, and `ConsumerT` fuse with `|` into one `EffectT` that the host runs.

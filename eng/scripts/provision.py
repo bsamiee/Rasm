@@ -80,13 +80,13 @@ app = cyclopts.App(name="provision")
 
 
 async def run(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
-    """Run one build tool to completion, inheriting the console."""
+    """Run a build tool to completion, inheriting the console."""
     merged = None if env is None else os.environ | env  # ruff:ignore[banned-api]
     _ = await anyio.run_process(args, cwd=cwd, env=merged, stdout=None, stderr=None)
 
 
 async def _capture(args: list[str], cwd: Path = REPO_ROOT, *, check: bool = True) -> str:
-    """Run one build tool and return its stdout."""
+    """Run a build tool and return its stdout."""
     return (await anyio.run_process(args, cwd=cwd, check=check)).stdout.decode()
 
 
@@ -131,7 +131,7 @@ async def _pkg_config(vcpkg: Path) -> dict[str, str]:
         return {}
     tool = _HOST_TOOLS / "installed" / _host_triplet() / "tools" / "pkgconf" / "pkgconf"
     if not tool.exists():
-        # The pkgconf port validates its own pc file with pkg-config, the one program this machine lacks
+        # The pkgconf port validates its own pc file with pkg-config, which this machine lacks
         overlay = _HOST_TOOLS / "overlay"
         shutil.copytree(_VCPKG_ROOT / "ports" / "pkgconf", overlay / "pkgconf", dirs_exist_ok=True)
         portfile = overlay / "pkgconf" / "portfile.cmake"
@@ -141,7 +141,7 @@ async def _pkg_config(vcpkg: Path) -> dict[str, str]:
 
 
 async def _pinned_archive(name: str, version: str, url: str, sha256: str) -> Path:
-    """Fetch one pinned release archive, verify its digest, and unpack it under the cache."""
+    """Fetch a pinned release archive, verify its digest, and unpack it under the cache."""
     root = REPO_ROOT / ".cache" / name / version
     if root.is_dir():
         return root
@@ -163,7 +163,7 @@ async def _pinned_archive(name: str, version: str, url: str, sha256: str) -> Pat
 
 
 async def _pinned_file(url: str, sha256: str, destination: Path) -> Path:
-    """Fetch one pinned file, verify its digest, and place it at the destination."""
+    """Fetch a pinned file, verify its digest, and place it at the destination."""
     if await anyio.Path(destination).is_file():
         return destination
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -179,12 +179,12 @@ async def _pinned_file(url: str, sha256: str, destination: Path) -> Path:
 
 
 def duckdb_platform(rid: Rid) -> str:
-    """Return the DuckDB platform directory name for one runtime identifier."""
+    """Return the DuckDB platform directory name for a runtime identifier."""
     return _DUCKDB_PLATFORMS[rid]
 
 
 async def duckdb_extension_archives(rid: Rid) -> tuple[str, list[Path]]:
-    """Ensure the pinned DuckDB extension archives for one rid exist and return the engine version and files."""
+    """Ensure the pinned DuckDB extension archives for a rid exist and return the engine version and files."""
     pins = msgspec.json.decode(_DUCKDB_EXTENSIONS_MANIFEST.read_bytes(), type=_ExtensionPins)
     root = REPO_ROOT / ".cache" / "duckdb-extensions" / pins.version / _DUCKDB_PLATFORMS[rid]
     archives: list[Path] = []
@@ -199,7 +199,7 @@ async def duckdb_extension_archives(rid: Rid) -> tuple[str, list[Path]]:
 
 
 async def sqlite_vec_archive(rid: Rid) -> tuple[str, Path]:
-    """Ensure the pinned sqlite-vec loadable archive for one rid exists and return the version and file."""
+    """Ensure the pinned sqlite-vec loadable archive for a rid exists and return the version and file."""
     pins = msgspec.json.decode(_SQLITE_VEC_MANIFEST.read_bytes(), type=_LoadablePins)
     match pins.assets.get(rid):
         case str(sha256):
@@ -258,7 +258,7 @@ async def native_build_tools() -> ToolSet:
 
 
 class VcpkgTarget(msgspec.Struct, frozen=True, gc=False):
-    """Vcpkg triplet, library directory, glob pattern, and canonical file name for one rid."""
+    """Vcpkg triplet, library directory, glob pattern, and canonical file name for a rid."""
 
     triplet: str
     lib_dir: str
@@ -267,7 +267,7 @@ class VcpkgTarget(msgspec.Struct, frozen=True, gc=False):
 
 
 def vcpkg_target(rid: Rid, stem: str, *, windows_stem: str | None = None, closure: bool = False) -> VcpkgTarget:
-    """Return the dynamic-library vcpkg target for one rid; a closure target globs every built library."""
+    """Return the dynamic-library vcpkg target for a rid, a closure target globs every built library."""
     system, _, arch = rid.partition("-")
     match system:
         case "win":
@@ -280,12 +280,12 @@ def vcpkg_target(rid: Rid, stem: str, *, windows_stem: str | None = None, closur
 
 
 def vcpkg_args(manifest_root: Path, work: Path, triplet: str, *extra: str) -> list[str]:
-    """Return the vcpkg install arguments for one manifest and work directory."""
+    """Return the vcpkg install arguments for a manifest and work directory."""
     return ["--triplet", triplet, "--x-manifest-root", str(manifest_root), "--x-install-root", str(work / "installed"), *extra, "--no-print-usage"]
 
 
 async def vcpkg_install(tools: ToolSet, work: Path, target: VcpkgTarget, args: list[str]) -> list[Path]:
-    """Run vcpkg install and return the built real library files for one target."""
+    """Run vcpkg install and return the built real library files for a target."""
     await run([str(tools.vcpkg), "install", *args], REPO_ROOT, env=tools.env)
     source_dir = work / "installed" / target.triplet / target.lib_dir
     built = [path for path in sorted(source_dir.glob(target.pattern)) if path.is_file() and not path.is_symlink()]
@@ -295,7 +295,7 @@ async def vcpkg_install(tools: ToolSet, work: Path, target: VcpkgTarget, args: l
 
 
 def manifest_version(path: Path, field: str = "version") -> str:
-    """Read one version field from a JSON manifest."""
+    """Read a version field from a JSON manifest."""
     match msgspec.json.decode(path.read_bytes(), type=dict[str, object]).get(field):
         case str(version):
             return version
@@ -304,12 +304,12 @@ def manifest_version(path: Path, field: str = "version") -> str:
 
 
 def stage_dir(work: Path, rid: Rid) -> Path:
-    """Return the staged runtimes directory dotnet pack collects for one rid."""
+    """Return the staged runtimes directory dotnet pack collects for a rid."""
     return work / "stage" / "runtimes" / rid / "native"
 
 
 def stage_library(source: Path, work: Path, rid: Rid, file_name: str) -> Path:
-    """Copy one built library into the staged runtimes layout."""
+    """Copy a built library into the staged runtimes layout."""
     destination = stage_dir(work, rid) / file_name
     destination.parent.mkdir(parents=True, exist_ok=True)
     _ = shutil.copy(source, destination)
@@ -317,13 +317,13 @@ def stage_library(source: Path, work: Path, rid: Rid, file_name: str) -> Path:
 
 
 async def _install_name(dylib: Path) -> str:
-    """Return the install name recorded in one dylib."""
+    """Return the install name recorded in a dylib."""
     lines = (await _capture(["otool", "-L", str(dylib)])).splitlines()[1:]
     return Path(next(line.split()[0] for line in lines if line.strip())).name
 
 
 async def _relink(staged: list[Path]) -> None:
-    """Rewrite install names to @loader_path and re-sign. The set loads from one directory."""
+    """Rewrite install names to @loader_path and re-sign, the set loads from its directory."""
     names = {path.name for path in staged}
     for path in staged:
         lines = (await _capture(["otool", "-L", str(path)])).splitlines()[1:]

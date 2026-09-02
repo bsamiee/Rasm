@@ -2,7 +2,7 @@
 
 ## [01]-[TASK]
 
-`Task<T>` represents a computation that produces a `T` asynchronously. Use it for operations that must not block a thread while waiting, above all I/O. `await` suspends the current context and frees the thread; synchronous waiting blocks it. Compare the shapes:
+`Task<T>` represents a computation that produces a `T` asynchronously. Use it for operations that must not block a thread while waiting, above all I/O. `await` suspends the current context and frees the thread, synchronous waiting blocks it. Compare the shapes:
 - `Option<T>` can contain a `T`
 - `Func<T>` can be run to obtain a `T`
 - `Task<T>` will produce a `T` later, or fault
@@ -39,7 +39,7 @@ Remain inside `IO` throughout the workflow. The host runs the effect once at its
 
 ## [03]-[FAILURE_POLICIES]
 
-`IO<A>` captures exceptions from an asynchronous computation as `Exceptional` errors on its error channel. An expected domain error is a typed `Expected` on the same channel, never a nested result type.
+`IO<A>` captures exceptions from an asynchronous computation as `Exceptional` errors on its error channel. Expected domain errors are typed `Expected` on the same channel, never a nested result type.
 
 Keep the policies distinct:
 - Fallback tries a lower-priority operation only after the preferred effect fails: `primary | secondary`, and `Catch` with an error code restricts it to one classified error
@@ -63,7 +63,7 @@ Each failure waits for the next delay of the schedule and invokes the effect aga
 
 ## [04]-[SEQUENCING_AND_PARALLELISM]
 
-`Bind` is sequential because `next` needs the first effect's `A` before it can create the second effect. Independent operations use the tuple `Apply`, whose operands are already-created effects:
+`Bind` is sequential because `next` needs the first effect's `A` before it can create the second effect. Independent operations use the tuple `Apply`, and its operands are already-created effects:
 
 ```csharp
 internal static class Independence {
@@ -80,7 +80,7 @@ internal static class Independence {
 }
 ```
 
-`Apply` starts both operands before it waits for either. Both calls overlap, and completion time is governed by the slower call rather than their sum. `Fork` starts one effect on its own thread and returns a `ForkIO<A>` whose `Await` yields the value. `awaitAll` starts every effect of a `Seq<IO<A>>` and collects the values in order. Each fork takes one dedicated thread. Chunk the collection before a large fan-out through `Fork`.
+`Apply` starts both operands before it waits for either. Both calls overlap, and completion time is governed by the slower call rather than their sum. `Fork` starts one effect on its own thread and returns a `ForkIO<A>`, and its `Await` yields the value. `awaitAll` starts every effect of a `Seq<IO<A>>` and collects the values in order. Each fork takes one dedicated thread. Chunk the collection before a large fan-out through `Fork`.
 
 ## [05]-[TRAVERSE]
 
@@ -113,11 +113,11 @@ internal static partial class Traversals {
 }
 ```
 
-`TraverseM` stops calling validators after the first invalid value. `Traverse` calls the validator for every independent value and accumulates all errors; use it when validation must return all errors.
+`TraverseM` stops calling validators after the first invalid value. `Traverse` calls the validator for every independent value and accumulates all errors. Use it when validation must return all errors.
 
 ## [07]-[TASK_TRAVERSAL]
 
-For `Seq<A>` and `A -> IO<B>`, applicative traversal yields one `IO<Seq<B>>`, and monadic traversal stops creating later effects after a failure. `Traverse` under `IO` overlaps the element effects; `TraverseM` runs them one after another.
+For `Seq<A>` and `A -> IO<B>`, applicative traversal yields one `IO<Seq<B>>`, and monadic traversal stops creating later effects after a failure. `Traverse` under `IO` overlaps the element effects, and `TraverseM` runs them one after another.
 
 ```csharp
 internal static partial class Traversals {
@@ -134,7 +134,7 @@ internal static partial class Traversals {
 
 ## [08]-[OPTION_TRAVERSAL]
 
-`Option`, `Either`, and `Validation` are traversables with one value on success and none on failure. The failure branch preserves its existing error without calling the effect-returning function; the success branch applies that function and maps the original success constructor over it.
+`Option`, `Either`, and `Validation` are traversables with one value on success and none on failure. The failure branch preserves its existing error without calling the effect-returning function. The success branch applies that function and maps the original success constructor over it.
 
 ```csharp
 internal static class Layers {
@@ -145,11 +145,11 @@ internal static class Layers {
 }
 ```
 
-Using the identity function swaps nested structures, such as `Validation<Error, Option<A>>` into `Option<Validation<Error, A>>`.
+Using the identity function swaps nested structures: `Validation<Error, Option<A>>` becomes `Option<Validation<Error, A>>`.
 
 ## [09]-[STACKED_EFFECTS]
 
-An effect nested inside another cannot compose directly because each `Bind` understands only its outer effect. `OptionT<IO, A>` is the transformer stack for a lookup that can return no value: `OptionT.lift` enters it from an `Option` or from a lifted `IO`, `OptionT.liftIO` lifts an `IO<A>` through it, and `Run()` removes one layer. Reduce unnecessary effects before building the workflow.
+Nested effects cannot compose directly because each `Bind` understands only its outer effect. `OptionT<IO, A>` is the transformer stack for a lookup that can return no value: `OptionT.lift` enters it from an `Option` or from a lifted `IO`, `OptionT.liftIO` lifts an `IO<A>` through it, and `Run()` removes one layer. Reduce unnecessary effects before building the workflow.
 
 ```csharp
 internal sealed record AccountState(Guid Id, decimal Balance);
@@ -211,9 +211,9 @@ internal static class Host {
 }
 ```
 
-At the host boundary, `RunSafe()` returns the `Fin<A>`: map an `Exceptional` error to an unexpected-error response, an `Expected` error to a client error, and a success to success. An `Eff<RT, A>` exits through `RunAsync(rt)`, which returns `Task<Fin<A>>`. If one transformer stack appears throughout the workflow, encapsulate it in a dedicated type.
+At the host boundary, `RunSafe()` returns the `Fin<A>`: map an `Exceptional` error to an unexpected-error response, an `Expected` error to a client error, and a success to success. `Eff<RT, A>` exits through `RunAsync(rt)`, which returns `Task<Fin<A>>`. If one transformer stack appears throughout the workflow, encapsulate it in a dedicated type.
 
 ## [10]-[OPERATIONAL_CHOICES]
 
-- Expose asynchronous operations that wait on I/O; do not provide a synchronous counterpart that blocks
+- Expose asynchronous operations that wait on I/O, and do not provide a synchronous counterpart that blocks
 - Decide whether collection failure is fail-fast (`TraverseM`), error-accumulating (`Traverse` under `Validation`), all-or-nothing (`Traverse` under `IO`), or best-effort (`PartitionFallible`) before choosing traversal

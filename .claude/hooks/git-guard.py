@@ -46,7 +46,7 @@ _ADVICE = "Blocked by git-guard: destructive git actions are disabled. Keep all 
 
 
 def _allow(_args: list[str], _cwd: str) -> str:
-    """Return the empty verdict: a row whose flag and prefix sets already decided needs no refinement."""
+    """Return the empty verdict for rows the flag and prefix sets already decided."""
     return ""
 
 
@@ -80,7 +80,7 @@ def _pathspec(args: list[str], cwd: str) -> str:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Rule:
-    """One git subcommand path's destructive surface: exact flags, flag prefixes, and a filesystem refinement."""
+    """Destructive surface of a git subcommand path: exact flags, flag prefixes, and a filesystem refinement."""
 
     why: str
     flags: tuple[str, ...] = ()
@@ -90,11 +90,11 @@ class Rule:
 
 
 POLICY: dict[str, Rule] = {
-    _INTERP: Rule("invokes git inside an opaque one-liner; run git directly", starts=_ANY_ARG),
+    _INTERP: Rule("invokes git inside an opaque one-liner, run git directly", starts=_ANY_ARG),
     "branch": Rule("deletes or force-moves a branch", flags=("-d", "-D", "-M", "--delete"), starts=("--force",)),
     "checkout": Rule("discards local changes", flags=("-f", "-B", "-p", "--patch", "--ours", "--theirs"), starts=("--force",), probe=_pathspec),
     "clean": Rule("deletes untracked files", starts=_ANY_ARG),
-    "config": Rule("defines a git alias that can smuggle a blocked verb", starts=("alias.",)),
+    "config": Rule("defines a git alias that can hide a blocked verb", starts=("alias.",)),
     "push": Rule("rewrites or deletes remote history", flags=("-f", "-d", "--delete", "--mirror", "--prune"), starts=("--force", "+", ":")),
     "rebase": Rule("rewrites commits other agents may already hold", starts=_ANY_ARG),
     "reflog delete": Rule("erases reflog entries, the last recovery path", starts=_ANY_ARG),
@@ -102,7 +102,7 @@ POLICY: dict[str, Rule] = {
     "reflog expire": Rule("erases reflog entries, the last recovery path", starts=_ANY_ARG),
     "reset": Rule("wipes working-tree or index state", flags=("--hard", "--merge", "--keep"), probe=_reset),
     "restore": Rule("discards working-tree state", probe=_restore),
-    "revert": Rule("rewrites history direction mid-flight", starts=_ANY_ARG),
+    "revert": Rule("reverses committed history", starts=_ANY_ARG),
     "stash": Rule("hides in-flight work other agents depend on", starts=_ANY_ARG, safe=("list", "show")),
     "switch": Rule("discards local changes", flags=("-f", "-C", "--discard-changes"), starts=("--force",)),
 }
@@ -118,7 +118,7 @@ def _flag_operand(argv: list[str], letter: str) -> str:
 
 
 def _resolve(argv: list[str], depth: int) -> list[list[str]]:
-    """Return the argv leaves one command word yields once env prefixes, wrappers, shells, and interpreters are peeled."""
+    """Return the argv leaves a command word yields once env prefixes, wrappers, shells, and interpreters are peeled."""
     while argv and (_ENV_ASSIGN.match(argv[0]) or argv[0] in _WRAPPERS):
         argv = argv[1:]
         while argv and ("=" in argv[0] or argv[0].isdigit() or argv[0] in _SUBVERBS or argv[0].startswith("-")):
@@ -130,7 +130,7 @@ def _resolve(argv: list[str], depth: int) -> list[list[str]]:
         body = _flag_operand(argv, "c")
         return _leaves(body, depth + 1) if body and depth < _MAX_DEPTH else [["git", _INTERP]]
     if name.startswith(_INTERPRETERS) and (body := _flag_operand(argv, "c") or _flag_operand(argv, "e")):
-        return [["git", _INTERP]] if _GIT_WORD.search(body) else []  # Ruled by implication, never keyword-scanned
+        return [["git", _INTERP]] if _GIT_WORD.search(body) else []  # Implied verdict, never keyword-scanned
     return [argv]
 
 
@@ -159,12 +159,12 @@ def _leaves(command: str, depth: int = 0) -> list[list[str]]:
 
 
 def _verdict(argv: list[str], cwd: str) -> str:
-    """Return why one git argv is destructive under POLICY, or the empty string when it may run."""
+    """Return why a git argv is destructive under POLICY, or the empty string when it may run."""
     i = 1
     while i < len(argv) and argv[i].startswith("-"):  # Skip global options, consuming the operand of each value-taking one
         i += 2 if argv[i] in _GIT_VALUE_OPTS else 1
     if any(t.startswith("alias.") for t in argv[1:i]):
-        return "an inline git alias (-c alias.*) can smuggle a blocked verb"
+        return "an inline git alias (-c alias.*) can hide a blocked verb"
     words = argv[i:]
     key, args = next(((" ".join(words[:n]), words[n:]) for n in (2, 1) if " ".join(words[:n]) in POLICY), ("", []))
     if (row := POLICY.get(key)) is None or (args[:1] and args[0] in row.safe):

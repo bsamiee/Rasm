@@ -2,7 +2,7 @@
 
 Upstream api/gen.py is the machine-readable definition: it registers every module and function
 through GenApi argument factories. Running it with those factories tagged captures the whole
-definition, each function then emits one DllImport extern plus one marshaling wrapper, and
+definition, each function then emits a DllImport extern and a marshaling wrapper, and
 gmshc.h from the same archive cross-checks that every exported C function was bound.
 """
 
@@ -23,13 +23,13 @@ import msgspec
 
 
 class _Factory(Protocol):
-    """Callable shape of one GenApi argument factory."""
+    """Callable shape of a GenApi argument factory."""
 
     def __call__(self, *args: object, **kwargs: object) -> object: ...
 
 
 class _Kind(msgspec.Struct, frozen=True, gc=False):
-    """C# emission recipe for one GenApi argument kind."""
+    """C# emission recipe for a GenApi argument kind."""
 
     extern: str
     param: str
@@ -42,7 +42,7 @@ class _Kind(msgspec.Struct, frozen=True, gc=False):
 
 
 class _Arg(msgspec.Struct, frozen=True, gc=False):
-    """One normalized argument from the definition."""
+    """Normalized argument from the definition."""
 
     kind: str
     name: str
@@ -50,7 +50,7 @@ class _Arg(msgspec.Struct, frozen=True, gc=False):
 
 
 class _Fn(msgspec.Struct, frozen=True, gc=False):
-    """One normalized api function."""
+    """Normalized api function."""
 
     name: str
     doc: str
@@ -59,7 +59,7 @@ class _Fn(msgspec.Struct, frozen=True, gc=False):
 
 
 class _Mod(msgspec.Struct, frozen=True, gc=False):
-    """One normalized api module with its nested modules."""
+    """Normalized api module with its nested modules."""
 
     name: str
     doc: str

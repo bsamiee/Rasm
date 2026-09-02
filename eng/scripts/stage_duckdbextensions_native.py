@@ -1,6 +1,6 @@
-"""Stage the pinned DuckDB extension files for one runtime identifier for packing.
+"""Stage the pinned DuckDB extension files for a runtime identifier for packing.
 
-The payload packs as contentFiles so consumer output carries duckdb_extensions/v<engine>/<platform>/,
+The payload packs as contentFiles, consumer output carries duckdb_extensions/v<engine>/<platform>/,
 the local repository layout a DuckDB extension_directory setting resolves for offline LOAD.
 """
 

@@ -1,10 +1,10 @@
 # [HOSTINGER_ECOMMERCE]
 
-Store law: create a store, satisfy its payment and shipping prerequisites, then add products and sales channels. REST rows on `/api/ecommerce/v1` map one-to-one onto the `hostinger` MCP `ecommerce_*` tools; every price is an integer in minor units (cents), and store, product, and sales-channel ids are ULID-suffixed prefixes (`store_01J8Z...`, `scha_01J8...`).
+Stores: create a store, satisfy its payment and shipping prerequisites, then add products and sales channels. REST entries on `/api/ecommerce/v1` map one-to-one onto the `hostinger` MCP `ecommerce_*` tools. Every price is an integer in minor units (cents), and store, product, and sales-channel ids are ULID-suffixed prefixes (`store_01J8Z...`, `scha_01J8...`).
 
 ## [01]-[STORE]
 
-Creating a store auto-provisions its primary sales channel, so the `sales_channel` field is optional and set only for a headless external storefront. Store deletion is a soft delete — the record marks deleted and the underlying data survives — so it returns `200`, not `204`.
+Creating a store auto-provisions its primary sales channel, the `sales_channel` field is optional and set only for a headless external storefront. Store deletion is a soft delete (the record marks deleted and the underlying data survives) and returns `200`, not `204`.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores" \
@@ -13,11 +13,11 @@ curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores" \
         "company_name": "My Company", "language": "en" }'
 ```
 
-`getStoreMetadataV1` (`GET /stores/{id}/metadata`) is the readiness gate: it reports whether payment methods and shipping are configured and the store `default_currency`, and a storefront build reads it before going live.
+`getStoreMetadataV1` (`GET /stores/{id}/metadata`) is the readiness gate: it reports whether payment methods and shipping are configured and the store `default_currency`, a storefront build reads it before going live.
 
 ## [02]-[PREREQUISITES]
 
-A store takes orders only once a payment method and a shipping rate exist. A manual payment method is a checkout-time instruction (bank transfer, cash on delivery); shipping is a single flat rate that creates the shipping zone when absent, with `0` meaning free shipping.
+Stores take orders only once a payment method and a shipping rate exist. Manual payment methods are checkout-time instructions (bank transfer, cash on delivery), shipping is a single flat rate that creates the shipping zone when absent, with `0` meaning free shipping.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/payment-methods/manual" \
@@ -28,7 +28,7 @@ curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/ship
 
 ## [03]-[PRODUCTS]
 
-A product is created published with a single variant — these endpoints carry no draft or multi-variant path. A physical product takes `name` and `price` (cents, positive) with optional `description` and `currency`; a digital product adds `download_url`, the external link delivered after purchase. Currency defaults to the store currency.
+Products are created published with a single variant, these endpoints carry no draft or multi-variant path. Physical products take `name` and `price` (cents, positive) with optional `description` and `currency`, digital products add `download_url`, the external link delivered after purchase. Currency defaults to the store currency.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/products/physical" \
@@ -38,7 +38,7 @@ curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/prod
 
 ## [04]-[SALES_CHANNELS]
 
-Every store arrives with its primary channel; a custom channel drives a headless storefront on external infrastructure. Update a channel's `name` and `url` (returned as its `domain`) with a `PATCH`, passing `null` to clear a field, and read the Markdown wiring guide from `getCustomStorefrontSetupInstructionsV1`.
+Every store arrives with its primary channel, a custom channel drives a headless storefront on external infrastructure. Update a channel's `name` and `url` (returned as its `domain`) with a `PATCH`, passing `null` to clear a field. Read the Markdown wiring guide from `getCustomStorefrontSetupInstructionsV1`.
 
 ```bash
 curl -X POST  "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/sales-channels" \
@@ -50,8 +50,8 @@ curl -X GET   "https://developers.hostinger.com/api/ecommerce/v1/miscellaneous/c
 
 | [INDEX] | [METHOD]         | [ENDPOINT]                                                        | [DESCRIPTION]                      |
 | :-----: | :--------------- | :---------------------------------------------------------------- | :--------------------------------- |
-|  [01]   | `GET/POST`       | `/api/ecommerce/v1/stores`                                        | List; create a store               |
-|  [02]   | `GET/DELETE`     | `/api/ecommerce/v1/stores/{id}[/metadata]`                        | Metadata gate; soft-delete         |
+|  [01]   | `GET/POST`       | `/api/ecommerce/v1/stores`                                        | List, create a store               |
+|  [02]   | `GET/DELETE`     | `/api/ecommerce/v1/stores/{id}[/metadata]`                        | Metadata gate, soft-delete         |
 |  [03]   | `POST`           | `/api/ecommerce/v1/stores/{id}/products/{physical,digital}`       | Create a product                   |
 |  [04]   | `GET/POST/PATCH` | `/api/ecommerce/v1/stores/{id}/sales-channels[/{id}]`             | List, create, update a channel     |
 |  [05]   | `POST`           | `/api/ecommerce/v1/stores/{id}/{payment-methods/manual,shipping}` | Payment and shipping prerequisites |

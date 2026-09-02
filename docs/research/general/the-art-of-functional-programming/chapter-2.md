@@ -3,14 +3,14 @@
 ## The expression-oriented model
 
 Functional programming evaluates expressions to values. Imperative languages divide language constructs into categories:
-- Expressions evaluate to values: arithmetic such as `1 + 2`, booleans such as `true || false`, and strings such as `"Hello"`
+- Expressions evaluate to values: arithmetic (`1 + 2`), booleans (`true || false`), and strings (`"Hello"`)
 - Statements issue commands and are characterized by side effects: assignments, statement-form conditionals, and loops
 
 In the functional model, values move through function arguments and return values instead of variable assignments. Conditionals are expressions, and repeated computation uses recursion instead of `for` or `while` loops. Because every construct is an expression, simple expressions can be combined into larger ones without crossing an expression-statement boundary.
 
 ### Primitive and compound expressions
 
-Literal integers such as `1` and `2` are primitive expressions. Operators combine operands into compound expressions, and a compound expression can itself be an operand:
+Literal integers (`1`, `2`) are primitive expressions. Operators combine operands into compound expressions, and a compound expression can itself be an operand:
 
 ```ocaml
 (1 + 2) * (3 - 4 * 5)
@@ -32,7 +32,7 @@ Floats appear as `2.0` or `2.`:
 3.14 *. 2. *. 2.
 ```
 
-Comparison operators such as `=`, `>`, `>=`, `<`, and `<=` produce `bool` values. Boolean expressions combine through `not`, `&&`, and `||`. `not` is unary because it accepts one operand; the infix arithmetic, comparison, and binary logical operators shown here accept two.
+Comparison operators (`=`, `>`, `>=`, `<`, `<=`) produce `bool` values. Boolean expressions combine through `not`, `&&`, and `||`. `not` is unary because it accepts one operand, the infix arithmetic, comparison, and binary logical operators shown here accept two.
 
 ```ocaml
 ((1 + 2) * (3 - 4 * 5) = -51) || (1 > 2)
@@ -47,13 +47,13 @@ String literals are enclosed in quotes, and `^` concatenates strings:
 
 ### Conditional expressions
 
-An OCaml conditional has the form:
+OCaml conditionals have the form:
 
 ```ocaml
 if e1 then e2 else e3
 ```
 
-The condition `e1` is evaluated first. If it is `true`, the entire expression has the value of `e2`; otherwise it has the value of `e3`. In this value-producing form, the explicit `else` branch supplies a value for the other outcome. Every position may contain another expression, conditionals can nest arbitrarily.
+The condition `e1` is evaluated first. If it is `true`, the entire expression has the value of `e2`, otherwise it has the value of `e3`. In this value-producing form, the explicit `else` branch supplies a value for the other outcome. Every position may contain another expression, conditionals can nest arbitrarily.
 
 Because a conditional is an expression, it can be an operand of another expression:
 
@@ -83,7 +83,7 @@ Natural-language syntax has the same shape: letters form words, and words and pu
 <adjective> ::= cute | small | ...
 ```
 
-Under these rules, `cute baby cat` consists of the adjective `cute` applied to the noun phrase `baby cat`; the tree captures that grouping rather than treating the phrase as a flat sequence.
+Under these rules, `cute baby cat` consists of the adjective `cute` applied to the noun phrase `baby cat`, the tree captures that grouping rather than treating the phrase as a flat sequence.
 
 BNF describes alternatives with `|` and can define expressions recursively:
 
@@ -106,11 +106,11 @@ Parsers determine whether input is syntactically valid and construct its structu
 1. Recognize language units. Characters are grouped into literals, operators, and keywords. If a group is not a valid language unit, parsing stops. `1xyz + 2` yields an invalid-literal error because `1xyz` cannot be recognized as a valid literal.
 2. Recognize grammatical structure. The units are checked against the grammar by attempting to build a parse tree. `1 +` yields a syntax error: `+` requires a right operand, even though both `1` and `+` are individually recognized units.
 
-For `if 1 = 2 then 0 else 42`, the recognized units form an `if`-expression tree whose condition is equality between `1` and `2`, with `0` and `42` as the two branches.
+For `if 1 = 2 then 0 else 42`, the recognized units form an `if`-expression tree where the condition is equality between `1` and `2`, with `0` and `42` as the two branches.
 
-The parser normally produces an abstract syntax tree (AST) for later compiler phases. An AST preserves structured content while omitting details no longer needed, such as whitespace, parentheses, and syntax keywords. The AST is subsequently used for type checking and code generation.
+The parser normally produces an abstract syntax tree (AST) for later compiler phases. ASTs preserve structured content while omitting details no longer needed: whitespace, parentheses, and syntax keywords. The AST is subsequently used for type checking and code generation.
 
-The parser partitions all possible input strings: syntactically valid expressions are accepted; every other string is rejected before later phases.
+The parser partitions all possible input strings: syntactically valid expressions are accepted, every other string is rejected before later phases.
 
 ## Types and type checking
 
@@ -118,30 +118,30 @@ Syntactic validity is insufficient to establish that an expression makes sense. 
 
 ### Dynamic and static typing
 
-With dynamic typing, type checking is not performed at compile time. JavaScript, for example, accepts `1 + true` and coerces `true` to `1`, producing `2`; an invalid operation such as calling a nonexistent `length` method on a number instead fails during execution. This flexibility allows type mistakes to survive until runtime. TypeScript adds static typing to JavaScript to mitigate this problem.
+With dynamic typing, type checking is not performed at compile time. JavaScript, for example, accepts `1 + true` and coerces `true` to `1`, producing `2`. Calling a nonexistent `length` method on a number instead fails during execution. This flexibility allows type mistakes to survive until runtime. TypeScript adds static typing to JavaScript to mitigate this problem.
 
-Statically typed languages such as OCaml and Haskell check expressions before execution. OCaml rejects `1 + true` during compilation. Static checking narrows the accepted syntactically valid expressions to those that also satisfy the typing rules.
+Statically typed languages (OCaml, Haskell) check expressions before execution. OCaml rejects `1 + true` during compilation. Static checking narrows the accepted syntactically valid expressions to those that also satisfy the typing rules.
 
 ### Recursive type inference
 
 After parsing succeeds, the type checker infers the AST's type from its leaves upward:
-- Integer literals have type `int`; `true` and `false` have type `bool`; string literals have type `string`
+- Integer literals have type `int`, `true` and `false` have type `bool`, and string literals have type `string`
 - If unary operator `unop` accepts type `t` and returns type `t`, and `e : t`, then `unop e : t`
 - If binary operator `binop` accepts `t1` and `t2` and returns `t3`, and `e1 : t1` and `e2 : t2`, then `e1 binop e2 : t3`
-- For `if e1 then e2 else e3`, `e1` must have type `bool`, and `e2` and `e3` must have the same type `t`; the whole conditional has type `t`
+- For `if e1 then e2 else e3`, `e1` must have type `bool`, and `e2` and `e3` must have the same type `t`. The whole conditional has type `t`
 
-Consequently, each of these is rejected for a distinct type mismatch:
+Each of these is rejected for a distinct type mismatch:
 
 ```ocaml
 if "Not bool" then 0 else 42       (* condition is not bool *)
 if true then 0 else "a string"     (* branches have different types *)
 ```
 
-Compiler acceptance forms nested sets: all strings contain the syntactically valid expressions; those contain the expressions that type check. Syntax errors never reach the type checker, and type errors never reach code generation or execution.
+Compiler acceptance forms nested sets: all strings contain the syntactically valid expressions, those contain the expressions that type check. Syntax errors never reach the type checker, and type errors never reach code generation or execution.
 
 ## Values and semantics
 
-Syntax concerns whether and how characters form an expression. Semantics concerns the expression's meaning or value. For `12 + 34`, parsing the character sequence and constructing its AST are syntactic work; obtaining `46` is semantic evaluation.
+Syntax concerns whether and how characters form an expression. Semantics concerns the expression's meaning or value. For `12 + 34`, parsing the character sequence and constructing its AST are syntactic work, obtaining `46` is semantic evaluation.
 
 ### Interpretation
 
@@ -161,7 +161,7 @@ In the compiled model presented here, the source AST is not evaluated directly. 
 input characters -> parser/AST -> type checker -> code generator -> bytecode runner or CPU -> value
 ```
 
-Parsing and AST construction concern syntax; evaluating interpreted code or executing generated code produces semantics.
+Parsing and AST construction concern syntax, evaluating interpreted code or executing generated code produces semantics.
 
 ## Naming expressions and building abstractions
 
@@ -173,13 +173,13 @@ let radius = 2.
 let circle_area = pi *. radius *. radius
 ```
 
-An imperative variable is a labeled memory cell whose contents change over time. For example, a loop that sums squares repeatedly updates cells named `sum` and `i`. Functional `let` bindings name a computation, not a memory cell to update later.
+Imperative variables are labeled memory cells with changing contents. For example, a loop that sums squares repeatedly updates cells named `sum` and `i`. Functional `let` bindings name a computation, not a memory cell to update later.
 
-Once `pi` names `3.14`, the name forms a stable conceptual unit that can participate in higher-level definitions such as `circle_area`. Naming supports abstraction by letting a complex concept be treated as one unit and combined into still higher-level concepts. In OCaml, `=` compares values; it is not a reassignment operator.
+Once `pi` names `3.14`, the name forms a stable conceptual unit that can participate in higher-level definitions (`circle_area`). Naming supports abstraction by letting a complex concept be treated as one unit and combined into still higher-level concepts. In OCaml, `=` compares values, it is not a reassignment operator.
 
 ### Global and local scope
 
-Top-level bindings are visible to following expressions. `let ... in ...` introduces a name whose scope is limited to its body and is itself an expression:
+Top-level bindings are visible to following expressions. `let ... in ...` introduces a name scoped to its body and is itself an expression:
 
 ```bnf
 <expr> ::= ... | let <name> = <expr> in <expr>
@@ -207,7 +207,7 @@ let a = 42
 let b = let a = 1 in a + 1
 ```
 
-The local `a` makes `b = 2`; the global `a` remains `42`.
+The local `a` makes `b = 2`, the global `a` remains `42`.
 
 ## Functional rewrites
 
@@ -230,7 +230,7 @@ let a = if x >= 0 then x else -x
 ## Consolidated conclusions
 
 - Functional programs retain functions but replace variable assignments and `for`/`while` loops with expression composition, value passing, and recursion
-- With `let x = 42`, `x = x + 1` compares `42` and `43`; it evaluates to `false` and does not mutate `x`
+- With `let x = 42`, `x = x + 1` compares `42` and `43`, it evaluates to `false` and does not mutate `x`
 - `if true then 42 else "Bye"` is syntactically valid but fails type checking because its branches have types `int` and `string`
 - `if 00aa = 0 then "Hi" else "Bye"` fails during parsing because `00aa` is not a valid literal
 - `let s = if 42 mod 2 = 0 then "even" else "odd" in "The number is " ^ s` evaluates to `"The number is even"`

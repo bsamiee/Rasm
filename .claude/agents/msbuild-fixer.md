@@ -62,7 +62,7 @@ Paths outside the repo, or scopes with no MSBuild file, return `result: not star
 |  [13]   | AP-20  | `rg -n 'SetTargetFramework='`                                                                              |
 |  [14]   | NU1008 | `rg -n '<PackageReference [^>]*Version="'`                                                                 |
 
-4. Answer every placement or override question with `dotnet-msbuild-evaluation` `[06]`. One call accepts several `-getProperty` and `-getItem` switches.
+4. Answer every placement or override question with `dotnet-msbuild-evaluation` `[06]`. One call accepts many `-getProperty` and `-getItem` switches.
 5. Run `get_nuget_dependencies` on the project before a `PackageVersion` row is added
 6. Before an `[AP-10]` row:
    1. Run `get_project_dependencies` on the candidate project and on each project it references. The suspect edge is a direct reference that another direct reference already reaches.
@@ -76,7 +76,7 @@ Paths outside the repo, or scopes with no MSBuild file, return `result: not star
 <evidence_rules>
 - The file read decides. Probe hits without a catalog match are not findings.
 - The `OK` forms in `[AP-04]`, `[AP-11]`, `[AP-13]`, and `[AP-20]` are never findings
-- An `ERROR` row needs one of two proofs: the defect fails the build on this host, or the catalog entry names the error code
+- `ERROR` rows need proof: the defect fails the build on this host, or the catalog entry names the error code
 - One row per `file:line`. Later rows on the same line merge into the first.
 - The `-check` console is the record. `binlog_warnings` drops part of the `BC*` output.
 - Fixes that change an evaluated value report the value before and after
@@ -91,5 +91,5 @@ Return one compact report, no narration:
 - `kept:` the `OK` forms left in place, by catalog id and `file:line`
 - `open:` rows `id | file:line | evidence | fix to apply`
 - `proof:` the `-check` build console line, the `get_diagnostics` summary, and every binlog path
-A `clean` result reports the probe set and the `-check` build that earned it. `not started` results carry the exact error text.
+`clean` results report the probe set and the `-check` build that earned it. `not started` results carry the exact error text.
 </output_contract>

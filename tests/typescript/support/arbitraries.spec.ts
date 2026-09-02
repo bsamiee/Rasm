@@ -67,7 +67,7 @@ describe('optional field generation', () => {
         ).toBe(false);
     });
 
-    it('an empty optional-key list preserves every generated field', () => {
+    it('empty optional-key lists preserve every generated field', () => {
         const base = FastCheck.record({ version: FastCheck.integer() });
         const samples = FastCheck.sample(
             Arbitraries.optionalFields(base, []),
@@ -115,7 +115,7 @@ describe('distinct arrays', () => {
         ).toBe(true);
     });
 
-    it('an unconstrained pair generator can produce equal values', () => {
+    it('unconstrained pair generators can produce equal values', () => {
         const samples = FastCheck.sample(
             FastCheck.tuple(
                 FastCheck.integer({ min: 0, max: 1 }),
@@ -130,7 +130,7 @@ describe('distinct arrays', () => {
 });
 
 describe('classification coverage', () => {
-    it('a full-range generator covers every parity label', () => {
+    it('full-range generators cover every parity label', () => {
         expect(
             Arbitraries.missingClassifications(
                 FastCheck.integer(),
@@ -140,7 +140,7 @@ describe('classification coverage', () => {
         ).toEqual([]);
     });
 
-    it('an over-biased generator reports labels it never produces', () => {
+    it('over-biased generators report labels they never produce', () => {
         const missing = Arbitraries.missingClassifications(
             FastCheck.integer({ min: 0, max: 0 }),
             (value) => (value % 2 === 0 ? 'even' : 'odd'),

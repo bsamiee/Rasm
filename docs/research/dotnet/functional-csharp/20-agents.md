@@ -19,9 +19,9 @@ STM gives each transaction an isolated view, commits all of its changes or none,
 
 ## [02]-[AGENT_MODEL]
 
-An agent has:
-- An inbox that queues messages;
-- State that only the agent owns;
+Agents have:
+- Inbox that queues messages
+- State that only the agent owns
 - Processing loop that handles one message at a time
 
 For each message, the processing function can perform effects, send messages, create agents, and compute the state used for the next message. The state is the fold of all messages received so far:
@@ -39,7 +39,7 @@ The implementation keeps the state in the accumulator of a fold over the inbox a
 
 ## [03]-[MINIMAL_IMPLEMENTATION]
 
-The public operations start an agent and post a message. Other interactions compose these operations. `Conduit<M, M>` made with `Buffer<M>.Unbounded` supplies the inbox and sequential dispatch. The state type appears only in the `ForkIO<S>` returned by `Start`; callers hold the inbox and the message contract.
+The public operations start an agent and post a message. Other interactions compose these operations. `Conduit<M, M>` made with `Buffer<M>.Unbounded` supplies the inbox and sequential dispatch. The state type appears only in the `ForkIO<S>` returned by `Start`. Callers hold the inbox and the message contract.
 
 ```csharp
 internal static class Agent {
@@ -51,11 +51,11 @@ internal static class Agent {
 }
 ```
 
-This avoids a recursively implemented loop, which is not stack-safe in C#. `Reduce` runs the fold inside the conduit and admits one handler at a time. `Reduced.ContinueIO(next)` keeps the loop running and `Reduced.DoneIO(next)` ends it from inside the reducer. `Fork()` returns an `IO<ForkIO<S>>`. Running it starts the loop, and `Await` yields the final state after `Complete()` closes the inbox. The second overload accepts an effectful processing function that returns `IO<S>`. Stateless agents use `Unit` as their state and serialize effects without retaining a value.
+This avoids a recursively implemented loop, which is not stack-safe in C#. `Reduce` runs the fold inside the conduit and calls one handler at a time. `Reduced.ContinueIO(next)` keeps the loop running and `Reduced.DoneIO(next)` ends it from inside the reducer. `Fork()` returns an `IO<ForkIO<S>>`. Running it starts the loop, and `Await` yields the final state after `Complete()` closes the inbox. The second overload accepts an effectful processing function that returns `IO<S>`. Stateless agents use `Unit` as their state and serialize effects without retaining a value.
 
 ## [04]-[STATE_OWNERSHIP]
 
-Putting every request through one agent makes the whole service sequential. Align each agent with the smallest independently mutable resource whose invariant must be protected.
+Putting every request through one agent makes the whole service sequential. Align each agent with the smallest independently mutable resource with an invariant that must be protected.
 
 For a rate cache:
 
@@ -88,17 +88,17 @@ Both models use exclusive state ownership, inboxes, sequential message processin
 |  [04]   | Mutable state can leak if an immutable-state discipline is violated | Serialized messages prevent sharing object references across boundaries |
 |  [05]   | Requires only in-process setup and operation                        | Provides distribution, persistence, routing, and lifecycle support      |
 
-Use agents when all coordinated access passes through one process. Use an actor system when state ownership or coordination must span processes or machines. Actor implementations differ in terminology, persistence, transport, lifecycle, and delivery guarantees; those details must be learned for the chosen implementation. Distribution adds operational cost. Use it only when coordination must cross process boundaries.
+Use agents when all coordinated access passes through one process. Use an actor system when state ownership or coordination must span processes or machines. Actor implementations differ in terminology, persistence, transport, lifecycle, and delivery guarantees. Those details must be learned for the chosen implementation. Distribution adds operational cost. Use it only when coordination must cross process boundaries.
 
 ## [06]-[FUNCTIONAL_DESIGN]
 
-Agent messaging is command-oriented and can be effectful. An agent combines state with the behavior that changes it. Message-passing concurrency complements functional composition; it is not a value-returning pipeline.
+Agent messaging is command-oriented and can be effectful. Agents combine state with the behavior that changes it. Message-passing concurrency complements functional composition but is not a value-returning pipeline.
 
 Integration styles apply:
-- Use a unidirectional, event-driven flow in which agents communicate through messages;
+- Use a unidirectional, event-driven flow in which agents communicate through messages
 - Keep agents as private concurrency primitives and expose value-returning APIs
 
-In either style, retain pure functions for domain decisions and use the agent only to order transitions and effects whose order preserves consistency.
+In either style, retain pure functions for domain decisions and use the agent only to order transitions and effects where their order preserves consistency.
 
 ## [07]-[REPLIES]
 
@@ -138,10 +138,10 @@ Event sourcing can reconstruct a correct aggregate state from concurrent events,
 
 For example, an account has a balance of 1,000 and an overdraft limit of 500. Two concurrent debits of 800 can each validate against the same initial snapshot. Both events are accepted, and the overdraft becomes 600. The event log is internally consistent, but the business invariant has been violated.
 
-Associate one lightweight process with each account and separate responsibilities. One server process can host thousands or millions of these processes if it is the sole route for account changes; cross-process access requires actors instead.
+Associate one lightweight process with each account and separate responsibilities. One server process can host thousands or millions of these processes if it is the sole route for account changes. Cross-process access requires actors instead.
 
-- `AccountState`: immutable snapshot of the account;
-- `Account`: pure functions that validate commands and compute an event and next state;
+- `AccountState`: immutable snapshot of the account
+- `Account`: pure functions that validate commands and compute an event and next state
 - `AccountProcess`: the agent that owns the current state and serializes commands
 
 ```csharp
@@ -237,7 +237,7 @@ The public lookup is an `OptionT<IO, AccountProcess>`: the load and the registra
 
 - Give an agent responsibility for owning and transitioning state, not every activity associated with that state
 - Move work outside the inbox when it does not use owned state or require ordering
-- Make message types express intent, such as `Debit` and `Increment`, instead of sending ambiguous data and inferring the operation
+- Make message types express intent (`Debit`, `Increment`) instead of sending ambiguous data and inferring the operation
 - Return immutable snapshots or derived results, never mutable agent state, even through a reply
 - Plan lifecycle: keeping every created process alive means its state is loaded at most once, but memory grows with the number and size of resident processes
-- Do not confuse an agent with an object: its purpose is serialized ownership; orchestration unrelated to owned state belongs in the caller's workflow
+- Do not confuse an agent with an object: its purpose is serialized ownership, and orchestration unrelated to owned state belongs in the caller's workflow

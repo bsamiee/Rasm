@@ -44,7 +44,7 @@ Every returned property and the inputs that determine it are visible in one plac
 
 ## [02]-[DEFERRED_EXECUTION]
 
-Many LINQ operators return a description of how to produce a sequence. Creating the query does not execute it; execution begins when a consumer enumerates it.
+Many LINQ operators return a description of how to produce a sequence. Creating the query does not execute it, execution begins when a consumer enumerates it.
 
 `Iterable<A>` is the lazy form over `IEnumerable<A>`, and `AsIterable()` lifts an `IEnumerable<A>` into it.
 
@@ -63,7 +63,7 @@ internal static partial class Sequences {
 
 Until enumeration, all transformations remain pending. During enumeration, each input passes through `First`, `Second`, and `Third` before the next input begins. This streams values through the pipeline without creating an intermediate collection after every stage.
 
-`ToSeq()` forces enumeration and materializes a `Seq<int>`. Materializing after every stage changes the evaluation order and storage: each complete stage runs before the next one and stores a collection. Delaying materialization can avoid work that is never demanded. Materialization is appropriate when execution is required at that point or when a materialized sequence will be reused; otherwise, enumerating the same query repeatedly can repeat all of its work. Long deferred or recursive compositions can carry memory and performance costs.
+`ToSeq()` forces enumeration and materializes a `Seq<int>`. Materializing after every stage changes the evaluation order and storage: each complete stage runs before the next one and stores a collection. Delaying materialization can avoid work that is never demanded. Materialization is appropriate when execution is required at that point or when a materialized sequence will be reused. Otherwise, enumerating the same query repeatedly can repeat all of its work. Long deferred or recursive compositions can carry memory and performance costs.
 
 ## [03]-[SEQUENCE_OPERATIONS]
 

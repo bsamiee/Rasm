@@ -66,7 +66,7 @@ Func<int, int, string> describeSum = static (x, y) => string.Create(CultureInfo.
 Action<string> log = static message => Console.WriteLine($"message received: {message}");
 ```
 
-`Func<...>` represents behavior that returns a value. `Action<...>` represents `void` behavior. Value-returning delegates compose functions into larger operations. `Action` represents effectful behavior; logging is an effect at the application boundary.
+`Func<...>` represents behavior that returns a value. `Action<...>` represents `void` behavior. Value-returning delegates compose functions into larger operations. `Action` represents effectful behavior. Logging is an effect at the application boundary.
 
 Higher-order functions accept a function, return one, or do both. Higher-order functions rely on first-class functions.
 
@@ -87,8 +87,8 @@ The conditional is an expression because both alternatives return a value. Loops
 ### [04.4]-[REFERENTIAL_TRANSPARENCY]
 
 Pure functions:
-- Change nothing outside the function;
-- Return the same result for the same arguments, regardless of ambient state;
+- Change nothing outside the function
+- Return the same result for the same arguments, regardless of ambient state
 - Have no unexpected side effects, including unexpected exceptions
 
 Such a function call can be replaced with its result for a given input without changing program behavior. This is referential transparency.
@@ -103,7 +103,7 @@ internal static partial class CoreProperties {
 }
 ```
 
-Causes of impurity include reading or changing object fields, mutating an argument, consulting the ambient clock, performing I/O, or calling behavior whose result is not determined by the current function's arguments.
+Causes of impurity include reading or changing object fields, mutating an argument, consulting the ambient clock, performing I/O, or calling behavior that the current function's arguments do not determine.
 
 Expose a variable dependency as input data:
 
@@ -121,8 +121,8 @@ Interaction with users, files, APIs, libraries, and other external systems intro
 ### [04.5]-[RECURSION]
 
 Recursion can replace `while` and `foreach`, and some mutation-driven loops with a function that calls itself using new argument values. Recursive functions need:
-1. Base case that returns the final value;
-2. Recursive case that calls the same function with values closer to that condition;
+1. Base case that returns the final value
+2. Recursive case that calls the same function with values closer to that condition
 3. Returned value on every path
 
 ### [04.6]-[PATTERN_MATCHING]
@@ -157,7 +157,7 @@ LINQ is the clearest built-in example of functional programming:
 - `OrderBy` and `OrderByDescending` produce ordered sequences from key selectors
 - These operators accept functions and return new sequences instead of modifying their inputs
 
-The static import of `LanguageExt.Prelude` supplies constructors and functions as bare names: `Some`, `None`, `Seq`, `toSeq`, `Range`, and `parseInt`. `K<F, A>` pairs the witness `F` for the type constructor with the element type `A`; traits such as `Functor<F>` state what a witness supports, and `.As()` restores the concrete type.
+The static import of `LanguageExt.Prelude` supplies constructors and functions as bare names: `Some`, `None`, `Seq`, `toSeq`, `Range`, and `parseInt`. `K<F, A>` pairs the witness `F` for the type constructor with the element type `A`. Traits (`Functor<F>`) state what a witness supports, and `.As()` restores the concrete type.
 
 ```csharp
 internal static partial class Traits {
@@ -194,9 +194,9 @@ C# represents functions as:
 - Methods are the conventional representation and participate in class and interface design, with an instance method implicitly also taking the current instance as an argument
 - Delegates are types that represent methods with a specific signature
 - Lambdas define short functions inline and are converted to a compatible delegate type
-- Dictionaries directly store arbitrary mappings whose associations cannot be computed, and can retain results of expensive computations instead of recomputing them
+- Dictionaries directly store arbitrary mappings that cannot be computed, and can retain results of expensive computations instead of recomputing them
 
-Use the `Func` and `Action` families when only the signature matters. Use a custom delegate when its name conveys domain intent that a generic delegate type such as `Func<T, bool>` does not.
+Use the `Func` and `Action` families when only the signature matters. Use a custom delegate when its name conveys domain intent that a generic delegate type (`Func<T, bool>`) does not.
 
 ### [06.1]-[ARITY_TUPLES_CLOSURES]
 
@@ -235,10 +235,10 @@ Code that does not mutate shared in-memory state supports concurrent execution. 
 ## [08]-[APPLICABILITY]
 
 Functional programming fits work based on predictable data transformations:
-- Converting data from one form to another;
-- Applying business logic to input before passing the result onward;
-- Asynchronous or concurrent processing;
-- Serverless functions and independently running workers;
+- Converting data from one form to another
+- Applying business logic to input before passing the result onward
+- Asynchronous or concurrent processing
+- Serverless functions and independently running workers
 - Logic that benefits from deterministic behavior and extensive testing
 
 C# places limits on the paradigm. Framework base classes and some libraries are object-oriented, and C# cannot express every feature of a pure functional language. Functional C# is not inherently slow, but it does not guarantee the best performance. If performance outweighs readability and modularity, another style can be a better tradeoff.

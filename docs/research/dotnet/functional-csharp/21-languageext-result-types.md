@@ -20,7 +20,7 @@ Every function in this set returns an explicit result type.
 - `Validation<Error, A>` holds a value or all `Error` values produced by independent checks. Forms with an empty name and an impossible age report both.
 - `Try<A>` holds a deferred synchronous computation that can throw. Nothing runs until `Run`, and a thrown exception arrives as an `Error`.
 - `IO<A>` holds a deferred effect with an `Error` channel. Domain rejection inside an effect is a typed `Expected` on that channel.
-- `Eff<RT, A>` is an effect that reads a capability from a runtime `RT`. An `IO<A>` converts implicitly to `Eff<RT, A>`.
+- `Eff<RT, A>` is an effect that reads a capability from a runtime `RT`. `IO<A>` converts implicitly to `Eff<RT, A>`.
 
 Each type exposes `Match` with one function per case. `Match` on `IO` and `Eff` returns an effect.
 
@@ -47,7 +47,7 @@ internal static class Concerns {
 }
 ```
 
-`Find` returns `Option` because absence carries no `Error`. `Restrict` returns `Fin` because an out-of-range age produces an `Error`. `Register` combines independent checks and reports every failure. `Load` returns `IO` whose failure channel carries the typed `NotFound`. `Stamp` reads the `Clock` capability from any runtime that declares `Has<Eff<RT>, Clock>`.
+`Find` returns `Option` because absence carries no `Error`. `Restrict` returns `Fin` because an out-of-range age produces an `Error`. `Register` combines independent checks and reports every failure. `Load` returns `IO` with the typed `NotFound` on its failure channel. `Stamp` reads the `Clock` capability from any runtime that declares `Has<Eff<RT>, Clock>`.
 
 ## [02]-[BOUNDARY_RULE]
 
@@ -65,7 +65,7 @@ internal static class Boundary {
 
 ## [03]-[IMPLICIT_LIFTS]
 
-Values of type `A` lift into `Fin<A>` and `Validation<Error, A>`. An `Error` value, including an `Expected` subclass, lifts into the failure case. `Pure(x)` and `Fail<Error>(e)` make the intended lift explicit when the two branches of a conditional differ in type. Smart constructors map the value object's generated `Validate` to `Fin<Age>`. This gives every consumer a validated value.
+Values of type `A` lift into `Fin<A>` and `Validation<Error, A>`. `Error` values, including `Expected` subclasses, lift into the failure case. `Pure(x)` and `Fail<Error>(e)` make the intended lift explicit when the two branches of a conditional differ in type. Smart constructors map the value object's generated `Validate` to `Fin<Age>`. This gives every consumer a validated value.
 
 ```csharp
 [ValueObject<int>]
@@ -109,7 +109,7 @@ internal static class Conversions {
 
 ## [05]-[ERROR_MODEL]
 
-Domain errors are `sealed record`s extending `Expected` with a message and a code. `Codes` holds the codes of the package declaring the errors. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. An error a value object raises also implements `IValidationError<T>`, and the generated `Validate` returns it. LanguageExt's `Errors` class holds shared values such as `Errors.TimedOut` and `Errors.None`.
+Domain errors are `sealed record`s extending `Expected` with a message and a code. `Codes` holds the codes of the package declaring the errors. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. Errors a value object raises also implement `IValidationError<T>`, and the generated `Validate` returns them. LanguageExt's `Errors` class holds shared values (`Errors.TimedOut`, `Errors.None`).
 
 ```csharp
 internal static class Codes {
@@ -141,7 +141,7 @@ internal static class Classify {
 }
 ```
 
-Consumers classify with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. `HasCode` and `Catch(int)` select a code the same package declares; codes from several packages meet in one `ManyErrors`, and `IsType<E>` separates them. The message is for the host to render.
+Consumers classify with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. `HasCode` and `Catch(int)` select a code the same package declares. Codes from several packages meet in one `ManyErrors`, and `IsType<E>` separates them. The message is for the host to render.
 
 ## [06]-[RECOVERY]
 

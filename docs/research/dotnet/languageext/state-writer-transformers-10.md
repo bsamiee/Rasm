@@ -26,13 +26,13 @@ Reader computations have shape `Func<Env, K<M, A>>`. Its `Bind` supplies the sam
 result => f(result.Value).runState(result.State)
 ```
 
-Each bind feeds the previous computation's state into the next. `Readable.local` alters a ReaderT environment only for a nested scope; a StateT update continues through subsequent operations.
+Each bind feeds the previous computation's state into the next. `Readable.local` alters a ReaderT environment only for a nested scope, a StateT update continues through subsequent operations.
 
 ## [02]-[DECK_AS_STATE]
 
 Shuffled decks combine effects:
-- `StateT` threads the current `Deck`;
-- `OptionT` can stop the computation when no card remains;
+- `StateT` threads the current `Deck`
+- `OptionT` can stop the computation when no card remains
 - `IO` contains randomness and console interaction
 
 ```csharp
@@ -59,7 +59,7 @@ public record Deck(Seq<Card> Cards)
 }
 ```
 
-`generate` belongs in `IO`, because random generation is not pure. `get` reads the current state; `put` replaces it. Once `shuffle` writes the new deck, StateT carries that deck into subsequent computations. The stack composes state, optional short-circuiting, and side effects without a bespoke type that hard-codes the combination, and the transformer passes the state instead of every function call.
+`generate` belongs in `IO`, because random generation is not pure. `get` reads the current state, `put` replaces it. Once `shuffle` writes the new deck, StateT carries that deck into subsequent computations. The stack composes state, optional short-circuiting, and side effects without a bespoke type that hard-codes the combination, and the transformer passes the state instead of every function call.
 
 Dealing a card guards the update with optional failure:
 
@@ -96,13 +96,13 @@ public static StateT<Deck, OptionT<IO>, Unit> play =>
     deal;
 ```
 
-Game loops recursively deal cards and terminate when `Deck.deal` lifts `None` after the deck is exhausted. The `IO` monad supports this recursive form without growing the CLR stack. This example interleaves state logic and console IO to show composition; production code keeps game rules as pure functions over the state, separate from IO boundaries.
+Game loops recursively deal cards and terminate when `Deck.deal` lifts `None` after the deck is exhausted. The `IO` monad supports this recursive form without growing the CLR stack. This example interleaves state logic and console IO to show composition, production code keeps game rules as pure functions over the state, separate from IO boundaries.
 
 ## [04]-[STACK_ENCAPSULATION]
 
 Exposing `StateT<GameState, OptionT<IO>, A>` throughout domain code is noisy. `Game<A>` wrappers hide it, and a companion `Game` type derives the capabilities of the underlying transformer:
-- `MonadIO<Game>` for IO;
-- `Stateful<Game, GameState>` for state reads and writes;
+- `MonadIO<Game>` for IO
+- `Stateful<Game, GameState>` for state reads and writes
 - `Choice<Game>` for the choice behavior of the wrapped transformer
 
 `Stateful` is the state counterpart of `Readable`: it generalizes state reads and writes across a structure, like Haskell's `MonadState`. Transform and co-transform functions move between `K<Game, A>` and the wrapped StateT. The workflow then reads as a sequence of domain operations:
@@ -125,20 +125,20 @@ public static Game<A> with<A>(Player player, Game<A> ma) =>
     Stateful.local<Game, GameState, A>(setCurrent(player), ma).As();
 ```
 
-Unlike a propagating update, `Stateful.local` restores the prior state after the nested action. Use it for contextual operations, such as selecting the current player without leaking that selection beyond its scope.
+Unlike a propagating update, `Stateful.local` restores the prior state after the nested action. Use it for contextual operations: selecting the current player without leaking that selection beyond its scope.
 
 ## [05]-[STATE_OPACITY]
 
-Removing explicit state arguments makes code terse and declarative; it also hides which operations modify state. Application-wide state approaches a global variable even when its updates are pure. Keep the state lifecycle deliberate:
-- Use small, descriptive state queries and updates;
-- Partition domain rules into pure functions over the state;
-- Keep IO separate from those rules;
-- Use scoped state changes for temporary context and propagating updates for durable changes;
+Removing explicit state arguments makes code terse and declarative, it also hides which operations modify state. Application-wide state approaches a global variable even when its updates are pure. Keep the state lifecycle deliberate:
+- Use small, descriptive state queries and updates
+- Partition domain rules into pure functions over the state
+- Keep IO separate from those rules
+- Use scoped state changes for temporary context and propagating updates for durable changes
 - Encapsulate deep transformer stacks behind a domain type
 
 ## [06]-[FORKED_STATE]
 
-With `IO` inside StateT, forked computations (including automatically parallel work such as `Traverse`) inherit the current state and then evolve independent copies. Parents at `0` fork two counters that each progress from `1` to `10`; after both complete, each parent is still `0`. Parents at `5` start both branches at `5` and stay `5`.
+With `IO` inside StateT, forked computations (including automatically parallel work like `Traverse`) inherit the current state and then evolve independent copies. Parents at `0` fork two counters that each progress from `1` to `10`, after both complete, each parent is still `0`. Parents at `5` start both branches at `5` and stay `5`.
 
 ```csharp
 static StateT<int, IO, Unit> countTo10(string branch) =>
@@ -194,7 +194,7 @@ static Writer<Seq<string>, Unit> example =>
 
 ## [09]-[BIND_COMBINATION_COST]
 
-`Bind` runs far more often than `tell`, yet the classic design calls `Combine` on every bind. Problems follow: one or both outputs are often empty, the combination is wasted work, and non-empty outputs cost real work to combine. Concatenating two immutable linked lists of 100 items traverses 100 items to build a new list; repeated combination of growing immutable outputs rebuilds the same elements many times. The combination belongs in `tell`, where output is deliberately added, not in every `Bind`.
+`Bind` runs far more often than `tell`, yet the classic design calls `Combine` on every bind. Problems follow: one or both outputs are often empty, the combination is wasted work, and non-empty outputs cost real work to combine. Concatenating two immutable linked lists of 100 items traverses 100 items to build a new list. Repeated combination of growing immutable outputs rebuilds the same elements many times. The combination belongs in `tell`, where output is deliberately added, not in every `Bind`.
 
 ## [10]-[OUTPUT_THREADING]
 
@@ -233,7 +233,7 @@ public static Writer<W, Unit> tell<W>(W value)
     new(output => (output.Combine(value), unit));
 ```
 
-Writer output is commonly a collection, `tell` appends or prepends a single item and avoids concatenating whole accumulated collections, provided the monoid combines efficiently. The revised `Writer<W, A>` needs no `Monoid<W>` constraint; only `tell` combines, only `tell` needs it.
+Writer output is commonly a collection, `tell` appends or prepends a single item and avoids concatenating whole accumulated collections, provided the monoid combines efficiently. The revised `Writer<W, A>` needs no `Monoid<W>` constraint. Only `tell` combines, only `tell` needs it.
 
 ## [11]-[WRITER_VIA_STATET]
 
@@ -269,7 +269,7 @@ public record RWST<R, W, S, M, A>(
     where W : Monoid<W>;
 ```
 
-The stack combines four behaviors: configuration reads through `ReaderT`, output aggregation through `WriterT`, state through `StateT`, and a lifted base monad such as `IO` or `Option`. That suits an application monad that needs all four. Its trait witness exposes the capabilities the wrapped types already provide:
+The stack combines four behaviors: configuration reads through `ReaderT`, output aggregation through `WriterT`, state through `StateT`, and a lifted base monad (`IO`, `Option`). That suits an application monad that needs all four. Its trait witness exposes the capabilities the wrapped types already provide:
 
 ```csharp
 public class RWST<R, W, S, M> :
@@ -284,4 +284,4 @@ public class RWST<R, W, S, M> :
 }
 ```
 
-The wrapped types implement the required behaviors; `RWST` lifts those behaviors into its own wrapper instead of reimplementing them.
+The wrapped types implement the required behaviors, `RWST` lifts those behaviors into its own wrapper instead of reimplementing them.

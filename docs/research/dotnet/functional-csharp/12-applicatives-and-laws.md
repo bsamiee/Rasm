@@ -2,13 +2,13 @@
 
 ## [01]-[CORE_IDEA]
 
-The core forms of `Map` and `Bind` accept unary functions, but functions can require several arguments. Currying turns an n-argument function into a sequence of unary functions, and each argument can be supplied while the computation remains inside an effect such as `Option<T>` or `Validation<Error, T>`.
+The core forms of `Map` and `Bind` accept unary functions, but functions can require several arguments. Currying turns an n-argument function into a sequence of unary functions, and each argument can be supplied while the computation remains inside an effect (`Option<T>`, `Validation<Error, T>`).
 
 Composition models apply:
-- Applicative composition uses `Pure` and `Apply` to combine values inside an effect that are computed independently; an effect-specific `Apply`, such as Validation's, can accumulate their failures
+- Applicative composition uses `Pure` and `Apply` to combine values inside an effect that are computed independently. Effect-specific `Apply` (Validation's) can accumulate their failures
 - Monadic composition uses `Bind` when a later computation depends on an earlier result
 
-Validation's applicative flow can combine all available failures; its monadic flow stops before later work is evaluated after a failure.
+Validation's applicative flow can combine all available failures. Its monadic flow stops before later work is evaluated after a failure.
 
 ## [02]-[APPLICATION_INSIDE_EFFECTS]
 
@@ -68,19 +68,19 @@ Lifting the function first mirrors ordinary partial application and is easier to
 | :-----: | :--------------- | :-------------- | :------------------------------------------------------------------------- |
 |  [01]   | `Functor<F>`     | `Map`           | Transform a value without leaving its effect                               |
 |  [02]   | `Applicative<F>` | `Pure`, `Apply` | Combine independent values inside an effect with a multi-argument function |
-|  [03]   | `Monad<M>`       | `Pure`, `Bind`  | Sequence computations whose next step can depend on a prior value          |
+|  [03]   | `Monad<M>`       | `Pure`, `Bind`  | Sequence computations where the next step can depend on a prior value          |
 
 The capabilities form a hierarchy: `Functor < Applicative < Monad < Fold`.
 
 The stronger abstractions can define weaker operations: `Map(opt, f)` can be expressed as `Pure(f).Apply(opt)`, `Apply(optF, optT)` can bind the argument and then the function inside the effect before applying it, and `Fold` can define `Bind`. The traits `Functor<F>`, `Applicative<F>`, and `Monad<M>` capture these abstractions over `K<F, A>`, and each effect implements them. LINQ query syntax comes from `Monad<M>`.
 
-Even when `Apply` can be derived from `Bind`, a dedicated implementation can be more efficient and preserve semantics, such as accumulating independent validation errors, that a short-circuiting `Bind` cannot provide.
+Even when `Apply` can be derived from `Bind`, a dedicated implementation can be more efficient and preserve semantics (accumulating independent validation errors) that a short-circuiting `Bind` cannot provide.
 
 ## [05]-[LAWS]
 
 ### [05.1]-[FUNCTOR_LAWS]
 
-When a value is inside a structure such as `Option<T>`, `Map` must preserve ordinary composition:
+When a value is inside a structure (`Option<T>`), `Map` must preserve ordinary composition:
 
 ```csharp
 Option<int> option = Some(2);
@@ -130,7 +130,7 @@ Validation<Error, Unit> applicative = ApplicativeLaw<Option>.validate();
 Validation<Error, Unit> monad = MonadLaw<Fin>.validate();
 ```
 
-Checking only successful contained values is not a complete law check; `None` and failure behavior must also remain equivalent.
+Checking only successful contained values is not a complete law check. `None` and failure behavior must also remain equivalent.
 
 Associativity explains how multi-argument functions enter a monadic pipeline: the right-associated form lets the innermost function close over values produced by earlier steps. LINQ query syntax expresses the same mechanism without directly nested `Bind` calls.
 
@@ -168,7 +168,7 @@ The compiler translates each query into an equivalent `SelectMany` chain in whic
 Other clauses are opt-in:
 - `let` is expressed with `Select` and works once mapping is available
 - `where` requires `Where`, which `Option` supplies beside `Filter`
-- Collection-specific clauses such as `orderby` need not exist for `Option`, `Either`, or `Validation`
+- Collection-specific clauses (`orderby`) need not exist for `Option`, `Either`, or `Validation`
 
 ## [07]-[INDEPENDENT_VALIDATION]
 
@@ -305,16 +305,16 @@ Fin<Unit> equivalence = Try.lift(() => {
 
 `Gen.OneOf` builds an `Option` generator that produces both `Some` and `None`. Tests that lift only generated integers check only the `Some` path and miss the `None` case. The bounded range keeps the product inside `int`.
 
-Random sampling raises confidence but does not prove a universal law. `Sample` throws on a counterexample, and `Try.lift` captures it into `Fin`. The case count and the ranges are configurable. Properties tied to `multiply` check that function, not every function. Properties can capture model invariants, such as removing items from a cart never increasing its total.
+Random sampling raises confidence but does not prove a universal law. `Sample` throws on a counterexample, and `Try.lift` captures it into `Fin`. The case count and the ranges are configurable. Properties tied to `multiply` check that function, not every function. Properties can capture model invariants (removing items from a cart never increases its total).
 
 ## [11]-[SELECTION_GUIDE]
 
 - Use `Map` for a pure unary transformation that preserves the current effect
 - Use the tuple `Apply` when inputs are independent and the effect has relevant combination semantics
 - Use LINQ over `Bind` when a computation consumes an earlier result or must short-circuit
-- Use `Traverse` to accumulate over a collection of independent checks and `TraverseM` to stop at the first failure; an error from one element carries the element index as a typed field
-- Avoid explicit unwrapping followed by rewrapping; it duplicates effect handling and leaks representation details
-- Avoid nested `Bind` calls; LINQ expresses the same semantics without nested lambdas
+- Use `Traverse` to accumulate over a collection of independent checks and `TraverseM` to stop at the first failure. Errors from one element carry the element index as a typed field
+- Avoid explicit unwrapping followed by rewrapping, it duplicates effect handling and leaks representation details
+- Avoid nested `Bind` calls, LINQ expresses the same semantics without nested lambdas
 - When lifting an inline lambda, use `fun` to give it a delegate type
 - Deriving `Apply` from `Bind` can discard error accumulation or other effect-specific behavior
 - Do not use applicative composition for dependent work

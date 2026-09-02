@@ -4,7 +4,7 @@ Compound data groups multiple data objects into one structure. Related values ca
 
 ## Tuples: fixed-size products
 
-Tuples group a fixed number of ordered values. Elements may have different types, tuples suit concepts whose number of components is known in advance.
+Tuples group a fixed number of ordered values. Elements may have different types, tuples suit concepts with a known number of components.
 
 ```ocaml
 (42, "Hi FP")           (* int * string *)
@@ -13,7 +13,7 @@ let p = (2., 1.)         (* float * float *)
 (1, (2, "FP"))          (* int * (int * string) *)
 ```
 
-In OCaml, the pair type whose components have types `t1` and `t2` is `t1 * t2`, read "t1 cross t2." Pairs naturally represent concepts with exactly two parts, such as 2D points, rational numbers, and complex numbers. Tuples can nest. Scheme uses nested pairs to represent lists; OCaml and Haskell define lists with algebraic data types.
+In OCaml, the pair type with components of types `t1` and `t2` is `t1 * t2`, read "t1 cross t2." Pairs naturally represent concepts with exactly two parts (2D points, rational numbers, complex numbers). Tuples can nest. Scheme uses nested pairs to represent lists. OCaml and Haskell define lists with algebraic data types.
 
 Tuples also let a function return several related results as one value:
 
@@ -56,7 +56,7 @@ Immutability makes a value's contents stable over time. Understanding it does no
 
 ## Lists: ordered homogeneous sequences
 
-An OCaml list holds an ordered sequence of values of one type. It is built by:
+OCaml lists hold an ordered sequence of values of one type. They are built by:
 - `[]` (nil) constructs the empty list
 - `::` (cons) constructs a non-empty list from a head element and a tail list
 
@@ -66,7 +66,7 @@ An OCaml list holds an ordered sequence of values of one type. It is built by:
 [1; 2; 3]                  (* sugar for 1 :: (2 :: (3 :: [])) *)
 ```
 
-Because each cons cell holds a head and a link to its tail, an OCaml list is singly linked; `[]` marks its end. Consing is also the natural way to enumerate a range:
+Because each cons cell holds a head and a link to its tail, an OCaml list is singly linked, `[]` marks its end. Consing is also the natural way to enumerate a range:
 
 ```ocaml
 let rec enumerate_integers a b =
@@ -119,7 +119,7 @@ let rec append l1 l2 = match l1 with
 
 ### Immutable lists versus mutable arrays
 
-An existing OCaml list never changes. Replacing its first element means constructing a new list that reuses its tail:
+Existing OCaml lists never change. Replacing the first element means constructing a new list that reuses the tail:
 
 ```ocaml
 let l = [1; 2; 3]
@@ -128,7 +128,7 @@ let changed = 4 :: List.tl l       (* [4; 2; 3]; l remains unchanged *)
 
 Mutable arrays permit indexed access and in-place updates. Aliasing makes such mutation less transparent: if `b` refers to array `a`, then updating `b[0]` also changes what is observed through `a`. Immutable lists avoid this behavior because their elements never change after construction.
 
-The contrast is visible in reversal. Functional code constructs a new reversed list; imperative array code swaps elements in place.
+The contrast is visible in reversal. Functional code constructs a new reversed list, imperative array code swaps elements in place.
 
 ```ocaml
 let rec reverse l = match l with
@@ -140,7 +140,7 @@ let rec reverse l = match l with
 
 OCaml's list type is `'a list`, where `'a` is a type variable. Examples include `int list`, `string list`, `(float * float) list`, lists of functions, and lists of lists.
 
-Generic functions operate independently of the element type; defining such type-independent containers and operations is generic programming:
+Generic functions operate independently of the element type, defining such type-independent containers and operations is generic programming:
 
 ```ocaml
 length : 'a list -> int
@@ -153,7 +153,7 @@ Compound types arise from:
 - Combination (product): a value contains all listed components. `int * string` contains every integer-string pair.
 - Alternation (sum): a value is one of several alternatives. Lists are either `[]` or head-tail pairs.
 
-An algebraic data type combines sums and products. Each constructor may carry zero, one, or several values.
+Algebraic data types combine sums and products. Each constructor may carry zero, one, or several values.
 
 ### Modeling shapes
 
@@ -198,15 +198,15 @@ let rec sum_tree t = match t with
   | Node (l, x, r) -> sum_tree l + x + sum_tree r
 ```
 
-`size` is generic because it ignores stored values; `sum_tree` is specialized to integer trees.
+`size` is generic because it ignores stored values, `sum_tree` is specialized to integer trees.
 
-An algebraic data type may have several type parameters:
+Algebraic data types may have several type parameters:
 
 ```ocaml
 type ('a, 'b) either = Left of 'a | Right of 'b
 ```
 
-OCaml type names are lowercase, hence `either`; Haskell names the corresponding type `Either`. By convention, `Right` carries a successful value and `Left` carries error information:
+OCaml type names are lowercase (`either`), Haskell names the corresponding type `Either`. By convention, `Right` carries a successful value and `Left` carries error information:
 
 ```ocaml
 let safe_div a b =
@@ -223,9 +223,9 @@ type 'a mylist = Nil | Cons of 'a * 'a mylist
 type 'a option = None | Some of 'a
 ```
 
-OCaml's actual boolean values are written `true` and `false`; its list constructors are the special forms `[]` and `::`.
+OCaml's actual boolean values are written `true` and `false`, its list constructors are the special forms `[]` and `::`.
 
-`option` represents either absence or a present value. It gives a meaningful result for partial operations such as finding the maximum of an empty list:
+`option` represents either absence or a present value. It gives a meaningful result for partial operations (the maximum of an empty list):
 
 ```ocaml
 let rec list_max l = match l with
@@ -235,7 +235,7 @@ let rec list_max l = match l with
       | Some m -> Some (max hd m)
 ```
 
-`either` can attach information to both alternatives; `option` carries no data in the `None` case.
+`either` can attach information to both alternatives, `option` carries no data in the `None` case.
 
 ## Algebraic data types versus classes
 
@@ -278,10 +278,10 @@ let rec add n m = match m with
 ```
 
 Key cases:
-- `longest_string [] = None`; ties keep the longest string found in the tail
+- `longest_string [] = None`, ties keep the longest string found in the tail
 - `concat "," [] = ""`, `concat "," ["a"] = "a"`, and `concat "," ["a"; "b"] = "a,b"`
-- Tree height is `0` for `Leaf`; a `Node` adds one to the larger subtree height
-- `pred Zero = None`; `pred (Succ x) = Some x`
+- Tree height is `0` for `Leaf`, a `Node` adds one to the larger subtree height
+- `pred Zero = None`, `pred (Succ x) = Some x`
 - Natural-number addition moves one `Succ` at a time from the second argument to the first until the second reaches `Zero`
 
 ## Quiz conclusions
@@ -290,7 +290,7 @@ Key cases:
 2. `type mytype = BoolVal of bool | Constant` has exactly three values: `BoolVal true`, `BoolVal false`, and `Constant`
 3. Safe heads return `None` for `[]` and `Some hd` for a non-empty list instead of throwing on the empty case
 4. `l[0] = "John"` is not a valid OCaml list update
-5. Omitting `ComplexShape` from a match over `shape` is not a syntax error; it is a non-exhaustive match that the compiler warns may fail for that constructor
+5. Omitting `ComplexShape` from a match over `shape` is not a syntax error, it is a non-exhaustive match that the compiler warns may fail for that constructor
 6. List-to-string functions that surround a recursively joined body with brackets produce `"[]"`, `"[1]"`, and `"[1; 2]"` for `[]`, `[1]`, and `[1; 2]`
 7. `Option.map String.length (List.nth_opt l n)` returns `None` when the indexed string is absent and `Some length` when present: `None`, `Some 5`, and `Some 3` for the tested inputs
 8. For `f Zero = ""`, `f (Succ Zero) = "/"`, and `f (Succ n) = "/ " ^ f n`, the tested results are `""`, `"/"`, and `"/ /"`

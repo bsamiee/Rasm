@@ -2,10 +2,10 @@
 id: require-job-timeout
 language: yaml
 severity: error
-files: ['.github/workflows/**'] # .github is hidden — the scan needs --no-ignore hidden
+files: ['.github/workflows/**'] # .github is hidden, the scan needs --no-ignore hidden
 rule:
     all:
-        - kind: block_mapping_pair # one job entry, located by depth under the jobs key; block style only
+        - kind: block_mapping_pair # One job entry, located by depth under the jobs key, block style only
         - inside:
             kind: block_mapping
             inside:
@@ -14,14 +14,14 @@ rule:
                     kind: block_mapping_pair
                     has: {field: key, regex: '^jobs$'}
         - not:
-            has: # direct-child chain — a step-level timeout never satisfies the job-level law
+            has: # Direct-child chain, a step-level timeout never satisfies the job-level rule
                 kind: block_node
                 has:
                     kind: block_mapping
                     has:
                         kind: block_mapping_pair
                         has: {field: key, regex: '^timeout-minutes$'}
-        - not: # a reusable-workflow caller carries uses: and rejects timeout-minutes outright
+        - not: # A reusable-workflow caller carries uses: and rejects timeout-minutes outright
             has:
                 kind: block_node
                 has:

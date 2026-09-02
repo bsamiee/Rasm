@@ -1,4 +1,4 @@
-id: require-declared-fan-out-degree
+id: require-concurrency-option
 valid:
     - 'const declared = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => probe(key), { concurrency: "inherit" });'
     - 'const shorthand = (keys: ReadonlyArray<string>, concurrency: number) => Effect.forEach(keys, (key) => probe(key), { concurrency, discard: true });'

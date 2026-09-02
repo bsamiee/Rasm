@@ -2,7 +2,7 @@
 
 ## [01]-[EXPLICIT_CASES]
 
-Discriminated unions are types whose value is exactly one of several alternatives. Consumers pattern-match the value to discover its case and reach that case's data. Components that do not care which case they have can pass the union unchanged.
+Discriminated unions are types holding exactly one of several alternatives. Consumers pattern-match the value to discover its case and reach that case's data. Components that do not care which case they have can pass the union unchanged.
 
 F# supports discriminated unions directly. The union generator supplies them in C#. `[Union]` marks an abstract partial record, each case is a sealed record nested inside it, and the generated `Switch` takes one arm per case.
 
@@ -28,7 +28,7 @@ internal abstract partial record Customer {
 
 Consumers call `Switch` on named cases, and each case carries only its required data.
 
-Travel systems sell holidays and day trips. One class with all fields and an `IsDayTrip` flag violates Interface Segregation: every instance carries properties that do not describe its case, while names such as `Destination` and `StartDate` mean concepts named `Attraction` and `DateOfTrip`.
+Travel systems sell holidays and day trips. One class with all fields and an `IsDayTrip` flag violates Interface Segregation: every instance carries properties that do not describe its case, while names (`Destination`, `StartDate`) mean concepts named `Attraction` and `DateOfTrip`.
 
 Use an abstract union base:
 
@@ -53,7 +53,7 @@ internal abstract partial record CustomerOffering {
 }
 ```
 
-`DayTrip` is not an extension of `Holiday`; it is an alternative to it. The shared base supports a single `Seq<CustomerOffering>`, while each case retains only meaningful data and terminology.
+`DayTrip` is not an extension of `Holiday` but an alternative to it. The shared base supports a single `Seq<CustomerOffering>`, while each case retains only meaningful data and terminology.
 
 ```csharp
 internal static class Offerings {
@@ -64,13 +64,13 @@ internal static class Offerings {
 }
 ```
 
-`BritishName` can carry first, middle, and last names with an honorific placed first; a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. The abstract `Name` permits one collection, while variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
+`BritishName` can carry first, middle, and last names with an honorific placed first, and a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. The abstract `Name` permits one collection, while variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
 
 ## [03]-[OUTCOMES_AS_CASES]
 
 Function return types must describe every expected outcome. Looking up a person has meaningful outcomes:
-1. The person was found;
-2. No person has that identifier;
+1. The person was found
+2. No person has that identifier
 3. The lookup failed
 
 `OptionT<IO, Person>` names each: `Some` is the found person, `None` is absence, and a lookup failure is on the `IO` error channel. The effectful function translates each external outcome into one case:
@@ -224,7 +224,7 @@ The remaining operations follow the return-type rules. Member lookup passes the 
 - Model each valid state as a distinct case, not as a Boolean discriminator with conditionally meaningful fields
 - Match the representation to the growth axis: a union for growing operations, abstract members for growing cases. New cases are compile errors at every `Switch` until each gains an arm.
 - Direct recursion over a recursive union suits document-sized trees. C# does not guarantee tail-call optimization, unbounded depth folds through `Trampoline<A>`.
-- Put only shared data on the abstract base; keep case-specific data in its case
+- Put only shared data on the abstract base and keep case-specific data in its case
 - Use a domain-specific union when the consumer needs domain outcome names instead of `Option`, `Fin`, or `Either`
 - Keep absence and failure separate whenever the consumer needs to respond differently
 - Interpret external values once near their source, then pass typed cases inward

@@ -1,9 +1,9 @@
-"""Build the z3 shared library for one runtime identifier and stage it for packing.
+"""Build the z3 shared library for a runtime identifier and stage it for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 each stage their runtime identifier, one job
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
 collects .artifacts/native/z3/stage and runs the eng pack-z3-native and pack-z3-managed
 targets alone. The managed binding sources stage from the same pinned archive the z3 port
-downloads. Rasm.Z3 and Rasm.Native.Z3 always carry one upstream version.
+downloads. Rasm.Z3 and Rasm.Native.Z3 always share the upstream version.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -46,7 +46,7 @@ async def _source_root(vcpkg: Path, install_args: list[str]) -> Path:
     repo = _search(r"REPO\s+(\S+)", portfile)
     ref = _search(r"REF\s+(\S+)", portfile).replace("${VERSION}", version)
     archive = vcpkg.parent / "downloads" / f"{repo.replace('/', '-')}-{ref}.tar.gz"
-    if not archive.exists():  # A binary-cache hit builds nothing and downloads no source
+    if not archive.exists():  # Binary-cache hits build nothing and download no source
         await run([str(vcpkg), "install", "--only-downloads", *install_args], REPO_ROOT)
     source = _WORK / "src"
     shutil.rmtree(source, ignore_errors=True)
@@ -72,7 +72,7 @@ async def _stage_managed(vcpkg: Path, install_args: list[str]) -> Path:
 
 
 async def _stage(rid: Rid) -> Path:
-    """Build the manifest with vcpkg, stage the library for one rid and the binding sources."""
+    """Build the manifest with vcpkg, stage the library for the rid and the binding sources."""
     target = vcpkg_target(rid, "z3", windows_stem="libz3")
     tools = await native_build_tools()
     install_args = vcpkg_args(_MANIFEST_ROOT, _WORK, target.triplet)

@@ -1,10 +1,10 @@
 # [PULUMI_COMPONENTS]
 
-`ComponentResource` authoring: a component groups related resources into one reusable node with children nested underneath in preview, up, and the Pulumi Cloud console.
+`ComponentResource` authoring: a component groups related resources into a reusable node with children nested underneath in preview, up, and the Pulumi Cloud console.
 
 ## [01]-[ANATOMY]
 
-Every component carries four elements: extend `ComponentResource` and call `super()` with a type URN; accept name, args, and `ComponentResourceOptions`; set `parent: this` on every child; call `registerOutputs()` as the constructor's last act.
+Every component extends `ComponentResource` and calls `super()` with a type URN, accepts name, args, and `ComponentResourceOptions`, sets `parent: this` on every child, and calls `registerOutputs()` as the constructor's last act.
 
 ```typescript
 import * as pulumi from '@pulumi/pulumi';
@@ -53,19 +53,19 @@ class StaticSite(pulumi.ComponentResource):
         self.register_outputs({"bucket_name": self.bucket_name})
 ```
 
-Every type URN spells `<package>:<module>:<type>` — organization or package name, module usually `index`, PascalCase type: `myorg:index:StaticSite`.
+Every type URN spells `<package>:<module>:<type>` (organization or package name, module usually `index`, PascalCase type): `myorg:index:StaticSite`.
 
-A missing `registerOutputs()` leaves the component stuck "creating" in the console and its outputs unpersisted — it is always the constructor's last line. Child names derive from the component name (`${name}-bucket`); a hardcoded child name collides the moment two instances exist.
+Missing `registerOutputs()` leaves the component stuck "creating" in the console and its outputs unpersisted, it is always the constructor's last line. Child names derive from the component name (`${name}-bucket`), a hardcoded child name collides the moment two instances exist.
 
 ## [02]-[ARGS_DESIGN]
 
-An args interface defines what consumers configure and how composable the component is.
+Args interfaces define what consumers configure and how composable the component is.
 
-- [INPUT_WRAP]: Every property wraps in `Input<T>` so it accepts plain values and `Output<T>` alike; a bare `string` forces consumers to unwrap outputs with `.apply()`.
-- [FLAT]: Flat interfaces with optional properties beat nested arg objects; deep nesting is hard to use and harder to evolve.
-- [NO_UNIONS]: Union types (`string | number`) break Python, Go, and C# SDK generation; variants become separate optional properties (`sizeGb`, `sizeMb`).
-- [NO_FUNCTIONS]: Callbacks cannot serialize across language boundaries; configuration properties (`namePrefix`, `nameSuffix`) replace them.
-- [DEFAULTS]: Sensible defaults land in the constructor via `??` so consumers configure only what they need; security posture defaults on (`args.enableVersioning !== false` gates the opt-out).
+- [INPUT_WRAP]: Every property wraps in `Input<T>` to accept plain values and `Output<T>` alike, a bare `string` forces consumers to unwrap outputs with `.apply()`
+- [FLAT]: Flat interfaces with optional properties beat nested arg objects, deep nesting is hard to use and harder to evolve
+- [NO_UNIONS]: Union types (`string | number`) break Python, Go, and C# SDK generation, variants become separate optional properties (`sizeGb`, `sizeMb`)
+- [NO_FUNCTIONS]: Callbacks cannot serialize across language boundaries, configuration properties (`namePrefix`, `nameSuffix`) replace them
+- [DEFAULTS]: Sensible defaults land in the constructor via `??`, consumers configure only what they need, security defaults on (`args.enableVersioning !== false` gates the opt-out)
 
 ```typescript
 interface DatabaseArgs {
@@ -78,7 +78,7 @@ interface DatabaseArgs {
 
 ## [03]-[OUTPUTS]
 
-A component exposes only what consumers need — endpoint, port, security group id — never every internal resource; over-exposure leaks implementation detail into every consumer. Composite values derive with `pulumi.interpolate` or `pulumi.concat`:
+Components expose only what consumers need (endpoint, port, security group id), never every internal resource, over-exposure leaks implementation detail into every consumer. Composite values derive with `pulumi.interpolate` or `pulumi.concat`:
 
 ```typescript
 this.connectionString = pulumi.interpolate`postgresql://${args.username}:${args.password}@${cluster.endpoint}:${cluster.port}/${args.databaseName}`;
@@ -87,19 +87,19 @@ this.registerOutputs({ connectionString: this.connectionString });
 
 ## [04]-[PATTERNS]
 
-- [CONDITIONAL_CREATION]: Optional args gate sub-resource creation — `if (args.enableMonitoring)` wraps the topic, subscription, and alarm block; absent means absent.
-- [COMPOSITION]: Higher-level components compose lower-level ones, each level owning one concern — a `Platform` instantiates a `VpcNetwork` child with `{ parent: this }` and feeds its outputs into a cluster.
-- [PROVIDER_PASSTHROUGH]: `ComponentResourceOptions` carries explicit providers to children automatically; a consumer passes `{ providers: [usWest] }` for multi-region or multi-account deployments and every `parent: this` child inherits it with no extra code.
+- [CONDITIONAL_CREATION]: Optional args gate sub-resource creation, `if (args.enableMonitoring)` wraps the topic, subscription, and alarm block, absent means absent
+- [COMPOSITION]: Higher-level components compose lower-level ones, each level owning one concern, a `Platform` instantiates a `VpcNetwork` child with `{ parent: this }` and feeds its outputs into a cluster
+- [PROVIDER_PASSTHROUGH]: `ComponentResourceOptions` carries explicit providers to children automatically, a consumer passes `{ providers: [usWest] }` for multi-region or multi-account deployments and every `parent: this` child inherits it with no extra code
 
 ## [05]-[MULTI_LANGUAGE]
 
-Packaging is required the moment any consumer uses a different language than the author — including YAML programs, which always require it. A single-language component internal to one codebase imports directly with no packaging. A TypeScript platform team without packaging ships components invisible to Python and YAML application developers.
+Packaging is required the moment any consumer uses a different language than the author, including YAML programs, which always require it. Single-language components internal to a codebase import directly with no packaging. TypeScript platform teams without packaging deliver components invisible to Python and YAML application developers.
 
-A `PulumiPlugin.yaml` in the component directory declares the runtime (`runtime: nodejs`, `runtime: python`). Serialization constraints bind regardless of authoring language: primitives, `Input<T>` wrappers, arrays and maps of primitives, and enums serialize; unions, functions, complex nested generics, and platform-specific types do not.
+`PulumiPlugin.yaml` in the component directory declares the runtime (`runtime: nodejs`, `runtime: python`). Serialization constraints bind regardless of authoring language: primitives, `Input<T>` wrappers, arrays and maps of primitives, and enums serialize. Unions, functions, complex nested generics, and platform-specific types do not.
 
-Entry points by language: TypeScript exports component classes from `index.ts` (Pulumi introspects them); Python calls `component_provider_host(name=..., components=[...])` from `pulumi.provider.experimental` in `__main__.py`; Go builds the provider with `infer.NewProviderBuilder().WithComponents(...)`; C# serves `Pulumi.Experimental.Provider.ComponentProviderHost.Serve(args)`.
+Entry points by language: TypeScript exports component classes from `index.ts` (Pulumi introspects them). Python calls `component_provider_host(name=..., components=[...])` from `pulumi.provider.experimental` in `__main__.py`. Go builds the provider with `infer.NewProviderBuilder().WithComponents(...)`. C# serves `Pulumi.Experimental.Provider.ComponentProviderHost.Serve(args)`.
 
-Consumers install with `pulumi package add <git-repo-url>[@vX.Y.Z]`, which downloads the plugin, generates a local SDK in the consumer's language, and updates `Pulumi.yaml`; `pulumi install` restores dependencies on fresh checkouts. `pulumi package gen-sdk` exists only for authors publishing SDKs to package managers.
+Consumers install with `pulumi package add <git-repo-url>[@vX.Y.Z]`, which downloads the plugin, generates a local SDK in the consumer's language, and updates `Pulumi.yaml`. `pulumi install` restores dependencies on fresh checkouts. `pulumi package gen-sdk` exists only for authors publishing SDKs to package managers.
 
 ## [06]-[DISTRIBUTION]
 
@@ -111,7 +111,7 @@ Consumers install with `pulumi package add <git-repo-url>[@vX.Y.Z]`, which downl
 |  [04]   | Language ecosystem | Package manager  | npm, PyPI, NuGet, Maven                       |
 |  [05]   | Public community   | Pulumi Registry  | Submit via the pulumi/registry GitHub repo    |
 
-A private registry generates API documentation automatically, manages versions, and makes components org-wide discoverable. Versions are `v`-prefixed git tags; a README is required and becomes the registry documentation page; type annotations (JSDoc, docstrings, Go `Annotate()`) enrich generated SDK docs.
+Private registries generate API documentation automatically, manage versions, and make components org-wide discoverable. Versions are `v`-prefixed git tags, a README is required and becomes the registry documentation page, type annotations (JSDoc, docstrings, Go `Annotate()`) enrich generated SDK docs.
 
 ```bash
 pulumi package publish https://github.com/myorg/my-component --publisher myorg
@@ -138,10 +138,10 @@ jobs:
 
 | [INDEX] | [ANTI_PATTERN]          | [PROBLEM]                   | [FIX]                                          |
 | :-----: | :---------------------- | :-------------------------- | :--------------------------------------------- |
-|  [01]   | Resources inside apply  | Invisible in preview        | Create outside apply; pass Outputs directly    |
+|  [01]   | Resources inside apply  | Invisible in preview        | Create outside apply, pass Outputs directly    |
 |  [02]   | Missing registerOutputs | Component stuck creating    | Last line of every constructor                 |
 |  [03]   | Missing parent this     | Children at root level      | `{ parent: this }` on every child              |
-|  [04]   | Union types in args     | Breaks Python, Go, C# SDKs  | Single types; separate properties for variants |
+|  [04]   | Union types in args     | Breaks Python, Go, C# SDKs  | Single types, separate properties for variants |
 |  [05]   | Functions in args       | Cannot serialize            | Configuration properties                       |
 |  [06]   | Hardcoded child names   | Collisions across instances | Derive from `${name}-suffix`                   |
 |  [07]   | Over-exposed outputs    | Leaks implementation detail | Export only what consumers need                |

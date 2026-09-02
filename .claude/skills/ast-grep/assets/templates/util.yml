@@ -1,11 +1,11 @@
-id: <util-id> # global utility rule under utilDirs; any rule references it via matches
+id: <util-id> # Global utility rule under utilDirs, any rule references it via matches
 language: <language>
-arguments: [<param-id>] # parameterized util — utilDirs files only, every argument mandatory at the call site
-rule: # matches: <param> kills kind pruning — carry an explicit kind guard beside it
+arguments: [<param-id>] # Parameterized util, utilDirs files only, every argument mandatory at the call site
+rule: # matches: <param> stops kind pruning, carry an explicit kind guard beside it
     kind: <kind>
     has: {matches: <param-id>}
 constraints:
-    <VAR>: {regex: '<grammar>'} # <VAR> must bind in this util's own rule — an unbound name aborts the entire scan
+    <VAR>: {regex: '<grammar>'} # <VAR> must bind in this util's own rule, an unbound name aborts the entire scan
 utils:
-    <local-util-id>: <rule> # local to this file; a rule-file utils: entry shadows a homonymous global
+    <local-util-id>: <rule> # Local to this file, a rule-file utils: entry shadows a same-named global
     # call: rule: { matches: { <util-id>: { <param-id>: <rule> } } }

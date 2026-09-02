@@ -64,7 +64,7 @@ Four levels configure a mapper, each overriding the one before it: the MSBuild p
 - Mappers that add `ToStringMethod` treat it as formatting, not a wire contract, and pass a fixed provider or an explicit culture input
 - Automatic member matching applies only when names and meanings agree, one exact pair has one intentional default, alternatives have unique names, generic mapping methods are disjoint, and no selection depends on declaration order
 
-External mappings stay local to the mapper that consumes them. Assembly-wide registrations expose only disjoint pairs. Configuration inclusion needs identical direction, member meaning, null policy, and omissions, it copies configuration rather than implementation. Additional parameters carry immutable values that the boundary already resolved, and forward to nested user mappings and `Use` methods whose remaining parameter names match. Type pairs shared by several mappers belong in one `internal static class` reached through `[UseStaticMapper<T>]`, a private `[UserMapping]` stays for a mapper-local pair.
+External mappings stay local to the mapper that consumes them. Assembly-wide registrations expose only disjoint pairs. Configuration inclusion needs identical direction, member meaning, null policy, and omissions, it copies configuration rather than implementation. Additional parameters carry immutable values that the boundary already resolved, and forward to nested user mappings and `Use` methods where remaining parameter names match. Type pairs shared by several mappers belong in one `internal static class` reached through `[UseStaticMapper<T>]`, a private `[UserMapping]` stays for a mapper-local pair.
 
 ## [03]-[CONSTRUCTION_AND_OWNERSHIP]
 
@@ -76,7 +76,7 @@ External mappings stay local to the mapper that consumes them. Assembly-wide reg
 |  [04]   | Reference handling      | Identity graph under one handler          | Registration follows construction and precedes writable members |
 |  [05]   | Runtime dispatch        | Registered source and target pairs        | Unregistered pair or subtype throws                             |
 
-Prefer one total constructor for an immutable external record. `[MapperConstructor]` chooses between equivalent external constructors, it does not select a domain transition. Types whose invariants depend on assignments after construction are not valid mapping targets. Mapperly cannot skip an init-only assignment to preserve its member initializer.
+Prefer one total constructor for an immutable external record. `[MapperConstructor]` chooses between equivalent external constructors, it does not select a domain transition. Types where invariants depend on assignments after construction are not valid mapping targets. Mapperly cannot skip an init-only assignment to preserve its member initializer.
 
 Mapperly object factories allocate or select the target and expose no typed failure channel. The factory is pure, deterministic, and synchronous. Nullable results fall back to a public parameterless construction or throw `NullReferenceException`. Factories do not resolve services, allocate domain identity, or call a rejecting domain factory. Object factories return a non-void type and take zero parameters or one parameter. Factories can be generic, with or without constraints, and the first factory with a matching signature wins. The Mapperly object factory is unrelated to the Thinktecture `[ObjectFactory<T>]`, which declares a validating conversion between two types.
 
@@ -129,7 +129,7 @@ LanguageExt collections keep their own construction policy. Direct assignment sh
 
 ## [05]-[QUERY_PROJECTIONS]
 
-Query projections are expression trees interpreted by a query provider. They live in the data adapter and return a read model or transport contract. Compose the generated projection into the query: `query.ProjectToDto().ToListAsync()`. Keep projection declarations separate from in-memory mappings when their conversion, null, or user-method policies differ. The projection method obtains member configuration from an element mapping with the same source and target pair. Projections with additional parameters read configuration from an element mapping whose additional parameters match by name.
+Query projections are expression trees interpreted by a query provider. They live in the data adapter and return a read model or transport contract. Compose the generated projection into the query: `query.ProjectToDto().ToListAsync()`. Keep projection declarations separate from in-memory mappings when their conversion, null, or user-method policies differ. The projection method obtains member configuration from an element mapping with the same source and target pair. Projections with additional parameters read configuration from an element mapping where additional parameters match by name.
 
 Mapperly must inline each user method, and the query provider must translate the resulting expression. Inlining needs an expression body, one return statement, or one local declaration followed by a return, any other shape reports `RMG068` and leaves the call in the expression. Additional parameters are immutable scalar query values. Services, mapper state, clocks, configuration objects, and request contexts do not enter the expression.
 
@@ -270,7 +270,7 @@ Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`:
 
 ## [09]-[MEMBER_CONFIGURATION]
 
-Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from PascalCase names. It does not resolve unflattening, which needs `MapPropertyAttribute`. Mapperly ignores indexed members. `MapNestedPropertiesAttribute` brings every member below one path into scope, as if the source declared them. Immediate source members outrank nested ones, and automatic flattening outranks both. Two nested paths that reach the same target member have no defined order. Name that mapping with `MapPropertyAttribute`.
+Mapperly resolves a flattening (`Car.Make.Id` to `CarDto.MakeId`) from PascalCase names. It does not resolve unflattening, which needs `MapPropertyAttribute`. Mapperly ignores indexed members. `MapNestedPropertiesAttribute` brings every member below one path into scope, as if the source declared them. Immediate source members outrank nested ones, and automatic flattening outranks both. Two nested paths that reach the same target member have no defined order. Name that mapping with `MapPropertyAttribute`.
 
 `MapPropertyAttribute` resolves name mismatches instead of renaming domain or DTO members. `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` silence the unmapped-member diagnostic for a computed field or another deliberate omission:
 
@@ -297,7 +297,7 @@ internal sealed record CustomerDto(Guid Id, string Name, string Email, DateTime 
 - `StringFormat` is the format string Mapperly passes to a `ToString` call on a type that implements `IFormattable`
 - `FormatProvider` names a field or property marked `FormatProviderAttribute`
 - Mapperly falls back to the one member that sets `Default` to `true`, and a mapper can set it on one member only
-- `MapValueAttribute` assigns a constant whose type matches the target, and with `Use` the result of a method whose return type matches it, parameters filled by name from the additional mapping parameters
+- `MapValueAttribute` assigns a constant of the target type, and with `Use` the result of a method returning that type, parameters filled by name from the additional mapping parameters
 
 | [INDEX] | [CONSTRUCTOR]                                                                                       | [EXPOSES]                 |
 | :-----: | :-------------------------------------------------------------------------------------------------- | :------------------------ |

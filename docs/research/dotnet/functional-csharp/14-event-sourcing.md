@@ -21,20 +21,20 @@ initial state = Create(first event)
 current state = remaining events.Fold(initial state, Apply)
 ```
 
-Two snapshots show that state changed but do not explain why. An event and prior state determine the next state.
+Two snapshots show that state changed but do not explain why. Event and prior state determine the next state.
 
-Keeping every historical snapshot is wasteful: each snapshot repeats all values that did not change, while explaining a change still requires comparing snapshots. An event history records the transition itself and derives whichever snapshot is needed.
+Keeping every historical snapshot is wasteful: each snapshot repeats all values that did not change, while explaining a change still requires comparing snapshots. Event history records the transition itself and derives whichever snapshot is needed.
 
 ## [02]-[CORE_MODEL]
 
 ### [02.1]-[EVENTS]
 
-An event is an immutable, serializable data object carrying the minimum information about something that already happened.
+Events are immutable, serializable data objects carrying the minimum information about something that already happened.
 
 - Its name is past tense: `CreatedAccount`, `DepositedCash`, `DebitedTransfer`
 - It cannot be rejected or changed
 - Its payload describes the occurrence, not a mutable entity snapshot
-- Events that cause state transitions belong in persistent event history; transient notifications must be distinguished from them
+- Events that cause state transitions belong in persistent event history, and transient notifications must be distinguished from them
 
 Each event is a sealed record case nested in one abstract partial base record, and `[Union]` closes the set:
 
@@ -52,7 +52,7 @@ internal abstract partial record Event {
 }
 ```
 
-Event types have different payload shapes. From most to least suitable, the storage options are an event store, a document database that accepts heterogeneous documents, and a relational database. Relational event tables need headers such as entity ID, timestamp, event type, and a payload column for serialized event data. These headers support retrieving one entity's history in order and filtering it by time. An existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
+Event types have different payload shapes. From most to least suitable, the storage options are an event store, a document database that accepts heterogeneous documents, and a relational database. Relational event tables need headers (entity ID, timestamp, event type) and a payload column for serialized event data. These headers support retrieving one entity's history in order and filtering it by time. Existing relational stores avoid extra operational infrastructure when only part of a system uses event sourcing.
 
 ### [02.2]-[STATE]
 
@@ -60,9 +60,9 @@ State is an immutable snapshot derived for a specific purpose. It is not necessa
 
 The command side needs only enough state to decide whether a command is allowed. For a bank account, this state can include status, currency, balance, and allowed overdraft, but not a complete transaction list.
 
-The query side needs read models, such as a monthly statement and its transactions. Analytics can use other projections. These models can differ because they answer independent questions.
+The query side needs read models (a monthly statement and its transactions). Analytics can use other projections. These models can differ because they answer independent questions.
 
-State objects expose read-only values and transformation methods that return new instances. Methods such as `Credit`, `Debit`, or `WithStatus` transform data; business rules belong in command validation.
+State objects expose read-only values and transformation methods that return new instances. Methods (`Credit`, `Debit`, `WithStatus`) transform data. Business rules belong in command validation.
 
 ```csharp
 internal enum AccountStatus {
@@ -92,7 +92,7 @@ Creation is the special case with no prior state:
 CreationEvent -> State
 ```
 
-Creation builds the first state from the creation event and can establish initial domain values, such as making a newly created account active. Later transition logic selects the event case through `Switch` and returns a new state. The same transition function must be used both when an event first occurs and when history is replayed. Duplicating these implementations risks producing a live state that cannot be reconstructed later.
+Creation builds the first state from the creation event and can establish initial domain values (a new account starts active). Later transition logic selects the event case through `Switch` and returns a new state. The same transition function must be used both when an event first occurs and when history is replayed. Duplicating these implementations risks producing a live state that cannot be reconstructed later.
 
 ```csharp
 internal static partial class Account {
@@ -109,13 +109,13 @@ internal static partial class Account {
 
 ### [02.4]-[PATTERN_MATCHING]
 
-Expression-oriented pattern matching keeps transitions as expressions. For a type with a fixed set of cases, such as an option or functional list, a type-specific `Match` method can require handlers for every case. `Event.Switch` takes one arm per case. New cases fail to compile until each `Switch` names them. Replayed creation events leave an existing state unchanged.
+Expression-oriented pattern matching keeps transitions as expressions. For a type with a fixed set of cases (an option or functional list), a type-specific `Match` method can require handlers for every case. `Event.Switch` takes one arm per case. New cases fail to compile until each `Switch` names them. Replayed creation events leave an existing state unchanged.
 
 Structural matching is useful for sequences. `Seq<Event>` exposes `Head` as an `Option<Event>` and `Tail` as the remaining `Seq<Event>`. This makes the distinction between a nonexistent entity and a replayable history explicit.
 
 ## [03]-[ENTITY_RECONSTRUCTION]
 
-History must be retrieved in occurrence order. An empty history means no entity is recorded. Reconstruction returns an optional state, not a default entity.
+History must be retrieved in occurrence order. Empty history means no entity is recorded. Reconstruction returns an optional state, not a default entity.
 
 Reconstruct a non-empty history as follows:
 1. Treat the first event as the required entity-creation event
@@ -148,7 +148,7 @@ events  -> fold/map/filter -> projection or view model -> query response
 
 ### [04.1]-[COMMAND_SIDE]
 
-An imperative request such as `MakeTransfer` is a command. Unlike an event, it can be invalid, ignored, or interrupted before completion.
+Imperative requests (`MakeTransfer`) are commands. Unlike events, they can be invalid, ignored, or interrupted before completion.
 
 Commands are named imperatively because they are requests. Commands and resulting events can share fields, but conversion can add or derive values.
 
@@ -179,7 +179,7 @@ internal static partial class Account {
 }
 ```
 
-General input validation and state-dependent business validation are dependent computations. They compose with `Bind`. Persistence is a side effect that runs only for a valid result. Loading history returns `IO<Seq<Event>>`, and saving an event returns `IO<Unit>`. An `Atom<Seq<Event>>` holds the events in memory:
+General input validation and state-dependent business validation are dependent computations. They compose with `Bind`. Persistence is a side effect that runs only for a valid result. Loading history returns `IO<Seq<Event>>`, and saving an event returns `IO<Unit>`. `Atom<Seq<Event>>` holds the events in memory:
 
 ```csharp
 internal static class EventStore {
@@ -208,7 +208,7 @@ Expected rejection and I/O failure are different effects. Expected rejection is 
 
 ### [04.2]-[PERSISTENCE_AND_PUBLISHING]
 
-An accepted event can trigger multiple subscribers: external transfers, reserve calculations, notifications, and projection updates. Persisting the event and making it available to handlers must behave atomically. Saving an event and then crashing before it reaches subscribers can leave the system inconsistent.
+Accepted events can trigger multiple subscribers: external transfers, reserve calculations, notifications, and projection updates. Persisting the event and making it available to handlers must behave atomically. Saving an event and then crashing before it reaches subscribers can leave the system inconsistent.
 
 The guarantee depends on storage and messaging infrastructure. Durable subscriptions can use the event store as the event stream and provide at-least-once delivery. The command handler then only saves the event.
 
@@ -254,6 +254,6 @@ Choose event sourcing when:
 - Commands and the views consumed by users have different shapes
 - Reconstructing how and why an entity evolved is central
 
-An auction illustrates these conditions: bids and auction closure are meaningful occurrences, while clients submit individual actions but consume item details, bid histories, and purchase lists.
+Auctions illustrate these conditions: bids and auction closure are meaningful occurrences, while clients submit individual actions but consume item details, bid histories, and purchase lists.
 
 Prefer valid-time storage when attributes and their validity intervals are the principal domain concepts. Product administration fits this model when it records creation, retirement, and modification and requires a temporal history of facts.

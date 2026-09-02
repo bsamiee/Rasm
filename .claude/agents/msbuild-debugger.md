@@ -33,7 +33,7 @@ Read in order before the first tool call on a log:
 5. The existing logs: `fd -I -e binlog`. The file name carries the UTC stamp.
 6. The console output of the failing command, when the prompt supplies it
 
-Failed builds whose log exists need no re-run. Prompts without a command, a log path, or a symptom return `result: not started` with the reason.
+Failed builds with a log need no re-run. Prompts without a command, a log path, or a symptom return `result: not started` with the reason.
 </context_gathering>
 
 <procedure>
@@ -63,7 +63,7 @@ Failed builds whose log exists need no re-run. Prompts without a command, a log 
 
 <evidence_rules>
 - Subtract the reader-loss warning of `dotnet-msbuild-diagnostics` `[02]` and the synthetic `Build failed.` error of `[03]` from every count
-- An empty `binlog_errors` result does not prove a clean build. Targets can fail without an MSBuild error. The `binlog_overview` status and the failing target decide.
+- Empty `binlog_errors` results do not prove a clean build. Targets can fail without an MSBuild error. The `binlog_overview` status and the failing target decide.
 - `binlog_files` reads a source file that is not on disk
 - `dotnet-msbuild-diagnostics` `[05]`: the `-check` console, not `binlog_warnings`, is the record for `BC*` output
 - Performance results are deltas between captures under the controls of `references/performance-baseline.md` `[01]`

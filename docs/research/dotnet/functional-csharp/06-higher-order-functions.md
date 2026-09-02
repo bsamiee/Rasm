@@ -14,8 +14,8 @@ Delegates treat behavior as a first-class value.
 
 Higher-order functions can own stable control flow while the caller supplies the varying rule. For example, `Seq<A>.Filter(Func<A, bool>)` owns iteration while the caller owns the inclusion criterion. This separates concerns that would otherwise be interleaved. The pattern supports:
 - Iteration: invoke a selector, predicate, or comparison for each relevant element
-- Conditional execution: invoke a callback only when needed, such as computing a value after a cache miss
-- Inversion of control: the caller chooses what behavior to supply; the higher-order function chooses when to run it
+- Conditional execution: invoke a callback only when needed, for example after a cache miss
+- Inversion of control: the caller chooses what behavior to supply, and the higher-order function chooses when to run it
 
 When optional work can be expensive, accept it as a function to evaluate it only when needed:
 
@@ -162,12 +162,12 @@ The skipped branch has no computed result. Both return `IO<Unit>` for the host t
 ## [07]-[FUNCTIONS_AS_DATA]
 
 Storing functions in collections, passing them into adapters, or returning them can express control flow as data:
-In `Func<T1, ..., TResult>`, every type except the last is a parameter type; the final type is the return type. Functions stored together need compatible signatures.
+In `Func<T1, ..., TResult>`, every type except the last is a parameter type, and the final type is the return type. Functions stored together need compatible signatures.
 
 - Collections of transformations apply several views to one input
 - Collections of predicates become validation policies
 - Ordered collections of predicate-transform pairs become decision tables
-- Returned functions can narrow access to one guarded operation; ordinary adapter functions can hide repetitive conversion branches
+- Returned functions can narrow access to one guarded operation, and ordinary adapter functions can hide repetitive conversion branches
 
 ### [07.1]-[TRANSFORMATION_COLLECTIONS]
 
@@ -200,7 +200,7 @@ internal static class Policies {
 Use `ForAll` when each predicate states what valid input must satisfy. Use `Exists` when each predicate describes a violation:
 - `ForAll` stops at the first failed rule
 - `Exists` stops at the first detected violation
-- Empty validity rule sets return `true`; empty violation sets return `false`
+- Empty validity rule sets return `true`, empty violation sets return `false`
 
 Short-circuiting is appropriate for a boolean answer. It is not suitable when every failure must be reported, because later rules do not run. Validators that return typed errors accumulate every failure instead.
 
@@ -227,7 +227,7 @@ internal static class RuleTables {
 }
 ```
 
-The first matching predicate wins. Ordering is part of the meaning. Each predicate can contain detailed criteria or delegate that decision to a named function. Fallbacks make the operation defined for every input. `Seq.Find` returns an `Option`, the missing case is `None` and the `Match` on that `Option` selects the fallback without a null check. Staged `.Match(...).DefaultMatch(...)` designs must track whether a predicate matched; inferring "no match" by comparing the transformed value with `default(TOutput)` fails, because a matching transformation can return `0`, `false`, or `null`. Passing the fallback directly avoids that ambiguity.
+The first matching predicate wins. Ordering is part of the meaning. Each predicate can contain detailed criteria or delegate that decision to a named function. Fallbacks make the operation defined for every input. `Seq.Find` returns an `Option`, the missing case is `None` and the `Match` on that `Option` selects the fallback without a null check. Staged `.Match(...).DefaultMatch(...)` designs must track whether a predicate matched. Inferring "no match" by comparing the transformed value with `default(TOutput)` fails, because a matching transformation can return `0`, `false`, or `null`. Passing the fallback directly avoids that ambiguity.
 
 This matches values with predicates, not object types. For a fixed decision, use a native switch expression. Using `KeyValuePair` instead of tuples adds syntax without changing the mechanism.
 
@@ -253,7 +253,7 @@ internal static class Parsing {
 }
 ```
 
-Call sites can construct a settings value directly, and every default is visible beside its setting. This technique collapses missing and invalid input into the same fallback; use it only when callers do not need to distinguish those cases.
+Call sites can construct a settings value directly, and every default is visible beside its setting. This technique collapses missing and invalid input into the same fallback. Use it only when callers do not need to distinguish those cases.
 
 The `Option`-returning forms, `parseInt` and `HashMap.Find`, preserve every outcome. `IfNone` extracts a value from the `Option` by applying a fallback. Call it at the boundary that selects that fallback.
 

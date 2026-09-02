@@ -2,13 +2,13 @@
 
 ## Wrap-up
 
-Functional programming is powerful and elegant. It excels at essential programming techniques: abstraction and composition.
+Functional programming excels at essential programming techniques: abstraction and composition.
 
 ### Abstraction
 
 - Functions abstract computations, they work for any suitable argument rather than one particular value
 - Functional and imperative languages commonly use functions for this kind of abstraction. Functional programming extends it by treating functions as first-class values: functions can be passed as inputs and returned as outputs.
-- Higher-order functions such as `accumulate`, `map`, `filter`, and `fold` capture highly general computation patterns
+- Higher-order functions (`accumulate`, `map`, `filter`, `fold`) capture highly general computation patterns
 - Because these mechanisms express reusable methods of computation directly, functional programming is especially strong at abstraction
 
 ### Composition
@@ -32,9 +32,9 @@ The functional way of thinking can initially seem intimidating, but its major id
 
 ## Where to go next
 
-The most effective next step is to apply functional programming in real projects. Mainstream languages such as Kotlin, Java, JavaScript, Swift, Python, and Scala readily support functional programming.
+The most effective next step is to apply functional programming in real projects. Mainstream languages (Kotlin, Java, JavaScript, Swift, Python, Scala) readily support functional programming.
 
-Books, tutorials, blog posts, and documentation can support deeper study; the right resource depends on what you want to explore.
+Books, tutorials, blog posts, and documentation can support deeper study, the right resource depends on what you want to explore.
 
 For deeper study of functional thinking:
 - Structure and Interpretation of Computer Programs (SICP, also called the Wizard Book), by Harold Abelson and Gerald Jay Sussman with Julie Sussman

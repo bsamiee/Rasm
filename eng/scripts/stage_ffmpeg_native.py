@@ -1,9 +1,9 @@
-"""Build the FFmpeg shared libraries for one runtime identifier and stage them for packing.
+"""Build the FFmpeg shared libraries for a runtime identifier and stage them for packing.
 
-CI matrix: macos arm64, ubuntu x64, windows x64 each stage their runtime identifier, one job
+CI matrix: macos arm64, ubuntu x64, windows x64 stage their runtime identifiers, then a job
 collects .artifacts/native/ffmpeg/stage and runs the eng pack-ffmpeg-native target alone. On
-macOS every install name is rewritten to @loader_path and re-signed ad hoc so dotnet default
-probing loads the encoder-capable set from one output directory.
+macOS every install name is rewritten to @loader_path and re-signed ad hoc, dotnet default
+probing loads the encoder-capable set from the output directory.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -28,7 +28,7 @@ app = cyclopts.App(name="stage-ffmpeg-native")
 
 
 async def _stage(rid: Rid) -> Path:
-    """Build the manifest with vcpkg and stage every runtime library for one rid."""
+    """Build the manifest with vcpkg and stage every runtime library for the rid."""
     target = vcpkg_target(rid, "ffmpeg", closure=True)
     tools = await native_build_tools()
     built = await vcpkg_install(tools, _WORK, target, vcpkg_args(_MANIFEST_ROOT, _WORK, target.triplet))

@@ -65,7 +65,7 @@ internal static class EffectfulRateCache {
 }
 ```
 
-`StateT.get` reads the whole state, `StateT.liftIO` lifts the fetch into the transformer, and `StateT.put` writes the new map. If a fetch fails on the `IO` error channel, the host retains the original cache. Only a successful lookup yields a cache containing the new rate. `Run(state)` on a `StateT` returns `K<IO, (Value, State)>`. `.As()` converts it, `RunSafe()` executes it, and the host maps the resulting `Fin` cases to its own result type. An `IO` started with `Fork` inside the transformer reads no state and writes none back. `IO` makes failure handling explicit without scattered `try/catch` blocks.
+`StateT.get` reads the whole state, `StateT.liftIO` lifts the fetch into the transformer, and `StateT.put` writes the new map. If a fetch fails on the `IO` error channel, the host retains the original cache. Only a successful lookup yields a cache containing the new rate. `Run(state)` on a `StateT` returns `K<IO, (Value, State)>`. `.As()` converts it, `RunSafe()` executes it, and the host maps the resulting `Fin` cases to its own result type. `IO` forked inside the transformer reads no state and writes none back. `IO` makes failure handling explicit without scattered `try/catch` blocks.
 
 ## [03]-[STATE_TRANSITIONS]
 
@@ -82,7 +82,7 @@ Use explicit state passing for an isolated transition. Extracting and forwarding
 - `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the first computation's returned state
 - `State.pure` lifts a value into a computation that returns the state unchanged
 
-`Select` and `SelectMany` expose these operations to LINQ query syntax. The syntax hides state extraction and forwarding; it preserves the dependency and its order.
+`Select` and `SelectMany` expose these operations to LINQ query syntax. The syntax hides state extraction and forwarding but preserves the dependency and its order.
 
 The produced value can be an `Option<A>`, as `OptionInt` shows. The seed advances on every bind, and the consumer matches the option at the boundary. The produced value can also be a function, which lets a stateful computation carry behavior and data.
 
@@ -90,7 +90,7 @@ The produced value can be an `Option<A>`, as `OptionInt` shows. The seed advance
 
 ## [04]-[RANDOM_GENERATION]
 
-Composable generators support property-based testing, load testing, and simulations such as Monte Carlo methods.
+Composable generators support property-based testing, load testing, and simulations (Monte Carlo methods).
 
 Conventional pseudo-random generators are deterministic but hide state. The seed is an implicit input to `Next`, and the updated seed is an implicit output affecting the next call. Make both explicit with a `State<int, A>`:
 
@@ -98,7 +98,7 @@ Conventional pseudo-random generators are deterministic but hide state. The seed
 int -> (A, int)
 ```
 
-An explicit seed makes generation repeatable and testable. `Run(seed)` returns the value with the next seed, and the host chooses the seed. Seeding from the clock is impure and not testable.
+Explicit seeds make generation repeatable and testable. `Run(seed)` returns the value with the next seed, and the host chooses the seed. Seeding from the clock is impure and not testable.
 
 ### [04.1]-[PRIMITIVE_GENERATOR]
 
@@ -190,7 +190,7 @@ internal static class Numbering {
 }
 ```
 
-For a leaf, the computation creates a new leaf containing the original value and current count, then returns the incremented count as its new state. For a branch, it numbers the left subtree, then numbers the right subtree with the state returned by the left. The result is a new tree whose leaves carry their traversal number:
+For a leaf, the computation creates a new leaf containing the original value and current count, then returns the incremented count as its new state. For a branch, it numbers the left subtree, then numbers the right subtree with the state returned by the left. The result is a new tree with leaves carrying their traversal number:
 
 ```csharp
 internal abstract record Tree<T> {
@@ -220,7 +220,7 @@ Simulations and parsers can also use state transitions. Functional parsers can t
 ## [06]-[REPRESENTATION_CHOICE]
 
 - Keep state visible in inputs and outputs to expose dependencies and sequencing
-- Use immutable state values; the caller advances by selecting the returned value as the next state
+- Use immutable state values, and the caller advances by selecting the returned value as the next state
 - Keep explicit tuple passing for short state flows
 - Use composition when many dependent transitions otherwise repeat manual state extraction and forwarding
 - Treat sequencing as semantic: each computation receives the state produced by its predecessor

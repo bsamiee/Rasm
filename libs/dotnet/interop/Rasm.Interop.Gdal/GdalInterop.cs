@@ -2,11 +2,11 @@ using MaxRev.Gdal.Core;
 
 namespace Rasm.Interop.Gdal;
 
-/// <summary>GDAL driver and PROJ registration; executables call <see cref="Initialize"/> once at the composition root</summary>
+/// <summary>GDAL driver and PROJ registration for executables to call once at the composition root</summary>
 /// <remarks>
-/// Every dataset open fails until <see cref="GdalBase.ConfigureAll"/> registers the raster and vector drivers and points PROJ at its resource database;
-/// double-checked locking makes repeated and concurrent calls return immediately, and the completion flag sets only after success, leaving a failed
-/// attempt retryable; the facade references MaxRev.Gdal.Core alone because the native libraries travel in the runtime packages
+/// Every dataset open fails until <see cref="GdalBase.ConfigureAll"/> registers the raster and vector drivers and points PROJ at its resource database.
+/// Double-checked locking returns repeated and concurrent calls immediately. The completion flag sets only after success, leaving a failed
+/// attempt retryable. The facade references MaxRev.Gdal.Core alone because the native libraries travel in the runtime packages
 /// MaxRev.Gdal.MacosRuntime.Minimal.arm64, MaxRev.Gdal.LinuxRuntime.Minimal, and MaxRev.Gdal.WindowsRuntime.Minimal, referenced by each executable to
 /// match the RIDs it publishes for
 /// </remarks>

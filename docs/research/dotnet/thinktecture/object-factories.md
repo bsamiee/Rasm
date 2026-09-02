@@ -19,7 +19,7 @@ static ValidationError? Validate(T? value, IFormatProvider? provider, out TSelf?
 - The `provider` argument arrives from the caller, and the generated `Parse` forwards its own argument
 - The model binder passes the culture of the value provider result, and every serializer converter and the value converter pass `null`
 
-Factories on a keyed type or a complex value object delegate to the generated `Validate` of the key member or of the members. Normalization in `ValidateFactoryArguments` then runs once for both construction paths. Factories whose `T` equals the key type of a keyed type collide with the generated `Validate` overload and do not compile.
+Factories on a keyed type or a complex value object delegate to the generated `Validate` of the key member or of the members. Normalization in `ValidateFactoryArguments` then runs once for both construction paths. Factories where `T` equals the key type of a keyed type collide with the generated `Validate` overload and do not compile.
 
 ## [02]-[CONVERSION_DIRECTIONS]
 
@@ -86,9 +86,9 @@ internal static class ShippingMethods {
 
 ## [05]-[ENTITY_FRAMEWORK_READ_PATH]
 
-`HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, and the generated metadata carries the expression `static TSelf (T value) => new TSelf(value)`. The value converter compiles it for reads when `UseConstructorForRead` is `true`, which is its default in the `Configuration` class. Reads through the constructor skip `Validate` and every normalization. The stored value is trusted as it is. `TTRESG059` reports a type whose declared constructor is missing, and `TTRESG060` reports a smart enum with the property set, because smart enum items are predefined. The constructor is used by Entity Framework Core alone. JSON, MessagePack, and model binding always go through `Validate`.
+`HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, and the generated metadata carries the expression `static TSelf (T value) => new TSelf(value)`. The value converter compiles it for reads when `UseConstructorForRead` is `true`, which is its default in the `Configuration` class. Reads through the constructor skip `Validate` and every normalization. The stored value is trusted as it is. `TTRESG059` reports a type missing the declared constructor, and `TTRESG060` reports a smart enum with the property set, because smart enum items are predefined. The constructor is used by Entity Framework Core alone. JSON, MessagePack, and model binding always go through `Validate`.
 
-Without the constructor, or with `UseConstructorForRead = false`, a read calls `Validate(value, null, out item)`. `ValidationError` becomes a `ValidationException`, and a `null` item for a non-null column value becomes an exception whose message names the factory and the type. Writes call `ToValue`. The max length strategies apply to smart enums and keyed value objects, and they skip a type that has a factory with `UseWithEntityFramework = true`. The default configuration applies a strategy to smart enums alone, and every other column length comes from `HasMaxLength`.
+Without the constructor, or with `UseConstructorForRead = false`, a read calls `Validate(value, null, out item)`. `ValidationError` becomes a `ValidationException`, and a `null` item for a non-null column value becomes an exception with a message naming the factory and the type. Writes call `ToValue`. The max length strategies apply to smart enums and keyed value objects, and they skip a type that has a factory with `UseWithEntityFramework = true`. The default configuration applies a strategy to smart enums alone, and every other column length comes from `HasMaxLength`.
 
 `FileLocation` is a complex value object with two members and one `string` representation. `Validate` splits the string and delegates to the generated member `Validate`. `ValidateFactoryArguments` trims and rejects on both paths. The private constructor exists for the read path alone.
 
@@ -128,7 +128,7 @@ Reads of `" store :doc"` through the constructor keep the padding, and a read th
 
 ## [06]-[MULTIPLE_FACTORIES]
 
-Several factories with distinct `T` coexist on one type, one `Validate` and one `ToValue` per `T`. Each integration point belongs to at most one factory. `TTRESG068` reports two factories with `UseWithEntityFramework = true`, and `TTRESG069` reports two with `UseForModelBinding = true`. `TTRESG070` reports two whose `UseForSerialization` flags overlap and names the shared framework. At most one factory per integration point survives. The order of the attributes does not select a factory.
+Several factories with distinct `T` coexist on one type, one `Validate` and one `ToValue` per `T`. Each integration point belongs to at most one factory. `TTRESG068` reports two factories with `UseWithEntityFramework = true`, and `TTRESG069` reports two with `UseForModelBinding = true`. `TTRESG070` reports two with overlapping `UseForSerialization` flags and names the shared framework. At most one factory per integration point survives. The order of the attributes does not select a factory.
 
 ```csharp
 [SmartEnum<int>]
@@ -170,7 +170,7 @@ Both JSON serializers write `"two"`. MessagePack converts through the `char` fac
 
 ## [07]-[SPAN_BASED_JSON]
 
-`ReadOnlySpan<char>` factories flagged `SystemTextJson` receive the JSON string as a span instead of a `string`. The generated attribute is `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`. The reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters. Longer values rent from `ArrayPool<char>.Shared`. An escaped value is unescaped through `CopyString` first. Tokens other than a string or a property name draw a `JsonException`. Spans match string constants, and a known value creates no `string`.
+`ReadOnlySpan<char>` factories flagged `SystemTextJson` receive the JSON string as a span instead of a `string`. The generated attribute is `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`. The reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters. Longer values rent from `ArrayPool<char>.Shared`. Escaped values are unescaped through `CopyString` first. Tokens other than a string or a property name draw a `JsonException`. Spans match string constants, and a known value creates no `string`.
 
 `TTRESG078` reports a ref-struct factory with `UseWithEntityFramework = true` or `UseForModelBinding = true`. Neither a value converter nor a model binder accepts a ref struct as a generic argument. `TTRESG108` warns when a ref-struct factory is flagged for a framework that ignores it, and its message lists those frameworks. `ReadOnlySpan<char>` with `SystemTextJson` is the one supported combination, and any other ref struct also triggers the warning under `SystemTextJson`. The generator then binds the key member in the attribute it emits for those frameworks. `string` and `ReadOnlySpan<char>` factories on one type must not both carry `SystemTextJson`, and `TTRESG070` reports the overlap. String-keyed smart enums already deserialize through the span converter, and `DisableSpanBasedJsonConversion = true` on `[SmartEnum<string>]` opts out.
 
@@ -197,7 +197,7 @@ internal readonly partial struct Region {
 
 ## [08]-[UNIONS_AND_PLAIN_TYPES]
 
-An ad hoc union carries no type discriminator. Factories alone serialize it as one value. `Validate` assigns a `T1` or `T2` value to `item` through the implicit conversion of the union, and `ToValue` renders the active case with `Switch`. Regular unions, abstract partial records with case records, accept the same attribute as an alternative to polymorphic JSON.
+Ad hoc unions carry no type discriminator. Factories alone serialize them as one value. `Validate` assigns a `T1` or `T2` value to `item` through the implicit conversion of the union, and `ToValue` renders the active case with `Switch`. Regular unions, abstract partial records with case records, accept the same attribute as an alternative to polymorphic JSON.
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Number")]

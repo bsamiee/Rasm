@@ -1,6 +1,6 @@
 # [FOLDABLES]
 
-`Foldable<F>` abstracts aggregation over a structure. The structure decides which values participate and in what order; the caller supplies an initial state and a binary step that reduces those values to one result.
+`Foldable<F>` abstracts aggregation over a structure. The structure decides which values participate and in what order, the caller supplies an initial state and a binary step that reduces those values to one result.
 
 ## [01]-[PRIMITIVE_OPERATIONS]
 
@@ -42,7 +42,7 @@ For `[a, b, c]`, the results are `"abc"` and `"cba"`.
 
 ## [02]-[HIGHER_KINDED_REPRESENTATION]
 
-`K<F, A>` separates the shape `F` from the contained value type `A`. Concrete data types derive from the matching higher-kinded marker; a witness type implements the capability.
+`K<F, A>` separates the shape `F` from the contained value type `A`. Concrete data types derive from the matching higher-kinded marker, a witness type implements the capability.
 
 ```csharp
 public abstract record Either<L, R> : K<Either<L>, R>;
@@ -79,17 +79,17 @@ public class Either<L> :
 }
 ```
 
-The witness removes the concrete type's final value parameter and lets each trait method supply it. `Either<L, R>` uses the partially applied witness `Either<L>`; the same pattern gives `List<A>` the witness `List` and `Maybe<A>` the witness `Maybe`. The arrangement adds capabilities without modifying the concrete value type, and one witness implements several traits, such as `Functor<F>` and `Foldable<F>`.
+The witness removes the concrete type's final value parameter and lets each trait method supply it. `Either<L, R>` uses the partially applied witness `Either<L>`. The same pattern gives `List<A>` the witness `List` and `Maybe<A>` the witness `Maybe`. The arrangement adds capabilities without modifying the concrete value type, and one witness implements several traits (`Functor<F>`, `Foldable<F>`).
 
 ## [03]-[SHAPE_SEMANTICS]
 
 Implementations preserve the meaning of their structure:
-- Lists contribute every element in list order; `FoldBack` reverses that traversal
-- `Just<A>` contributes its value once; `Nothing<A>` contributes none
-- `Right<L, A>` contributes its right value once; `Left<L, A>` contributes none
+- Lists contribute every element in list order, `FoldBack` reverses that traversal
+- `Just<A>` contributes its value once, `Nothing<A>` contributes none
+- `Right<L, A>` contributes its right value once, `Left<L, A>` contributes none
 - For a zero-element or one-element shape, `Fold` and `FoldBack` agree, because direction cannot change the visit sequence
 
-The fold removes the outer structure. Left values and absence never become an arbitrary `A`; the state stays unchanged.
+The fold removes the outer structure. Left values and absence never become an arbitrary `A`, the state stays unchanged.
 
 ## [04]-[GENERIC_DISPATCH]
 
@@ -171,7 +171,7 @@ static virtual IEnumerable<A> AsEnumerable<A>(K<F, A> fa)
 
 ## [06]-[DEFAULTS_AND_SPECIALIZATION]
 
-Put universally correct implementations on `Foldable<F>` as `static virtual` members. Every witness receives the complete operation family; override only where the representation enables materially better behavior. For an array-backed list:
+Put universally correct implementations on `Foldable<F>` as `static virtual` members. Every witness receives the complete operation family, override only where the representation enables materially better behavior. For an array-backed list:
 
 ```csharp
 public static int Count<A>(K<List, A> values) =>
@@ -193,13 +193,13 @@ Useful specializations:
 - `All` and `Any` as loops that stop as soon as the answer is known
 - `Fold` as a forward loop and `FoldBack` as an index-based reverse loop, without intermediate reversal and iterator overhead
 
-The defaults are close to the natural implementation for zero-or-one-value shapes such as `Maybe` and `Either`; representation-specific overrides pay off most for structures such as an array-backed list. The default fold-derived `All`, `Any`, and `IsEmpty` visit the whole structure, because a strict fold cannot stop the traversal. Boolean short-circuiting inside `step` skips later predicate calls; it does not stop enumeration. True early exit requires a witness override.
+The defaults are close to the natural implementation for zero-or-one-value shapes (`Maybe`, `Either`). Representation-specific overrides pay off most for array-backed structures. The default fold-derived `All`, `Any`, and `IsEmpty` visit the whole structure, because a strict fold cannot stop the traversal. Boolean short-circuiting inside `step` skips later predicate calls, it does not stop enumeration. True early exit requires a witness override.
 
 Specialization preserves results, traversal direction, empty behavior, and predicate evaluation order. Optimize the representation, not the semantics.
 
 ## [07]-[ABSTRACTION_AND_REPRESENTATION]
 
-Generic functions target any `Foldable<F>`; dispatch still reaches that `F`'s optimized trait members. This differs from exposing a collection as `IEnumerable<A>`: through that interface, generic extensions see an enumerator and lose representation facts such as a stored length or direct indexing. Foldable witnesses keep those facts behind the common capability and use them for `Count`, reverse traversal, conversion, and early exit.
+Generic functions target any `Foldable<F>`. Dispatch still reaches that `F`'s optimized trait members. This differs from exposing a collection as `IEnumerable<A>`: through that interface, generic extensions see an enumerator and lose representation facts (a stored length, direct indexing). Foldable witnesses keep those facts behind the common capability and use them for `Count`, reverse traversal, conversion, and early exit.
 
 The working sequence:
 1. Implement `Fold` and `FoldBack` for the shape

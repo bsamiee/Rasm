@@ -14,5 +14,5 @@ language js(typescript, jsx)
     },
     $alias <: not within arrow_function() ,
     $alias <: not within `class $klass { $members }` ,
-    register_diagnostic(span=$alias, message="Rename wrapper: this declaration forwards a bare symbol. Export the owner under its one canonical name; resolution is one hop to semantics.", severity="error")
+    register_diagnostic(span=$alias, message="Rename wrapper: this declaration forwards a bare symbol. Export the owner under its canonical name and keep resolution to a single hop.", severity="error")
 }

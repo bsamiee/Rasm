@@ -4,7 +4,7 @@ Value objects are domain values defined by their content, not by identity. Two i
 
 ## [01]-[PRIMITIVE_OBSESSION]
 
-`string`, `int`, or `decimal` in a signature carries no rule and no meaning. Two parameters of the same primitive type swap without a compiler error. Validation of the same value repeats at every construction site, and a rule change misses a copy. Normalization such as trimming or rounding is skipped where a construction site forgets it. The signals for a value object are duplicated validation, confusable parameters, magic strings or numbers, primitives that always travel together, and behavior tied to a raw value. Concepts with one value become simple value objects. Concepts with several values belonging together become complex value objects.
+`string`, `int`, or `decimal` in a signature carries no rule and no meaning. Two parameters of the same primitive type swap without a compiler error. Validation of the same value repeats at every construction site, and a rule change misses a copy. Normalization (trimming, rounding) is skipped where a construction site forgets it. The signals for a value object are duplicated validation, confusable parameters, magic strings or numbers, primitives that always travel together, and behavior tied to a raw value. Concepts with one value become simple value objects. Concepts with several values belonging together become complex value objects.
 
 ## [02]-[SIMPLE_AND_COMPLEX]
 
@@ -46,7 +46,7 @@ internal sealed partial class Boundary {
 
 ## [03]-[GENERATED_API]
 
-`Create(value)` validates and returns the instance, or throws `System.ComponentModel.DataAnnotations.ValidationException` whose message is `validationError.ToString()`. `TryCreate(value, out T? obj)` returns `false` on rejection, and `TryCreate(value, out T? obj, out ValidationError? validationError)` also hands back the error. `Validate(value, IFormatProvider? provider, out T? obj)` returns the error or `null` and never throws. Complex value objects take one argument per member in declaration order, and `Validate` has no provider parameter. `null` arguments for a non-nullable key return the error `The argument 'value' must not be null.`. `null` non-nullable members of a complex value object return `The member "PostalCode" of type "Address" must not be null.` before the hook runs.
+`Create(value)` validates and returns the instance, or throws `System.ComponentModel.DataAnnotations.ValidationException` with the message `validationError.ToString()`. `TryCreate(value, out T? obj)` returns `false` on rejection, and `TryCreate(value, out T? obj, out ValidationError? validationError)` also hands back the error. `Validate(value, IFormatProvider? provider, out T? obj)` returns the error or `null` and never throws. Complex value objects take one argument per member in declaration order, and `Validate` has no provider parameter. `null` arguments for a non-nullable key return the error `The argument 'value' must not be null.`. `null` non-nullable members of a complex value object return `The member "PostalCode" of type "Address" must not be null.` before the hook runs.
 
 Equality, `GetHashCode`, `==`, and `!=` run through the configured comparer. `ToString()` of a simple value object returns the key's `ToString()`. `ToString()` of a complex value object formats the equality members as `{ Lower = 1.23, Upper = 2.57 }`. The simple form implements `IComparable<T>` and `IComparable` when the key is comparable, and `IFormattable` when the key is formattable. It implements `IParsable<T>` when the key is parsable or a `string`. It implements `ISpanParsable<T>` when the key is span-parsable. `Parse(string s, IFormatProvider? provider)` throws `FormatException` with the validation text, and `TryParse(s, provider, out obj)` returns `false`. `[TypeConverter(typeof(ThinktectureTypeConverter<T, TKey, TValidationError>))]` is emitted on every simple value object with factory methods.
 
@@ -54,7 +54,7 @@ Equality, `GetHashCode`, `==`, and `!=` run through the configured comparer. `To
 
 ## [04]-[VALIDATION_HOOK]
 
-`ValidateFactoryArguments` is a `static partial void` method. The first parameter is `ref ValidationError? validationError`, and each following parameter is the key or a member by `ref`. The hook rejects input by assigning `validationError` and normalizes input by assigning the `ref` parameter. The compiler erases a `void` partial method without an implementation. Types without rules pay nothing. Every entry point runs the hook: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, the JSON converters, the MessagePack formatter, and model binding. `ValidateConstructorArguments(ref TKey value)` exists, and it rejects input by throwing alone. The factory hook is the correct place for a rule over one value and reports the first violated rule; independent rules over several inputs accumulate at the input boundary.
+`ValidateFactoryArguments` is a `static partial void` method. The first parameter is `ref ValidationError? validationError`, and each following parameter is the key or a member by `ref`. The hook rejects input by assigning `validationError` and normalizes input by assigning the `ref` parameter. The compiler erases a `void` partial method without an implementation. Types without rules pay nothing. Every entry point runs the hook: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, the JSON converters, the MessagePack formatter, and model binding. `ValidateConstructorArguments(ref TKey value)` exists, and it rejects input by throwing alone. The factory hook is the correct place for a rule over one value and reports the first violated rule, independent rules over several inputs accumulate at the input boundary.
 
 ## [05]-[HOOK_PARAMETERS]
 
@@ -92,7 +92,7 @@ Complex value objects compare every assignable member. `DefaultStringComparison`
 
 ## [07]-[CUSTOM_VALIDATION_ERROR]
 
-`ValidationError` is a sealed class with a `Message`. Custom error types implement `IValidationError<T>`, whose one member is `static abstract T Create(string message)`. The generator calls `Create` for its own errors, such as the null-argument error. `ToString()` is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state. The custom type overrides it, and `Expected.ToString()` returns `Message`. `[ValidationError<T>]` on the value object switches the hook parameter, the second `TryCreate` overload, and `Validate` to the custom type.
+`ValidationError` is a sealed class with a `Message`. Custom error types implement `IValidationError<T>`, with the one member `static abstract T Create(string message)`. The generator calls `Create` for its own errors (the null-argument error). `ToString()` is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state. The custom type overrides it, and `Expected.ToString()` returns `Message`. `[ValidationError<T>]` on the value object switches the hook parameter, the second `TryCreate` overload, and `Validate` to the custom type.
 
 ```csharp
 internal sealed record BoundaryValidationError(string Message, decimal? Lower, decimal? Upper) : IValidationError<BoundaryValidationError> {
@@ -160,7 +160,7 @@ Struct value objects reject `default(T)` and `new T()` by default. The generator
 - It also stays `false` when the type implements `IDisallowDefaultValue` by hand (`TTRESG080`)
 - `IDisallowDefaultValue` on a class warns with `TTRESG110`, because a class defaults to `null`
 
-Choose a class when absence is a domain state and `null` expresses it. Choose a struct for a small value that is always valid. Allow the default when it has a domain meaning such as zero or infinity.
+Choose a class when absence is a domain state and `null` expresses it. Choose a struct for a small value that is always valid. Allow the default when it has a domain meaning (zero, infinity).
 
 ## [12]-[CUSTOM_KEY_MEMBER]
 
@@ -288,7 +288,7 @@ Every package name below omits the prefix `Thinktecture.Runtime.Extensions.`.
 
 `System.Text.Json.JsonSerializer.Serialize` writes `Amount.Create(10.5m)` as `10.5`, `Boundary.Create(1m, 2m)` as `{"Lower":1,"Upper":2}`, and a `FileUrn` as its string. Record `Line(Amount Price, Boundary Range, FileUrn Document)` round-trips to an equal value. Failed JSON reads throw `JsonException` with the validation text.
 
-Minimal APIs bind a simple value object through `IParsable<T>`. `TryParse` failures yield a plain `400` without the validation text, because the binding contract carries no message. The `MaybeBound<T, TKey, TValidationError>` pattern is application code. Its `TryParse` always returns `true`, parses the key with `TKey.TryParse`, calls `T.Validate`, and stores either the value or the error text. An endpoint filter or `IValidatableObject` then rejects the stored error. MVC model binding runs `Validate` and writes the error into `ModelState`. `[ApiController]` answers `400` with the text. The model binder covers simple value objects and any type with `[ObjectFactory<string>(UseForModelBinding = true)]`, and the provider goes in front of the default providers.
+Minimal APIs bind a simple value object through `IParsable<T>`. `TryParse` failures yield a plain `400` without the validation text, because the binding contract carries no message. The `MaybeBound<T, TKey, TValidationError>` pattern is application code. Its `TryParse` always returns `true`, parses the key with `TKey.TryParse`, calls `T.Validate`, and stores either the value or the error text. Endpoint filters or `IValidatableObject` then reject the stored error. MVC model binding runs `Validate` and writes the error into `ModelState`. `[ApiController]` answers `400` with the text. The model binder covers simple value objects and any type with `[ObjectFactory<string>(UseForModelBinding = true)]`, and the provider goes in front of the default providers.
 
 `AddThinktectureOpenApiFilters` renders a simple value object as its key type and a complex value object as an object with its members. `ThinktectureSchemaFilterOptions.RequiredMemberEvaluator` defaults to `RequiredMemberEvaluator.FromDependencyInjection`. The registration adds `DefaultRequiredMemberEvaluator` as the `IRequiredMemberEvaluator`. It marks a member that implements `IDisallowDefaultValue` as required, and a non-nullable reference member as required. `All` and `None` override that per application, and Swashbuckle handles a member with `[Required]`.
 
@@ -297,7 +297,7 @@ Entity Framework Core stores a simple value object in one column of the key type
 - `UseThinktectureValueConverters` on `DbContextOptionsBuilder` applies to every context that uses the options
 - `AddThinktectureValueConverters` exists on `ModelBuilder`, `EntityTypeBuilder`, `OwnedNavigationBuilder`, and `ComplexPropertyBuilder`
 - `HasThinktectureValueConverter` on `PropertyBuilder<TProperty>`, `ComplexTypePropertyBuilder<TProperty>`, `PrimitiveCollectionBuilder<TProperty>` applies converter to one property
-- Both accept a `Configuration` whose `UseConstructorForRead` defaults to `true`
+- Both accept a `Configuration` where `UseConstructorForRead` defaults to `true`
 - With that default a row materializes through the constructor, and the hook does not run on read
 - Types with an object factory run `Validate` on read unless they declare `HasCorrespondingConstructor = true`
 - `Configuration.KeyedValueObjects` defaults to `KeyedValueObjectConfiguration.NoMaxLength`
@@ -305,7 +305,7 @@ Entity Framework Core stores a simple value object in one column of the key type
 
 Complex value objects map as a complex property or an owned type. `AddThinktectureValueConverters` on that builder converts the simple value objects nested inside it. Complex value objects with `[ObjectFactory<T>(UseWithEntityFramework = true)]` map to one column of `T` instead.
 
-Serilog destructuring logs a simple value object as its key and declines a complex value object; `TypesToRenderAsString.ValueObjects` switches the simple form to `ToString()`.
+Serilog destructuring logs a simple value object as its key and declines a complex value object. `TypesToRenderAsString.ValueObjects` switches the simple form to `ToString()`.
 
 ## [17]-[DESIGN_RULES]
 
@@ -321,4 +321,4 @@ Serilog destructuring logs a simple value object as its key and declines a compl
 
 Do not register `ThinktectureJsonConverterFactory` at the host for a complex value object without an object factory. Reference `Thinktecture.Runtime.Extensions.Json` from the project that declares the type.
 
-At a boundary that admits user input, `Create` and `Parse` throw. Declare `[ValidationError<X>]` with a typed `Expected` record that implements `IValidationError<X>`, and a hand-written `From` that maps `Validate` to `Fin<T>`.
+At a boundary that takes user input, `Create` and `Parse` throw. Declare `[ValidationError<X>]` with a typed `Expected` record that implements `IValidationError<X>`, and a hand-written `From` that maps `Validate` to `Fin<T>`.

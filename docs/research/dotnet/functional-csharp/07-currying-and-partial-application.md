@@ -2,7 +2,7 @@
 
 ## [01]-[DESIGN_PRINCIPLE]
 
-Supplying stable inputs before runtime data specializes a general multi-argument function. Each supplied argument returns a specialized function whose remaining inputs become available later in the application lifecycle.
+Supplying stable inputs before runtime data specializes a general multi-argument function. Each supplied argument returns a specialized function with remaining inputs that become available later in the application lifecycle.
 
 ```text
 general function
@@ -16,7 +16,7 @@ The final consumer receives a function that accepts only its remaining inputs an
 
 ## [02]-[CORE_DISTINCTION]
 
-- Currying transforms a function of `N` arguments into a chain of `N` unary functions. Each call accepts exactly one argument and returns the next function; the final call returns the result.
+- Currying transforms a function of `N` arguments into a chain of `N` unary functions. Each call accepts exactly one argument and returns the next function, and the final call returns the result.
 - Partial application supplies fewer than all of the original arguments at once and returns a function for the arguments that remain. The Prelude function `par` fixes a leading group of arguments, and the returned function can accept several arguments. Supplying every argument is full application and produces the result.
 
 For a two-argument function:
@@ -75,11 +75,11 @@ internal static class Curried {
 }
 ```
 
-Currying supports specialization in stages; it adds nothing when every argument is supplied together. Functions can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete delegate accepts several parameters; the `Func` shape determines whether successive calls are possible.
+Currying supports specialization in stages and adds nothing when every argument is supplied together. Functions can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete delegate accepts several parameters. The `Func` shape determines whether successive calls are possible.
 
 ### [04.1]-[IMPLEMENTATION]
 
-C# has no built-in automatic currying. The Prelude function `curry` transforms a function of two or more arguments. Write a function directly in curried form, such as `Shapes.CurriedAdd`, when consumers always supply one argument at a time.
+C# has no built-in automatic currying. The Prelude function `curry` transforms a function of two or more arguments. Write a function directly in curried form (`Shapes.CurriedAdd`) when consumers always supply one argument at a time.
 
 ```csharp
 internal static class Helper {
@@ -89,7 +89,7 @@ internal static class Helper {
 }
 ```
 
-Explicit lambda parameter types can be needed because the compiler does not always infer the delegate's generic arguments at this call site. Delegate values with a declared `Func` type, such as `Greetings.Greet`, need no annotation.
+Explicit lambda parameter types can be needed because the compiler does not always infer the delegate's generic arguments at this call site. Delegate values with a declared `Func` type (`Greetings.Greet`) need no annotation.
 
 ### [04.2]-[SPECIALIZED_FUNCTIONS]
 
@@ -164,8 +164,8 @@ Return `Func` values from adapter or factory methods to cross from method-based 
 ## [06]-[API_DESIGN]
 
 Existing APIs can expose arguments in an order that works poorly for partial application. Adapters can:
-- Expose domain-specific types instead of ambiguous primitives;
-- Acquire a short-lived resource only when the operation runs;
+- Expose domain-specific types instead of ambiguous primitives
+- Acquire a short-lived resource only when the operation runs
 - Return a `Func`, subsequent specialization benefits from delegate inference
 
 ```csharp
@@ -193,11 +193,11 @@ internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
 }
 ```
 
-Custom types such as `ConnectionIO` and `SqlTemplate` make signatures intention-revealing and can own extension methods that do not belong on `string`. `Seq<A>.Head` is an `Option<A>`, lookup absence stays explicit.
+Custom types (`ConnectionIO`, `SqlTemplate`) make signatures intention-revealing and can own extension methods that do not belong on `string`. `Seq<A>.Head` is an `Option<A>`, lookup absence stays explicit.
 
 ## [07]-[FUNCTIONS_AS_DEPENDENCIES]
 
-Dependencies must describe the behavior consumers need. Clocks are `Func<DateTime>`; validators are `T -> Validation<Error, T>`; persistence is `T -> IO<Unit>`.
+Dependencies must describe the behavior consumers need. Clocks are `Func<DateTime>`, validators are `T -> Validation<Error, T>`, and persistence is `T -> IO<Unit>`.
 
 In these signatures, `Option<T>` makes lookup absence explicit, `Validation<Error, T>` carries a valid value or accumulated errors, and `IO<Unit>` is a deferred effect that completes with no result value or fails on its error channel.
 
@@ -211,7 +211,7 @@ internal static class Validators {
 }
 ```
 
-`DateNotPast` is a function factory and a curried binary function. Composition supplies the clock once; request handling supplies the command later. Tests supply a deterministic clock without constructing a fake service object. The error is a typed `Expected` record and the command lifts into `Validation<Error, BookTransfer>` by implicit conversion.
+`DateNotPast` is a function factory and a curried binary function. Composition supplies the clock once, request handling supplies the command later. Tests supply a deterministic clock without constructing a fake service object. The error is a typed `Expected` record and the command lifts into `Validation<Error, BookTransfer>` by implicit conversion.
 
 Function dependencies provide the same properties as interfaces:
 - The consumer is decoupled from the implementation
@@ -261,12 +261,12 @@ The framework entry point can remain thin while the behavior it invokes is suppl
 ## [09]-[WHEN_TO_USE]
 
 Use these techniques to:
-- Eliminate near-duplicate specialized functions;
-- Expose reusable intermediate configurations;
-- Produce unary functions that fit higher-order APIs;
+- Eliminate near-duplicate specialized functions
+- Expose reusable intermediate configurations
+- Produce unary functions that fit higher-order APIs
 
 Their costs are specific to C#:
-- `Func` conversion and occasional explicit type annotations;
+- `Func` conversion and occasional explicit type annotations
 - Nested delegate types that become difficult to read at higher arities
 
 Use them when specialized functions simplify call sites. If the helper code is larger or less readable than the duplication it removes, use ordinary functions.

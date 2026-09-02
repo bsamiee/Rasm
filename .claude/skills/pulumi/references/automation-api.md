@@ -1,6 +1,6 @@
 # [PULUMI_AUTOMATION_API]
 
-Automation API drives Pulumi operations from code instead of the CLI: multi-stack orchestration, self-service infrastructure platforms, embedded per-tenant provisioning, and the replacement of fragile shell scripts stitching `pulumi` commands. A single project with standard deployment needs stays on the CLI.
+Automation API drives Pulumi operations from code instead of the CLI: multi-stack orchestration, self-service infrastructure platforms, embedded per-tenant provisioning, and the replacement of fragile shell scripts stitching `pulumi` commands. Single projects with standard deployment needs stay on the CLI.
 
 ```typescript
 import * as automation from "@pulumi/pulumi/automation";
@@ -17,9 +17,9 @@ const upResult = await stack.up({ onOutput: console.log });
 
 ## [01]-[SOURCE_MODEL]
 
-- [LOCAL_SOURCE]: `workDir` points at an existing Pulumi project on disk. Fits separate ownership — a platform team orchestrating application-team programs, independent version control and release cycles.
+- [LOCAL_SOURCE]: `workDir` points at an existing Pulumi project on disk. Fits separate ownership: a platform team orchestrating application-team programs, independent version control and release cycles.
 - [INLINE_SOURCE]: `program` embeds the Pulumi program as a function in the orchestrator. Fits single-team ownership, tight coupling by design, and compiled-binary distribution with no source files.
-- [LANGUAGE_INDEPENDENCE]: Orchestrator and orchestrated programs choose languages independently — a Go orchestrator manages TypeScript programs.
+- [LANGUAGE_INDEPENDENCE]: Orchestrator and orchestrated programs choose languages independently, a Go orchestrator manages TypeScript programs
 
 ```typescript
 // Local source
@@ -41,7 +41,7 @@ const inline = await automation.LocalWorkspace.createOrSelectStack({
 
 ## [02]-[ORCHESTRATION]
 
-Dependent stacks deploy sequentially in dependency order and destroy in reverse; independent stacks deploy in parallel.
+Dependent stacks deploy sequentially in dependency order and destroy in reverse, independent stacks deploy in parallel.
 
 ```typescript
 // Sequential: infrastructure → platform → application
@@ -71,7 +71,7 @@ await Promise.all(
 await stack.setConfig("aws:region", { value: "us-west-2" });
 await stack.setConfig("dbPassword", { value: "secret", secret: true });
 
-// Outputs read after deployment — the cross-stack value channel
+// Outputs read after deployment, the cross-stack value channel
 const outputs = await stack.outputs();
 console.log(`VPC ID: ${outputs["vpcId"].value}`);
 
@@ -86,8 +86,8 @@ try {
 
 ## [04]-[OPERATIONAL_SHAPE]
 
-- [EXTERNAL_CONFIG]: Stack lists, environments, and deploy parameters live in a config file or environment variables the orchestrator reads — enabling compiled-binary distribution without source exposure.
-- [STREAMED_OUTPUT]: `onOutput` streams long operations in real time to stdout, a logging system, or a websocket.
+- [EXTERNAL_CONFIG]: Stack lists, environments, and deploy parameters live in a config file or environment variables the orchestrator reads, enabling compiled-binary distribution without source exposure
+- [STREAMED_OUTPUT]: `onOutput` streams long operations in real time to stdout, a logging system, or a websocket
 
 | [INDEX] | [SCENARIO]                   | [APPROACH]                             |
 | :-----: | :--------------------------- | :------------------------------------- |

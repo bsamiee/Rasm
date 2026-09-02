@@ -1,15 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Version>4.15.2</Version>
-        <Description>Gmsh .NET bindings generated from the api definition in the source archive the native gmsh pipeline pins</Description>
+        <Description>Gmsh .NET bindings generated from the api definition in the pinned gmsh source archive</Description>
         <PackageLicenseExpression>GPL-2.0-or-later</PackageLicenseExpression>
         <IncludeBuildOutput>true</IncludeBuildOutput>
         <LangVersion>latest</LangVersion>
     </PropertyGroup>
-    <ItemGroup>
-        <Compile Include="$(StageRoot)managed/*.cs" />
-    </ItemGroup>
-    <Target Name="EnsureStagedManagedSources" BeforeTargets="CoreCompile">
-        <Error Condition="'@(Compile)' == ''" Text="no sources staged under $(StageRoot)managed, run the eng stage-gmsh-native target first" />
-    </Target>
 </Project>

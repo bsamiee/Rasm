@@ -183,7 +183,7 @@ catalog:
   tus-js-client: 4.3.1
   react-resizable-panels: 4.12.2
   '@xyflow/react': 12.11.3
-  elkjs: 0.12.0 # EPL-2.0; consumed only via elkjs/lib/elk-api + workerFactory, the bare entry pulls 1.5MB CJS into the main chunk
+  elkjs: 0.12.0 # EPL-2.0, use only elkjs/lib/elk-api and workerFactory, the bare entry pulls 1.5MB CJS into the main chunk
   prosemirror-model: 1.25.11
   prosemirror-state: 1.4.4
   prosemirror-view: 1.42.2

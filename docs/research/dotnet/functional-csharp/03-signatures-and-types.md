@@ -28,7 +28,7 @@ Generic signatures constrain plausible behavior:
 
 The first suggests filtering a sequence with a predicate. The second suggests combining corresponding `A` and `B` values into `C` values. `() -> ()` reveals almost nothing about the effect performed. Signatures cannot express every semantic detail: `Where` and `TakeWhile` have identical type signatures. Precise types and names are necessary.
 
-Functional design keeps data and logic distinct: data objects carry inputs and outputs, while functions encode behavior. Constrained types can still own the validation to construct them and operations, such as comparison, that protect their hidden representation.
+Functional design keeps data and logic distinct: data objects carry inputs and outputs, while functions encode behavior. Constrained types can still own the validation to construct them and operations (comparison) that protect their hidden representation.
 
 ## [02]-[INVALID_INPUTS]
 
@@ -103,7 +103,7 @@ internal static class Timing {
 }
 ```
 
-Use `void` when an ordinary imperative API performs effects and returns no information. Use `Unit` when an ordinary return value enables uniform functional handling. Returning `Unit` does not make an effectful function pure; it only removes a special-case return type.
+Use `void` when an ordinary imperative API performs effects and returns no information. Use `Unit` when an ordinary return value enables uniform functional handling. Returning `Unit` does not make an effectful function pure, it only removes a special-case return type.
 
 ## [04]-[OPTION]
 
@@ -147,7 +147,7 @@ The default inner value in the `None` state is ignored. The contract is an empty
 
 ## [05]-[TOTALITY]
 
-Total functions cover every value in their declared input domains; partial functions do not. Returning `Option` totalizes a partial computation: return `Some(result)` where the computation is defined and `None` otherwise.
+Total functions cover every value in their declared input domains, partial functions do not. Returning `Option` totalizes a partial computation: return `Some(result)` where the computation is defined and `None` otherwise.
 
 ```csharp
 internal static class Totality {
@@ -158,7 +158,7 @@ internal static class Totality {
 }
 ```
 
-`string -> int` hides the undefined parsing cases; `string -> Option<int>` describes every outcome. The Prelude function `parseInt` has that signature. `Find` on `HashMap<K, V>` has the signature `K -> Option<V>`. Missing keys are values, not exceptions. `Bind` chains the two lookups, and `ToOption` on `Fin<Age>` drops the failure reason when the caller does not need it.
+`string -> int` hides the undefined parsing cases, `string -> Option<int>` describes every outcome. The Prelude function `parseInt` has that signature. `Find` on `HashMap<K, V>` has the signature `K -> Option<V>`. Missing keys are values, not exceptions. `Bind` chains the two lookups, and `ToOption` on `Fin<Age>` drops the failure reason when the caller does not need it.
 
 ## [06]-[NULLABLE_REFERENCE_TYPES]
 
@@ -186,7 +186,7 @@ Null adds another possible state that every consumer must account for. If an ext
 
 ## [07]-[DESIGN_RULES]
 
-- Design the signature early; specify exact input and outcome types
+- Design the signature early, specify exact input and outcome types
 - Prefer constrained domain types to primitives and repeated validation
 - Map the generated `Validate` to `Fin` through `From` when primitive-to-domain conversion can fail
 - The generator keeps the constructor private, every value passes through the validation hook

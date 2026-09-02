@@ -6,7 +6,21 @@
         {
             "name": "ffmpeg",
             "default-features": false,
-            "features": ["avcodec", "avdevice", "avfilter", "avformat", "gpl", "mp3lame", "opus", "svt-av1", "swresample", "swscale", "vpx", "x264", "x265"]
+            "features": [
+                "avcodec",
+                "avdevice",
+                "avfilter",
+                "avformat",
+                "gpl",
+                "mp3lame",
+                "opus",
+                "svt-av1",
+                "swresample",
+                "swscale",
+                "vpx",
+                "x264",
+                "x265"
+            ]
         }
     ]
 }

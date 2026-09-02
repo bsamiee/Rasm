@@ -9,10 +9,4 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>8.0</LangVersion>
     </PropertyGroup>
-    <ItemGroup>
-        <Compile Include="$(StageRoot)managed/*.cs" />
-    </ItemGroup>
-    <Target Name="EnsureStagedManagedSources" BeforeTargets="CoreCompile">
-        <Error Condition="'@(Compile)' == ''" Text="no sources staged under $(StageRoot)managed, run the eng stage-z3-native target first" />
-    </Target>
 </Project>

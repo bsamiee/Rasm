@@ -29,8 +29,8 @@ The standard `Build` chain delegates work through a `DependsOn` property. It has
 <Target Name="AfterBuild" />
 ```
 
-- The implicit SDK import follows the project body. The SDK definition of a target replaces a same-named definition in the project body. A `BeforeBuild` or `AfterBuild` target in a `.csproj` never runs, and MSBuild logs `Overriding target` for it at diagnostic verbosity only.
-- Extend imported targets with `BeforeTargets` or `AfterTargets`.
+- The implicit SDK import follows the project body. The SDK definition of a target replaces a same-named definition in the project body. `BeforeBuild` and `AfterBuild` targets in a `.csproj` never run, and MSBuild logs `Overriding target` for it at diagnostic verbosity only.
+- Extend imported targets with `BeforeTargets` or `AfterTargets`
 
 `CoreBuild` delegates to its `DependsOn` property and declares the `OnError` elements:
 
@@ -43,7 +43,7 @@ The standard `Build` chain delegates work through a `DependsOn` property. It has
 ```
 
 - `OnError` runs when the target itself fails, and when a target in its `DependsOnTargets` chain fails and stops the build. Each `OnError` element has its own `Condition`.
-- `OnError` elements must be the final child elements of the target. A later child fails with `MSB4038`.
+- `OnError` elements must be the final child elements of the target. Later children fail with `MSB4038`.
 - `ContinueOnError` on a task selects the failure mode. `ErrorAndStop`, the default, fails the target. `ErrorAndContinue` keeps the errors and continues. `WarnAndContinue` logs them as warnings and continues.
 
 ## [02]-[CHAIN_EXTENSION]
@@ -61,7 +61,7 @@ The SDK assigns `CompileDependsOn` after the project body, and the same assignme
 
 ## [03]-[TARGET_ORDERING]
 
-A target runs at most once per project instance. Declaration order does not establish execution order.
+Targets run at most once per project instance. Declaration order does not establish execution order.
 
 | [INDEX] | [ATTRIBUTE]        | [OWNER]              | [PURPOSE]                                 |
 | :-----: | :----------------- | :------------------- | :---------------------------------------- |
@@ -77,15 +77,15 @@ A target runs at most once per project instance. Declaration order does not esta
 
 `BeforeTargets` and `AfterTargets` accept a name that no target defines. The target then never runs. MSBuild logs the unmatched name at diagnostic verbosity only.
 
-A false `Condition` on a target skips its body and its `DependsOnTargets` targets. Targets that name it in `BeforeTargets` or `AfterTargets` still run. A later `DependsOnTargets` request runs the skipped target when the condition is true at that time.
+Targets with a false `Condition` skip their body and `DependsOnTargets` targets. Targets that name it in `BeforeTargets` or `AfterTargets` still run. Later `DependsOnTargets` requests run the skipped target when the condition is true at that time.
 
 ## [04]-[RETURNS_AND_OUTPUTS]
 
 `Returns` specifies the values that an `<MSBuild>` task receives from the target. `Outputs` drives the timestamp-based up-to-date check.
 
-A target can set both attributes:
+Targets can set both attributes:
 - Once one target in the project declares `Returns`, a target with only `Outputs` returns nothing. The SDK `Build` target declares `Returns`, and this holds in every SDK project.
-- Declare `Returns` on every target that a caller queries.
+- Declare `Returns` on every target that a caller queries
 
 ```xml
 <Target Name="GetMyFeatureOutput" Returns="@(MyFeatureOutput)" />
@@ -100,7 +100,7 @@ A target can set both attributes:
 
 ## [05]-[COPY_TO_OUTPUT_DIRECTORY]
 
-`CopyToOutputDirectory` controls build-output copies. `CopyToPublishDirectory` controls publish-output copies. An item with `CopyToOutputDirectory` set and `CopyToPublishDirectory` unset publishes with the same mode, which the `DefaultCopyToPublishDirectoryMetadata` target applies. These items reach the output of every referencing project and the publish directory. A `Copy` task in a custom target reaches neither. Both metadata values accept the same four modes:
+`CopyToOutputDirectory` controls build-output copies. `CopyToPublishDirectory` controls publish-output copies. An item with `CopyToOutputDirectory` set and `CopyToPublishDirectory` unset publishes with the same mode, which the `DefaultCopyToPublishDirectoryMetadata` target applies. These items reach the output of every referencing project and the publish directory. `Copy` tasks in a custom target reach neither. Both metadata values accept the same four modes:
 
 | [INDEX] | [MODE]           | [BEHAVIOR]                                                               |
 | :-----: | :--------------- | :----------------------------------------------------------------------- |
@@ -109,7 +109,7 @@ A target can set both attributes:
 |  [03]   | `Always`         | Copies on every build                                                    |
 |  [04]   | `IfDifferent`    | Copies when the destination is missing, or its size or timestamp differs |
 
-An unset `CopyToOutputDirectory` value also copies nothing.
+Unset `CopyToOutputDirectory` also copies nothing.
 
 ```xml
 <ItemGroup>
@@ -121,7 +121,7 @@ An unset `CopyToOutputDirectory` value also copies nothing.
 
 DESTINATION:
 - The copy targets write each item to `$(OutDir)%(TargetPath)`. `AssignTargetPath` reads `TargetPath` first, then `Link`, then the path relative to the project directory. An item outside that directory with neither value copies under its file name alone.
-- The SDK sets `Link` to `%(LinkBase)%(RecursiveDir)%(Filename)%(Extension)` for an item outside the project directory. A recursive glob keeps its tree, and `LinkBase` places that tree under one output folder.
+- The SDK sets `Link` to `%(LinkBase)%(RecursiveDir)%(Filename)%(Extension)` for an item outside the project directory. Recursive globs keep their tree, and `LinkBase` places that tree under one output folder.
 
 ALWAYS:
 - `Always` copies on every build. `dotnet build -check` reports `BC0106` for every `Always` item.
@@ -138,7 +138,7 @@ IFDIFFERENT:
 - When an application or a test changes the destination, use this mode. The next build then restores the source version.
 
 EXECUTION:
-- The three copy targets in the table add each destination to `@(FileWrites)`.
+- The three copy targets in the table add each destination to `@(FileWrites)`
 - `GetCopyToOutputDirectoryItems` collects this project's items and the items of transitively referenced projects. It tests each item for `Always`, `PreserveNewest`, or `IfDifferent`.
 
 | [INDEX] | [MODE]           | [TARGET]                                           | [MECHANISM]                      |
@@ -153,11 +153,11 @@ MSBuild skips the target when every output is up-to-date.
 
 - `Inputs` names the files that drive a target. `Outputs` names the files that the target produces.
 - MSBuild compares timestamps. It does not compare file contents.
-- A target that declares `Inputs` without `Outputs` fails the build with `MSB4058`.
-- An `Inputs` or `Outputs` expression that evaluates to empty skips the target. The log gives the reason.
-- A transform in `Outputs` maps each output to one input. MSBuild then rebuilds the stale items only, and the target sees only those inputs.
-- A discrete output compares against every declared input. MSBuild then runs the whole target.
-- MSBuild reads the input list of the current run only. A file that left the list does not make the target stale.
+- Targets that declare `Inputs` without `Outputs` fail the build with `MSB4058`
+- `Inputs` or `Outputs` expressions that evaluate to empty skip the target. The log gives the reason.
+- Transforms in `Outputs` map each output to one input. MSBuild then rebuilds the stale items only, and the target sees only those inputs.
+- Discrete outputs compare against every declared input. MSBuild then runs the whole target.
+- MSBuild reads the input list of the current run only. Files that left the list do not make the target stale.
 
 ```xml
 <!-- One output per input, so a stale input rebuilds only its own output -->
@@ -170,18 +170,18 @@ MSBuild skips the target when every output is up-to-date.
 
 ## [07]-[INCLUDING_GENERATED_FILES]
 
-A glob outside a target expands during evaluation. A glob inside a target expands when that target runs. An evaluation-time glob cannot include a file that target execution creates later. Add each generated file to the item type that consumes it.
+Globs outside a target expand during evaluation. Globs inside a target expand when that target runs. An evaluation-time glob cannot include a file that target execution creates later. Add each generated file to the item type that consumes it.
 
 - Write generated files under `$(IntermediateOutputPath)`. The property contains the configured intermediate directory, including any artifacts layout.
-- Read `$(IntermediateOutputPath)` inside the target. A `PropertyGroup` in the project body reads it before the SDK sets it, and `-check` reports `BC0202`.
-- Put `$(MSBuildAllProjects)` in `Inputs`. It names the newest file among the project and every file it imports. A change to `Directory.Build.props` or to the `.targets` file that contains the generator then rebuilds the output. `$(MSBuildProjectFullPath)` names the project alone.
-- Add each generated file to `@(FileWrites)`.
-- A skipped target still applies its `ItemGroup` and `PropertyGroup` children. A `Compile` or `FileWrites` item added there survives the skip. An item set through a task `<Output>` element does not.
+- Read `$(IntermediateOutputPath)` inside the target. `PropertyGroup` in the project body reads it before the SDK sets it, and `-check` reports `BC0202`.
+- Put `$(MSBuildAllProjects)` in `Inputs`. It names the newest file among the project and every file it imports. Changes to `Directory.Build.props` or to the `.targets` file that contains the generator then rebuild the output. `$(MSBuildProjectFullPath)` names the project alone.
+- Add each generated file to `@(FileWrites)`
+- Skipped targets still apply their `ItemGroup` and `PropertyGroup` children. `Compile` or `FileWrites` items added there survive the skip. Items set through a task `<Output>` element do not.
 - `IncrementalClean` deletes files that a prior build wrote and this build did not write. `Clean` deletes every recorded file. Both delete only under `$(OutDir)` or `$(IntermediateOutputPath)`.
 
 ## [07.1]-[GENERATED_SOURCE]
 
-Use `BeforeTargets="CoreCompile"`, never `BeforeCompile`. A design-time build calls `CoreCompile` alone. Add the generated file to `@(Compile)` in the same target:
+Use `BeforeTargets="CoreCompile"`, never `BeforeCompile`. Design-time builds call `CoreCompile` alone. Add the generated file to `@(Compile)` in the same target:
 
 ```xml
 <Target Name="GenerateSource"
@@ -221,7 +221,7 @@ Add generated `None` or `Content` items before `AssignTargetPaths`. This target 
 
 ## [08]-[TARGET_SCOPE]
 
-A target that extends `Build` in a multi-targeting project runs once per target framework and once for the outer build. `dotnet publish` passes `_IsPublishing=true` as a global property. `dotnet build` and `dotnet pack` do not.
+Targets that extend `Build` in a multi-targeting project run once per target framework and once for the outer build. `dotnet publish` passes `_IsPublishing=true` as a global property. `dotnet build` and `dotnet pack` do not.
 
 | [INDEX] | [SCOPE]          | [CONDITION]                    |
 | :-----: | :--------------- | :----------------------------- |

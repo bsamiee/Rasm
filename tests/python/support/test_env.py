@@ -100,7 +100,7 @@ async def test_ssh_streaming_process_returns_bytes_and_exit_code() -> None:
 
 @pytest.mark.anyio
 async def test_ssh_factory_yields_fresh_connections() -> None:
-    """Each ``client_factory`` call opens an independent socketpair connection from one provision."""
+    """Each ``client_factory`` call opens an independent socketpair connection from a provision."""
     provisioned = provision(SshHost())
     for connection_index in range(2):
         conn = await provisioned.client_factory()
@@ -193,7 +193,7 @@ def test_object_store_teardown_resets_process_global_state(socket_enabled: None)
 
 
 def test_object_store_round_trips_presigns_and_isolates_endpoints(socket_enabled: None) -> None:
-    """Disjoint moto endpoints; put/cat/info round-trips with an e-tag; presigned GET serves the exact payload over HTTP."""
+    """Endpoints stay disjoint, put/cat/info round-trips with an e-tag, presigned GET serves the exact payload over HTTP."""
     _ = socket_enabled
     first, second = provision(ObjectStore()), provision(ObjectStore(bucket="peer-bucket"))
     try:

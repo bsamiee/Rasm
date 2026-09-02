@@ -331,7 +331,7 @@ describe('interleave property', () => {
 });
 
 describe('counterexample verification', () => {
-    it.effect('a known-invalid implementation passes verification', () =>
+    it.effect('known-invalid implementations pass verification', () =>
         Effect.asVoid(
             Property.verifyCounterexample({
                 name: 'combine is associative',
@@ -350,7 +350,7 @@ describe('counterexample verification', () => {
     );
 
     it.effect(
-        'an implementation satisfying the property is rejected as a counterexample',
+        'implementations satisfying the property are rejected as counterexamples',
         () =>
             Effect.gen(function* () {
                 const error = yield* Effect.flip(

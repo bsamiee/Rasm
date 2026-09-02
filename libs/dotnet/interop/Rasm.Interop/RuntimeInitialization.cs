@@ -6,14 +6,14 @@ using Rasm.Interop.Pdf;
 
 namespace Rasm.Interop;
 
-/// <summary>Aggregate runtime initialization; one call at the composition root covers every interop facade</summary>
+/// <summary>Aggregate runtime initialization, called once at the composition root for every interop facade</summary>
 /// <remarks>
-/// <para>Repeated calls are harmless, and no library poisons state when it fails before initialization: retry after a late <see cref="Initialize"/> succeeds, except OpenCV, where the CLR caches the
+/// <para>Repeated calls are harmless. Retries succeed after a late <see cref="Initialize"/> because failure before initialization poisons no state, except in OpenCV, where the CLR caches the
 /// failed type initializer for the process lifetime</para>
-/// <para>Libraries without a facade keep their setup at the composition root: PuppeteerSharp routes its browser cache under the workspace .cache/ directory through
-/// BrowserFetcherOptions.Path with a pinned browser build, though Plotly.NET.ImageExport constructs its own BrowserFetcher and ignores BrowserFetcherOptions,
-/// steered only through PuppeteerSharpRendererOptions.localBrowserExecutablePath set from a composition-root download; chart data comes from named or
-/// static readonly arrays because CA1861 fails inline array literals in chart calls under warnings-as-errors; FFmpeg needs ffmpeg.RootPath on legacy FFmpeg.AutoGen facade and DynamicallyLoadedBindings.Initialize() on the Abstractions facade</para>
+/// <para>Libraries without a facade keep their setup at the composition root. PuppeteerSharp routes its browser cache under the workspace .cache/ directory through
+/// BrowserFetcherOptions.Path with a pinned browser build. Plotly.NET.ImageExport constructs its own BrowserFetcher, ignores BrowserFetcherOptions,
+/// and takes only PuppeteerSharpRendererOptions.localBrowserExecutablePath set from a composition-root download. Chart data comes from named or
+/// static readonly arrays because CA1861 fails inline array literals in chart calls under warnings-as-errors. FFmpeg needs ffmpeg.RootPath on legacy FFmpeg.AutoGen facade and DynamicallyLoadedBindings.Initialize() on the Abstractions facade</para>
 /// <para>Per-connection and per-container registrations belong to the composition root and get no facade:</para>
 /// <list type="bullet">
 /// <item><description>AWS: the composition root registers clients through AddDefaultAWSOptions(configuration.GetAWSOptions()) then AddAWSService&lt;T&gt;(), bound from the AWS configuration section</description></item>

@@ -1,6 +1,6 @@
-"""Stage the pinned sqlite-vec loadable extension for one runtime identifier for packing.
+"""Stage the pinned sqlite-vec loadable extension for a runtime identifier for packing.
 
-The payload packs as runtimes/<rid>/native/, the single flat loadable a SqliteConnection
+The payload packs as runtimes/<rid>/native/, the flat loadable a SqliteConnection
 LoadExtension call resolves from consumer output.
 """
 

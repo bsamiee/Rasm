@@ -7,9 +7,9 @@ Purity means both conditions hold:
 2. Evaluating it causes no side effects
 
 Side effects include:
-- Mutating state visible outside the function, including instance fields;
-- Mutating an input argument;
-- Throwing an exception;
+- Mutating state visible outside the function, including instance fields
+- Mutating an input argument
+- Throwing an exception
 - Performing I/O, including reading the clock, console, filesystem, database, network, or another process
 
 Under this definition, throwing counts as an effect even though some definitions permit it: exception handling can redirect control flow, and an unhandled exception can terminate the program.
@@ -17,19 +17,19 @@ Under this definition, throwing counts as an effect even though some definitions
 Instance methods can be impure even without I/O when they read mutable fields. Lambdas can be impure by closing over mutable variables. Readonly fields fixed at construction serve as immutable dependencies. Purity depends on everything a function observes or changes, not on its parameter list and return type alone.
 
 Because a pure function always maps the same input to the same output, evaluation order does not affect its meaning. Pure computations are easier to reason about and are safe candidates for:
-- Parallel evaluation;
-- Lazy evaluation;
+- Parallel evaluation
+- Lazy evaluation
 - memoization
 
 Applying these transformations to impure functions can change behavior.
 
-Replacing the call with its result for a given input changes nothing; this property is referential transparency.
+Replacing the call with its result for a given input changes nothing. This property is referential transparency.
 
-Purity is about observable behavior. Mutation of state that is local to a function and never escapes is not a side effect; mutation of an instance field is, even when that field is private, because other methods on the object can observe it.
+Purity is about observable behavior. Mutation of state that is local to a function and never escapes is not a side effect. Mutation of an instance field is, even when that field is private, because other methods on the object can observe it.
 
 ## [02]-[ISOLATING_IMPURITY]
 
-Useful programs require I/O; the goal is not universal purity. Different effects need different treatment: I/O must be isolated, argument mutation can be eliminated by returning data, errors can always be handled without exceptions, and non-local state mutation can be designed away. Keep unavoidable I/O outside the computational core and place as much computation as possible in pure functions.
+Useful programs require I/O, the goal is not universal purity. Different effects need different treatment: I/O must be isolated, argument mutation can be eliminated by returning data, errors can always be handled without exceptions, and non-local state mutation can be designed away. Keep unavoidable I/O outside the computational core and place as much computation as possible in pure functions.
 
 ```csharp
 internal static class Greeting {
@@ -88,7 +88,7 @@ internal sealed class ListFormatter {
 
 Because concurrency does not guarantee evaluation order, shared mutable state turns read-modify-write operations into races. Applying the formatter in parallel lets multiple threads update the same counter. `++` is not atomic: increments can be lost and results become nondeterministic.
 
-Concurrency covers several overlapping ideas: asynchronous code begins another task before an outstanding operation completes; parallel code runs work simultaneously across processing cores; multithreading schedules concurrent threads even when hardware cannot execute all of them at the same instant. All make hidden dependencies on mutable state harder to control.
+Concurrency covers several overlapping ideas: asynchronous code begins another task before an outstanding operation completes, parallel code runs work simultaneously across processing cores, and multithreading schedules concurrent threads even when hardware cannot execute all of them at the same instant. All make hidden dependencies on mutable state harder to control.
 
 Locks or atomic operations can protect the counter, but a design without shared state removes the race. Generate the required values, then combine independent sequences:
 
@@ -112,7 +112,7 @@ The compiler cannot infer whether an arbitrary delegate is pure, parallel execut
 ### [03.1]-[STATIC_METHODS]
 
 Pure methods can safely be static because all required data is explicit or immutable. Static methods become hazardous when they:
-- Read or write mutable static fields;
+- Read or write mutable static fields
 - Perform I/O that callers cannot replace in tests
 
 Avoid mutable static fields and direct dependencies on static I/O methods.
@@ -122,7 +122,7 @@ Avoid mutable static fields and direct dependencies on static I/O methods.
 Unit tests for pure functions supply inputs and assert the output. They are isolated and repeatable by construction.
 
 Impure functions have hidden inputs, hidden outputs, or both:
-- The current time, database contents, or environment are implicit inputs;
+- The current time, database contents, or environment are implicit inputs
 - Emails sent, files written, or fields changed are implicit outputs
 
 Impure functions behave like a larger pure transformation:
@@ -132,7 +132,7 @@ Impure functions behave like a larger pure transformation:
     -> (return value, new program state, new world state)
 ```
 
-This explains the extra cost of testing effects. Arrange must construct substitute external state and program state; Assert must inspect both explicit results and externally visible changes. Mocks can model external state, while assertions over internal mutation are brittle and break encapsulation.
+This explains the extra cost of testing effects. Arrange must construct substitute external state and program state. Assert must inspect both explicit results and externally visible changes. Mocks can model external state, while assertions over internal mutation are brittle and break encapsulation.
 
 Parameterized tests make inputs and expected outputs explicit: each test case supplies values, adapts them into the function's input, and returns or asserts the expected output across boundary cases.
 
@@ -143,8 +143,8 @@ Parameterized tests make inputs and expected outputs explicit: each test case su
 Wrapping the system clock behind an interface does not make the consuming method pure. It is pure only when the injected implementation is pure. Production implementations that read the clock still carry I/O into the validator. This approach improves test control without reducing the production effect itself.
 
 Choose the narrowest dependency that represents what the consumer needs:
-- Inject a value for a stable snapshot;
-- Inject an `IO<A>` for an operation that must run on demand;
+- Inject a value for a stable snapshot
+- Inject an `IO<A>` for an operation that must run on demand
 - Inject a runtime for a consumer that reads many capabilities
 
 Interfaces remain appropriate as a common contract for distinct implementations. One-method interfaces for every effect add unnecessary infrastructure.

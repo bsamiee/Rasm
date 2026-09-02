@@ -4,5 +4,5 @@ or {
     `export * from $source`,
     `export * as $ns from $source`
 } where {
-    register_diagnostic(span=$source, message="Star re-export is a barrel. Name the one or two deep owners the entrypoint exposes; the interior stays unresolvable.", severity="error")
+    register_diagnostic(span=$source, message="Star re-export is a barrel. Name each deep owner the entrypoint exposes and leave the interior unresolvable.", severity="error")
 }

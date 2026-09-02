@@ -1,6 +1,0 @@
-language js(typescript, jsx)
-
-`const $name = $init` where {
-    $name <: r"^(?:\w+(?:Many|All|ByIds)|(?:get|list|find|fetch|load|read|put|delete)[A-Z]\w*By[A-Z]\w*)$",
-    register_diagnostic(span=$name, message="Arity/suffix twin declaration. Collapse the family into one polymorphic entry that discriminates on input shape; a data-first/data-last pair is one Function.dual.", severity="error")
-}

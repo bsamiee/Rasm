@@ -99,7 +99,7 @@
 
 | [INDEX] | [SYMBOL]                                     | [DECLARATION] | [DESCRIPTION]                                             |
 | :-----: | :------------------------------------------- | :------------ | :-------------------------------------------------------- |
-|  [01]   | `Deriving.Alternative<Supertype, Subtype>`   | interface     | `Choose`, `Pure`, `Apply`, `Map`; `Empty` stays abstract  |
+|  [01]   | `Deriving.Alternative<Supertype, Subtype>`   | interface     | `Choose`, `Pure`, `Apply`, `Map`, not `Empty`  |
 |  [02]   | `Deriving.Applicative<Supertype, Subtype>`   | interface     | `Pure`, `Action`, both `Apply` arities                    |
 |  [03]   | `Deriving.Choice<Supertype, Subtype>`        | interface     | `Choose` over a strict and a `Memo` right side            |
 |  [04]   | `Deriving.Cofunctor<Supertype, Subtype>`     | interface     | `Comap` contravariant projection                          |
@@ -263,7 +263,7 @@
 |  [13]   | `Fails(Seq<K<M,A>>)`                                     | static | `K<M, Seq<Error>>`, successes dropped      |
 
 - `PartitionFallible` is the effectful counterpart of `FinExtensions.Partition`. `Partition` splits an already-evaluated collection of `Fin` values. `PartitionFallible` runs a collection of pending effects, does not short-circuit, and returns both branches inside one `M`. Its receivers are `Seq`, `Lst`, `Set`, `HashSet`, `Iterable`, `IEnumerable`, and any `K<F, K<M, A>>`. `Succs` and `Fails` are the one-branch projections over the same receivers.
-- The result tuple is `(Seq<Error> Fails, Seq<A> Succs)` — FAILS FIRST, the opposite order of `Fin.Match(Succ, Fail)`. Positional deconstructions across the two read the branches backwards. Both fields are named. Read them by name.
+- The result tuple is `(Seq<Error> Fails, Seq<A> Succs)`, FAILS FIRST, the opposite order of `Fin.Match(Succ, Fail)`. Positional deconstructions across the two read the branches backwards. Both fields are named. Read them by name.
 - `Catch` has selector arities: `int Code` against an `Errors` value or a domain error code, `Error Match` against a value, and `Func<Error, bool>` where neither suffices. Each pairs with a value argument, an `Error` argument, or a `K<F, A>` argument. Recovery strategies compose as values instead of a `try`/`catch` chain at the call site.
 - `FallibleExtensionsE` carries the same members generalized over the failure type `E`, where `FallibleExtensions` fixes it to `Error`. Types that fail in a non-`Error` type reach the identical operators by naming their own `E`.
 
@@ -364,7 +364,7 @@
 |  [34]   | `operator +(ScheduleTransformer, ScheduleTransformer)`       | operator          | Transformer composition                   |
 
 - `|` and `&` mean DIFFERENT things by operand type and the two forms look identical. Between two `Schedule` values they are union and intersection. Wherever one side is a `ScheduleTransformer` (in EITHER argument order) both operators collapse to `Apply`. `Forever | jitter(0.5)` and `Forever & jitter(0.5)` are the SAME schedule, while `spaced(1s) | spaced(3s)` and `spaced(1s) & spaced(3s)` are not. Transformers never intersect. Only a schedule does.
-- `ScheduleTransformer` converts implicitly to `Schedule` by applying itself to `Forever`, `IO.Retry(Schedule.recurs(3))` compiles bare and means `Forever.Take(3)` — exactly three attempts with no delay. Transformers passed to a `Schedule` parameter are never type errors and never no-ops. To cap an existing policy, apply the transformer to it explicitly.
+- `ScheduleTransformer` converts implicitly to `Schedule` by applying itself to `Forever`, `IO.Retry(Schedule.recurs(3))` compiles bare and means `Forever.Take(3)`, exactly three attempts with no delay. Transformers passed to a `Schedule` parameter are never type errors and never no-ops. To cap an existing policy, apply the transformer to it explicitly.
 - `recurs(n)` caps attempts while `repeat(n)` replays the entire schedule n times, `exponential(1s) | repeat(3)` runs the backoff series three times over and `exponential(1s) | recurs(3)` truncates it to three steps
 - `maxCumulativeDelay` STOPS the schedule once the accumulated delay crosses its budget while `resetAfter` restarts the policy at that same crossing
 - Each wall-clock constructor takes an optional `Func<DateTime>?` clock. Deterministic tests supply that clock instead of waiting through the real cadence.
@@ -487,9 +487,9 @@
 |  [72]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`               | fold     | Bounded monoidal aggregation, nested      |
 |  [73]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`           | fold     | One pass over `K<T, K<U, A>>`             |
 
-- The bounded folds split their predicate arity, and the two look the same at the call site. The PURE `FoldWhile`/`FoldUntil` take `Func<(S State, A Value), bool>` — the running state AND the element. The MONADIC `FoldWhileM`/`FoldUntilM` take `Func<A, bool>` over the element ALONE. State-reading stop conditions lack a monadic form. They either fold pure and lift afterwards, or carry the condition into the effect and return a state the next step reads. `foldWhileM` is the same operator with the arguments flipped to `(f, pred, state, ta)`, a mechanical rewrite between the instance and module forms silently transposes them.
+- The bounded folds split their predicate arity, and the two look the same at the call site. The PURE `FoldWhile`/`FoldUntil` take `Func<(S State, A Value), bool>`, the running state AND the element. The MONADIC `FoldWhileM`/`FoldUntilM` take `Func<A, bool>` over the element ALONE. State-reading stop conditions lack a monadic form. They either fold pure and lift afterwards, or carry the condition into the effect and return a state the next step reads. `foldWhileM` is the same operator with the arguments flipped to `(f, pred, state, ta)`, a mechanical rewrite between the instance and module forms silently transposes them.
 - The monadic fold pair is DIRECTION-SWAPPED against the pure pair. `Fold` walks head-to-tail, but `FoldM` walks TAIL-TO-HEAD (a string-append fold over `[1, 2, 3]` answers `321`) while `FoldBackM` walks head-to-tail (`123`). Order-dependent monadic folds over an ascending sequence use `FoldBackM`. `FoldM` there silently feeds the step its input reversed.
-- `FoldMaybe` is the fold whose STOP lives in the folder rather than beside it. The step answers `Option<S>` and a `None` ends the traversal, returning the last committed state. It is the form a search-and-accumulate takes when the decision to continue is the same computation as the accumulation. `FoldMaybe` has a `FoldBackMaybe` right-to-left twin but no `*T` twin. Only the `Fold`/`FoldWhile`/`FoldUntil` family carries `FoldT`/`FoldWhileT`/`FoldUntilT`, which fold one pass over a nested `K<T, K<U, A>>`. Foldables of foldables never flatten first.
+- `FoldMaybe` is the fold with its STOP in the folder rather than beside it. The step answers `Option<S>` and a `None` ends the traversal, returning the last committed state. It is the form a search-and-accumulate takes when the decision to continue is the same computation as the accumulation. `FoldMaybe` has a `FoldBackMaybe` right-to-left twin but no `*T` twin. Only the `Fold`/`FoldWhile`/`FoldUntil` family carries `FoldT`/`FoldWhileT`/`FoldUntilT`, which fold one pass over a nested `K<T, K<U, A>>`. Foldables of foldables never flatten first.
 - `Seq<A>` carries the throwing `this[Index]` as its only instance index member. The `Option`-returning positional read is `FoldableExtensions.At(K<T, A>, Index) : Option<A>`, which applies to `Seq` through `Foldable<Seq>`. `seq.At(n)` answers `None` past the end.
 - `LanguageExt.List.unfold` runs the state seed until the unfolder answers `None`. The static import of `Prelude` binds the simple name `List` to `Prelude.List<T>()`, the call is spelled `LanguageExt.List.unfold`. Five overloads exist. The state-only `Func<S, Option<S>>` overload returns `IEnumerable<S>`. The other four return `IEnumerable<A>`: one takes a plain `S` seed, and the other three take a two-, three-, or four-slot tuple seed.
 
@@ -592,9 +592,9 @@
 |  [10]   | `LiftIO(IO<A>)` / `LiftIO(K<IO,A>)`                                   | static   | `MonadIO` lift                                     |
 |  [11]   | `ToIO(K<Supertype,A>)` / `MapIO(K<Supertype,A>, Func<IO<A>,IO<B>>)`   | static   | `MonadUnliftIO` window                             |
 |  [12]   | `BracketIO(K<Supertype,A>, Func<A,IO<C>>, Func<A,IO<B>>)`             | static   | Acquire-use-release, `Catch` arity beside it       |
-|  [13]   | `RepeatIO(K<Supertype,A>, Schedule)`                                  | static   | Cadence; `RepeatWhileIO`/`RepeatUntilIO` alongside |
-|  [14]   | `RetryIO(K<Supertype,A>, Schedule)`                                   | static   | Retry; `RetryWhileIO`/`RetryUntilIO` alongside     |
-|  [15]   | `FoldIO(K<Supertype,A>, Schedule, S, Func<S,A,S>)`                    | static   | Streaming fold; `FoldWhileIO`/`FoldUntilIO` beside |
+|  [13]   | `RepeatIO(K<Supertype,A>, Schedule)`                                  | static   | Cadence, `RepeatWhileIO`/`RepeatUntilIO` beside |
+|  [14]   | `RetryIO(K<Supertype,A>, Schedule)`                                   | static   | Retry, `RetryWhileIO`/`RetryUntilIO` beside     |
+|  [15]   | `FoldIO(K<Supertype,A>, Schedule, S, Func<S,A,S>)`                    | static   | Stream fold, `FoldWhileIO`/`FoldUntilIO` beside |
 |  [16]   | `LocalIO(K)` / `PostIO(K)` / `TimeoutIO(K, TimeSpan)`                 | static   | `IO` scope, ordering, and deadline                 |
 |  [17]   | `Fail(E)`                                                             | static   | `Fallible` raise                                   |
 |  [18]   | `Catch(K<Supertype,A>, Func<E,bool>, Func<E,K<Supertype,A>>)`         | static   | `Fallible` predicate recovery                      |

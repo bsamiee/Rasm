@@ -7,5 +7,5 @@ or {
     $hit <: not within `Effect.tryPromise($_)` ,
     $hit <: not within `Effect.promise($_)` ,
     $hit <: not within `Effect.tryMapPromise($_)` ,
-    register_diagnostic(span=$hit, message="Await in domain flow. Promises convert once at the owning boundary (Effect.tryPromise/Effect.promise/Effect.tryMapPromise) and the interior composes Effect values; an async iterable drains through Stream.fromAsyncIterable, never a for-await loop.", severity="error")
+    register_diagnostic(span=$hit, message="Await in domain flow. Promises convert once at the boundary (Effect.tryPromise/Effect.promise/Effect.tryMapPromise) and the interior composes Effect values. Async iterables drain through Stream.fromAsyncIterable, never a for-await loop.", severity="error")
 }

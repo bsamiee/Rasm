@@ -3,7 +3,7 @@
         <Version>0.1.10-alpha.4</Version>
         <Description>sqlite-vec loadable vector search extension staged per runtime identifier</Description>
         <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
-        <!-- Pins upstream release loadables instead of a vcpkg port; the shared version guard reads the pin manifest's version-string -->
-        <VcpkgManifest>$(MSBuildThisFileDirectory)../sqlitevec/loadable.json</VcpkgManifest>
+        <!-- Upstream release loadables pinned in loadable.json replace a vcpkg port -->
+        <VersionManifestFileName>loadable.json</VersionManifestFileName>
     </PropertyGroup>
 </Project>

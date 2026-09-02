@@ -14,7 +14,7 @@ Full file examples for a multi-level repo layout, and the before/after of settin
     └── Directory.Packages.props  # imports the root, adds test-only packages
 ```
 
-A nested `Directory.Packages.props` hides the root file. Import the root first:
+Nested `Directory.Packages.props` hides the root file. Import the root first:
 
 ```xml
 <!-- <tests>/Directory.Packages.props -->
@@ -87,7 +87,7 @@ A nested `Directory.Packages.props` hides the root file. Import the root first:
 </Project>
 ```
 
-`xunit.v3` ships its own Microsoft.Testing.Platform runner. `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` select VSTest, which `global.json` rejects when it names `Microsoft.Testing.Platform`.
+`xunit.v3` includes a Microsoft.Testing.Platform runner. `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` select VSTest, which `global.json` rejects when it names `Microsoft.Testing.Platform`.
 
 ## [05]-[BEFORE_AFTER]-[CENTRALIZING_DUPLICATED_SETTINGS]
 

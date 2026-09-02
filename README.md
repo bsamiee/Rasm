@@ -1,6 +1,6 @@
 # [RASM_WORKSPACE]
 
-Rasm is a polyglot monorepo. Development targets macOS first, and all code and tooling remain portable to Linux and Windows. Rasm accepts only dependencies, tools, and hosts that run on macOS.
+Rasm is a polyglot monorepo. Development targets macOS first, all code and tooling stay portable to Linux and Windows. Only dependencies, tools, and hosts that run on macOS are accepted.
 
 - Language-specific code is organized beneath `libs/` and `tests/`
 - Applications live in `apps/`, one directory per product, and consume internal libraries through package dependencies
@@ -27,7 +27,7 @@ Rasm/
 │   ├── native/               # Native packaging: vcpkg pins and packaging projects
 │   └── scripts/              # Python automation that Nx targets and CI jobs invoke
 ├── tools/                    # Custom tools for developing this project
-│   └── biome/                # Python automation that Nx targets and CI jobs invoke
+│   └── biome/                # Biome GritQL plugin rules
 ├── nx.json                   # Task graph, caching, and change detection across the workspace
 ├── Directory.Build.props     # .NET build defaults, artifacts path, restore, analysis, analyzers, Rhino bundle paths
 ├── Directory.Build.targets   # .NET derived items, host references, and project policy checks
@@ -56,13 +56,13 @@ Rasm/
 
 ## [02]-[TASKS]
 
-[REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`; tool-specific root work directories that cannot be relocated are explicitly ignored and contain no durable output.
+[REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`, tool work directories that cannot be relocated are ignored and hold no durable output.
 
 Nx defines the task graph and the build, test, lint, and generate targets.
 
 - Targets resolve from plugin inference, then `targetDefaults` in `nx.json`, then a project's own configuration, each source overriding the one before it
 - Targets running a single command name that command directly
-- Steps containing control flow are implemented as Python scripts under `eng/scripts/`, which a target invokes
+- Steps with control flow are Python scripts under `eng/scripts/` that a target invokes
 - Scripts take their dependencies from the root `pyproject.toml` groups and run under `uv run`
 
 ## [03]-[QUALITY]
@@ -74,7 +74,7 @@ Checker configuration is centralized, and each language area must pass its confi
 - Python: Passes with no warnings/errors from `ruff`, `ty`, and `mypy`
 - TypeScript: Passes `biome check` and compiles with `tsc --build` under strict settings
 - Formatting: `dotnet format`, `ruff format`, and `biome format`
-- Do not relax checker settings; repair the code or correct a demonstrably invalid rule
+- Do not relax checker settings, repair the code or correct a demonstrably invalid rule
 
 ## [04]-[LIBRARIES]
 

@@ -66,7 +66,7 @@ public static partial class TestAssertions {
         ForAll(definition.Generator, definition.Property, seed, iter, time, threads);
     }
     public static void Verify<T>(params PropertyDefinition<T>[] definitions) {
-        NonEmpty(definitions, "Verify requires at least one property definition");
+        NonEmpty(definitions, "Verify requires property definitions");
         _ = definitions.AsIterable().Iter(static definition => { Cancel(); Verify(definition); });
     }
     public static void Replay<T>(Gen<T> gen, Action<T> property, string seed) => ForAll(gen, property, seed, iter: 1);
@@ -78,7 +78,7 @@ public static partial class TestAssertions {
     // --- [METAMORPHIC]
     public static void Metamorphic<T, TResult>(Gen<T> gen, Func<T, TResult> f, params MetamorphicRelation<T, TResult>[] relations) {
         ArgumentNullException.ThrowIfNull(f);
-        NonEmpty(relations, "Metamorphic requires at least one relation");
+        NonEmpty(relations, "Metamorphic requires relations");
         ForAll(gen, value => {
             TResult @base = f(value);
             _ = relations.AsIterable().Iter(relation => {
@@ -91,7 +91,7 @@ public static partial class TestAssertions {
     // --- [STATEFUL]
     public static void ModelBased<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, GenOperation<TActual, TModel>[] operations,
         string? seed = null, long? iter = null, int? time = null) {
-        NonEmpty(operations, "ModelBased requires at least one operation");
+        NonEmpty(operations, "ModelBased requires operations");
         Cancel();
         init.SampleModelBased(operations, equal, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
@@ -116,13 +116,13 @@ public static partial class TestAssertions {
         ForAll(generator, value => Equal(implementation(value), reference(value), tolerance, comparison, label: "Differential"), seed, iter, time);
     }
     public static void Parallel<T>(Gen<T> init, GenOperation<T>[] operations, string? seed = null, long? iter = null, int? time = null) {
-        NonEmpty(operations, "Parallel requires at least one operation");
+        NonEmpty(operations, "Parallel requires operations");
         Cancel();
         init.SampleParallel(operations, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
     public static void Parallel<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, GenOperation<TActual, TModel>[] operations,
         string? seed = null, long? iter = null, int? time = null) {
-        NonEmpty(operations, "Parallel requires at least one operation");
+        NonEmpty(operations, "Parallel requires operations");
         Cancel();
         init.SampleParallel(operations, equal, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
@@ -130,28 +130,28 @@ public static partial class TestAssertions {
     // --- [RESULT_ASSERTIONS]
     public static T SuccValue<T>(Fin<T> result, string label) {
         ArgumentNullException.ThrowIfNull(result);
-        return result.Match(Succ: static value => value, Fail: error => throw new XunitException($"{label}: expected Succ; got Fail: {error.Message}"));
+        return result.Match(Succ: static value => value, Fail: error => throw new XunitException($"{label}: expected Succ, got Fail: {error.Message}"));
     }
     public static void Succ<T>(Fin<T> result, Action<T>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Succ: value => Tap(then, value), Fail: static error => throw new XunitException($"Expected Succ; got Fail: {error.Message}"));
+        _ = result.Match(Succ: value => Tap(then, value), Fail: static error => throw new XunitException($"Expected Succ, got Fail: {error.Message}"));
     }
     public static void Fail<T>(Fin<T> result, Action<Error>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Succ: static value => throw new XunitException($"Expected Fail; got Succ: {value}"), Fail: error => Tap(then, error));
+        _ = result.Match(Succ: static value => throw new XunitException($"Expected Fail, got Succ: {value}"), Fail: error => Tap(then, error));
     }
     public static void Valid<T>(Validation<Error, T> result, Action<T>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Fail: static error => throw new XunitException($"Expected Valid; got Invalid: {error.Message}"), Succ: value => Tap(then, value));
+        _ = result.Match(Fail: static error => throw new XunitException($"Expected Valid, got Invalid: {error.Message}"), Succ: value => Tap(then, value));
     }
     public static void Invalid<T>(Validation<Error, T> result, Action<Error>? then = null) {
         ArgumentNullException.ThrowIfNull(result);
-        _ = result.Match(Fail: error => Tap(then, error), Succ: static value => throw new XunitException($"Expected Invalid; got Valid: {value}"));
+        _ = result.Match(Fail: error => Tap(then, error), Succ: static value => throw new XunitException($"Expected Invalid, got Valid: {value}"));
     }
     public static void Some<T>(Option<T> result, Action<T>? then = null) =>
-        _ = result.Match(Some: value => Tap(then, value), None: static () => throw new XunitException("Expected Some; got None"));
+        _ = result.Match(Some: value => Tap(then, value), None: static () => throw new XunitException("Expected Some, got None"));
     public static void None<T>(Option<T> result) =>
-        _ = result.Match(Some: static value => throw new XunitException($"Expected None; got Some: {value}"), None: static () => unit);
+        _ = result.Match(Some: static value => throw new XunitException($"Expected None, got Some: {value}"), None: static () => unit);
 
     // --- [DISTRIBUTION]
     public static void Classified<T>(Gen<T> gen, Func<T, string> classify, Action<string> writeLine, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
@@ -163,7 +163,7 @@ public static partial class TestAssertions {
     public static void ChiSquaredDistribution<T>(Gen<T> gen, Func<T, int> bucket, params int[] expected) {
         ArgumentNullException.ThrowIfNull(bucket);
         ArgumentNullException.ThrowIfNull(expected);
-        True(expected.Length > 1, "ChiSquaredDistribution requires at least two expected buckets");
+        True(expected.Length > 1, "ChiSquaredDistribution requires at least 2 expected buckets");
         int[] actual = new int[expected.Length];
         ForAll(gen, value => Interlocked.Increment(ref actual[bucket(value)]), iter: expected.Sum(), threads: 1);
         Check.ChiSquared(expected, actual);
@@ -189,7 +189,7 @@ public static partial class TestAssertions {
         _ = items.AsIterable().Iter(item => { Cancel(); assertion?.Invoke(item); });
     }
     public static void CaseTable(params (string Label, Func<bool> Evaluate, bool Expected)[] rows) {
-        NonEmpty(rows, "CaseTable requires at least one row");
+        NonEmpty(rows, "CaseTable requires rows");
         _ = rows.AsIterable().Iter(static row => {
             Cancel();
             bool actual = row.Evaluate();
@@ -200,7 +200,7 @@ public static partial class TestAssertions {
     // --- [VALUE_OBJECTS]
     public sealed record ValueObjectCase<TIn, TStruct>(Gen<TIn> Valid, Gen<TIn> Invalid, TryCreate<TIn, TStruct> TryCreate, Func<TStruct, TIn> Read, Func<TIn, TIn, bool>? Equal = null);
     public static void ValueObjects<TIn, TStruct>(params ValueObjectCase<TIn, TStruct>[] cases) {
-        NonEmpty(cases, "ValueObjects requires at least one case");
+        NonEmpty(cases, "ValueObjects requires cases");
         _ = cases.AsIterable().Iter(static testCase => {
             Cancel();
             ForAll(testCase.Valid, value => {

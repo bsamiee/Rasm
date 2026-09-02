@@ -63,7 +63,7 @@ class Displacement:
 
 
 class _Opaque:
-    """Schema-opaque leaf with no msgspec projection; Hypothesis resolves it through the registered strategy."""
+    """Schema-opaque leaf with no msgspec projection, Hypothesis resolves it through the registered strategy."""
 
     def __init__(self, token: int) -> None:
         self.token = token
@@ -128,7 +128,7 @@ def test_unconstrained_numerics_reach_both_signs(negative: Unbounded, positive: 
 @_BUDGET
 @given(strategy_for(Node))
 def test_recursive_struct_resolves_boundedly(node: Node) -> None:
-    """A self-nesting struct draws through the deferred registry without recursion failure."""
+    """Self-nesting structs draw through the deferred registry without recursion failure."""
     assert isinstance(node.children, tuple)
 
 
@@ -138,14 +138,14 @@ def test_recursive_struct_resolves_boundedly(node: Node) -> None:
 @_BUDGET
 @given(strategy_for(Annotated[int, msgspec.Meta(ge=10, le=12)]))
 def test_annotated_form_carries_its_constraints(value: int) -> None:
-    """A bare Annotated form generates inside its Meta bounds, never the unconstrained base."""
+    """Bare Annotated forms generate inside their Meta bounds, never the unconstrained base."""
     assert 10 <= value <= 12, f"Annotated Meta constraint ignored: {value}"
 
 
 @_BUDGET
 @given(strategy_for(Either))
 def test_alias_union_generates_members_satisfying_constraints(value: TaggedA | TaggedB) -> None:
-    """A PEP 695 alias over a tagged union draws both members with their field constraints intact."""
+    """PEP 695 aliases over a tagged union draw both members with their field constraints intact."""
     match value:
         case TaggedA(left=left):
             assert 1 <= left <= 3, f"TaggedA constraint failed: {left}"
@@ -163,7 +163,7 @@ def test_union_reaches_every_member(first: TaggedA, second: TaggedB) -> None:
 @_BUDGET
 @given(strategy_for(Literal["on", "off"]))
 def test_literal_form_generates_only_declared_values(value: str) -> None:
-    """A Literal form draws only its declared members."""
+    """Literal forms draw only their declared members."""
     assert value in {"on", "off"}, f"literal was outside its declared values: {value!r}"
 
 
@@ -173,7 +173,7 @@ def test_literal_form_generates_only_declared_values(value: str) -> None:
 @_BUDGET
 @given(strategy_for(Displacement))
 def test_expression_tagged_union_draws_exactly_one_constrained_case(value: Displacement) -> None:
-    """Every draw uses the one-case constructor and satisfies its case constraint; direct field sampling is invalid."""
+    """Every draw uses the one-case constructor and satisfies its case constraint, direct field sampling is invalid."""
     match value.tag:
         case "linear":
             assert 1 <= value.linear <= 5, f"case constraint failed: {value.linear}"
@@ -196,7 +196,7 @@ st.register_type_strategy(_Opaque, st.integers(min_value=1, max_value=9).map(_Op
 @_BUDGET
 @given(strategy_for(CustomPayload))
 def test_custom_type_uses_the_hypothesis_registry(value: CustomPayload) -> None:
-    """A type without a msgspec schema uses its registered Hypothesis strategy."""
+    """Types without a msgspec schema use their registered Hypothesis strategy."""
     assert isinstance(value.payload, _Opaque) and 1 <= value.payload.token <= 9, f"registered custom strategy ignored: {value.payload!r}"
 
 

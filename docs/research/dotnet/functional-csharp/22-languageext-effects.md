@@ -163,7 +163,7 @@ internal static class Schedules {
 
 ## [07]-[RUNTIMES]
 
-`Eff<RT, A>` reads a capability from a runtime. Runtime records implement `Has<Eff<RT>, ConsoleIO>` with `Eff.runtime<RT>().Map(static rt => rt.Console)`. `Console<RT>.writeLine` and `Console<RT>.readLine` compile against that constraint, and `File<RT>` needs `FileIO` and `EncodingIO`. `Run(rt)` returns `Fin<A>`. An `IO<A>` converts implicitly to `Eff<RT, A>`.
+`Eff<RT, A>` reads a capability from a runtime. Runtime records implement `Has<Eff<RT>, ConsoleIO>` with `Eff.runtime<RT>().Map(static rt => rt.Console)`. `Console<RT>.writeLine` and `Console<RT>.readLine` compile against that constraint, and `File<RT>` needs `FileIO` and `EncodingIO`. `Run(rt)` returns `Fin<A>`. `IO<A>` converts implicitly to `Eff<RT, A>`.
 
 `LanguageExt.Sys.Test.Runtime.New()` supplies a `MemoryConsole` and a file system rooted at a temporary directory under `Env.RootPath`. The test runtime is disposable and deletes that directory. `WriteKeyLine` feeds console input, and enumeration of the console returns the written lines only. `LanguageExt.Sys.Live.Runtime.New()` supplies live host services.
 

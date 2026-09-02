@@ -95,8 +95,8 @@ public static class NumericOracles {
     public static int OrientationSign(double[][] simplex) {
         ArgumentNullException.ThrowIfNull(simplex);
         int dim = simplex.Length - 1;
-        bool admissible = simplex.Length is 3 or 4 && simplex.All(point => point.Length >= dim && point.Take(dim).All(double.IsFinite));
-        _ = admissible ? dim : throw new ArgumentException("OrientationSign expects 3 finite 2D points or 4 finite 3D points", nameof(simplex));
+        bool valid = simplex.Length is 3 or 4 && simplex.All(point => point.Length >= dim && point.Take(dim).All(double.IsFinite));
+        _ = valid ? dim : throw new ArgumentException("OrientationSign expects 3 finite 2D points or 4 finite 3D points", nameof(simplex));
         (BigInteger Mantissa, int Exponent)[][] parts = [.. simplex.Select(point => ((BigInteger Mantissa, int Exponent)[])[.. point.Take(dim).Select(Decompose)])];
         int floor = parts.SelectMany(static point => point).Min(static part => part.Exponent);
         BigInteger[][] scaled = [.. parts.Select(point => (BigInteger[])[.. point.Select(part => part.Mantissa << (part.Exponent - floor))])];

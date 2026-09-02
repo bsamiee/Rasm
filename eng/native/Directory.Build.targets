@@ -1,21 +1,43 @@
 <Project>
+    <PropertyGroup>
+        <VersionManifest>$(MSBuildThisFileDirectory)$(NativeLibraryName)/$([MSBuild]::ValueOrDefault('$(VersionManifestFileName)', 'vcpkg.json'))</VersionManifest>
+        <CentralPackagesPath>$(RepositoryRoot)Directory.Packages.props</CentralPackagesPath>
+    </PropertyGroup>
+
     <ItemGroup Condition="'$(IncludeBuildOutput)' == 'false'">
         <None Include="$(StageRoot)runtimes/**" Pack="true" PackagePath="runtimes/" />
-        <!-- Data payloads stage under contentFiles; copyToOutput preserves the staged tree in consumer output where rid-specific publish flattens runtimes native assets -->
+        <!-- contentFiles with copyToOutput keeps the staged tree in consumer output where RID-specific publish flattens runtimes native assets -->
         <None Include="$(StageRoot)contentFiles/**" Pack="true" PackagePath="contentFiles/any/any/" PackageCopyToOutput="true" BuildAction="None" />
         <None Include="$(MSBuildThisFileDirectory)_._" Pack="true" PackagePath="lib/$(TargetFramework)/" />
     </ItemGroup>
 
+    <ItemGroup Condition="'$(IncludeBuildOutput)' == 'true'">
+        <Compile Include="$(StageRoot)managed/*.cs" />
+    </ItemGroup>
+
     <Target Name="EnsureStagedNativeLibraries" BeforeTargets="GenerateNuspec" Condition="'$(IncludeBuildOutput)' == 'false'">
         <Error Condition="!Exists('$(StageRoot)runtimes') and !Exists('$(StageRoot)contentFiles')"
-               Text="Nothing staged under $(StageRoot); run the eng stage-$(NativeLibraryName)-native target first." />
+               Text="Nothing staged under $(StageRoot), run the eng stage-$(NativeLibraryName)-native target first" />
+    </Target>
+
+    <Target Name="EnsureStagedManagedSources" BeforeTargets="CoreCompile" Condition="'$(IncludeBuildOutput)' == 'true'">
+        <Error Condition="'@(Compile)' == ''" Text="No sources staged under $(StageRoot)managed, run the eng stage-$(NativeLibraryName)-native target first" />
     </Target>
 
     <Target Name="EnsureManifestVersionMatch" BeforeTargets="GenerateNuspec">
         <PropertyGroup>
-            <_ManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VcpkgManifest)')), '(?&lt;="version-string": ")[^"]+').Value)</_ManifestVersion>
+            <_ManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VersionManifest)')), '(?&lt;="version-string": ")[^"]+').Value)</_ManifestVersion>
         </PropertyGroup>
         <Error Condition="'$(_ManifestVersion)' != '$(Version)'"
-               Text="Package version $(Version) does not match version-string '$(_ManifestVersion)' in $(VcpkgManifest)." />
+               Text="Package version $(Version) does not match version-string '$(_ManifestVersion)' in $(VersionManifest)" />
+    </Target>
+
+    <!-- Packages locked to one entry in the root Directory.Packages.props declare that entry as CentralPackageId -->
+    <Target Name="EnsureCentralPackageVersionMatch" BeforeTargets="GenerateNuspec" Condition="'$(CentralPackageId)' != ''">
+        <PropertyGroup>
+            <_CentralPackageVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(CentralPackagesPath)')), '(?&lt;=Include="$(CentralPackageId)"\s+Version=")[^"]+').Value)</_CentralPackageVersion>
+        </PropertyGroup>
+        <Error Condition="'$(_CentralPackageVersion)' != '$(Version)'"
+               Text="Package version $(Version) does not match the $(CentralPackageId) version '$(_CentralPackageVersion)' in Directory.Packages.props" />
     </Target>
 </Project>

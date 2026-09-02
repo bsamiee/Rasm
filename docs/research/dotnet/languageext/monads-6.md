@@ -2,7 +2,7 @@
 
 ## [01]-[MOTIVATION]
 
-Pure functional programming rests on: functions are values, everything is an expression, and expressions are pure or behave with referential transparency. Pure expressions are values or combine pure expressions and produce no side effects. Referentially transparent expressions can use imperative implementations; from the outside each call is replaceable by its value.
+Pure functional programming rests on: functions are values, everything is an expression, and expressions are pure or behave with referential transparency. Pure expressions are values or combine pure expressions and produce no side effects. Referentially transparent expressions can use imperative implementations, from the outside each call is replaceable by its value.
 
 Expression-oriented programs still need readable, line-by-line sequencing. In an ML-style expression,
 
@@ -47,7 +47,7 @@ public static class DateTimeIO
 }
 ```
 
-`DateTimeIO.Now` constructs a data representation of a computation; it does not read the clock. Each run of that representation reads the clock again, instead of preserving the first observed time.
+`DateTimeIO.Now` constructs a data representation of a computation, it does not read the clock. Each run of that representation reads the clock again, instead of preserving the first observed time.
 
 For the higher-kinded trait system, `IO<A>` implements the `IO` witness and gains the downcast and the interpreter:
 
@@ -136,7 +136,7 @@ Map  : (A -> B)    -> M<A> -> M<B>
 Bind : (A -> M<B>) -> M<A> -> M<B>
 ```
 
-`Map` is `Bind` followed by `Pure`: its function produces a plain value and ends the chain. `Apply` derives from `Bind` and `Map`. Those definitions are starting points; a monad can provide a bespoke `Apply`.
+`Map` is `Bind` followed by `Pure`: its function produces a plain value and ends the chain. `Apply` derives from `Bind` and `Map`. Those definitions are starting points, a monad can provide a bespoke `Apply`.
 
 ## [04]-[LINQ_SEQUENCING]
 
@@ -157,7 +157,7 @@ var diff =
     select tomorrow - today;
 ```
 
-LINQ is C#'s first-class syntax for monadic sequencing, the analogue of Haskell's `do` notation. With the higher-kinded traits, implementing `Monad<M>` makes a type work with LINQ without a separate `Select` and `SelectMany` per concrete monad. Monads chain computations serially; read `Bind` as "and then".
+LINQ is C#'s first-class syntax for monadic sequencing, the analogue of Haskell's `do` notation. With the higher-kinded traits, implementing `Monad<M>` makes a type work with LINQ without a separate `Select` and `SelectMany` per concrete monad. Monads chain computations serially, read `Bind` as "and then".
 
 ## [05]-[BIND_ACROSS_KINDS]
 
@@ -216,4 +216,4 @@ When parsing returns `None`, no value exists for the next dependent step, and th
 
 ## [07]-[DECLARED_EFFECTS]
 
-The monad in a return type marks the whole expression with a behavior. `IO<A>` declares that the expression performs IO; `Option<A>` declares that it can produce no value. Visible contexts separate effectful from non-effectful code and preserve composition. Different monads implement very different sequencing behavior through the same `Bind` shape (IO, absence, state, configuration, logging, validation, collection iteration, stream processing, resource tracking). In every case `Bind` is function composition with the external result `M<A> -> M<B>`; the chosen `M` supplies the behavior between the steps.
+The monad in a return type marks the whole expression with a behavior. `IO<A>` declares that the expression performs IO, `Option<A>` declares that it can produce no value. Visible contexts separate effectful from non-effectful code and preserve composition. Different monads implement very different sequencing behavior through the same `Bind` shape (IO, absence, state, configuration, logging, validation, collection iteration, stream processing, resource tracking). In every case `Bind` is function composition with the external result `M<A> -> M<B>`, the chosen `M` supplies the behavior between the steps.

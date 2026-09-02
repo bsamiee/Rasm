@@ -1,11 +1,11 @@
 """Build the full Emgu CV native library for macOS arm64 and stage it for packing.
 
 The recipe is the pinned checkout's own platforms/macos/configure arm64 full: static eigen and
-hdf5 prebuilds feed one OpenCV configure with the contrib modules and tesseract, and the
+hdf5 prebuilds feed the OpenCV configure with the contrib modules and tesseract, and the
 cvextern target builds alone, in parallel. Build trees stay inside the cached checkout,
 rebuilds are incremental, and a commit-keyed artifact under .cache makes a repeat run a no-op
-that never touches CMake. CI packs from that artifact or rebuilds it on demand; the compile
-never enters routine pipelines.
+that never touches CMake. CI packs from that artifact or rebuilds it on demand, the compile
+stays out of routine pipelines.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -51,7 +51,7 @@ _OPENCV_FLAGS = (
     "-DBUILD_SHARED_LIBS:BOOL=OFF",
     "-DEMGU_CV_WITH_TESSERACT:BOOL=TRUE",
     "-DEMGU_CV_WITH_FREETYPE:BOOL=FALSE",
-    "-DCMAKE_IGNORE_PREFIX_PATH:STRING=/usr/local;/opt/homebrew",  # Upstream ignores the runner's /usr/local; arm64 Homebrew lives in /opt/homebrew
+    "-DCMAKE_IGNORE_PREFIX_PATH:STRING=/usr/local;/opt/homebrew",  # Upstream ignores the runner's /usr/local, arm64 Homebrew lives in /opt/homebrew
 )
 
 _log = structlog.get_logger(__name__)
@@ -61,12 +61,12 @@ app = cyclopts.App(name="stage-emgucv-native")
 
 
 async def _configure(cmake: Path, source: Path, build: Path, flags: list[str]) -> None:
-    """Configure one CMake tree at the upstream recipe's Release settings."""
+    """Configure a CMake tree at the upstream recipe's Release settings."""
     await run([str(cmake), "-S", str(source), "-B", str(build), "-DCMAKE_BUILD_TYPE:STRING=Release", *flags], REPO_ROOT)
 
 
 async def _compile(cmake: Path, build: Path, target: str) -> None:
-    """Build one CMake target across every core."""
+    """Build a CMake target across every core."""
     await run([str(cmake), "--build", str(build), "--target", target, "--parallel", str(os.cpu_count() or 1)], REPO_ROOT)
 
 
@@ -89,7 +89,7 @@ async def _build(src: Path) -> Path:
 
 
 async def _stage(rid: Rid) -> Path:
-    """Reuse or build the commit-keyed library and stage it for one rid."""
+    """Reuse or build the commit-keyed library and stage it for the rid."""
     if rid != "osx-arm64":
         raise SystemExit(f"emgucv builds osx-arm64 only, not {rid}")
     version, commit = emgucv_pins()

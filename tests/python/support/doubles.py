@@ -162,7 +162,7 @@ def autojump_backend(threshold: float = 0.0) -> tuple[str, dict[str, object]]:
     """Return an ``anyio_backend`` parameter using Trio's autojumping virtual clock.
 
     Every ``anyio.sleep`` and deadline advances instantly once the loop idles past ``threshold``. Retry, drain, and
-    timeout tests complete without real-time sleeps; the asyncssh stub skips itself under this backend.
+    timeout tests complete without real-time sleeps, the asyncssh stub skips itself under this backend.
     """
     return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=threshold)})
 
@@ -180,7 +180,7 @@ class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
     absent: frozenset[V] = frozenset()
 
     def path(self, variant: V) -> Path:
-        """Materialize one variant and return its path; ``absent`` variants are never written."""
+        """Materialize a variant and return its path, ``absent`` variants are never written."""
         target = self.directory / self.names[variant]
         payload = self.payloads.get(variant)
         return target if variant in self.absent else self._emit(target, payload if isinstance(payload, bytes) else self.encode(payload))
@@ -210,7 +210,7 @@ class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
         return tuple(self.decoder.decode(line) for line in lines)
 
     def one(self, raw: bytes) -> T:
-        assert self.expect_lines == 1, f"one() requires exactly one expected line; configured for {self.expect_lines}, use rows()"
+        assert self.expect_lines == 1, f"one() decodes a single-write line, expect_lines is {self.expect_lines}, use rows()"
         return self.rows(raw)[0]
 
     def from_capture(self, cap: pytest.CaptureFixture[bytes] | pytest.CaptureFixture[str]) -> T:

@@ -1,9 +1,9 @@
 # [LANGUAGE_FEATURES]
 
 C# supports functional programming through these language features:
-- Tuples carry short-lived groups of values through a pipeline;
-- Patterns turn branching rules into expressions over input structures;
-- readonly structs and init-only properties constrain reassignment, while records support nondestructive mutation;
+- Tuples carry short-lived groups of values through a pipeline
+- Patterns turn branching rules into expressions over input structures
+- readonly structs and init-only properties constrain reassignment, while records support nondestructive mutation
 - Nullable static analysis exposes unintended null use before values enter a pipeline
 
 These features reduce casts, mutation, and repetitive copying while keeping the rules visible.
@@ -36,16 +36,16 @@ Procedural type checks require explicit casts and nested branches. Moving the ca
 C# provides these pattern-matching features:
 - Type patterns test a runtime type and bind the typed value: `account is PremiumBankAccount premium`
 - Switch cases with type patterns collect subtype rules, and `when` adds a guard
-- Switch expressions make the decision return a value; `_` is the discard pattern for the fallback arm
+- Switch expressions make the decision return a value, and `_` is the discard pattern for the fallback arm
 - Property patterns inspect the shape of an object
-- Relational and logical patterns such as `>`, `and`, and `not` express value ranges and exclusions inside a pattern
+- Relational and logical patterns (`>`, `and`, `not`) express value ranges and exclusions inside a pattern
 - Type patterns need not bind a local when the result ignores subtype data
-- Extended property patterns inspect nested data, such as a player's first name, without extracting each intermediate object first
+- Extended property patterns inspect nested data (a player's first name) without extracting each intermediate object first
 - List patterns recognize values at the beginning, middle, or end of arrays with known headers or footers
 
 ### [02.1]-[INTEREST_CALCULATION]
 
-Ordinary interest equals balance times rate. Premium accounts receive bonus rates above specified balance thresholds; millionaire accounts also earn interest on overflow balance; eligible Monopoly accounts add a bonus for passing Go; and closed accounts earn nothing.
+Ordinary interest equals balance times rate. Premium accounts receive bonus rates above specified balance thresholds, millionaire accounts also earn interest on overflow balance, eligible Monopoly accounts add a bonus for passing Go, and closed accounts earn nothing.
 
 ```csharp
 internal abstract record StandardBankAccount(decimal Balance, decimal InterestRate);
@@ -145,7 +145,7 @@ internal readonly struct MovieInit {
 }
 ```
 
-`init` avoids a constructor parameter for every property. It does not make referenced child objects immutable. `init` properties can be omitted from a struct initializer; use `required` for a property that cannot be omitted.
+`init` avoids a constructor parameter for every property. It does not make referenced child objects immutable. `init` properties can be omitted from a struct initializer. Use `required` for a property that cannot be omitted.
 
 ### [04.3]-[RECORDS]
 

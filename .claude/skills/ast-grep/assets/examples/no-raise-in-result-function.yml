@@ -5,13 +5,13 @@ severity: error
 rule:
     kind: raise_statement
     all:
-        - not: {regex: '^raise$'} # bare re-raise propagating cancellation is the one legal raise
+        - not: {regex: '^raise$'} # Bare re-raise propagating cancellation alone is legal
         - inside:
             kind: function_definition
             stopBy:
-                kind: function_definition # nearest enclosing def — a sanctioned raise inside a nested closure never fires
+                kind: function_definition # Nearest enclosing def, a sanctioned raise inside a nested closure never fires
             has:
                 field: return_type
-                regex: '^"?(Result|Option)\[' # the quote arm reaches stringized annotations
+                regex: '^"?(Result|Option)\[' # The quote arm reaches stringized annotations
 message: Result-returning function raises in its own body
-note: Return the failure case in the declared result type — `Error(<fault>)` — or move the raise into the closure a boundary converter wraps; waive a true boundary with `ast-grep-ignore` on the raise line
+note: Return the failure case in the declared result type, `Error(<fault>)`, or move the raise into the closure a boundary converter wraps, waive a true boundary with `ast-grep-ignore` on the raise line

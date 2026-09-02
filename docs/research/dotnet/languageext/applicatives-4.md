@@ -1,9 +1,9 @@
 # [APPLICATIVES]
 
-Applicative functors extend a functor with contextual function application. They combine values in a context such as `Maybe`, `Either`, `Option`, `Seq`, or `IO` without the sequential dependencies of monadic composition.
+Applicative functors extend a functor with contextual function application. They combine values in a context (`Maybe`, `Either`, `Option`, `Seq`, `IO`) without the sequential dependencies of monadic composition.
 
 Important uses are:
-- Evaluating independent effectful computations in parallel;
+- Evaluating independent effectful computations in parallel
 - Collecting multiple validation errors
 
 ## [01]-[FROM_MAP_TO_APPLY]
@@ -89,7 +89,7 @@ public interface Functor<F>
 }
 ```
 
-The difference is the function. `Map` receives an ordinary `Func<A, B>`; `Apply` receives that function inside the same `K<F, ...>` context as its argument. This `Map` signature uses LanguageExt's function-first ordering. The trait also declares `Pure`; the `Maybe` instance below constructs `Just`.
+The difference is the function. `Map` receives an ordinary `Func<A, B>`, `Apply` receives that function inside the same `K<F, ...>` context as its argument. This `Map` signature uses LanguageExt's function-first ordering. The trait also declares `Pure`, the `Maybe` instance below constructs `Just`.
 
 ## [03]-[MAYBE_APPLICATIVE]
 
@@ -138,7 +138,7 @@ public class Maybe :
 }
 ```
 
-`Apply` extracts both the function and its argument. Either side `Nothing` makes the result `Nothing`; both `Just` invokes the function and wraps the result in `Just`. The `Foldable` trait requires `FoldWhile` and `FoldBackWhile`, which support optimized defaults for `Exists`, `ForAll`, and `IsEmpty`.
+`Apply` extracts both the function and its argument. Either side `Nothing` makes the result `Nothing`, both `Just` invokes the function and wraps the result in `Just`. The `Foldable` trait requires `FoldWhile` and `FoldBackWhile`, which support optimized defaults for `Exists`, `ForAll`, and `IsEmpty`.
 
 ## [04]-[FLUENT_COMPOSITION]
 
@@ -164,7 +164,7 @@ The nested `Map` expression becomes:
 var r = multiply.Map(mw).Apply(mx); // K<Maybe, int>
 ```
 
-`Map` supplies the first argument to the curried function; each `Apply` supplies another. Haskell writes the same operation with the `<$>` and `<*>` operators; C# operators cannot be parametrically polymorphic, the generic operation uses fluent methods:
+`Map` supplies the first argument to the curried function, each `Apply` supplies another. Haskell writes the same operation with the `<$>` and `<*>` operators. C# operators cannot be parametrically polymorphic, the generic operation uses fluent methods:
 
 ```haskell
 let r = multiply <$> mw <*> mx
@@ -205,7 +205,7 @@ public static IO<B> Apply<A, B>(
     select f(a);
 ```
 
-Chained `Apply` calls let each argument computation run in parallel; the final function runs after all arguments have been acquired:
+Chained `Apply` calls let each argument computation run in parallel, the final function runs after all arguments have been acquired:
 
 ```csharp
 var io1 = liftIO(() => File.ReadAllTextAsync(path1));
@@ -221,4 +221,4 @@ LanguageExt provides multi-argument `Map` and `Apply` overloads that curry deleg
 
 The production `IO` represents `IO<A>` as a DSL, avoids `async` where possible, unpacks underlying `Task` values, and coordinates them with `Task.WhenAll`. The applicative meaning stands: automatic concurrency for independent `IO` operands.
 
-Use applicatives where the independent structure provides a capability that sequential monadic composition does not, or where the fluent expression is clearer; otherwise the monadic form reads better in C#.
+Use applicatives where the independent structure provides a capability that sequential monadic composition does not, or where the fluent expression is clearer, otherwise the monadic form reads better in C#.

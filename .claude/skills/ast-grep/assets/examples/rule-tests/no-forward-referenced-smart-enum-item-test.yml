@@ -1,13 +1,13 @@
-id: deny-forward-referenced-vocabulary-row
+id: no-forward-referenced-smart-enum-item
 valid:
-    - | # deferred column
+    - | # Deferred value
       [SmartEnum<string>]
       public sealed partial class Route {
           public static readonly Route Primary = new("<key-a>", static () => Fallback);
           public static readonly Route Fallback = new("<key-b>", static () => Fallback);
       }
 invalid:
-    - |- # eager forward reference captures null
+    - |- # Eager forward reference captures null
       [SmartEnum<string>]
       public sealed partial class Route {
           public static readonly Route Primary = new("<key-a>", Fallback);

@@ -1,17 +1,16 @@
 <Project>
-    <!-- Stops repo build inheritance: packaging projects under eng/native build in isolation, pack through the Nx eng targets, and stay out of Workspace.slnx -->
+    <!-- Isolates eng/native packaging projects from the root build files, packed through Nx eng targets outside Workspace.slnx -->
     <PropertyGroup>
-        <NativeArtifactsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '.artifacts', 'native'))</NativeArtifactsRoot>
+        <RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..'))</RepositoryRoot>
+        <NativeArtifactsRoot>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'native'))</NativeArtifactsRoot>
         <ArtifactsPath>$(NativeArtifactsRoot)msbuild</ArtifactsPath>
         <NativeLibraryName>$(MSBuildProjectName.Replace('Rasm.Native.', '').Replace('Rasm.', '').ToLowerInvariant())</NativeLibraryName>
         <StageRoot>$([MSBuild]::NormalizeDirectory('$(NativeArtifactsRoot)', '$(NativeLibraryName)', 'stage'))</StageRoot>
-        <VcpkgManifest>$(MSBuildThisFileDirectory)$(NativeLibraryName)/vcpkg.json</VcpkgManifest>
         <TargetFramework>netstandard2.0</TargetFramework>
         <Authors>bsamiee</Authors>
         <IncludeBuildOutput>false</IncludeBuildOutput>
         <EnableDefaultItems>false</EnableDefaultItems>
-        <!-- Pack stamps zip entries at wall-clock time unless pinned; a fixed epoch makes the nupkg a pure function of payload and version -->
-        <Deterministic>true</Deterministic>
+        <!-- Pinning the zip entry timestamp makes the nupkg a pure function of content and version -->
         <DeterministicTimestamp>1735689600</DeterministicTimestamp>
     </PropertyGroup>
 </Project>

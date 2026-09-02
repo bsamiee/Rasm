@@ -20,7 +20,7 @@ internal static partial class Laziness {
 
 Wrapping an expression in `IO<A>` changes an eager value into an effect that produces a value when run. `IO.lift(Func<A>)` wraps the work as `IO<A>`. The receiving function decides which effect to return.
 
-Memoize a reused pure value instead. Memoizing a thunk gives call-by-need evaluation: `memo(Func<A>)` returns a `Memo<A>` whose `Value` runs the function once and keeps the result:
+Memoize a reused pure value instead. Memoizing a thunk gives call-by-need evaluation: `memo(Func<A>)` returns a `Memo<A>`, and its `Value` runs the function once and keeps the result:
 
 ```csharp
 internal static partial class Laziness {
@@ -33,7 +33,7 @@ internal static partial class Laziness {
 
 ### [01.1]-[LAZY_FALLBACKS]
 
-An eager fallback defeats a cache because the database lookup runs even when the cache contains the value:
+Eager fallbacks defeat a cache because the database lookup runs even when the cache contains the value:
 
 ```csharp
 internal static partial class Laziness {
@@ -73,7 +73,7 @@ internal static partial class Composition {
 }
 ```
 
-`Bind` sequences an effect whose next step also returns an effect:
+`Bind` sequences an effect and a next step that also returns an effect:
 
 ```csharp
 internal static partial class Composition {
@@ -85,7 +85,7 @@ internal static partial class Composition {
 
 ## [03]-[TRY]
 
-Repeated `try/catch` blocks obscure the computation. Represent exception-prone lazy work with `Try<A>` and centralize execution. `Try<A>` wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` whose `IsExceptional` is true, and `Run()` returns `Fin<A>`.
+Repeated `try/catch` blocks obscure the computation. Represent exception-prone lazy work with `Try<A>` and centralize execution. `Try<A>` wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` with `IsExceptional` true, and `Run()` returns `Fin<A>`.
 
 ```csharp
 internal static partial class Parsing {
@@ -131,7 +131,7 @@ A -> Try<B>
 B -> Try<C>
 ```
 
-`Bind` defines how to connect them while preserving `Try` semantics: remain lazy, stop on failure, and carry the failure to the final result. Monadic composition connects functions that return a computational context; each context's `Bind` captures its sequencing rules.
+`Bind` defines how to connect them while preserving `Try` semantics: remain lazy, stop on failure, and carry the failure to the final result. Monadic composition connects functions that return a computational context, and each context's `Bind` captures its sequencing rules.
 
 The sequencing rule changes with the return type: a `(value, K)` pair combines the `K` values, a stateful shape threads a seed forward, and a continuation shape surrounds downstream work.
 
@@ -165,7 +165,7 @@ internal static partial class Environments {
 
 Each bind wraps another deferred transformation. The environment type remains fixed while the value type can change. Build a complete workflow before a database connection or other shared input exists, then run it once that input arrives.
 
-An effectful workflow uses `ReaderT<Env, IO, A>`. `ReaderT.ask<IO, Env>()` reads the environment, an `IO<A>` binds directly in the query, `ReaderT.with` maps a larger environment, and `Run(env)` returns `K<IO, A>` that `.As()` narrows to the `IO<A>` the host runs with `RunSafe()`:
+Effectful workflows use `ReaderT<Env, IO, A>`. `ReaderT.ask<IO, Env>()` reads the environment, an `IO<A>` binds directly in the query, `ReaderT.with` maps a larger environment, and `Run(env)` returns `K<IO, A>` that `.As()` narrows to the `IO<A>` the host runs with `RunSafe()`:
 
 ```csharp
 internal static partial class Environments {
@@ -191,7 +191,7 @@ A Time<A>(string operation, Func<A> run)
 R Transact<R>(Connection connection, Func<Transaction, R> use)
 ```
 
-After partially applying configuration, such as the operation name, they share the continuation type:
+After partially applying configuration (the operation name), they share the continuation type:
 
 ```text
 (T -> R) -> R
@@ -199,7 +199,7 @@ After partially applying configuration, such as the operation name, they share t
 
 The computation produces a `T`, supplies it to a continuation, and returns the continuation's result. It can create a resource before the continuation and release, commit, or time after the continuation returns.
 
-Combining these helpers directly creates nested callbacks. `IO<A>` provides `Bracket(Use:, Fin:)` for this pattern: it acts before and after a continuation. `Connection : IDisposable` opens a `Transaction` whose `Dispose` rolls back unless `Commit` has run:
+Combining these helpers directly creates nested callbacks. `IO<A>` provides `Bracket(Use:, Fin:)` for this pattern: it acts before and after a continuation. `Connection : IDisposable` opens a `Transaction`, and its `Dispose` rolls back unless `Commit` has run:
 
 ```csharp
 internal sealed class Transaction(Connection connection) : IDisposable {
@@ -228,7 +228,7 @@ internal static partial class Scopes {
 }
 ```
 
-`Time` transforms `IO<A>` into `IO<A>`. `Fin` runs after the continuation succeeds and after a failure occurs while it runs. `Fin` does not run when `Time` receives a pre-built `IO.fail`; the supplied work remains deferred.
+`Time` transforms `IO<A>` into `IO<A>`. `Fin` runs after the continuation succeeds and after a failure occurs while it runs. `Fin` does not run when `Time` receives a pre-built `IO.fail`, the supplied work remains deferred.
 
 ## [07]-[RESOURCE_SCOPES]
 

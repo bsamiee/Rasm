@@ -2,7 +2,7 @@
 
 ## [01]-[ERRORS_IN_THE_RETURN_TYPE]
 
-Operations that can predictably fail return both outcomes as data. The signature states the failure behavior, callers reason about it locally, and composition controls the flow. Exceptions, by contrast, transfer control to a handler up the call stack or escape uncaught; understanding the next step requires tracing the surrounding call paths.
+Operations that can predictably fail return both outcomes as data. The signature states the failure behavior, callers reason about it locally, and composition controls the flow. Exceptions, by contrast, transfer control to a handler up the call stack or escape uncaught. Understanding the next step requires tracing the surrounding call paths.
 
 Use `Option<T>` when failure means only “no value” and no explanation is useful. Use `Fin<A>` when the caller needs failure details. `Either<L, R>` stays for two value types where neither side is an error.
 
@@ -26,7 +26,7 @@ internal static class Calculator {
 
 ### [01.1]-[RESULT_AND_ERROR_FIELDS]
 
-Wrappers around boundary calls have two failure modes. Returning `default` on failure swallows the exception and makes failure indistinguishable from a valid default result. Separate result and error fields preserve both outcomes, but every success carries an unused error field and every failure an unused result field; only mutually exclusive cases remove the invalid combinations.
+Wrappers around boundary calls have two failure modes. Returning `default` on failure swallows the exception and makes failure indistinguishable from a valid default result. Separate result and error fields preserve both outcomes, but every success carries an unused error field and every failure an unused result field. Only mutually exclusive cases remove the invalid combinations.
 
 ## [02]-[CORE_OPERATIONS]
 
@@ -126,9 +126,9 @@ For an optional lookup, a boundary can translate `None` to “not found” and `
 
 API designs are:
 - Map `Fail` and `Succ` to protocol status codes and payloads
-- Always return a response whose transport status indicates success and whose body is a result DTO with `Succeeded` and either `Data` or `Error`, which unlike `Fin` exposes its values directly for serialization and client access
+- Always return a response with a successful transport status and a body that is a result DTO with `Succeeded` and either `Data` or `Error`, which unlike `Fin` exposes its values directly for serialization and client access
 
-Mapping business validation to an HTTP error such as 400 has tradeoffs: the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt. The choice is an API-design decision.
+Mapping business validation to an HTTP error (400) has tradeoffs: the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt. The choice is an API-design decision.
 
 ## [06]-[ERROR_ADAPTATION]
 
@@ -162,7 +162,7 @@ Validation<Error, A> = Fail(Error) | Success(A)
 IO<A>                = a deferred effect that fails with Error or yields A
 ```
 
-- `Validation<Error, A>` represents violated business rules. Its failure type is fixed to `Error`, whose `+` combines failures into `ManyErrors`. `IsType<E>` and `IsExceptional` on `ManyErrors` test its members.
+- `Validation<Error, A>` represents violated business rules. Its failure type is fixed to `Error`, and `+` on `Error` combines failures into `ManyErrors`. `IsType<E>` and `IsExceptional` on `ManyErrors` test its members.
 - `IO<A>` represents infrastructure, integration, or other technical work. Thrown exceptions arrive on its error channel as `Exceptional` errors.
 
 Class-based `Result<T>` with `Success<T>` and `Failure<T>` cases, where `Failure<T>` carries an exception, is equivalent to `Fin<A>` with an `Exceptional` error. Its `Success<T>` does not prevent a `null` payload. Use `Option<T>` for absence.

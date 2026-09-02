@@ -22,11 +22,11 @@ public interface Mappable<F>
 }
 ```
 
-`K` is short for "kind". `F` anchors the structure, and `A` is the value type carried by that structure. Mapping replaces `A` with `B` without changing `F`.
+`K` is short for "kind". `F` is the structure, and `A` is the value type carried by that structure. Mapping replaces `A` with `B` without changing `F`.
 
 ## [02]-[LIST_IMPLEMENTATION]
 
-The generic data type represents the data; a non-generic sibling type implements the capability:
+The generic data type represents the data, a non-generic sibling type implements the capability:
 
 ```csharp
 public record List<A>(A[] Items) : K<List, A>;
@@ -142,7 +142,7 @@ var r2 = my.Select(x => x + 1)
 
 ## [05]-[GENERIC_FUNCTIONS]
 
-Per-type extension methods give mapping syntax; they do not let one function serve every mappable structure. The trait constraint does:
+Per-type extension methods give mapping syntax, they do not let one function serve every mappable structure. The trait constraint does:
 
 ```csharp
 public static K<F, int> Foo<F>(K<F, string> ma)
@@ -176,7 +176,7 @@ class Functor f where
 - `f b` is `K<F, B>`
 - `a -> b` is `Func<A, B>`
 
-Only the argument order differs in this illustrative C# definition; the implemented API places the function first.
+Only the argument order differs in this illustrative C# definition, the implemented API places the function first.
 
 ## [07]-[SHAPE_AND_CAPABILITY]
 
