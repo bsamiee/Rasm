@@ -63,7 +63,7 @@ Nx defines the task graph and the build, test, lint, and generate targets.
 - Targets resolve from plugin inference, then `targetDefaults` in `nx.json`, then a project's own configuration, each source overriding the one before it
 - Targets running a single command name that command directly
 - Steps containing control flow are implemented as Python scripts under `eng/scripts/`, which a target invokes
-- Scripts declare their dependencies inline and run under `uv run` without a shared Python environment
+- Scripts take their dependencies from the root `pyproject.toml` groups and run under `uv run`
 
 ## [03]-[QUALITY]
 

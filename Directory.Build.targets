@@ -75,9 +75,11 @@
             <_RasmNativeBinding Include="FFmpeg.AutoGen" Native="Rasm.Native.FFmpeg" />
             <_RasmNativeBinding Include="Rasm.Z3" Native="Rasm.Native.Z3" />
             <_RasmNativeBinding Include="Rasm.Gmsh" Native="Rasm.Native.Gmsh" />
+            <_RasmNativeBinding Include="PureHDF.Filters.Blosc2" Native="Rasm.Native.Blosc2" />
             <_RasmRuntimeInitBinding Include="EPPlus" Companion="Rasm.Interop.Excel" />
             <_RasmRuntimeInitBinding Include="MaxRev.Gdal.Core" Companion="Rasm.Interop.Gdal" />
             <_RasmRuntimeInitBinding Include="PDFsharp" Companion="Rasm.Interop.Pdf" />
+            <_RasmRuntimeInitBinding Include="PureHDF.Filters.Blosc2" Companion="Rasm.Interop.Hdf5" />
             <_RasmRuntimeInitBinding Include="PureHDF.Filters.BZip2.SharpZipLib" Companion="Rasm.Interop.Hdf5" />
             <_RasmRuntimeInitBinding Include="PureHDF.Filters.Lzf" Companion="Rasm.Interop.Hdf5" />
         </ItemGroup>

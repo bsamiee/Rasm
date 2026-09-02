@@ -1,0 +1,7 @@
+{
+    "name": "rasm-native-sqlitevec",
+    "version-string": "0.1.10-alpha.4",
+    "assets": {
+        "osx-arm64": "9c4c3c9fee1cd68d07028f90c9e31b67f13ca1a1737435ae569e8fe7a17b5a91"
+    }
+}

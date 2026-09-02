@@ -65,6 +65,26 @@
             "command": "dotnet pack eng/native/Rasm.Native.DuckDBExtensions/Rasm.Native.DuckDBExtensions.csproj -c Release -o .artifacts/nuget --nologo",
             "cache": false,
             "dependsOn": ["stage-duckdbextensions-native"]
+        },
+        "stage-blosc2-native": {
+            "command": "uv run python -m eng.scripts.stage_blosc2_native",
+            "cache": false,
+            "dependsOn": ["provision-tools"]
+        },
+        "pack-blosc2-native": {
+            "command": "dotnet pack eng/native/Rasm.Native.Blosc2/Rasm.Native.Blosc2.csproj -c Release -o .artifacts/nuget --nologo",
+            "cache": false,
+            "dependsOn": ["stage-blosc2-native"]
+        },
+        "stage-sqlitevec-native": {
+            "command": "uv run python -m eng.scripts.stage_sqlitevec_native",
+            "cache": false,
+            "dependsOn": ["provision-tools"]
+        },
+        "pack-sqlitevec-native": {
+            "command": "dotnet pack eng/native/Rasm.Native.SqliteVec/Rasm.Native.SqliteVec.csproj -c Release -o .artifacts/nuget --nologo",
+            "cache": false,
+            "dependsOn": ["stage-sqlitevec-native"]
         }
     }
 }

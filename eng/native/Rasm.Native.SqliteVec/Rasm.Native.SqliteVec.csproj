@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Version>0.1.10-alpha.4</Version>
+        <Description>sqlite-vec loadable vector search extension staged per runtime identifier</Description>
+        <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
+        <!-- This lane pins upstream release loadables instead of a vcpkg port; the shared version guard reads the pin manifest's version-string -->
+        <VcpkgManifest>$(MSBuildThisFileDirectory)../sqlitevec/loadable.json</VcpkgManifest>
+    </PropertyGroup>
+</Project>

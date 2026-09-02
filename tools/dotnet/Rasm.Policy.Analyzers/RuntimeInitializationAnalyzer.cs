@@ -4,11 +4,11 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Rasm.Policy.Analyzers;
 
-/// <summary>Reports RASM0006 when an executable references an interop facade but never invokes its initialization.</summary>
+/// <summary>Reports RASM0006 when an executable references an interop facade but never invokes its initialization</summary>
 /// <remarks>
-/// Each interop facade owns one Initialize entry point, and Rasm.Interop.RuntimeInitialization.Initialize covers all
-/// of them. Executables referencing a facade without any of those calls fail their libraries at first use. A method
-/// reference to an entry point counts: the delegate reaches a startup hook the analyzer cannot trace.
+/// Each interop facade owns one Initialize entry point, and Rasm.Interop.RuntimeInitialization.Initialize covers all of them; executables referencing a
+/// facade without any of those calls fail their libraries at first use; a method reference to an entry point counts because the delegate reaches a startup
+/// hook the analyzer cannot trace
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {

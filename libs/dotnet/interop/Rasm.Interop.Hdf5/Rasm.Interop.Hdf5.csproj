@@ -4,7 +4,9 @@
     </PropertyGroup>
 
     <ItemGroup Label="Data Formats">
+        <PackageReference Include="PureHDF.Filters.Blosc2" />
         <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
         <PackageReference Include="PureHDF.Filters.Lzf" />
+        <PackageReference Include="Rasm.Native.Blosc2" />
     </ItemGroup>
 </Project>

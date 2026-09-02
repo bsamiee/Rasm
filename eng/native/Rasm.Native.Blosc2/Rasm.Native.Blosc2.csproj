@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Version>3.3.2</Version>
+        <Description>c-blosc2 shared library and its codec dependency closure staged per runtime identifier</Description>
+        <PackageLicenseExpression>BSD-3-Clause AND MIT AND BSD-2-Clause</PackageLicenseExpression>
+    </PropertyGroup>
+</Project>

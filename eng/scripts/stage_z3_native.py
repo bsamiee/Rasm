@@ -16,28 +16,9 @@ import tarfile
 
 import anyio
 import cyclopts
-import msgspec
 import structlog
 
-from eng.scripts.provision import host_rid, native_build_tools, REPO_ROOT, Rid, run
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class _Target(msgspec.Struct, frozen=True, gc=False):
-    """Vcpkg triplet and the library file dotnet default probing resolves for one rid."""
-
-    triplet: str
-    lib_dir: str
-    pattern: str
-    file_name: str
-
-
-class _Port(msgspec.Struct, frozen=True, gc=False):
-    """The one field read from the vcpkg z3 port manifest."""
-
-    version: str
-
+from eng.scripts.provision import host_rid, manifest_version, native_build_tools, REPO_ROOT, Rid, run, stage_library, vcpkg_args, vcpkg_install, vcpkg_target
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -50,17 +31,6 @@ app = cyclopts.App(name="stage-z3-native")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _target(rid: Rid) -> _Target:
-    system, _, arch = rid.partition("-")
-    match system:
-        case "win":
-            return _Target(f"{arch}-windows", "bin", "libz3*.dll", "libz3.dll")
-        case "osx":
-            return _Target(f"{arch}-osx-dynamic", "lib", "libz3*.dylib", "libz3.dylib")
-        case _:
-            return _Target(f"{arch}-linux-dynamic", "lib", "libz3.so*", "libz3.so")
-
-
 def _search(pattern: str, text: str) -> str:
     match = re.search(pattern, text)
     if match is None:
@@ -71,12 +41,12 @@ def _search(pattern: str, text: str) -> str:
 async def _source_root(vcpkg: Path, install_args: list[str]) -> Path:
     """Unpack the source archive the z3 port pins and return its root directory."""
     port = vcpkg.parent / "ports" / "z3"
-    version = msgspec.json.decode((port / "vcpkg.json").read_bytes(), type=_Port).version
+    version = manifest_version(port / "vcpkg.json")
     portfile = (port / "portfile.cmake").read_text()
     repo = _search(r"REPO\s+(\S+)", portfile)
     ref = _search(r"REF\s+(\S+)", portfile).replace("${VERSION}", version)
     archive = vcpkg.parent / "downloads" / f"{repo.replace('/', '-')}-{ref}.tar.gz"
-    if not archive.exists():  # a binary-cache hit builds nothing and downloads no source
+    if not archive.exists():  # A binary-cache hit builds nothing and downloads no source
         await run([str(vcpkg), "install", "--only-downloads", *install_args], REPO_ROOT)
     source = _WORK / "src"
     shutil.rmtree(source, ignore_errors=True)
@@ -103,17 +73,11 @@ async def _stage_managed(vcpkg: Path, install_args: list[str]) -> Path:
 
 async def _stage(rid: Rid) -> Path:
     """Build the manifest with vcpkg, stage the library for one rid and the binding sources."""
-    target = _target(rid)
+    target = vcpkg_target(rid, "z3", windows_stem="libz3")
     tools = await native_build_tools()
-    install_args = ["--triplet", target.triplet, "--x-manifest-root", str(_MANIFEST_ROOT), "--x-install-root", str(_WORK / "installed"), "--no-print-usage"]
-    await run([str(tools.vcpkg), "install", *install_args], REPO_ROOT, env=tools.env)
-    source_dir = _WORK / "installed" / target.triplet / target.lib_dir
-    real = [path for path in sorted(source_dir.glob(target.pattern)) if path.is_file() and not path.is_symlink()]
-    if not real:
-        raise SystemExit(f"no library matching {target.pattern} under {source_dir}")
-    destination = _WORK / "stage" / "runtimes" / rid / "native" / target.file_name
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    _ = shutil.copy(real[0], destination)
+    install_args = vcpkg_args(_MANIFEST_ROOT, _WORK, target.triplet)
+    built = await vcpkg_install(tools, _WORK, target, install_args)
+    destination = stage_library(built[0], _WORK, rid, target.file_name)
     _ = await _stage_managed(tools.vcpkg, install_args)
     return destination
 
