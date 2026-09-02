@@ -163,7 +163,7 @@ Return `Func` values from adapter or factory methods to cross from method-based 
 
 ## [06]-[API_DESIGN]
 
-An existing API can expose arguments in an order that works poorly for partial application. An adapter can:
+Existing APIs can expose arguments in an order that works poorly for partial application. Adapters can:
 - Expose domain-specific types instead of ambiguous primitives;
 - Acquire a short-lived resource only when the operation runs;
 - Return a `Func`, subsequent specialization benefits from delegate inference

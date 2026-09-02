@@ -1,6 +1,6 @@
 # [APPLICATIVES]
 
-An applicative functor extends a functor with contextual function application. It combines values inside a context such as `Maybe`, `Either`, `Option`, `Seq`, or `IO` without the sequential dependencies of monadic composition.
+Applicative functors extend a functor with contextual function application. They combine values in a context such as `Maybe`, `Either`, `Option`, `Seq`, or `IO` without the sequential dependencies of monadic composition.
 
 Important uses are:
 - Evaluating independent effectful computations in parallel;
@@ -188,7 +188,7 @@ var res = from w in mw
           select w * x + y * z;
 ```
 
-The distinction is evaluation structure. Monadic expressions are sequential: each operand arrives in order, and failure stops the remaining operations. An applicative expression exposes that its operands do not depend on one another, an applicative instance can evaluate independent branches concurrently.
+The distinction is evaluation structure. Monadic expressions are sequential: each operand arrives in order, and failure stops the remaining operations. Applicative expressions expose that their operands do not depend on one another, an applicative instance can evaluate independent branches concurrently.
 
 ## [05]-[PARALLEL_IO]
 

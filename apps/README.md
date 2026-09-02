@@ -39,7 +39,7 @@ Root configuration files reach every app directory already, an app invents no co
 - `tool.uv.workspace.members` includes `libs/python/*` by glob and each app project by explicit row, since a glob over polyglot trees hard-fails
 
 [TYPESCRIPT]:
-- `pnpm-workspace.yaml` seats app packages through its `apps/*/*` glob, and its catalog holds every version
+- `pnpm-workspace.yaml` lists app packages via its `apps/*/*` glob, and its catalog holds every version
 - Project `tsconfig.json` extends `tsconfig.base.json` and declares only `references`; a node runtime adds `types: ["node"]`
 - Root `tsconfig.json` is the solution shell `tsc --build` drives, a project absent from its `references` never typechecks in the workspace sweep
 

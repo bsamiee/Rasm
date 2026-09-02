@@ -6,6 +6,7 @@
         <Project Path="libs/dotnet/interop/Rasm.Interop.Excel/Rasm.Interop.Excel.csproj" />
         <Project Path="libs/dotnet/interop/Rasm.Interop.Gdal/Rasm.Interop.Gdal.csproj" />
         <Project Path="libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
+        <Project Path="libs/dotnet/interop/Rasm.Interop.OpenCv/Rasm.Interop.OpenCv.csproj" />
         <Project Path="libs/dotnet/interop/Rasm.Interop.Pdf/Rasm.Interop.Pdf.csproj" />
     </Folder>
     <Folder Name="/tests/" />

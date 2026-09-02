@@ -94,7 +94,7 @@ Discriminator flags with fields meaningful only for one flag value permit invali
 
 ### [03.1]-[ACTIVE_PATTERNS]
 
-An active pattern runs a custom function during pattern matching and extracts a value on success. This F# example parses a date:
+Active patterns run a custom function during pattern matching and extract a value on success. This F# example parses a date:
 
 ```fsharp
 let (|IsDateTime|_|) (input: string) =
@@ -135,7 +135,7 @@ internal readonly struct MovieFields {
 
 ### [04.2]-[INIT_ONLY_PROPERTIES]
 
-An `init` accessor permits object-initializer syntax but prevents reassignment after initialization:
+`init` accessors permit object-initializer syntax but prevent reassignment after initialization:
 
 ```csharp
 internal readonly struct MovieInit {
@@ -145,7 +145,7 @@ internal readonly struct MovieInit {
 }
 ```
 
-`init` avoids a constructor parameter for every property. It does not make referenced child objects immutable. An `init` property can be omitted from a struct initializer; use `required` for a property that cannot be omitted.
+`init` avoids a constructor parameter for every property. It does not make referenced child objects immutable. `init` properties can be omitted from a struct initializer; use `required` for a property that cannot be omitted.
 
 ### [04.3]-[RECORDS]
 

@@ -44,7 +44,7 @@ Additional parameters let a `Func` control formatting and an `Action` supply log
 
 ## [03]-[FUNCTION_ADAPTERS]
 
-An adapter returns a new function with a different signature while delegating to the original. `flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`: for `Func<decimal, decimal, decimal> Subtract`, `flip(Subtract)` receives the right operand first.
+Adapters return a new function with a different signature while delegating to the original. `flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`: for `Func<decimal, decimal, decimal> Subtract`, `flip(Subtract)` receives the right operand first.
 
 ## [04]-[SPECIALIZATION]
 
@@ -73,7 +73,7 @@ internal static class Lifecycles {
 }
 ```
 
-Database operations can state only their domain-specific work. Connection acquisition, opening, and disposal remain centralized. `use` acquires the `IDisposable` `Connection` inside an `IO` query and disposes it when the scope ends. `Bracket(Use:, Fin:)` represents release as a separate `IO` action. The host runs the `IO` through `RunSafe`, and the domain code never runs it. An asynchronous body uses `IO.liftAsync`. The pattern guarantees disposal on every `IO` exit, including failure.
+Database operations can state only their domain-specific work. Connection acquisition, opening, and disposal remain centralized. `use` acquires the `IDisposable` `Connection` inside an `IO` query and disposes it when the scope ends. `Bracket(Use:, Fin:)` represents release as a separate `IO` action. The host runs the `IO` through `RunSafe`, and the domain code never runs it. Asynchronous bodies use `IO.liftAsync`. The pattern guarantees disposal on every `IO` exit, including failure.
 
 ## [06]-[COMBINATORS]
 
@@ -166,7 +166,7 @@ In `Func<T1, ..., TResult>`, every type except the last is a parameter type; the
 
 - Collections of transformations apply several views to one input
 - Collections of predicates become validation policies
-- An ordered collection of predicate-transform pairs becomes a decision table
+- Ordered collections of predicate-transform pairs become decision tables
 - Returned functions can narrow access to one guarded operation; ordinary adapter functions can hide repetitive conversion branches
 
 ### [07.1]-[TRANSFORMATION_COLLECTIONS]
@@ -200,7 +200,7 @@ internal static class Policies {
 Use `ForAll` when each predicate states what valid input must satisfy. Use `Exists` when each predicate describes a violation:
 - `ForAll` stops at the first failed rule
 - `Exists` stops at the first detected violation
-- An empty validity rule set returns `true`; an empty violation set returns `false`
+- Empty validity rule sets return `true`; empty violation sets return `false`
 
 Short-circuiting is appropriate for a boolean answer. It is not suitable when every failure must be reported, because later rules do not run. Validators that return typed errors accumulate every failure instead.
 
@@ -208,7 +208,7 @@ Keep each rule focused on one condition.
 
 ### [07.3]-[RULE_TABLES]
 
-An `if`/`else if` ladder can be represented as ordered pairs:
+`if`/`else if` ladders can be represented as ordered pairs:
 
 ```csharp
 internal static class RuleTables {
@@ -241,7 +241,7 @@ Returned functions can capture the original value in a closure while exposing on
 
 Closures over a `HashMap<int, string>` narrow it to one lookup: `number => actors.Find(number).IfNone("Unknown")`.
 
-The returned function keeps the map in scope and converts an absent-key lookup into a fallback. The restricted interface prevents callers from enumerating or modifying the map, or performing other queries against it. For this reference type, `default` is `null`. An explicit domain fallback avoids that `null`.
+The returned function keeps the map in scope and converts an absent-key lookup into a fallback. The restricted interface prevents callers from enumerating or modifying the map, or performing other queries against it. For this reference type, `default` is `null`. Explicit domain fallbacks avoid that `null`.
 
 #### [07.4.2]-[PARSING]
 

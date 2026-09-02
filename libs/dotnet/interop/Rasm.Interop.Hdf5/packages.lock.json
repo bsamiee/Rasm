@@ -20,6 +20,12 @@
         "resolved": "18.7.23",
         "contentHash": "dyj6z8m+LFjpeH69hdnciCcRCmD0YgMlvuQEywiEshjqj/blgQ+PuWX8Vd5gkWQFoBN4e+TFxx6DvGNSv/gIKg=="
       },
+      "PureHDF": {
+        "type": "Direct",
+        "requested": "[3.0.0-beta.1, )",
+        "resolved": "3.0.0-beta.1",
+        "contentHash": "m8VP93G5XVoKWviRPQ5/oQAKjGnl6ES8atq+9NZEx6KE/434+IVRED9DI+UzH6FrpqZvMWMjHIwRegP57X6YSw=="
+      },
       "PureHDF.Filters.Blosc2": {
         "type": "Direct",
         "requested": "[3.0.0-beta.1, )",
@@ -72,12 +78,6 @@
         "requested": "[2.7.3, )",
         "resolved": "2.7.3",
         "contentHash": "wfrJBJvD2mqbEqyroyMCittJ7SESp3sHBL7cLSFDsJr8GWny3Y0tx4bH6K6oQ+OFNuo/j/cFAZOckF6hzsVXmA=="
-      },
-      "PureHDF": {
-        "type": "CentralTransitive",
-        "requested": "[3.0.0-beta.1, )",
-        "resolved": "3.0.0-beta.1",
-        "contentHash": "m8VP93G5XVoKWviRPQ5/oQAKjGnl6ES8atq+9NZEx6KE/434+IVRED9DI+UzH6FrpqZvMWMjHIwRegP57X6YSw=="
       },
       "SharpZipLib": {
         "type": "CentralTransitive",

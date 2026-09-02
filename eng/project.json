@@ -56,6 +56,16 @@
             "cache": false,
             "dependsOn": ["stage-ffmpeg-native"]
         },
+        "stage-emgucv-native": {
+            "command": "uv run python -m eng.scripts.stage_emgucv_native",
+            "cache": false,
+            "dependsOn": ["provision-tools"]
+        },
+        "pack-emgucv-native": {
+            "command": "dotnet pack eng/native/Rasm.Native.EmguCv/Rasm.Native.EmguCv.csproj -c Release -o .artifacts/nuget --nologo",
+            "cache": false,
+            "dependsOn": ["stage-emgucv-native"]
+        },
         "stage-duckdbextensions-native": {
             "command": "uv run python -m eng.scripts.stage_duckdbextensions_native",
             "cache": false,

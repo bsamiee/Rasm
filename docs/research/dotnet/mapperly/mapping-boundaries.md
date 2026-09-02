@@ -43,7 +43,7 @@ Apply the same rule to `Option`, `Either`, `Validation`, `Try`, `IO`, `Eff`, tra
 
 ## [02]-[MAPPER_CONFIGURATION]
 
-Configure every project from one `PropertyGroup` in `Directory.Build.props`, naming only what differs from the shipped defaults. `Riok.Mapperly.targets` declares one compiler-visible property per option, the option name prefixed with `Mapperly`. Global analyzer configuration sets the same options with a `build_property.Mapperly<Option>` key and needs no MSBuild property. Projects that do not reference the package ignore the group.
+Configure every project from one `PropertyGroup` in `Directory.Build.props`, naming only what differs from the defaults. `Riok.Mapperly.targets` declares one compiler-visible property per option, the option name prefixed with `Mapperly`. Global analyzer configuration sets the same options with a `build_property.Mapperly<Option>` key and needs no MSBuild property. Projects that do not reference the package ignore the group.
 
 ```xml
 <PropertyGroup Label="Mapperly">
@@ -56,10 +56,10 @@ Configure every project from one `PropertyGroup` in `Directory.Build.props`, nam
 
 The allowlist omits every conversion that parses, formats, casts, or constructs. Direct assignment and object-member mapping carry no bit and stay available. Every disabled conversion falls through to object-member mapping. Targets that are `string`, an enum, or a primitive have no mappable members and report `RMG007`. Composite targets map their members instead and report `RMG013`, `RMG066`, or nothing. `MappingConversionType.None` is not the stricter setting: it also clears `Enumerable` and `Dictionary`. `List` and `Dictionary` members then map to empty collections with no diagnostic. The workspace compiles warnings as errors, RMG codes fail the build, and the silent fallthroughs are the cases an explicit mapping must cover.
 
-Four levels configure a mapper, each overriding the one before it: the MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method attributes. `MapperDefaultsAttribute` derives from `MapperAttribute` and carries the same options. `MapperRequiredMappingAttribute`, `MapperIgnoreObsoleteMembersAttribute`, and `MapEnumAttribute` are the per-method level. An override replaces the whole value, and a deviating mapper names its full `EnabledConversions` allowlist.
+Four levels configure a mapper, each overriding the one before it: the MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method attributes. `MapperDefaultsAttribute` derives from `MapperAttribute` and carries the same options. `MapperRequiredMappingAttribute`, `MapperIgnoreObsoleteMembersAttribute`, and `MapEnumAttribute` are the per-method level. Overrides replace the whole value, and a deviating mapper names its full `EnabledConversions` allowlist.
 
-- Inbound mappers feeding constrained domain types never admit `ParseMethod`, `Constructor`, `StaticConvertMethods`, or casts as a substitute for validation
-- Outbound mappers admit `ImplicitCast` for the generated value-object-to-key operator, the inbound operator is explicit and calls the throwing `Create`
+- Inbound mappers feeding constrained domain types never allow `ParseMethod`, `Constructor`, `StaticConvertMethods`, or casts in place of validation
+- Outbound mappers enable `ImplicitCast` for the generated value-object-to-key operator, the inbound one is explicit and calls the throwing `Create`
 - Named mappings selected with `Use` own every remaining conversion
 - Mappers that add `ToStringMethod` treat it as formatting, not a wire contract, and pass a fixed provider or an explicit culture input
 - Automatic member matching applies only when names and meanings agree, one exact pair has one intentional default, alternatives have unique names, generic mapping methods are disjoint, and no selection depends on declaration order
@@ -78,20 +78,20 @@ External mappings stay local to the mapper that consumes them. Assembly-wide reg
 
 Prefer one total constructor for an immutable external record. `[MapperConstructor]` chooses between equivalent external constructors, it does not select a domain transition. Types whose invariants depend on assignments after construction are not valid mapping targets. Mapperly cannot skip an init-only assignment to preserve its member initializer.
 
-Mapperly object factories allocate or select the target and expose no typed failure channel. The factory is pure, deterministic, and synchronous. Nullable results fall back to a public parameterless construction or throw `NullReferenceException`. Factories do not resolve services, allocate domain identity, or call a rejecting domain factory. An object factory returns a non-void type and takes zero parameters or one parameter. Factories can be generic, with or without constraints, and the first factory with a matching signature wins. The Mapperly object factory is unrelated to the Thinktecture `[ObjectFactory<T>]`, which declares a validating conversion between two types.
+Mapperly object factories allocate or select the target and expose no typed failure channel. The factory is pure, deterministic, and synchronous. Nullable results fall back to a public parameterless construction or throw `NullReferenceException`. Factories do not resolve services, allocate domain identity, or call a rejecting domain factory. Object factories return a non-void type and take zero parameters or one parameter. Factories can be generic, with or without constraints, and the first factory with a matching signature wins. The Mapperly object factory is unrelated to the Thinktecture `[ObjectFactory<T>]`, which declares a validating conversion between two types.
 
 Member and constructor visibility stays at `AllAccessible`. Unsafe accessors can call private constructors and write hidden members:
 - They never construct or modify a constrained domain type
 - Direct assignment can return the source reference, sharing is valid only when the complete reachable graph is immutable
 - Deep cloning is an allocation strategy, not proof of ownership, validity, or a completed domain transition
 
-An existing-target mapping mutates its argument. Existing collections add without replacement:
+Existing-target mappings mutate their target. Existing collections add without replacement:
 - Lists add, queues enqueue, and stacks push the added segment in reverse source order
 - Null source collections leave the target unchanged
 
-Null-skipping implements merge behavior, not patch semantics. It cannot distinguish an omitted member from one cleared to null. An explicit optional wrapper can fold against `[MappingTargetOriginalValue]` at a mutable boundary, while constructor and init-only targets receive `default` as the original value.
+Null-skipping implements merge behavior, not patch semantics. It cannot distinguish an omitted member from one cleared to null. Explicit optional wrappers can fold against `[MappingTargetOriginalValue]` at a mutable boundary, while constructor and init-only targets receive `default` as the original value.
 
-Reference handling materializes external graphs that require cycles or shared identity. One handler serves one mapping call. Constructor and init-only edges run before registration, they cannot close a generated cycle. An existing-target root starts unregistered, register the pair before mapping when a back-reference must retain the supplied root. Domain identity uses explicit identifiers rather than mapper reference state.
+Reference handling materializes external graphs that require cycles or shared identity. One handler serves one mapping call. Constructor and init-only edges run before registration, they cannot close a generated cycle. Existing-target roots start unregistered, register the pair before mapping when a back-reference must retain the supplied root. Domain identity uses explicit identifiers rather than mapper reference state.
 
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
@@ -125,7 +125,7 @@ LanguageExt owns absence, failure, validation, effects, traversal, and transform
 - Constructor or cast discovery can manufacture a success case, unwrap a failure, or discard source elements
 - Generic wrapper helpers need explicit `Use` selection and preserve every case
 
-LanguageExt collections keep their own construction policy. Direct assignment shares an immutable collection only when sharing is intentional. An element-changing sequence uses the collection's `Map`. Snapshot a mutable source before domain publication and materialize an arbitrary enumerable first. Build a map only after key validation defines ordering, uniqueness, and collision behavior. Incidental enumerable-tuple construction does not define those rules.
+LanguageExt collections keep their own construction policy. Direct assignment shares an immutable collection only when sharing is intentional. Element-changing sequences use the collection's `Map`. Snapshot a mutable source before domain publication and materialize an arbitrary enumerable first. Build a map only after key validation defines ordering, uniqueness, and collision behavior. Incidental enumerable-tuple construction does not define those rules.
 
 ## [05]-[QUERY_PROJECTIONS]
 
@@ -135,7 +135,7 @@ Mapperly must inline each user method, and the query provider must translate the
 
 Nullable analysis and mapper property-null controls do not apply: a nullable path can become empty text, `default`, or a conditional fallback. The read model matches storage nullability. Object factories, existing-target mapping, dictionary mapping, deep cloning, and reference handling do not apply inside a projection, and reference handling reports `RMG029`. Unsupported enum configuration reports `RMG032` and emits a value cast.
 
-Project stored values, materialize the query, then validate and construct domain values. The `Fin`-returning `From` adapters, LanguageExt composition, and effects run after materialization. `Match`, `RunSafe`, and `IfFail` stay at the host. An unmatched derived projection returns `default(TTarget)`, which is valid only when the target contract states that result. `AsEnumerable` does not hide this boundary, a narrow query materializes before the in-memory pipeline begins.
+Project stored values, materialize the query, then validate and construct domain values. The `Fin`-returning `From` adapters, LanguageExt composition, and effects run after materialization. `Match`, `RunSafe`, and `IfFail` stay at the host. Unmatched derived projections return `default(TTarget)`, which is valid only when the target contract states that result. `AsEnumerable` does not hide this boundary, a narrow query materializes before the in-memory pipeline begins.
 
 ## [06]-[MAPPING_METHODS]
 
@@ -172,11 +172,11 @@ internal sealed record OrderItemDto(string ProductName, int Quantity, decimal Pr
 
 - Non-static mappers that declare any static mapping method must declare every mapping method static
 - Static mapping methods satisfy a `static abstract` interface member, and a `[Mapper] partial class` can implement a mapping interface
-- An existing-target method returns `void`
+- Existing-target methods return `void`
 - The second parameter is the target unless `MappingTargetAttribute` names another parameter
 - `MappingTargetAttribute` accepts the `this` parameter of an extension method
 
-Generic or runtime-target-type methods dispatch to the mappings declared in the same mapper. An unknown pair at run time throws `ArgumentException`. Neither form accepts additional parameters. Both accept `MapDerivedTypeAttribute` on the method itself.
+Generic or runtime-target-type methods dispatch to the mappings declared in the same mapper. Unknown pairs at run time throw `ArgumentException`. Neither form accepts additional parameters. Both accept `MapDerivedTypeAttribute` on the method itself.
 
 Implement a member mapping with a non-partial method for the matching types. Under `AutoUserMappings = false`, a hand-written mapping needs `UserMappingAttribute` for its type pair, and Mapperly then uses it in place of an automatic conversion. `UserMappingAttribute` exposes `Default`, which marks the pair's one default mapping, and `Ignore`, which excludes a discovered method:
 
@@ -251,7 +251,7 @@ Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`:
 |  [07]   | `AllowNullPropertyAssignment`        | `true`          | Assign null to nullable member |
 |  [08]   | `UseDeepCloning`                     | `false`         | Copy instead of reuse          |
 |  [09]   | `StackCloningStrategy`               | `PreserveOrder` | Element order of a built stack |
-|  [10]   | `EnabledConversions`                 | `Default`       | Admitted conversions           |
+|  [10]   | `EnabledConversions`                 | `Default`       | Enabled conversions            |
 |  [11]   | `UseReferenceHandling`               | `false`         | Circular-reference support     |
 |  [12]   | `IgnoreObsoleteMembersStrategy`      | `None`          | Obsolete-member policy         |
 |  [13]   | `RequiredMappingStrategy`            | `Both`          | Unmapped-member diagnostics    |
@@ -270,7 +270,7 @@ Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`:
 
 ## [09]-[MEMBER_CONFIGURATION]
 
-Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from PascalCase names. It does not resolve unflattening, which needs `MapPropertyAttribute`. Mapperly ignores indexed members. `MapNestedPropertiesAttribute` brings every member below one path into scope, as if the source declared them. An immediate source member outranks a nested one, and automatic flattening outranks both. Two nested paths that reach the same target member have no defined order. Name that mapping with `MapPropertyAttribute`.
+Mapperly resolves a flattening such as `Car.Make.Id` to `CarDto.MakeId` from PascalCase names. It does not resolve unflattening, which needs `MapPropertyAttribute`. Mapperly ignores indexed members. `MapNestedPropertiesAttribute` brings every member below one path into scope, as if the source declared them. Immediate source members outrank nested ones, and automatic flattening outranks both. Two nested paths that reach the same target member have no defined order. Name that mapping with `MapPropertyAttribute`.
 
 `MapPropertyAttribute` resolves name mismatches instead of renaming domain or DTO members. `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` silence the unmapped-member diagnostic for a computed field or another deliberate omission:
 
@@ -371,7 +371,7 @@ The options and attributes above name these strategy types. `RequiredMappingStra
 
 ## [12]-[CONVERSIONS]
 
-`MappingConversionType` is the `[Flags]` set that `EnabledConversions` admits. `None = 0` disables every automatic conversion and `All = ~None` enables every one. `EnabledConversions` holds `Default = All & ~ExplicitCast` when unset, an explicit cast operator converts nothing until the mapper names `All` or adds the bit.
+`MappingConversionType` is the `[Flags]` set that `EnabledConversions` takes. `None = 0` disables every automatic conversion and `All = ~None` enables every one. `EnabledConversions` holds `Default = All & ~ExplicitCast` when unset, an explicit cast operator converts nothing until the mapper names `All` or adds the bit.
 
 Priority 1 is direct assignment, which applies when the source type is assignable to the target type and `UseDeepCloning` is `false`. Priority 20 creates a new target instance and maps its members.
 
@@ -398,9 +398,9 @@ Priority 1 is direct assignment, which applies when the source type is assignabl
 |  [19]   | `StaticConvertMethods` | `1 << 18` |     19     | Static `ToTTarget`, `Create`, `CreateFrom`, `FromTSource`    |
 |  [20]   | `Expression`           | `1 << 19` |     -      | Declared only, the generator never reads it                  |
 
-`StaticConvertMethods` admits a static `ToTTarget` on the source type. On the target type it admits `Create`, `CreateFrom`, `CreateFromTSource`, and `FromTSource` in any casing. An array-typed source adds the `From<TElement>Array` and `CreateFrom<TElement>Array` spellings. The list matches the generated `Create(TKey)` of a Thinktecture value object, and the `Fin`-returning `From` adapter matches no listed name. It excludes the `DateTime` conversions. `Tuple` admits a tuple expression outside a queryable projection, and `ValueTuple` inside one. The `Enumerable` and `Dictionary` bits also cover arrays and every constructible collection target. `EnumUnderlyingType` holds no rank in the priority list.
+`StaticConvertMethods` finds a static `ToTTarget` on the source type. On the target type it finds `Create`, `CreateFrom`, `CreateFromTSource`, and `FromTSource` in any casing. Array-typed sources add the `From<TElement>Array` and `CreateFrom<TElement>Array` spellings. The list matches the generated `Create(TKey)` of a Thinktecture value object, and the `Fin`-returning `From` adapter matches no listed name. It excludes the `DateTime` conversions. `Tuple` emits a tuple expression outside a queryable projection, and `ValueTuple` inside one. The `Enumerable` and `Dictionary` bits also cover arrays and every constructible collection target. `EnumUnderlyingType` holds no rank in the priority list.
 
-`MapDerivedTypeAttribute(Type sourceType, Type targetType)` and `MapDerivedTypeAttribute<TSource, TTarget>` register one pair for a base-type or interface mapping. Every source type must extend or implement the parameter type. Every target type must extend or implement the return type. Each source type appears once, and several source types can share one target type. An ordinary mapping emits a runtime switch and throws `ArgumentException` for an unregistered type. An `IQueryable` or expression mapping emits `default(TTarget)` for the unmatched branch. Derived types work for a new-instance mapping and for an existing-target mapping.
+`MapDerivedTypeAttribute(Type sourceType, Type targetType)` and `MapDerivedTypeAttribute<TSource, TTarget>` register one pair for a base-type or interface mapping. Every source type must extend or implement the parameter type. Every target type must extend or implement the return type. Each source type appears once, and several source types can share one target type. Ordinary mappings emit a runtime switch and throw `ArgumentException` for an unregistered type. `IQueryable` and expression mappings emit `default(TTarget)` for the unmatched branch. Derived types work for a new-instance mapping and for an existing-target mapping.
 
 ## [13]-[REFERENCE_HANDLING]
 

@@ -4,11 +4,11 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Rasm.Policy.Analyzers;
 
-/// <summary>Reports RASM0006 when an executable references an interop facade but never invokes its initialization</summary>
+/// <summary>Reports RASM0006 when an executable or plugin host references an interop facade but never invokes its initialization</summary>
 /// <remarks>
-/// Each interop facade owns one Initialize entry point, and Rasm.Interop.RuntimeInitialization.Initialize covers all of them; executables referencing a
+/// Each interop facade owns one Initialize entry point, and Rasm.Interop.RuntimeInitialization.Initialize covers all of them; hosts referencing a
 /// facade without any of those calls fail their libraries at first use; a method reference to an entry point counts because the delegate reaches a startup
-/// hook the analyzer cannot trace
+/// hook the analyzer cannot trace; a library opts in as a host through the RasmPluginHost build property
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {
@@ -18,11 +18,11 @@ public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {
     private static readonly DiagnosticDescriptor MissingInitialization = new(
         id: "RASM0006",
         title: "Runtime initialization is never invoked",
-        messageFormat: "Executable '{0}' references {1} but never invokes {2}.Initialize() or {3}.Initialize(); add one call at the composition root",
+        messageFormat: "Host '{0}' references {1} but never invokes {2}.Initialize() or {3}.Initialize(); add one call at the composition root",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Interop facade packages carry mandatory runtime initialization; executables referencing one must invoke it before first library use.",
+        description: "Interop facade packages carry mandatory runtime initialization; executables and plugin hosts referencing one must invoke it before first library use.",
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly ImmutableArray<(string PackageName, string FacadeTypeName)> Facades =
@@ -30,6 +30,7 @@ public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {
         ("Rasm.Interop.Excel", "Rasm.Interop.Excel.ExcelInterop"),
         ("Rasm.Interop.Gdal", "Rasm.Interop.Gdal.GdalInterop"),
         ("Rasm.Interop.Hdf5", "Rasm.Interop.Hdf5.Hdf5Interop"),
+        ("Rasm.Interop.OpenCv", "Rasm.Interop.OpenCv.OpenCvInterop"),
         ("Rasm.Interop.Pdf", "Rasm.Interop.Pdf.PdfInterop"),
     ];
 
@@ -42,7 +43,9 @@ public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
         context.EnableConcurrentExecution();
         context.RegisterCompilationStartAction(static startContext => {
-            if (startContext.Compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.WindowsApplication)) return;
+            bool pluginHost = startContext.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue("build_property.RasmPluginHost", out string? optIn)
+                && string.Equals(optIn, "true", StringComparison.OrdinalIgnoreCase);
+            if (startContext.Compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.WindowsApplication) && !pluginHost) return;
             INamedTypeSymbol? aggregate = startContext.Compilation.GetTypeByMetadataName(AggregateTypeName);
             ImmutableArray<(string PackageName, INamedTypeSymbol Facade)> referenced =
             [

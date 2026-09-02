@@ -472,7 +472,7 @@ dotnet_diagnostic.RMG090.severity = error                                     # 
 dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: ignored member without a Justification
 
 # --- [MESSAGEPACK_ANALYZERS] -------------------------------------------------
-# Every MsgPack rule ships at Error or Warning except these two, which ship disabled
+# Every MsgPack rule defaults to Error or Warning except these two
 dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: pass serializer options explicitly, the default reads a static mutable field
 dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: serializer options come from a constant, never a mutable static field
 

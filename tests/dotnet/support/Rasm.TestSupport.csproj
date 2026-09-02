@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Reusable property tests, numeric assertions, test doubles, and temporary-directory support.</Description>
+        <Description>Reusable property tests, numeric assertions, test doubles, and temporary-directory support</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Test Dependencies">

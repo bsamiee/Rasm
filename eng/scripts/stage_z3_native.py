@@ -3,7 +3,7 @@
 CI matrix: macos arm64, ubuntu x64, windows x64 each stage their runtime identifier, one job
 collects .artifacts/native/z3/stage and runs the eng pack-z3-native and pack-z3-managed
 targets alone. The managed binding sources stage from the same pinned archive the z3 port
-downloads, so Rasm.Z3 and Rasm.Native.Z3 always carry one upstream version.
+downloads. Rasm.Z3 and Rasm.Native.Z3 always carry one upstream version.
 """
 
 # --- [IMPORTS] --------------------------------------------------------------------------

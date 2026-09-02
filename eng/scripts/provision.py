@@ -41,6 +41,13 @@ class _LoadablePins(msgspec.Struct, frozen=True, gc=False):
     assets: dict[str, str] = msgspec.field(name="assets")
 
 
+class _SourcePins(msgspec.Struct, frozen=True, gc=False):
+    """Committed manifest pinning the emgucv release commit and its wrapper version."""
+
+    version: str = msgspec.field(name="version-string")
+    commit: str = msgspec.field(name="commit")
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 REPO_ROOT: Path = next(parent for parent in Path(__file__).resolve().parents if (parent / "uv.lock").is_file())
@@ -61,6 +68,10 @@ _DUCKDB_PLATFORMS: dict[Rid, str] = {"osx-arm64": "osx_arm64", "linux-x64": "lin
 _SQLITE_VEC_RELEASES = "https://github.com/asg017/sqlite-vec/releases/download"
 _SQLITE_VEC_MANIFEST = REPO_ROOT / "eng" / "native" / "sqlitevec" / "loadable.json"
 _SQLITE_VEC_PLATFORMS: dict[Rid, str] = {"osx-arm64": "macos-aarch64", "linux-x64": "linux-x86_64", "linux-arm64": "linux-aarch64", "win-x64": "windows-x86_64"}
+
+_EMGUCV_URL = "https://github.com/emgucv/emgucv"
+_EMGUCV_MANIFEST = REPO_ROOT / "eng" / "native" / "emgucv" / "source.json"
+_EMGUCV_SUBMODULES = ("opencv", "opencv_contrib", "eigen", "hdf5", "Emgu.CV.Extern/tesseract/libtesseract/tesseract-ocr.git", "Emgu.CV.Extern/tesseract/libtesseract/leptonica/leptonica.git")
 
 _log = structlog.get_logger(__name__)
 app = cyclopts.App(name="provision")
@@ -199,6 +210,33 @@ async def sqlite_vec_archive(rid: Rid) -> tuple[str, Path]:
             raise SystemExit(f"no sqlite-vec loadable pinned for {rid}")
 
 
+def emgucv_pins() -> tuple[str, str]:
+    """Return the pinned emgucv wrapper version and release commit."""
+    pins = msgspec.json.decode(_EMGUCV_MANIFEST.read_bytes(), type=_SourcePins)
+    return pins.version, pins.commit
+
+
+async def emgucv_source() -> Path:
+    """Ensure the pinned emgucv checkout and its full-build submodules exist and return the source root."""
+    _, commit = emgucv_pins()
+    root = REPO_ROOT / ".cache" / "emgucv" / "src"
+    if not (root / ".git").exists():
+        root.mkdir(parents=True, exist_ok=True)
+        await run(["git", "init", "--quiet"], root)
+        await run(["git", "remote", "add", "origin", _EMGUCV_URL], root)
+    head = await _capture(["git", "rev-parse", "HEAD"], root, check=False)
+    if head.strip() != commit:
+        await run(["git", "fetch", "--depth", "1", "origin", commit], root)
+        await run(["git", "checkout", "--quiet", commit], root)
+    await run(["git", "submodule", "update", "--init", "--depth", "1", "--recommend-shallow", "--", *_EMGUCV_SUBMODULES], root)
+    return root
+
+
+async def cmake_tool() -> Path:
+    """Ensure the vcpkg-provisioned CMake exists and return its executable."""
+    return Path((await _capture([str(await _vcpkg()), "fetch", "cmake"])).strip().splitlines()[-1])
+
+
 async def _energyplus_exe() -> Path:
     """Ensure the pinned EnergyPlus runtime exists and return its executable."""
     rid = host_rid()
@@ -285,7 +323,7 @@ async def _install_name(dylib: Path) -> str:
 
 
 async def _relink(staged: list[Path]) -> None:
-    """Rewrite install names to @loader_path and re-sign, so the set loads from one directory."""
+    """Rewrite install names to @loader_path and re-sign. The set loads from one directory."""
     names = {path.name for path in staged}
     for path in staged:
         lines = (await _capture(["otool", "-L", str(path)])).splitlines()[1:]
@@ -329,4 +367,26 @@ if __name__ == "__main__":
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["REPO_ROOT", "Rid", "ToolSet", "VcpkgTarget", "duckdb_extension_archives", "duckdb_platform", "host_rid", "main", "manifest_version", "native_build_tools", "run", "sqlite_vec_archive", "stage_closure", "stage_dir", "stage_library", "vcpkg_args", "vcpkg_install", "vcpkg_target"]
+__all__ = [
+    "REPO_ROOT",
+    "Rid",
+    "ToolSet",
+    "VcpkgTarget",
+    "cmake_tool",
+    "duckdb_extension_archives",
+    "duckdb_platform",
+    "emgucv_pins",
+    "emgucv_source",
+    "host_rid",
+    "main",
+    "manifest_version",
+    "native_build_tools",
+    "run",
+    "sqlite_vec_archive",
+    "stage_closure",
+    "stage_dir",
+    "stage_library",
+    "vcpkg_args",
+    "vcpkg_install",
+    "vcpkg_target",
+]

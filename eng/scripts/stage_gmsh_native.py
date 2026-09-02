@@ -3,7 +3,7 @@
 CI matrix: macos arm64, ubuntu x64, windows x64 each stage their runtime identifier, one job
 collects .artifacts/native/gmsh/stage and runs the eng pack-gmsh-native and pack-gmsh-managed
 targets alone. The managed binding sources generate from the api definition inside the same
-pinned archive the gmsh port downloads, so Rasm.Gmsh and Rasm.Native.Gmsh always carry one
+pinned archive the gmsh port downloads. Rasm.Gmsh and Rasm.Native.Gmsh always carry one
 upstream version. The staged overlay re-enables the mesh module and bundled Eigen the port
 hard-codes off, everything else stays at the port's configuration.
 """

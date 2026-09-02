@@ -216,9 +216,9 @@ Input and output types classify these functions:
 |  [03]   | Plain value to value in a context        | `A -> F<B>`           | `parseInt`, `Pure`                 |
 |  [04]   | Value in a context to plain value        | `F<A> -> B`           | `Match`, `Count`, `Fold`, `IfNone` |
 
-An `F<A> -> F<B>` operation can also take a function, predicate, or other arguments. `Match` and `RunSafe` belong to the host, and domain functions never run an effect.
+`F<A> -> F<B>` operations can also take a function, predicate, or other arguments. `Match` and `RunSafe` belong to the host, and domain functions never run an effect.
 
-No general operation extracts one `A` from every `F<A>`. An `Option<A>` can be empty, and a sequence can contain zero or many values.
+No general operation extracts one `A` from every `F<A>`. `Option<A>` can be empty, and a sequence can contain zero or many values.
 
 Prefer keeping a pipeline within one abstraction:
 

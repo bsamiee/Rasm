@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>PDFsharp font-resolver registration that executables run once at the composition root.</Description>
+        <Description>PDFsharp font-resolver registration that executables run once at the composition root</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Documents">

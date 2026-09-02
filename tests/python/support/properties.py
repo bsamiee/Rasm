@@ -199,10 +199,10 @@ def register_package(package: str, *, exempt: frozenset[str] = frozenset(), suit
 def _importable(folder: Path, /) -> str:
     """Return the import name installed by a source directory.
 
-    A workspace member installs the shallowest ``__init__.py`` package beneath its module root, the member folder
-    itself for a flat layout, or ``src`` when that layout is present. Registering the directory path instead
-    imports the package again under another name and creates duplicate class objects. A manifest-less
-    flat folder keeps its repo-relative dotted path, which a ``sys.path``-prepended root already resolves.
+    Workspace members install the shallowest ``__init__.py`` package beneath their module root, the member
+    folder itself for a flat layout, or ``src`` when present. Registering the directory path instead
+    imports the package again under another name and creates duplicate class objects. Manifest-less flat
+    folders keep their repo-relative dotted path, which a ``sys.path``-prepended root resolves.
     """
     src = folder / "src"
     base = src if src.is_dir() else (folder if (folder / "pyproject.toml").is_file() else None)
@@ -216,8 +216,8 @@ def _importable(folder: Path, /) -> str:
 def register_package_tree(source_root: Path, suite_root: Path) -> tuple[str, ...]:
     """Register each Python package directly beneath ``source_root``.
 
-    A folder registers under the name its modules import by, with the same-named folder under ``suite_root`` as its
-    test directory; a directory without Python source does not register.
+    Folders register under the name their modules import by, with the same-named folder under ``suite_root``
+    as the test directory; a directory without Python source does not register.
     """
     children = sorted(p for p in source_root.iterdir() if p.is_dir()) if source_root.is_dir() else []
     authored = tuple(child for child in children if any(child.rglob("*.py")))

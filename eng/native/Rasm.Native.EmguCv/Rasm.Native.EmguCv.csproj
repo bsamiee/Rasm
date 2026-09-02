@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Version>4.13.0.5924</Version>
+        <Description>Emgu CV full OpenCV native library with contrib modules staged per runtime identifier</Description>
+        <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+        <!-- Builds a pinned git checkout instead of a vcpkg port; the shared version guard reads the pin manifest's version-string -->
+        <VcpkgManifest>$(MSBuildThisFileDirectory)../emgucv/source.json</VcpkgManifest>
+    </PropertyGroup>
+    <Target Name="EnsureWrapperPinMatch" BeforeTargets="GenerateNuspec">
+        <PropertyGroup>
+            <_CatalogPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '..', 'Directory.Packages.props'))</_CatalogPath>
+            <_WrapperPin>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(_CatalogPath)')), '(?&lt;=Include="Emgu.CV"\s+Version=")[^"]+').Value)</_WrapperPin>
+        </PropertyGroup>
+        <Error Condition="'$(_WrapperPin)' != '$(Version)'"
+               Text="Package version $(Version) does not match the Emgu.CV pin '$(_WrapperPin)' in Directory.Packages.props; the native library is wrapper-locked." />
+    </Target>
+</Project>

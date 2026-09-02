@@ -3,7 +3,7 @@
         <Version>1.5.5</Version>
         <Description>DuckDB extension files staged per platform for offline LOAD from a package-delivered extension directory</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <!-- This lane pins signed release files instead of a vcpkg port; the shared version guard reads the pin manifest's version-string -->
+        <!-- Pins signed release files instead of a vcpkg port; the shared version guard reads the pin manifest's version-string -->
         <VcpkgManifest>$(MSBuildThisFileDirectory)../duckdbextensions/extensions.json</VcpkgManifest>
     </PropertyGroup>
     <Target Name="EnsureEnginePinMatch" BeforeTargets="GenerateNuspec">

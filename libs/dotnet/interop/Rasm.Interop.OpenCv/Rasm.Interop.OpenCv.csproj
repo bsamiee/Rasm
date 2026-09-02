@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>OpenCV error policy and process-global configuration that executables run once at the composition root</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Imaging">
+        <PackageReference Include="Emgu.CV" />
+    </ItemGroup>
+</Project>

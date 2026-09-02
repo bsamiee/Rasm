@@ -8,7 +8,7 @@
 K<M, B> Bind<A, B>(K<M, A> ma, Func<A, K<M, B>> f);
 ```
 
-An `Option<A>` computation cannot bind an `IO<B>` computation. Nesting ordinary monads, such as `IO<Option<A>>`, compiles, but the caller inspects the inner `Option` by hand and reproduces its branching inside `IO`. Monad transformers package that nested behavior. `OptionT<IO, A>` combines optional and IO behavior in one monad, and ordinary functions lift into one expression:
+`Option<A>` computations cannot bind `IO<B>` computations. Nesting ordinary monads, such as `IO<Option<A>>`, compiles, but the caller inspects the inner `Option` by hand and reproduces its branching inside `IO`. Monad transformers package that nested behavior. `OptionT<IO, A>` combines optional and IO behavior in one monad, and ordinary functions lift into one expression:
 
 ```csharp
 static IO<Seq<string>> readAllLines(string path) =>
@@ -50,7 +50,7 @@ Regular monads become transformers only through a bespoke transformer implementa
 
 ## [03]-[BUILDING_MAYBE_T]
 
-An optional transformer stores an arbitrary monad containing a known `Maybe` value:
+Optional transformers store an arbitrary monad containing a known `Maybe` value:
 
 ```csharp
 public record MaybeT<M, A>(K<M, Maybe<A>> runMaybeT) : K<MaybeT<M>, A>
@@ -156,7 +156,7 @@ public static K<M, B> Bind<M, A, B>(
     M.Bind(ma, x => M.LiftIO(f(x).As()));
 ```
 
-An abstraction that performs IO uses `IO<A>` internally.
+Abstractions that perform IO use `IO<A>` internally.
 
 ## [05]-[EXECUTION]
 

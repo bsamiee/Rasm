@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Roslyn analyzers enforcing workspace policy in consuming executables.</Description>
+        <Description>Roslyn analyzers enforcing workspace policy in consuming executables</Description>
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>latest</LangVersion>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>

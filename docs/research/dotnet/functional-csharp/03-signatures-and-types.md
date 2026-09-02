@@ -32,7 +32,7 @@ Functional design keeps data and logic distinct: data objects carry inputs and o
 
 ## [02]-[INVALID_INPUTS]
 
-Primitive types can admit values outside the domain. An `int` used as an age admits values less than 0 or greater than 119. Validating inside every consumer duplicates the rule and mixes validation with the consumer's calculation.
+Primitive types can hold values outside the domain. `int` used as an age accepts values less than 0 or greater than 119. Validating inside every consumer duplicates the rule and mixes validation with the consumer's calculation.
 
 Custom types can narrow the domain once. `Age` is a value object: the generator supplies the factory methods, equality, comparison, and the conversion to `int`. `InvalidAge` implements `IValidationError<InvalidAge>`. The validation hook raises the typed `Expected` record. `From` is the smart constructor: it maps the generated `Validate` to `Fin<Age>`:
 
@@ -80,7 +80,7 @@ Honoring a signature does not require purity. Purity also excludes observable si
 
 Types can be modeled as sets of possible values. If `Age` has 120 values and `Gender` has two, `(Age, Gender)` has `120 * 2 = 240` possible values. Tuples or objects containing both are product types: each field adds a dimension to the space of possible states.
 
-`Option<A>` is a union: all `Some(A)` values and the single `None` value. Types with `n` values yield options with `n + 1` values. Counting possible instances exposes types that admit states the domain does not need. Once component types are constrained, they can be composed into larger data objects without reintroducing invalid primitive states.
+`Option<A>` is a union: all `Some(A)` values and the single `None` value. Types with `n` values yield options with `n + 1` values. Counting possible instances exposes types that hold states the domain does not need. Once component types are constrained, they can be composed into larger data objects without reintroducing invalid primitive states.
 
 ## [03]-[UNIT]
 
@@ -88,7 +88,7 @@ Types can be modeled as sets of possible values. If `Age` has 120 values and `Ge
 
 `Unit` is an ordinary LanguageExt type with exactly one value, `unit`, and no information. The Prelude function `fun` converts an `Action` into a `Func<Unit>`.
 
-An `Action` overload can adapt and delegate to the one generic implementation:
+`Action` overloads can adapt and delegate to the one generic implementation:
 
 ```csharp
 internal static class Timing {
@@ -143,7 +143,7 @@ internal static class Construction {
 }
 ```
 
-The default inner value in the `None` state is ignored. The contract is an empty case, a present case, and a way to handle both cases safely. Other libraries name the same abstraction `Maybe`, with cases `Nothing` and `Just`. An open class hierarchy cannot stop a caller from adding a third case.
+The default inner value in the `None` state is ignored. The contract is an empty case, a present case, and a way to handle both cases safely. Other libraries name the same abstraction `Maybe`, with cases `Nothing` and `Just`. Open class hierarchies cannot stop a caller from adding a third case.
 
 ## [05]-[TOTALITY]
 

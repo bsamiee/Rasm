@@ -124,10 +124,17 @@
       "rasm.interop.hdf5": {
         "type": "Project",
         "dependencies": {
+          "PureHDF": "[3.0.0-beta.1, )",
           "PureHDF.Filters.BZip2.SharpZipLib": "[3.0.0-beta.1, )",
           "PureHDF.Filters.Blosc2": "[3.0.0-beta.1, )",
           "PureHDF.Filters.Lzf": "[3.0.0-beta.1, )",
           "Rasm.Native.Blosc2": "[3.3.2, )"
+        }
+      },
+      "rasm.interop.opencv": {
+        "type": "Project",
+        "dependencies": {
+          "Emgu.CV": "[4.13.0.5924, )"
         }
       },
       "rasm.interop.pdf": {
@@ -141,6 +148,12 @@
         "requested": "[2.7.3, )",
         "resolved": "2.7.3",
         "contentHash": "wfrJBJvD2mqbEqyroyMCittJ7SESp3sHBL7cLSFDsJr8GWny3Y0tx4bH6K6oQ+OFNuo/j/cFAZOckF6hzsVXmA=="
+      },
+      "Emgu.CV": {
+        "type": "CentralTransitive",
+        "requested": "[4.13.0.5924, )",
+        "resolved": "4.13.0.5924",
+        "contentHash": "st6Jux7EAlK2/LvG/aPaRLElFf54o0UrtCXU5ZEhGLRGeF8W/NW0j1x6MuRXur0DWJni++LsWInUDC6e4MtG5Q=="
       },
       "EPPlus": {
         "type": "CentralTransitive",

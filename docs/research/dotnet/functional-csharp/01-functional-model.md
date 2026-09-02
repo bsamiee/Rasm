@@ -28,7 +28,7 @@ Seq<int> result = source.Map(triple); // 3, 6, 9
 
 ## [03]-[TRANSFORMATIONS_OVER_MUTATION]
 
-An in-place update destroys the prior value:
+In-place updates destroy the prior value:
 
 ```csharp
 List<int> values = [7, 6, 1];
@@ -53,7 +53,7 @@ Functional and object-oriented design are not opposites. Modularity, separation 
 
 ### [04.1]-[IMMUTABILITY]
 
-An immutable value is fixed once created. When a different value is needed, derive and return a new value rather than changing the original. `string` and `DateTime` demonstrate this behavior: operations on them produce new values.
+Immutable values are fixed once created. When a different value is needed, derive and return a new value rather than changing the original. `string` and `DateTime` demonstrate this behavior: operations on them produce new values.
 
 This changes how a program represents progress. Instead of revising an earlier step, each expression produces the next value from values already available. The result resembles a mathematical derivation in which each line remains fixed and later lines build on it.
 
@@ -72,7 +72,7 @@ Higher-order functions accept a function, return one, or do both. Higher-order f
 
 ### [04.3]-[EXPRESSIONS]
 
-An expression evaluates to a value. Statements perform an action or control execution. Functional code prefers expressions because each step contributes a value to the calculation.
+Expressions evaluate to values. Statements perform an action or control execution. Functional code prefers expressions because each step contributes a value to the calculation.
 
 ```csharp
 internal static partial class CoreProperties {
@@ -224,7 +224,7 @@ Input-output pairs test a pure function because it does not depend on hidden sta
 
 Expressions that return values reduce implicit control flow from mutable flags, nested conditionals, and broadly scoped exception handling. Functional style does not prevent error-handling defects, but it makes control flow and effects more explicit.
 
-### [07.3]-[ROBUSTNESS]
+### [07.3]-[SAFETY]
 
 Immutability prevents bugs caused by later changes. The paradigm also avoids `null` and favors data types that represent absence and errors explicitly.
 

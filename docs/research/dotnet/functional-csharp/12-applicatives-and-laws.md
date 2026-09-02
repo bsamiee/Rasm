@@ -99,7 +99,7 @@ Laws govern `Map`:
 - Mapping the identity function changes nothing: `value.Map(x => x) == value`
 - Mapping a composition is equivalent to mapping its parts in sequence
 
-An implementation of `Map` must transform only the inner value. Hidden mutation, counters, or other state changes tied to the number of `Map` calls break safe refactoring. `FunctorLaw<F>.validate` checks both laws for one value and returns `Validation<Error, Unit>`.
+Implementations of `Map` must transform only the inner value. Hidden mutation, counters, or other state changes tied to the number of `Map` calls break safe refactoring. `FunctorLaw<F>.validate` checks both laws for one value and returns `Validation<Error, Unit>`.
 
 ### [05.2]-[APPLICATIVE_EQUIVALENCE]
 
@@ -269,7 +269,7 @@ internal static partial class Validators {
 }
 ```
 
-`TraverseM`, the monadic traversal, skips remaining validators after the first invalid result. An empty validator list returns the input as valid. Order cheap structural checks before expensive database or remote checks. Invalid data then fails before the expensive checks run.
+`TraverseM`, the monadic traversal, skips remaining validators after the first invalid result. Empty validator lists return the input as valid. Order cheap structural checks before expensive database or remote checks. Invalid data then fails before the expensive checks run.
 
 Use this strategy when a check must not run after an earlier failure.
 

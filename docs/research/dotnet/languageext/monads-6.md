@@ -4,7 +4,7 @@
 
 Pure functional programming rests on: functions are values, everything is an expression, and expressions are pure or behave with referential transparency. Pure expressions are values or combine pure expressions and produce no side effects. Referentially transparent expressions can use imperative implementations; from the outside each call is replaceable by its value.
 
-An expression-oriented program still needs readable, line-by-line sequencing. In an ML-style expression,
+Expression-oriented programs still need readable, line-by-line sequencing. In an ML-style expression,
 
 ```text
 let x = doSomething () in
@@ -81,7 +81,7 @@ This builds a computation for tomorrow's current time without reading the clock:
 var thisTimeTomorrow = DateTimeIO.Now.Map(now => now.AddDays(1));
 ```
 
-An applicative adds `Pure` and `Apply`:
+Applicatives add `Pure` and `Apply`:
 
 ```csharp
 public class IO : Applicative<IO>

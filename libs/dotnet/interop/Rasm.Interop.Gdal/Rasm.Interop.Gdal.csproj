@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>GDAL driver and PROJ registration that executables run once at the composition root.</Description>
+        <Description>GDAL driver and PROJ registration that executables run once at the composition root</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Geospatial">

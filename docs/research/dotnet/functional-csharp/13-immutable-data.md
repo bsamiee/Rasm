@@ -9,7 +9,7 @@ Programs must represent real-world change, but change does not require mutation.
 - State is a snapshot at a point in time
 - Transition is a function from one snapshot to the next
 
-An entity retains its identity through many immutable states. Freezing keeps a bank account the same account, but its active and frozen states are distinct values. The model needs snapshots, transitions between them, and an association from the entity identity to its current snapshot.
+Entities retain identity through many immutable states. Freezing keeps a bank account the same account, but its active and frozen states are distinct values. The model needs snapshots, transitions between them, and an association from the entity identity to its current snapshot.
 
 Avoiding mutation and enforcing immutability are separate concerns. The first is a design discipline: transitions return new values. The second uses constructors, access restrictions, and immutable referenced values to prevent accidental violations of that discipline.
 
@@ -33,7 +33,7 @@ The concurrency source does not have to be multiple threads; the same shared-sta
 
 Systems combining concurrency with state mutation cannot be proved free of race conditions; strong correctness comes from removing mutation from shared state, not from coordinating access.
 
-Mutation confined to a function is different. Local accumulators hidden from callers do not make the function impure. An operation such as `Sum` or `Aggregate` expresses the intent directly.
+Mutation confined to a function is different. Local accumulators hidden from callers do not make the function impure. Operations such as `Sum` or `Aggregate` express the intent directly.
 
 ## [03]-[VALUES_AND_IDENTITY]
 
@@ -64,7 +64,7 @@ The previous state remains intact. Transitions preserve the input instead of upd
 
 ## [04]-[IMMUTABLE_DOMAIN_STATE]
 
-An immutable object needs more than getter-only properties. Immutability must extend through every referenced value.
+Immutable objects need more than getter-only properties. Immutability must extend through every referenced value.
 
 ```csharp
 internal readonly record struct CurrencyCode(string Code);
@@ -95,7 +95,7 @@ The design relies on these rules:
 - Ensure element types such as `Transaction` and `CurrencyCode` are immutable
 - Expose only meaningful transitions, not unrestricted copy methods
 
-An immutable top-level object containing a mutable list is mutable. Shallow copies are safe only if every shared referenced value is immutable. `Opened` calls `toSeq`, which copies the list argument into a `Seq<Transaction>`. Later changes to the caller's mutable list do not reach the snapshot.
+Immutable top-level objects containing a mutable list are mutable. Shallow copies are safe only if every shared referenced value is immutable. `Opened` calls `toSeq`, which copies the list argument into a `Seq<Transaction>`. Later changes to the caller's mutable list do not reach the snapshot.
 
 Public setters allow callers to replace properties. Private setters prevent caller replacement, but code inside the class can still reassign properties. Read-only interfaces over a mutable collection do not make the graph immutable.
 
@@ -144,7 +144,7 @@ No C# technique can prevent all mutation because reflection can alter private or
 
 ## [06]-[COST_MODEL]
 
-An immutable update creates another top-level object, increasing allocations and garbage collection. It performs a shallow copy: unchanged immutable children are shared, while only changed values and the new parent are allocated.
+Immutable updates create new top-level objects, increasing allocations and garbage collection. The copy is shallow: unchanged immutable children are shared, while only changed values and the new parent are allocated.
 
 This creates a tradeoff:
 - In-place mutation is cheaper for the individual write
@@ -231,7 +231,7 @@ old root                 new root
 L      R         ->      L    rebuilt R
 ```
 
-An `Add` rebuilds only the nodes from the root to the new key and shares every untouched subtree. This reuse is structural sharing. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, a higher-arity tree can remain shallow for a large collection. `Map<K, V>` balances itself on every `Add`, the rebuilt path stays within that bound.
+`Add` rebuilds only the nodes from the root to the new key and shares every untouched subtree. This reuse is structural sharing. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, a higher-arity tree can remain shallow for a large collection. `Map<K, V>` balances itself on every `Add`, the rebuilt path stays within that bound.
 
 ## [09]-[DECISION_RULES]
 

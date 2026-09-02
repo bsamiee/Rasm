@@ -551,7 +551,7 @@ warn_unreachable = false
 disable_error_code = ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
 [[tool.mypy.overrides]]
-module = ["fsspec", "fsspec.*", "s3fs"]  # fsspec and s3fs ship no py.typed and no stub package exists
+module = ["fsspec", "fsspec.*", "s3fs"]  # fsspec and s3fs have no py.typed and no stub package
 ignore_missing_imports = true
 
 # --- [PYTEST] ---------------------------------------------------------------------------

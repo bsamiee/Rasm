@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>PureHDF external filter registration that executables run once at the composition root.</Description>
+        <Description>PureHDF external filter registration that executables run once at the composition root</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Data Formats">
+        <PackageReference Include="PureHDF" />
         <PackageReference Include="PureHDF.Filters.Blosc2" />
         <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
         <PackageReference Include="PureHDF.Filters.Lzf" />

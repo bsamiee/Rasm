@@ -2,7 +2,7 @@
 
 ## [01]-[ERRORS_IN_THE_RETURN_TYPE]
 
-An operation that can predictably fail returns both outcomes as data. Its signature states its failure behavior, callers can reason about it locally, and composition controls the flow. An exception, by contrast, transfers control to a handler up the call stack or escapes uncaught; understanding the next step requires tracing the surrounding call paths.
+Operations that can predictably fail return both outcomes as data. The signature states the failure behavior, callers reason about it locally, and composition controls the flow. Exceptions, by contrast, transfer control to a handler up the call stack or escape uncaught; understanding the next step requires tracing the surrounding call paths.
 
 Use `Option<T>` when failure means only “no value” and no explanation is useful. Use `Fin<A>` when the caller needs failure details. `Either<L, R>` stays for two value types where neither side is an error.
 
@@ -13,7 +13,7 @@ Fail = failure data, always an Error
 Succ = successful result
 ```
 
-The success side is the value being transformed. The failure side carries the error. An `A` and an `Error` both convert to `Fin<A>` without a constructor call.
+The success side is the value being transformed. The failure side carries the error. Both `A` and `Error` convert to `Fin<A>` without a constructor call.
 
 ```csharp
 internal static class Calculator {

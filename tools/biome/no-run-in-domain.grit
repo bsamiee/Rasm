@@ -8,5 +8,5 @@ or {
     `Effect.runFork($_)`,
     `Effect.runCallback($_)`
 } as $hit where {
-    register_diagnostic(span=$hit, message="Effect executed inside library code. A library returns effects and Layers on the R channel; the app entry owns the one run call.", severity="error")
+    register_diagnostic(span=$hit, message="Effect executed inside library code. Libraries return effects and Layers on the R channel; the app entry owns the one run call.", severity="error")
 }

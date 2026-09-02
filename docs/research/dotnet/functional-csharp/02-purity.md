@@ -14,7 +14,7 @@ Side effects include:
 
 Under this definition, throwing counts as an effect even though some definitions permit it: exception handling can redirect control flow, and an unhandled exception can terminate the program.
 
-An instance method can be impure even without I/O when it reads mutable fields. Lambdas can be impure by closing over mutable variables. Readonly fields fixed at construction serve as immutable dependencies. Purity depends on everything a function observes or changes, not on its parameter list and return type alone.
+Instance methods can be impure even without I/O when they read mutable fields. Lambdas can be impure by closing over mutable variables. Readonly fields fixed at construction serve as immutable dependencies. Purity depends on everything a function observes or changes, not on its parameter list and return type alone.
 
 Because a pure function always maps the same input to the same output, evaluation order does not affect its meaning. Pure computations are easier to reason about and are safe candidates for:
 - Parallel evaluation;
@@ -46,7 +46,7 @@ internal static class Greeting {
 
 ### [02.1]-[RETURN_OVER_MUTATION]
 
-An output parameter represented by a mutable collection hides part of a function's result. It couples caller and callee through initialization rules and mutation order. Return every computed value explicitly instead:
+Output parameters represented by a mutable collection hide part of a function's result and couple caller and callee through initialization rules and mutation order. Return every computed value explicitly instead:
 
 ```csharp
 internal sealed record Product(string Name, decimal Price);
@@ -121,11 +121,11 @@ Avoid mutable static fields and direct dependencies on static I/O methods.
 
 Unit tests for pure functions supply inputs and assert the output. They are isolated and repeatable by construction.
 
-An impure function has hidden inputs, hidden outputs, or both:
+Impure functions have hidden inputs, hidden outputs, or both:
 - The current time, database contents, or environment are implicit inputs;
-- An email sent, file written, or field changed is an implicit output
+- Emails sent, files written, or fields changed are implicit outputs
 
-An impure function behaves like a larger pure transformation:
+Impure functions behave like a larger pure transformation:
 
 ```text
 (arguments, current program state, current world state)
@@ -147,7 +147,7 @@ Choose the narrowest dependency that represents what the consumer needs:
 - Inject an `IO<A>` for an operation that must run on demand;
 - Inject a runtime for a consumer that reads many capabilities
 
-An interface remains appropriate as a common contract for distinct implementations. One-method interfaces for every effect add unnecessary infrastructure.
+Interfaces remain appropriate as a common contract for distinct implementations. One-method interfaces for every effect add unnecessary infrastructure.
 
 ### [05.2]-[VALUE_INJECTION]
 

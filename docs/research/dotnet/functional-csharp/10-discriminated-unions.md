@@ -64,7 +64,7 @@ internal static class Offerings {
 }
 ```
 
-`BritishName` can carry first, middle, and last names with an honorific placed first; a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. An abstract `Name` permits one collection, while the variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
+`BritishName` can carry first, middle, and last names with an honorific placed first; a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. The abstract `Name` permits one collection, while variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
 
 ## [03]-[OUTCOMES_AS_CASES]
 
@@ -137,7 +137,7 @@ The `Catch` overload with a predicate maps the captured error to the `ConsoleErr
 
 ## [05]-[GENERIC_UNIONS]
 
-`Option<A>`, `Fin<A>`, `Either<L, R>`, and `Validation<Error, A>` are the generic unions for absence, failure with a reason, two value types, and accumulated failures. An empty `Seq<A>` is a result, not absence. Producers wrap a collection in `Option` only where the consumer responds differently to no collection and to an empty one. Producers that map an operational failure to `None` hide the failure from the consumer.
+`Option<A>`, `Fin<A>`, `Either<L, R>`, and `Validation<Error, A>` are the generic unions for absence, failure with a reason, two value types, and accumulated failures. Empty `Seq<A>` is a result, not absence. Producers wrap a collection in `Option` only where the consumer responds differently to no collection and to an empty one. Producers that map an operational failure to `None` hide the failure from the consumer.
 
 `Option` and `Fin` are closed, a `Match` over their cases is total.
 
@@ -217,7 +217,7 @@ internal static partial class Folds {
 
 `Depth` replaces each leaf with one and each container with one more than its deepest child.
 
-The remaining operations follow the return-type rules. Member lookup passes the requested key as the state and returns `Option<Json>`: an `Obj` without the key and every other case answer `None`. Typed extraction returns `Fin<A>` with distinct `Expected` records, a consumer classifies a wrong shape by code. An operation that preserves a case takes the case type directly when the caller already holds one, and the signature removes the wrong-shape error. When the shape arrives as data, the operation covers the union and returns a `Fin` failure for every other case.
+The remaining operations follow the return-type rules. Member lookup passes the requested key as the state and returns `Option<Json>`: an `Obj` without the key and every other case answer `None`. Typed extraction returns `Fin<A>` with distinct `Expected` records, a consumer classifies a wrong shape by code. Operations that preserve a case take the case type directly when the caller already holds one, and the signature removes the wrong-shape error. When the shape arrives as data, the operation covers the union and returns a `Fin` failure for every other case.
 
 ## [07]-[DESIGN_RULES]
 

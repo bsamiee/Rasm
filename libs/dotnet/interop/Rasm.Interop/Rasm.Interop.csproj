@@ -1,12 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Aggregate runtime initialization covering every interop facade in one call.</Description>
+        <Description>Aggregate runtime initialization covering every interop facade in one call</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Interop Facades">
         <ProjectReference Include="../Rasm.Interop.Excel/Rasm.Interop.Excel.csproj" />
         <ProjectReference Include="../Rasm.Interop.Gdal/Rasm.Interop.Gdal.csproj" />
         <ProjectReference Include="../Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
+        <ProjectReference Include="../Rasm.Interop.OpenCv/Rasm.Interop.OpenCv.csproj" />
         <ProjectReference Include="../Rasm.Interop.Pdf/Rasm.Interop.Pdf.csproj" />
     </ItemGroup>
 </Project>

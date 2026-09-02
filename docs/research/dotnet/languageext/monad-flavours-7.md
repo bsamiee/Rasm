@@ -126,7 +126,7 @@ public static K<Reader<Env>, B> Bind<A, B>(
     new Reader<Env, B>(env => f(ma.Run(env)).Run(env));
 ```
 
-Both stages receive the same environment. `ask<Env>()` obtains the whole environment; `asks` projects a value from it. An environment holds configuration or dependencies, which makes Reader a pure functional form of dependency injection.
+Both stages receive the same environment. `ask<Env>()` obtains the whole environment; `asks` projects a value from it. Environments hold configuration or dependencies, which makes Reader a pure functional form of dependency injection.
 
 ### [06.2]-[WRITER]
 

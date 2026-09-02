@@ -40,8 +40,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Policy">
-        <!-- Executables load the policy analyzer; the edge only sequences the build and carries no assembly reference -->
-        <ProjectReference Include="$(RasmToolsRoot)dotnet/Rasm.Policy.Analyzers/Rasm.Policy.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" Condition="'$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe'" />
+        <!-- Executables and opted-in plugin hosts load the policy analyzer; the edge only sequences the build and carries no assembly reference -->
+        <ProjectReference Include="$(RasmToolsRoot)dotnet/Rasm.Policy.Analyzers/Rasm.Policy.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" Condition="'$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe' or '$(RasmPluginHost)' == 'true'" />
+        <!-- Libraries hosting a plugin opt in with RasmPluginHost=true; the analyzer reads it as build_property.RasmPluginHost -->
+        <CompilerVisibleProperty Include="RasmPluginHost" />
         <!-- Payload items that package build/ imports inject with Pack=true must not repack into consumer nupkgs -->
         <None Update="$(NuGetPackageRoot)**" Pack="false" />
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(RasmRole)' == 'tests'" />
@@ -76,7 +78,9 @@
             <_RasmNativeBinding Include="Rasm.Z3" Native="Rasm.Native.Z3" />
             <_RasmNativeBinding Include="Rasm.Gmsh" Native="Rasm.Native.Gmsh" />
             <_RasmNativeBinding Include="PureHDF.Filters.Blosc2" Native="Rasm.Native.Blosc2" />
+            <_RasmRuntimeInitBinding Include="Emgu.CV" Companion="Rasm.Interop.OpenCv" />
             <_RasmRuntimeInitBinding Include="EPPlus" Companion="Rasm.Interop.Excel" />
+            <_RasmRuntimeInitBinding Include="itext" Companion="itext.bouncy-castle-adapter" />. <!-- iText crypto paths throw NotSupportedException without the Bouncy Castle adapter it discovers at runtime -->
             <_RasmRuntimeInitBinding Include="MaxRev.Gdal.Core" Companion="Rasm.Interop.Gdal" />
             <_RasmRuntimeInitBinding Include="PDFsharp" Companion="Rasm.Interop.Pdf" />
             <_RasmRuntimeInitBinding Include="PureHDF.Filters.Blosc2" Companion="Rasm.Interop.Hdf5" />
@@ -95,7 +99,7 @@
                Text="Project '$(MSBuildProjectName)' references %(_RasmRuntimeInitBinding.Identity) without %(_RasmRuntimeInitBinding.Companion). The required runtime initialization lives in that package." />
     </Target>
 
-    <!-- Restores native payloads that a package ships only in build/, which does not flow across a transitive PackageReference chain -->
+    <!-- Restores native payloads a package carries only in build/, which does not flow across a transitive PackageReference chain -->
     <Target Name="RepairRasmNativeAssets" AfterTargets="ResolvePackageAssets" Condition="'@(RuntimeCopyLocalItems)' != ''">
         <ItemGroup>
             <_RasmNativeAssetRepair Include="Melanchall.DryWetMidi" Anchor="Melanchall.DryWetMidi" Payload="build/Melanchall_DryWetMidi_Native64.dylib" DirectDelivery="build" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
@@ -154,7 +158,7 @@
               Condition="'@(_RasmTorchCpuDylib)' != ''" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" />
     </Target>
 
-    <!-- Publish copies the dylib from the NuGet cache again, so the publish tree needs the same retarget -->
+    <!-- Publish copies the dylib from the NuGet cache again, the publish tree needs the same retarget -->
     <Target Name="RepairRasmTorchOmpBindingOnPublish" AfterTargets="Publish" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
         <ItemGroup>
             <_RasmTorchCpuPublishDylib Include="$(PublishDir)runtimes/*/native/libtorch_cpu.dylib" />

@@ -149,7 +149,7 @@ internal static partial class Sequences {
 }
 ```
 
-`Order` from LINQ sorts, and `toSeq` materializes the sorted `Seq<int>`. An empty sequence has no middle element. Its median is `None`.
+`Order` from LINQ sorts, and `toSeq` materializes the sorted `Seq<int>`. Empty sequences have no middle element: the median is `None`.
 
 For a custom reduction, `Fold` takes a seed and a step function. The function combines the accumulator with the next input. Tuple seeds can calculate several results:
 
