@@ -1,5 +1,7 @@
+<!-- [03] Timing example and [04] Option examples go to references, [04.1] belongs to dotnet-languageext -->
 # [SIGNATURES_AND_TYPES]
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [01]-[TYPE_AND_FUNCTION_DESIGN]
 
 Function signatures are contracts. Input types describe every value the function accepts, and the return type describes every normal outcome callers must handle. Precise types make the contract both more informative and harder to violate.
@@ -29,7 +31,9 @@ Generic signatures constrain plausible behavior:
 The first suggests filtering a sequence with a predicate. The second suggests combining corresponding `A` and `B` values into `C` values. `() -> ()` reveals almost nothing about the effect performed. Signatures cannot express every semantic detail: `Where` and `TakeWhile` have identical type signatures. Precise types and names are necessary.
 
 Functional design keeps data and logic distinct: data objects carry inputs and outputs, while functions encode behavior. Constrained types can still own the validation to construct them and operations (comparison) that protect their hidden representation.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [02]-[INVALID_INPUTS]
 
 Primitive types can hold values outside the domain. `int` used as an age accepts values less than 0 or greater than 119. Validating inside every consumer duplicates the rule and mixes validation with the consumer's calculation.
@@ -81,6 +85,7 @@ Honoring a signature does not require purity. Purity also excludes observable si
 Types can be modeled as sets of possible values. If `Age` has 120 values and `Gender` has two, `(Age, Gender)` has `120 * 2 = 240` possible values. Tuples or objects containing both are product types: each field adds a dimension to the space of possible states.
 
 `Option<A>` is a union: all `Some(A)` values and the single `None` value. Types with `n` values yield options with `n + 1` values. Counting possible instances exposes types that hold states the domain does not need. Once component types are constrained, they can be composed into larger data objects without reintroducing invalid primitive states.
+-->
 
 ## [03]-[UNIT]
 
@@ -145,6 +150,7 @@ internal static class Construction {
 
 The default inner value in the `None` state is ignored. The contract is an empty case, a present case, and a way to handle both cases safely. Other libraries name the same abstraction `Maybe`, with cases `Nothing` and `Just`. Open class hierarchies cannot stop a caller from adding a third case.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [05]-[TOTALITY]
 
 Total functions cover every value in their declared input domains, partial functions do not. Returning `Option` totalizes a partial computation: return `Some(result)` where the computation is defined and `None` otherwise.
@@ -159,7 +165,9 @@ internal static class Totality {
 ```
 
 `string -> int` hides the undefined parsing cases, `string -> Option<int>` describes every outcome. The Prelude function `parseInt` has that signature. `Find` on `HashMap<K, V>` has the signature `K -> Option<V>`. Missing keys are values, not exceptions. `Bind` chains the two lookups, and `ToOption` on `Fin<Age>` drops the failure reason when the caller does not need it.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [06]-[NULLABLE_REFERENCE_TYPES]
 
 Nullable reference types are compiler analysis, not a new runtime type. Enable the analysis in the project file:
@@ -183,7 +191,9 @@ internal sealed record ExternalMovie {
 ```
 
 Null adds another possible state that every consumer must account for. If an external data source requires nullable values, isolate that representation in the parsing code and convert it to a validated internal type before other code uses it.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [07]-[DESIGN_RULES]
 
 - Design the signature early, specify exact input and outcome types
@@ -196,3 +206,4 @@ Null adds another possible state that every consumer must account for. If an ext
 - Use `Option<A>` for optional properties, parsing, lookup, and other computations that can produce no value
 - Use `Match` when a concrete result must be selected from the `None` and `Some` cases
 - Use `Unit` and `fun` to adapt `Action` into `Func`-based higher-order APIs without duplicating their behavior
+-->

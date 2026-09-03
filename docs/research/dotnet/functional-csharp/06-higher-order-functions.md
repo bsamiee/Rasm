@@ -1,5 +1,6 @@
 # [HIGHER_ORDER_FUNCTIONS]
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [01]-[FUNCTIONS_AS_VALUES]
 
 Higher-order functions accept a function, return one, or both. C# represents the passed behavior with delegates:
@@ -9,7 +10,9 @@ Higher-order functions accept a function, return one, or both. C# represents the
 - Functions can create a new function: `Func<int, int> AddBy(int amount) => value => amount + value;`
 
 Delegates treat behavior as a first-class value.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [02]-[BEHAVIOR_PARAMETERIZATION]
 
 Higher-order functions can own stable control flow while the caller supplies the varying rule. For example, `Seq<A>.Filter(Func<A, bool>)` owns iteration while the caller owns the inclusion criterion. This separates concerns that would otherwise be interleaved. The pattern supports:
@@ -26,6 +29,7 @@ internal sealed record Cache<T>(HashMap<Guid, T> Entries) {
 ```
 
 `HashMap.Find` returns an `Option<T>`, and `IfNone(Func<T>)` runs the function only on `None`.
+-->
 
 ### [02.1]-[SELECTORS]
 
@@ -46,6 +50,7 @@ Additional parameters let a `Func` control formatting and an `Action` supply log
 
 Adapters return a new function with a different signature while delegating to the original. `flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`: for `Func<decimal, decimal, decimal> Subtract`, `flip(Subtract)` receives the right operand first.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [04]-[SPECIALIZATION]
 
 Function factories convert configuration data into behavior:
@@ -58,6 +63,7 @@ internal static class Factories {
 ```
 
 The factory centralizes a general rule and produces reusable specializations.
+-->
 
 ## [05]-[RESOURCE_LIFECYCLES]
 
@@ -115,6 +121,7 @@ Separate generic result types let a fixed set of functions produce different kin
 
 These implementations call each function directly.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ### [06.3]-[COMPOSE]
 
 `Pipe` produces a transformed value. `compose` from the Prelude joins functions and produces another function:
@@ -130,6 +137,7 @@ internal static class Conversions {
 The reusable formatting function can be composed with conversions in either direction. Improvements to that function are made once. `compose(f, g)` applies `f` first and then `g`. First give a lambda a delegate type, `compose` can infer its type arguments.
 
 C# has no dedicated syntax for function composition. Use method chaining for value flow and `compose` when the output must be a reusable function.
+-->
 
 ### [06.4]-[DO]
 
@@ -261,6 +269,7 @@ The `Option`-returning forms, `parseInt` and `HashMap.Find`, preserve every outc
 
 Boundary calls to databases, web APIs, and network files can fail. Higher-order wrappers centralize `try/catch` and keep exception control flow out of the call layers. `Try.lift(f).Run()` captures a throwing synchronous dependency as a `Fin<A>`. `IO.lift(f)` defers the same call and carries the failure on the `IO` error channel for the host to run.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [09]-[TECHNIQUE_SELECTION]
 
 - Use function collections when behaviors share a signature and vary as data
@@ -271,3 +280,4 @@ Boundary calls to databases, web APIs, and network files can fail. Higher-order 
 - Use recursive state transitions only when termination is bounded, with `Trampoline` in pure code and `Monad.recur` in effectful code for deep recursion
 
 Higher-order functions add callback frames. Debuggers show less direct control flow. Do not remove boilerplate at the cost of hiding ordering, effects, missing-value behavior, or termination risk.
+-->

@@ -1,3 +1,4 @@
+<!-- dotnet-languageext material, the skill dotnet-coding merges the [01] table into its operator table -->
 # [CORE_PATTERNS]
 
 Functional programming applies common operations to values in contexts. `Option<A>` represents optionality, `Seq<A>` represents a sequence of values. Many operations have the same signatures for both.

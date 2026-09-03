@@ -1,5 +1,6 @@
 # [COMPOSITION]
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [01]-[PROGRAM_STRUCTURE]
 
 Function composition connects functions by feeding each output into the next input. For unary functions:
@@ -37,6 +38,7 @@ internal static class Chaining {
 ```
 
 Each chained method must be defined on the preceding expression's type, either as an instance method or an extension method. The methods appear in execution order. Long pipelines can describe the program at a high level.
+-->
 
 ## [02]-[COMPOSITION_LAW]
 
@@ -104,6 +106,7 @@ internal static class Quartiles {
 }
 ```
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [04]-[WORKFLOW_OPERATORS]
 
 Workflows are sequences of operations that produce a result. Give each step a function and use the operator that matches the step's type:
@@ -135,6 +138,7 @@ internal static class Workflow {
 ```
 
 The workflow runs in domain order: normalize, validate, then debit. Adding another transformation means defining one function and inserting one pipeline step. `Fin` handles control flow. The top-level workflow needs no nested conditionals.
+-->
 
 ## [05]-[PURE_TRANSITIONS]
 
@@ -206,6 +210,7 @@ Using expressions does not eliminate effects. It moves effects to explicit bound
 
 If a terminal step requires multiple effects, keep each one visible.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [08]-[LAYERING]
 
 Do not require every layer to call only its immediate neighbor. After a low-level call performs I/O, every delegating layer becomes impure.
@@ -215,6 +220,7 @@ Let a top-level entry point compose functions from lower-level components while 
 - Subworkflows for related groups of steps
 - Pure mid-level validation and domain logic
 - Direct testing of pure logic without mocks
+-->
 
 ## [09]-[LIMITS]
 

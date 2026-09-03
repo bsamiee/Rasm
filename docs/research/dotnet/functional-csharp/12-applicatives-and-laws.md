@@ -307,6 +307,7 @@ Fin<Unit> equivalence = Try.lift(() => {
 
 Random sampling raises confidence but does not prove a universal law. `Sample` throws on a counterexample, and `Try.lift` captures it into `Fin`. The case count and the ranges are configurable. Properties tied to `multiply` check that function, not every function. Properties can capture model invariants (removing items from a cart never increases its total).
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [11]-[SELECTION_GUIDE]
 
 - Use `Map` for a pure unary transformation that preserves the current effect
@@ -318,3 +319,4 @@ Random sampling raises confidence but does not prove a universal law. `Sample` t
 - When lifting an inline lambda, use `fun` to give it a delegate type
 - Deriving `Apply` from `Bind` can discard error accumulation or other effect-specific behavior
 - Do not use applicative composition for dependent work
+-->

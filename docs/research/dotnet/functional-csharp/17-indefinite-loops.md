@@ -16,6 +16,7 @@ The separation is between:
 - Execution: repeatedly apply the transition until termination
 - Consumption: choose whether to retain only the final state or every intermediate state
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [01]-[APPROACH_SELECTION]
 
 | [INDEX] | [APPROACH]                | [STRENGTH]                                                   | [COST]                                  | [USE_WHEN]                             |
@@ -26,6 +27,7 @@ The separation is between:
 |  [04]   | `LanguageExt.List.unfold` | Lazy states compose with `Seq`                               | Each `unfold` reruns the transition     | Intermediate states are meaningful     |
 
 The library keeps mutable loop state inside the execution mechanism while leaving the transition and stopping rule explicit.
+-->
 
 ## [02]-[TAIL_RECURSION]
 

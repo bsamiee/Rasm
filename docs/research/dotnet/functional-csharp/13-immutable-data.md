@@ -233,6 +233,7 @@ L      R         ->      L    rebuilt R
 
 `Add` rebuilds only the nodes from the root to the new key and shares every untouched subtree. This reuse is structural sharing. In a balanced tree containing `n` elements, insertion creates about `log n + 2` objects. The logarithm's base is the tree's arity, a higher-arity tree can remain shallow for a large collection. `Map<K, V>` balances itself on every `Add`, the rebuilt path stays within that bound.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [09]-[DECISION_RULES]
 
 1. Represent every domain state as a complete, valid snapshot
@@ -245,3 +246,4 @@ L      R         ->      L    rebuilt R
 8. Accept local mutation only when it is fully encapsulated and unobservable
 
 Immutable snapshots and persistent structures remove time-dependent behavior from data access. Components can share values without coordinating changes.
+-->

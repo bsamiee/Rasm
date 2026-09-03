@@ -1,3 +1,4 @@
+<!-- Seed of dotnet-languageext, the skill dotnet-coding holds the [01] table without its SHAPE column, the [02] and [03] rules, and the [08] table -->
 # [LANGUAGEEXT_RESULT_TYPES]
 
 Every function in this set returns an explicit result type.

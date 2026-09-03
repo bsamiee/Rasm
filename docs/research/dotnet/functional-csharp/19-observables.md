@@ -249,6 +249,7 @@ internal static class Ledger {
 
 `Reduce` groups the amounts of each account in a `HashMap`, and `Scan` carries each balance forward. `Zip` with `Tail` pairs each balance with its predecessor, the filter sees only a crossing from nonnegative to negative. The seed is emitted first, the first transaction can form a transition from the opening balance.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [07]-[FIT_AND_LIMITS]
 
 Use `IObservable` when:
@@ -264,3 +265,4 @@ Avoid it when:
 `OnNext` returns no value, information flows downstream only. For coordination that requires explicit queues and exact sequencing, `Conduit` is the queue and `Pipes` is the pipeline. `ProducerT`, `PipeT`, and `ConsumerT` fuse with `|` into one `EffectT` that the host runs.
 
 `IObservable<T>` does not specify how schedulers dispatch observer calls or how subject types behave.
+-->

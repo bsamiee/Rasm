@@ -213,7 +213,9 @@ internal static class Host {
 
 At the host boundary, `RunSafe()` returns the `Fin<A>`: map an `Exceptional` error to an unexpected-error response, an `Expected` error to a client error, and a success to success. `Eff<RT, A>` exits through `RunAsync(rt)`, which returns `Task<Fin<A>>`. If one transformer stack appears throughout the workflow, encapsulate it in a dedicated type.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [10]-[OPERATIONAL_CHOICES]
 
 - Expose asynchronous operations that wait on I/O, and do not provide a synchronous counterpart that blocks
 - Decide whether collection failure is fail-fast (`TraverseM`), error-accumulating (`Traverse` under `Validation`), all-or-nothing (`Traverse` under `IO`), or best-effort (`PartitionFallible`) before choosing traversal
+-->

@@ -1,5 +1,7 @@
+<!-- [08] steps are integrated into the skill, its Workflow.Book example goes to references/functions.md -->
 # [CURRYING_AND_PARTIAL_APPLICATION]
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [01]-[DESIGN_PRINCIPLE]
 
 Supplying stable inputs before runtime data specializes a general multi-argument function. Each supplied argument returns a specialized function with remaining inputs that become available later in the application lifecycle.
@@ -13,7 +15,9 @@ general function
 ```
 
 The final consumer receives a function that accepts only its remaining inputs and does not need to know its configuration or construction process.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [02]-[CORE_DISTINCTION]
 
 - Currying transforms a function of `N` arguments into a chain of `N` unary functions. Each call accepts exactly one argument and returns the next function, and the final call returns the result.
@@ -30,6 +34,7 @@ internal static class Shapes {
 ```
 
 `Add100(200m)` is `300` and `Add100(900m)` is `1000`. The returned function retains each supplied value but does not invoke the original function until the remaining arguments arrive. One general implementation can produce many reusable specializations.
+-->
 
 ## [03]-[PARTIAL_APPLICATION]
 
@@ -54,6 +59,7 @@ internal static class Partials {
 }
 ```
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ### [03.2]-[ARGUMENT_ORDER]
 
 Place stable inputs first and runtime inputs last:
@@ -64,6 +70,7 @@ Place stable inputs first and runtime inputs last:
 For example, `ConnectionIO -> SqlTemplate -> QueryParameters -> Result` and `Clock -> Command -> Validation<Error, Command>`.
 
 This ordering makes left-to-right partial application useful. If an API puts a short-lived value before stable configuration, adapt its signature, application setup can supply the stable values first.
+-->
 
 ## [04]-[CURRYING]
 
@@ -139,6 +146,7 @@ internal static class Temperature {
 }
 ```
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [05]-[METHOD_RESOLUTION]
 
 C# distinguishes methods, method groups, lambdas, and delegate values. Unary methods convert where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
@@ -160,6 +168,7 @@ Choose the delegate-producing form:
 - Factory methods can also introduce generic type parameters, which fields and properties cannot
 
 Return `Func` values from adapter or factory methods to cross from method-based APIs into a function-composition pipeline.
+-->
 
 ## [06]-[API_DESIGN]
 
@@ -195,6 +204,7 @@ internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
 
 Custom types (`ConnectionIO`, `SqlTemplate`) make signatures intention-revealing and can own extension methods that do not belong on `string`. `Seq<A>.Head` is an `Option<A>`, lookup absence stays explicit.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [07]-[FUNCTIONS_AS_DEPENDENCIES]
 
 Dependencies must describe the behavior consumers need. Clocks are `Func<DateTime>`, validators are `T -> Validation<Error, T>`, and persistence is `T -> IO<Unit>`.
@@ -221,6 +231,7 @@ Function dependencies provide the same properties as interfaces:
 This enforces interface segregation: a consumer that only saves receives only `T -> IO<Unit>`, not a repository abstraction that also exposes lookup and unrelated operations. If a consumer needs several independent behaviors, those functions remain separate and explicit.
 
 Objects and interfaces remain compatible with this style. Functional behavior can live behind a framework controller that handles requests and responses.
+-->
 
 ## [08]-[COMPOSITION_ROOT]
 
@@ -258,6 +269,7 @@ internal static class Host {
 
 The framework entry point can remain thin while the behavior it invokes is supplied as narrow functions. Composition uses ordinary function application rather than requiring an inversion-of-control container.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [09]-[WHEN_TO_USE]
 
 Use these techniques to:
@@ -270,3 +282,4 @@ Their costs are specific to C#:
 - Nested delegate types that become difficult to read at higher arities
 
 Use them when specialized functions simplify call sites. If the helper code is larger or less readable than the duplication it removes, use ordinary functions.
+-->

@@ -175,6 +175,7 @@ internal static class Counters {
 }
 ```
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [05]-[TRAVERSAL_POLICY]
 
 The dependency structure and the concurrency bound determine the traversal.
@@ -203,3 +204,4 @@ internal static class Traversals {
     public static IO<Seq<Error>> Failed(Seq<Job> jobs) => jobs.Map<K<IO, int>>(static job => job.Work).Fails().As();
 }
 ```
+-->

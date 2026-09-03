@@ -8,6 +8,7 @@ F# supports discriminated unions directly. The union generator supplies them in 
 
 Cases can be unrelated alternatives that share only an API type or collection.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [02]-[ALTERNATIVES_OVER_FLAGS]
 
 Discriminator flags with fields meaningful only for one flag value permit invalid combinations:
@@ -27,6 +28,7 @@ internal abstract partial record Customer {
 ```
 
 Consumers call `Switch` on named cases, and each case carries only its required data.
+-->
 
 Travel systems sell holidays and day trips. One class with all fields and an `IsDayTrip` flag violates Interface Segregation: every instance carries properties that do not describe its case, while names (`Destination`, `StartDate`) mean concepts named `Attraction` and `DateOfTrip`.
 
@@ -219,6 +221,7 @@ internal static partial class Folds {
 
 The remaining operations follow the return-type rules. Member lookup passes the requested key as the state and returns `Option<Json>`: an `Obj` without the key and every other case answer `None`. Typed extraction returns `Fin<A>` with distinct `Expected` records, a consumer classifies a wrong shape by code. Operations that preserve a case take the case type directly when the caller already holds one, and the signature removes the wrong-shape error. When the shape arrives as data, the operation covers the union and returns a `Fin` failure for every other case.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [07]-[DESIGN_RULES]
 
 - Model each valid state as a distinct case, not as a Boolean discriminator with conditionally meaningful fields
@@ -230,3 +233,4 @@ The remaining operations follow the return-type rules. Member lookup passes the 
 - Interpret external values once near their source, then pass typed cases inward
 - Call `Switch` only where behavior depends on the case, and pass the union onward elsewhere
 - Declaring a union requires one attribute and nested cases
+-->

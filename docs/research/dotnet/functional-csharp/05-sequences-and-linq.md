@@ -1,5 +1,6 @@
 # [SEQUENCES_AND_LINQ]
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [01]-[DECLARATIVE_STYLE]
 
 Imperative code specifies storage, mutation, iteration, branching, and ordering. Functional-style code describes the value to produce and lets expressions carry data through the transformation.
@@ -41,6 +42,7 @@ internal static partial class Sequences {
 ```
 
 Every returned property and the inputs that determine it are visible in one place. If a calculation obscures the construction, extract it into a function and keep the construction expression central.
+-->
 
 ## [02]-[DEFERRED_EXECUTION]
 
@@ -104,6 +106,7 @@ internal static partial class Sequences {
 }
 ```
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ### [03.3]-[INDEXED_SELECT]
 
 The indexed overload supplies each element and its zero-based position, eliminating a counter that must be declared and incremented.
@@ -120,6 +123,7 @@ internal static partial class Sequences {
 ```
 
 The indexed `Map` performs the one-to-one transformation. `string.Join` reduces the sequence of strings to one string.
+-->
 
 ## [04]-[AGGREGATION]
 

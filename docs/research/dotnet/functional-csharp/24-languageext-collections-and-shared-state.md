@@ -1,3 +1,4 @@
+<!-- Seed of dotnet-languageext, the skill dotnet-coding holds 6 rows of the [01] table and the [06] strategy summary -->
 # [LANGUAGEEXT_COLLECTIONS_AND_SHARED_STATE]
 
 Every collection in domain code is a LanguageExt collection, and `Seq<A>` is the default. BCL `List<T>` or `Dictionary<K, V>` stays inside a scope publishing an immutable value, and `toSeq` is the conversion at that boundary. This file documents collection types, fold and sequence operations, lenses, and shared-state types.

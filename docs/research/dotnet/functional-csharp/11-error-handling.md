@@ -207,9 +207,11 @@ The tuple `Apply` combines the independent validators and reports both violation
 
 In the same `Match`, the host reads individual accumulated errors with `Filter<E>`, `Count`, and `Head`.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [08]-[EXCEPTION_POLICY]
 
 Do not use exceptions for expected business outcomes. Reserve them for conditions that the workflow cannot recover from:
 - Developer defects that violate a function’s required preconditions. Do not catch them as business errors.
 - Configuration failures discovered during initialization that make the application unable to operate. Let them terminate initialization, apart from an outermost application handler.
 - Exception-based third-party APIs. Catch narrowly and convert immediately to an explicit functional value.
+-->

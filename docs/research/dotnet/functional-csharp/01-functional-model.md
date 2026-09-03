@@ -1,3 +1,4 @@
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 # [FUNCTIONAL_MODEL]
 
 ## [01]-[PARADIGM]
@@ -156,7 +157,9 @@ LINQ is the clearest built-in example of functional programming:
 - `Where` filters through a predicate
 - `OrderBy` and `OrderByDescending` produce ordered sequences from key selectors
 - These operators accept functions and return new sequences instead of modifying their inputs
+-->
 
+<!-- dotnet-languageext: traits and K<F, A> -->
 The static import of `LanguageExt.Prelude` supplies constructors and functions as bare names: `Some`, `None`, `Seq`, `toSeq`, `Range`, and `parseInt`. `K<F, A>` pairs the witness `F` for the type constructor with the element type `A`. Traits (`Functor<F>`) state what a witness supports, and `.As()` restores the concrete type.
 
 ```csharp
@@ -169,6 +172,7 @@ internal static partial class Traits {
 }
 ```
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 These language features reduce functional-code boilerplate:
 - `using static` removes type qualification from calls to static functions but can introduce name conflicts
 - Getter-only auto-properties have a compiler-generated readonly backing field and can be assigned only inline or in the constructor, which supports immutable types
@@ -242,3 +246,4 @@ Functional programming fits work based on predictable data transformations:
 - Logic that benefits from deterministic behavior and extensive testing
 
 C# places limits on the paradigm. Framework base classes and some libraries are object-oriented, and C# cannot express every feature of a pure functional language. Functional C# is not inherently slow, but it does not guarantee the best performance. If performance outweighs readability and modularity, another style can be a better tradeoff.
+-->

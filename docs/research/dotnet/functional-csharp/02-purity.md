@@ -1,5 +1,6 @@
 # [PURITY]
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [01]-[DEFINITION]
 
 Purity means both conditions hold:
@@ -26,6 +27,7 @@ Applying these transformations to impure functions can change behavior.
 Replacing the call with its result for a given input changes nothing. This property is referential transparency.
 
 Purity is about observable behavior. Mutation of state that is local to a function and never escapes is not a side effect. Mutation of an instance field is, even when that field is private, because other methods on the object can observe it.
+-->
 
 ## [02]-[ISOLATING_IMPURITY]
 
@@ -109,6 +111,7 @@ Treat `Map` as a value transformation and keep its function pure. The API accept
 
 The compiler cannot infer whether an arbitrary delegate is pure, parallel execution must be requested explicitly. Its overhead is justified only by sufficient work and input size.
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ### [03.1]-[STATIC_METHODS]
 
 Pure methods can safely be static because all required data is explicit or immutable. Static methods become hazardous when they:
@@ -116,6 +119,7 @@ Pure methods can safely be static because all required data is explicit or immut
 - Perform I/O that callers cannot replace in tests
 
 Avoid mutable static fields and direct dependencies on static I/O methods.
+-->
 
 ## [04]-[TESTABILITY]
 
@@ -138,6 +142,7 @@ Parameterized tests make inputs and expected outputs explicit: each test case su
 
 ## [05]-[PUSHING_EFFECTS_OUTWARD]
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ### [05.1]-[ABSTRACTION_LIMITS]
 
 Wrapping the system clock behind an interface does not make the consuming method pure. It is pure only when the injected implementation is pure. Production implementations that read the clock still carry I/O into the validator. This approach improves test control without reducing the production effect itself.
@@ -148,6 +153,7 @@ Choose the narrowest dependency that represents what the consumer needs:
 - Inject a runtime for a consumer that reads many capabilities
 
 Interfaces remain appropriate as a common contract for distinct implementations. One-method interfaces for every effect add unnecessary infrastructure.
+-->
 
 ### [05.2]-[VALUE_INJECTION]
 
