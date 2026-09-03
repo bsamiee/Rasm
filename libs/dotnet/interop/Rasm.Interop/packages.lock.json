@@ -140,7 +140,8 @@
       "rasm.interop.opencv": {
         "type": "Project",
         "dependencies": {
-          "Emgu.CV": "[4.13.0.5924, )"
+          "Emgu.CV": "[4.13.0.5924, )",
+          "Rasm.Native.EmguCv": "[4.13.0.5924, )"
         }
       },
       "rasm.interop.pdf": {
@@ -291,6 +292,12 @@
         "requested": "[3.3.2, )",
         "resolved": "3.3.2",
         "contentHash": "6kp8ZGsKIG+tU2fuP2fRMZXF8TviZCQbhpsMbyE+r74sn4PFqxobAO8xMGZLlViEeEn3LKk5fA0+r2+jocFIwQ=="
+      },
+      "Rasm.Native.EmguCv": {
+        "type": "CentralTransitive",
+        "requested": "[4.13.0.5924, )",
+        "resolved": "4.13.0.5924",
+        "contentHash": "IuIKXqVIioa+8McQsedPeLtlF03ZepGOyi8+p0qNMLmBJzMRxgqkYHFyC+GcU1xBCSVlVpInrHcqxE9wiYmERg=="
       },
       "SharpZipLib": {
         "type": "CentralTransitive",
