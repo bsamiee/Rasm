@@ -69,7 +69,7 @@ The declaration rules the analyzer enforces:
 | [INDEX] | [MEMBER]                             | [BEHAVIOR]                                                                              |
 | :-----: | :----------------------------------- | :-------------------------------------------------------------------------------------- |
 |   [01]  | `Create(value)`                      | Validates and returns the instance, or throws `ValidationException` with the error text |
-|   [02]  | `TryCreate(value, out obj)`          | Returns `false` on rejection, the 3-parameter overload also returns the error           |
+|   [02]  | `TryCreate(value, out obj)`          | Returns `false` on rejection, and the 3-parameter overload hands back the error         |
 |   [03]  | `Validate(value, provider, out obj)` | Returns the error or `null` and never throws, the complex form has no provider          |
 |   [04]  | Equality, `GetHashCode`, `==`, `!=`  | Run through the configured comparer                                                     |
 |   [05]  | `ToString()`                         | The key's `ToString()`, or `{ Lower = 1.23, Upper = 2.57 }` for the complex form        |
@@ -138,10 +138,10 @@ internal sealed partial class Kind {
 ```
 
 The generator emits one private constructor per base constructor, and its parameters arrive in a fixed order: the key, the own fields and properties in declaration order, the base constructor parameters, and one delegate per `[UseDelegateFromConstructor]` method last. The rules:
-- Items are `public static readonly` fields (002), static properties are not items (101), a set without items is 100, non-public items are rejected, and two items with the same key throw `ArgumentException` on the first lookup
+- Items are `public static readonly` fields (002), static properties are not items (101), a set without items is 100, non-public items are rejected, and 2 items with the same key throw `ArgumentException` on the first lookup
 - Instance fields and properties are read-only (001, 003, and 034, 035 on a plain base class), `[IgnoreMember]` hides a member from the generator, the type has no primary constructor (043), and the generator seals a smart enum that declares no derived class
 - `ValidateConstructorArguments` receives the key, the own members, and the base arguments by `ref` and not the delegates, rejects by throwing alone, and a `null` key throws `ArgumentNullException` after it returns
-- `[UseDelegateFromConstructor]` marks a `partial` method without type parameters (050, 051), the generator adds a private delegate field and implements the method through it, `DelegateName` or a parameter a `Func` cannot carry (`ref`) makes it emit a nested delegate type, and `Empty.Action` fills the delegate of an item without behavior
+- `[UseDelegateFromConstructor]` marks a `partial` method without type parameters (050, 051), the generator adds a private delegate field and implements the method through it, `DelegateName` or a parameter a `Func` cannot carry (`ref`) makes it emit a nested delegate type, and `Empty.Action` supplies the `Action` of an item without behavior
 - Static fields initialize in declaration order, so an item that refers to a later item reads it through a `Lazy<T>` built from a static method
 - Derived classes nest inside the smart enum, first-level derived classes are `private` (014) and deeper ones `public` (015), a derived class that is neither abstract nor a base is `sealed` (037), a derived class can be generic, and `Items` doubles as the list of permitted implementations
 - Keyless smart enums have no key member, `Get`, conversion operators, comparer settings, or generated `ToString`, only `[ObjectFactory<string>]` serializes or binds them, and a `ToString` override supplies the item name that `Switch`, `Map`, and Serilog otherwise render as the type name
@@ -209,8 +209,6 @@ internal sealed partial class TextOrCount {
 - `default` of a struct union has no member, 047 reports `default(TUnion)` and `new TUnion()`, `Value`, `Switch`, `Map`, `ToString`, and `GetHashCode` throw at runtime, and `DefaultValueHandling = MapToFirstMember` turns `default` into a stateless first member (081, 082)
 - Unions that add their own properties set `ConversionFromValue = None` and `ConstructorAccessModifier = Private`, and their hand-written constructors chain to the generated ones under `[SetsRequiredMembers]`
 
-The attribute settings are listed in `references/settings.md`.
-
 ### [04.2]-[REGULAR_UNIONS]
 
 The generator gives the base a private constructor, so types declared outside it cannot derive from it, class cases are `sealed` or keep private constructors (054), record cases are `sealed` (055), a non-abstract case is no less accessible than the base (056), a nested type that does not derive from the base is 106, positional record cases are the natural form, abstract members hold behavior that needs no dependency, and a transition that reads context passes it through the `Switch` state overload:
@@ -238,7 +236,7 @@ internal static class Transitions {
 }
 ```
 
-- A case with a single-parameter constructor of a type unique among the cases gets an implicit conversion from that type to the base, and `ConversionFromValue = None` on `[Union]` removes those operators
+- Cases with a single-parameter constructor of a type unique among the cases get an implicit conversion from that type to the base, and `ConversionFromValue = None` on `[Union]` removes those operators
 - Class cases carrying `[Union]` become nested unions with their own cases, records cannot nest a union, the outer `Switch` prefixes nested arm names with the parent (`failureNotFound`), `NestedUnionParameterNames = Simple` drops the prefix and collides when 2 nested unions declare a case with one name, and `[UnionSwitchMapOverload(StopAt = [typeof(Nested)])]` adds a non-exhaustive overload that delegates the nested union to its own `Switch`
 - Cases can be value objects or smart enums, the union names the kind and each case owns its value and rules, and an `Unknown` case is a `[ComplexValueObject(SkipFactoryMethods = true)]` with one `Instance` rather than `null`
 - Shared data sits on the base with a private constructor that the record cases pass it to, and a hand-written operator on the base can accept an external type
@@ -275,7 +273,7 @@ static ValidationError? Validate(T? value, IFormatProvider? provider, out TSelf?
 - For a keyed smart enum or a simple value object a flag replaces the key-based conversion at that integration point, for a complex value object or a union it enables a conversion that does not exist otherwise, and the flags register nothing at the host
 - Each integration point belongs to at most one factory (068, 069, 070), and `SkipFactoryMethods = true` on a value object removes its converters until a factory with `UseForSerialization` restores them
 
-An ad hoc union carries no discriminator, so a `string` factory is its one wire format, where `Validate` assigns a member through the implicit conversion and `ToValue` renders the active case through `Switch`:
+Ad hoc unions carry no discriminator, so a `string` factory is their one wire format, where `Validate` assigns a member through the implicit conversion and `ToValue` renders the active case through `Switch`:
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Count")]
@@ -333,18 +331,18 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 | [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                    |
 | :-----: | :------------------------------------------------------------------ | :---------------------------------------------------------------- |
 |   [01]  | `throw` inside the hook, which skips `TryCreate` and the frameworks | Assign `validationError` and `return`                             |
-|   [02]  | A hook that trims into a local and never assigns `value`            | `value = trimmed`                                                 |
+|   [02]  | Hooks that trim into a local and never assign `value`               | `value = trimmed`                                                 |
 |   [03]  | `value.Trim().ToUpper()` in a hook depends on the current culture   | `value.Trim().ToUpperInvariant()`                                 |
 |   [04]  | `[ValueObject<string>]` without comparer attributes                 | Both `[KeyMemberEqualityComparer]` and `[KeyMemberComparer]`      |
 |   [05]  | `TrimOrNullify(maxLength)` as a length rule in a hook               | Reject the over-long input, a cut maps 2 inputs to 1 value        |
 |   [06]  | `HasConversion` with a lambda that calls `Create`                   | `HasThinktectureValueConverter()` or the converter registration   |
 |   [07]  | The host converter factory for a complex value object               | `Json` referenced by the declaring project, or an object factory  |
 |   [08]  | Native `switch` with `_ =>` over a smart enum or union              | The generated `Switch` or `Map`                                   |
-|   [09]  | A lambda without `static` in a `Switch` arm                         | The state overload with a `static` lambda                         |
+|   [09]  | Lambdas without `static` in a `Switch` arm                          | The state overload with a `static` lambda                         |
 |   [10]  | `SwitchPartially` where every case matters                          | The exhaustive `Switch`                                           |
-|   [11]  | `default(TUnion)` or `new TUnion()` on a struct union               | A member value, or `MapToFirstMember` with a stateless first case |
-|   [12]  | A stateless marker as a class                                       | `readonly record struct`                                          |
-|   [13]  | `string` failure case beside a `string` success value               | A distinct type per case                                          |
-|   [14]  | A hand-written serializer for an ad hoc union                       | `[ObjectFactory<string>]` with `ToValue` and `Validate`           |
+|   [11]  | `default(TUnion)` or `new TUnion()` on a struct union               | Member values, or `MapToFirstMember` with a stateless first case  |
+|   [12]  | Stateless markers as classes                                        | `readonly record struct`                                          |
+|   [13]  | `string` failure case beside a `string` success value               | One distinct type per case                                        |
+|   [14]  | Hand-written serializers for an ad hoc union                        | `[ObjectFactory<string>]` with `ToValue` and `Validate`           |
 |   [15]  | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary  | `Thinktecture.Empty.Collection<T>()`                              |
-|   [16]  | A `Fin<T>` or `Validation<Error, T>` adapter that calls `Create`    | `Validate`, which never throws                                    |
+|   [16]  | `Fin<T>` or `Validation<Error, T>` adapters that call `Create`      | `Validate`, which never throws                                    |

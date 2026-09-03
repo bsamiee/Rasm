@@ -12,9 +12,9 @@ Attribute settings of value objects, smart enums, ad hoc unions, and regular uni
 |   [04]  | `EqualityComparisonOperators`              | `Default`     | `None` or `DefaultWithKeyTypeOverloads`                       |
 |   [05]  | `ComparisonOperators`                      | `Default`     | Same values, must match the equality setting (105)            |
 |   [06]  | `AdditionOperators` and the 3 siblings     | `Default`     | Present when the key supports it, results go through `Create` |
-|   [07]  | `SkipToString` and the 4 `SkipI*` settings | `false`       | Remove the member, `SkipIParsable` also skips `ISpanParsable` |
+|   [07]  | `SkipToString` and the 4 `SkipI*` settings | `false`       | Remove the member, `SkipIParsable` skips `ISpanParsable` too  |
 |   [08]  | `SkipEqualityComparison`                   | `false`       | Removes equality members and both operator settings           |
-|   [09]  | `SkipFactoryMethods`                       | `false`       | Removes factories, `TypeConverter`, key conversion, parsing, converters, arithmetic |
+|   [09]  | `SkipFactoryMethods`                       | `false`       | No factories, converters, parsing, key conversion, arithmetic |
 |   [10]  | `ConstructorAccessModifier`                | `Private`     | Constructor accessibility                                     |
 |   [11]  | `CreateFactoryMethodName`                  | `Create`      | Factory name, `CreateCore` follows the rename                 |
 |   [12]  | `TryCreateFactoryMethodName`               | `TryCreate`   | Factory name                                                  |
@@ -24,7 +24,7 @@ Attribute settings of value objects, smart enums, ad hoc unions, and regular uni
 |   [16]  | `DefaultInstancePropertyName`              | `Empty`       | Name of that default instance                                 |
 |   [17]  | `KeyMember*` settings                      | Private field | `KeyMemberName`, `KeyMemberAccessModifier`, `KeyMemberKind`   |
 |   [18]  | `SkipKeyMember`                            | `false`       | Leaves the key member to the hand-written part                |
-|   [19]  | `SerializationFrameworks`                  | `All`         | Flags that select which converter attributes the generator emits |
+|   [19]  | `SerializationFrameworks`                  | `All`         | Flags that select the emitted converter attributes            |
 
 ## [02]-[SMART_ENUMS]
 

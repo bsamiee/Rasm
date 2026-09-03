@@ -119,15 +119,15 @@ The unwrapped families render their inner value, that value renders as a scalar 
 |  [04]   | `AdHocUnions`  | 4       | Ad hoc unions render through `ToString()`        |
 |  [05]   | `All`          | 7       | `SmartEnums \| ValueObjects \| AdHocUnions`      |
 
-| [INDEX] | [INPUT]                          | `None`                                           | `All`                         | `AdHocUnions`                 |
-| :-----: | :------------------------------- | :----------------------------------------------- | :---------------------------- | :---------------------------- |
-|  [01]   | Keyed smart enum                 | `"Paid"`                                         | `"Paid"`                      | `"Paid"`                      |
-|  [02]   | Simple value object              | `99.95`                                          | `"99.95"`                     | `99.95`                       |
-|  [03]   | Value object in union            | `99.95`                                          | `"99.95"`                     | `"99.95"`                     |
-|  [04]   | Complex value object in union    | `{"Lower": 1, "Upper": 10, "$type": "Interval"}` | `"{ Lower = 1, Upper = 10 }"` | `"{ Lower = 1, Upper = 10 }"` |
-|  [05]   | Value object with `SkipToString` | `3`                                              | Full type name                | `3`                           |
+| [INDEX] | [INPUT]                          | `None`                     | `All`                         | `AdHocUnions`                 |
+| :-----: | :------------------------------- | :------------------------- | :---------------------------- | :---------------------------- |
+|  [01]   | Keyed smart enum                 | `"Paid"`                   | `"Paid"`                      | `"Paid"`                      |
+|  [02]   | Simple value object              | `99.95`                    | `"99.95"`                     | `99.95`                       |
+|  [03]   | Value object in union            | `99.95`                    | `"99.95"`                     | `"99.95"`                     |
+|  [04]   | Complex value object in union    | Structure with `$type` tag | `"{ Lower = 1, Upper = 10 }"` | `"{ Lower = 1, Upper = 10 }"` |
+|  [05]   | Value object with `SkipToString` | `3`                        | Full type name                | `3`                           |
 
-A string-keyed smart enum prints the same text under every setting because its `ToString()` returns the key, a decimal key changes from a number to a string, a union under `AdHocUnions` stops unwrapping and renders through its generated `ToString()`, which returns the active member's text, and the flags act per family and not per graph, so a bare `Amount` under `AdHocUnions` alone still unwraps to a number. `SkipToString = true` removes the generated `ToString()` override and keeps the generated `IFormattable`, an interpolated string and a plain output template still print the key through `IFormattable`, Serilog prints the full type name with its namespace and a JSON sink exposes the type name first, nothing at runtime detects the case, so a family receives its flag only after every type in it is confirmed to declare no `SkipToString = true`, and `None` stays in place unless every type in the flagged family renders a meaningful `ToString()`.
+String-keyed smart enums print the same text under every setting because its `ToString()` returns the key, a decimal key changes from a number to a string, a union under `AdHocUnions` stops unwrapping and renders through its generated `ToString()`, which returns the active member's text, and the flags act per family and not per graph, so a bare `Amount` under `AdHocUnions` alone still unwraps to a number. `SkipToString = true` removes the generated `ToString()` override and keeps the generated `IFormattable`, an interpolated string and a plain output template still print the key through `IFormattable`, Serilog prints the full type name with its namespace and a JSON sink exposes the type name first, nothing at runtime detects the case, so a family receives its flag only after every type in it is confirmed to declare no `SkipToString = true`, and `None` stays in place unless every type in the flagged family renders a meaningful `ToString()`.
 
 ## [05]-[CAVEATS]
 
