@@ -110,7 +110,7 @@ Nullable analysis and the property-null options do not apply inside a projection
 
 ## [06]-[MAPPING_METHODS]
 
-Attributes on a `[Mapper] partial class` or `[Mapper] static partial class` and its partial methods carry the configuration, and a non-partial method with the matching types implements a member mapping by hand. Under `AutoUserMappings = false`, a hand-written mapping needs `[UserMapping]` for its type pair, and Mapperly then uses it in place of an automatic conversion, where `Default` marks the pair's one default mapping and `Ignore` excludes a discovered method. One user mapping carries the `ToValue` of a complex value object that declares `[ObjectFactory<string>]` outward, and another formats with a fixed culture:
+Attributes on a `[Mapper] partial class` or `[Mapper] static partial class` and its partial methods carry the configuration, and a non-partial method with the matching types implements a member mapping by hand. Under `AutoUserMappings = false`, a hand-written mapping needs `[UserMapping]` for its type pair, and Mapperly then uses it in place of an automatic conversion, where `Default` marks the pair's one default mapping and `Ignore` excludes a discovered method. One user mapping carries the `ToValue` of a complex value object that declares `[ObjectFactory<string>]` outward, and another formats with a text pattern:
 
 ```csharp
 [Mapper]
@@ -122,10 +122,10 @@ internal static partial class ItemMapper {
     private static string MapRange(Interval range) => range.ToValue();
 
     [UserMapping]
-    private static string MapListed(DateTimeOffset listed) => listed.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    private static string MapListed(Instant listed) => InstantPattern.ExtendedIso.Format(listed);
 }
 
-internal sealed record Item(Guid Id, Interval Range, decimal Amount, DateTimeOffset ListedAt, Seq<Line> Lines);
+internal sealed record Item(Guid Id, Interval Range, decimal Amount, Instant ListedAt, Seq<Line> Lines);
 internal sealed record ItemDto(Guid Id, string Range, decimal Amount, string ListedAt, IReadOnlyList<LineDto> Lines);
 ```
 

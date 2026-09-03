@@ -7,16 +7,16 @@ Covers the result-type flows: validators and their combination, `Fin` workflows 
 Each validator has one shape: it accepts the request, returns it on success so the next validator receives it, and returns the error for the violated rule, and a rule that reads the clock receives it as an argument:
 
 ```csharp
-internal sealed record Command(string Code, DateOnly Date);
+internal sealed record Command(string Code, LocalDate Date);
 internal sealed record InvalidCode() : Expected("code is not 8 or 11 alphanumerics", Codes.InvalidCode);
 internal sealed record DateIsPast() : Expected("date is not in the future", Codes.DateIsPast);
 
 internal static class Rules {
     public static Fin<Command> ValidCode(Command command) =>
         command.Code.Length is 8 or 11 && command.Code.All(char.IsLetterOrDigit) ? command : new InvalidCode();
-    public static Fin<Command> ValidDate(Command command, DateOnly today) =>
+    public static Fin<Command> ValidDate(Command command, LocalDate today) =>
         command.Date > today ? command : new DateIsPast();
-    public static Fin<Command> Valid(Command command, DateOnly today) =>
+    public static Fin<Command> Valid(Command command, LocalDate today) =>
         ValidCode(command).Bind(c => ValidDate(c, today));
 }
 ```
@@ -147,11 +147,11 @@ Validation and persistence express different effects, accumulation and a deferre
 
 ```csharp
 internal static class Handler {
-    public static Validation<Error, Command> Validated(Command command, DateOnly today) =>
+    public static Validation<Error, Command> Validated(Command command, LocalDate today) =>
         (Rules.ValidCode(command).ToValidation(), Rules.ValidDate(command, today).ToValidation())
             .Apply(static (_, valid) => valid)
             .As();
-    public static IO<Unit> Handle(Command command, DateOnly today, Action<Command> insert) =>
+    public static IO<Unit> Handle(Command command, LocalDate today, Action<Command> insert) =>
         from valid in IO.lift(Validated(command, today).ToFin())
         from _ in IO.lift(() => insert(valid))
         select unit;

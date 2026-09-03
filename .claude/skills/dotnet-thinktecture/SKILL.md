@@ -221,12 +221,12 @@ internal abstract partial record Phase {
     internal sealed record Open(string By) : Phase {
         public override bool CanCancel() => true;
     }
-    internal sealed record Closed(DateTime At, string Reference) : Phase {
+    internal sealed record Closed(Instant At, string Reference) : Phase {
         public override bool CanCancel() => false;
     }
 }
 
-internal sealed record CloseRequest(DateTime Now, string Reference, bool Allowed);
+internal sealed record CloseRequest(Instant Now, string Reference, bool Allowed);
 
 internal static class Transitions {
     public static Phase Close(Phase phase, CloseRequest request) =>

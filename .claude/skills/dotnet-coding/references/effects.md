@@ -57,20 +57,20 @@ Arrange must construct substitute external and program state, assert must inspec
 
 ## [02]-[INJECTION]
 
-Reading `DateTime.UtcNow` inside a validator makes the result depend on the system clock, so the code that constructs the validator reads the date once and injects the value, which makes the check deterministic and applies to configuration, environment settings, and request-scoped values, with the tradeoff that the object must not outlive the validity of the captured snapshot:
+Reading `SystemClock.Instance.GetCurrentInstant()` inside a validator makes the result depend on the system clock, so the code that constructs the validator reads the date once and injects the value, which makes the check deterministic and applies to configuration, environment settings, and request-scoped values, with the tradeoff that the object must not outlive the validity of the captured snapshot:
 
 ```csharp
-internal sealed record Command(DateTime Date, string Code);
+internal sealed record Command(LocalDate Date, string Code);
 
-internal sealed class DateValidator(DateTime today) {
-    public bool IsValid(Command command) => today <= command.Date.Date;
+internal sealed class DateValidator(LocalDate today) {
+    public bool IsValid(Command command) => today <= command.Date;
 }
 ```
 
 Where a consumer reads many capabilities, a runtime record carries them with one `Has<Eff<RT>, T>` trait per capability, the consumer is an `Eff<RT, A>` generic over `RT` that reads the capability through `RT.Ask` and passes the snapshot to the validator, and a test runtime carries a fixed value:
 
 ```csharp
-internal sealed record Clock(DateTime Today);
+internal sealed record Clock(LocalDate Today);
 internal sealed record AppRuntime(Clock Clock, ConsoleIO Console) : Has<Eff<AppRuntime>, Clock>, Has<Eff<AppRuntime>, ConsoleIO> {
     static K<Eff<AppRuntime>, Clock> Has<Eff<AppRuntime>, Clock>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Clock);
     static K<Eff<AppRuntime>, ConsoleIO> Has<Eff<AppRuntime>, ConsoleIO>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Console);
@@ -181,10 +181,10 @@ Resource and instrumentation helpers take a callback and act before and after it
 
 ```csharp
 internal static class Scopes {
-    public static IO<A> Timed<A>(Atom<TimeSpan> elapsed, IO<A> work) =>
+    public static IO<A> Timed<A>(Atom<Duration> elapsed, IO<A> work) =>
         IO.lift(System.Diagnostics.Stopwatch.StartNew).Bracket(
             Use: _ => work,
-            Fin: watch => IO.lift(() => elapsed.Swap(_ => watch.Elapsed)));
+            Fin: watch => IO.lift(() => elapsed.Swap(_ => Duration.FromTimeSpan(watch.Elapsed))));
 }
 ```
 
@@ -192,7 +192,7 @@ Once helpers return `IO<A>`, query syntax exposes scoped behavior without callba
 
 ```csharp
 internal static class Removals {
-    public static IO<int> PurgeOld(Atom<TimeSpan> elapsed) =>
+    public static IO<int> PurgeOld(Atom<Duration> elapsed) =>
         Scopes.Timed(
             elapsed,
             from connection in use(static () => new Connection())

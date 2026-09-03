@@ -20,7 +20,7 @@ Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, P
 - [07]-[STREAMS](references/streams.md): The observable model and its 3 layers, creation, operators and partitioning, per-item failure, transitions and backpressure, agents, replies, entity processes and their registry
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Append-only storage, events as a closed union, purpose-specific snapshots, one transition for live and replayed events, reconstruction as `Option`, the command side over `IO`, projections by `Fold` and `Choose`, fit against valid-time storage
 
-Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as bare names. `Seq<A>` is the default collection in domain code, `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types, and value objects, smart enums, and unions come from the generator.
+Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as bare names. `Seq<A>` is the default collection in domain code, `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types, NodaTime's `Instant`, `LocalDate`, and `Duration` are the time types with the clock injected as `IClock` or `Func<Instant>`, and value objects, smart enums, and unions come from the generator.
 
 ## [01]-[FUNCTIONS]
 
@@ -55,7 +55,7 @@ Functions are pure when their return value depends only on their inputs, includi
 ```csharp
 internal static class Stamps {
     // The clock enters as an argument, and invariant formatting keeps the result independent of the ambient culture
-    public static string Format(DateTimeOffset now, string? label) => string.Create(CultureInfo.InvariantCulture, $"{now} - {label ?? "unlabeled"}");
+    public static string Format(Instant now, string? label) => string.Create(CultureInfo.InvariantCulture, $"{now} - {label ?? "unlabeled"}");
 }
 ```
 
@@ -80,7 +80,7 @@ internal static class Factories {
 }
 ```
 
-Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters so left-to-right application is useful: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<DateTime>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into such functions, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components while dependencies point downward, and no rule requires each layer to call only its neighbor, because a low-level I/O call makes every delegating layer impure.
+Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters so left-to-right application is useful: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<Instant>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into such functions, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components while dependencies point downward, and no rule requires each layer to call only its neighbor, because a low-level I/O call makes every delegating layer impure.
 
 Use these techniques when specialized functions simplify call sites, function collections when behaviors share a signature and vary as data, `ForAll` or `Exists` when only a short-circuiting boolean is required, an ordered rule table with an explicit fallback for a first-match decision over values, a returned closure to narrow a noisy API to one operation, and ordinary functions when the helper is larger than the duplication it removes or hides ordering, effects, missing-value behavior, or termination risk.
 
@@ -316,8 +316,8 @@ Inject the narrowest dependency that represents what the consumer needs: a value
 internal sealed record DateIsPast() : Expected("the date is in the past", 100);
 
 internal static class Validators {
-    public static Func<Command, Validation<Error, Command>> NotPast(Func<DateTime> clock) =>
-        command => command.Date.Date < clock().Date ? new DateIsPast() : command;
+    public static Func<Command, Validation<Error, Command>> NotPast(Func<Instant> clock) =>
+        command => command.Date < clock().InUtc().Date ? new DateIsPast() : command;
 }
 ```
 

@@ -367,7 +367,7 @@
 - `ScheduleTransformer` converts implicitly to `Schedule` by applying itself to `Forever`, `IO.Retry(Schedule.recurs(3))` compiles bare and means `Forever.Take(3)`, exactly three attempts with no delay. Transformers passed to a `Schedule` parameter are never type errors and never no-ops. To cap an existing policy, apply the transformer to it explicitly.
 - `recurs(n)` caps attempts while `repeat(n)` replays the entire schedule n times, `exponential(1s) | repeat(3)` runs the backoff series three times over and `exponential(1s) | recurs(3)` truncates it to three steps
 - `maxCumulativeDelay` STOPS the schedule once the accumulated delay crosses its budget while `resetAfter` restarts the policy at that same crossing
-- Each wall-clock constructor takes an optional `Func<DateTime>?` clock. Deterministic tests supply that clock instead of waiting through the real cadence.
+- Each wall-clock constructor takes an optional `Func<DateTime>?` clock, adapted from the injected `IClock` as `() => clock.GetCurrentInstant().ToDateTimeUtc()`, and deterministic tests supply that clock instead of waiting through the real cadence
 
 [MEMBER_SCOPE]: `FinT<M, A>`, the `Fin`-over-`M` transformer
 
