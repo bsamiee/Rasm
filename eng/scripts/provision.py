@@ -2,7 +2,7 @@
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 import hashlib
 import os
 from pathlib import Path
@@ -62,6 +62,12 @@ _ENERGYPLUS_RELEASES = "https://github.com/NatLabRockies/EnergyPlus/releases/dow
 _ENERGYPLUS_VERSION = "25.2.0"  # EnergyPlus release the catalog's NREL.OpenStudio 3.11.0 translates models for
 _ENERGYPLUS_ASSETS: dict[Rid, tuple[str, str]] = {
     "osx-arm64": ("EnergyPlus-25.2.0-cf7368216c-Darwin-macOS13-arm64.tar.gz", "e7976e82509d961bcf484963a1a7109db4cae318dfc318898f97183f4097deda")
+}
+
+_KTX_RELEASES = "https://github.com/KhronosGroup/KTX-Software/releases/download"
+_KTX_VERSION = "4.4.2"  # KTX-Software release whose ktx CLI creates, transcodes, and validates KTX2 textures
+_KTX_ASSETS: dict[Rid, tuple[str, str]] = {
+    "osx-arm64": ("KTX-Software-4.4.2-Darwin-arm64.pkg", "500bd8f9d63358c3f3a0d83b724c8574436a72c37dc0e4bad90ec1ca38032c3c")
 }
 
 _DUCKDB_EXTENSION_REPOSITORY = "https://extensions.duckdb.org"
@@ -168,24 +174,31 @@ async def _pkg_config(vcpkg: Path, env: dict[str, str]) -> dict[str, str]:
     return env | {"PKG_CONFIG": str(tool)}
 
 
-async def _pinned_archive(name: str, version: str, url: str, sha256: str) -> Path:
-    """Fetch a pinned release archive, verify its digest, and unpack it under the cache."""
+async def _untar(archive: Path, staging: Path) -> None:
+    """Extract a release tarball into the staging tree without its top-level directory."""
+    await run(["tar", "-xf", str(archive), "-C", str(staging), "--strip-components=1"], REPO_ROOT)
+
+
+async def _unpkg(package: Path, staging: Path) -> None:
+    """Expand a macOS installer package and merge the usr/local prefix of every component payload into the staging tree."""
+    expanded = staging / "expanded"  # pkgutil creates the destination and rejects an existing one
+    await run(["pkgutil", "--expand-full", str(package), str(expanded)], REPO_ROOT)
+    for prefix in sorted(expanded.glob("*.pkg/Payload/usr/local")):
+        shutil.copytree(prefix, staging, symlinks=True, dirs_exist_ok=True)
+    shutil.rmtree(expanded)
+
+
+async def _pinned_tree(name: str, version: str, url: str, sha256: str, unpack: Callable[[Path, Path], Awaitable[None]]) -> Path:
+    """Fetch a pinned release asset, verify its digest, and unpack it under the cache."""
     root = REPO_ROOT / ".cache" / name / version
     if root.is_dir():
         return root
-    root.parent.mkdir(parents=True, exist_ok=True)
-    archive = root.parent / url.rsplit("/", 1)[1]
-    await run(["curl", "-fsSL", "--retry", "3", "-o", str(archive), url], REPO_ROOT)
-    with archive.open("rb") as blob:
-        digest = hashlib.file_digest(blob, "sha256").hexdigest()
-    if digest != sha256:
-        archive.unlink()
-        raise SystemExit(f"{name} {version} digest {digest} does not match the pin {sha256}")
+    asset = await _pinned_file(url, sha256, root.parent / url.rsplit("/", 1)[1])
     staging = root.with_name(f"{version}.staging")
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
-    await run(["tar", "-xzf", str(archive), "-C", str(staging), "--strip-components=1"], REPO_ROOT)
-    archive.unlink()
+    await unpack(asset, staging)
+    asset.unlink()
     staging.rename(root)
     return root
 
@@ -271,9 +284,20 @@ async def _energyplus_exe() -> Path:
     match _ENERGYPLUS_ASSETS.get(rid):
         case (asset, sha256):
             url = f"{_ENERGYPLUS_RELEASES}/v{_ENERGYPLUS_VERSION}/{asset}"
-            return await _pinned_archive("energyplus", _ENERGYPLUS_VERSION, url, sha256) / "energyplus"
+            return await _pinned_tree("energyplus", _ENERGYPLUS_VERSION, url, sha256, _untar) / "energyplus"
         case _:
             raise SystemExit(f"no EnergyPlus {_ENERGYPLUS_VERSION} asset pinned for {rid}")
+
+
+async def _ktx_exe() -> Path:
+    """Ensure the pinned KTX-Software tools exist and return the ktx executable."""
+    rid = host_rid()
+    match _KTX_ASSETS.get(rid):
+        case (asset, sha256):
+            url = f"{_KTX_RELEASES}/v{_KTX_VERSION}/{asset}"
+            return await _pinned_tree("ktx", _KTX_VERSION, url, sha256, _unpkg if asset.endswith(".pkg") else _untar) / "bin" / "ktx"
+        case _:
+            raise SystemExit(f"no KTX-Software {_KTX_VERSION} asset pinned for {rid}")
 
 
 async def native_build_tools() -> ToolSet:
@@ -383,16 +407,19 @@ async def stage_closure(built: list[Path], work: Path, rid: Rid, rename: Callabl
 
 @_app.default
 def main() -> None:
-    """Provision the pinned build tools, EnergyPlus runtime, and DuckDB and sqlite-vec archives for the host."""
+    """Provision the pinned build tools, EnergyPlus and ktx executables, DuckDB and sqlite-vec archives, and git-lfs filters for the host."""
     tools = anyio.run(native_build_tools)
     energyplus = anyio.run(_energyplus_exe)
+    ktx = anyio.run(_ktx_exe)
     duckdb, extensions = anyio.run(duckdb_extension_archives, host_rid())
     sqlitevec, loadable = anyio.run(sqlite_vec_archive, host_rid())
+    anyio.run(run, ["git", "lfs", "install", "--local"], REPO_ROOT)  # The user git config can be a read-only file a machine profile writes
     _log.info(
         "provisioned",
         vcpkg=str(tools.vcpkg),
         env=tools.env,
         energyplus=str(energyplus),
+        ktx=str(ktx),
         duckdb=duckdb,
         extensions=[archive.name for archive in extensions],
         sqlitevec=sqlitevec,

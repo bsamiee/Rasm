@@ -56,7 +56,7 @@ The skill names no repository, product, or person. It states rules with the cate
 |  [05]   | Coverage        | `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `pyproject.toml`, `Directory.Build.targets`, `tests/README.md` | Done    |
 |  [06]   | Infrastructure  | `infra/resources.ts`, `infra/program.ts`, `infra/automation.ts`, `infra/README.md`                                            | Done    |
 |  [07]   | CI              | `.github/workflows/*.yml`, `.github/actions/*/action.yml`, root `package.json` `nx` field, `mise.toml`                        | Done    |
-|  [08]   | Tools in use    | KTX2 CLI and `git lfs install` in provisioning, protobuf generation target                                                    | Pending |
+|  [08]   | Tools in use    | `eng/scripts/provision.py`, no protobuf target while `libs/contracts/` holds no `.proto` file                                 | Done    |
 |  [09]   | Documentation   | Root, `tests/`, `apps/`, `libs/dotnet/` READMEs, `CLAUDE.md`, the Forge removal memory                                        | Pending |
 
 Decisions the steps recorded:
@@ -102,6 +102,11 @@ Decisions the steps recorded:
 - Per-project binlogs come from `-bl:<dir>/build-{}.binlog` forwarded after `--` as an absolute path, MSBuild replaces `{}` per invocation and Nx interpolates nothing in forwarded arguments, and `format` runs in its own step because `dotnet format` rejects the switch
 - The TypeScript `lint` default states its command as `commands`, an options array the root's two-entry array replaces, because a `command` string from a default beats any `commands` in `nx:run-commands`
 - `nx run-many -t pack --excludeTaskDependencies` packs the downloaded trees, and `actions/upload-artifact` with `archive: false` names the artifact after the tarball, which carries the rid
+- `_pinned_tree` owns the cache tree of a pinned release asset with an unpacker per asset kind, `_untar` for a tarball and `_unpkg` for a macOS installer package, and `tar -xf` reads the compression from the archive
+- The `ktx` executable resolves `libktx.4.dylib` through `@executable_path/../lib`, and `_unpkg` merges the `usr/local` prefix of every component payload into one tree with the executable at `.cache/ktx/<version>/bin/ktx`
+- `git lfs install --local` writes the filters into the repository `.git/config` as unqualified `git-lfs` commands that PATH resolves to the `mise.toml` pin, because the user git config on a machine a profile manages is a read-only file the global install cannot write
+- `_KTX_ASSETS` pins the `osx-arm64` package alone, `Rid` has no `osx-x64`, and the Linux and Windows assets join with the rid that consumes them
+- No protobuf generation target exists while `libs/contracts/` holds no `.proto` file, and the commit that adds the first `.proto` adds the buf files and the target
 
 ## [05]-[SKILL_SHAPE]
 
@@ -155,3 +160,4 @@ Each repository step corrects one category of mistake, and the skill's last sect
 |  [07]   |  [06]  | A repository's settings and its secrets project held by hand or by another repository's program, IaC written as project files a CLI reads in place of a program that owns its stack | One `infra/` program per repository on the Automation API that declares its own resources as typed rows, imports the live ones, resolves its credentials in code, and runs from root targets with no project or stack file |
 |  [08]   | Audit  | Restated facts and hedges left behind by a step: a version in two fields, a guard around a missing dependency, a default copied into every config, a list stated four times         | One owner per fact, the dependency in the graph, the default left unstated, the list stated once                                                                                                                           |
 |  [09]   |  [07]  | Per-language setup actions restating pins the manifests own, one workflow per tool, caches keyed on nothing, raw tool commands as workflow steps                                    | One installer action reading the manifests, one workflow per concern, caches keyed on the lock file or manifest, every step an Nx target                                                                                   |
+|  [10]   |  [08]  | A tool the machine profile installs for one repository's use, git filters a profile writes into a read-only user config                                                            | Provisioning from a pinned digest-verified release under `.cache/`, the repository `.git/config` holding the filters the repository requires                                                                             |
