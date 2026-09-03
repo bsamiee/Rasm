@@ -33,17 +33,8 @@
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
-        <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
         <NuGetAudit>false</NuGetAudit>
-        <!-- IKVM.Image.targets imports transitively into every consumer, routing image files through @(None) lets the SDK drop duplicate copies by TargetPath -->
-        <IkvmImageItemToNone>true</IkvmImageItemToNone>
-    </PropertyGroup>
-
-    <!-- Names the MPXJ.Net consumer directly, project-body opt-in properties are invisible at .props evaluation time -->
-    <PropertyGroup Label="IKVM Build" Condition="'$(MSBuildProjectName)' == 'Rasm.Persistence'">
-        <IkvmCacheDir>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', '.cache', 'ikvm'))</IkvmCacheDir>
-        <IkvmExportCacheDir>$([MSBuild]::NormalizeDirectory('$(IkvmCacheDir)', 'expcache'))</IkvmExportCacheDir>
-        <MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Analyzers">
@@ -54,11 +45,7 @@
         <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers"  PrivateAssets="all" />
     </ItemGroup>
 
-    <!-- The release version comes from the nearest v-prefixed tag, no project file states a version -->
-    <PropertyGroup Label="Release Version">
-        <MinVerTagPrefix>v</MinVerTagPrefix>
-    </PropertyGroup>
-
+    <!-- The version comes from the nearest tag of the project's release group, no project file states a version -->
     <ItemGroup Label="Release Version">
         <PackageReference Include="MinVer" PrivateAssets="all" />
     </ItemGroup>

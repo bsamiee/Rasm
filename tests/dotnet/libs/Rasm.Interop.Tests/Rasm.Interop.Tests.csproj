@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Tests of the interop facades against the native packages they initialize</Description>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup Label="Subjects">
+        <ProjectReference Include="../../../../libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
+        <ProjectReference Include="../../support/Rasm.TestSupport.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Test Dependencies">
+        <PackageReference Include="coverlet.MTP" />
+        <PackageReference Include="CsCheck" />
+        <PackageReference Include="PureHDF" />
+        <PackageReference Include="PureHDF.Filters.Blosc2" />
+        <PackageReference Include="Rasm.Native.Blosc2" />
+        <PackageReference Include="xunit.v3.mtp-v2" />
+    </ItemGroup>
+</Project>

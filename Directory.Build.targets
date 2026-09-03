@@ -11,9 +11,24 @@
         <HostCommon Condition="$(_RasmHostTokens.Contains(';common;')) or '$(HostUi)' == 'true'">true</HostCommon>
     </PropertyGroup>
 
-    <!-- Every test project writes Cobertura coverage under its own prefix, the root coverage target merges the files -->
+    <!-- Companion projects set one ReleaseGroup, the tag <ReleaseGroup>@<version> versions every project in it -->
+    <PropertyGroup Label="Release Version">
+        <ReleaseGroup Condition="'$(ReleaseGroup)' == ''">$(MSBuildProjectName)</ReleaseGroup>
+        <MinVerTagPrefix>$(ReleaseGroup)@</MinVerTagPrefix>
+        <!-- Height ignored, a commit to one project moves no other project's version -->
+        <MinVerIgnoreHeight>true</MinVerIgnoreHeight>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Native Asset Repair">
+        <!-- Install name libtorch_cpu.dylib carries for libomp, retargeted to the bundled sibling -->
+        <_RasmTorchLibompInstallName>/opt/homebrew/opt/libomp/lib/libomp.dylib</_RasmTorchLibompInstallName>
+    </PropertyGroup>
+
+    <!-- Every test project writes Cobertura coverage under its own results directory, the coverage target merges them -->
     <PropertyGroup Label="Test Coverage" Condition="'$(RasmRole)' == 'tests'">
-        <TestingPlatformCommandLineArguments>--coverlet --coverlet-output-format cobertura --coverlet-file-prefix $(MSBuildProjectName)</TestingPlatformCommandLineArguments>
+        <IsTestProject Condition="'$(IsTestingPlatformApplication)' == 'true'">true</IsTestProject>
+        <TestResultsDirectory>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'coverage', '$(MSBuildProjectName)'))</TestResultsDirectory>
+        <TestingPlatformCommandLineArguments>--coverlet --coverlet-output-format cobertura --results-directory $(TestResultsDirectory)</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup Label="Project Usings">
@@ -80,6 +95,7 @@
             <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(RasmAppsRoot)'))" />
             <_RasmInvalidProjectReference Include="@(_RasmProjectReference)" Condition="'$(RasmRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(RasmLibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmProjectDir)'))" />
             <_RasmNativeBinding Include="DuckDB.NET.Data.Full" Native="Rasm.Native.DuckDBExtensions" />
+            <_RasmNativeBinding Include="Emgu.CV" Native="Rasm.Native.EmguCv" />
             <_RasmNativeBinding Include="lcms2-dotnet" Native="Rasm.Native.Lcms2" />
             <_RasmNativeBinding Include="FFmpeg.AutoGen" Native="Rasm.Native.FFmpeg" />
             <_RasmNativeBinding Include="Rasm.Z3" Native="Rasm.Native.Z3" />
@@ -156,12 +172,12 @@
         </ItemGroup>
     </Target>
 
-    <!-- Retargets the output copy of libtorch_cpu.dylib from its hardcoded /opt/homebrew libomp path to the bundled sibling and re-signs it -->
+    <!-- Retargets the output copy of libtorch_cpu.dylib from its libomp install name to the bundled sibling and re-signs it -->
     <Target Name="RepairRasmTorchOmpBinding" AfterTargets="CopyFilesToOutputDirectory" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
         <ItemGroup>
             <_RasmTorchCpuDylib Include="$(OutDir)runtimes/*/native/libtorch_cpu.dylib" />
         </ItemGroup>
-        <Exec Command="install_name_tool -change /opt/homebrew/opt/libomp/lib/libomp.dylib @loader_path/libomp.dylib '%(_RasmTorchCpuDylib.FullPath)' &amp;&amp; codesign --force --sign - '%(_RasmTorchCpuDylib.FullPath)'"
+        <Exec Command="install_name_tool -change $(_RasmTorchLibompInstallName) @loader_path/libomp.dylib '%(_RasmTorchCpuDylib.FullPath)' &amp;&amp; codesign --force --sign - '%(_RasmTorchCpuDylib.FullPath)'"
               Condition="'@(_RasmTorchCpuDylib)' != ''" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" />
     </Target>
 
@@ -170,7 +186,7 @@
         <ItemGroup>
             <_RasmTorchCpuPublishDylib Include="$(PublishDir)runtimes/*/native/libtorch_cpu.dylib" />
         </ItemGroup>
-        <Exec Command="install_name_tool -change /opt/homebrew/opt/libomp/lib/libomp.dylib @loader_path/libomp.dylib '%(_RasmTorchCpuPublishDylib.FullPath)' &amp;&amp; codesign --force --sign - '%(_RasmTorchCpuPublishDylib.FullPath)'"
+        <Exec Command="install_name_tool -change $(_RasmTorchLibompInstallName) @loader_path/libomp.dylib '%(_RasmTorchCpuPublishDylib.FullPath)' &amp;&amp; codesign --force --sign - '%(_RasmTorchCpuPublishDylib.FullPath)'"
               Condition="'@(_RasmTorchCpuPublishDylib)' != ''" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" />
     </Target>
 </Project>

@@ -20,7 +20,7 @@ idiomatic_version_file_enable_tools = ["dotnet"]
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 NUGET_PACKAGES = "{{config_root}}/.cache/nuget/packages"
-UV_PYTHON = { value = "{{ tools.python.path }}/bin/python", tools = true }
+UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
 VCPKG_DEFAULT_BINARY_CACHE = "{{config_root}}/.cache/vcpkg-archives"
 VCPKG_DOWNLOADS = "{{config_root}}/.cache/vcpkg-downloads"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"

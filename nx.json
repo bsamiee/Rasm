@@ -146,7 +146,8 @@
             },
             {
                 "filter": { "projects": ["tag:language:dotnet"] },
-                "inputs": ["...", "{workspaceRoot}/global.json", "{workspaceRoot}/NuGet.config"]
+                "inputs": ["...", "{workspaceRoot}/global.json", "{workspaceRoot}/NuGet.config"],
+                "outputs": ["{workspaceRoot}/.artifacts/dotnet/coverage/{projectName}"]
             },
             {
                 "filter": { "projects": ["tag:language:typescript"] },

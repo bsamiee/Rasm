@@ -32,6 +32,12 @@
         "resolved": "7.0.0",
         "contentHash": "2lMTCQl5bGP4iv0JNkockPnyllC6eHLz+CoK2ICvalvHod+exXSxueu9hq+zNkU7bZBJf8wMfeRC/Edn8AGmEg=="
       },
+      "Rasm.Native.EmguCv": {
+        "type": "Direct",
+        "requested": "[4.13.0.5924, )",
+        "resolved": "4.13.0.5924",
+        "contentHash": "IuIKXqVIioa+8McQsedPeLtlF03ZepGOyi8+p0qNMLmBJzMRxgqkYHFyC+GcU1xBCSVlVpInrHcqxE9wiYmERg=="
+      },
       "Roslynator.Analyzers": {
         "type": "Direct",
         "requested": "[5.0.0, )",

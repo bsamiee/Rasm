@@ -11,6 +11,9 @@
     </Folder>
     <Folder Name="/tests/" />
     <Folder Name="/tests/dotnet/" />
+    <Folder Name="/tests/dotnet/libs/">
+        <Project Path="tests/dotnet/libs/Rasm.Interop.Tests/Rasm.Interop.Tests.csproj" />
+    </Folder>
     <Folder Name="/tests/dotnet/support/">
         <Project Path="tests/dotnet/support/Rasm.TestSupport.csproj" />
     </Folder>
