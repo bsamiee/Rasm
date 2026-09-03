@@ -9,9 +9,4 @@
     <ItemGroup Label="Compiler Platform">
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
     </ItemGroup>
-
-    <ItemGroup Label="Release Tracking">
-        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
-        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
-    </ItemGroup>
 </Project>

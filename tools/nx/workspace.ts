@@ -1,4 +1,4 @@
-// Nx plugin that infers one project per packaging project under eng/native, with a stage target for the native files and a cached pack target
+// Nx plugin that infers the language tag and the check target shells for every language manifest, and one packaging project per eng/native project file with a stage target and a cached pack target
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
@@ -16,14 +16,19 @@ import {
     type TargetConfiguration,
     validateDependency,
 } from '@nx/devkit';
-import { Array, Data, Effect, HashSet, Inspectable, Layer, ManagedRuntime, Option, Record, Schema, String } from 'effect';
+import { Array, Data, Effect, HashSet, Inspectable, Layer, ManagedRuntime, Match, Option, Record, Schema, String } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-declare namespace NativePackaging {
+declare namespace Workspace {
     type Platform = FileSystem.FileSystem | Path.Path;
     type Reason = 'unreadable' | 'malformed' | 'version' | 'manifest' | 'native' | 'source' | 'dependency';
+    type Language = 'dotnet' | 'python' | 'typescript';
+    type Manifest =
+        | { readonly kind: 'native'; readonly file: string }
+        | { readonly kind: 'language'; readonly root: string; readonly language: Language }
+        | { readonly kind: 'root' };
     type Project = {
         readonly file: string;
         readonly name: string;
@@ -66,17 +71,21 @@ const _NuGetConfig = Schema.Struct({
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _PROJECT_FILE_GLOB = 'eng/native/*/*.csproj';
+const _MANIFEST_GLOB = '**/{*.csproj,package.json,pyproject.toml}';
+const _NATIVE_ROOT = 'eng/native/';
 const _ARTIFACTS_ROOT = '.artifacts/native';
-const _TAG = 'native';
+const _NATIVE_TAG = 'native';
 const _NUGET_CONFIG = 'NuGet.config';
 const _LOCAL_SOURCE_KEY = 'local'; // The local source in NuGet.config owns the pack output path, restore reads the nupkg from there
+const _TYPESCRIPT_PROJECT_FILE = 'tsconfig.json'; // A package.json is a TypeScript project when the file its typecheck target builds sits beside it
 const _REPEATED_ELEMENTS: ReadonlyArray<string> = ['PropertyGroup', 'ItemGroup', 'PackageReference', 'add'];
+// The targetDefaults entries filtered by language tag fill these shells, a default creates no target on its own
+const _SHELL_TARGETS: Record<'lint' | 'format' | 'typecheck' | 'check', TargetConfiguration> = { lint: {}, format: {}, typecheck: {}, check: {} };
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 // Nx prints the message of every rejected file, each message states what happened, the cause, then the action
-const _MESSAGES: Record<NativePackaging.Reason, (file: string, detail: string) => string> = {
+const _MESSAGES: Record<Workspace.Reason, (file: string, detail: string) => string> = {
     unreadable: (file, detail) => `Reading ${file} failed, ${detail}, check that the file exists and is readable`,
     malformed: (file, detail) => `Decoding ${file} failed, ${detail}, repair the XML so the named element holds the expected text`,
     version: (file) =>
@@ -90,8 +99,8 @@ const _MESSAGES: Record<NativePackaging.Reason, (file: string, detail: string) =
     dependency: (file, detail) => `${file} declares a PackageReference edge Nx rejects, ${detail}, check the project names in the graph`,
 };
 
-class NativePackagingError extends Data.TaggedError('NativePackagingError')<{
-    readonly reason: NativePackaging.Reason;
+class WorkspaceError extends Data.TaggedError('WorkspaceError')<{
+    readonly reason: Workspace.Reason;
     readonly file: string;
     readonly detail: string;
 }> {
@@ -110,20 +119,20 @@ const _parser = new XMLParser({
 });
 
 const _fail =
-    (reason: NativePackaging.Reason, file: string) =>
-    (cause: unknown): NativePackagingError =>
-        new NativePackagingError({ reason, file, detail: cause instanceof Error ? cause.message : Inspectable.toStringUnknown(cause) });
+    (reason: Workspace.Reason, file: string) =>
+    (cause: unknown): WorkspaceError =>
+        new WorkspaceError({ reason, file, detail: cause instanceof Error ? cause.message : Inspectable.toStringUnknown(cause) });
 
 const _decodeXml =
     <A, I>(schema: Schema.Schema<A, I>) =>
-    (file: string, text: string): Effect.Effect<A, NativePackagingError> =>
+    (file: string, text: string): Effect.Effect<A, WorkspaceError> =>
         Effect.flatMap(Effect.try({ try: (): unknown => _parser.parse(text, true), catch: _fail('malformed', file) }), (parsed) =>
             Effect.mapError(Schema.decodeUnknown(schema)(parsed), _fail('malformed', file)),
         );
 
 const _readXml =
     <A, I>(schema: Schema.Schema<A, I>) =>
-    (workspaceRoot: string, file: string): Effect.Effect<A, NativePackagingError, NativePackaging.Platform> =>
+    (workspaceRoot: string, file: string): Effect.Effect<A, WorkspaceError, Workspace.Platform> =>
         Effect.gen(function* () {
             const fs = yield* FileSystem.FileSystem;
             const path = yield* Path.Path;
@@ -133,6 +142,13 @@ const _readXml =
 
 const _readProjectFile = _readXml(_ProjectFile);
 const _readNuGetConfig = _readXml(_NuGetConfig);
+
+const _exists = (workspaceRoot: string, file: string): Effect.Effect<boolean, WorkspaceError, Workspace.Platform> =>
+    Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        return yield* Effect.mapError(fs.exists(path.join(workspaceRoot, file)), _fail('unreadable', file));
+    });
 
 // MSBuild keeps the last declaration of a property, the lookup follows that order
 const _property = (project: typeof _ProjectFile.Type, name: 'Version' | 'IncludeBuildOutput'): Option.Option<string> =>
@@ -146,14 +162,24 @@ const _packageReferences = (project: typeof _ProjectFile.Type): ReadonlyArray<st
 // The library name is the last segment of the project name in lower case, its version manifest directory sits beside the project
 const _library = (name: string): string => String.toLowerCase(Array.lastNonEmpty(String.split(name, '.')));
 
-const _project = (
-    file: string,
-    root: string,
-    name: string,
-    decoded: typeof _ProjectFile.Type,
-): Effect.Effect<NativePackaging.Project, NativePackagingError> =>
+const _isNative = (file: string): boolean => String.startsWith(_NATIVE_ROOT)(file) && String.endsWith('.csproj')(file);
+
+// A project file under eng/native is a packaging project, every other manifest names a language, and the root manifests belong to the root project.json
+const _manifest = (path: Path.Path, file: string): Workspace.Manifest => {
+    const root = path.dirname(file);
+    const base = path.basename(file);
+    return _isNative(file)
+        ? { kind: 'native', file }
+        : String.endsWith('.csproj')(base)
+          ? { kind: 'language', root, language: 'dotnet' }
+          : root === '.'
+            ? { kind: 'root' }
+            : { kind: 'language', root, language: base === 'package.json' ? 'typescript' : 'python' };
+};
+
+const _project = (file: string, root: string, name: string, decoded: typeof _ProjectFile.Type): Effect.Effect<Workspace.Project, WorkspaceError> =>
     Option.match(_property(decoded, 'Version'), {
-        onNone: () => Effect.fail(new NativePackagingError({ reason: 'version', file, detail: '' })),
+        onNone: () => Effect.fail(new WorkspaceError({ reason: 'version', file, detail: '' })),
         onSome: (version) =>
             Effect.succeed({
                 file,
@@ -165,7 +191,7 @@ const _project = (
             }),
     });
 
-const _readProject = (workspaceRoot: string, file: string): Effect.Effect<NativePackaging.Project, NativePackagingError, NativePackaging.Platform> =>
+const _readProject = (workspaceRoot: string, file: string): Effect.Effect<Workspace.Project, WorkspaceError, Workspace.Platform> =>
     Effect.gen(function* () {
         const path = yield* Path.Path;
         const decoded = yield* _readProjectFile(workspaceRoot, file);
@@ -174,36 +200,35 @@ const _readProject = (workspaceRoot: string, file: string): Effect.Effect<Native
 
 const _withManifestDirectory = (
     workspaceRoot: string,
-    project: NativePackaging.Project,
-): Effect.Effect<NativePackaging.Project, NativePackagingError, NativePackaging.Platform> =>
+    project: Workspace.Project,
+): Effect.Effect<Workspace.Project, WorkspaceError, Workspace.Platform> =>
     Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const directory = path.join(path.dirname(project.root), project.library);
-        const present = yield* Effect.mapError(fs.exists(path.join(workspaceRoot, directory)), _fail('unreadable', project.file));
+        const present = yield* _exists(workspaceRoot, directory);
         return yield* present
             ? Effect.succeed(project)
-            : Effect.fail(new NativePackagingError({ reason: 'manifest', file: project.file, detail: directory }));
+            : Effect.fail(new WorkspaceError({ reason: 'manifest', file: project.file, detail: directory }));
     });
 
 // Managed bindings pack after the native packaging project of the same library stages its files
 const _nativeProject = (
     workspaceRoot: string,
-    project: NativePackaging.Project,
-    configFiles: ReadonlyArray<string>,
-): Effect.Effect<NativePackaging.Project, NativePackagingError, NativePackaging.Platform> =>
+    project: Workspace.Project,
+    nativeFiles: ReadonlyArray<string>,
+): Effect.Effect<Workspace.Project, WorkspaceError, Workspace.Platform> =>
     project.managed
         ? Effect.gen(function* () {
               const path = yield* Path.Path;
               const siblings = Array.filter(
-                  configFiles,
+                  nativeFiles,
                   (file) => file !== project.file && _library(path.basename(file, '.csproj')) === project.library,
               );
               const candidates = yield* Effect.forEach(siblings, (file) => _readProject(workspaceRoot, file));
               return yield* Option.match(
                   Array.findFirst(candidates, (candidate) => !candidate.managed),
                   {
-                      onNone: () => Effect.fail(new NativePackagingError({ reason: 'native', file: project.file, detail: project.library })),
+                      onNone: () => Effect.fail(new WorkspaceError({ reason: 'native', file: project.file, detail: project.library })),
                       onSome: Effect.succeed,
                   },
               );
@@ -219,7 +244,7 @@ const _stageTarget = (library: string): TargetConfiguration => ({
     metadata: { description: `Stage the ${library} files for a runtime identifier`, technologies: ['python', 'vcpkg'] },
 });
 
-const _packTarget = (project: NativePackaging.Project, native: NativePackaging.Project, source: string, parent: string): TargetConfiguration => ({
+const _packTarget = (project: Workspace.Project, native: Workspace.Project, source: string, parent: string): TargetConfiguration => ({
     command: `dotnet pack ${project.root} --configuration Release --output ${source} --nologo`,
     cache: true,
     dependsOn: [{ projects: [native.name], target: 'stage' }],
@@ -241,11 +266,11 @@ const _packTarget = (project: NativePackaging.Project, native: NativePackaging.P
     metadata: { description: `Pack ${project.name} ${project.version} into ${source}`, technologies: ['dotnet', 'nuget'] },
 });
 
-const _configuration = (project: NativePackaging.Project, native: NativePackaging.Project, source: string, parent: string): ProjectConfiguration => ({
+const _packagingConfiguration = (project: Workspace.Project, native: Workspace.Project, source: string, parent: string): ProjectConfiguration => ({
     name: project.name,
     root: project.root,
     projectType: 'library',
-    tags: [_TAG],
+    tags: [_NATIVE_TAG],
     implicitDependencies: project.managed ? [native.name] : [],
     targets: project.managed
         ? { pack: _packTarget(project, native, source, parent) }
@@ -253,38 +278,69 @@ const _configuration = (project: NativePackaging.Project, native: NativePackagin
     metadata: { technologies: ['dotnet', 'nuget'] },
 });
 
-const _localSource = (workspaceRoot: string): Effect.Effect<string, NativePackagingError, NativePackaging.Platform> =>
+// The plugin that reads the manifest names the project, a Python project has no such plugin and takes its root path as its name
+const _languageConfiguration = (root: string, language: Workspace.Language): ProjectConfiguration => ({
+    root,
+    ...(language === 'python' ? { name: Array.join(String.split(root, '/'), '-') } : {}),
+    tags: [`language:${language}`],
+    targets: { ..._SHELL_TARGETS },
+});
+
+const _localSource = (workspaceRoot: string): Effect.Effect<string, WorkspaceError, Workspace.Platform> =>
     Effect.flatMap(_readNuGetConfig(workspaceRoot, _NUGET_CONFIG), (config) =>
         Option.match(
             Array.findFirst(config.configuration.packageSources.add, (entry) => entry.key === _LOCAL_SOURCE_KEY),
             {
-                onNone: () => Effect.fail(new NativePackagingError({ reason: 'source', file: _NUGET_CONFIG, detail: _LOCAL_SOURCE_KEY })),
+                onNone: () => Effect.fail(new WorkspaceError({ reason: 'source', file: _NUGET_CONFIG, detail: _LOCAL_SOURCE_KEY })),
                 onSome: (entry) => Effect.succeed(entry.value),
             },
         ),
     );
 
-const _projectNode = (
+const _packagingNode = (
     workspaceRoot: string,
     source: string,
-    configFiles: ReadonlyArray<string>,
+    nativeFiles: ReadonlyArray<string>,
     file: string,
-): Effect.Effect<CreateNodesResult, NativePackagingError, NativePackaging.Platform> =>
+): Effect.Effect<CreateNodesResult, WorkspaceError, Workspace.Platform> =>
     Effect.gen(function* () {
         const path = yield* Path.Path;
         const project = yield* Effect.flatMap(_readProject(workspaceRoot, file), (read) => _withManifestDirectory(workspaceRoot, read));
-        const native = yield* _nativeProject(workspaceRoot, project, configFiles);
-        return { projects: { [project.root]: _configuration(project, native, source, path.dirname(project.root)) } };
+        const native = yield* _nativeProject(workspaceRoot, project, nativeFiles);
+        return { projects: { [project.root]: _packagingConfiguration(project, native, source, path.dirname(project.root)) } };
     });
 
+const _languageNode = (
+    workspaceRoot: string,
+    root: string,
+    language: Workspace.Language,
+): Effect.Effect<CreateNodesResult, WorkspaceError, Workspace.Platform> =>
+    Effect.map(language === 'typescript' ? _exists(workspaceRoot, `${root}/${_TYPESCRIPT_PROJECT_FILE}`) : Effect.succeed(true), (present) =>
+        present ? { projects: { [root]: _languageConfiguration(root, language) } } : { projects: {} },
+    );
+
+const _node = (
+    workspaceRoot: string,
+    source: string,
+    nativeFiles: ReadonlyArray<string>,
+    file: string,
+): Effect.Effect<CreateNodesResult, WorkspaceError, Workspace.Platform> =>
+    Effect.flatMap(Path.Path, (path) =>
+        Match.value(_manifest(path, file)).pipe(
+            Match.discriminatorsExhaustive('kind')({
+                native: (manifest) => _packagingNode(workspaceRoot, source, nativeFiles, manifest.file),
+                language: (manifest) => _languageNode(workspaceRoot, manifest.root, manifest.language),
+                root: () => Effect.succeed({ projects: {} }),
+            }),
+        ),
+    );
+
 // Every PackageReference to a packaging project becomes a static edge, a changed package then marks its consumers affected
-const _packageReferenceEdges = (
-    context: CreateDependenciesContext,
-): Effect.Effect<RawProjectGraphDependency[], NativePackagingError, NativePackaging.Platform> =>
+const _packageReferenceEdges = (context: CreateDependenciesContext): Effect.Effect<RawProjectGraphDependency[], WorkspaceError, Workspace.Platform> =>
     Effect.gen(function* () {
         const packaging = HashSet.fromIterable(
             Array.filterMap(Record.toEntries(context.projects), ([name, project]) =>
-                Option.liftPredicate(name, () => Array.contains(project.tags ?? [], _TAG)),
+                Option.liftPredicate(name, () => Array.contains(project.tags ?? [], _NATIVE_TAG)),
             ),
         );
         // Nx keeps the cached edges of every file outside filesToProcess, only changed project files are read
@@ -316,18 +372,20 @@ const _packageReferenceEdges = (
 const _runtime = ManagedRuntime.make(Layer.merge(NodeFileSystem.layer, NodePath.layer));
 
 const createNodes: CreateNodes = [
-    _PROJECT_FILE_GLOB,
-    (configFiles, options, context) =>
-        _runtime
+    _MANIFEST_GLOB,
+    (configFiles, options, context) => {
+        const nativeFiles = Array.filter(configFiles, _isNative);
+        return _runtime
             .runPromise(_localSource(context.workspaceRoot))
             .then((source) =>
                 createNodesFromFiles(
-                    (file, _options, perFile) => _runtime.runPromise(_projectNode(perFile.workspaceRoot, source, perFile.configFiles, file)),
+                    (file, _options, perFile) => _runtime.runPromise(_node(perFile.workspaceRoot, source, nativeFiles, file)),
                     configFiles,
                     options,
                     context,
                 ),
-            ),
+            );
+    },
 ];
 
 const createDependencies: CreateDependencies = (_options, context) => _runtime.runPromise(_packageReferenceEdges(context));

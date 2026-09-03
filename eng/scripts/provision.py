@@ -55,7 +55,7 @@ REPO_ROOT: Path = next(parent for parent in Path(__file__).resolve().parents if 
 _VCPKG_URL = "https://github.com/microsoft/vcpkg"
 _VCPKG_COMMIT = "30ef65cad98f08e7197c9a1656fbd871bcb72f2d"  # Equals the builtin-baseline in eng/native/lcms2/vcpkg.json
 _VCPKG_ROOT = REPO_ROOT / ".cache" / "vcpkg"
-_VCPKG_ARCHIVES = REPO_ROOT / ".cache" / "vcpkg-archives"   # Binary cache, vcpkg defaults to $HOME/.cache/vcpkg/archives
+_VCPKG_ARCHIVES = REPO_ROOT / ".cache" / "vcpkg-archives"  # Binary cache, vcpkg defaults to $HOME/.cache/vcpkg/archives
 _HOST_TOOLS = REPO_ROOT / ".cache" / "vcpkg-hosttools"
 
 _ENERGYPLUS_RELEASES = "https://github.com/NatLabRockies/EnergyPlus/releases/download"

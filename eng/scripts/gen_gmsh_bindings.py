@@ -154,7 +154,9 @@ _KINDS: dict[str, _Kind] = {
         free="GmshMarshal.FreeAll({n}_);",
         default="argv",
     ),
-    "isizefun": _Kind(extern="GmshSizeFunc {p}, IntPtr {p}_data", param="GmshSizeFunc {p}", pre="GmshMarshal.KeepAlive({p});", call="{p}, IntPtr.Zero"),
+    "isizefun": _Kind(
+        extern="GmshSizeFunc {p}, IntPtr {p}_data", param="GmshSizeFunc {p}", pre="GmshMarshal.KeepAlive({p});", call="{p}, IntPtr.Zero"
+    ),
     "oint": _Kind(extern="out int {p}", param="out int {p}", call="out {p}", out=True),
     "osize": _Kind(extern="out long {p}", param="out long {p}", call="out {p}", out=True),
     "odouble": _Kind(extern="out double {p}", param="out double {p}", call="out {p}", out=True),

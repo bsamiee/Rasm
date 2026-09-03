@@ -2,8 +2,8 @@
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
         "emitDeclarationOnly": true,
-        "outDir": ".cache/typescript/out/root",
-        "tsBuildInfoFile": ".cache/typescript/root.tsbuildinfo",
+        "outDir": ".cache/typescript/out",
+        "tsBuildInfoFile": ".cache/typescript/out/tsconfig.tsbuildinfo",
         "types": ["node"],
         "allowImportingTsExtensions": true
     },

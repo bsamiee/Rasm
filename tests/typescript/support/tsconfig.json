@@ -3,8 +3,8 @@
     "compilerOptions": {
         "allowImportingTsExtensions": true,
         "emitDeclarationOnly": true,
-        "outDir": "../../../.cache/typescript/out/test-support",
-        "tsBuildInfoFile": "../../../.cache/typescript/test-support.tsbuildinfo",
+        "outDir": "../../../.cache/typescript/out/tests/typescript/support",
+        "tsBuildInfoFile": "../../../.cache/typescript/out/tests/typescript/support/tsconfig.tsbuildinfo",
         "types": ["node", "vite/client"]
     },
     "include": ["**/*.ts"],

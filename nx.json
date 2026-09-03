@@ -10,51 +10,129 @@
     "namedInputs": {
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}", "!{projectRoot}/dist/**/*"],
-        "sharedGlobals": [
+        "sharedGlobals": ["{workspaceRoot}/nx.json", "{workspaceRoot}/mise.toml"],
+        "dotnet": [
+            "{workspaceRoot}/.editorconfig",
+            "{workspaceRoot}/Directory.Build.props",
+            "{workspaceRoot}/Directory.Build.targets",
+            "{workspaceRoot}/Directory.Packages.props",
             "{workspaceRoot}/global.json",
-            "{workspaceRoot}/NuGet.config",
+            "{workspaceRoot}/NuGet.config"
+        ],
+        "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock"],
+        "typescript": [
             "{workspaceRoot}/biome.json",
-            "{workspaceRoot}/package.json",
-            "{workspaceRoot}/pnpm-lock.yaml",
-            "{workspaceRoot}/pnpm-workspace.yaml",
-            "{workspaceRoot}/stryker.config.json",
             "{workspaceRoot}/tsconfig.base.json",
             "{workspaceRoot}/tsconfig.json",
+            "{workspaceRoot}/package.json",
+            "{workspaceRoot}/pnpm-workspace.yaml",
+            "{workspaceRoot}/pnpm-lock.yaml",
             "{workspaceRoot}/vite.config.ts",
             "{workspaceRoot}/vitest.config.ts"
         ]
     },
     "targetDefaults": {
-        "build": {
-            "cache": true,
-            "inputs": ["...", "production", "^production"]
-        },
-        "typecheck": {
-            "cache": true,
-            "command": "tsc --build --pretty false",
-            "options": {
-                "cwd": "{projectRoot}"
+        "build": [
+            {
+                "cache": true,
+                "inputs": ["...", "production", "^production"]
             },
-            "dependsOn": ["^typecheck"],
-            "inputs": [
-                "default",
-                "^production",
-                {
-                    "externalDependencies": ["typescript"]
-                }
-            ],
-            "outputs": ["{projectRoot}/dist"]
-        },
+            {
+                "filter": { "projects": ["tag:language:dotnet"] },
+                "dependsOn": ["^build", { "projects": ["rasm-workspace"], "target": "restore" }]
+            }
+        ],
+        "lint": [
+            {
+                "filter": { "projects": ["tag:language:dotnet"] },
+                "executor": "nx:noop",
+                "dependsOn": ["build"],
+                "configurations": { "check": {}, "write": {} },
+                "defaultConfiguration": "check"
+            },
+            {
+                "filter": { "projects": ["tag:language:python"] },
+                "executor": "nx:run-commands",
+                "cache": true,
+                "inputs": ["default", "python"],
+                "options": { "command": "uv run ruff check {projectRoot}" },
+                "configurations": { "check": {}, "write": { "command": "uv run ruff check --fix {projectRoot}" } },
+                "defaultConfiguration": "check"
+            },
+            {
+                "filter": { "projects": ["tag:language:typescript"] },
+                "executor": "nx:run-commands",
+                "cache": true,
+                "inputs": ["default", "typescript"],
+                "options": { "command": "biome check {projectRoot}" },
+                "configurations": { "check": {}, "write": { "command": "biome check --write {projectRoot}" } },
+                "defaultConfiguration": "check"
+            }
+        ],
+        "format": [
+            {
+                "filter": { "projects": ["tag:language:dotnet"] },
+                "executor": "nx:run-commands",
+                "cache": true,
+                "dependsOn": [{ "projects": ["rasm-workspace"], "target": "restore" }],
+                "inputs": ["default", "dotnet"],
+                "options": { "command": "dotnet format --no-restore --verify-no-changes", "cwd": "{projectRoot}" },
+                "configurations": { "check": {}, "write": { "command": "dotnet format --no-restore" } },
+                "defaultConfiguration": "check"
+            },
+            {
+                "filter": { "projects": ["tag:language:python"] },
+                "executor": "nx:run-commands",
+                "cache": true,
+                "inputs": ["default", "python"],
+                "options": { "command": "uv run ruff format --check {projectRoot}" },
+                "configurations": { "check": {}, "write": { "command": "uv run ruff format {projectRoot}" } },
+                "defaultConfiguration": "check"
+            },
+            {
+                "filter": { "projects": ["tag:language:typescript"] },
+                "executor": "nx:run-commands",
+                "cache": true,
+                "inputs": ["default", "typescript"],
+                "options": { "command": "biome format {projectRoot}" },
+                "configurations": { "check": {}, "write": { "command": "biome format --write {projectRoot}" } },
+                "defaultConfiguration": "check"
+            }
+        ],
+        "typecheck": [
+            {
+                "filter": { "projects": ["tag:language:dotnet"] },
+                "executor": "nx:noop",
+                "dependsOn": ["build"]
+            },
+            {
+                "filter": { "projects": ["tag:language:python"] },
+                "executor": "nx:run-commands",
+                "cache": true,
+                "inputs": ["default", "python"],
+                "options": { "commands": ["uv run ty check {projectRoot}", "uv run mypy {projectRoot}"], "parallel": false }
+            },
+            {
+                "filter": { "projects": ["tag:language:typescript"] },
+                "executor": "nx:run-commands",
+                "cache": true,
+                "dependsOn": ["^typecheck"],
+                "inputs": ["default", "^production", "typescript", { "externalDependencies": ["typescript"] }],
+                "options": { "command": "tsc --build --pretty false", "cwd": "{projectRoot}" },
+                "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
+            }
+        ],
         "test": {
             "cache": true,
-            "inputs": [
-                "...",
-                "^production",
-                {
-                    "externalDependencies": ["vitest"]
-                }
-            ]
-        }
+            "inputs": ["...", "^production", { "externalDependencies": ["vitest"] }, { "env": "CI" }]
+        },
+        "check": [
+            {
+                "filter": { "projects": ["tag:language:*"] },
+                "executor": "nx:noop",
+                "dependsOn": ["lint", "format", "typecheck", "test"]
+            }
+        ]
     },
     "pluginsConfig": {
         "@nx/js": {
@@ -64,6 +142,7 @@
     "plugins": [
         {
             "plugin": "@nx/vite/plugin",
+            "exclude": ["vite.config.ts"],
             "options": {
                 "compiler": "tsc",
                 "typecheckTargetName": "typecheck"
@@ -71,6 +150,7 @@
         },
         {
             "plugin": "@nx/vitest",
+            "exclude": ["vite.config.ts", "vitest.config.ts"],
             "options": {
                 "testTargetName": "test",
                 "discoverTestFiles": "glob"
@@ -84,14 +164,11 @@
                 "pack": false,
                 "publish": false,
                 "restore": false,
-                "test": true
+                "test": {}
             }
         },
         {
-            "plugin": "./tools/nx/native-packaging.ts"
+            "plugin": "./tools/nx/workspace.ts"
         }
-    ],
-    "sync": {
-        "disabledTaskSyncGenerators": ["@nx/js:typescript-sync"]
-    }
+    ]
 }

@@ -1,11 +1,16 @@
 {
     "$schema": "../node_modules/nx/schemas/project-schema.json",
     "name": "eng",
+    "tags": ["language:python"],
     "targets": {
         "provision": {
             "command": "uv run python -m eng.scripts.provision",
             "cache": false,
             "parallelism": false
-        }
+        },
+        "lint": {},
+        "format": {},
+        "typecheck": {},
+        "check": {}
     }
 }

@@ -298,5 +298,129 @@
             "version": "12.3.1",
             "onFail": "error"
         }
+    },
+    "nx": {
+        "tags": [
+            "language:typescript"
+        ],
+        "implicitDependencies": [
+            "@rasm/test-support"
+        ],
+        "targets": {
+            "restore": {
+                "command": "dotnet restore Workspace.slnx",
+                "cache": false,
+                "inputs": [
+                    "{workspaceRoot}/Workspace.slnx",
+                    "{workspaceRoot}/Directory.Build.props",
+                    "{workspaceRoot}/Directory.Build.targets",
+                    "{workspaceRoot}/Directory.Packages.props",
+                    "{workspaceRoot}/NuGet.config",
+                    "{workspaceRoot}/global.json",
+                    "{workspaceRoot}/{apps,libs,tests,tools}/**/*.csproj",
+                    "{workspaceRoot}/{apps,libs,tests,tools}/**/packages.lock.json"
+                ]
+            },
+            "lint": {
+                "options": {
+                    "command": "biome check package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .config .vscode tools"
+                },
+                "configurations": {
+                    "write": {
+                        "command": "biome check --write package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .config .vscode tools"
+                    }
+                },
+                "inputs": [
+                    "{workspaceRoot}/package.json",
+                    "{workspaceRoot}/nx.json",
+                    "{workspaceRoot}/biome.json",
+                    "{workspaceRoot}/tsconfig.json",
+                    "{workspaceRoot}/tsconfig.base.json",
+                    "{workspaceRoot}/vite.config.ts",
+                    "{workspaceRoot}/vitest.config.ts",
+                    "{workspaceRoot}/stryker.config.json",
+                    "{workspaceRoot}/.mcp.json",
+                    "{workspaceRoot}/.config/**/*",
+                    "{workspaceRoot}/.vscode/**/*",
+                    "{workspaceRoot}/tools/**/*"
+                ]
+            },
+            "format": {
+                "options": {
+                    "command": "biome format package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .config .vscode tools"
+                },
+                "configurations": {
+                    "write": {
+                        "command": "biome format --write package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .config .vscode tools"
+                    }
+                },
+                "inputs": [
+                    "{workspaceRoot}/package.json",
+                    "{workspaceRoot}/nx.json",
+                    "{workspaceRoot}/biome.json",
+                    "{workspaceRoot}/tsconfig.json",
+                    "{workspaceRoot}/tsconfig.base.json",
+                    "{workspaceRoot}/vite.config.ts",
+                    "{workspaceRoot}/vitest.config.ts",
+                    "{workspaceRoot}/stryker.config.json",
+                    "{workspaceRoot}/.mcp.json",
+                    "{workspaceRoot}/.config/**/*",
+                    "{workspaceRoot}/.vscode/**/*",
+                    "{workspaceRoot}/tools/**/*"
+                ]
+            },
+            "typecheck": {
+                "inputs": [
+                    "{workspaceRoot}/*.config.ts",
+                    "{workspaceRoot}/tsconfig.json",
+                    "{workspaceRoot}/tsconfig.base.json",
+                    "{workspaceRoot}/package.json",
+                    "{workspaceRoot}/pnpm-lock.yaml",
+                    "{workspaceRoot}/tools/nx/**/*",
+                    "^production",
+                    {
+                        "externalDependencies": [
+                            "typescript"
+                        ]
+                    }
+                ],
+                "outputs": [
+                    "{workspaceRoot}/.cache/typescript/out"
+                ]
+            },
+            "check": {
+                "executor": "nx:noop",
+                "inputs": [
+                    "{workspaceRoot}/nx.json"
+                ],
+                "dependsOn": [
+                    "lint",
+                    "format",
+                    "typecheck",
+                    {
+                        "projects": [
+                            "*",
+                            "!rasm-workspace"
+                        ],
+                        "target": "check"
+                    }
+                ]
+            },
+            "mutation": {
+                "executor": "nx:run-commands",
+                "cache": false,
+                "inputs": [
+                    "{workspaceRoot}/stryker-config.json",
+                    "{workspaceRoot}/stryker.config.json"
+                ],
+                "options": {
+                    "commands": [
+                        "dotnet tool run dotnet-stryker",
+                        "pnpm exec stryker run"
+                    ],
+                    "parallel": false
+                }
+            }
+        }
     }
 }

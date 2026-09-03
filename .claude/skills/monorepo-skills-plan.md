@@ -52,7 +52,7 @@ The skill names no repository, product, or person. It states rules with the cate
 |  [01]   | Research folder  | `docs/research/monorepo/*.md`, this plan                                                  | Done     |
 |  [02]   | Toolchain        | `mise.toml`, `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `.vscode/settings.json` | Done     |
 |  [03]   | .NET manifest    | `.config/dotnet-tools.json`, `.mcp.json`, `Directory.Build.props`, `Directory.Packages.props` | Done     |
-|  [04]   | Nx               | `tools/nx/workspace.ts`, `nx.json`, root `project.json`, `vitest.config.ts`, `biome.json` | Pending  |
+|  [04]   | Nx               | `tools/nx/workspace.ts`, `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `biome.json` | Done     |
 |  [05]   | Coverage         | ReportGenerator merge, pytest coverage path, Vitest thresholds, `tests/README.md`         | Pending  |
 |  [06]   | Infrastructure   | `infra/` Pulumi program, Doppler adoption, CI token, `secrets` skill rule                 | Pending  |
 |  [07]   | CI               | `.github/workflows/ci.yml`, `.github/workflows/release.yml`                               | Pending  |
@@ -63,6 +63,13 @@ Decisions the steps recorded:
 - The root `Directory.Build.targets` stays one file, because its conditions select by host token and role and a split by role would add files without removing a condition
 - The dylib repair in `Directory.Build.targets` retargets a NuGet package's library at copy time and the repair in `eng/scripts/stage.py` relinks a closure the workspace builds, two inputs with two owners
 - `binlogtool` stays out of the manifest, because the two commands the binlog MCP lacks, `redact` and `stats`, serve a binlog that leaves the machine or exceeds the MCP threshold, and neither exists
+- The root project lives in the `nx` field of the root `package.json`, a `project.json` exists only for a directory no manifest describes (`eng/`, `tests/python/`), and `tools/nx` belongs to the root project, whose `lint` and `format` commands name `tools` and whose `tsc --build` reaches it through the `references`
+- The workspace plugin names no project it did not create alone: a `.csproj` or `package.json` node carries tags and shells and takes its name from the plugin that reads the manifest, a `package.json` counts only with a `tsconfig.json` beside it, and a `pyproject.toml` node is named by its root path with `-` for `/`
+- The dotnet `format` target discovers the one project file in its `cwd` and depends on `rasm-workspace:restore`, because `--no-restore` reads the assets restore wrote
+- The root `check` depends on the root `lint`, `format`, and `typecheck` beside every other project's `check`, and the root `typecheck` builds every referenced project, so the root declares `@rasm/test-support` as an implicit dependency and owns `.cache/typescript/out` as its output
+- The per-language named inputs take the root files out of `sharedGlobals`, which keeps `nx.json` and `mise.toml`, and the `typescript` input carries the root `vite.config.ts` and `vitest.config.ts` that every Vitest project imports
+- Every `vitest.config.ts` is a complete standalone configuration from `createVitestConfig`, the results, benchmark, and coverage paths split by directory name, and the root configuration serves the mutation runner alone
+- `Rasm.Policy.Analyzers` declares no `AnalyzerReleases.*.md` items, the `Microsoft.CodeAnalysis.Analyzers` build assets add them, and the duplicate made `dotnet format` report a workspace warning
 
 ## [05]-[SKILL_SHAPE]
 
@@ -110,3 +117,5 @@ Each repository step corrects one category of mistake, and the skill's last sect
 |  [01]   |  [01]  | Source material scattered across plan files and session scratch directories   | One research folder per skill area, one file per report, integration markers   |
 |  [02]   |  [02]  | Runtimes installed by a machine profile outside the repository, versions restated as ranges and guards | One installer file pinning exact runtimes, each manifest pinning its own packages, one statement per version |
 |  [03]   |  [03]  | Tools resolved at latest on each launch, a tool installed by the machine for one repository's checks | Every tool the repository's checks run pinned in the repository's manifest, servers included |
+|  [04]   |  [04]  | Checks run as raw commands and per-tool target variants, root files rehashed by a root project, a discovery declared twice | One target name per kind of work filled by tag from `targetDefaults` with `check` and `write` configurations, a root project with explicit inputs alone, one discovery per tool |
+|  [05]   |  [04]  | A configuration file created per directory while an existing owner holds the setting (a root `project.json`, a `project.json` beside a manifest, a per-project tool config) | The existing owner: plugin inference, the manifest's `nx` field, `tsconfig.base.json`, the root tool config, and a new file only for a directory no manifest describes |

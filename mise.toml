@@ -18,3 +18,4 @@ idiomatic_version_file_enable_tools = ["dotnet"]
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"
+NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data"
