@@ -1,32 +1,22 @@
 # [MULTI_LEVEL_EXAMPLES]-[SHARED_BUILD_FILES]
 
-Full file examples for a multi-level repo layout, and the before/after of settings centralized out of project files.
+Full files for a repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.props`, and a `Directory.Build.targets`, followed by the settings that move out of project files into them.
 
 ## [01]-[LAYOUT]
 
 ```text
 <repo>/
-├── Directory.Build.props         # repo-wide defaults
+├── Directory.Build.props         # repository roots, artifacts layout, overridable defaults
+├── Directory.Build.targets       # values derived from the project body, shared items, targets
 ├── Directory.Packages.props      # every package version
-├── <libs>/Directory.Build.props  # imports the root, adds library settings
-└── <tests>/
-    ├── Directory.Build.props     # imports the root, adds test settings
-    └── Directory.Packages.props  # imports the root, adds test-only packages
+├── libs/
+│   └── Library/Library.csproj
+└── tests/
+    ├── Directory.Build.props     # imports the root file, then test defaults
+    └── Library.Tests/Library.Tests.csproj
 ```
 
-Nested `Directory.Packages.props` hides the root file. Import the root first:
-
-```xml
-<!-- <tests>/Directory.Packages.props -->
-<Project>
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Packages.props', '$(MSBuildThisFileDirectory)../'))" />
-
-  <ItemGroup>
-    <PackageVersion Include="NSubstitute" Version="5.3.0" />
-    <PackageVersion Update="xunit.v3" Version="4.0.0" />
-  </ItemGroup>
-</Project>
-```
+MSBuild imports the nearest `Directory.Build.props` above the project and stops, and the nested file opens with an import of the outer one. A file with nothing above it gets an empty path, and the condition skips the import instead of failing with `MSB4020`.
 
 ## [02]-[ROOT]-[DIRECTORY_BUILD_PROPS]
 
@@ -34,16 +24,21 @@ Nested `Directory.Packages.props` hides the root file. Import the root first:
 <Project>
 
   <PropertyGroup>
+    <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
+    <ArtifactsPath>$(RepositoryRoot).artifacts</ArtifactsPath>
+    <Stage Condition="'$(Stage)' == ''">library</Stage>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
 </Project>
 ```
 
-## [03]-[INNER_FOLDER]-[DIRECTORY_BUILD_PROPS]
+## [03]-[NESTED]-[DIRECTORY_BUILD_PROPS]
 
-`<inner>/Directory.Build.props`:
+`tests/Directory.Build.props`:
 
 ```xml
 <Project>
@@ -54,47 +49,46 @@ Nested `Directory.Packages.props` hides the root file. Import the root first:
   <Import Project="$(_OuterDirectoryBuildProps)" Condition="'$(_OuterDirectoryBuildProps)' != ''" />
 
   <PropertyGroup>
-    <IsPackable>true</IsPackable>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  </PropertyGroup>
-
-</Project>
-```
-
-## [04]-[INNER_FOLDER]-[TESTS]
-
-`<tests>/Directory.Build.props`:
-
-```xml
-<Project>
-
-  <PropertyGroup>
-    <_OuterDirectoryBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterDirectoryBuildProps>
-  </PropertyGroup>
-  <Import Project="$(_OuterDirectoryBuildProps)" Condition="'$(_OuterDirectoryBuildProps)' != ''" />
-
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
+</Project>
+```
+
+`dotnet msbuild tests/Library.Tests/Library.Tests.csproj -getProperty:_OuterDirectoryBuildProps,Stage,IsTestProject` prints the root file path, `library`, and `true`.
+
+## [04]-[ROOT]-[DIRECTORY_BUILD_TARGETS]
+
+```xml
+<Project>
+
+  <PropertyGroup>
+    <Role Condition="$(MSBuildProjectDirectory.StartsWith('$(RepositoryRoot)tests'))">tests</Role>
+    <Role Condition="'$(Role)' == ''">library</Role>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(OutputType)' == 'Exe'">
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="xunit.v3" />
-    <PackageReference Include="NSubstitute" />
+    <Using Include="Microsoft.Extensions.Logging" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging'))' != ''" />
+    <Compile Update="Generated/*.cs" AutoGen="true" />
   </ItemGroup>
 
 </Project>
 ```
 
-`xunit.v3` includes a Microsoft.Testing.Platform runner. `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` select VSTest, which `global.json` rejects when it names `Microsoft.Testing.Platform`.
+`Role` reads a reserved property and fits `Directory.Build.props` too, the `OutputType` group and the `Using` condition read the project body and fit only `Directory.Build.targets`, and the `Compile` `Update` runs after the SDK glob that creates the items.
 
 ## [05]-[BEFORE_AFTER]-[CENTRALIZING_DUPLICATED_SETTINGS]
 
 [BEFORE]: the same settings in every project file
 
 ```xml
-<!-- <libs>/LibA/LibA.csproj -->
+<!-- libs/Library/Library.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -102,18 +96,16 @@ Nested `Directory.Packages.props` hides the root file. Import the root first:
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Authors>Contoso Engineering</Authors>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+    <Using Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 
 </Project>
 
-<!-- <libs>/LibB/LibB.csproj -->
+<!-- tests/Library.Tests/Library.Tests.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -121,66 +113,17 @@ Nested `Directory.Packages.props` hides the root file. Import the root first:
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Authors>Contoso Engineering</Authors>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
-  </ItemGroup>
 
 </Project>
 ```
 
-[AFTER]: settings moved to `Directory.Build.props` and `Directory.Packages.props`
+[AFTER]: the root `Directory.Build.props` and `Directory.Build.targets` above, `Directory.Packages.props` holds the version, and each project keeps only what differs
 
 ```xml
-<!-- Directory.Build.props -->
-<Project>
-
-  <PropertyGroup>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Authors>Contoso Engineering</Authors>
-  </PropertyGroup>
-
-</Project>
-
-<!-- Directory.Packages.props -->
-<Project>
-
-  <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <GlobalPackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-  </ItemGroup>
-
-</Project>
-
-<!-- <libs>/LibA/LibA.csproj -->
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" />
-  </ItemGroup>
-
-</Project>
-
-<!-- <libs>/LibB/LibB.csproj -->
+<!-- libs/Library/Library.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -192,4 +135,15 @@ Nested `Directory.Packages.props` hides the root file. Import the root first:
   </ItemGroup>
 
 </Project>
+
+<!-- tests/Library.Tests/Library.Tests.csproj -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+</Project>
 ```
+
+See `dotnet-msbuild-packaging` for `Directory.Packages.props` and the nested package file rule.
