@@ -190,7 +190,7 @@ internal static class Counters {
 ```
 -->
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md, the PartitionFallible mechanics into .claude/skills/dotnet-languageext/SKILL.md
 ## [05]-[TRAVERSAL_POLICY]
 
 The dependency structure and the concurrency bound determine the traversal.

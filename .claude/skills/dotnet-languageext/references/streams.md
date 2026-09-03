@@ -33,11 +33,11 @@ internal static class Sources {
 }
 ```
 
-A lifted single value emits and completes at once, a lifted enumerable emits its elements and completes, `Reduce` subscribes a lifted observable, and subscription behavior depends on the source, so not every observable is lazy. `Event.from(ref Action<A>)` adds its callback to the delegate's invocation list, `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation, and disposing the `Event` detaches the delegate. `Subject<T>` is both observer and observable for imperative code that calls `OnNext`, `OnError`, and `OnCompleted` at a callback boundary, and `Event.from` or a dedicated source keeps those calls out of the stream definition. `Combine` depends on completion, so a first source that never completes hides the second, and `Source.pure(value).Combine(source)` prefixes an initial value.
+A lifted single value emits and completes at once, a lifted enumerable emits its elements and completes, `Reduce` subscribes a lifted observable, `Source.pure` emits one value and completes, `Source.merge` joins sources, `Zip` pairs them, and `Map`, `Filter`, `Take`, `Skip`, and a query that flattens an inner source are the operators. `Event.from(ref Action<A>)` adds its callback to the delegate's invocation list, `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation, and disposing the `Event` detaches the delegate. `Combine` subscribes to the second source only after the first completes, so a first source that never completes hides the second, and `Source.pure(value).Combine(source)` prefixes an initial value.
 
 ## [02]-[REDUCTION]
 
-`Reduce(seed, f)` folds every value into one `IO<S>`, `ReduceIO` lets the reducer stop with `Reduced.DoneIO` or continue with `Reduced.ContinueIO`, and `Fold` on a lifted finite sequence emits nothing:
+`Reduce(seed, f)` folds every value into one `IO<S>`, and `ReduceIO` lets the reducer stop with `Reduced.DoneIO` or continue with `Reduced.ContinueIO`:
 
 ```csharp
 internal static class Reductions {
@@ -54,7 +54,7 @@ internal static class Reductions {
 | [INDEX] | [BUFFER]              | [BEHAVIOR]                                                         |
 | :-----: | :-------------------- | :----------------------------------------------------------------- |
 |  [01]   | `Unbounded`           | Keeps every value                                                  |
-|  [02]   | `Bounded(n)`, `Single` | Holds `n` values or one, and `Post` waits when full               |
+|  [02]   | `Bounded(n)`, `Single` | Holds `n` values or one, and `Post` waits when full              |
 |  [03]   | `Latest(seed)`        | Starts from the seed and keeps only the last value                 |
 |  [04]   | `Newest(n)`           | Keeps the last `n` values                                          |
 
@@ -100,4 +100,4 @@ internal static class Pipelines {
 }
 ```
 
-`ProducerT.yieldAll` emits a sequence, `PipeT.map` transforms each value in transit, `ConsumerT.awaiting` receives one value and `ConsumerT.repeat` loops it, and the roles also include `SinkT`, `SourceT`, and `ConduitT`.
+`ProducerT.yieldAll` emits a sequence, `PipeT.map` transforms each value in transit, `ConsumerT.awaiting` receives one value and `ConsumerT.repeat` loops it, and `SinkT`, `SourceT`, and `ConduitT` are the remaining roles.

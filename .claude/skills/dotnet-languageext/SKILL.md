@@ -5,7 +5,7 @@ description: "Use when calling a LanguageExt type or operation: conversions, err
 
 # [DOTNET_LANGUAGEEXT]
 
-Covers the LanguageExt types and their operations: the result and effect types with their conversions, the error model and recovery, `IO` construction, execution, resources, concurrency, recursion, schedules, and runtimes, the traits and transformers, the collections with their folds and pitfalls, lenses, shared state, and streams. `dotnet-coding` states which type a function returns, where the boundary sits, and which operator joins two steps.
+Covers the LanguageExt types and their operations: the result and effect types with their conversions, the error model and recovery, `IO` construction, execution, resources, concurrency, recursion, schedules, and runtimes, the traits and transformers, the collections with their folds and pitfalls, lenses, shared state, and streams. `dotnet-coding` states which type a function returns, where the boundary sits, and which operator joins the steps.
 
 [REFERENCES]:
 - [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Higher kinds, witnesses, foldables, applicatives, traversables, monads, law checks, transformers, readers, state and writer, domain monads
@@ -43,7 +43,7 @@ internal static class Conversions {
     public static Validation<Error, Quantity> Widen(Fin<Quantity> quantity) => quantity.ToValidation();
     public static Fin<int> Captured(Try<int> attempt) => attempt.Run();
     public static Fin<Item> Ran(IO<Item> effect) => effect.RunSafe();
-    public static Fin<DateTimeOffset> Stamped(Runtime runtime) => Clocks.Now<Runtime>().Run(runtime);
+    public static Fin<string> Answered(Runtime runtime) => Prompts.Ask<Runtime>("name").Run(runtime);
 }
 ```
 
@@ -51,7 +51,7 @@ internal static class Conversions {
 
 ## [02]-[OPERATIONS]
 
-`Option<A>`, `Seq<A>`, and `Fin<A>` share the operation names, `Fin<A>` has no `Filter`, and `Seq<A>` has no `Pure`:
+`Option<A>`, `Seq<A>`, and `Fin<A>` share the operation names, `Fin<A>` has no `Filter`, `Seq<A>` has no `Pure`, and LINQ names `Map` as `Select`, `Bind` as `SelectMany`, and `Filter` as `Where`:
 
 | [INDEX] | [OPERATION] | [SIGNATURE]                 | [BEHAVIOR]                                                      |
 | :-----: | :---------- | :-------------------------- | :-------------------------------------------------------------- |
@@ -62,13 +62,13 @@ internal static class Conversions {
 |  [05]   | `Iter`      | `(F<A>, Action<A>) -> Unit` | Runs the action for each value at once and returns `Unit`       |
 |  [06]   | `Do`        | `(F<A>, Action<A>) -> F<A>` | Runs the action for each value and returns the input            |
 
-`Map` on `Option` applies the function once for `Some` and never for `None`, and on `Seq` applies it lazily to every element. `Bind` on `Option` skips the function after `None`, and on `Seq` concatenates every produced sequence into one. `Filter` on `Option` turns a failed predicate into `None`, and LINQ `where` works the same. `Iter` needs its own name because overload resolution cannot distinguish `Action<A>` from `Func<A, B>` by return type, `Fin<A>` supplies `IfSucc` in place of `Do`, and after `None` or a failure no later action runs. `ToSeq` converts an option to a zero-or-one-element sequence, `Choose` maps each element to an `Option<B>` and keeps the `Some` values in one pass, `Somes` does the same for an existing `Seq<Option<A>>`, and `Flatten` on the `ToSeq` of an `Option<Seq<A>>` yields the `Seq<A>`.
+`Map` on `Option` applies the function once for `Some` and never for `None`, and on `Seq` applies it lazily to every element. `Bind` on `Option` skips the function after `None`, and on `Seq` concatenates every produced sequence into one. `Filter` on `Option` turns a failed predicate into `None`, and LINQ `where` works the same. `Iter` needs its own name because overload resolution cannot distinguish `Action<A>` from `Func<A, B>` by return type, `Fin<A>` supplies `IfSucc` in place of `Do`, a side effect inside `IO` is a bound `IO.lift` step, and after `None` or a failure no later action runs. `ToSeq` converts an option to a zero-or-one-element sequence, `Choose` maps each element to an `Option<B>` and keeps the `Some` values in one pass, `Somes` does the same for an existing `Seq<Option<A>>`, and `Flatten` on the `ToSeq` of an `Option<Seq<A>>` yields the `Seq<A>`.
 
 Values in context have type `F<A>`, and the type constructor supplies the computational effect: `Option` adds absence, `Seq` adds zero or more values, `Func<A>` adds deferred evaluation, `Fin` adds expected failure with a reason, and `IO` adds a deferred side effect with a failure channel. No general operation extracts one `A` from every `F<A>`, and the operations that do (`Match`, `Count`, `Fold`, `IfNone`, `RunSafe`) belong to the host.
 
 ## [03]-[ERRORS]
 
-Domain errors are `sealed record`s extending `Expected` with a message and a code, `Exceptional` is the error `Try` and `IO` produce from a captured exception, `ManyErrors` is the error `+` and `Validation` produce from accumulation, an error a value object raises also implements `IValidationError<T>` so the generated `Validate` returns it, and `Errors` holds the shared values (`Errors.TimedOut`, `Errors.None`):
+Domain errors are `sealed record`s extending `Expected` with a message and a code, `Exceptional` is the error `Try` and `IO` produce from a captured exception, `ManyErrors` is the error `+` and `Validation` produce from accumulation, and `Errors` holds the shared values (`Errors.TimedOut`, `Errors.None`):
 
 ```csharp
 internal static class Codes {
@@ -77,9 +77,7 @@ internal static class Codes {
     public const int Rejected = 2106;
 }
 
-internal sealed record InvalidQuantity() : Expected("quantity out of range", Codes.InvalidQuantity), IValidationError<InvalidQuantity> {
-    public static InvalidQuantity Create(string message) => new();
-}
+internal sealed record InvalidQuantity() : Expected("quantity out of range", Codes.InvalidQuantity);
 internal sealed record NotFound() : Expected("item not found", Codes.NotFound);
 internal sealed record Rejected : Expected {
     public Rejected(Error cause) : base("request rejected", Codes.Rejected, cause) { }
@@ -100,6 +98,7 @@ Recovery is a function from an error to the same result type, and the overloads 
 internal static class Recovery {
     public static Fin<Quantity> ByCode(Fin<Quantity> quantity) => quantity.Catch(Codes.InvalidQuantity, static _ => Quantity.From(0)).As();
     public static Fin<Quantity> ByValue(Fin<Quantity> quantity) => quantity.Catch(new InvalidQuantity(), static _ => Quantity.From(0)).As();
+    public static Fin<Quantity> ByPredicate(Fin<Quantity> quantity) => quantity.Catch(static error => error.IsExpected, static _ => Quantity.From(0)).As();
     public static IO<Item> Cached(IO<Item> load, Item cached) => load.Catch(Codes.NotFound, _ => IO.pure(cached)).As();
     public static IO<Item> Fallback(IO<Item> primary, IO<Item> secondary) => primary | secondary;
     public static Fin<Quantity> Rebound(Fin<Quantity> quantity) => quantity.BindFail(static error => error.HasCode(Codes.InvalidQuantity) ? Quantity.From(0) : error);
@@ -141,11 +140,11 @@ internal static class Construction {
 }
 ```
 
-`Run` and `RunAsync` represent an `Expected` error as an `ErrorException` and rethrow the exception an `Exceptional` error captured, `Try.lift(io.Run).Run()` captures the thrown error and returns the original `Expected`, `EnvIO.New(token:)` carries the cancellation token into `Run(env)`, and a cancelled token escapes `RunSafe` as an exception that a host captures with `Try.lift`.
+`Run` and `RunAsync` represent an `Expected` error as an `ErrorException` and rethrow the exception an `Exceptional` error captured, `Try.lift(io.Run).Run()` captures the thrown error and returns the original `Expected`, the disposable `EnvIO.New(token:)` carries the cancellation token into `Run(env)`, and a cancelled token escapes `RunSafe` as an exception that a host captures with `Try.lift`.
 
 ### [04.1]-[RESOURCES]
 
-`use(Func<A>)` acquires an `IDisposable` inside the effect and disposes it when the scope ends on either path, `use(Func<A>, Action<A>)` names the release step and runs it on every exit, `Bracket(Use:, Fin:)` runs `Fin` after `Use` on both paths, and `Finally` attaches an effect that runs after the receiver when a deferred effect fails during execution and does not run when the receiver is an existing `IO.fail`:
+`use(Func<A>)` acquires an `IDisposable` inside the effect and disposes it when the scope ends on either path, `use(Func<A>, Action<A>)` names the release step and runs it on every exit, `Bracket(Use:, Fin:)` runs `Fin` after `Use` on both paths, and `Finally` attaches an effect that runs after the receiver on success and when a deferred effect fails during execution, and does not run when the receiver is an existing `IO.fail`:
 
 ```csharp
 internal static class Resources {
@@ -159,7 +158,7 @@ internal static class Resources {
 
 ### [04.2]-[CONCURRENCY]
 
-`Fork` starts the effect on one `TaskCreationOptions.LongRunning` thread and returns a `ForkIO` with `Await` and `Cancel`, `awaitAny` returns the first value of a `Seq<IO<A>>`, `timeout(duration, effect)` fails the effect after the duration, and `Uninterruptible` masks cancellation. `Traverse` under `IO` starts every element effect before awaiting any, effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread, so a bounded fan-out chunks the collection and traverses the chunks with `TraverseM`:
+`Fork` starts the effect on one `TaskCreationOptions.LongRunning` thread and returns a `ForkIO` with `Await` and `Cancel`, `awaitAll` runs every effect of a `Seq<IO<A>>` and collects the values, `awaitAny` returns the first value, `timeout(duration, effect)` fails the effect after the duration, and `Uninterruptible` masks cancellation. `PartitionFallible` takes a `Seq<K<IO, A>>` (`Map<K<IO, A>>` sets that element type), runs every effect without a short-circuit, and returns `(Seq<Error> Fails, Seq<A> Succs)`, and `Succs` and `Fails` return one side. `Traverse` under `IO` starts every element effect before awaiting any, effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread, so a bounded fan-out chunks the collection and traverses the chunks with `TraverseM`:
 
 ```csharp
 internal static class Concurrency {
@@ -168,12 +167,14 @@ internal static class Concurrency {
             .TraverseM(chunk => toSeq(chunk).Traverse(work).As())
             .As()
             .Map(static chunks => chunks.Flatten());
+    public static IO<(Seq<Error> Fails, Seq<int> Succs)> BestEffort(Seq<int> items, Func<int, IO<int>> work) =>
+        items.Map<K<IO, int>>(item => work(item)).PartitionFallible().As();
 }
 ```
 
 ### [04.3]-[RECURSION]
 
-`tail` marks the last bind continuation after a deferred effect and keeps the stack constant, and a `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only, because `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a continuation after the tail call and fail. `Monad.recur` loops a state with `Next.Loop` and `Next.Done`, works with every host operation, returns `K<IO, A>` that `.As()` narrows, and checks the state before it advances, so an already-finished initial state returns unchanged. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while it does:
+`tail` marks the last bind continuation after a deferred effect and keeps the stack constant, and a `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only, because `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a continuation after the tail call and fail. `Monad.recur<M, A, B>` loops a state `A` with `Next.Loop<A, B>` and finishes with `Next.Done<A, B>` holding a `B`, works with every host operation, returns `K<IO, B>` that `.As()` narrows, and checks the state before it advances, so an already-finished initial state returns unchanged. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while it does:
 
 ```csharp
 internal static class Recursion {
@@ -190,7 +191,7 @@ internal static class Recursion {
 
 ### [04.4]-[SCHEDULES]
 
-`Schedule.spaced` and `Schedule.exponential` build delay sequences, and `recurs`, `repeat`, `jitter`, and `maxDelay` are `ScheduleTransformer` values that cap the attempt count, replay the whole schedule, randomize each delay, and cap each delay. Between two schedules `|` is a union that takes the shorter delay and `&` an intersection that takes the longer, where one side is a transformer both operators apply it, and a transformer passed alone converts to `Schedule.Forever` with the transformer applied. `Retry(Schedule)` reruns a deferred effect that failed, and `Repeat(Schedule)` reruns a successful one, so `Repeat(Schedule.recurs(2))` runs the effect once and then twice more:
+`Schedule.spaced` and `Schedule.exponential` build delay sequences, and `recurs`, `repeat`, `jitter`, and `maxDelay` are `ScheduleTransformer` values that cap the attempt count, replay the whole schedule, randomize each delay, and cap each delay. Between schedules `|` is a union that takes the shorter delay and `&` an intersection that takes the longer, where one side is a transformer both operators apply it, and a transformer passed alone converts to `Schedule.Forever` with the transformer applied. `Retry(Schedule)` reruns a deferred effect that failed, and `Repeat(Schedule)` reruns a successful one, so `Repeat(Schedule.recurs(2))` runs the effect once and then twice more:
 
 ```csharp
 internal static class Schedules {
@@ -244,7 +245,7 @@ internal static class Generic {
 |  [09]   | `Writable<M, W>`   | `tell`                                       |
 |  [10]   | `Alternative<F>`   | `Empty`, `Choose`, the alternative operator  |
 
-`Map`, `Bind`, `Fold`, `FoldBack`, `Exists`, `ForAll`, `At`, `Catch`, the tuple `Apply`, and LINQ query syntax are extensions the constraint makes available, `F.Pure`, `F.Apply`, `F.Fail`, `F.Empty`, `F.Choose`, `T.Traverse`, and `T.TraverseM` are calls on the witness, and `Readable.ask`, `Stateful.get`, and `Writable.tell` are module functions that take the witness as a type argument. `Fallible<F>` fixes `E` to `Error`, `Alternative<F>` extends `Choice<F>` and makes `Choose` the generic form of `|`, and `FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>` for `Option` and `Fin`, where `MonadLaw<IO>.validate()` throws inside the library.
+`Map`, `Bind`, `Fold`, `FoldBack`, `Exists`, `ForAll`, `At`, `Catch`, the tuple `Apply`, and LINQ query syntax are extensions the constraint makes available, `F.Pure`, `F.Apply`, `F.Fail`, `F.Empty`, `F.Choose`, `T.Traverse`, and `T.TraverseM` are calls on the witness, and `Readable.ask`, `Stateful.get`, and `Writable.tell` are module functions that take the witness as a type argument. `Fallible<F>` fixes `E` to `Error`, `Alternative<F>` extends `Choice<F>` and makes `Choose` the generic form of `|`, `Reader<Env>`, `ReaderT<Env, M>`, and `Eff<RT>` implement `Readable`, `State<S>` and `StateT<S, M>` implement `Stateful`, and `Writer<W>` and `WriterT<W, M>` implement `Writable`.
 
 Transformers stack one concern over an inner monad `M`, and the wrapped representation decides what each `Run` returns:
 
@@ -259,7 +260,7 @@ Transformers stack one concern over an inner monad `M`, and the wrapped represen
 |  [07]   | `WriterT<W, M, A>`         | `W` beside the value             | Returns the value with `W`     |
 |  [08]   | `RWST<R, W, S, M, A>`      | `ask`, `tell`, `get`, `put`      | Combines the 3 runs            |
 
-`lift` adds a layer to an evaluated value (`Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner `K<M, A>`), `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom, `Run` removes one layer and the host runs the layers from the outside in, and a `ValidationT` is used only when errors must accumulate inside an effect. A domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` with `Transform` and `CoTransform` alone, `Deriving.MonadIO` needs a stack that implements `MonadIO`, which `StateT` does not, and such a wrapper lifts an effect through `CoTransform` over `StateT.liftIO`.
+`lift` adds a layer to an evaluated value (`Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner `K<M, A>`), `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom, `Run` removes one layer and the host runs the layers from the outside in, and `ValidationT` serves only errors that must accumulate inside an effect. A domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` with `Transform` and `CoTransform` alone, `Deriving.MonadIO` needs a stack that implements `MonadIO`, which `StateT` does not, and such a wrapper lifts an effect through `CoTransform` over `StateT.liftIO`.
 
 ## [06]-[COLLECTIONS]
 
@@ -289,7 +290,7 @@ internal static class Folds {
 }
 ```
 
-`Choose` maps to `Option` and keeps the `Some` values in one pass, `Partition` splits by a predicate into a deconstructable tuple, `Zip` pairs two sequences and its projection overload takes a function, `Scan` emits the seed first so the result has one more element than the source, `At(index)`, `Head`, and `Last` are `Option<A>`, `Tail` is empty for an empty source, the indexed `Map` passes the item first and the index second, `Rev` reverses, `LanguageExt.List.unfold` runs a state seed until the step returns `None`, and `Cons` resolves as `head.Cons(tail)` because `LanguageExt.Pretty.Cons<A>` is a type.
+`Choose` maps to `Option` and keeps the `Some` values in one pass, `Partition` splits by a predicate into a deconstructable tuple, `Zip` pairs sequences and its projection overload takes a function, `Scan` emits the seed first so the result has one more element than the source, `At(index)`, `Head`, and `Last` are `Option<A>`, `Tail` is empty for an empty source, the indexed `Map` passes the item first and the index second, `Rev` reverses, `LanguageExt.List.unfold` runs a state seed until the step returns `None`, and `Cons` resolves as `head.Cons(tail)` because `LanguageExt.Pretty.Cons<A>` is a type.
 
 The compiler rejects these forms:
 - `Zip` names its tuple elements `First` and `Second`, and comparing the result with a `Seq` of unnamed tuples is ambiguous (CS9342), so the expected value declares the same names
@@ -299,7 +300,7 @@ The compiler rejects these forms:
 
 ## [07]-[LENSES_AND_SHARED_STATE]
 
-`Lens<A, B>.New` takes a getter and a curried setter, `Get` reads the focus, `Set` writes a value and `Update` applies a function to it, both return a new `A`, and `lens(outer, inner)` composes two lenses into one that focuses on a value in a nested record:
+`Lens<A, B>.New` takes a getter and a curried setter, `Get` reads the focus, `Set` writes a value and `Update` applies a function to it, both return a new `A`, and `lens(outer, inner)` composes lenses into one that focuses on a value in a nested record:
 
 ```csharp
 internal static class Lenses {
@@ -330,10 +331,5 @@ internal static class SharedState {
 
 ## [08]-[STREAMS]
 
-`Source<A>` is the stream type and `Sink<A>` its consumer end, and a conduit joins them:
-- `Source.lift` accepts an `IObservable<A>` or an `IEnumerable<A>`, `Source.pure` emits one value and completes, `Source.merge` joins sources, `Zip` pairs them, `Combine` subscribes to the second source only after the first completes, and `Map`, `Filter`, `Take`, `Skip`, and a query that flattens an inner source are the operators
-- `Reduce(seed, f)` returns `IO<S>` and is the fold that yields a value, `Fold` on a lifted finite sequence emits nothing, and `ReduceIO` stops with `Reduced.DoneIO` and continues with `Reduced.ContinueIO`
-- `Sink<A>` receives with `Post`, adapts its input with `Comap`, and rejects `Post` after `Complete()`
-- `Conduit.make` takes a `Buffer` policy (`Unbounded` keeps every item, `Bounded(n)` and `Single` make `Post` wait, `Newest(n)` keeps the last n items, `Latest(seed)` keeps the last item), a conduit with a `Reduce` that runs under `Fork()` while a client posts is a message queue, and `Source.Take(1).Last()` reads a reply from a second conduit
-- `ProducerT`, `PipeT`, and `ConsumerT` compose with `|` into an `EffectT` that `Run()` returns as `K<IO, A>`
-- `Event.from(ref Action<A>)` adapts a callback-based producer, its `Subscribe()` returns an `IO<Source<A>>`, and disposing the `Event` detaches the delegate
+`Source<A>` is the stream type, `Sink<A>` its consumer end, `Conduit.make(Buffer<A>)` builds a joined pair under a buffer policy, `Event.from(ref Action<A>)` adapts a callback-based producer into a `Source<A>`, and `ProducerT`, `PipeT`, and `ConsumerT` are the roles that `|` fuses into an `EffectT`. `Reduce(seed, f)` is the fold that yields a value as `IO<S>`, and `Fold` on a lifted finite sequence emits nothing.
+- See `references/streams.md` for the sources and events, reduction, the buffer policies with their forking order, and pipes

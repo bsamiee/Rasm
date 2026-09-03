@@ -2,12 +2,12 @@
 
 ## [01]-[HIGHER_KINDS]
 
-Static abstract interface members let a constraint describe operations that belong to a type rather than an instance, and the recursive constraint `where A : Monoid<A>` makes the implementing type pass its own concrete type to the trait, so generic code calls `A.Empty` and `+` through the type parameter and receives the concrete value, never a boxed interface. `Semigroup<A>` declares the associative `operator +`, `Monoid<A>` adds the identity `Empty`, and a type outside your control (`string`, an integer) cannot implement them retroactively, so a small owned wrapper implements the trait and converts where monoidal behavior is required:
+Static abstract interface members let a constraint describe operations that belong to a type rather than an instance, and the recursive constraint `where A : Monoid<A>` makes the implementing type pass its own concrete type to the trait, so generic code calls `A.Empty` and `+` through the type parameter and receives the concrete value, never a boxed interface. `Semigroup<A>` declares the associative `Combine` and derives `+` from it, `Monoid<A>` adds the identity `Empty`, and a type outside the codebase (`string`, an integer) cannot implement them retroactively, so a small owned wrapper implements the trait and converts where monoidal behavior is required:
 
 ```csharp
 internal readonly record struct Total(decimal Value) : Monoid<Total> {
     public static Total Empty => new(0m);
-    public static Total operator +(Total left, Total right) => new(left.Value + right.Value);
+    public Total Combine(Total other) => new(Value + other.Value);
 }
 
 internal static class Monoids {
@@ -16,7 +16,7 @@ internal static class Monoids {
 }
 ```
 
-The self-typed trait works while every operation stays within one concrete type, and mapping breaks it: `Map` must change the element type while it keeps the surrounding shape, and a trait over `SELF` alone cannot connect the stored element to the input of the mapping function, while putting the element type on the trait fixes the whole result to `SELF`. C# can parameterize the `A` in `Option<A>` and cannot receive `Option` itself as a parameter `F` to form `F<A>`, which is why `Select`, `SelectMany`, `Where`, `GetEnumerator`, and `GetAwaiter` bind to compiler-recognized members and not to one trait. `K<F, A>` is the encoding that answers it: an empty interface with no members, where `F` is the type constructor and `A` the element, so `Map` is `K<F, B> Map<A, B>(Func<A, B> f, K<F, A> ma)` and replaces `A` with `B` without touching `F`.
+The self-typed trait works while every operation stays within one concrete type, and mapping breaks it: `Map` must change the element type while it keeps the surrounding shape, and a trait over `SELF` alone cannot connect the stored element to the input of the mapping function, while putting the element type on the trait fixes the whole result to `SELF`. C# can parameterize the `A` in `Option<A>` and cannot receive `Option` itself as a parameter `F` to form `F<A>`, so `Select`, `SelectMany`, `Where`, `GetEnumerator`, and `GetAwaiter` bind to compiler-recognized members and not to one trait. `K<F, A>` is the encoding that answers it: an empty interface with no members, where `F` is the type constructor and `A` the element, so `Map` is `K<F, B> Map<A, B>(Func<A, B> f, K<F, A> ma)` and replaces `A` with `B` without touching `F`.
 
 ## [02]-[WITNESSES]
 
@@ -51,7 +51,7 @@ Generic functions target `Foldable<T>` and still reach the optimized witness mem
 
 ## [04]-[APPLICATIVES]
 
-`Map` lifts a unary function over a contextual value, and a multi-argument function enters through currying: `Map` supplies the first argument and leaves a unary function inside the context, and when that function returns another contextual value, `Map` wraps it in the outer context and nests (`K<Option, K<Option, int>>` for one step, four layers for `1 * 2 + 3 * 4`). `Apply` combines a contextual function with a contextual argument and keeps one layer, so the difference from `Map` is only the function: `Map` receives `Func<A, B>` and `Apply` receives it inside the same `K<F, ...>` as its argument. Function-first `Map` and `Apply` extensions give the left-to-right form, and the library's multi-argument overloads curry the delegate for the caller:
+`Map` lifts a unary function over a contextual value, and a multi-argument function enters through currying: `Map` supplies the first argument and leaves a unary function inside the context, and when that function returns another contextual value, `Map` wraps it in the outer context and nests (`K<Option, K<Option, int>>` for one step, 4 layers for `1 * 2 + 3 * 4`). `Apply` combines a contextual function with a contextual argument and keeps one layer, so the difference from `Map` is only the function: `Map` receives `Func<A, B>` and `Apply` receives it inside the same `K<F, ...>` as its argument. Function-first `Map` and `Apply` extensions give the left-to-right form, and the library's multi-argument overloads curry the delegate for the caller:
 
 ```csharp
 internal static class Independent {
@@ -84,17 +84,17 @@ internal static class OutcomeTraversal {
 }
 ```
 
-The generic extension returns two nested `K` interfaces, so a traversable type declares member methods `Traverse` and `TraverseM` that return `K<F, Seq<B>>` with only the outer layer abstract, and the caller adds one `.As()` where the outer concrete type is needed, while `Map` and `Apply` stay available on the `K` before that conversion.
+The generic extension returns 2 nested `K` interfaces, so a traversable type declares member methods `Traverse` and `TraverseM` that return `K<F, Seq<B>>` with only the outer layer abstract, and the caller adds one `.As()` where the outer concrete type is needed, while `Map` and `Apply` stay available on the `K` before that conversion.
 
 ## [06]-[MONADS]
 
-A monad is a pattern for sequencing computations in a context, its operation is `Bind : M<A> -> (A -> M<B>) -> M<B>`, and the function receives the value of one contextual computation and returns the next computation in the same context, so the `Bind` implementation is the programmable semicolon that decides what happens between the steps. It answers needs that purity creates: an effect is represented as a value and composed by pure code (`IO<A>` wraps the computation and reads the clock on every run, never at construction), and a later computation can depend on an earlier result while the whole stays one expression that LINQ renders as a line-by-line sequence. `Map` is `Bind` followed by `Pure`, `Apply` derives from `Bind` and `Map`, `Flatten` derives from `Bind` with the identity function and `Bind` derives from `Map` followed by `Flatten`, and a type implements whichever pair is simpler or more efficient. No general operation has the shape `M<A> -> A`, because a context can hold no `A`, and lowering is type-specific through `Match` or a default, so `Bind` keeps the composition lifted and the monad preserves its no-value case. Each monad gives the same `Bind` shape a different between-step behavior:
+A monad sequences computations in a context through `Bind : M<A> -> (A -> M<B>) -> M<B>`, the function receives the value of one contextual computation and returns the next computation in the same context, and the `Bind` implementation is the programmable semicolon that decides what happens between the steps: an effect is a value that pure code composes (`IO<A>` wraps the computation and reads the clock on every run, never at construction), and a later computation depends on an earlier result while the whole stays one expression that LINQ renders as a line-by-line sequence. `Map` is `Bind` followed by `Pure`, `Apply` derives from `Bind` and `Map`, `Flatten` derives from `Bind` with the identity function and `Bind` derives from `Map` followed by `Flatten`, and a type implements whichever pair is simpler or more efficient. No general operation has the shape `M<A> -> A`, because a context can hold no `A`, and lowering is type-specific through `Match` or a default, so `Bind` keeps the composition lifted and the monad preserves its no-value case. Each monad gives the same `Bind` shape a different between-step behavior:
 
 | [INDEX] | [MONAD]                    | [BEHAVIOR]                                                                 |
 | :-----: | :------------------------- | :------------------------------------------------------------------------- |
 |  [01]   | `Option<A>`                | Continues from `Some`, preserves `None` without invoking the continuation  |
 |  [02]   | `Either<L, R>`, `Fin<A>`   | Continues from `Right` or `Succ`, carries `Left` or `Fail` through         |
-|  [03]   | `Validation<F, A>`         | Terminates on `Fail`, and its `Apply` combines two failures with `+`       |
+|  [03]   | `Validation<F, A>`         | Terminates on `Fail`, and its `Apply` combines both failures with `+`       |
 |  [04]   | `Try<A>`                   | Builds another delayed thunk, `Run` moves the exception into `Fin`         |
 |  [05]   | `Iterable<A>`, `Seq<A>`    | Nested iteration, an empty collection terminates that branch               |
 |  [06]   | `Reader<Env, A>`           | Runs both stages with the same environment                                 |
@@ -125,7 +125,7 @@ internal static class Laws {
 ```csharp
 internal static class Lookups {
     public static OptionT<IO, Seq<string>> Lines(string input, Func<string, Option<string>> validatePath, Func<string, IO<Seq<string>>> readLines) =>
-        from path in OptionT.lift(validatePath(input))
+        from path in OptionT.lift<IO, string>(validatePath(input))
         from lines in readLines(path)
         select lines;
 }
@@ -150,28 +150,28 @@ internal static class Stacks {
 }
 ```
 
-`Settled` converts the `Fin` from `runFin` into an `IO` result through `IO.lift(Fin<A>)` and keeps a rejection as its typed `Expected`, and `Exit` shows the layer order: `Run(settings)` yields `K<OptionT<IO>, int>`, the second `Run()` yields `K<IO, Option<int>>`, and `RunSafe` yields `Fin<Option<int>>`. Two `ValidationT<Error, IO, A>` values combine with the tuple `Apply`, and both effects run before the errors accumulate.
+`Settled` converts the `Fin` from `runFin` into an `IO` result through `IO.lift(Fin<A>)` and keeps a rejection as its typed `Expected`, and `Exit` shows the layer order: `Run(settings)` yields `K<OptionT<IO>, int>`, the second `Run()` yields `K<IO, Option<int>>`, and `RunSafe` yields `Fin<Option<int>>`. 2 `ValidationT<Error, IO, A>` values combine with the tuple `Apply`, and both effects run before the errors accumulate.
 
 ## [09]-[READERS]
 
 `ReaderT<Env, M, A>` wraps `Func<Env, K<M, A>>`, its `Bind` runs both dependent stages with the same environment and lets `M.Bind` sequence their inner computations, and `ask` retrieves no global state, it builds a function that lifts its eventual input into `M` with `M.Pure`, so everything before `Run` stays lazy. The environment is supplied once when the transformer runs, and the `IO` it returns runs at the edge of the application. `Readable<M, Env>` abstracts environment access away from `Reader`, `ReaderT`, `Eff`, and any wrapper, declares `Asks`, `Ask` (a default over `Asks(identity)`), and `Local`, does not require `Monad`, and its module functions (`Readable.ask`, `asks`, `asksM`, `local`) take the witness as a type argument, so a function requires only the capabilities it uses and stays ignorant of how the monad stores the environment or which other capabilities (I/O, retries, cleanup) its arguments carry:
 
 ```csharp
-internal sealed record Session(Identity Current, Seq<Right> Rights);
+internal sealed record Session(Principal Current, Seq<Permission> Permissions);
 internal sealed record AccessDenied() : Expected("access denied", 9001);
 
 internal static class Access {
-    public static K<M, Identity> Current<M>() where M : Readable<M, Session> =>
-        Readable.asks<M, Session, Identity>(static session => session.Current);
-    public static K<M, Unit> Require<M, R>() where R : Right where M : Readable<M, Session>, Monad<M>, Fallible<M> =>
+    public static K<M, Principal> Current<M>() where M : Readable<M, Session> =>
+        Readable.asks<M, Session, Principal>(static session => session.Current);
+    public static K<M, Unit> Require<M, P>() where P : Permission where M : Readable<M, Session>, Monad<M>, Fallible<M> =>
         Readable.ask<M, Session>().Bind(session =>
-            session.Rights.Exists(static right => right is R)
+            session.Permissions.Exists(static permission => permission is P)
                 ? M.Pure(unit)
                 : M.Fail<Unit>(new AccessDenied()));
 }
 ```
 
-Running the request computation with `Run(session)` threads the read-only context through the stack, and authorization written once serves every monad that exposes the session through `Readable`. `local(f, ma)` maps `Env` to another `Env` of the same type for `ma` alone and later computation sees the original, `with(f, ma)` maps an outer environment to a different type (`AppConfig -> DbConfig`) so a data layer receives only its configuration, and `with` is not part of `Readable` because `Env` is fixed in the trait, so `Reader.with` and `ReaderT.with` supply it and a wrapper exposes an equivalent where mapping is useful. Any monad lifts into `ReaderT`, lifting `Validation<F, A>` gives validators an environment, and `ReaderT` sits outermost in most stacks so the inner monads reach the environment, as an effective placement and not a mandatory one.
+Running the request computation with `Run(session)` threads the read-only context through the stack, and authorization written once serves every monad that exposes the session through `Readable`. `local(f, ma)` maps `Env` to another `Env` of the same type for `ma` alone and later computation sees the original, `with(f, ma)` maps an outer environment to a different type (`AppConfig -> DbConfig`) so a data layer receives only its configuration, and `with` is not part of `Readable` because `Env` is fixed in the trait, so `ReaderT.with<Env, InnerEnv, M, A>` supplies it and a wrapper exposes an equivalent where mapping is useful. Any monad lifts into `ReaderT`, lifting `Validation<F, A>` gives validators an environment, and `ReaderT` sits outermost in most stacks so the inner monads reach the environment, as an effective placement and not a mandatory one.
 
 ## [10]-[STATE_AND_WRITER]
 
@@ -186,13 +186,13 @@ internal static class Pools {
     public static StateT<Pool, OptionT<IO>, int> Remaining => StateT.gets<OptionT<IO>, Pool, int>(static pool => pool.Items.Count);
     public static StateT<Pool, OptionT<IO>, Item> Take =>
         from pool in Current
-        from item in OptionT<IO>.lift(pool.Items.Head)
+        from item in OptionT.lift<IO, Item>(pool.Items.Head)
         from _ in Replace(new Pool(pool.Items.Tail))
         select item;
 }
 ```
 
-`Head` returns `None` for an empty pool, lifting it into `OptionT` stops the computation, so the update runs only when an item exists, and `gets(f)` equals mapping `f` over `get` while a domain-named accessor concentrates knowledge of the state shape. Console operations lift into `IO` and compose in the same query, the `>>` operator expresses `ma.Bind(_ => mb)` when an earlier result is irrelevant, `when(condition, mb)` keeps a conditional step inside the workflow, and a recursive loop over the stack stays stack-safe because `IO` runs it without growing the CLR stack. Removing explicit state arguments also hides which operations modify state and lets application-wide state approach a global variable, so keep state queries and updates small and named, partition the domain rules into pure functions over the state, keep I/O separate from those rules, use `Stateful.local` for a temporary context that is restored afterward and a propagating update for a durable change, and hide a deep stack behind a domain type. With `IO` inside `StateT`, a forked computation (including the parallel branches of `Traverse`) inherits the current state and evolves an independent copy, parents at `0` fork two counters that each reach `10` and stay `0`, so a change comes back only when the fork returns the required value, the parent awaits it, and sets the state explicitly.
+`Head` returns `None` for an empty pool, lifting it into `OptionT` stops the computation, so the update runs only when an item exists, and `gets(f)` equals mapping `f` over `get` while a domain-named accessor concentrates knowledge of the state shape. Console operations lift into `IO` and compose in the same query, the `>>` operator expresses `ma.Bind(_ => mb)` when an earlier result is irrelevant, `when(condition, mb)` keeps a conditional step inside the workflow, and a recursive loop over the stack stays stack-safe because `IO` runs it without growing the CLR stack. Removing explicit state arguments hides which operations modify state and lets application-wide state approach a global variable, so keep state queries and updates small and named, partition the domain rules into pure functions over the state, keep I/O separate from those rules, use `Stateful.local` for a temporary context that is restored afterward and a propagating update for a durable change, and hide a deep stack behind a domain type. With `IO` inside `StateT`, a forked computation (including the parallel branches of `Traverse`) inherits the current state and evolves an independent copy, parents at `0` fork 2 counters that each reach `10` and stay `0`, so a change comes back only when the fork returns the required value, the parent awaits it, and sets the state explicitly.
 
 `WriterT<W, M, A>` is `StateT` with the threaded value renamed to output and constrained to `Monoid<W>`, and the distinct name declares that the threaded value is accumulated output. A representation that returns `(W Output, A Value)` and combines outputs on every `Bind` wastes work when either output is empty and rebuilds growing immutable outputs on every step, so the threaded representation `Func<W, (W Output, A Value)>` passes the accumulated output forward and `tell` alone combines, `tell(value) = output => (output.Combine(value), unit)`, which needs the `Monoid<W>` constraint only there. The same operation is `StateT.modify<M, W>(output => output.Combine(value))` or `Stateful.modify` on any `Stateful<M, W>`. `RWST<R, W, S, M, A>` wraps `ReaderT<R, WriterT<W, StateT<S, M>>, A>` and implements `MonadT`, `Readable`, `Writable`, and `Stateful` by lifting the behaviors the wrapped types already provide.
 
