@@ -1,9 +1,12 @@
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 # [MAPPING_BOUNDARIES]
 
 `Riok.Mapperly` is a compile-time object mapper that generates mapping code at build time. The generated code matches hand-written property assignments: no runtime reflection, no expression-tree compilation, no hidden allocations. Use Mapperly for performance-critical paths, transport and persistence contracts, read models, message payloads, view models, and AOT compilation. Unmapped members fail the build. `EmitCompilerGeneratedFiles` writes the generated mappings under `obj/` as ordinary C# source.
 
 Mapperly cannot consume another source generator's output from the same compilation. Referenced assemblies expose accessible generated members as metadata: automatic conversion can change when a generated type moves between projects. Explicit mapping declarations prevent project layout from choosing conversions.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [01]-[BOUNDARIES]
 
 Adapters that reference both representations own the mapper, the domain references neither Mapperly nor an external contract:
@@ -40,7 +43,9 @@ internal static Fin<Shipment> ToShipment(ShipmentDto dto) =>
 ```
 
 Apply the same rule to `Option`, `Either`, `Validation`, `Try`, `IO`, `Eff`, transformers, and higher-kinded contexts. Mapperly never selects or rebuilds their cases, and a transformer stack maps at its innermost value.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [02]-[MAPPER_CONFIGURATION]
 
 Configure every project from one `PropertyGroup` in `Directory.Build.props`, naming only what differs from the defaults. `Riok.Mapperly.targets` declares one compiler-visible property per option, the option name prefixed with `Mapperly`. Global analyzer configuration sets the same options with a `build_property.Mapperly<Option>` key and needs no MSBuild property. Projects that do not reference the package ignore the group.
@@ -65,7 +70,9 @@ Four levels configure a mapper, each overriding the one before it: the MSBuild p
 - Automatic member matching applies only when names and meanings agree, one exact pair has one intentional default, alternatives have unique names, generic mapping methods are disjoint, and no selection depends on declaration order
 
 External mappings stay local to the mapper that consumes them. Assembly-wide registrations expose only disjoint pairs. Configuration inclusion needs identical direction, member meaning, null policy, and omissions, it copies configuration rather than implementation. Additional parameters carry immutable values that the boundary already resolved, and forward to nested user mappings and `Use` methods where remaining parameter names match. Type pairs shared by several mappers belong in one `internal static class` reached through `[UseStaticMapper<T>]`, a private `[UserMapping]` stays for a mapper-local pair.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [03]-[CONSTRUCTION_AND_OWNERSHIP]
 
 | [INDEX] | [FORM]                  | [TARGET_STATE]                            | [CONSTRAINT]                                                    |
@@ -92,7 +99,9 @@ Existing-target mappings mutate their target. Existing collections add without r
 Null-skipping implements merge behavior, not patch semantics. It cannot distinguish an omitted member from one cleared to null. Explicit optional wrappers can fold against `[MappingTargetOriginalValue]` at a mutable boundary, while constructor and init-only targets receive `default` as the original value.
 
 Reference handling materializes external graphs that require cycles or shared identity. One handler serves one mapping call. Constructor and init-only edges run before registration, they cannot close a generated cycle. Existing-target roots start unregistered, register the pair before mapping when a back-reference must retain the supplied root. Domain identity uses explicit identifiers rather than mapper reference state.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
 Raw input reaches a Thinktecture value object through a hand-written `From` adapter that maps `Validate` to `Fin<T>`. Smart enums take the same adapter shape over `Validate`, or `TryGet` for `Option<T>`. `Create`, `Parse`, accessible constructors, static conversion methods, and explicit operators can turn expected rejection into an exception.
@@ -126,7 +135,9 @@ LanguageExt owns absence, failure, validation, effects, traversal, and transform
 - Generic wrapper helpers need explicit `Use` selection and preserve every case
 
 LanguageExt collections keep their own construction policy. Direct assignment shares an immutable collection only when sharing is intentional. Element-changing sequences use the collection's `Map`. Snapshot a mutable source before domain publication and materialize an arbitrary enumerable first. Build a map only after key validation defines ordering, uniqueness, and collision behavior. Incidental enumerable-tuple construction does not define those rules.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [05]-[QUERY_PROJECTIONS]
 
 Query projections are expression trees interpreted by a query provider. They live in the data adapter and return a read model or transport contract. Compose the generated projection into the query: `query.ProjectToDto().ToListAsync()`. Keep projection declarations separate from in-memory mappings when their conversion, null, or user-method policies differ. The projection method obtains member configuration from an element mapping with the same source and target pair. Projections with additional parameters read configuration from an element mapping where additional parameters match by name.
@@ -136,7 +147,9 @@ Mapperly must inline each user method, and the query provider must translate the
 Nullable analysis and mapper property-null controls do not apply: a nullable path can become empty text, `default`, or a conditional fallback. The read model matches storage nullability. Object factories, existing-target mapping, dictionary mapping, deep cloning, and reference handling do not apply inside a projection, and reference handling reports `RMG029`. Unsupported enum configuration reports `RMG032` and emits a value cast.
 
 Project stored values, materialize the query, then validate and construct domain values. The `Fin`-returning `From` adapters, LanguageExt composition, and effects run after materialization. `Match`, `RunSafe`, and `IfFail` stay at the host. Unmatched derived projections return `default(TTarget)`, which is valid only when the target contract states that result. `AsEnumerable` does not hide this boundary, a narrow query materializes before the in-memory pipeline begins.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [06]-[MAPPING_METHODS]
 
 Attributes on partial classes and methods carry the configuration. Declare them on a `[Mapper] partial class` or a `[Mapper] static partial class`.
@@ -196,7 +209,9 @@ internal sealed record Product(Guid Id, string Name, Money Price, DateTimeOffset
 internal sealed record Money(decimal Amount, string Currency);
 internal sealed record ProductDto(Guid Id, string Name, string Price, string ListedAt);
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [07]-[ATTRIBUTES]
 
 Every attribute Mapperly reads, with its declaration target and whether it repeats:
@@ -235,6 +250,7 @@ Every attribute Mapperly reads, with its declaration target and whether it repea
 
 - `Use` values and `IncludeMappingConfigurationAttribute` names both accept a reference outside the mapper
 - `MapperIgnoreAttribute`, `MapperIgnoreSourceAttribute`, `MapperIgnoreTargetAttribute`, `MapperIgnoreSourceValueAttribute`, and `MapperIgnoreTargetValueAttribute` expose `Justification` as a `string?`
+-->
 
 ## [08]-[MAPPER_OPTIONS]
 

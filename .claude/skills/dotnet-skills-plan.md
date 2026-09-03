@@ -125,3 +125,9 @@ The first review of `SKILL.md` found these defects, and each is a pattern to che
 - Textbook narration with no rule ("Dictionaries directly store arbitrary mappings", the LINQ operator list)
 - Rules that stop short of the C# answer (recursion with no reply to the missing tail-call optimization)
 - Typos and numbering gaps ("tarnsparency", "bheaviopr", "functions receives", [04] then [6] then [XXXX], 18 blank lines)
+
+## [08]-[REVIEW]
+
+After fork [11], a second sequence of fresh agents (not forks) reviews the 4 skills in the same order, one skill or reference set per agent. Each agent reads the plan, its target, the research files its target absorbed (including the commented-out sections), and the other 3 skills, then checks that every fact moved rather than vanished, that no narration or meta text survived, that the complexity of the topic was carried and not trimmed away, that each snippet uses placeholders and shows one rule without hardening a shape, and that nothing is restated across skills. Corrections are surgical integrations, never additions of bulk.
+
+The thinktecture reviewers also read `.claude/skills/.tmp/thinktecture-runtime-extensions/SKILL.md` with its `references/` (equality-and-comparers, generic-types among them) and `.claude/skills/.tmp/thinktecture-entityframeworkcore`. These are the official skills from the package repositories, below this standard in quality, and they serve only as a coverage check: a topic they hold and the research omitted is either placed in the owning skill or recorded as omitted because it conflicts with the workspace approach. Legacy or obsolete material and generic agent-procedure text never enter.
