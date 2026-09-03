@@ -6,7 +6,7 @@ Rasm is a polyglot monorepo. Development targets macOS first, all code and tooli
 - Applications live in `apps/`, one directory per product, and consume internal libraries through package dependencies
 - Shared build and release automation lives in `eng/`
 
-Dependency versions centralize in root manifests: `Directory.Packages.props` for .NET, `pyproject.toml` and `uv.lock` for Python, and `pnpm-workspace.yaml` for TypeScript.
+Dependency versions centralize in root manifests: `Directory.Packages.props` for .NET, `pyproject.toml` and `uv.lock` for Python, `pnpm-workspace.yaml` for TypeScript, `mise.toml` for runtimes and standalone binaries, and `global.json` for the .NET SDK.
 
 ## [01]-[LAYOUT]
 
@@ -25,14 +25,14 @@ Rasm/
 │   └── typescript/
 ├── eng/                      # Shared build and release infrastructure
 │   ├── native/               # Native packaging: version manifest directory and packaging projects per library
-│   └── scripts/              # Python automation that Nx targets and CI jobs invoke
+│   └── scripts/              # Python automation that Nx targets invoke
 ├── infra/                    # Pulumi program on the Automation API for the repository settings and its Doppler project
 ├── tools/                    # Custom tools for developing this project
 │   ├── biome/                # Biome GritQL plugin rules
 │   └── nx/                   # Nx plugin that tags every language manifest with its check targets and infers the packaging projects
 ├── mise.toml                 # Pinned runtimes and standalone binaries, and the environment every task runs under
 ├── nx.json                   # Task graph, caching, and change detection across the workspace
-├── NuGet.config              # NuGet sources and package source mapping, clears inherited machine and user sources
+├── NuGet.config              # NuGet sources nuget.org and the local .artifacts/nuget feed, Rasm.* ids mapped to the local feed
 ├── Directory.Build.props     # .NET build defaults, artifacts path, restore, analysis, analyzers, Rhino bundle paths
 ├── Directory.Build.targets   # .NET derived items, host references, and project policy checks
 ├── Directory.Packages.props  # .NET central package versions
@@ -47,7 +47,8 @@ Rasm/
 ├── stryker.config.json       # TypeScript mutation testing
 ├── stryker-config.json       # .NET mutation testing
 ├── Workspace.slnx            # .NET solution of the library, application, and test projects
-├── global.json               # .NET SDK version and test runner config (MTP)
+├── global.json               # .NET SDK version with rollForward disabled, Microsoft.Testing.Platform as the test runner
+├── .github/                  # CI and release workflows with the composite actions they share
 ├── .editorconfig             # Analyzer severity, path-specific overrides, and BuildCheck settings
 ├── .gitattributes
 ├── .gitignore
@@ -61,18 +62,21 @@ Rasm/
 
 [REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`, tool work directories that cannot be relocated are ignored and hold no durable output.
 
-Nx defines the task graph and the build, test, lint, and generate targets.
+Nx is the one runner, and every action a developer or CI runs is one of the targets `lint`, `format`, `typecheck`, `test`, `build`, `check`, `restore`, `stage`, `pack`, `coverage`, `mutation`, `preview`, `up`, and `refresh`.
 
-- Targets resolve from plugin inference, then `targetDefaults` in `nx.json`, then a project's own configuration, each source overriding the one before it
-- Targets running a single command name that command directly
-- Steps with control flow are Python scripts under `eng/scripts/` that a target invokes
-- Scripts take their dependencies from the root `pyproject.toml` groups and run under `uv run`
-- `nx run eng:provision` places vcpkg, its binary cache, and every pinned release archive under `.cache/`
-- `tools/nx/workspace.ts` tags each language manifest and gives it the `lint`, `format`, `typecheck`, and `check` targets `targetDefaults` fill
+- Targets resolve from plugin inference, `targetDefaults` in `nx.json`, then the project's own configuration, each overriding the one before
+- `tools/nx/workspace.ts` tags each language manifest and adds the `lint`, `format`, `typecheck`, and `check` targets `targetDefaults` fill by tag
 - The same plugin infers one project per `eng/native/*/*.csproj` with a `stage` target and a cached `pack` target
-- `stage` runs `uv run python -m eng.scripts.stage <library>` after `eng:provision`, and `pack` writes the package to the `local` source in `NuGet.config`
+- `stage` depends on `eng:provision` and writes the staged tree, and `pack` writes the package to the `local` source in `NuGet.config`
 - Binding projects with `IncludeBuildOutput` true get `pack` alone, which depends on the `stage` target of the native project of the same library
-- Inferred `build` targets pass `--no-restore` and depend on `rasm-workspace:restore`, which runs `dotnet restore Workspace.slnx`
+- `eng/project.json` and `tests/python/project.json` are the projects of the directories no manifest covers
+- The root project, the `nx` field of the root `package.json`, holds `restore`, `coverage`, `mutation`, `preview`, `up`, and `refresh`
+- `lint` and `format` run a `check` configuration by default and a `write` configuration that rewrites the files
+- `check` on a project depends on its `lint`, `format`, `typecheck`, and `test`, and `nx run rasm-workspace:check` runs every check in the workspace
+- `test` collects coverage on every run, and the root `coverage` target merges the data once per language after every `test`
+- Inferred `build` targets pass `--no-restore` and depend on `rasm-workspace:restore`, the one restore of `Workspace.slnx`
+- Steps with control flow are Python scripts under `eng/scripts/` that a target invokes under `uv run` with the root `pyproject.toml` groups
+- `nx run eng:provision` places vcpkg, its binary cache, and every pinned release archive under `.cache/` and installs the Git LFS filters
 - `nx graph --file=.artifacts/nx/graph.json` writes the project graph
 - `ProjectReference` edges and `PackageReference` edges to packaging projects drive `nx affected`
 
@@ -85,6 +89,7 @@ Checker configuration is centralized, and each language area must pass its confi
 - Python: Passes with no warnings/errors from `ruff`, `ty`, and `mypy`
 - TypeScript: Passes `biome check` and compiles with `tsc --build` under strict settings
 - Formatting: `dotnet format`, `ruff format`, and `biome format`
+- Coverage and mutation score are information, and no threshold gates a merge
 - Do not relax checker settings, repair the code or correct a demonstrably invalid rule
 
 ## [04]-[LIBRARIES]
@@ -117,7 +122,7 @@ Each `apps/<name>/` is one product with its own host, lifecycle, and release.
 
 ## [07]-[CHANGE]
 
-The workspace has one current structure, and every change replaces the previous one in place. Data schemas derive from their owning types, and a schema management library computes the delta between the model and the live database and applies it at startup or from a command, with no migration file or history table
+The workspace has one current structure, and every change replaces the previous one in place. Data schemas derive from their owning types, and a schema management library computes the delta between the model and the live database and applies it at startup or from a command, with no migration file or history table. Releases are `v` tags, MinVer derives every assembly and package version from the nearest tag, `release.yml` creates the GitHub release, and no file states a version.
 
 - No package, namespace, route, contract, or directory has a version suffix or `v1` folder, and a changed structure keeps the name of the one it replaces
 - No compatibility shim, fallback reader, or deprecation period keeps a replaced structure alive, and one commit holds the change and the removal

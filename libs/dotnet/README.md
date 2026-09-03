@@ -7,6 +7,7 @@ The .NET library area holds the interop layer. Each `Rasm.Interop.*` facade runs
 - `Emgu.CV` — OpenCV wrapper for image processing, calibration, features, dnn, codecs, and video IO
 - `EPPlus` — Excel workbook engine with formulas, charts, and pivot tables
 - `MaxRev.Gdal.Core` — GDAL bindings for raster and vector geospatial formats
+- `MinVer` — assembly and package version from the nearest `v` tag
 - `PDFsharp` — PDF document creation and drawing API
 - `PureHDF` — HDF5 file reading and writing in pure managed code
 - `PureHDF.Filters.Blosc2` — Blosc2 filter support for HDF5 dataset compression

@@ -25,7 +25,7 @@ Every word that fails a test takes the current term for the thing it names, and 
 |  [02]   | seat, seated, roster                               | register, place, list                          |
 |  [03]   | admit, admission, blessed, mint, minted            | accept, validate, approved, create, issue      |
 |  [04]   | strata, stratum, substrate, fabric, backbone       | layer, base, infrastructure                    |
-|  [05]   | lane, estate, realm, landscape, surface            | pipeline, packaging project, area, feature set |
+|  [05]   | lane, realm, landscape, surface                    | pipeline, packaging project, area, feature set |
 |  [06]   | capsule, island, box (as isolation)                | package, module, sandbox, host                 |
 |  [07]   | rung, ladder                                       | arm, case, chain of guard clauses              |
 |  [08]   | charter, doctrine, law, ruling, canon              | rule, policy, decision, convention             |
@@ -42,6 +42,7 @@ Every word that fails a test takes the current term for the thing it names, and 
 |  [19]   | interior, flips, autosave, mirrors (verb)          | inside, disabled, output file, matches         |
 |  [20]   | bare (name), edge (as a boundary), bespoke         | unqualified, boundary, custom                  |
 |  [21]   | weave, unlock, surfaces (verb)                     | insert, enable, throws                         |
+|  [22]   | topology (declared resources), estate (a program)  | resources, program                             |
 
 The repository, product, or organization name belongs in identifiers the ecosystem requires, in package descriptions, in CLI help text, and in prose as a contrast with another product.
 

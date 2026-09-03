@@ -1,163 +1,164 @@
 # [MONOREPO_SKILLS_PLAN]
 
-One skill, `monorepo-build-infrastructure`, encodes how the shared build infrastructure of a polyglot monorepo is organized: entry points, the toolchain, configuration ownership, the engineering directory, CI, and release. Its material is the research under `docs/research/monorepo/`, and the repository is corrected before the skill is written, so the skill describes behavior the repository already shows. The plan records the sources and their owners, the ownership split with the sibling skills, the repository steps with the category of mistake each corrects, the target shape of the skill, and the agent sequence.
+One skill, `monorepo-build-infrastructure`, encodes how the shared build infrastructure of a polyglot monorepo is organized, from the entry points to release. Its material is the research under `docs/research/monorepo/` and the repository as the steps left it, and the skill describes behavior the repository shows. A fresh session builds the skill from the plan in the agent sequence it records.
 
 ## [01]-[SOURCES]
 
 Each file is a verified research report, rewritten under the clean-prose rules, with a first-line HTML comment naming its owner and its integration state.
 
-| [INDEX] | [FILE]                    | [CONTENT]                                                                    | [OWNER]                                        |
-| :-----: | :------------------------ | :--------------------------------------------------------------------------- | :--------------------------------------------- |
-|  [01]   | `toolchain-installer.md`  | Installer comparison, mise file shape, environment variable owners, `mise-action` | [02]-[TOOLCHAIN], `references/installer.md`    |
-|  [02]   | `nx-capabilities.md`      | Plugin inference, local plugins, `targetDefaults`, inputs, env, affected, cache, sync | [01]-[ENTRY_POINTS], [03], `references/nx-targets.md` |
-|  [03]   | `pnpm-capabilities.md`    | Settings file, catalogs, lockfile, `packageManager` and `devEngines`, project references | [02]-[TOOLCHAIN], [03]-[CONFIGURATION]         |
-|  [04]   | `uv-capabilities.md`      | Workspaces, groups, interpreter settings, `uv run`, tools, cache, CI            | [02]-[TOOLCHAIN], [03]-[CONFIGURATION]         |
-|  [05]   | `eng-directories.md`      | `eng/` in 24 .NET repositories, recurring practices, the official feature per practice | [04]-[ENGINEERING_DIRECTORY]                   |
-|  [06]   | `polyglot-monorepos.md`   | 15 polyglot repositories, Nx specifics, corrections their history records       | [03]-[CONFIGURATION], [07]-[CORRECTIONS]       |
-|  [07]   | `github-actions.md`       | File kinds under `.github/`, workflow design, caching, each language under CI   | [05]-[CI], `references/ci-workflow.md`         |
-|  [08]   | `pulumi.md`               | Placement of a repository-owned program, adoption, state, tokens, Nx targets    | [04], `references/iac.md`, the `pulumi` skill  |
-|  [09]   | `doppler.md`              | Live Doppler and 1Password state, the ownership split, CI route, declarations   | `references/iac.md`, the `secrets` skill       |
-|  [10]   | `globaljson.md`           | Readers of `global.json`, what mise does with it, field by field verdict        | [02]-[TOOLCHAIN], [03]-[CONFIGURATION]         |
-|  [11]   | `dotnet-tool-manifest.md` | Coverage merging, diagnostics, the five manifest entries, rejected tools        | [02]-[TOOLCHAIN]                               |
-|  [12]   | `mcp-coverage.md`         | The two MCP servers, SDK-provided commands, manifest pinning                    | [02]-[TOOLCHAIN]                               |
+| [INDEX] | [FILE]                    | [CONTENT]                                                    | [OWNER]                                   |
+| :-----: | :------------------------ | :----------------------------------------------------------- | :---------------------------------------- |
+|  [01]   | `toolchain-installer.md`  | Installer comparison, mise file shape, environment owners    | [02], `references/installer.md`           |
+|  [02]   | `nx-capabilities.md`      | Plugins, `targetDefaults`, inputs, affected, cache, sync     | [01], [03], `references/nx-targets.md`    |
+|  [03]   | `pnpm-capabilities.md`    | Settings file, catalogs, lockfile, engine fields, references | [02]-[TOOLCHAIN], [03]-[CONFIGURATION]    |
+|  [04]   | `uv-capabilities.md`      | Workspaces, groups, interpreter settings, tools, cache, CI   | [02]-[TOOLCHAIN], [03]-[CONFIGURATION]    |
+|  [05]   | `eng-directories.md`      | `eng/` in 24 .NET repositories, the feature per practice     | [04]-[ENGINEERING_DIRECTORY]              |
+|  [06]   | `polyglot-monorepos.md`   | 15 polyglot repositories, Nx specifics, their corrections    | [03]-[CONFIGURATION], [07]-[CORRECTIONS]  |
+|  [07]   | `github-actions.md`       | `.github/` file kinds, workflow design, caching, languages   | [05]-[CI], `references/ci-workflow.md`    |
+|  [08]   | `pulumi.md`               | Repository-owned program placement, adoption, state, tokens  | [04], `references/iac.md`, `pulumi` skill |
+|  [09]   | `doppler.md`              | Live Doppler and 1Password state, ownership split, CI route  | `references/iac.md`, `secrets` skill      |
+|  [10]   | `globaljson.md`           | Readers of `global.json`, mise behavior, per-field verdict   | [02]-[TOOLCHAIN], [03]-[CONFIGURATION]    |
+|  [11]   | `dotnet-tool-manifest.md` | Coverage merging, diagnostics, tool entries, rejected tools  | [02]-[TOOLCHAIN]                          |
+|  [12]   | `mcp-coverage.md`         | MCP servers, SDK-provided commands, tool pinning             | [02]-[TOOLCHAIN]                          |
 
-The two Parametric_Forge inventories (flake and language tools) feed the migration steps and the Forge removal memory, not the research folder.
+`dotnet-tool-manifest.md` and `mcp-coverage.md` describe the tool manifest the repository removed, and the skill takes from them the coverage merge, the MCP servers, and the `dotnet dnx` route alone. The Parametric_Forge inventories feed the `forge-removals-for-rasm` memory, and the research folder holds none of them.
 
 ## [02]-[OWNERSHIP]
 
 Each skill owns one kind of fact, and a fact appears in the skill that owns it:
-- `monorepo-build-infrastructure` owns the decisions: one runner, target shapes, what each manifest pins, where a setting lives, what grows in `eng/`, `infra/`, `tools/`, and `.config/`, how CI and release are shaped, and the categories of correction
-- `dotnet-msbuild-packaging` owns central package management, `NuGet.config`, lock files, `.slnx`, package projects, and the MSBuild properties CI passes
-- `dotnet-msbuild-evaluation`, `dotnet-msbuild-execution`, `dotnet-msbuild-antipatterns`, and `dotnet-msbuild-diagnostics` own the MSBuild files, targets, review, and binlogs
-- `pulumi` owns the program mechanics: resources, adoption through import, state backends, previews, and destroys
-- `secrets` owns where a secret lives: 1Password for credentials a person uses, Doppler for runtime secrets, and how a token reaches a process
+- Use `monorepo-build-infrastructure` for the decisions on runner, targets, pins, setting placement, `eng/`, `infra/`, CI, release, and corrections
+- Use `dotnet-msbuild-packaging` for central package management, `NuGet.config`, lock files, `.slnx`, package projects, and CI build properties
+- Use the `dotnet-msbuild-*` skills for the MSBuild files, targets, review, and binlogs
+- Use `pulumi` for the program mechanics: resources, adoption through import, state backends, previews, and destroys
+- Use `secrets` for where a secret belongs: 1Password for credentials a person uses, Doppler for runtime secrets, and how a token reaches a process
+- Use `clean-prose` for every sentence
 
-`infra/` holds the repository's own resources alone: the repository settings and the Doppler project for the repository's runtime secrets. An application that provisions anything owns its Pulumi program and its Doppler project inside its own directory under `apps/`, with one stack per environment, and reads what it needs from `infra/` through stack references. Libraries own no program.
+## [03]-[DECISIONS]
 
-The skill names no repository, product, or person. It states rules with the category and the criterion an agent applies to the next case, and it grows a corrections row whenever a repository change corrects a category of mistake.
+The skill carries each decision as a rule with the criterion an agent applies to the next case, and the reason is the sentence the rule needs:
 
-## [03]-[PROCESS]
+| [INDEX] | [DECISION]                                                 | [REASON]                                                               |
+| :-----: | :--------------------------------------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | One runner, every developer and CI action is an Nx target  | A second runner splits the graph and its cache, mise `[tasks]` unused  |
+|  [02]   | Each environment variable has one owner by its scope       | Manifest field, target `env`, `mise.toml` `[env]`, or secret store     |
+|  [03]   | One owner per fact and one statement per version           | Restated facts drift, and the second copy is read after the first      |
+|  [04]   | Versions stay in the central managers alone                | Root manifests hold every version, no tool manifest, no engine field   |
+|  [05]   | `project.json` only for a directory no manifest describes  | Plugins infer the rest, the root project is the root `nx` field        |
+|  [06]   | No hedge and no gate                                       | A missing dependency joins the graph, and no check is named a gate     |
+|  [07]   | Coverage on every `test` run, merged once per language     | Coverage and mutation score are information with no threshold          |
+|  [08]   | Tool packages run through `dotnet dnx`, newest release     | A tool manifest pins a version outside the central managers            |
+|  [09]   | One restore target, .NET `build` and `format` depend on it | `--no-restore` reads the assets restore wrote, no job runs restore     |
+|  [10]   | Defaults state `commands` arrays for `nx:run-commands`     | A `command` string from a default beats a project's `commands`         |
+|  [11]   | `infra/` holds the repository's own resources alone        | An application's program sits under its own directory in `apps/`       |
+|  [12]   | Automation API program, no project or stack file           | Inline program, file backend, passphrase provider, explicit providers  |
+|  [13]   | Credentials resolve in code, ambient variable else store   | Passphrase and GitHub token from 1Password, Doppler token from its CLI |
+|  [14]   | Actions use their current major tags                       | The tag moves with the action, no ratchet tool pins a commit           |
+|  [15]   | Cache keys from lock file or manifest, no `restore-keys`   | A partial match is a fallback, each entry is a function of its key     |
+|  [16]   | MinVer reads the version from the nearest `v` tag          | `release.yml` creates the GitHub release, no file states a version     |
 
-- Repository work runs as sequential steps with one commit each, and each step runs the checks it touches to zero warnings before its commit
-- Every step adds one row to [07] naming the category of mistake and the category of correction
-- The skill is built after the repository work by fresh agents in sequence, one section each, with a commit between agents and a report of at most 12 lines
-- A section is written from the research file that owns it, the integrated passage is wrapped in an `Integrated into` comment, and the file is read again before the next move
-- Facts go in `SKILL.md` when leaving them out lets an agent violate a standard, and in a reference when leaving them out only slows the agent down
-- Descriptions are written last through the two-reader process
+Environment variables by owner:
+
+| [INDEX] | [VARIABLE]                                | [OWNER]                               |
+| :-----: | :---------------------------------------- | :------------------------------------ |
+|  [01]   | Settings with a manifest spelling         | The manifest field                    |
+|  [02]   | Variables one task needs                  | The target's `env`                    |
+|  [03]   | Variables every tool needs before it runs | `mise.toml` `[env]`                   |
+|  [04]   | Secrets                                   | `doppler run` or the `infra/` program |
+
+`dotnet dnx` commands for packages that include `net8.0` tools alone carry `--allow-roll-forward`, and the .NET coverage merge command joins the root `coverage` target with the first .NET test project, because ReportGenerator fails on an empty glob.
 
 ## [04]-[REPOSITORY_STEPS]
 
-| [INDEX] | [STEP]          | [FILES]                                                                                                                       | [STATE] |
-| :-----: | :-------------- | :---------------------------------------------------------------------------------------------------------------------------- | :------ |
-|  [01]   | Research folder | `docs/research/monorepo/*.md`, this plan                                                                                      | Done    |
-|  [02]   | Toolchain       | `mise.toml`, `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `.vscode/settings.json`                                 | Done    |
-|  [03]   | .NET tools      | `.mcp.json`, `Directory.Build.props`, `Directory.Packages.props`, no tool manifest                                            | Done    |
-|  [04]   | Nx              | `tools/nx/workspace.ts`, `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `biome.json`                          | Done    |
-|  [05]   | Coverage        | `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `pyproject.toml`, `Directory.Build.targets`, `tests/README.md` | Done    |
-|  [06]   | Infrastructure  | `infra/resources.ts`, `infra/program.ts`, `infra/automation.ts`, `infra/README.md`                                            | Done    |
-|  [07]   | CI              | `.github/workflows/*.yml`, `.github/actions/*/action.yml`, root `package.json` `nx` field, `mise.toml`                        | Done    |
-|  [08]   | Tools in use    | `eng/scripts/provision.py`, no protobuf target while `libs/contracts/` holds no `.proto` file                                 | Done    |
-|  [09]   | Documentation   | Root, `tests/`, `apps/`, `libs/dotnet/` READMEs, `CLAUDE.md`, the Forge removal memory                                        | Pending |
+Each step ran as one commit with its checks at zero warnings, and every step is done:
 
-Decisions the steps recorded:
-- The root `Directory.Build.targets` stays one file, because its conditions select by host token and role and a split by role would add files without removing a condition
-- The dylib repair in `Directory.Build.targets` retargets a NuGet package's library at copy time and the repair in `eng/scripts/stage.py` relinks a closure the workspace builds, two inputs with two owners
-- No tool manifest exists: `dotnet dnx` runs Stryker, ReportGenerator, and the two MCP servers at the newest release, and `binlogtool` stays out because the two commands the binlog MCP lacks, `redact` and `stats`, serve a binlog that leaves the machine or exceeds the MCP threshold, and neither exists
-- The root project lives in the `nx` field of the root `package.json`, a `project.json` exists only for a directory no manifest describes (`eng/`, `tests/python/`), and `tools/nx` belongs to the root project, whose `lint` and `format` commands name `tools` and whose `tsconfig.json` includes its files
-- The workspace plugin names no project it did not create alone: a `.csproj` or `package.json` node carries tags and empty check targets and takes its name from the plugin that reads the manifest, a `package.json` counts only with a `tsconfig.json` beside it, and a `pyproject.toml` node is named by its root path with `-` for `/`
-- The dotnet `format` target discovers the one project file in its `cwd` and depends on `rasm-workspace:restore`, because `--no-restore` reads the assets restore wrote
-- The root `check` depends on the root `lint`, `format`, and `typecheck` beside every other project's `check`, the root `typecheck` builds the root `tsconfig.json` alone (the root config files, `tools/nx`, `infra`, and the support `vitest.config.ts`) into `.cache/typescript/out/root`, the root holds no `references` and no implicit dependency, and `^typecheck` orders the project typechecks
-- The per-language named inputs take the root files out of `sharedGlobals`, which keeps `nx.json` and `mise.toml`, and the `typescript` input carries the root `vite.config.ts` and `vitest.config.ts` that every Vitest project imports
-- Every `vitest.config.ts` is a complete standalone configuration from `createVitestConfig`, and the root configuration serves the mutation runner and the `--merge-reports` merge, with `projects` mirroring the `pnpm-workspace.yaml` packages globs
-- `Rasm.Policy.Analyzers` declares no `AnalyzerReleases.*.md` items, the `Microsoft.CodeAnalysis.Analyzers` build assets add them, and the duplicate made `dotnet format` report a workspace warning
-- Coverage and mutation score are information: no threshold in `vitest.config.ts`, `pyproject.toml`, `stryker.config.json`, `stryker-config.json`, or the merge, and the root `coverage` target merges once per language with `cache: false`
-- Every `test` run collects coverage with no `coverage` configuration: Python through a bare `--cov` in the `test` command that reads the `[tool.coverage.run] source` list (`eng/scripts`, `libs/python`, `tests/python/support`), TypeScript through `coverage.enabled` in `createVitestConfig`, and .NET through `TestingPlatformCommandLineArguments` under the `RasmRole` `tests` condition in `Directory.Build.targets`, and `benchmark` stays a Python `test` configuration
-- The root `coverage` target depends on every other project's `test` target and runs the Python and TypeScript merge commands without shell guards, and ReportGenerator exits 1 on an empty glob, so the commit that adds the first .NET test project adds the `dotnet dnx dotnet-reportgenerator-globaltool` merge command and the `.artifacts/dotnet/coverage` output
-- pytest-cov combines its own parallel files and saves them to the base data file, so the Python `test` entry sets `COVERAGE_FILE` to `.artifacts/python/coverage/data/.coverage.{projectName}` and names that file as its output, `[tool.coverage.run] data_file` names `.coverage` in the same directory, and the root `coverage combine` merges the per-project files beside it into the report data file
-- `--allow-roll-forward` stays on `dotnet dnx dotnet-stryker` and the future `dotnet dnx dotnet-reportgenerator-globaltool` command, both packages include `net8.0` tools alone and the workspace runtime is .NET 10
-- The `act`, `actionlint`, `git-lfs`, and `pulumi` pins and `PULUMI_HOME` stay ahead of the steps that run them, and `min_version` left `mise.toml`
-- `biome.json` parses as strict JSON and Biome offers no shared include for plugins, so each plugin entry and the override state the same include list
-- `minimumReleaseAge: 0` in `pnpm-workspace.yaml` states no publish delay, pnpm 11 and later apply 1440 minutes by default, and no `minimumReleaseAgeExclude` list exists
-- Vitest `--merge-reports` resolves each blob by project name and recomputes the file id from that project's root, and the root `vitest.config.ts` declares `projects`, drops the blob reporter, and owns the merged `lcovonly` and `json` paths
-- Every Vitest project takes its package name, writes its results directory, blob, benchmark file, and coverage directory under that name beneath `.artifacts/typescript/`, the TypeScript `test` entry in `nx.json` declares the four outputs through `{projectName}`, and the merge reads the `@rasm` blob directory because `--merge-reports` lists one directory
-- `mutmut` leaves `tests/README.md`, it is not installed and no `[tool.mutmut]` table exists, the Python `benchmark` configuration exits 5 while no benchmark test exists, and `@nx/vitest` infers no `bench` target, and TypeScript benchmarks stay on the benchmark include glob
-- The `infra/` program runs on the Automation API: `LocalWorkspace.createOrSelectStack` with an inline program, project settings and the `file://${XDG_STATE_HOME:-$HOME/.local/state}/rasm-infra` backend in code, the passphrase secrets provider, explicit `github.Provider` and `doppler.Provider` resources, and no `Pulumi.yaml`, stack file, `package.json`, or `tsconfig.json` under `infra/`, the root `tsconfig.json` includes the files and the root `lint`, `format`, and `typecheck` cover them
-- The `infra/` credentials resolve in `automation.ts`: `PULUMI_CONFIG_PASSPHRASE` from the ambient variable else `op read op://Tokens/PULUMI_RASM_INFRA/password`, `DOPPLER_TOKEN` from the ambient variable else `doppler configure get token --plain`, and `GITHUB_TOKEN` from ambient `GITHUB_TOKEN` or `GH_TOKEN` else `op read op://Tokens/GITHUB_TOKEN/token`, each passed as a provider input or the engine environment, with no write to a repository file
-- The `preview`, `up`, and `refresh` targets sit on the root project uncached with `parallelism: false`, `up` prints the plan and asks at the prompt with no auto-approval, and `preview:expect-no-changes` is the drift check (`preview --refresh --expect-no-changes`)
-- `infra/README.md` documents `preview:expect-no-changes` as the configuration and `--` for `--import` alone, one route per run
-- The `--expect-no-changes` preview is the drift check, and no correctness check is named a gate
-- `coverage.clean` is `false` in the root `vitest.config.ts` because the per-project report directories sit under the merged report directory, and the inline comment states it
-- EOF at the `up` prompt applies nothing and fails as `Declined`, whose message covers a declined and a closed prompt
-- The unfiltered `build` default holds `cache: true` alone and the TypeScript `test` default holds the outputs alone, the plugins list the inputs, and the dotnet `build` and `test` entries add `global.json` and `NuGet.config` through `...`
-- `_actionsSecrets` rows carry no `repository` field while one repository row exists, and `program.ts` reads `Resources.repository.name`
-- The root `lint` and `format` take shell globs (`*.json *.ts .mcp.json .vscode infra tools`) so a new root file joins the check without an edit
-- Secret values are `doppler secrets set` writes against a declared config with no `doppler.Secret` row, the CI token reaches GitHub as a `github.ActionsSecret` row fed by the `doppler.ServiceToken` key, and `BUF_TOKEN` left 1Password once Doppler held the identical value
-- `nx affected` has no `--projects`, and each language job filters with `--exclude='*,!tag:language:<lang>'`, the form its help documents
-- `Rasm.Interop.Hdf5` references `Rasm.Native.Blosc2`, so a solution restore needs the local feed: the `dotnet` job downloads the `pack` job's `.artifacts/nuget` and the release job runs `nx run-many -t pack` before `build` on one `macos-26` runner
-- No job runs a `restore` step, the dotnet `build`, `build:release`, and `format` defaults depend on `rasm-workspace:restore` and one invocation runs it once
-- The `coverage` job runs `nx run rasm-workspace:coverage` with its `test` dependencies on one runner, because the merge reads every project's data and an affected run tests a subset
-- `.github/actions/native-cache` owns the vcpkg archive and emgucv output entries for the stage leg and the release job, keyed by `hashFiles` over `eng/native/*/vcpkg.json` (the baseline) and `eng/native/emgucv/source.json` (the commit)
-- No cache declares `restore-keys`, each entry is a function of its lock file or manifest and a partial match is a fallback
-- The setup action runs no `dotnet tool restore` because no tool manifest exists, and no workflow sets `CI` because the runner sets it
-- Per-project binlogs come from `-bl:<dir>/build-{}.binlog` forwarded after `--` as an absolute path, MSBuild replaces `{}` per invocation and Nx interpolates nothing in forwarded arguments, and `format` runs in its own step because `dotnet format` rejects the switch
-- The TypeScript `lint` default states its command as `commands`, an options array the root's two-entry array replaces, because a `command` string from a default beats any `commands` in `nx:run-commands`
-- `nx run-many -t pack --excludeTaskDependencies` packs the downloaded trees, and `actions/upload-artifact` with `archive: false` names the artifact after the tarball, which carries the rid
-- `_pinned_tree` owns the cache tree of a pinned release asset with an unpacker per asset kind, `_untar` for a tarball and `_unpkg` for a macOS installer package, and `tar -xf` reads the compression from the archive
-- The `ktx` executable resolves `libktx.4.dylib` through `@executable_path/../lib`, and `_unpkg` merges the `usr/local` prefix of every component payload into one tree with the executable at `.cache/ktx/<version>/bin/ktx`
-- `git lfs install --local` writes the filters into the repository `.git/config` as unqualified `git-lfs` commands that PATH resolves to the `mise.toml` pin, because the user git config on a machine a profile manages is a read-only file the global install cannot write
-- `_KTX_ASSETS` pins the `osx-arm64` package alone, `Rid` has no `osx-x64`, and the Linux and Windows assets join with the rid that consumes them
-- No protobuf generation target exists while `libs/contracts/` holds no `.proto` file, and the commit that adds the first `.proto` adds the buf files and the target
+| [INDEX] | [STEP]          | [FILES]                                                                                                    | [STATE] |
+| :-----: | :-------------- | :--------------------------------------------------------------------------------------------------------- | :------ |
+|  [01]   | Research folder | `docs/research/monorepo/*.md`                                                                              | Done    |
+|  [02]   | Toolchain       | `mise.toml`, `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `.vscode/settings.json`              | Done    |
+|  [03]   | .NET tools      | `.mcp.json`, `Directory.Build.props`, `Directory.Packages.props`, no tool manifest                         | Done    |
+|  [04]   | Nx              | `tools/nx/workspace.ts`, `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `biome.json`       | Done    |
+|  [05]   | Coverage        | `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `pyproject.toml`, `Directory.Build.targets` | Done    |
+|  [06]   | Infrastructure  | `infra/resources.ts`, `infra/program.ts`, `infra/automation.ts`, `infra/README.md`                         | Done    |
+|  [07]   | CI              | `.github/workflows/*.yml`, `.github/actions/*/action.yml`, root `package.json` `nx` field                  | Done    |
+|  [08]   | Tools in use    | `eng/scripts/provision.py`, no protobuf target while `libs/contracts/` holds no `.proto` file              | Done    |
+|  [09]   | Documentation   | Root, `tests/`, `apps/`, `libs/dotnet/` READMEs, `CLAUDE.md`, the clean-prose terminology table            | Done    |
 
-## [05]-[SKILL_SHAPE]
+## [05]-[CORRECTIONS]
 
-`SKILL.md` holds 300 to 350 lines in 7 sections in dependency order, in instruction voice, with decision tables and rule lists, and one-line pointers to the sibling skills in the intro.
+Each row names a category of mistake beside the category of correction, in the order of the skill sections, and the skill's last section carries the rows without repository names. Files created per directory while an owner exists include a root `project.json`, a `project.json` beside a manifest, and a per-project tool config, and restated facts include a version in two fields, a guard around a missing dependency, a default copied into every config, and a list stated four times.
 
-| [INDEX] | [SECTION]             | [CONTENT]                                                                                          |
-| :-----: | :-------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | ENTRY_POINTS          | One runner, target shapes (inferred, by tag, root aggregate), configurations over variants, scripts |
-|  [02]   | TOOLCHAIN             | The installer and what it pins, the manifests and what each owns, one statement per version, env placement |
-|  [03]   | CONFIGURATION         | Root config owns settings, per-language inputs, caches and outputs, no adjacent files, one owner per fact |
-|  [04]   | ENGINEERING_DIRECTORY | What grows in `eng/`, `infra/`, `tools/`, `.config/`, and what each holds                          |
+| [INDEX] | [SECTION] | [MISTAKE]                                                 | [CORRECTION]                                                     |
+| :-----: | :-------: | :-------------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   |   [01]    | Checks as raw tool commands, one target variant per tool  | One target per kind of work, filled by tag from `targetDefaults` |
+|  [02]   |   [01]    | Target variants as separate targets                       | `check` and `write` configurations on one target                 |
+|  [03]   |   [01]    | Second runner beside the task graph                       | One runner, every developer and CI action a target               |
+|  [04]   |   [01]    | Raw tool commands as workflow steps and in documentation  | Workflow steps and documentation name the target                 |
+|  [05]   |   [02]    | Runtimes from a machine profile outside the repository    | One installer file pinning exact runtimes                        |
+|  [06]   |   [02]    | Versions restated as ranges, guards, and engine fields    | One statement per version in the manifest that owns it           |
+|  [07]   |   [02]    | Tool versions pinned outside the central managers         | Tool packages run through `dotnet dnx` at the newest release     |
+|  [08]   |   [02]    | Tools a machine profile installs for one repository       | Provisioning from a pinned, digest-verified release in `.cache/` |
+|  [09]   |   [02]    | Git filters a profile writes into a read-only user config | The repository `.git/config` holds the filters it requires       |
+|  [10]   |   [03]    | Configuration files per directory while an owner exists   | Plugin inference, the manifest `nx` field, the root config       |
+|  [11]   |   [03]    | Restated facts and hedges left behind by a step           | One owner per fact, dependency in the graph, no copied default   |
+|  [12]   |   [03]    | Root project rehashing root files, a discovery twice      | Root project with explicit inputs alone, one discovery per tool  |
+|  [13]   |   [03]    | Coverage thresholds as gates, per-project reports alone   | Information merged once per language by one root target          |
+|  [14]   |   [04]    | Repository settings and secrets project held by hand      | One `infra/` program per repository declaring its own resources  |
+|  [15]   |   [04]    | IaC as project files a CLI reads                          | Automation API program owning its stack, credentials in code     |
+|  [16]   |   [04]    | Application resources in the repository program           | Program under the app directory, one stack per environment       |
+|  [17]   |   [05]    | Per-language setup actions restating manifest pins        | One installer action reading the manifests                       |
+|  [18]   |   [05]    | One workflow per tool                                     | One workflow per concern                                         |
+|  [19]   |   [05]    | Caches keyed on nothing, partial-match fallbacks          | Caches keyed on the lock file or manifest, no `restore-keys`     |
+|  [20]   |   [05]    | Action references pinned per commit by a ratchet tool     | Current major tag per action                                     |
+|  [21]   |   [06]    | Versions stated in project files                          | MinVer from the `v` tag, `release.yml` makes the GitHub release  |
+
+## [06]-[SKILL_SHAPE]
+
+`SKILL.md` holds 300 to 350 lines in 7 sections in dependency order, in instruction voice, with decision tables and rule lists, and one-line pointers to the sibling skills in the intro. The current `SKILL.md` sections on the directory map, task graph, native packaging, provisioning, isolation, CI entry, and anti-patterns fold into the new sections and references, and every fact of theirs stays.
+
+| [INDEX] | [SECTION]             | [CONTENT]                                                                                                    |
+| :-----: | :-------------------- | :----------------------------------------------------------------------------------------------------------- |
+|  [01]   | ENTRY_POINTS          | One runner, target shapes (inferred, by tag, root aggregate), configurations over variants, scripts          |
+|  [02]   | TOOLCHAIN             | The installer and its pins, the manifests and what each owns, one statement per version, env owners          |
+|  [03]   | CONFIGURATION         | Root config owns settings, per-language inputs, caches and outputs, no adjacent files, one owner per fact    |
+|  [04]   | ENGINEERING_DIRECTORY | What grows in `eng/`, `infra/`, and `tools/`, the native pipeline, provisioning, isolation                   |
 |  [05]   | CI                    | Each tool under CI, caching rules and their hidden problems, `.github/` file kinds, one workflow per concern |
-|  [06]   | RELEASE               | Tags, MinVer, GitHub releases, no versioned code                                                   |
-|  [07]   | CORRECTIONS           | Category of mistake beside the category of correction, from [07] below                              |
+|  [06]   | RELEASE               | Tags, MinVer, GitHub releases, no versioned code                                                             |
+|  [07]   | CORRECTIONS           | Category of mistake beside the category of correction, from the plan                                         |
 
-| [INDEX] | [REFERENCE]                       | [CONTENT]                                                                       |
-| :-----: | :-------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `references/native-packaging.md`  | Manifests, staging layout, packaging projects, from the current skill           |
-|  [02]   | `references/provisioning.md`      | Provisioning rules, pinned archives, host tools, idempotence                    |
-|  [03]   | `references/nx-targets.md`        | The worked `nx.json` shapes, local plugin, `targetDefaults` by tag              |
-|  [04]   | `references/installer.md`         | The installer configuration, idiomatic files, the CI action                     |
-|  [05]   | `references/ci-workflow.md`       | The job graph, caches, runners, artifacts                                       |
-|  [06]   | `references/iac.md`               | The `infra/` program shape, adoption, state, tokens                             |
+| [INDEX] | [REFERENCE]                      | [CONTENT]                                                             |
+| :-----: | :------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `references/native-packaging.md` | Manifests, staging layout, packaging projects, from the current skill |
+|  [02]   | `references/provisioning.md`     | Provisioning rules, pinned archives, host tools, idempotence          |
+|  [03]   | `references/nx-targets.md`       | The worked `nx.json` shapes, local plugin, `targetDefaults` by tag    |
+|  [04]   | `references/installer.md`        | The installer configuration, idiomatic files, the CI action           |
+|  [05]   | `references/ci-workflow.md`      | The job graph, caches, runners, artifacts                             |
+|  [06]   | `references/iac.md`              | The `infra/` program shape, adoption, state, tokens                   |
 
-## [06]-[SEQUENCE]
+## [07]-[SEQUENCE]
 
-| [INDEX] | [AGENT]                    | [SOURCES]                                        | [OUTPUT]                                           |
-| :-----: | :------------------------- | :----------------------------------------------- | :------------------------------------------------- |
-|  [01]   | ENTRY_POINTS, nx-targets   | nx-capabilities, polyglot-monorepos [03]         | Section [01], `references/nx-targets.md`           |
-|  [02]   | TOOLCHAIN, installer       | toolchain-installer, globaljson, pnpm, uv, tool manifest, mcp | Section [02], `references/installer.md`    |
-|  [03]   | CONFIGURATION              | nx, pnpm, uv, polyglot-monorepos                 | Section [03]                                       |
-|  [04]   | ENGINEERING_DIRECTORY, iac | eng-directories, pulumi, doppler, current skill  | Section [04], `references/iac.md`, native-packaging, provisioning |
-|  [05]   | CI, ci-workflow            | github-actions                                   | Section [05], `references/ci-workflow.md`          |
-|  [06]   | RELEASE, CORRECTIONS       | tool manifest [04.2], polyglot-monorepos [04], this plan | Sections [06] and [07]                     |
-|  [07]   | Consistency pass           | Every skill and reference                        | Duplicates removed, pointers aligned, open items settled |
-|  [08]   | Review                     | Plan, skill, references, integrated sources      | Facts restored, narration removed, complexity carried |
-|  [09]   | Description                | The finished skill and the router line           | Description chosen by two readers                  |
+Fresh agents run in sequence, one slice each, with a commit between agents and a report of at most 12 lines. Every agent reads the plan, the current skill and references, the sibling skills `dotnet-msbuild-packaging`, `pulumi`, `secrets`, and `clean-prose`, and the memories `skill-authoring-workflow`, `skill-content-standard`, `research-folder-intent`, `skill-description-process`, and `workspace-config-file-discipline` before its slice, wraps each integrated passage in an `Integrated into` comment, and reads the source again before the next move. Facts go in `SKILL.md` when leaving them out lets an agent violate a standard, and in a reference when leaving them out only slows the agent down.
 
-## [07]-[CORRECTIONS]
+| [INDEX] | [AGENT]               | [READS]                                           | [WRITES]                                              |
+| :-----: | :-------------------- | :------------------------------------------------ | :---------------------------------------------------- |
+|  [01]   | ENTRY_POINTS          | Sources [02], [06], `nx.json`, `package.json`     | Section [01], `references/nx-targets.md`              |
+|  [02]   | TOOLCHAIN             | Sources [01], [03], [04], [10]-[12], `mise.toml`  | Section [02], `references/installer.md`               |
+|  [03]   | CONFIGURATION         | Sources [02], [03], [04], [06], root config files | Section [03]                                          |
+|  [04]   | ENGINEERING_DIRECTORY | Sources [05], [08], [09], current skill, `infra/` | Section [04], iac, native-packaging, provisioning     |
+|  [05]   | CI                    | Source [07], `.github/`                           | Section [05], `references/ci-workflow.md`             |
+|  [06]   | RELEASE, CORRECTIONS  | Source [06], the plan, `Directory.Build.props`    | Sections [06] and [07]                                |
+|  [07]   | Consistency pass      | Every skill and reference                         | Duplicates removed, pointers aligned, items settled   |
+|  [08]   | Review                | Plan, skill, references, integrated sources       | Facts restored, narration removed, complexity carried |
+|  [09]   | Description           | The finished skill and the router line            | Description chosen by two readers                     |
 
-Each repository step corrects one category of mistake, and the skill's last section carries these rows without repository names.
+The review agent is one fresh agent per file, and the description step follows the `skill-description-process` memory and ends with the `CLAUDE.md` router line updated to the description.
 
-| [INDEX] | [STEP] | [MISTAKE]                                                                                                                                                                           | [CORRECTION]                                                                                                                                                                                                               |
-| :-----: | :----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   |  [01]  | Source material scattered across plan files and session scratch directories                                                                                                         | One research folder per skill area, one file per report, integration markers                                                                                                                                               |
-|  [02]   |  [02]  | Runtimes installed by a machine profile outside the repository, versions restated as ranges and guards                                                                              | One installer file pinning exact runtimes, each manifest pinning its own packages, one statement per version                                                                                                               |
-|  [03]   |  [03]  | A tool installed by the machine for one repository's checks, a per-tool manifest pinning versions outside the central package managers                                              | Tool packages run through `dotnet dnx` at the newest release from the target that needs them, versions stated only in the central package managers                                                                         |
-|  [04]   |  [04]  | Checks run as raw commands and per-tool target variants, root files rehashed by a root project, a discovery declared twice                                                          | One target name per kind of work filled by tag from `targetDefaults` with `check` and `write` configurations, a root project with explicit inputs alone, one discovery per tool                                            |
-|  [05]   |  [04]  | A configuration file created per directory while an existing owner holds the setting (a root `project.json`, a `project.json` beside a manifest, a per-project tool config)         | The existing owner: plugin inference, the manifest's `nx` field, `tsconfig.base.json`, the root tool config, and a new file only for a directory no manifest describes                                                     |
-|  [06]   |  [05]  | Coverage thresholds as gates, per-project reports with no aggregate, raw tool commands in documentation                                                                             | Information reports merged once per language by one root target, `test` configurations for collection, documentation naming targets and configurations                                                                     |
-|  [07]   |  [06]  | A repository's settings and its secrets project held by hand or by another repository's program, IaC written as project files a CLI reads in place of a program that owns its stack | One `infra/` program per repository on the Automation API that declares its own resources as typed rows, imports the live ones, resolves its credentials in code, and runs from root targets with no project or stack file |
-|  [08]   | Audit  | Restated facts and hedges left behind by a step: a version in two fields, a guard around a missing dependency, a default copied into every config, a list stated four times         | One owner per fact, the dependency in the graph, the default left unstated, the list stated once                                                                                                                           |
-|  [09]   |  [07]  | Per-language setup actions restating pins the manifests own, one workflow per tool, caches keyed on nothing, raw tool commands as workflow steps                                    | One installer action reading the manifests, one workflow per concern, caches keyed on the lock file or manifest, every step an Nx target                                                                                   |
-|  [10]   |  [08]  | A tool the machine profile installs for one repository's use, git filters a profile writes into a read-only user config                                                            | Provisioning from a pinned digest-verified release under `.cache/`, the repository `.git/config` holding the filters the repository requires                                                                             |
+## [08]-[EXCLUSIONS]
+
+The skill states rules with the category and the criterion an agent applies to the next case, and holds none of:
+- Repository, product, organization, or person names, outside an identifier the ecosystem requires
+- Versions, a version belongs to the manifest that pins it
+- URLs, the fact stays and the citation goes
+- The removed patterns: a tool manifest, a ratchet tool, machine-profile installs, mise `[tasks]`, coverage thresholds
+- The removed patterns: a `project.json` per directory, `Pulumi.yaml` and stack files, `restore-keys`, raw tool commands as entry points
+- Instructions already carried out in the repository, the skill describes the resulting behavior
+- Paraphrased code, a target, script, or workflow is named with its purpose

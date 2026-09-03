@@ -31,12 +31,12 @@ tests/
 
 Classify each test independently by scope, technique, and execution mode, and apply every classification that fits.
 
-| [INDEX] | [AXIS]         | [VALUE]        | [DEFINITION]                                                | [ROUTE]                                                             |
-| :-----: | :------------- | :------------- | :---------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | Scope          | Unit           | Isolated component behavior with controlled collaborators   | default test run per language                                       |
-|  [02]   | Scope          | Integration    | Interaction between real components or an external boundary | Python `network`/`subprocess` markers, per-language integration run |
-|  [03]   | Technique      | Property-based | Generated examples exercise an invariant                    | `TestAssertions.Verify`, `@property_test`, `it.effect.prop`         |
-|  [04]   | Execution mode | Benchmark      | Performance measurement outside the functional test session | Python `test` `benchmark` configuration, Vitest benchmark glob      |
+| [INDEX] | [AXIS]    | [VALUE]        | [DEFINITION]                                | [ROUTE]                                                     |
+| :-----: | :-------- | :------------- | :------------------------------------------ | :---------------------------------------------------------- |
+|  [01]   | Scope     | Unit           | Isolated behavior, controlled collaborators | Default `test` run per language                             |
+|  [02]   | Scope     | Integration    | Real components or an external boundary     | Python `network` and `subprocess` markers                   |
+|  [03]   | Technique | Property-based | Generated examples exercise an invariant    | `TestAssertions.Verify`, `@property_test`, `it.effect.prop` |
+|  [04]   | Mode      | Benchmark      | Timing outside the functional test session  | `benchmark` configuration of `test`, Vitest bench glob      |
 
 Integration follows the subject under test, not process count: an in-process test over real components is integration, a test with controlled collaborators is unit.
 
@@ -60,18 +60,18 @@ Treat a failing test as evidence until triage identifies a production defect, an
 
 Tool configurations write reports under `.artifacts/` and relocatable temporary state under `.cache/<tool>/`. Stryker.NET creates the fixed `.stryker-tmp/` work directory, `.gitignore` excludes it and its reports still go to the configured artifact directory.
 
-| [INDEX] | [TOOL]            | [OUTPUT]                           | [CONFIGURATION]                                                                            |
-| :-----: | :---------------- | :--------------------------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | coverlet.MTP      | .NET coverage per test project     | `test` target, `Directory.Build.targets` passes the coverlet arguments per test project    |
-|  [02]   | MTP results       | .NET results, dumps, xUnit reports | MTP default beside the test app under `.artifacts/dotnet/bin`, `nx test <project>` runs it |
-|  [03]   | pytest-cov        | Python coverage data per run       | `test` target, `pyproject.toml` `[tool.coverage.*]` tables                                 |
-|  [04]   | Hypothesis        | Example database and observability | `tests/python/support/runtime.py`                                                          |
-|  [05]   | pytest-benchmark  | Python benchmark storage           | `test` target `benchmark` configuration, `pyproject.toml` addopts                          |
-|  [06]   | Vitest            | TypeScript results and coverage    | `test` target, each `vitest.config.ts` from `createVitestConfig` in the root one           |
-|  [07]   | Coverage merge    | One coverage report per language   | Root `coverage` target, `.artifacts/<language>/coverage/`                                  |
-|  [08]   | StrykerJS         | TypeScript mutation                | `stryker.config.json`                                                                      |
-|  [09]   | Stryker.NET       | .NET mutation reports              | `stryker-config.json`                                                                      |
-|  [10]   | Nx                | Target outputs and cache           | `test` from `@nx/dotnet`, `@nx/vitest`, or `nx.json` by language, tags from `workspace.ts` |
+| [INDEX] | [TOOL]            | [OUTPUT]                           | [CONFIGURATION]                                                              |
+| :-----: | :---------------- | :--------------------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | coverlet.MTP      | .NET coverage per test project     | `test` target, coverlet arguments from `Directory.Build.targets`             |
+|  [02]   | MTP results       | .NET results, dumps, xUnit reports | `test` target, MTP default beside the test app under `.artifacts/dotnet/bin` |
+|  [03]   | pytest-cov        | Python coverage data per run       | `test` target, `pyproject.toml` `[tool.coverage.*]` tables                   |
+|  [04]   | Hypothesis        | Example database and observability | `tests/python/support/runtime.py`                                            |
+|  [05]   | pytest-benchmark  | Python benchmark storage           | `test` target `benchmark` configuration, `pyproject.toml` addopts            |
+|  [06]   | Vitest            | TypeScript results and coverage    | `test` target, each `vitest.config.ts` from the root `createVitestConfig`    |
+|  [07]   | Coverage merge    | One coverage report per language   | Root `coverage` target, `.artifacts/<language>/coverage/`                    |
+|  [08]   | StrykerJS         | TypeScript mutation                | `stryker.config.json`                                                        |
+|  [09]   | Stryker.NET       | .NET mutation reports              | `stryker-config.json`                                                        |
+|  [10]   | Nx                | Target outputs and cache           | `test` from `@nx/dotnet`, `@nx/vitest`, or `nx.json` by `workspace.ts` tag   |
 
 Configure output paths through the tool's documented configuration, config file first and CLI option second, never through wrapper scripts or `conftest.py`. After the tool runs, `git status --short` and the repository-root listing must show no new generated entries.
 
