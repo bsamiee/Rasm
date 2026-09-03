@@ -105,35 +105,35 @@ Tier 1 first, in the listed order, because `dotnet-types` closes the language fo
 
 The build and review sequences of the 4 skills exposed patterns that every later skill avoids, and specific items that the next passes fix:
 
-| [INDEX] | [PATTERN]                                                    | [RULE]                                                                           |
-| :-----: | :----------------------------------------------------------- | :------------------------------------------------------------------------------- |
-|   [01]  | Members guessed that the package does not declare            | Every snippet compiles against the package before a fork reports                 |
-|   [02]  | Placeholder names that collide with library names            | Placeholders are checked against the public names of the vocabulary packages     |
-|   [03]  | Facts dropped while a section was trimmed                    | Research is commented out per fact, and the review restores what vanished        |
-|   [04]  | A shortened sentence that inverted its condition             | Shortening keeps every condition, or the sentence stays long                     |
-|   [05]  | A skill section that summarizes a reference                  | A section defers with one line and never summarizes                              |
-|   [06]  | Nested HTML comments from a section marker over a subsection | One marker per region, inner markers fold into a note                            |
-|   [07]  | A package's official skill stating a wrong behavior          | Official skills are coverage checks, and every claim is verified against source  |
-|   [08]  | A commit during an agent's run capturing partial work        | Commits happen only between agents                                               |
-|   [09]  | A generator hook restated in the skill of another owner      | Each member has one owning skill, checked before it enters                       |
-|   [10]  | Research examples that violate the standard on entry         | An example is corrected to the standard as it enters, never copied               |
-|   [11]  | A reference intro repeating the sibling pointer              | Pointers live in the skill intro only                                            |
-|   [12]  | A skill naming a package the manifest does not list          | Every package a skill names is in the manifest, or the skill states its absence  |
-|   [13]  | A catalog reference restating skill facts with extra detail  | A catalog holds members and signatures, and facts with reasons live in the skill |
+| [INDEX] | [PATTERN]                                          | [RULE]                                                           |
+| :-----: | :------------------------------------------------- | :--------------------------------------------------------------- |
+|   [01]  | Members guessed that the package lacks             | Every snippet compiles against the package before the report     |
+|   [02]  | Placeholders that collide with library names       | Placeholders are checked against the packages' public names      |
+|   [03]  | Facts dropped while a section was trimmed          | Research is commented out per fact, the review restores losses   |
+|   [04]  | A shortened sentence with an inverted condition    | Shortening keeps every condition, or the sentence stays long     |
+|   [05]  | A skill section that summarizes a reference        | A section defers with one line and never summarizes              |
+|   [06]  | Nested HTML comments in research                   | One marker per region, inner markers fold into a note            |
+|   [07]  | An official package skill stating a wrong behavior | Official skills are coverage checks, every claim is verified     |
+|   [08]  | A commit during an agent's run                     | Commits happen only between agents                               |
+|   [09]  | A member restated in another owner's skill         | Each member has one owning skill, checked before it enters       |
+|   [10]  | Research examples that violate the standard        | An example is corrected to the standard as it enters             |
+|   [11]  | A reference intro repeating the sibling pointer    | Pointers live in the skill intro only                            |
+|   [12]  | A skill naming a package the manifest lacks        | Every named package is in the manifest, or its absence is stated |
+|   [13]  | A catalog restating skill facts with extra detail  | A catalog holds members and signatures, facts live in the skill  |
 
-| [INDEX] | [SKILL]      | [ITEM]                                                                               | [ACTION]                                                          |
-| :-----: | :----------- | :----------------------------------------------------------------------------------- | :---------------------------------------------------------------- |
-|   [01]  | coding       | `DateTime` in every time snippet                                                     | NodaTime vocabulary pass with a scratch compile, before tier 1    |
-|   [02]  | coding       | Every snippet an `internal static class`, interfaces absent                          | Instance-type and interface rules in `dotnet-types`               |
-|   [03]  | coding       | Functions reference says composition needs no container                              | Align with the composition-root rule when `dotnet-hosting` exists |
-|   [04]  | coding       | Quantities as `decimal` and `double`                                                 | Vocabulary pass when `dotnet-numerics` exists                     |
-|   [05]  | languageext  | `api.md` restates `IO.lift`, `tail`, `Fork`, `Bracket` facts                         | Trim the catalog rows to members and signatures                   |
-|   [06]  | languageext  | `LanguageExt.Parsec` with no research                                                | Research folder under `dotnet-text`                               |
-|   [07]  | languageext  | Scratch compile project in a session scratchpad                                      | Durable snippet-compile project under `tests/dotnet/`             |
-|   [08]  | thinktecture | `AspNetCore`, `Swashbuckle`, `Newtonsoft.Json` integrations absent from the manifest | Add to the manifest or remove from the skill                      |
-|   [09]  | thinktecture | Swashbuckle schema filters for unions and keyless smart enums undocumented           | Research, then state the rendering or record the omission         |
-|   [10]  | thinktecture | Value-objects [15] recurring dates and currency amount uncommented                   | Homes in `dotnet-time` and `dotnet-numerics`                      |
-|   [11]  | thinktecture | `Thinktecture.EntityFrameworkCore.*` family absent from the manifest                 | Decide when `dotnet-data` is planned                              |
-|   [12]  | mapperly     | `Seq<Line>` to `List<LineDto>` at the DTO edge                                       | Kept with the host-contract sentence, recheck in review 4         |
-|   [13]  | all          | Analyzer diagnostics unnamed beside the rules they enforce                           | Cross-cutting pass after the analyzer configuration settles       |
-|   [14]  | all          | Pidgin beside Parsec in the manifest                                                 | Remove unless a recorded need stays                               |
+| [INDEX] | [SKILL]      | [ITEM]                                                             | [ACTION]                                                    |
+| :-----: | :----------- | :----------------------------------------------------------------- | :---------------------------------------------------------- |
+|   [01]  | coding       | `DateTime` in every time snippet                                   | NodaTime pass with a scratch compile, before tier 1         |
+|   [02]  | coding       | Static classes only, interfaces absent                             | Instance-type and interface rules in `dotnet-types`         |
+|   [03]  | coding       | Functions reference: composition needs no container                | Align with `dotnet-hosting` when it exists                  |
+|   [04]  | coding       | Quantities as `decimal` and `double`                               | Vocabulary pass when `dotnet-numerics` exists               |
+|   [05]  | languageext  | `api.md` restates `IO.lift`, `tail`, `Fork`, `Bracket`             | Trim the rows to members and signatures                     |
+|   [06]  | languageext  | `LanguageExt.Parsec` with no research                              | Research folder under `dotnet-text`                         |
+|   [07]  | languageext  | Scratch compile project in a session scratchpad                    | Durable snippet project under `tests/dotnet/`               |
+|   [08]  | thinktecture | `AspNetCore`, `Swashbuckle`, `Newtonsoft.Json` not in the manifest | Add to the manifest or remove from the skill                |
+|   [09]  | thinktecture | Swashbuckle schema filters undocumented                            | Research, then state or record the omission                 |
+|   [10]  | thinktecture | Value-objects [15] dates and currency uncommented                  | Homes in `dotnet-time` and `dotnet-numerics`                |
+|   [11]  | thinktecture | `Thinktecture.EntityFrameworkCore.*` not in the manifest           | Decide when `dotnet-data` is planned                        |
+|   [12]  | mapperly     | `Seq<Line>` to `List<LineDto>` at the DTO edge                     | Kept with the host-contract sentence, recheck in review 4   |
+|   [13]  | all          | Analyzer diagnostics unnamed beside the rules                      | Cross-cutting pass after the analyzer configuration settles |
+|   [14]  | all          | Pidgin beside Parsec in the manifest                               | Remove unless a recorded need stays                         |
