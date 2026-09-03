@@ -187,7 +187,7 @@ The runtime record holds the configuration and implements one `Has` trait per ca
 
 ```csharp
 internal sealed record OwnerUnknown() : Expected("the owner is unknown", 101);
-internal sealed record AppRuntime(ConnectionIO Connection, Func<Instant> Clock) : Has<Eff<AppRuntime>, ConnectionIO> {
+internal sealed record AppRuntime(ConnectionIO Connection, ZonedClock Clock) : Has<Eff<AppRuntime>, ConnectionIO> {
     static K<Eff<AppRuntime>, ConnectionIO> Has<Eff<AppRuntime>, ConnectionIO>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Connection);
 }
 
@@ -204,11 +204,11 @@ internal static class Workflow {
 
 internal static class Host {
     public static Fin<Entry> Book(AppRuntime runtime, Func<Command, IO<Unit>> save, Command command) =>
-        Workflow.Book(Validators.NotPast(runtime.Clock), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
+        Workflow.Book(Validators.NotPast(runtime.Clock.GetCurrentDate()), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
 }
 ```
 
-The framework entry point stays thin while the behavior it invokes arrives as narrow functions, composition is ordinary function application without an inversion-of-control container, and `Validators.NotPast` is the clock-taking validator factory that composition specializes once.
+The framework entry point stays thin while the behavior it invokes arrives as narrow functions, composition is ordinary function application without an inversion-of-control container, and `Validators.NotPast` is the date-taking validator factory that the host specializes once per request with the date its `ZonedClock` reads.
 
 ## [06]-[END_TO_END_FLOW]
 

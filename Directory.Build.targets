@@ -20,6 +20,9 @@
         <Using Include="LanguageExt.Sys;LanguageExt.Sys.IO;LanguageExt.Sys.Traits;LanguageExt.Sys.Diag" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Sys'))' != ''" />
         <!-- LanguageExt.Parsec exports a static class Char, sources spell the BCL type as the keyword char -->
         <Using Include="LanguageExt.Parsec" Condition="'@(PackageReference->WithMetadataValue('Identity', 'LanguageExt.Parsec'))' != ''" />
+        <Using Include="NodaTime;NodaTime.Extensions" Condition="'@(PackageReference->WithMetadataValue('Identity', 'NodaTime'))' != ''" />
+        <!-- LanguageExt and NodaTime both export Duration, the alias binds the simple name to NodaTime and sources spell LanguageExt.Duration in full -->
+        <Using Include="NodaTime.Duration" Alias="Duration" Condition="'@(PackageReference->WithMetadataValue('Identity', 'NodaTime'))' != ''" />
         <Using Include="Xunit" Condition="'@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.mtp-v2'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.assert'))' != ''" />
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
     </ItemGroup>

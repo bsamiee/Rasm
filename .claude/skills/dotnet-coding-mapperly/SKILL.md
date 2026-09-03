@@ -124,13 +124,13 @@ internal static partial class ItemMapper {
     public static partial IEnumerable<ItemDto> ToDtos(IEnumerable<Item> items);
 
     [UserMapping]
-    private static string MapRange(Interval range) => range.ToValue();
+    private static string MapRange(Bounds range) => range.ToValue();
 
     [UserMapping]
     private static string MapListed(Instant listed) => InstantPattern.ExtendedIso.Format(listed);
 }
 
-internal sealed record Item(Guid Id, Interval Range, decimal Amount, Instant ListedAt, Seq<Line> Lines);
+internal sealed record Item(Guid Id, Bounds Range, decimal Amount, Instant ListedAt, Seq<Line> Lines);
 internal sealed record ItemDto(Guid Id, string Range, decimal Amount, string ListedAt, IReadOnlyList<LineDto> Lines);
 ```
 

@@ -178,6 +178,6 @@ The build and review sequences of the 4 skills exposed patterns that every later
 |   [17]  | mapperly     | `Directory.Build.props` has no Mapperly property group        | Add the group the skill's [02] describes                 |
 |   [18]  | coding       | `Event` placeholder beside the library's static `Event` class | Kept as the domain term, rename if it confuses a compile |
 |   [19]  | thinktecture | [03.1] maps `Validate` to `Fin<T>` generically                | Kept as the `ISmartEnum` constraint demonstration        |
-|   [20]  | time         | `Duration` ambiguous between LanguageExt and NodaTime         | `dotnet-time` owns the alias rule                        |
-|   [21]  | mapperly     | `Interval` placeholder collides with `NodaTime.Interval`      | Rename in the next pass                                  |
-|   [22]  | time         | `NotPast` derives today as `clock().InUtc().Date`             | `dotnet-time` decides the zone or an injected date       |
+|   [20]  | coding       | `Duration` ambiguous between LanguageExt and NodaTime         | Applied, `Directory.Build.targets` aliases it, compiled  |
+|   [21]  | mapperly     | `Interval` placeholder collides with `NodaTime.Interval`      | Applied, renamed to `Bounds` and compiled                |
+|   [22]  | coding       | `NotPast` derives today as `clock().InUtc().Date`             | Applied, `NotPast` takes the date a `ZonedClock` reads   |
