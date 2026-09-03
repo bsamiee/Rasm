@@ -16,8 +16,8 @@ Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, P
 - [03]-[RESULTS](references/results.md): Validators and their folds, fail-fast workflows, lifting into an effect, host translation, union outcomes and folds, laws and property tests
 - [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions, shared-mutation hazards, values against entities, a domain snapshot with `With`, copy techniques and their limits, the cost model, persistent lists and trees
 - [05]-[EFFECTS](references/effects.md): Isolating I/O around a pure core, value and effect injection, deferral with `IO` and `Try`, `Reader` environments, resource scopes and their order, failure policies, traversal shapes, stacked effects
-- [06]-[STATE](references/state.md): `State` and `StateT`, generators, trampolines, `Monad.recur`, `unfold`
-- [07]-[STREAMS](references/streams.md): `Source` operators, per-item failure, backpressure, agents, entity registries
+- [06]-[STATE](references/state.md): The transition shape, a cache as `State` and `StateT`, explicit-seed generators, tree numbering, the loop forms with `Trampoline`, `Monad.recur`, and `unfold`
+- [07]-[STREAMS](references/streams.md): The observable model and its 3 layers, creation, operators and partitioning, per-item failure, transitions and backpressure, agents, replies, entity processes and their registry
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Events, transitions, reconstruction, command and query sides
 
 Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as bare names. `Seq<A>` is the default collection in domain code, `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types, and value objects, smart enums, and unions come from the generator.

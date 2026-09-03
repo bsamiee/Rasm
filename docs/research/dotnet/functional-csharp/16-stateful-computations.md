@@ -1,5 +1,7 @@
+<!-- Fully integrated into dotnet-coding/references/state.md -->
 # [STATEFUL_COMPUTATIONS]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 ## [01]-[STATE_WITHOUT_MUTATION]
 
 Programs are stateful when behavior depends on previous inputs or events. The label depends on the boundary: a server can be stateless by itself while the server and its database form a stateful system.
@@ -12,7 +14,9 @@ stateful:  Input -> State -> (Value, NewState)
 ```
 
 The caller carries the returned state into the next operation. Earlier immutable state values are not altered. The program remains stateful because each new state affects later behavior.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 ## [02]-[IMMUTABLE_CACHE]
 
 Currency-rate lookups cache results to avoid repeated network requests. State can be a `HashMap<string, decimal>` from currency-pair names to rates, and the lookup is a `State<HashMap<string, decimal>, decimal>`:
@@ -66,7 +70,9 @@ internal static class EffectfulRateCache {
 ```
 
 `StateT.get` reads the whole state, `StateT.liftIO` lifts the fetch into the transformer, and `StateT.put` writes the new map. If a fetch fails on the `IO` error channel, the host retains the original cache. Only a successful lookup yields a cache containing the new rate. `Run(state)` on a `StateT` returns `K<IO, (Value, State)>`. `.As()` converts it, `RunSafe()` executes it, and the host maps the resulting `Fin` cases to its own result type. `IO` forked inside the transformer reads no state and writes none back. `IO` makes failure handling explicit without scattered `try/catch` blocks.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 ## [03]-[STATE_TRANSITIONS]
 
 Stateful computations, also called state transitions, have this shape:
@@ -87,7 +93,9 @@ Use explicit state passing for an isolated transition. Extracting and forwarding
 The produced value can be an `Option<A>`, as `OptionInt` shows. The seed advances on every bind, and the consumer matches the option at the boundary. The produced value can also be a function, which lets a stateful computation carry behavior and data.
 
 `State.put` replaces the state. Both `State.put` and `State.modify` produce `Unit`. The module functions take explicit type arguments. `Stateful.state` and `Stateful.local` are the trait forms for a domain wrapper over `State` or `StateT`. `Stateful.local` restores the prior state after the nested computation.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 ## [04]-[RANDOM_GENERATION]
 
 Composable generators support property-based testing, load testing, and simulations (Monte Carlo methods).
@@ -176,7 +184,9 @@ internal static partial class Generator {
 This produces empty lists half the time, one-element lists one quarter of the time, and progressively longer lists with halving probability. Long lists are unlikely.
 
 Generation policy determines the size distribution. For a different distribution, first generate a bounded length and then generate that number of values. To generate a string, generate a character sequence and construct the string.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 ## [05]-[GENERALIZATION]
 
 `State<int, A>` specializes `State<S, A>` with an integer seed. Other state types use the same `Map`, `Bind`, and `State.pure` operations.
@@ -217,6 +227,9 @@ The numbering function returns a computation rather than a numbered tree immedia
 
 Simulations and parsers can also use state transitions. Functional parsers can treat input text as state: they return a parsed value and the unconsumed remainder for the next parser. `LanguageExt.Parsec` follows this model: its `Parser<T>` maps a `PString` to a `ParserResult<T>` that carries the unconsumed input.
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
+-->
+
 ## [06]-[REPRESENTATION_CHOICE]
 
 - Keep state visible in inputs and outputs to expose dependencies and sequencing
@@ -224,3 +237,4 @@ Simulations and parsers can also use state transitions. Functional parsers can t
 - Keep explicit tuple passing for short state flows
 - Use composition when many dependent transitions otherwise repeat manual state extraction and forwarding
 - Treat sequencing as semantic: each computation receives the state produced by its predecessor
+-->

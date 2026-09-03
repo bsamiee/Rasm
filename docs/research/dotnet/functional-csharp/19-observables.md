@@ -1,5 +1,7 @@
+<!-- Fully integrated into dotnet-coding/SKILL.md [05.2] and references/streams.md -->
 # [OBSERVABLES]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [01]-[MODEL]
 
 `IObservable<T>` represents a sequence of values delivered over time. It combines the multiplicity of `IEnumerable<T>` with the delivery over time of `Task<T>`:
@@ -49,7 +51,9 @@ internal static class Model {
     public static IO<int> Total(Source<int> source) => source.Reduce(0, static (sum, item) => sum + item);
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [02]-[PROGRAM_STRUCTURE]
 
 1. Acquire sources. Adapt callbacks, tasks, collections, or external event producers into observables.
@@ -57,7 +61,9 @@ internal static class Model {
 3. Run effects at the edge. Subscribe only to the final streams and perform output, persistence, notifications, or diagnostics in observers. Reduce a `Source<A>` once at this layer, and the host runs the resulting `IO<S>`.
 
 This separation keeps stream logic composable and shows where effects run and resources are managed.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [03]-[STREAM_CREATION]
 
 ```csharp
@@ -83,7 +89,9 @@ The lifted single value emits immediately and completes. Lifted enumerables imme
 `Subject<T>` is both an observer and an observable, imperative code can call its `OnNext`, `OnError`, and `OnCompleted` methods. Use it at callback or event boundaries. Prefer `Event.from` or a dedicated source when either expresses the source directly. This keeps calls to observer methods out of the stream definition.
 
 `FromEvent` and `FromEventPattern` adapt event-based APIs.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [04]-[STREAM_OPERATORS]
 
 Operators produce new observables rather than handling individual events imperatively.
@@ -135,7 +143,9 @@ internal static class Branches {
 ```
 
 Each branch can be transformed independently, normalized to a common type, and merged with `Source.merge`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [05]-[FAILURE_HANDLING]
 
 `OnError` is terminal. When a derived stream reports an error, that stream and every downstream stream terminate permanently. Upstream streams can continue. Only part of the dataflow then remains active.
@@ -171,7 +181,10 @@ internal static class Failures {
 ```
 
 This distinction prevents one malformed message from terminating a long-lived processing branch.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
+the `Drained` conduit example of [06.2] belongs to dotnet-languageext and its streams reference
 ## [06]-[LOGIC_ACROSS_EVENTS]
 
 Reactive streams express logic in which processing a new event depends on earlier events or another event source.
@@ -248,6 +261,7 @@ internal static class Ledger {
 ```
 
 `Reduce` groups the amounts of each account in a `HashMap`, and `Scan` carries each balance forward. `Zip` with `Tail` pairs each balance with its predecessor, the filter sees only a crossing from nonnegative to negative. The seed is emitted first, the first transaction can form a transition from the opening balance.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [07]-[FIT_AND_LIMITS]

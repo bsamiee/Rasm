@@ -1,5 +1,7 @@
+<!-- Fully integrated into dotnet-coding/references/streams.md -->
 # [AGENTS]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [01]-[SHARED_STATE]
 
 Parallel computations with independent inputs can compute partial results and combine them without shared mutation. Some multithreaded services need one application-wide sequence, cache, or representation of a unique real-world entity. Giving every thread its own copy either breaks correctness or defeats the purpose of the shared resource.
@@ -16,7 +18,9 @@ Synchronization strategies have different scopes:
 |  [04]   | Message passing               | State owned by a process, changed only in a handler | Requires careful ownership, granularity, and lifecycle design   |
 
 STM gives each transaction an isolated view, commits all of its changes or none, and retries against a fresh view when a concurrent transaction invalidates its work. Some implementations can enforce consistency constraints. `Ref<A>` under `atomic` supplies these properties in process, and a transaction body holds no effects because a conflict re-runs it.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [02]-[AGENT_MODEL]
 
 Agents have:
@@ -36,7 +40,9 @@ The invariants are:
 3. State values passed through the loop are immutable snapshots
 
 The implementation keeps the state in the accumulator of a fold over the inbox and does not use a private mutable field. Immutability matters: exposing a mutable state object lets code outside the loop modify it concurrently and invalidates the model.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [03]-[MINIMAL_IMPLEMENTATION]
 
 The public operations start an agent and post a message. Other interactions compose these operations. `Conduit<M, M>` made with `Buffer<M>.Unbounded` supplies the inbox and sequential dispatch. The state type appears only in the `ForkIO<S>` returned by `Start`. Callers hold the inbox and the message contract.
@@ -52,7 +58,9 @@ internal static class Agent {
 ```
 
 This avoids a recursively implemented loop, which is not stack-safe in C#. `Reduce` runs the fold inside the conduit and calls one handler at a time. `Reduced.ContinueIO(next)` keeps the loop running and `Reduced.DoneIO(next)` ends it from inside the reducer. `Fork()` returns an `IO<ForkIO<S>>`. Running it starts the loop, and `Await` yields the final state after `Complete()` closes the inbox. The second overload accepts an effectful processing function that returns `IO<S>`. Stateless agents use `Unit` as their state and serialize effects without retaining a value.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [04]-[STATE_OWNERSHIP]
 
 Putting every request through one agent makes the whole service sequential. Align each agent with the smallest independently mutable resource with an invariant that must be protected.
@@ -75,7 +83,9 @@ The coordinator only owns the registry of per-key agents and delegates immediate
 Each per-pair agent holds an `Option<decimal>` of the cached rate inside its accumulator state: initially `None`, then `Some(rate)` after its first lookup. The processing function decides whether a remote lookup is needed. Expiry and error handling remain explicit design concerns. One agent can send all replies only if sending is fire-and-forget and does not delay the queue.
 
 Serialize by dependency on shared state, not by request type or application layer.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [05]-[AGENTS_AND_ACTORS]
 
 Both models use exclusive state ownership, inboxes, sequential message processing, and message-based cooperation. Their operational boundaries differ:
@@ -89,7 +99,9 @@ Both models use exclusive state ownership, inboxes, sequential message processin
 |  [05]   | Requires only in-process setup and operation                        | Provides distribution, persistence, routing, and lifecycle support      |
 
 Use agents when all coordinated access passes through one process. Use an actor system when state ownership or coordination must span processes or machines. Actor implementations differ in terminology, persistence, transport, lifecycle, and delivery guarantees. Those details must be learned for the chosen implementation. Distribution adds operational cost. Use it only when coordination must cross process boundaries.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [06]-[FUNCTIONAL_DESIGN]
 
 Agent messaging is command-oriented and can be effectful. Agents combine state with the behavior that changes it. Message-passing concurrency complements functional composition but is not a value-returning pipeline.
@@ -99,7 +111,9 @@ Integration styles apply:
 - Keep agents as private concurrency primitives and expose value-returning APIs
 
 In either style, retain pure functions for domain decisions and use the agent only to order transitions and effects where their order preserves consistency.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [07]-[REPLIES]
 
 Fire-and-forget `Post` supports unidirectional flows but does not compose like a value-returning function. Messages carry a per-request reply `Conduit` the agent posts to after processing. The caller reads the reply with `replies.Source.Take(1).Last()`, and `Agent.Start(inbox, 0, Counting.Process)` starts the loop that serves `Counter`:
@@ -131,7 +145,9 @@ State -> Message -> IO<State>
 From the caller's perspective, this is a thread-safe, stateful function from message to reply. The caller composes the `IO` result without a lock.
 
 The agent stays private behind a domain API, and `Counter` provides that facade. Expose `IO<A>` whenever the result depends on agent processing. The host runs it with `RunSafe()`, and the domain never runs the effect.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [08]-[ENTITY_COORDINATION]
 
 Event sourcing can reconstruct a correct aggregate state from concurrent events, but it does not by itself protect business rules that depend on the state observed before creating an event. Two concurrent debits can each return a state computed from the same snapshot while replaying both persisted events later yields the correct balance. The problem appears when accepting both events is itself forbidden.
@@ -197,7 +213,9 @@ command
 ```
 
 Rejected commands reply with `Overdrawn`, a typed `Expected`, and `Debit` raises it on the caller's `IO` error channel. Persistence belongs inside this agent's processing function because the next message must not observe the new in-memory state before the corresponding event has been persisted. Otherwise memory can disagree with persisted event history. The pure transition logic stays outside the concurrency mechanism and can be understood independently.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [09]-[ENTITY_REGISTRY]
 
 Controllers need the one live process associated with an entity ID. An application-wide `AtomHashMap<Guid, AccountProcess>` owns the map from ID to process, ensuring two processes are never registered for the same entity.
@@ -232,7 +250,9 @@ internal static class Registry {
 ```
 
 The public lookup is an `OptionT<IO, AccountProcess>`: the load and the registration share that stack. The query ends with `None` when storage has no such account. At the controller boundary, `Require` runs the transformer and maps `None` to `UnknownAccount`, a typed `Expected` on the `IO` error channel. Rejected commands and missing accounts use the same result type. The returned state reports the result. It does not persist the event again.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
 ## [10]-[DESIGN_RULES]
 
 - Give an agent responsibility for owning and transitioning state, not every activity associated with that state
@@ -241,3 +261,4 @@ The public lookup is an `OptionT<IO, AccountProcess>`: the load and the registra
 - Return immutable snapshots or derived results, never mutable agent state, even through a reply
 - Plan lifecycle: keeping every created process alive means its state is loaded at most once, but memory grows with the number and size of resident processes
 - Do not confuse an agent with an object: its purpose is serialized ownership, and orchestration unrelated to owned state belongs in the caller's workflow
+-->

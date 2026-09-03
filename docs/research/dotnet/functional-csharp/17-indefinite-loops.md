@@ -1,5 +1,7 @@
+<!-- Fully integrated into dotnet-coding/SKILL.md [02.3] and references/state.md -->
 # [INDEFINITE_LOOPS]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 Indefinite loops advance state until a runtime condition holds. Unlike a transformation over a fixed collection, their length is not known in advance. `Map` and `Fold` can consume a sequence from a producer that knows when to stop, but they do not by themselves supply that stopping rule.
 
 Model the problem with:
@@ -15,6 +17,7 @@ The separation is between:
 - Termination: decide whether a state is final
 - Execution: repeatedly apply the transition until termination
 - Consumption: choose whether to retain only the final state or every intermediate state
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [01]-[APPROACH_SELECTION]
@@ -29,6 +32,7 @@ The separation is between:
 The library keeps mutable loop state inside the execution mechanism while leaving the transition and stopping rule explicit.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 ## [02]-[TAIL_RECURSION]
 
 Tail-recursive functions return the final value or make their recursive call last:
@@ -82,7 +86,10 @@ internal static class Trampolined {
 The stopping predicate is checked before each transition. The final state is returned instead of hidden in a mutable loop variable. Use this form when `next` returns a new state and the state carries all required information. `Bind` chains a second `Trampoline` onto the final state, and `Run()` still uses a constant stack. The abstraction has these limits:
 - `next` must eventually produce a state satisfying `stop`
 - If `next` performs user interaction, I/O, or mutation, the expression remains impure
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
+the `tail` paragraph and `RepeatUntil` sentence belong to dotnet-languageext [04.3]
 ## [03]-[MONAD_RECUR]
 
 `Monad.recur` exposes an expression-oriented interface while the library contains the mutation. The state function returns `Next.Loop` with the next state or `Next.Done` with the result:
@@ -123,7 +130,9 @@ internal static class Deep {
 `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only. `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a mapping continuation after the tail call and fail. Hosts needing a `Fin` capture with `Try.lift(io.Run).Run()`.
 
 Polling one effect until its value satisfies a predicate is `RepeatUntil`, and `RepeatWhile` is its complement.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 ## [04]-[CUSTOM_ITERATION]
 
 `LanguageExt.List.unfold` is the lazy state sequence, and `Seq` is its materialized form. `unfold` takes an initial state and a `Step` that returns `Some((emitted, next))` or `None` at the terminal state. `toSeq` wraps the result as a `Seq` that reads each state on demand and keeps it.
@@ -146,7 +155,9 @@ internal static class States {
 This sequence yields each state after a transition and does not emit the initial state. It checks `HasExited` before it calls `advance`.
 
 `Monad.recur` checks before advancing and performs zero or more transitions. `Step` emits only a state that a transition produced. Already-terminal initial states yield an empty `Seq`. If the initial state can already be terminal, decide whether enumeration is empty, emits that initial state, or advances once.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
 ## [05]-[LINQ_CONSUMPTION]
 
 Constructing the sequence does not run the loop. Reading it does.
@@ -173,3 +184,4 @@ internal static class Consumption {
 Short-circuiting operators change the termination behavior. `Head`, `Take`, and similar operations stop enumeration before the sequence's own end condition is reached. Use these operators only for intentional early termination (limiting a participant to a fixed number of actions).
 
 The methods in `Consumption` are alternatives, not operations to apply successively. One `Seq` keeps every state it has read. Second passes over the same `Seq` do not rerun `advance`. Each `unfold` call constructs a new producer and reruns the transition process. When `advance` reads input, randomness, or another effect, building the sequence twice performs the process twice and can produce different states. Build the `Seq` once and read every required result from it.
+-->
