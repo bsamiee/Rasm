@@ -11,7 +11,7 @@ Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, P
 - `dotnet-mapperly` owns mapping at the host boundary
 
 [REFERENCES]:
-- [01]-[FUNCTIONS](references/functions.md): Combinators, predicate sets, rule tables, parser families, the composition root, end-to-end workflows
+- [01]-[FUNCTIONS](references/functions.md): Combinators, functions as data, specialization by `par` and `curry`, delegate adapters, the composition root, the end-to-end flow and its limits
 - [02]-[SEQUENCES](references/sequences.md): Deferred `Iterable`, aggregation, adjacent pairs, the CSV pipeline
 - [03]-[RESULTS](references/results.md): Validators and their folds, fail-fast workflows, lifting into an effect, host translation, union outcomes and folds, laws and property tests
 - [04]-[IMMUTABLE_DATA](references/immutable-data.md): Persistent lists and trees, the cost model, lenses

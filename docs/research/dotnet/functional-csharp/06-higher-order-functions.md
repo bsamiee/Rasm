@@ -31,6 +31,7 @@ internal sealed record Cache<T>(HashMap<Guid, T> Entries) {
 `HashMap.Find` returns an `Option<T>`, and `IfNone(Func<T>)` runs the function only on `None`.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [02.1]-[SELECTORS]
 
 Selectors derive a value from each input. `Func` delegates can supply that calculation to a larger function. For example, a reporting workflow can accept a selector for its grouping key:
@@ -45,12 +46,16 @@ internal static class Reports {
 The summary construction is written once. New reports supply a selector and title rather than copying the grouping and row construction. Broader higher-order functions can centralize retrieval, empty-result handling, transmission, and error handling while leaving only the selector and report name variable.
 
 Additional parameters let a `Func` control formatting and an `Action` supply logging or event handling. Small named wrappers preserve intent.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [03]-[FUNCTION_ADAPTERS]
 
 Adapters return a new function with a different signature while delegating to the original. `flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`: for `Func<decimal, decimal, decimal> Subtract`, `flip(Subtract)` receives the right operand first.
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ## [04]-[SPECIALIZATION]
 
 Function factories convert configuration data into behavior:
@@ -65,6 +70,7 @@ internal static class Factories {
 The factory centralizes a general rule and produces reusable specializations.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md and dotnet-languageext/SKILL.md, use and Bracket
 ## [05]-[RESOURCE_LIFECYCLES]
 
 Setup, body, and teardown form a higher-order pattern. Parameterize the changing body while keeping resource management in one place:
@@ -81,10 +87,15 @@ internal static class Lifecycles {
 
 Database operations can state only their domain-specific work. Connection acquisition, opening, and disposal remain centralized. `use` acquires the `IDisposable` `Connection` inside an `IO` query and disposes it when the scope ends. `Bracket(Use:, Fin:)` represents release as a separate `IO` action. The host runs the `IO` through `RunSafe`, and the domain code never runs it. Asynchronous bodies use `IO.liftAsync`. The pattern guarantees disposal on every `IO` exit, including failure.
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
+-->
+
 ## [06]-[COMBINATORS]
 
 Combinators apply or combine functions.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [06.1]-[PIPE]
 
 `Pipe` applies one function to a whole value. `Map` keeps its structure-preserving meaning over a sequence. LINQ `Select` and the functor `Map` apply a function to each sequence element. With this extension, piping a sequence treats the sequence as the input value. LanguageExt has no equivalent `Pipe` operation. This implementation is custom.
@@ -101,7 +112,9 @@ internal static class Piping {
 ```
 
 The generic input and output types allow each step to change type. The chain expresses a multi-stage calculation without temporary variables.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [06.2]-[FORK]
 
 `Fork`, also called Converge, gives the same input to multiple functions and passes their outputs to a combining function:
@@ -122,6 +135,8 @@ Separate generic result types let a fixed set of functions produce different kin
 These implementations call each function directly.
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ### [06.3]-[COMPOSE]
 
 `Pipe` produces a transformed value. `compose` from the Prelude joins functions and produces another function:
@@ -139,6 +154,7 @@ The reusable formatting function can be composed with conversions in either dire
 C# has no dedicated syntax for function composition. Use method chaining for value flow and `compose` when the output must be a reusable function.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ### [06.4]-[DO]
 
 `Do` passes the current value to an `Action`, then returns that same value, the chain can continue:
@@ -151,7 +167,9 @@ internal static class Observers {
 ```
 
 It can log or inspect an intermediate result between transformations. `Do` on an `Option` runs the action on `Some`, and `Do` on a `Seq` runs it for each element before the `Seq` returns.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ### [06.5]-[UNLESS]
 
 `unless` runs an effect only when its flag is false, and `when` runs it only when the flag is true:
@@ -166,7 +184,9 @@ internal static class Guards {
 ```
 
 The skipped branch has no computed result. Both return `IO<Unit>` for the host to run.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [07]-[FUNCTIONS_AS_DATA]
 
 Storing functions in collections, passing them into adapters, or returning them can express control flow as data:
@@ -176,7 +196,9 @@ In `Func<T1, ..., TResult>`, every type except the last is a parameter type, and
 - Collections of predicates become validation policies
 - Ordered collections of predicate-transform pairs become decision tables
 - Returned functions can narrow access to one guarded operation, and ordinary adapter functions can hide repetitive conversion branches
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [07.1]-[TRANSFORMATION_COLLECTIONS]
 
 Apply all functions in a `Seq` to one value:
@@ -193,7 +215,9 @@ internal static class Descriptions {
 ```
 
 The function collection can be assembled at runtime, extended by adding one element, and kept separate from aggregation. `Seq.Map` is deferred: the descriptor functions run when the result is enumerated. This can postpone unnecessary work.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [07.2]-[PREDICATE_SETS]
 
 Validation rules have shape `T -> bool`. Collecting rules makes the policy explicit:
@@ -213,7 +237,9 @@ Use `ForAll` when each predicate states what valid input must satisfy. Use `Exis
 Short-circuiting is appropriate for a boolean answer. It is not suitable when every failure must be reported, because later rules do not run. Validators that return typed errors accumulate every failure instead.
 
 Keep each rule focused on one condition.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [07.3]-[RULE_TABLES]
 
 `if`/`else if` ladders can be represented as ordered pairs:
@@ -240,7 +266,9 @@ The first matching predicate wins. Ordering is part of the meaning. Each predica
 This matches values with predicates, not object types. For a fixed decision, use a native switch expression. Using `KeyValuePair` instead of tuples adds syntax without changing the mechanism.
 
 The custom `Match<T>` accepts any `T`. `Option<T>.Match` requires a handler for every option case.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [07.4]-[RETURNED_FUNCTIONS]
 
 Returned functions can capture the original value in a closure while exposing only one operation.
@@ -264,12 +292,16 @@ internal static class Parsing {
 Call sites can construct a settings value directly, and every default is visible beside its setting. This technique collapses missing and invalid input into the same fallback. Use it only when callers do not need to distinguish those cases.
 
 The `Option`-returning forms, `parseInt` and `HashMap.Find`, preserve every outcome. `IfNone` extracts a value from the `Option` by applying a fallback. Call it at the boundary that selects that fallback.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [08]-[EXCEPTIONS_AT_THE_BOUNDARY]
 
 Boundary calls to databases, web APIs, and network files can fail. Higher-order wrappers centralize `try/catch` and keep exception control flow out of the call layers. `Try.lift(f).Run()` captures a throwing synchronous dependency as a `Fin<A>`. `IO.lift(f)` defers the same call and carries the failure on the `IO` error channel for the host to run.
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ## [09]-[TECHNIQUE_SELECTION]
 
 - Use function collections when behaviors share a signature and vary as data

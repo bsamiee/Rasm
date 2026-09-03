@@ -1,4 +1,4 @@
-<!-- [08] steps are integrated into the skill, its Workflow.Book example goes to references/functions.md -->
+<!-- Fully integrated into .claude/skills/dotnet-coding/SKILL.md and references/functions.md -->
 # [CURRYING_AND_PARTIAL_APPLICATION]
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
@@ -36,6 +36,7 @@ internal static class Shapes {
 `Add100(200m)` is `300` and `Add100(900m)` is `1000`. The returned function retains each supplied value but does not invoke the original function until the remaining arguments arrive. One general implementation can produce many reusable specializations.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [03]-[PARTIAL_APPLICATION]
 
 ```csharp
@@ -46,7 +47,9 @@ internal static class Greetings {
 ```
 
 The Prelude provides `par` for each arity and number of supplied arguments, and `lpar` fixes the second argument of a two-argument function.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [03.1]-[IMPLEMENTATION]
 
 Partial application avoids unnecessary unary stages when several arguments are always fixed together. `Parsing.ParseBooks` is the configurable parser used later:
@@ -60,6 +63,8 @@ internal static class Partials {
 ```
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ### [03.2]-[ARGUMENT_ORDER]
 
 Place stable inputs first and runtime inputs last:
@@ -72,6 +77,7 @@ For example, `ConnectionIO -> SqlTemplate -> QueryParameters -> Result` and `Clo
 This ordering makes left-to-right partial application useful. If an API puts a short-lived value before stable configuration, adapt its signature, application setup can supply the stable values first.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [04]-[CURRYING]
 
 ```csharp
@@ -83,7 +89,9 @@ internal static class Curried {
 ```
 
 Currying supports specialization in stages and adds nothing when every argument is supplied together. Functions can be written directly in curried form, transformed with `curry` and then invoked successively, or specialized argument by argument with `par`. Arrow notation is right-associative and is commonly written in curried form even when the concrete delegate accepts several parameters. The `Func` shape determines whether successive calls are possible.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [04.1]-[IMPLEMENTATION]
 
 C# has no built-in automatic currying. The Prelude function `curry` transforms a function of two or more arguments. Write a function directly in curried form (`Shapes.CurriedAdd`) when consumers always supply one argument at a time.
@@ -97,7 +105,9 @@ internal static class Helper {
 ```
 
 Explicit lambda parameter types can be needed because the compiler does not always infer the delegate's generic arguments at this call site. Delegate values with a declared `Func` type (`Greetings.Greet`) need no annotation.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [04.2]-[SPECIALIZED_FUNCTIONS]
 
 ```csharp
@@ -128,7 +138,9 @@ internal static class Families {
 ```
 
 Fixing a logger's `LogLevel` creates `logInfo`, `logWarning`, and `logError`. Each function needs only a message and can be passed where logging at that level is required.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [04.3]-[PIPELINES]
 
 Partial application can turn general operations into unary functions suitable for mapping or composition. For noncommutative operations, choose parameter order deliberately: the first parameter is fixed first, while the last one is the pipeline value. `Pipe` applies the function on its right to the value on its left.
@@ -147,6 +159,8 @@ internal static class Temperature {
 ```
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ## [05]-[METHOD_RESOLUTION]
 
 C# distinguishes methods, method groups, lambdas, and delegate values. Unary methods convert where a `Func<T, R>` is expected, but generic higher-order operations over multi-argument method groups can defeat type inference. Local functions behave like methods and have the same limitation.
@@ -170,6 +184,7 @@ Choose the delegate-producing form:
 Return `Func` values from adapter or factory methods to cross from method-based APIs into a function-composition pipeline.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [06]-[API_DESIGN]
 
 Existing APIs can expose arguments in an order that works poorly for partial application. Adapters can:
@@ -205,6 +220,8 @@ internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
 Custom types (`ConnectionIO`, `SqlTemplate`) make signatures intention-revealing and can own extension methods that do not belong on `string`. `Seq<A>.Head` is an `Option<A>`, lookup absence stays explicit.
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ## [07]-[FUNCTIONS_AS_DEPENDENCIES]
 
 Dependencies must describe the behavior consumers need. Clocks are `Func<DateTime>`, validators are `T -> Validation<Error, T>`, and persistence is `T -> IO<Unit>`.
@@ -233,6 +250,7 @@ This enforces interface segregation: a consumer that only saves receives only `T
 Objects and interfaces remain compatible with this style. Functional behavior can live behind a framework controller that handles requests and responses.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [08]-[COMPOSITION_ROOT]
 
 Construct specialized functions at the composition root:
@@ -270,6 +288,8 @@ internal static class Host {
 The framework entry point can remain thin while the behavior it invokes is supplied as narrow functions. Composition uses ordinary function application rather than requiring an inversion-of-control container.
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ## [09]-[WHEN_TO_USE]
 
 Use these techniques to:

@@ -1,3 +1,4 @@
+<!-- Fully integrated into .claude/skills/dotnet-coding/SKILL.md, references/functions.md, and references/results.md -->
 # [COMPOSITION]
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
@@ -40,10 +41,13 @@ internal static class Chaining {
 Each chained method must be defined on the preceding expression's type, either as an instance method or an extension method. The methods appear in execution order. Long pipelines can describe the program at a high level.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [02]-[COMPOSITION_LAW]
 
 When a value is inside a structure (`Option<T>`), `Map` must preserve ordinary composition: `option.Map(g).Map(f)` must produce the same result as `option.Map(x => f(g(x)))`. This equation is the functor composition law.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [03]-[DATA_FLOW]
 
 Compositional programs are sequences of typed transformations. Track what each step does to the value and its enclosing structure:
@@ -59,7 +63,9 @@ internal static class DataFlow {
 ```
 
 The pipeline states the intended result. Reusable operations contain iteration, branching, and enumeration mechanics. `Average` is a terminal operation that immediately evaluates the preceding lazy sequence.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [03.1]-[PIPELINE_INSPECTION]
 
 Nested lambdas in a fluent chain can obscure the first incorrect transformation. Queries with a `from` clause for each stage preserve the flow while exposing each result:
@@ -80,7 +86,9 @@ internal static class Stages {
 ```
 
 Because each range variable is bound once, every stage remains available for inspection. Large intermediate values remain in scope until the containing function ends. Combine stages if a large value must be released sooner.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ### [03.2]-[COMPOSABLE_FUNCTIONS]
 
 The following properties support function reuse and rearrangement:
@@ -107,6 +115,8 @@ internal static class Quartiles {
 ```
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ## [04]-[WORKFLOW_OPERATORS]
 
 Workflows are sequences of operations that produce a result. Give each step a function and use the operator that matches the step's type:
@@ -140,6 +150,7 @@ internal static class Workflow {
 The workflow runs in domain order: normalize, validate, then debit. Adding another transformation means defining one function and inserting one pipeline step. `Fin` handles control flow. The top-level workflow needs no nested conditionals.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [05]-[PURE_TRANSITIONS]
 
 Immutable state is separate from behavior.
@@ -161,7 +172,9 @@ internal static class Account {
 - Exposes possible failure in its return type
 - Produces a value that later steps can consume
 - Leaves the original state unchanged
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [06]-[END_TO_END_FLOW]
 
 Boundary services expose reads as `OptionT<IO, A>` and writes as `IO<Unit>` while the domain transition stays pure. The repository lifts its `Option` read into the transformer with `OptionT.lift`. `Require` converts the transformer to `IO<AccountState>`. `Run` unwraps the `OptionT` layer. `IO.lift` lifts the `Fin` returned by `ToFin` into `IO`, preserving `AccountNotFound` as the typed error.
@@ -197,7 +210,9 @@ internal sealed class Transfers(IRepository<AccountState> accounts, ISwiftServic
 ```
 
 `Get` can find no account, and `MakeTransfer` can reject the transfer. `Book` binds them on one `IO` error channel instead of nesting result types. `Save` and `Wire` run only when both succeed, and each effect is one visible step of the query. The host runs `Book` with `RunSafe`, which returns `Fin<Unit>` and carries the typed error out of the effect.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [07]-[DECLARATIVE_CODE]
 
 Expressions produce values and compose. Assignments, loops, and conditional statements direct execution and do not produce values for a pipeline. Class, method, and field declarations remain necessary but form a separate category. Using expressions shifts code from imperative instructions toward declarative descriptions.
@@ -211,6 +226,8 @@ Using expressions does not eliminate effects. It moves effects to explicit bound
 If a terminal step requires multiple effects, keep each one visible.
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ## [08]-[LAYERING]
 
 Do not require every layer to call only its immediate neighbor. After a low-level call performs I/O, every delegating layer becomes impure.
@@ -222,9 +239,11 @@ Let a top-level entry point compose functions from lower-level components while 
 - Direct testing of pure logic without mocks
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
 ## [09]-[LIMITS]
 
 - `Option` discards the reason for failure, and `Fin` keeps it. `Option` can short-circuit the flow, but it cannot distinguish a missing account from insufficient funds. `Fin` carries the typed `Error` without changing the compositional approach.
 - Composition does not make distributed effects atomic. Saving a debited account and wiring funds can fail between operations. Database transactions cannot protect an external call from process failure after the call but before commit.
 - One multi-system pattern uses a persisted work item and idempotency. Persist a representation of the combined work atomically, process it until all effects complete, and make repeat execution safe.
 - Confidence comes from tests. Do not inspect the implementation and assume that its abstracted operations are correct.
+-->
