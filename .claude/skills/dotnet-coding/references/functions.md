@@ -31,7 +31,7 @@ internal static class Forks {
 ```
 
 `flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`, so `flip(Subtract)` receives the right operand first, and an adapter of that kind returns a new function with a different signature while delegating to the original.
-- See `dotnet-languageext` for `Do`, `when`, and `unless`, the observing and guarding steps that sit between transformations
+- See `dotnet-coding-languageext` for `Do`, `when`, and `unless`, the observing and guarding steps that sit between transformations
 
 ## [02]-[FUNCTIONS_AS_DATA]
 

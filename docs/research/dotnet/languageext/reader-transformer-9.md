@@ -1,4 +1,4 @@
-<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
+<!-- Ideas integrated into .claude/skills/dotnet-coding-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [READER_TRANSFORMER]
 
 `ReaderT<Env, M, A>` adds an environment `Env` to a monad `M`. Computations read configuration or request context without global state and without the same parameter on every function. The environment stays explicit: one value is supplied when the computation runs and is threaded through its stages. Until then, `ReaderT` composes functions that wait for that value.

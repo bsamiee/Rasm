@@ -1,15 +1,19 @@
 ---
-name: dotnet-thinktecture
+name: dotnet-coding-thinktecture
 description: "Use when declaring a value object, smart enum, or union with Thinktecture.Runtime.Extensions, its generated API, settings, factories, and framework integration."
 ---
 
-# [DOTNET_THINKTECTURE]
+# [DOTNET_CODING_THINKTECTURE]
 
-Covers declaring the types that `Thinktecture.Runtime.Extensions` generates (value objects, smart enums, ad hoc and regular unions), their generated API and settings, the validation and normalization hooks, `Switch` and `Map`, object factories for a second wire format, the convenience members, and the packages that carry those types across JSON, MessagePack, model binding, OpenAPI, Entity Framework Core, and Serilog. Which type a domain concept becomes, how a union is designed, and how `Validate` maps to `Fin<T>` are decisions that `dotnet-coding` states, and the `Expected` records that `[ValidationError<T>]` names take their shape from `dotnet-languageext`.
+Covers declaring the types that `Thinktecture.Runtime.Extensions` generates (value objects, smart enums, ad hoc and regular unions), their generated API and settings, the validation and normalization hooks, `Switch` and `Map`, object factories for a second wire format, the convenience members, and the packages that carry those types across JSON, MessagePack, model binding, OpenAPI, Entity Framework Core, and Serilog.
+
+[SKILLS]:
+- `dotnet-coding`: Which type a domain concept becomes, how a union is designed, and how `Validate` maps to `Fin<T>`
+- `dotnet-coding-languageext`: The `Expected` records that `[ValidationError<T>]` names
 
 [REFERENCES]:
-- [01]-[SETTINGS](references/settings.md): Attribute settings of value objects, smart enums, ad hoc unions, and regular unions with defaults and effects, and the generator's MSBuild properties
-- [02]-[FACTORY_PATHS](references/factory-paths.md): Entity Framework Core read path, span-based JSON, multiple factories, runtime factory selection, polymorphic discriminators
+- [01]-[SETTINGS](references/settings.md): Attribute settings of every generated family with defaults and effects, the generator's MSBuild properties
+- [02]-[FACTORY_PATHS](references/factory-paths.md): Entity Framework Core reads, span-based JSON, multiple factories, discriminators
 - [03]-[SERILOG](references/serilog.md): Destructuring policy, depth limits, string rendering, caveats
 
 Every package name omits the prefix `Thinktecture.Runtime.Extensions.`, every analyzer code omits the prefix `TTRESG`, each rule of the `Analyzers` package fails the build, and every generated type and every type that encloses one is `partial` (006).

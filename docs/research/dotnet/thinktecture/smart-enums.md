@@ -1,9 +1,9 @@
-<!-- [09] polymorphic discriminator integrated into .claude/skills/dotnet-thinktecture/references/factory-paths.md -->
+<!-- [09] polymorphic discriminator integrated into .claude/skills/dotnet-coding-thinktecture/references/factory-paths.md -->
 # [SMART_ENUMS]
 
 Smart Enums are classes declaring a fixed set of items as `public static readonly` fields. The source generator supplies the constructor, the lookup, equality, conversion, and pattern matching. Each item is an object with its own data and behavior. Consumers call a method on the item instead of branching on it.
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [01]-[DECLARATION]
 
 Declare a `partial` class and apply `[SmartEnum<TKey>]` for a keyed Smart Enum or `[SmartEnum]` for a keyless one. Items are `public static readonly` fields of the enclosing type. Non-public items are errors (`TTRESG002`). Static properties are not items and raise `TTRESG101`. Smart Enums without items raise `TTRESG100`.
@@ -37,7 +37,7 @@ internal sealed partial class Country : IsoCoded {
 - Every enclosing type of a nested Smart Enum is `partial`, because the generator emits the enum as a nested partial declaration
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [02]-[KEYED_AND_KEYLESS]
 
 `string` is the default key for APIs, JSON, and display text. `int` or `Guid` keys serve persistence and ordering.
@@ -47,7 +47,7 @@ Keyless Smart Enums lack a key member, `Get`, conversion operators, and comparer
 The generator emits no `JsonConverterAttribute` for a keyless Smart Enum. `System.Text.Json` writes the public instance properties and throws `NotSupportedException` on read because no usable constructor exists. `[ObjectFactory<string>]` with a static `Validate` method is the only way to serialize or bind a keyless Smart Enum. Serialization needs `UseForSerialization` set and an instance `ToValue()` (`TTRESG062`), and model binding needs `UseForModelBinding = true`. `HasCorrespondingConstructor = true` on that factory is an error (`TTRESG060`).
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [03]-[GENERATED_API]
 
 `Items` lists the items in declaration order. `Get` returns `null` for a `null` key and throws `UnknownSmartEnumIdentifierException` for an unknown one, while `Validate` reports a `null` key as unknown. `UnknownSmartEnumIdentifierException` is a `KeyNotFoundException` with the message `There is no item of type 'OrderStatus' with the identifier 'nope'.`. `TryGet(key, out item)` returns `false` for an unknown key. `Validate(key, provider, out item)` returns `null` or a `ValidationError` with the same message, and `[ValidationError<TError>]` replaces the error type. The implicit conversion to the key type returns `Key` and returns `null` for a `null` item. The explicit conversion from the key type calls `Get`. `ToString()` returns the key's string form, and a `TypeConverterAttribute` points at `ThinktectureTypeConverter<T, TKey, TValidationError>`.
@@ -81,7 +81,7 @@ internal static class Lookup {
 `Find` returns `Option<T>` because a miss has no reason. `Require` returns `Fin<T>` because `Validate` supplies the typed `Expected` that `[ValidationError<TError>]` names.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [04]-[SWITCH_AND_MAP]
 
 `Switch` takes one `Action` per item, `Switch<TResult>` takes one `Func<TResult>` per item, and `Map<TResult>` takes one value per item. Every argument is named after its item in camel case, and unnamed arguments are an error (`TTRESG046`). Every lambda argument of `Switch` or `Map` without the `static` modifier raises `TTRESG1001`. The state-passing overloads take the state as the first argument and hand it to every `static` lambda. The state parameter is named `state` unless `SwitchMapStateParameterName` renames it, and `TState : allows ref struct` holds. When the lambdas return different but compatible types, write `TResult` on the call, the compiler reports the one lambda that disagrees.
@@ -111,10 +111,10 @@ internal static class Matching {
 
 `RecordColdChain(ProductType.Housewares, log)` adds nothing. `RecordAll` receives the unhandled item in `@default` and adds its key. Every generated `Switch` and `Map` ends in an arm that throws `InvalidOperationException` with the message `Unknown item 'Rogue'.` for an instance with key `Rogue`. Only an instance outside `Items` reaches that arm.
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [05]-[ITEM_SPECIFIC_BEHAVIOR]
 
 Methods with per-item inputs read them from fields the constructor filled. Methods with a per-item algorithm take a delegate through `[UseDelegateFromConstructor]`. The attributed method is `partial` (`TTRESG050`) and has no type parameters (`TTRESG051`). The generator adds a private delegate field, appends the delegate parameter after the members, and implements the method as a call through the field. `Round` produces a `Func<decimal, decimal> _round` field. `DelegateName = "DateParser"` on a method `GetDateTime` instead emits a private nested delegate type `DateParser` and a field `_dateParser`. Parameters a `Func` cannot carry (`ref`) also force a delegate type, named after the method.
@@ -183,7 +183,7 @@ internal abstract partial class NotificationChannel {
 `NotificationChannel.Email.PayloadType` is `typeof(string)`, and `Items` doubles as the list of permitted implementations.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [06]-[COMPARERS]
 
 String keys use `StringComparer.OrdinalIgnoreCase` for equality, for the hash code, for `CompareTo`, and for the comparison operators. `TryGet("PENDING")` finds `Pending`. Every other key type uses its default comparer. `[KeyMemberEqualityComparer<TAccessor, TKey>]` replaces the equality comparer, and `[KeyMemberComparer<TAccessor, TKey>]` replaces the ordering comparer. Accessors implement `IEqualityComparerAccessor<T>` with a static `EqualityComparer` property, or `IComparerAccessor<T>` with a static `Comparer` property. `ComparerAccessors.StringOrdinal`, `StringOrdinalIgnoreCase`, `CurrentCulture`, `CurrentCultureIgnoreCase`, `InvariantCulture`, `InvariantCultureIgnoreCase`, and `Default<T>` implement both interfaces. Accessor types that do not match the key type are an error (`TTRESG041`).
@@ -219,7 +219,7 @@ internal sealed partial class Ticker {
 `Ticker.TryGet(" AAPL".AsSpan(), out Ticker? item)` finds `Aapl` through the alternate comparer. `[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]` with the matching `[KeyMemberComparer]` is the short form for a case-sensitive key.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [07]-[SETTINGS]
 
 | [INDEX] | [PROPERTY]                                                  | [DEFAULT]                     | [EFFECT]                                                                 |
@@ -246,7 +246,7 @@ internal sealed partial class Priority {
 `Priority.High > 1` and `Priority.High == 3` compile through the key type overloads, and `Priority.Low.ToString("000", CultureInfo.InvariantCulture)` yields `"001"`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [08]-[GENERIC_KEY_TYPES]
 
 `TypeParamRef1` through `TypeParamRef5` stand for the type parameters of a generic Smart Enum, and the referenced parameter carries a `notnull` constraint (`TTRESG074`). `Get`, `TryGet`, `Validate`, `Items`, equality, `Switch`, `Map`, and the conversion operators are always generated. `IParsable<T>`, `ISpanParsable<T>`, `IComparable<T>`, `IFormattable`, and the comparison operators appear when the type parameter is constrained to the matching interface, and `INumber<T>` implies all of them.
@@ -262,7 +262,7 @@ internal sealed partial class Metric<T> where T : System.Numerics.INumber<T> {
 `Metric<int>.Parse("1", null)` returns `Humidity`, and `Metric<double>.Get(0.0)` returns `Temperature`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [09]-[FRAMEWORK_INTEGRATION]
 
 Projects referencing `Thinktecture.Runtime.Extensions.Json`, in their manifest or through another package, get a `JsonConverterAttribute` on every keyed Smart Enum. Without that reference, register `ThinktectureJsonConverterFactory` in `JsonSerializerOptions.Converters`. MVC reads the options of `AddControllers().AddJsonOptions`, and minimal APIs read the options of `ConfigureHttpJsonOptions`. One registration leaves the other path on the default handling. Its constructor `(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` skips attributed types and opts single types out of span-based deserialization.
@@ -272,7 +272,7 @@ Projects referencing `Thinktecture.Runtime.Extensions.Json`, in their manifest o
 Keyed Smart Enums serialize as the key. Unknown keys on read throw `JsonException` with the message of `UnknownSmartEnumIdentifierException`. String keys read through a span-based converter that rejects a non-string token with `JsonException`. `DisableSpanBasedJsonConversion = true` returns to the non-span converter.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md, the discriminator and the Entity Framework Core configuration into .claude/skills/dotnet-thinktecture/references/factory-paths.md, the Serilog paragraph into .claude/skills/dotnet-thinktecture/references/serilog.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md, the discriminator and the Entity Framework Core configuration into .claude/skills/dotnet-coding-thinktecture/references/factory-paths.md, the Serilog paragraph into .claude/skills/dotnet-coding-thinktecture/references/serilog.md
 Smart Enums also serve as the discriminator of a polymorphic converter. The item names the case in the payload and reads the case back through a delegate with a `ref Utf8JsonReader` parameter.
 
 ```csharp
@@ -319,7 +319,7 @@ Serilog renders a keyed Smart Enum as its key once `Destructure.UsingThinktectur
 Smart Enums model a closed set of named items with one shape, cases with different shapes are a discriminated union. Items are `static readonly` fields, not constants. They cannot serve as an attribute argument or a `case` label.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [10]-[DESIGN_RULES]
 
 - Use `Switch` or `Map` with named arguments, consumer `switch` over items skips the compiler check for new items

@@ -1,4 +1,4 @@
-<!-- Fully integrated into dotnet-coding SKILL.md and references/immutable-data.md, the lens example belongs to dotnet-languageext -->
+<!-- Fully integrated into dotnet-coding SKILL.md and references/immutable-data.md, the lens example belongs to dotnet-coding-languageext -->
 # [IMMUTABLE_DATA]
 
 <!-- Integrated into .claude/skills/dotnet-coding/references/immutable-data.md
@@ -128,7 +128,7 @@ One `With` method updates several permitted fields in one allocation. Optional `
 Records provide copy-and-update with a `with` expression over `init`-only properties, and a `readonly struct` prevents reassignment of its fields.
 -->
 
-<!-- dotnet-languageext holds the Lens API and this example, kept for its nested-record shape
+<!-- dotnet-coding-languageext holds the Lens API and this example, kept for its nested-record shape
 `Lens<A, B>.New` pairs a getter with a curried setter for one field, and `Set` and `Update` return the rebuilt snapshot. `lens(outer, inner)` composes two lenses to update a nested field.
 
 ```csharp

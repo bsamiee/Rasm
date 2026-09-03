@@ -1,6 +1,6 @@
 # [DOTNET_FOUNDATIONS_PLAN]
 
-The 4 foundation skills (`dotnet-coding`, `dotnet-languageext`, `dotnet-thinktecture`, `dotnet-mapperly`) cover composition, the result and effect library, the generated types, and boundary mapping. This plan surveys `Directory.Packages.props` and the language against them, names the gaps, and sets the next skills as categories of concern in tiers, each built by the workflow in `dotnet-skills-plan.md` [03] to [08] from a research folder that must exist before the skill, because no section is written from memory.
+The 4 foundation skills (`dotnet-coding`, `dotnet-coding-languageext`, `dotnet-coding-thinktecture`, `dotnet-coding-mapperly`) cover composition, the result and effect library, the generated types, and boundary mapping. This plan surveys `Directory.Packages.props` and the language against them, names the gaps, and sets the next skills as categories of concern in tiers, each built by the workflow in `dotnet-skills-plan.md` [03] to [08] from a research folder that must exist before the skill, because no section is written from memory.
 
 ## [01]-[START]
 
@@ -120,9 +120,9 @@ Each skill's scope:
 Placement decisions inside the tiers:
 - Resilience is split by layer: the domain composes `Schedule` and `Retry` around an `IO`, the host applies a resilience pipeline to an `HttpClient` or a connection, and never both on one call, stated once in `dotnet-resilience`
 - Solvers and optimization are a reference under `dotnet-numerics` until a modeling discipline of their own justifies a skill
-- Streaming stays split as it is: `Source`, `Conduit`, and pipes in `dotnet-languageext`, `Channel<T>` and `IAsyncEnumerable<T>` as boundary forms in `dotnet-concurrency` with the conversion to a `Source`
+- Streaming stays split as it is: `Source`, `Conduit`, and pipes in `dotnet-coding-languageext`, `Channel<T>` and `IAsyncEnumerable<T>` as boundary forms in `dotnet-concurrency` with the conversion to a `Source`
 - Hashing splits by purpose: a content hash is `dotnet-io`, a cryptographic hash or signature is `dotnet-security`, and a hex or base64 string is `dotnet-text`
-- Caching is one skill because expiry, eviction, invalidation, and stampede protection are one discipline across layers, and the memoization and state-threaded forms in `dotnet-languageext` and the `dotnet-coding` references stay where they are as the pure-side forms it points to
+- Caching is one skill because expiry, eviction, invalidation, and stampede protection are one discipline across layers, and the memoization and state-threaded forms in `dotnet-coding-languageext` and the `dotnet-coding` references stay where they are as the pure-side forms it points to
 - Analyzer diagnostics belong to the skill that owns the rule they enforce, named beside the rule as `dotnet-document` names its Roslynator rules
 
 ## [05]-[ORDER]

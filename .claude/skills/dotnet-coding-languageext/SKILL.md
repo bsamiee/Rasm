@@ -1,14 +1,17 @@
 ---
-name: dotnet-languageext
+name: dotnet-coding-languageext
 description: "Use when calling a LanguageExt type or operation: conversions, errors and recovery, IO execution, resources, schedules, runtimes, traits, transformers, collections, shared state, and streams."
 ---
 
-# [DOTNET_LANGUAGEEXT]
+# [DOTNET_CODING_LANGUAGEEXT]
 
-Covers the LanguageExt types and their operations: the result and effect types with their conversions, the error model and recovery, `IO` construction, execution, resources, concurrency, recursion, schedules, and runtimes, the traits and transformers, the collections with their folds and pitfalls, lenses, shared state, and streams. `dotnet-coding` states which type a function returns, where the boundary sits, and which operator joins the steps.
+Covers the LanguageExt types and their operations: the result and effect types with their conversions, the error model and recovery, `IO` construction, execution, resources, concurrency, recursion, schedules, and runtimes, the traits and transformers, the collections with their folds and pitfalls, lenses, shared state, and streams.
+
+[SKILLS]:
+- `dotnet-coding`: Which type a function returns, where the boundary sits, and which operator joins the steps
 
 [REFERENCES]:
-- [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Higher kinds, witnesses, foldables, applicatives, traversables, monads, law checks, transformers, readers, state and writer, domain monads
+- [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Higher kinds, witnesses, traits, law checks, transformers, domain monads
 - [02]-[STREAMS](references/streams.md): Sources and events, reduction, conduits and buffer policy, pipes
 - [03]-[API](references/api.md): Public types and members by scope
 

@@ -72,7 +72,7 @@ Public setters let callers replace properties, private setters still let code in
 ## [05]-[COPIES]
 
 Lenses update a nested field without a chain of `with` expressions.
-- See `dotnet-languageext` for the `Lens<A, B>` API and its composition through `lens(outer, inner)`
+- See `dotnet-coding-languageext` for the `Lens<A, B>` API and its composition through `lens(outer, inner)`
 
 Reflection can copy an object and replace one backing field, and it removes boilerplate at the cost of speed and of the control over legal transitions, so explicit copy methods stay preferred. Data can live in F#, where declarations are immutable by default and support copy-and-update expressions while C# implements the behavior, at the cost of a mixed-language solution and an extra assembly boundary. No C# technique prevents all mutation, because reflection can alter private and read-only fields, and the goal is to prevent accidental mutation and to communicate the intended model.
 

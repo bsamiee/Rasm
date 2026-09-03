@@ -1,4 +1,4 @@
-<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
+<!-- Ideas integrated into .claude/skills/dotnet-coding-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [FOLDABLES]
 
 `Foldable<F>` abstracts aggregation over a structure. The structure decides which values participate and in what order, the caller supplies an initial state and a binary step that reduces those values to one result.

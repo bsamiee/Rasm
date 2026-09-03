@@ -10,7 +10,7 @@ Tuples like `(Order? Order, bool IsSoftDeleted, string? Error)` allow any combin
 Unions move the alternatives into the type. Candidates for a union are boolean or enum fields that decide how other properties are read, chains of type tests, tuples with mutually exclusive nullable fields, and base classes where derived classes differ only in state data.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [02]-[AD_HOC_VERSUS_REGULAR]
 
 Ad hoc unions combine existing types that share no base (`string`, `int`, `List<ValidationError>`). Regular unions are class hierarchies where cases derive from one abstract partial base and carry their properties and behavior. Smart enums are fixed sets of named instances with one shape, and unions are fixed sets of shapes. Smart enum items can return a union.
@@ -23,7 +23,7 @@ Ad hoc unions combine existing types that share no base (`string`, `int`, `List<
 |  [04]   | Generic     | `TypeParamRef1` to `TypeParamRef5` name the type parameters     | The base can be generic, a case cannot (`TTRESG053`)         |
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [03]-[AD_HOC_UNIONS]
 
 `AdHocUnion` with `typeof` exists for member types a generic attribute cannot spell (`List<string?>`). Both attributes share the five-member bound and generate the same members. The generated names derive from the member types: `IsString`, `AsString`, `IsInt32`, `AsInt32`. `Value` returns the current member as `object`.
@@ -33,7 +33,7 @@ Ad hoc unions combine existing types that share no base (`string`, `int`, `List<
 C# forbids user-defined conversions from `object` and from interfaces. Members of one of those types receive a constructor and no operator. Every member type must be at least as accessible as the union, because the generated operators and accessors expose it (`TTRESG077`). Unions need at least two member types (`TTRESG067`) and no more than one union attribute (`TTRESG066`).
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [04]-[AD_HOC_SETTINGS]
 
 | [INDEX] | [PROPERTY]                    | [DEFAULT]           | [EFFECT]                                                                                              |
@@ -81,7 +81,7 @@ internal sealed partial class NamedTextOrNumber {
 The parameter name is the member name in camel case, and a different name compiles with `CS8826`. The call is the first statement of the generated constructor, and no null check precedes it: a `null` argument reaches the `Normalize` method body. The conversion operators delegate to that constructor. Members sharing a type with another member get `Create{MemberName}` instead of a constructor, and the call moves there. Stateless members lack a `Normalize` method. Unions with an object factory read through `Validate`, which constructs the union. Every framework read runs the `Normalize` method.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [05]-[BACKING_FIELDS]
 
 Unions with at most one reference type keep one typed field per member. Two or more reference types share one `object?` field, and value types keep their fields without boxing. `UseSingleBackingField = true` moves the value types into the shared field and boxes them. `SingleBackingFieldType` names a common base or interface for that field, and `Value` takes that type.
@@ -89,7 +89,7 @@ Unions with at most one reference type keep one typed field per member. Two or m
 `Value` typed as the shared interface reaches the members every case declares, without a `Switch`. `SingleBackingFieldType` implies `UseSingleBackingField = true`, and an explicit `false` beside it is `TTRESG075`. Every member type needs a built-in implicit conversion to the field type, because the stored value must stay the original instance. User-defined ones are `TTRESG079`. `typeof(object)` equals `UseSingleBackingField = true`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [06]-[STATELESS_MEMBERS]
 
 Stateless members are types where presence is the whole information. The union stores only the discriminator, `AsX` and `Value` return `default(T)`, equality compares the discriminator alone, and `CreateX` is parameterless. Prefer a `readonly record struct`, because `default` of a class is `null`, and a stateless reference type sets `TxIsNullableReferenceType = true` on its own.
@@ -125,7 +125,7 @@ internal readonly partial struct MaybeInt : IDisallowDefaultValue {
 An uninitialized `MaybeInt`, for example an array element, has `IsAbsent == true`, equals `MaybeInt.None`, shares its hash code, and `Value` returns `default(Absent)`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [07]-[GENERIC_AD_HOC_UNIONS]
 
 `TypeParamRef1` to `TypeParamRef5` name the union's own type parameters, also inside constructed types (`List<TypeParamRef1>`).
@@ -147,7 +147,7 @@ internal readonly partial struct Result<T> {
 `Result<int>.CreateT(42)`, `new Result<int>(42)`, and the generated `Result<int>.CreateString("text")` all exist, and the `string` member keeps its implicit operator. `TypeParamRef` above the type parameter count is `TTRESG071`, and on a non-generic union it is `TTRESG072`. `allows ref struct` type parameters are `TTRESG073`. Generic unions using no type parameter are `TTRESG107`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [08]-[REGULAR_UNIONS]
 
 The generator gives the base a private constructor. Types declared outside the base cannot derive from it. Class cases are `sealed` or keep constructors private (`TTRESG054`), and record cases are `sealed` (`TTRESG055`). Non-abstract cases are no less accessible than the base (`TTRESG056`). Nested types not derived from the base are `TTRESG106`. Generated types never receive a primary constructor (`TTRESG043`). Positional record cases are the natural form, and the base declares no primary constructor.
@@ -217,7 +217,7 @@ internal static class RequestOutcomes {
 The `StopAt` overload gives up exhaustiveness: a new case under `Failure` compiles without a new arm in `Group`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [09]-[SWITCH_AND_MAP]
 
 `Switch` has a void overload with one `Action` per case and a value overload with one `Func<TCase, TResult>` per case. State overloads of each pass a `TState` first. `Map` takes one `TResult` value per case. Every argument is named (`TTRESG046`), and a lambda without `static` is `TTRESG1001`. Captured context travels through the state parameter, and the lambdas are `static`. When arms return different types, `TResult` inference fails on the whole call, and an explicit `Switch<TResult>` moves the error to the one arm that differs.
@@ -236,10 +236,10 @@ internal static class PartialMatching {
 
 Every generated `Switch` and `Map` ends in an unreachable branch. On an ad hoc union `Switch` throws `IndexOutOfRangeException` and `Map` throws `InvalidOperationException`. Both carry the text `Unexpected value index '...'.` Regular unions throw `InvalidOperationException` with the text `Unexpected type '...'.` from every arm.
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [10]-[USE_CASES]
 
 Dates known to the year, month, or day are three cases with a shared `Year`. The base holds the shared property and a private constructor, and the record cases pass `Year` up. The hand-written operator takes `DateOnly`.
@@ -290,7 +290,7 @@ internal abstract partial class Jurisdiction {
 `Unknown` has a private constructor: `Instance` is its only value.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [11]-[FRAMEWORK_INTEGRATION]
 
 Ad hoc unions carry no type discriminator. No serializer handles them on their own. `[ObjectFactory<string>]` declares one wire format: `ToValue` renders the union, `Validate` parses it back and returns a `ValidationError` for bad input. With `UseForSerialization` set and `Thinktecture.Runtime.Extensions.Json` referenced, the generator applies a `JsonConverter` attribute with `ThinktectureJsonConverterFactory<TUnion, ValidationError>` to the type. No options registration is needed. `UseForModelBinding = true` and `UseWithEntityFramework = true` reuse the same pair. `string` factories also implement `IParsable<TUnion>`.
@@ -327,7 +327,7 @@ Regular unions are polymorphic hierarchies. System.Text.Json needs one `JsonDeri
 Serilog destructures an ad hoc union to its current `Value` and declines a regular union, which falls through to default object destructuring with a `$type` property. `SkipToString = true` on the union leaves no override, and string rendering logs the type name. Uninitialized struct unions log a capture-exception placeholder instead of failing the log call.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 ## [12]-[DESIGN_RULES]
 
 | [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                        |

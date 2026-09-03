@@ -1,11 +1,16 @@
 ---
-name: dotnet-mapperly
+name: dotnet-coding-mapperly
 description: "Use when mapping between domain types and transport, persistence, or read-model contracts with Mapperly: mapper placement, the conversion allowlist, attributes, options, and projections."
 ---
 
-# [DOTNET_MAPPERLY]
+# [DOTNET_CODING_MAPPERLY]
 
-Covers mapping at the host boundary with `Riok.Mapperly`: where the mapper sits, its configuration levels and conversion allowlist, how a target is constructed and owned, how generated domain types and LanguageExt contexts pass through it, query projections, the mapping method shapes, every attribute and option, the enum and strategy types, conversion priority, and reference handling. Where the boundary sits and which result type crosses it are decisions that `dotnet-coding` states, conversions between result types belong to `dotnet-languageext`, and declaring a value object, smart enum, or union belongs to `dotnet-thinktecture`.
+Covers mapping at the host boundary with `Riok.Mapperly`: where the mapper sits, its configuration levels and conversion allowlist, how a target is constructed and owned, how generated domain types and LanguageExt contexts pass through it, query projections, the mapping method shapes, every attribute and option, the enum and strategy types, conversion priority, and reference handling.
+
+[SKILLS]:
+- `dotnet-coding`: Where the boundary sits and which result type crosses it
+- `dotnet-coding-languageext`: Conversions between result types
+- `dotnet-coding-thinktecture`: Declaring a value object, smart enum, or union
 
 Mapperly generates each mapping at build time as ordinary property assignments, with no reflection, expression compilation, or hidden allocation, and an unmapped member fails the build. It serves performance-critical paths, transport and persistence contracts, read models, message payloads, view models, and AOT compilation, and `EmitCompilerGeneratedFiles` writes the generated mappings under `obj/` as C# source. Mapperly cannot consume another source generator's output from the same compilation, a referenced assembly exposes its generated members as metadata, an automatic conversion can change when a generated type moves between projects, and an explicit mapping declaration keeps project layout from choosing conversions.
 
@@ -85,7 +90,7 @@ Reference handling materializes an external graph that requires cycles or shared
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
 A generated domain type crosses the mapper only through its declared conversions, inbound through the `From` factory and outbound through the key member or the `ToValue` of a declared `[ObjectFactory<T>]`, and `ToString()` does not define that representation. `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception. Mapperly enum configuration applies only to CLR enums, and independent CLR enum contracts map by case-sensitive name or explicit value pairs, never by numeric position.
-- See `dotnet-coding` for the `From` factory that maps `Validate` to `Fin<T>`, and `dotnet-thinktecture` for the lookup that maps `TryGet` to `Option<T>`
+- See `dotnet-coding` for the `From` factory that maps `Validate` to `Fin<T>`, and `dotnet-coding-thinktecture` for the lookup that maps `TryGet` to `Option<T>`
 
 A closed union uses its generated `Switch` as the outer dispatcher, Mapperly maps one known case inside each arm, and case selection stays exhaustive while member translation stays structural. `Map` takes one value per case and receives no mapper call:
 

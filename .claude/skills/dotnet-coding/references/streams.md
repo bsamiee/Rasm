@@ -1,7 +1,7 @@
 # [STREAMS]
 
 Covers values that arrive over time and the process that owns a shared value: the observable model, the 3-layer program structure, stream creation, operators and partitioning, per-item failure, logic across events, backpressure, and the agent model with its replies, entity coordination, and registry.
-- See `dotnet-languageext` for the `Source`, `Sink`, `Conduit`, `Buffer`, and pipe API
+- See `dotnet-coding-languageext` for the `Source`, `Sink`, `Conduit`, `Buffer`, and pipe API
 
 ## [01]-[MODEL]
 

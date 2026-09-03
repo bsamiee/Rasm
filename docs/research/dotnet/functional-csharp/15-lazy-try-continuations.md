@@ -1,4 +1,4 @@
-<!-- Fully integrated, [01.1] into dotnet-languageext/SKILL.md and the rest into dotnet-coding/references/effects.md -->
+<!-- Fully integrated, [01.1] into dotnet-coding-languageext/SKILL.md and the rest into dotnet-coding/references/effects.md -->
 # [LAZY_TRY_CONTINUATIONS]
 
 <!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
@@ -34,7 +34,7 @@ internal static partial class Laziness {
 ```
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ### [01.1]-[LAZY_FALLBACKS]
 
 Eager fallbacks defeat a cache because the database lookup runs even when the cache contains the value:

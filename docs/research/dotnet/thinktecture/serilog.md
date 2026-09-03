@@ -1,7 +1,7 @@
-<!-- Integrated into .claude/skills/dotnet-thinktecture/references/serilog.md -->
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/references/serilog.md -->
 # [SERILOG_DESTRUCTURING]
 
-<!-- Integrated into .claude/skills/dotnet-thinktecture/references/serilog.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/references/serilog.md
 The package `Thinktecture.Runtime.Extensions.Serilog` adds one destructuring policy to a Serilog logger. The policy unwraps a keyed Smart Enum and a simple Value Object to the key. It unwraps an ad hoc union to its current `Value`. Every other type falls through to Serilog's own destructuring.
 
 ## [01]-[REGISTRATION]

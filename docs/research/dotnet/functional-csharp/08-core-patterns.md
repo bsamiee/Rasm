@@ -1,9 +1,9 @@
-<!-- Fully integrated into dotnet-languageext [02], the operations table also feeds the operator table of dotnet-coding -->
+<!-- Fully integrated into dotnet-coding-languageext [02], the operations table also feeds the operator table of dotnet-coding -->
 # [CORE_PATTERNS]
 
 Functional programming applies common operations to values in contexts. `Option<A>` represents optionality, `Seq<A>` represents a sequence of values. Many operations have the same signatures for both.
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [01]-[CORE_OPERATIONS]
 
 | [INDEX] | [OPERATION] | [SIGNATURE]                 | [PURPOSE]                                                      |
@@ -19,7 +19,7 @@ Functional programming applies common operations to values in contexts. `Option<
 In LINQ terminology, `Map` is `Select`, `Bind` is `SelectMany`, and `Filter` is `Where`. Other libraries name `Map` as `fMap`, `Project`, or `Lift`. They name `Bind` as `FlatMap`, `Chain`, `Collect`, or `Then`, and `Iter` as `ForEach`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [02]-[MAP]
 
 For a sequence, `Map` applies a function lazily to every element:
@@ -66,7 +66,7 @@ internal static partial class CorePatterns {
 ```
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [03]-[ITER]
 
 `Map` transforms values. `Iter` performs side effects through an `Action<A>`.
@@ -98,7 +98,7 @@ internal static partial class CorePatterns {
 `Do` and `IfSucc` run only for a value. Later side effects do not run after `None` or a failure.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [04]-[BIND]
 
 `Map` takes a function `A -> B`. With `A -> F<B>`, it produces a nested value:
@@ -163,7 +163,7 @@ internal static partial class CorePatterns {
 `Map` can be derived from `Bind` and `Pure` by lifting the transform result before binding. Direct `Map` implementations can be more efficient. Every monad supplies `Map`, but not every functor supplies `Bind`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [05]-[FILTER]
 
 For an option, `Filter` preserves a present value only when it satisfies the predicate. LINQ `where` also works:
@@ -178,7 +178,7 @@ internal static partial class CorePatterns {
 Both parse failure and predicate failure become `None`, and a valid non-negative integer remains `Some`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [06]-[OPTION_AND_SEQ]
 
 `ToSeq` converts an option to a zero-or-one-element sequence:
@@ -211,7 +211,7 @@ internal static partial class CorePatterns {
 Each `Some(age)` becomes one sequence element, and each `None` contributes no element. The aggregate operates only on disclosed ages. The generated implicit conversion converts `age` to `int`, the sum uses the underlying integer.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [07]-[VALUES_IN_CONTEXT]
 
 Plain values have type `A`. Values in context have type `F<A>`, where the type constructor `F` supplies a computational effect. Computational effects differ from side effects:

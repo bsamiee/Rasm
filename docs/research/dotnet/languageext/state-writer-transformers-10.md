@@ -1,4 +1,4 @@
-<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
+<!-- Ideas integrated into .claude/skills/dotnet-coding-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [STATE_AND_WRITER_TRANSFORMERS]
 
 `StateT` models changing state without mutating a value in place. Each computation receives a state and returns its result with the next state inside another monad:

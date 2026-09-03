@@ -23,12 +23,12 @@ Hostinger's account is a single API with the entry interfaces below, and the wor
 MCP tool names mirror the REST resources one-to-one (`VPS_createSnapshotV1` is `POST /api/vps/v1/virtual-machines/{id}/snapshot`), each REST entry in the references reads as an MCP entry and vice versa. REST authenticates with `Authorization: Bearer $HOSTINGER_API_TOKEN`. Official SDKs (Python, TypeScript, PHP) and the `hapi` CLI wrap the same endpoints.
 
 [REFERENCES]:
-- [01]-[DOMAINS](references/domains.md): registration, nameservers, DNS zone records, forwarding, WHOIS profiles, lock, privacy, transfer, bulk audit
+- [01]-[DOMAINS](references/domains.md): Registration, nameservers, DNS zone records, forwarding, WHOIS profiles, lock, privacy, transfer, bulk audit
 - [02]-[DEPLOYMENT](references/deployment.md): SSH-first Docker deploys: baseline, update order, verification levels, rollback, SSH-versus-API split
-- [03]-[HOSTING](references/hosting.md): websites, WordPress installs, plugins, themes, databases, Node.js apps, cache, cron, PHP, Horizons AI builder
-- [04]-[ECOMMERCE](references/ecommerce.md): stores, products, sales channels, payment and shipping prerequisites
-- [05]-[REACH](references/reach.md): email marketing: sender profiles, deliverability, contacts, behavioral segments
-- [06]-[BILLING](references/billing.md): catalog item-id grammar, payment methods, subscriptions, renewals
+- [03]-[HOSTING](references/hosting.md): Websites, WordPress installs, plugins, themes, databases, Node.js apps, cache, cron, PHP, Horizons AI builder
+- [04]-[ECOMMERCE](references/ecommerce.md): Stores, products, sales channels, payment and shipping prerequisites
+- [05]-[REACH](references/reach.md): Email marketing: sender profiles, deliverability, contacts, behavioral segments
+- [06]-[BILLING](references/billing.md): Catalog item-id grammar, payment methods, subscriptions, renewals
 
 ## [01]-[SAFETY_RULES]
 

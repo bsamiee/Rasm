@@ -27,10 +27,10 @@ Level choice requires knowing what is already on disk: inspect the filesystem fi
 Uncertain CLI flags, command shapes, or resource properties are looked up, never guessed: `npx pulumi <command> --help` documents every flag from the CLI itself, the full reference, provider catalog, and concept docs live at https://www.pulumi.com/docs and https://www.pulumi.com/registry/.
 
 [REFERENCES]:
-- [01]-[CLI_OPERATIONS](references/cli-operations.md): driving one-off resource work from the CLI, and graduating it into a program
-- [02]-[BEST_PRACTICES](references/best-practices.md): rules every non-trivial program obeys before it runs
+- [01]-[CLI_OPERATIONS](references/cli-operations.md): Driving one-off resource work from the CLI, and graduating it into a program
+- [02]-[BEST_PRACTICES](references/best-practices.md): Rules every non-trivial program obeys before it runs
 - [03]-[COMPONENTS](references/components.md): `ComponentResource` anatomy, args interface design, multi-language packaging, and distribution
-- [04]-[AUTOMATION_API](references/automation-api.md): embedding Pulumi in a program, multi-stack orchestration, and inline versus local programs
+- [04]-[AUTOMATION_API](references/automation-api.md): Embedding Pulumi in a program, multi-stack orchestration, and inline versus local programs
 
 ## [01]-[ONE_SHOT_OPERATIONS]
 

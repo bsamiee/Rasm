@@ -69,7 +69,7 @@ internal static class Factories {
 The factory centralizes a general rule and produces reusable specializations.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md and dotnet-languageext/SKILL.md, use and Bracket
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md and dotnet-coding-languageext/SKILL.md, use and Bracket
 ## [05]-[RESOURCE_LIFECYCLES]
 
 Setup, body, and teardown form a higher-order pattern. Parameterize the changing body while keeping resource management in one place:
@@ -151,7 +151,7 @@ The reusable formatting function can be composed with conversions in either dire
 C# has no dedicated syntax for function composition. Use method chaining for value flow and `compose` when the output must be a reusable function.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ### [06.4]-[DO]
 
 `Do` passes the current value to an `Action`, then returns that same value, the chain can continue:
@@ -166,7 +166,7 @@ internal static class Observers {
 It can log or inspect an intermediate result between transformations. `Do` on an `Option` runs the action on `Some`, and `Do` on a `Seq` runs it for each element before the `Seq` returns.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ### [06.5]-[UNLESS]
 
 `unless` runs an effect only when its flag is false, and `when` runs it only when the flag is true:

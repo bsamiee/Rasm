@@ -15,7 +15,7 @@ description: >-
 Topology (projects, environments, configs, service tokens, directory scopes) lives as IaC entries in `Parametric_Forge/services/topology.ts`, materialized by `repo.ts` and applied by `driver.ts` over the Pulumi Automation API. `doppler` reads and writes secret values against declared configs, `doppler run` and owner-specific downloads inject values at the consuming process, `~/.doppler` holds CLI scope and authentication state.
 
 [REFERENCES]:
-- [01]-[PATTERNS](references/patterns.md): template rendering, mounts, multi-command wrappers, MCP server entry, plan-gated features
+- [01]-[PATTERNS](references/patterns.md): Template rendering, mounts, multi-command wrappers, MCP server entry, plan-gated features
 
 ## [01]-[RESOLUTION]
 

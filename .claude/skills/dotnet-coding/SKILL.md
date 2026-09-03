@@ -5,20 +5,22 @@ description: "Use when writing or reviewing C# domain code: signatures, purity, 
 
 # [DOTNET_CODING]
 
-Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, PURITY, BOUNDARY): how a signature is shaped, what stays pure, which result or effect type a function returns, which operator joins two steps, and where the host boundary sits. LanguageExt, Thinktecture, and Mapperly are part of the language here, every example uses their types as vocabulary, and each sibling skill owns its package:
-- `dotnet-languageext` owns the library types and their operations: conversions, `Catch` overloads, schedules, traits and `K<F, A>`, transformers, collections, `Atom` and `Ref`, `Source` and `Conduit`, runtimes and `Has`
-- `dotnet-thinktecture` owns declaring value objects, smart enums, and unions, their generated API, settings, and framework integration
-- `dotnet-mapperly` owns mapping at the host boundary
+Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, PURITY, BOUNDARY): how a signature is shaped, what stays pure, which result or effect type a function returns, which operator joins two steps, and where the host boundary sits. LanguageExt, Thinktecture, and Mapperly are part of the language here, every example uses their types as vocabulary, and each package has its own skill:
+
+[SKILLS]:
+- `dotnet-coding-languageext`: The library's types and operations, conversions, recovery, `IO` execution, traits, transformers, collections, streams
+- `dotnet-coding-thinktecture`: Declaring value objects, smart enums, and unions, their generated API, settings, factories, and integrations
+- `dotnet-coding-mapperly`: Mapping between domain types and host contracts, the conversion allowlist, attributes, options, projections
 
 [REFERENCES]:
-- [01]-[FUNCTIONS](references/functions.md): Combinators, functions as data, specialization by `par` and `curry`, delegate adapters, the composition root, the end-to-end flow and its limits
-- [02]-[SEQUENCES](references/sequences.md): Deferral and materialization, named stages, `Fold` as every reduction with the `FoldBack` derivation, indexed replacement, adjacent pairs, the text-to-report pipeline
-- [03]-[RESULTS](references/results.md): Validators and their folds, fail-fast workflows, lifting into an effect, host translation, union outcomes and folds, laws and property tests
-- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions, shared-mutation hazards, values against entities, a domain snapshot with `With`, copy techniques and their limits, the cost model, persistent lists and trees
-- [05]-[EFFECTS](references/effects.md): Isolating I/O around a pure core, value and effect injection, deferral with `IO` and `Try`, `Reader` environments, resource scopes and their order, failure policies, traversal shapes, stacked effects
-- [06]-[STATE](references/state.md): The transition shape, a cache as `State` and `StateT`, explicit-seed generators, tree numbering, the loop forms with `Trampoline`, `Monad.recur`, and `unfold`
-- [07]-[STREAMS](references/streams.md): The observable model and its 3 layers, creation, operators and partitioning, per-item failure, transitions and backpressure, agents, replies, entity processes and their registry
-- [08]-[EVENT_SOURCING](references/event-sourcing.md): Append-only storage, events as a closed union, purpose-specific snapshots, one transition for live and replayed events, reconstruction as `Option`, the command side over `IO`, projections by `Fold` and `Choose`, fit against valid-time storage
+- [01]-[FUNCTIONS](references/functions.md): Combinators, functions as data, specialization, delegate adapters, the composition root, end-to-end flows
+- [02]-[SEQUENCES](references/sequences.md): Deferral and materialization, named stages, `Fold` reductions, indexed replacement, adjacent pairs, a pipeline
+- [03]-[RESULTS](references/results.md): Validator folds, fail-fast workflows, lifting into an effect, host translation, union folds, law tests
+- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions, shared mutation, `With`, cost model, persistent lists and trees
+- [05]-[EFFECTS](references/effects.md): I/O around a pure core, injection, `IO` and `Try`, `Reader`, resource scopes, failure policies, stacked effects
+- [06]-[STATE](references/state.md): The transition shape, a cache as `State` and `StateT`, seeded generators, tree numbering, the loop forms
+- [07]-[STREAMS](references/streams.md): The observable model, creation, operators, per-item failure, backpressure, agents, entity processes
+- [08]-[EVENT_SOURCING](references/event-sourcing.md): Append-only storage, events as a union, transitions, reconstruction, command and query sides
 
 Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as bare names. `Seq<A>` is the default collection in domain code, `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types, NodaTime's `Instant`, `LocalDate`, and `Duration` are the time types with the clock injected as `IClock` or `Func<Instant>`, and value objects, smart enums, and unions come from the generator.
 
@@ -192,7 +194,7 @@ Seq<int> odd = values.Filter(static x => x % 2 == 1); // 7, 1
 ```
 
 Two readers can observe the same stable value safely, while a concurrent reorder of a shared list during a sum gives the reader an inconsistent traversal, and a separate ordered view removes the interference. Choose the collection by the operation the domain performs most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
-- See `dotnet-languageext` for the construction, memoization, folds, sequence operations, and compiler pitfalls of each collection type
+- See `dotnet-coding-languageext` for the construction, memoization, folds, sequence operations, and compiler pitfalls of each collection type
 
 ## [04]-[RESULTS]
 

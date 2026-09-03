@@ -1,4 +1,4 @@
-<!-- Fully integrated into dotnet-coding/SKILL.md, dotnet-coding/references/results.md, and dotnet-languageext/SKILL.md, each section carries its marker -->
+<!-- Fully integrated into dotnet-coding/SKILL.md, dotnet-coding/references/results.md, and dotnet-coding-languageext/SKILL.md, each section carries its marker -->
 # [ERROR_HANDLING]
 
 <!-- Integrated into .claude/skills/dotnet-coding/references/results.md
@@ -141,7 +141,7 @@ API designs are:
 Mapping business validation to an HTTP error (400) has tradeoffs: the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt. The choice is an API-design decision.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [06]-[ERROR_ADAPTATION]
 
 `MapFail` changes only the `Error`, and `BiMap` maps both sides:

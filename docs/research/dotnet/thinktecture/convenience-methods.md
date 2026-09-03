@@ -1,4 +1,4 @@
-<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-thinktecture/SKILL.md
 # [CONVENIENCE_METHODS]
 
 `Thinktecture.Runtime.Extensions` provides a small set of plain static members beside its generators:

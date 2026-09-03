@@ -1,4 +1,4 @@
-<!-- Integrated into .claude/skills/dotnet-languageext/references/api.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/references/api.md
 # [LANGUAGEEXT_API]
 
 ## [01]-[PUBLIC_TYPES]

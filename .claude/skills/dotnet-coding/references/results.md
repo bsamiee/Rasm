@@ -1,6 +1,6 @@
 # [RESULTS]
 
-Covers the result-type flows: validators and their combination, `Fin` workflows and application inside an effect, translation at the host, domain unions with their folds, and the laws with their property tests. Which type a function returns and which operator joins two steps are decisions in `dotnet-coding`, and how each operation and recovery overload behaves is in `dotnet-languageext`.
+Covers the result-type flows: validators and their combination, `Fin` workflows and application inside an effect, translation at the host, domain unions with their folds, and the laws with their property tests. Which type a function returns and which operator joins two steps are decisions in `dotnet-coding`, and how each operation and recovery overload behaves is in `dotnet-coding-languageext`.
 
 ## [01]-[VALIDATION]
 
@@ -270,7 +270,7 @@ Monad left identity:  Pure(t).Bind(f) == f(t)
 Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 ```
 
-The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion, and associativity is why a multi-argument function enters a monadic pipeline: the right-associated form lets the innermost function close over every earlier value, and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run these checks, and their API sits in `dotnet-languageext`.
+The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion, and associativity is why a multi-argument function enters a monadic pipeline: the right-associated form lets the innermost function close over every earlier value, and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run these checks, and their API sits in `dotnet-coding-languageext`.
 
 Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and domain invariants (removing items from a cart never increases its total), where random sampling raises confidence without proving a universal law:
 

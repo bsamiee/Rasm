@@ -1,9 +1,9 @@
-<!-- Fully integrated into dotnet-languageext and its traits reference, [05] into dotnet-coding -->
+<!-- Fully integrated into dotnet-coding-languageext and its traits reference, [05] into dotnet-coding -->
 # [LANGUAGEEXT_TRAITS_AND_TRANSFORMERS]
 
 Traits are interfaces with static abstract members. Witness types implement the trait for one type constructor. Generic code names the witness in a constraint and calls the trait members through it.
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [01]-[HIGHER_KINDS]
 
 `K<F, A>` is an empty interface with two type arguments. `F` is the witness for the type constructor and `A` is the element type. `Option<A>` implements `K<Option, A>`, and `Seq<A>` implements `K<Seq, A>`. Functions constrained by `F : Functor<F>` can call `Map` on any `K<F, A>`. `.As()` restores the concrete type at the API boundary.
@@ -19,7 +19,7 @@ internal static class HigherKinds {
 ```
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [02]-[TRAITS]
 
 The table lists the members used in the code block.
@@ -42,7 +42,7 @@ The witness is the concrete type without its last type argument. The samples run
 `Fallible<E, F>` defines `Fail` and a `Catch` overload that selects errors with a predicate. `Fallible<F>` fixes `E` to `Error`. The `Catch` overloads that select by code and by error value are extensions on the same constraint. The `Recovered` method works with both `Fin` and `IO` through the error predicate. `Alternative<F>` extends `Choice<F>`, making `Choose` the generic form of the operator that `Chosen` shows on `Option`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/references/traits-and-transformers.md
 ```csharp
 internal sealed record Rejected() : Expected("value rejected", 2301);
 internal sealed record Settings(int Factor);
@@ -86,13 +86,13 @@ internal static class Traits {
 ```
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [03]-[LAWS]
 
 `FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>`. Failed laws contain an accumulated `Error`, and `IsSuccess` indicates the result. The checks hold for `Option` and `Fin`. `MonadLaw<IO>.validate()` throws inside the library and is not run.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/references/traits-and-transformers.md
 ```csharp
 internal static class Laws {
     public static Validation<Error, Unit> OptionFunctor => FunctorLaw<Option>.validate(Some(1));
@@ -105,7 +105,7 @@ internal static class Laws {
 ```
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [04]-[TRANSFORMERS]
 
 Transformers stack one concern over an inner monad `M`. `OptionT<M, A>` holds `K<M, Option<A>>`. `FinT<M, A>` holds `K<M, Fin<A>>` and exposes it as `runFin`. `EitherT<L, M, A>` holds `K<M, Either<L, A>>`. `ValidationT<Error, IO, A>` accumulates inside an effect and is used only when errors must accumulate inside that effect. `ReaderT<Env, M, A>` holds `Func<Env, K<M, A>>`. `WriterT<W, M, A>` accumulates `W` beside the value, and `tell` appends one item. `RWST<R, W, S, M, A>` combines `ask`, `tell`, `get`, and `put` over one `M`.
@@ -117,7 +117,7 @@ Transformers stack one concern over an inner monad `M`. `OptionT<M, A>` holds `K
 `Counter<A>` is a domain wrapper around `StateT<int, IO, A>` and implements `K<Counter, A>`. The witness `Counter` implements `Deriving.Monad<Counter, StateT<int, IO>>` and `Deriving.Stateful<Counter, StateT<int, IO>, int>` with `Transform` and `CoTransform` alone. `Transform` unwraps to the stack and `CoTransform` wraps the result. Functions constrained on `Monad<M>` or `Stateful<M, int>` run on `Counter`, including `Tick<Counter>`. `Deriving.MonadIO` requires the stack to implement `MonadIO`. Because `StateT` does not, the wrapper derives only `Monad` and `Stateful`. The wrapper lifts an effect through `CoTransform` over `StateT.liftIO` because the stack supplies no `LiftIO`.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/references/traits-and-transformers.md
 ```csharp
 internal sealed record Account(Guid Id, decimal Balance);
 internal sealed record Guest(string Name);
@@ -190,7 +190,7 @@ internal static class Counters {
 ```
 -->
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md, the PartitionFallible mechanics into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md, the PartitionFallible mechanics into .claude/skills/dotnet-coding-languageext/SKILL.md
 ## [05]-[TRAVERSAL_POLICY]
 
 The dependency structure and the concurrency bound determine the traversal.

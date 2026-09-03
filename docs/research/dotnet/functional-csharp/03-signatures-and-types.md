@@ -1,4 +1,4 @@
-<!-- Fully integrated, [04.1] into dotnet-languageext and the rest into dotnet-coding/SKILL.md, the Timing snippet of [03] and the Match snippet of [04] stay as prose rules, and the optional-parameter null exception of [07] is superseded by `Option<A> = default` parameters -->
+<!-- Fully integrated, [04.1] into dotnet-coding-languageext and the rest into dotnet-coding/SKILL.md, the Timing snippet of [03] and the Match snippet of [04] stay as prose rules, and the optional-parameter null exception of [07] is superseded by `Option<A> = default` parameters -->
 # [SIGNATURES_AND_TYPES]
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
@@ -137,7 +137,7 @@ internal static class Greetings {
 Changing a required `string` property to `Option<string>` is a breaking change: code that treats the property as a `string` stops compiling until it handles absence. This trades possible runtime `NullReferenceException`s for compile-time errors that require explicit handling.
 -->
 
-<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
+<!-- Integrated into .claude/skills/dotnet-coding-languageext/SKILL.md
 ### [04.1]-[IMPLEMENTATION]
 
 `Option<A>` is one readonly struct. It holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, and selects the case through `Match`. The Prelude supplies `Some(x)` and `None`. The implicit conversion from `A` maps `null` to `None`, and `Optional(x)` does the same when nullable input enters the domain. `Some(x)` wraps the value as given and is not a null check:

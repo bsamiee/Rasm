@@ -1,4 +1,4 @@
-<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
+<!-- Ideas integrated into .claude/skills/dotnet-coding-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [APPLICATIVES]
 
 Applicative functors extend a functor with contextual function application. They combine values in a context (`Maybe`, `Either`, `Option`, `Seq`, `IO`) without the sequential dependencies of monadic composition.

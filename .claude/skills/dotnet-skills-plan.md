@@ -1,6 +1,6 @@
 # [DOTNET_SKILLS_PLAN]
 
-Four skills form the C# coding standard: `dotnet-coding`, `dotnet-languageext`, `dotnet-thinktecture`, and `dotnet-mapperly`. Their material is the research under `docs/research/dotnet/`, and this plan records where each piece of that material belongs, how the skills divide the ground, the process that moves content from research into a skill, and the findings from the first review of `dotnet-coding/SKILL.md`.
+Four skills form the C# coding standard: `dotnet-coding`, `dotnet-coding-languageext`, `dotnet-coding-thinktecture`, and `dotnet-coding-mapperly`. Their material is the research under `docs/research/dotnet/`, and this plan records where each piece of that material belongs, how the skills divide the ground, the process that moves content from research into a skill, and the findings from the first review of `dotnet-coding/SKILL.md`.
 
 ## [01]-[SOURCES]
 
@@ -9,9 +9,9 @@ The research folders were extracted from instructional sources (2 textbooks, an 
 | [INDEX] | [FOLDER]            | [CONTENT]                                                       | [OWNER]                                     |
 | :-----: | :------------------ | :-------------------------------------------------------------- | :------------------------------------------ |
 |  [01]   | `functional-csharp` | Files 01 to 20 from the textbooks, 21 to 24 the library catalog | `dotnet-coding`, 21 to 24 seed languageext  |
-|  [02]   | `languageext`       | 10 articles deriving traits and transformers on toy types, API  | `dotnet-languageext` references, ideas only |
-|  [03]   | `thinktecture`      | Value objects, smart enums, unions, factories, Serilog, settings | `dotnet-thinktecture`                       |
-|  [04]   | `mapperly`          | Boundary mapping                                                | `dotnet-mapperly`                           |
+|  [02]   | `languageext`       | 10 articles deriving traits and transformers on toy types, API  | `dotnet-coding-languageext` references, ideas only |
+|  [03]   | `thinktecture`      | Value objects, smart enums, unions, factories, Serilog, settings | `dotnet-coding-thinktecture`                       |
+|  [04]   | `mapperly`          | Boundary mapping                                                | `dotnet-coding-mapperly`                           |
 
 The `languageext` folder is not higher-order-function material. Its toy `Maybe`, `List`, and `MaybeT` code must appear in no skill, because a hand-rolled option type beside `Option<A>` is the mixed approach the standard forbids. The ideas survive, rewritten on `Option`, `Seq`, and `IO`: applicative versus monadic evaluation structure, traversal semantics per applicative, transformer layer order under `Run`, domain-monad wrappers with `Deriving`, forked `StateT` state that does not merge back, and `Writer` output combined in `tell`. The higher-order-function material for `dotnet-coding` is files 06, 07, and 09.
 
@@ -19,9 +19,9 @@ The `languageext` folder is not higher-order-function material. Its toy `Maybe`,
 
 Each skill owns one kind of fact, and a fact appears in the skill that owns it and nowhere else:
 - `dotnet-coding` owns decisions: which type, which operator, where the boundary sits, what stays pure, how a signature is shaped
-- `dotnet-languageext` owns the library's types and their operations: conversions, `Catch` overloads, schedule algebra, traits and `K<F, A>`, transformers, collections, `Atom` and `Ref`, `Source` and `Conduit`, runtimes and `Has`
-- `dotnet-thinktecture` owns declaring value objects, smart enums, and unions, their generated API, settings, and framework integration
-- `dotnet-mapperly` owns mapping at the host boundary
+- `dotnet-coding-languageext` owns the library's types and their operations: conversions, `Catch` overloads, schedule algebra, traits and `K<F, A>`, transformers, collections, `Atom` and `Ref`, `Source` and `Conduit`, runtimes and `Has`
+- `dotnet-coding-thinktecture` owns declaring value objects, smart enums, and unions, their generated API, settings, and framework integration
+- `dotnet-coding-mapperly` owns mapping at the host boundary
 
 The standard treats the 3 packages as part of the language, and that creates a matrix: the core files had to be written with each package in mind, and each package file had to be written with the core and the other packages in mind. The rule that keeps the matrix manageable is that a snippet stays on its own subject and does not extend to show another package, but when the functionality it shows belongs to a package, it uses that package. Both failures are visible and both are wrong: a package forced into a snippet where it does not belong, and a snippet that hand-rolls what a package owns (a bool flag where a union belongs, a `List<T>` where `Seq<A>` belongs, an exception where `Fin<A>` belongs). File 04 showed the first failure, its EXPLICIT_ALTERNATIVES section explained `[Union]` mechanics and listed the runtime shape of every result type inside a language-features file.
 
@@ -64,7 +64,7 @@ A skill drives behavior, it is instructions to an agent and not a textbook. Fram
 |  [05]   | RESULTS      | TOTALITY, FLOW, INDEPENDENCE | Type-per-concern table, boundary rule, operator selection, `Expected`, unions, exceptions |
 |  [06]   | EFFECTS      | PURITY, BOUNDARY             | `IO` as the effect type, injection rule, `use` and `Bracket`, retry, traversal policy     |
 
-Decision tables and rule lists pass the placement test, worked flows fail it. File 08 fails it: its operations table merges into the operator table of `SKILL.md`, and its tutorial is `dotnet-languageext` material. Each reference starts as a stub with an HTML comment naming the research sections it draws from, and the stub fills when its research is restructured.
+Decision tables and rule lists pass the placement test, worked flows fail it. File 08 fails it: its operations table merges into the operator table of `SKILL.md`, and its tutorial is `dotnet-coding-languageext` material. Each reference starts as a stub with an HTML comment naming the research sections it draws from, and the stub fills when its research is restructured.
 
 ## [05]-[DISPOSITION]
 
@@ -92,13 +92,13 @@ Each `functional-csharp` file splits between `SKILL.md` and one of 8 references:
 |   [18]  | 18 async      | `IO` as the effect type, failure policies, traversal policy        | effects: stacked effects, host exits               |
 |   [19]  | 19 observ.    | Fit-and-limits list                                                | streams: operators, per-item `Fin`, backpressure   |
 |   [20]  | 20 agents     | Synchronization strategy table                                     | streams: agent, entity process, registry           |
-|   [21]  | 21 to 24      | Type table, boundary rule, anti-pattern table, collection table    | Seed of `dotnet-languageext`                       |
+|   [21]  | 21 to 24      | Type table, boundary rule, anti-pattern table, collection table    | Seed of `dotnet-coding-languageext`                       |
 
 Nothing in the remaining content of file 04 is needed. Its first EXPLICIT_ALTERNATIVES sentence is the "invalid states unrepresentable" bullet of CLAUDE.md and design rule 1 of file 10, its `[Union]` sentence is thinktecture, and its shape sentence is the SHAPE column of the table in file 21. C# has no active patterns, the only user code that runs inside a pattern is `Deconstruct`, and it cannot fail, so the C# idiom for that intent is a classifier that returns `Option<A>` or a closed union and is matched afterward, which file 10 shows with `Classify` returning `UserInput`.
 
 ## [06]-[SEQUENCE]
 
-The work runs as a sequence of forked agents, each with one slice, a commit between forks, and a report of at most 12 lines (files touched, facts moved, plan adjustments, open questions). The sibling skills come before the `dotnet-coding` references, because the references must defer library semantics to `dotnet-languageext` and generator mechanics to `dotnet-thinktecture`, and that boundary is visible only once those skills exist:
+The work runs as a sequence of forked agents, each with one slice, a commit between forks, and a report of at most 12 lines (files touched, facts moved, plan adjustments, open questions). The sibling skills come before the `dotnet-coding` references, because the references must defer library semantics to `dotnet-coding-languageext` and generator mechanics to `dotnet-coding-thinktecture`, and that boundary is visible only once those skills exist:
 
 | [INDEX] | [FORK]                    | [SOURCES]                              | [OUTPUT]                                               |
 | :-----: | :------------------------ | :------------------------------------- | :----------------------------------------------------- |
@@ -111,7 +111,7 @@ The work runs as a sequence of forked agents, each with one slice, a commit betw
 |   [07]  | sequences, immutable data | 05, 13, 24 [02] to [05]                | 2 references, skill adjustments                        |
 |   [08]  | state, streams            | 16, 17, 19, 20, 24 [06]                | 2 references, skill adjustments                        |
 |   [09]  | event sourcing            | 14                                     | `event-sourcing.md`                                    |
-|   [10]  | languageext references    | `languageext` folder on the real types | references under `dotnet-languageext`                  |
+|   [10]  | languageext references    | `languageext` folder on the real types | references under `dotnet-coding-languageext`                  |
 |   [11]  | consistency pass          | All 4 skills                           | Duplicates removed, pointers aligned, descriptions set |
 
 Each fork reads the plan, the current state of its target and of `dotnet-coding/SKILL.md`, `git diff --stat HEAD~1`, and its research sections, then works in small moves: one section, comment the research out, read again. A fork that finds a rule in its slice that belongs in a skill moves it there, and a fork that finds the plan wrong adjusts the plan and says so in its report.

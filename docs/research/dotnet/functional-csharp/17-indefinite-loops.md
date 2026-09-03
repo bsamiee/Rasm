@@ -89,7 +89,7 @@ The stopping predicate is checked before each transition. The final state is ret
 -->
 
 <!-- Integrated into .claude/skills/dotnet-coding/references/state.md
-the `tail` paragraph and `RepeatUntil` sentence belong to dotnet-languageext [04.3]
+the `tail` paragraph and `RepeatUntil` sentence belong to dotnet-coding-languageext [04.3]
 ## [03]-[MONAD_RECUR]
 
 `Monad.recur` exposes an expression-oriented interface while the library contains the mutation. The state function returns `Next.Loop` with the next state or `Next.Done` with the result:

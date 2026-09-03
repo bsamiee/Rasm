@@ -8,7 +8,7 @@ description: "Use when deciding which MSBuild file owns a property, item, condit
 Covers the evaluation phase: import order, conditions, properties, items, and the placement of each declaration in `.props`, `.targets`, `.csproj`, `Directory.Build.*`, and `Directory.Packages.props`.
 
 [REFERENCES]:
-- [01]-[MULTI_LEVEL_EXAMPLES](references/multi-level-examples.md): Root, inner, and tests `Directory.Build.props` files, and a before/after of settings centralized out of project files
+- [01]-[MULTI_LEVEL_EXAMPLES](references/multi-level-examples.md): Root, inner, and tests `Directory.Build.props` files, and settings centralized out of project files
 
 ## [01]-[EVALUATION_ORDER]
 

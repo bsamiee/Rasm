@@ -1,4 +1,4 @@
-<!-- Fully integrated into dotnet-coding/SKILL.md, dotnet-coding/references/results.md, and dotnet-languageext/SKILL.md, each section carries its marker -->
+<!-- Fully integrated into dotnet-coding/SKILL.md, dotnet-coding/references/results.md, and dotnet-coding-languageext/SKILL.md, each section carries its marker -->
 # [DISCRIMINATED_UNIONS]
 
 <!-- Integrated into .claude/skills/dotnet-coding/references/results.md
