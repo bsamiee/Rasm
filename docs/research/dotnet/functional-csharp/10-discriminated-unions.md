@@ -1,5 +1,7 @@
+<!-- Fully integrated into dotnet-coding/SKILL.md, dotnet-coding/references/results.md, and dotnet-languageext/SKILL.md, each section carries its marker -->
 # [DISCRIMINATED_UNIONS]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [01]-[EXPLICIT_CASES]
 
 Discriminated unions are types holding exactly one of several alternatives. Consumers pattern-match the value to discover its case and reach that case's data. Components that do not care which case they have can pass the union unchanged.
@@ -7,6 +9,7 @@ Discriminated unions are types holding exactly one of several alternatives. Cons
 F# supports discriminated unions directly. The union generator supplies them in C#. `[Union]` marks an abstract partial record, each case is a sealed record nested inside it, and the generated `Switch` takes one arm per case.
 
 Cases can be unrelated alternatives that share only an API type or collection.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [02]-[ALTERNATIVES_OVER_FLAGS]
@@ -68,6 +71,7 @@ internal static class Offerings {
 
 `BritishName` can carry first, middle, and last names with an honorific placed first, and a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. The abstract `Name` permits one collection, while variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [03]-[OUTCOMES_AS_CASES]
 
 Function return types must describe every expected outcome. Looking up a person has meaningful outcomes:
@@ -104,7 +108,9 @@ internal static class Mail {
     public static IO<Unit> SendEmail(Action<string> transport, string address) => IO.lift(() => transport(address));
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [04]-[INPUT_REFINEMENT]
 
 Convert the console result to typed application data in these stages:
@@ -136,13 +142,17 @@ internal static class Input {
 ```
 
 The `Catch` overload with a predicate maps the captured error to the `ConsoleError` case at the boundary. The prompt reads again after any case. The console failure is a case the prompt matches. Code that requires an integer handles `IntegerInput` directly and can recursively prompt for the other cases. Parsing and exception handling are not duplicated at every call site. The side-effecting read is separate from deterministic classification.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [05]-[GENERIC_UNIONS]
 
 `Option<A>`, `Fin<A>`, `Either<L, R>`, and `Validation<Error, A>` are the generic unions for absence, failure with a reason, two value types, and accumulated failures. Empty `Seq<A>` is a result, not absence. Producers wrap a collection in `Option` only where the consumer responds differently to no collection and to an empty one. Producers that map an operational failure to `None` hide the failure from the consumer.
 
 `Option` and `Fin` are closed, a `Match` over their cases is total.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [06]-[RECURSIVE_CASES]
 
 Union cases can carry the union type itself. Such a union models hierarchical data: a value is a scalar or a container of further values of the same type.
@@ -220,6 +230,7 @@ internal static partial class Folds {
 `Depth` replaces each leaf with one and each container with one more than its deepest child.
 
 The remaining operations follow the return-type rules. Member lookup passes the requested key as the state and returns `Option<Json>`: an `Obj` without the key and every other case answer `None`. Typed extraction returns `Fin<A>` with distinct `Expected` records, a consumer classifies a wrong shape by code. Operations that preserve a case take the case type directly when the caller already holds one, and the signature removes the wrong-shape error. When the shape arrives as data, the operation covers the union and returns a `Fin` failure for every other case.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [07]-[DESIGN_RULES]

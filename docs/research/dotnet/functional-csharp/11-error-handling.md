@@ -1,5 +1,7 @@
+<!-- Fully integrated into dotnet-coding/SKILL.md, dotnet-coding/references/results.md, and dotnet-languageext/SKILL.md, each section carries its marker -->
 # [ERROR_HANDLING]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [01]-[ERRORS_IN_THE_RETURN_TYPE]
 
 Operations that can predictably fail return both outcomes as data. The signature states the failure behavior, callers reason about it locally, and composition controls the flow. Exceptions, by contrast, transfer control to a handler up the call stack or escape uncaught. Understanding the next step requires tracing the surrounding call paths.
@@ -27,7 +29,9 @@ internal static class Calculator {
 ### [01.1]-[RESULT_AND_ERROR_FIELDS]
 
 Wrappers around boundary calls have two failure modes. Returning `default` on failure swallows the exception and makes failure indistinguishable from a valid default result. Separate result and error fields preserve both outcomes, but every success carries an unused error field and every failure an unused result field. Only mutually exclusive cases remove the invalid combinations.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [02]-[CORE_OPERATIONS]
 
 `Fin<A>` applies functions only to `Succ`. `Fail` bypasses the function and preserves its error.
@@ -51,7 +55,9 @@ internal static class Operations {
 - `Match` handles both cases and returns a value outside `Fin`
 
 `Fin<A>` has no `Where`. False predicates must produce `Fail`, but a predicate supplies only `bool` and no `Error`. Turn the predicate into a validator that constructs a specific error, then compose it with `Bind`. Inside a LINQ query the same check is a `guard` clause.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [03]-[FAIL_FAST_WORKFLOWS]
 
 `Bind` produces a fail-fast pipeline. Each `Succ` passes its value to the next step. The first `Fail` skips all later steps and reaches the final handler.
@@ -82,7 +88,9 @@ internal static class Workflow {
 Use `Unit` when success has no payload. The pipeline returns an explicit success value instead of relying on `void` or implicit absence.
 
 All bound functions share the failure type `Error`. Choose the domain errors for the workflow before composing it.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [04]-[TYPED_VALIDATION]
 
 Prefer distinct error types over strings. Strings cannot carry structured error details. Specific `Expected` records give each failure a distinct type and code and can carry additional data. Each package declares the record beside the function that returns it or the value object it protects.
@@ -110,7 +118,9 @@ internal static class Transfers {
 ```
 
 Each validator has the same shape: accept the request, return it on success, or return the error for the violated rule. The date validator checks that the transfer is in the future and receives the clock as an argument. The BIC validator checks the identifier's format. Returning the request in `Succ` makes it available to the next validator. `Codes` classes hold the codes of one package, and a consumer classifies an error with `Is`, `HasCode`, or `IsType<E>`, never by its message text.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [05]-[ABSTRACTION_SCOPE]
 
 Within the core, compose with `Map` and `Bind`. Translate only in an outer adapter when the protocol, UI, or host requires another response type. Choose the result type at the input boundary and keep it through the domain. Use `Match`, `RunSafe`, and `IfFail` only at host boundaries. Every library returns its result type with its own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation.
@@ -129,7 +139,9 @@ API designs are:
 - Always return a response with a successful transport status and a body that is a result DTO with `Succeeded` and either `Data` or `Error`, which unlike `Fin` exposes its values directly for serialization and client access
 
 Mapping business validation to an HTTP error (400) has tradeoffs: the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt. The choice is an API-design decision.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [06]-[ERROR_ADAPTATION]
 
 `MapFail` changes only the `Error`, and `BiMap` maps both sides:
@@ -152,7 +164,9 @@ internal static class Adapters {
 ```
 
 Each package translates the errors of a dependency that it reacts to into its own `Expected` record with `MapFail`, keeps the original as `Inner`, and passes every other error through unchanged. `Error.New(string, Error)` has code `0`, and `IsType`, `HasCode`, `Is`, and `Catch` do not descend into `Inner`, only the typed record stays classifiable. `Catch(code, f)` selects by code, `Catch(Error, f)` by value, and `Catch(predicate, f)` by a test on the error.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [07]-[BUSINESS_AND_TECHNICAL_FAILURES]
 
 Use two types with `Fin<A>` to distinguish business failures from technical failures:
@@ -206,6 +220,7 @@ The tuple `Apply` combines the independent validators and reports both violation
 - `Succ(unit)`: return success
 
 In the same `Match`, the host reads individual accumulated errors with `Filter<E>`, `Count`, and `Head`.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [08]-[EXCEPTION_POLICY]

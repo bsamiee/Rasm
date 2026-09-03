@@ -1,5 +1,7 @@
+<!-- Fully integrated into dotnet-coding/SKILL.md, dotnet-coding/references/results.md, and dotnet-languageext/SKILL.md, each section carries its marker -->
 # [APPLICATIVES_AND_LAWS]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [01]-[CORE_IDEA]
 
 The core forms of `Map` and `Bind` accept unary functions, but functions can require several arguments. Currying turns an n-argument function into a sequence of unary functions, and each argument can be supplied while the computation remains inside an effect (`Option<T>`, `Validation<Error, T>`).
@@ -9,7 +11,9 @@ Composition models apply:
 - Monadic composition uses `Bind` when a later computation depends on an earlier result
 
 Validation's applicative flow can combine all available failures. Its monadic flow stops before later work is evaluated after a failure.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [02]-[APPLICATION_INSIDE_EFFECTS]
 
 ```csharp
@@ -41,7 +45,9 @@ Option<int> viaTuple = (Some(3), Some(4)).Apply(static (x, y) => x * y).As();
 ```
 
 The result is `Some` only when both inputs are `Some`. Higher-arity overloads reuse the unary `Apply` by currying the wrapped function. The tuple `Apply` takes a tuple of independent values, arity two to ten, and one uncurried function. `As()` returns the concrete `Option<int>` from the `K<Option, int>` that the trait method returns.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [03]-[LIFT_THEN_APPLY]
 
 `Pure` can lift a function value directly into an effect. Repeated `Apply` calls then supply its arguments:
@@ -61,7 +67,9 @@ Option<int> applied = lifted.Apply(Some(3)).Apply(Some(4)).As();
 ```
 
 Lifting the function first mirrors ordinary partial application and is easier to read.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [04]-[ABSTRACTION_HIERARCHY]
 
 | [INDEX] | [ABSTRACTION]    | [OPERATIONS]    | [CAPABILITY]                                                               |
@@ -75,7 +83,9 @@ The capabilities form a hierarchy: `Functor < Applicative < Monad < Fold`.
 The stronger abstractions can define weaker operations: `Map(opt, f)` can be expressed as `Pure(f).Apply(opt)`, `Apply(optF, optT)` can bind the argument and then the function inside the effect before applying it, and `Fold` can define `Bind`. The traits `Functor<F>`, `Applicative<F>`, and `Monad<M>` capture these abstractions over `K<F, A>`, and each effect implements them. LINQ query syntax comes from `Monad<M>`.
 
 Even when `Apply` can be derived from `Bind`, a dedicated implementation can be more efficient and preserve semantics (accumulating independent validation errors) that a short-circuiting `Bind` cannot provide.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [05]-[LAWS]
 
 ### [05.1]-[FUNCTOR_LAWS]
@@ -133,7 +143,9 @@ Validation<Error, Unit> monad = MonadLaw<Fin>.validate();
 Checking only successful contained values is not a complete law check. `None` and failure behavior must also remain equivalent.
 
 Associativity explains how multi-argument functions enter a monadic pipeline: the right-associated form lets the innermost function close over values produced by earlier steps. LINQ query syntax expresses the same mechanism without directly nested `Bind` calls.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [06]-[LINQ_SYNTAX]
 
 C# translates LINQ query clauses into method calls by name and signature. Custom effects do not need to implement `IEnumerable<T>`.
@@ -169,7 +181,9 @@ Other clauses are opt-in:
 - `let` is expressed with `Select` and works once mapping is available
 - `where` requires `Where`, which `Option` supplies beside `Filter`
 - Collection-specific clauses (`orderby`) need not exist for `Option`, `Either`, or `Validation`
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [07]-[INDEPENDENT_VALIDATION]
 
 Raw fields can be validated independently. Replace permissive primitive fields with domain-specific types: a smart enum for the closed set of number types and a value object for each formatted string. Each error record implements `IValidationError<T>`. The generated `Validate` returns the corresponding `Expected` error. Each validator maps that result to `Validation<Error, T>`, and the tuple `Apply` builds the aggregate from every result:
@@ -243,13 +257,17 @@ int errorCount = invalid.Match(Fail: static e => e.Count, Succ: static _ => 0);
 `Apply` receives each validation result after evaluation and can accumulate failures from every operand. `Error` accumulates with `+` into `ManyErrors`, and `Count`, `Head`, and `IsType<E>` read the accumulated errors. Accumulation requires a monoidal failure type: `Error` implements `Monoid<Error>`, and a bespoke failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it. Operands that share one success type combine with `&`, which collects the successes into `Seq<A>` and accumulates the failures. `|` returns the first success and combines the errors only when both operands fail.
 
 The input boundary returns `Validation<Error, PhoneNumber>`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [08]-[DEPENDENT_VALIDATION]
 
 Use LINQ when each step can depend on an earlier validated value, or when later work must not run after failure. Each `from` can consume values introduced by earlier clauses while preserving the effect.
 
 `Bind` receives a function for the next computation rather than an already evaluated result. If the current value is invalid, it can return that error without invoking the function. This supports dependency and fail-fast behavior, but it cannot collect failures from work that never ran.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [09]-[VALIDATOR_COMBINATION]
 
 Collections of validators fold into one validator:
@@ -287,7 +305,9 @@ internal static partial class Validators {
 On success, traversal holds one copy of the input for each validator. `Map` discards those copies and returns the original value.
 
 Use this strategy when the checks are independent and the caller repairs every violated rule at once.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [10]-[PROPERTY_BASED_TESTING]
 
 Property-based tests state invariants over generated inputs instead of a fixed set of examples. They can check algebraic laws and domain invariants.
@@ -306,6 +326,7 @@ Fin<Unit> equivalence = Try.lift(() => {
 `Gen.OneOf` builds an `Option` generator that produces both `Some` and `None`. Tests that lift only generated integers check only the `Some` path and miss the `None` case. The bounded range keeps the product inside `int`.
 
 Random sampling raises confidence but does not prove a universal law. `Sample` throws on a counterexample, and `Try.lift` captures it into `Fin`. The case count and the ranges are configurable. Properties tied to `multiply` check that function, not every function. Properties can capture model invariants (removing items from a cart never increases its total).
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [11]-[SELECTION_GUIDE]
