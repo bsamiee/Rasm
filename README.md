@@ -62,7 +62,7 @@ Rasm/
 
 [REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`, tool work directories that cannot be relocated are ignored and hold no durable output.
 
-Nx is the one runner, and every action a developer or CI runs is one of the targets `lint`, `format`, `typecheck`, `test`, `build`, `check`, `restore`, `stage`, `pack`, `coverage`, `mutation`, `preview`, `up`, and `refresh`.
+Nx is the one runner, and everything a developer runs is one of the targets `lint`, `format`, `typecheck`, `test`, `build`, `check`, `restore`, `provision`, `stage`, `pack`, `coverage`, `mutation`, `preview`, `up`, `refresh`, and `release`, and the .NET plugin infers `build:release` and `watch` beside `build`. Checkout, the setup action, caches, artifact transport between jobs, and Nx's own commands (`nx graph`, `nx affected`) are workflow steps.
 
 - Targets resolve from plugin inference, `targetDefaults` in `nx.json`, then the project's own configuration, each overriding the one before
 - `tools/nx/workspace.ts` tags each language manifest and adds the `lint`, `format`, `typecheck`, and `check` targets `targetDefaults` fill by tag
@@ -70,7 +70,7 @@ Nx is the one runner, and every action a developer or CI runs is one of the targ
 - `stage` depends on `eng:provision` and writes the staged tree, and `pack` writes the package to the `local` source in `NuGet.config`
 - Binding projects with `IncludeBuildOutput` true get `pack` alone, which depends on the `stage` target of the native project of the same library
 - `eng/project.json` and `tests/python/project.json` are the projects of the directories no manifest covers
-- The root project, the `nx` field of the root `package.json`, holds `restore`, `coverage`, `mutation`, `preview`, `up`, and `refresh`
+- The root project, the `nx` field of the root `package.json`, holds `restore`, `coverage`, `mutation`, `preview`, `up`, `refresh`, and `release`
 - `lint` and `format` run a `check` configuration by default and a `write` configuration that rewrites the files
 - `check` on a project depends on its `lint`, `format`, `typecheck`, and `test`, and `nx run rasm-workspace:check` runs every check in the workspace
 - `test` collects coverage on every run, and the root `coverage` target merges the data once per language after every `test`
@@ -84,7 +84,7 @@ Nx is the one runner, and every action a developer or CI runs is one of the targ
 
 Checker configuration is centralized, and each language area must pass its configured checks before code is merged.
 
-- .NET: Roslyn analyzers at `latest-all`, warnings-as-errors, code-style rules enforced during build, `.editorconfig` carries rule severity and configuration
+- .NET: Roslyn analyzers at `latest-all`, warnings-as-errors, code-style rules enforced during build, `.editorconfig` holds rule severity and configuration
 - `Thinktecture.Runtime.Extensions.Analyzers` validates generated-type declarations and generated `Switch`/`Map` usage across every .NET project
 - Python: Passes with no warnings/errors from `ruff`, `ty`, and `mypy`
 - TypeScript: Passes `biome check` and compiles with `tsc --build` under strict settings
@@ -122,7 +122,7 @@ Each `apps/<name>/` is one product with its own host, lifecycle, and release.
 
 ## [07]-[CHANGE]
 
-The workspace has one current structure, and every change replaces the previous one in place. Data schemas derive from their owning types, and a schema management library computes the delta between the model and the live database and applies it at startup or from a command, with no migration file or history table. Releases are `v` tags, MinVer derives every assembly and package version from the nearest tag, `release.yml` creates the GitHub release, and no file states a version.
+The workspace has one current structure, and every change replaces the previous one in place. Data schemas derive from their owning types, and a schema management library computes the delta between the model and the live database and applies it at startup or from a command, with no migration file or history table. Releases are `v` tags, MinVer derives every assembly and package version from the nearest tag, `release.yml` runs the root `release` target that creates the GitHub release, and no file states a version.
 
 - No package, namespace, route, contract, or directory has a version suffix or `v1` folder, and a changed structure keeps the name of the one it replaces
 - No compatibility shim, fallback reader, or deprecation period keeps a replaced structure alive, and one commit holds the change and the removal

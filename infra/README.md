@@ -1,6 +1,6 @@
 # [INFRA]
 
-Pulumi program on the Automation API for the repository's own resources: the GitHub repository settings and the Doppler project that holds its runtime secrets. The root `package.json` and the `pnpm-workspace.yaml` catalog pin every package, the root `tsconfig.json` includes the files, and every command runs from the root through Nx.
+`infra/` holds the Pulumi program on the Automation API for the repository's own resources, the GitHub repository settings and the Doppler project that holds its runtime secrets. The root `package.json` and the `pnpm-workspace.yaml` catalog pin every package, the root `tsconfig.json` includes the files, and every command runs from the root through Nx.
 
 | [INDEX] | [FILE]          | [PURPOSE]                                                                                  |
 | :-----: | :-------------- | :----------------------------------------------------------------------------------------- |
@@ -29,7 +29,7 @@ Each credential comes from the ambient variable when set and from its store othe
 |  [02]   | `DOPPLER_TOKEN`            | `doppler configure get token --plain`            |
 |  [03]   | `GITHUB_TOKEN`, `GH_TOKEN` | `op read op://Tokens/GITHUB_TOKEN/token`         |
 
-State sits at `file://${XDG_STATE_HOME:-$HOME/.local/state}/rasm-infra` with mode 0700 under the passphrase secrets provider, and provider plugins sit under the `PULUMI_HOME` that `mise.toml` sets. The Automation API writes the project file into a temporary directory, so the repository holds no `Pulumi.yaml`, no stack file, no `.env`, and no `doppler.yaml`.
+State sits at `file://${XDG_STATE_HOME:-$HOME/.local/state}/rasm-infra` with mode 0700 under the passphrase secrets provider, and provider plugins sit under the `PULUMI_HOME` that `mise.toml` sets. The Automation API writes the project file into a temporary directory, and the repository holds no `Pulumi.yaml`, no stack file, no `.env`, and no `doppler.yaml`.
 
 ## [03]-[CHANGES]
 

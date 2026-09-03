@@ -429,6 +429,10 @@
                     ],
                     "parallel": false
                 }
+            },
+            "release": {
+                "command": "gh release create \"$GITHUB_REF_NAME\" --generate-notes",
+                "cache": false
             }
         }
     }

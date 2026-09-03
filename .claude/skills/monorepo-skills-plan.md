@@ -1,6 +1,6 @@
 # [MONOREPO_SKILLS_PLAN]
 
-One skill, `monorepo-build-infrastructure`, encodes how the shared build infrastructure of a polyglot monorepo is organized, from the entry points to release. Its material is the research under `docs/research/monorepo/` and the repository as the steps left it, and the skill describes behavior the repository shows. A fresh session builds the skill from the plan in the agent sequence it records.
+One skill, `monorepo-build-infrastructure`, encodes how the shared build infrastructure of a polyglot monorepo is organized, from the entry points to release. Its material is the research under `docs/research/monorepo/` and the repository as the steps left it, and the skill describes behavior the repository shows.
 
 ## [01]-[SOURCES]
 
@@ -35,37 +35,41 @@ Each skill owns one kind of fact, and a fact appears in the skill that owns it:
 
 ## [03]-[DECISIONS]
 
-The skill carries each decision as a rule with the criterion an agent applies to the next case, and the reason is the sentence the rule needs:
+The skill holds each decision as a rule with the criterion an agent applies to the next case, and the reason is the sentence the rule needs:
 
 | [INDEX] | [DECISION]                                                 | [REASON]                                                               |
 | :-----: | :--------------------------------------------------------- | :--------------------------------------------------------------------- |
-|  [01]   | One runner, every developer and CI action is an Nx target  | A second runner splits the graph and its cache, mise `[tasks]` unused  |
+|  [01]   | One runner, everything a developer runs is a target        | Checkout, setup, caches, artifacts, `nx` commands are workflow steps   |
 |  [02]   | Each environment variable has one owner by its scope       | Manifest field, target `env`, `mise.toml` `[env]`, or secret store     |
 |  [03]   | One owner per fact and one statement per version           | Restated facts drift, and the second copy is read after the first      |
-|  [04]   | Versions stay in the central managers alone                | Root manifests hold every version, no tool manifest, no engine field   |
+|  [04]   | Each version has one owner, root managers for packages     | Native releases: `eng/native` manifests with `provision.py` constants  |
 |  [05]   | `project.json` only for a directory no manifest describes  | Plugins infer the rest, the root project is the root `nx` field        |
-|  [06]   | No hedge and no gate                                       | A missing dependency joins the graph, and no check is named a gate     |
+|  [06]   | No guard and no gate                                       | A missing dependency joins the graph, and no check is named a gate     |
 |  [07]   | Coverage on every `test` run, merged once per language     | Coverage and mutation score are information with no threshold          |
 |  [08]   | Tool packages run through `dotnet dnx`, newest release     | A tool manifest pins a version outside the central managers            |
 |  [09]   | One restore target, .NET `build` and `format` depend on it | `--no-restore` reads the assets restore wrote, no job runs restore     |
-|  [10]   | Defaults state `commands` arrays for `nx:run-commands`     | A `command` string from a default beats a project's `commands`         |
+|  [10]   | Defaults and their project overrides use one option key    | `command` in a default beats `commands` in a project override          |
 |  [11]   | `infra/` holds the repository's own resources alone        | An application's program sits under its own directory in `apps/`       |
 |  [12]   | Automation API program, no project or stack file           | Inline program, file backend, passphrase provider, explicit providers  |
 |  [13]   | Credentials resolve in code, ambient variable else store   | Passphrase and GitHub token from 1Password, Doppler token from its CLI |
 |  [14]   | Actions use their current major tags                       | The tag moves with the action, no ratchet tool pins a commit           |
 |  [15]   | Cache keys from lock file or manifest, no `restore-keys`   | A partial match is a fallback, each entry is a function of its key     |
-|  [16]   | MinVer reads the version from the nearest `v` tag          | `release.yml` creates the GitHub release, no file states a version     |
+|  [16]   | MinVer reads the version from the nearest `v` tag          | `release.yml` runs the root `release` target, no file states a version |
+|  [17]   | Local task cache under `.cache/nx`, `neverConnectToCloud`  | No remote cache, and `nx.json` connects to no cloud workspace          |
+
+Second runners split the graph and its cache, mise `[tasks]` stays unused, and the root manifests hold every package version with no tool manifest and no engine field.
 
 Environment variables by owner:
 
-| [INDEX] | [VARIABLE]                                | [OWNER]                               |
-| :-----: | :---------------------------------------- | :------------------------------------ |
-|  [01]   | Settings with a manifest spelling         | The manifest field                    |
-|  [02]   | Variables one task needs                  | The target's `env`                    |
-|  [03]   | Variables every tool needs before it runs | `mise.toml` `[env]`                   |
-|  [04]   | Secrets                                   | `doppler run` or the `infra/` program |
+| [INDEX] | [VARIABLE]                                                                              | [OWNER]                               |
+| :-----: | :-------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | Settings with a manifest spelling                                                       | The manifest field                    |
+|  [02]   | Variables one task needs                                                                | The target's `env`                    |
+|  [03]   | Variables every tool needs before it runs                                               | `mise.toml` `[env]`                   |
+|  [04]   | Variables a CI job needs (`NX_BASE`, `NX_HEAD`, `MISE_TRUSTED_CONFIG_PATHS`, `GH_TOKEN`) | The workflow job or step `env`        |
+|  [05]   | Secrets                                                                                 | `doppler run` or the `infra/` program |
 
-`dotnet dnx` commands for packages that include `net8.0` tools alone carry `--allow-roll-forward`, and the .NET coverage merge command joins the root `coverage` target with the first .NET test project, because ReportGenerator fails on an empty glob.
+`dotnet dnx` commands for packages that include `net8.0` tools alone take `--allow-roll-forward`, and the .NET coverage merge command joins the root `coverage` target with the first .NET test project, because ReportGenerator fails on an empty glob.
 
 ## [04]-[REPOSITORY_STEPS]
 
@@ -85,7 +89,7 @@ Each step ran as one commit with its checks at zero warnings, and every step is 
 
 ## [05]-[CORRECTIONS]
 
-Each row names a category of mistake beside the category of correction, in the order of the skill sections, and the skill's last section carries the rows without repository names. Files created per directory while an owner exists include a root `project.json`, a `project.json` beside a manifest, and a per-project tool config, and restated facts include a version in two fields, a guard around a missing dependency, a default copied into every config, and a list stated four times.
+Each row names a category of mistake beside the category of correction, in the order of the skill sections, and the skill's last section holds the rows without repository names. Files created per directory while an owner exists include a root `project.json`, a `project.json` beside a manifest, and a per-project tool config, and restated facts include a version in two fields, a guard around a missing dependency, a default copied into every config, and a list stated four times.
 
 | [INDEX] | [SECTION] | [MISTAKE]                                                 | [CORRECTION]                                                     |
 | :-----: | :-------: | :-------------------------------------------------------- | :--------------------------------------------------------------- |
@@ -99,7 +103,7 @@ Each row names a category of mistake beside the category of correction, in the o
 |  [08]   |   [02]    | Tools a machine profile installs for one repository       | Provisioning from a pinned, digest-verified release in `.cache/` |
 |  [09]   |   [02]    | Git filters a profile writes into a read-only user config | The repository `.git/config` holds the filters it requires       |
 |  [10]   |   [03]    | Configuration files per directory while an owner exists   | Plugin inference, the manifest `nx` field, the root config       |
-|  [11]   |   [03]    | Restated facts and hedges left behind by a step           | One owner per fact, dependency in the graph, no copied default   |
+|  [11]   |   [03]    | Restated facts and guards left behind by a step           | One owner per fact, dependency in the graph, no copied default   |
 |  [12]   |   [03]    | Root project rehashing root files, a discovery twice      | Root project with explicit inputs alone, one discovery per tool  |
 |  [13]   |   [03]    | Coverage thresholds as gates, per-project reports alone   | Information merged once per language by one root target          |
 |  [14]   |   [04]    | Repository settings and secrets project held by hand      | One `infra/` program per repository declaring its own resources  |
@@ -109,7 +113,7 @@ Each row names a category of mistake beside the category of correction, in the o
 |  [18]   |   [05]    | One workflow per tool                                     | One workflow per concern                                         |
 |  [19]   |   [05]    | Caches keyed on nothing, partial-match fallbacks          | Caches keyed on the lock file or manifest, no `restore-keys`     |
 |  [20]   |   [05]    | Action references pinned per commit by a ratchet tool     | Current major tag per action                                     |
-|  [21]   |   [06]    | Versions stated in project files                          | MinVer from the `v` tag, `release.yml` makes the GitHub release  |
+|  [21]   |   [06]    | Versions stated in project files                          | MinVer from the `v` tag, the `release` target makes the release  |
 
 ## [06]-[SKILL_SHAPE]
 
@@ -136,7 +140,12 @@ Each row names a category of mistake beside the category of correction, in the o
 
 ## [07]-[SEQUENCE]
 
-Fresh agents run in sequence, one slice each, with a commit between agents and a report of at most 12 lines. Every agent reads the plan, the current skill and references, the sibling skills `dotnet-msbuild-packaging`, `pulumi`, `secrets`, and `clean-prose`, and the memories `skill-authoring-workflow`, `skill-content-standard`, `research-folder-intent`, `skill-description-process`, and `workspace-config-file-discipline` before its slice, wraps each integrated passage in an `Integrated into` comment, and reads the source again before the next move. Facts go in `SKILL.md` when leaving them out lets an agent violate a standard, and in a reference when leaving them out only slows the agent down.
+Fresh agents run in sequence, one slice each, with a commit between agents and a report of at most 12 lines. Before its slice, every agent:
+- Reads the current skill and references and the sibling skills `dotnet-msbuild-packaging`, `pulumi`, `secrets`, and `clean-prose`
+- Reads the skill memories `skill-authoring-workflow`, `skill-content-standard`, and `skill-description-process`
+- Reads the memories `research-folder-intent` and `workspace-config-file-discipline`
+- Wraps each integrated passage in an `Integrated into` comment and reads the source again before the next move
+- Puts a fact in `SKILL.md` when leaving it out lets an agent violate a standard, and in a reference when leaving it out slows the agent down
 
 | [INDEX] | [AGENT]               | [READS]                                           | [WRITES]                                              |
 | :-----: | :-------------------- | :------------------------------------------------ | :---------------------------------------------------- |
@@ -147,10 +156,16 @@ Fresh agents run in sequence, one slice each, with a commit between agents and a
 |  [05]   | CI                    | Source [07], `.github/`                           | Section [05], `references/ci-workflow.md`             |
 |  [06]   | RELEASE, CORRECTIONS  | Source [06], the plan, `Directory.Build.props`    | Sections [06] and [07]                                |
 |  [07]   | Consistency pass      | Every skill and reference                         | Duplicates removed, pointers aligned, items settled   |
-|  [08]   | Review                | Plan, skill, references, integrated sources       | Facts restored, narration removed, complexity carried |
+|  [08]   | Review                | Plan, skill, references, integrated sources       | Facts restored, narration removed, complexity kept    |
 |  [09]   | Description           | The finished skill and the router line            | Description chosen by two readers                     |
 
-The review agent is one fresh agent per file, and the description step follows the `skill-description-process` memory and ends with the `CLAUDE.md` router line updated to the description.
+Repository files each agent reads beside its sources:
+- [01]: `tools/nx/workspace.ts` with `nx.json` and `package.json`
+- [02]: `global.json`, `.mcp.json`, `pnpm-workspace.yaml`, and `pyproject.toml` with `mise.toml`
+- [04]: `eng/scripts/` and `eng/native/` with `infra/`
+- [06]: `.github/workflows/release.yml` with `Directory.Build.props`
+
+The review agent is one fresh agent per file. The `CLAUDE.md` router line already states the target scope, and the description step follows the `skill-description-process` memory and aligns the description to it.
 
 ## [08]-[EXCLUSIONS]
 

@@ -1,6 +1,6 @@
 # [TESTS]
 
-`tests/` owns cross-language test policy, reusable test support, and suites that do not colocate with production source. Tests specify supported behavior and fail when it regresses. Delete a test only when the behavior is retired or its oracle is invalid, and repair tests that cannot run in a supported environment.
+Tests under `tests/` are the cross-language test policy, the reusable test support, and the suites that do not colocate with production source. Tests specify supported behavior and fail when it regresses. Delete a test only when the behavior is retired or its oracle is invalid, and repair tests that cannot run in a supported environment.
 
 ## [01]-[LAYOUT]
 
@@ -99,7 +99,7 @@ Mutation and coverage runs report what the tests reach, and no score gates a mer
 - Python coverage measures `eng/scripts`, `libs/python`, and `tests/python/support`, the `source` list in `pyproject.toml` a bare `--cov` reads
 - Vitest names each project after its package, writes results, blob, benchmark, and coverage under that name, and the merge reads the `@rasm` blobs
 - The merged reports sit under `.artifacts/<language>/coverage/`, lcov and xml for Python and lcov and json for TypeScript
-- The .NET Cobertura merge arrives with the first .NET test project
+- The .NET Cobertura merge joins with the first .NET test project
 
 ## [07]-[CONFIGURATION_OWNERS]
 
