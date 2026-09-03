@@ -130,13 +130,13 @@ internal readonly partial struct Region {
 ```
 
 - The span `Validate` delegates to the generated `string` `Validate`, the unknown branch allocates one `string`, `ToValue` returns the generated key field, and JSON `null` raises `JsonException` because a struct value object disallows its default
-- `ReadOnlySpan<char>` with `SystemTextJson` is the one supported ref-struct combination, 078 reports a ref-struct factory with `UseWithEntityFramework` or `UseForModelBinding` because neither accepts a ref struct as a generic argument, 108 warns when a ref-struct factory is flagged for a framework that ignores it and lists those frameworks, and the generator binds the key member in the attributes it emits for them
-- `string` and `ReadOnlySpan<char>` factories on one type must not both carry `SystemTextJson` (070), `Region` implements `ISpanParsable<Region>` because its `string` key is parsable and `Region.Parse("eu".AsSpan(), provider: null)` reaches the span `Validate`, and a plain class with a span factory and no `string` factory implements neither `IParsable` nor `ISpanParsable`
+- `ReadOnlySpan<char>` with `SystemTextJson` is the one supported ref-struct combination, 078 reports a ref-struct factory with `UseWithEntityFramework` or `UseForModelBinding` because neither accepts a ref struct as a generic argument, 108 warns when a ref-struct factory is flagged for a framework that ignores it and lists them, and the generator binds the key member in the attributes it emits for them
+- `string` and `ReadOnlySpan<char>` factories on one type share no `SystemTextJson` flag (070), `Region` implements `ISpanParsable<Region>` because its `string` key is parsable and `Region.Parse("eu".AsSpan(), provider: null)` reaches the span `Validate`, and a plain class with a span factory and no `string` factory implements neither `IParsable` nor `ISpanParsable`
 - String-keyed smart enums read through the span converter without a factory, and `DisableSpanBasedJsonConversion = true` on `[SmartEnum<string>]` returns to the string converter
 
 ## [05]-[POLYMORPHIC_DISCRIMINATOR]
 
-Smart enums serve as the discriminator of a polymorphic converter: the item names the case in the payload, and a `[UseDelegateFromConstructor]` method with a `ref Utf8JsonReader` parameter reads the case back, where the `ref` parameter makes the generator emit a nested delegate type:
+Smart enums serve as the discriminator of a polymorphic converter: the item names the case in the payload, and a `[UseDelegateFromConstructor]` method with a `ref Utf8JsonReader` parameter reads the case back, and the `ref` parameter makes the generator emit a nested delegate type:
 
 ```csharp
 internal abstract record Shape;

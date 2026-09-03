@@ -18,7 +18,7 @@ There is no Pulumi logical name to choose: the CLI derives an internal name from
 
 ## [02]-[PROPERTY_INPUT]
 
-Properties come from per-property flags, a body file, or both, flags overlay the body. Flags set top-level scalar properties only, nested or structured values (`tags`, nested blocks) come from the body file. Body content defaults to PCL as flat `name = value` attributes, `--input yaml` selects YAML via the converter plugin.
+Properties come from per-property flags, a body file, or both, flags overlay the body. Flags set top-level scalar properties only, nested or structured values (`tags`, nested blocks) come from the body file. Body content defaults to PCL as flat `name = value` attributes, `--input yaml` selects YAML through the converter plugin.
 
 ```bash
 cat > bucket.pcl <<'EOF'
@@ -30,7 +30,7 @@ EOF
 npx pulumi do aws:s3:Bucket create --yes --input-file bucket.pcl
 ```
 
-Before authoring properties for a resource new to the session, `npx pulumi package info <pkg> --module <mod> --resource <Type>` lists its inputs and outputs with descriptions. `npx pulumi package get-schema <pkg>` returns the full machine-readable schema with nested type definitions, tens of MB for a large provider, never read whole. Property names are camelCase, flags take the kebab-case form. `npx pulumi package info <pkg>` with no module lists the package's modules and resources.
+Before authoring properties for a resource new to the session, `npx pulumi package info <pkg> --module <mod> --resource <Type>` lists its inputs and outputs with descriptions. `npx pulumi package get-schema <pkg>` returns the full machine-readable schema with nested type definitions, tens of MB for a large provider, too large to read whole. Property names are camelCase, flags take the kebab-case form. `npx pulumi package info <pkg>` with no module lists the package's modules and resources.
 
 ## [03]-[OUTPUT_CONTRACT]
 
@@ -58,7 +58,7 @@ npx pulumi do random:RandomPet create --yes
 npx pulumi do aws:s3:Bucket create --yes --bucket assets-artistic-bull
 ```
 
-Values the chain does not produce (an existing resource id, an API zone id) come from a provider function, a `list` where supported, or the operator, never invented.
+Values the chain does not produce (an existing resource id, an API zone id) come from a provider function, a `list` where supported, or the operator.
 
 ## [05]-[GRADUATING]
 

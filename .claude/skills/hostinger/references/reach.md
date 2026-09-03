@@ -1,10 +1,10 @@
 # [HOSTINGER_REACH]
 
-Email marketing: confirm a sender profile's domain authentication, import contacts, then segment on behavior and read the resulting audience. REST entries on `/api/reach/v1` map one-to-one onto the `hostinger` MCP `reach_*` tools, every contact, profile, and segment identifier is a UUID.
+Email marketing work from sender authentication to segment audiences. REST entries on `/api/reach/v1` map one-to-one onto the `hostinger` MCP `reach_*` tools, every contact, profile, and segment identifier is a UUID.
 
 ## [01]-[PROFILES_AND_DELIVERABILITY]
 
-Sender profiles own a domain, and `getProfileDomainDNSStatusV1` is the deliverability gate: it returns the `mx`, `spf`, `dkim`, and `dmarc` record blocks, each pairing the `actual` records against the `suggested` set, a mismatch names the exact DNS record to add before a profile is trusted for sending. Profiles also carry plan-derived `limits` (sending quota, trial state).
+Sender profiles own a domain, and `getProfileDomainDNSStatusV1` is the deliverability gate: it returns the `mx`, `spf`, `dkim`, and `dmarc` record blocks, each pairing the `actual` records against the `suggested` set, a mismatch names the exact DNS record to add before a profile is trusted for sending. Profiles have plan-derived `limits` (sending quota, trial state).
 
 ```bash
 curl -X GET "https://developers.hostinger.com/api/reach/v1/profiles" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
@@ -21,7 +21,7 @@ curl -X POST "https://developers.hostinger.com/api/reach/v1/contacts" \
   -d '{ "email": "subscriber@example.com", "name": "Ada", "surname": "Lovelace" }'
 ```
 
-Create responses carry a message only, never the contact body, a follow-up `GET /contacts` reads the assigned UUID and `subscription_status`. Contact groups are the legacy feature superseded by segments, the `group_uuid` filter and `listContactGroupsV1` remain for old data.
+Create responses hold a message only, a follow-up `GET /contacts` reads the assigned UUID and `subscription_status`. Segments supersede contact groups, and the `group_uuid` filter and `listContactGroupsV1` remain for old data.
 
 ## [03]-[SEGMENTS]
 

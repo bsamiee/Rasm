@@ -5,17 +5,17 @@ description: "Use when writing or debugging a .props, .targets, or .csproj decla
 
 # [DOTNET_MSBUILD_EVALUATION]
 
-Covers the evaluation phase of a `Microsoft.NET.Sdk` project: the import chain, the evaluation passes, conditions, properties, items, and the file that owns each declaration.
+Covers the evaluation phase of a `Microsoft.NET.Sdk` project, from the import chain to the file that owns each declaration.
 
-- `dotnet-msbuild-execution` owns targets, `DependsOn` chains, `Inputs` and `Outputs`, generated files, and target scope
-- `dotnet-msbuild-antipatterns` owns the review catalog of smells with `BAD` and `GOOD` pairs
-- `dotnet-msbuild-diagnostics` owns binary logs, the `binlog` MCP, failure triage, and BuildCheck runs
-- `dotnet-msbuild-packaging` owns NuGet package metadata, package `build/` folders, central package management, solution files, and CI properties
-- `monorepo-build-infrastructure` owns the `eng/` directory, task runner targets, native packaging projects, and provisioning
+- Use `dotnet-msbuild-execution` for targets, `DependsOn` chains, `Inputs` and `Outputs`, generated files, and target scope
+- Use `dotnet-msbuild-antipatterns` for the review catalog of smells with `BAD` and `GOOD` pairs
+- Use `dotnet-msbuild-diagnostics` for binary logs, the `binlog` MCP, failure triage, and BuildCheck runs
+- Use `dotnet-msbuild-packaging` for NuGet package metadata, package `build/` folders, central package management, solution files, and CI properties
+- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 
 [REFERENCES]:
 - [01]-[IMPORT_CHAIN](references/import-chain.md): Every import of a `Microsoft.NET.Sdk` project in order, with the properties each file assigns
-- [02]-[MULTI_LEVEL_EXAMPLES](references/multi-level-examples.md): Root and nested `Directory.Build.*` files, with each project file holding only what differs
+- [02]-[MULTI_LEVEL_EXAMPLES](references/multi-level-examples.md): Root and nested `Directory.Build.*` files with project files holding only what differs
 
 ## [01]-[EVALUATION_ORDER]
 
@@ -102,13 +102,13 @@ The `Condition` attribute holds one expression string that MSBuild tokenizes bef
 ## [03]-[PROPERTIES]
 
 Properties hold one string each, the last assignment in evaluation order wins, and a global property wins over every assignment:
-- Defaults carry `Condition="'$(Name)' == ''"`, a project overrides one in `.props`, and one in `.targets` applies only when the project assigned nothing
+- Defaults have `Condition="'$(Name)' == ''"`, a project overrides one in `.props`, and one in `.targets` applies only when the project assigned nothing
 - List-valued properties append through their current value, `$(DefineConstants);FEATURE_A`, and an assignment without `$(Name);` drops every earlier entry
 - Project XML cannot reassign a global property from `-p:`, the `MSBuild` task, or an inner build, MSBuild skips the assignment and logs `The "Name" property is a global property, and cannot be modified` at diagnostic verbosity, and a normalized form goes into a private property
 - `TreatAsLocalProperty="Name"` on the `<Project>` element makes an assignment in that file and later files win over the global value, and child projects still receive the global value
 - Environment variables with a valid property name are properties, a project assignment overrides them, and a global property overrides both
 - Reserved properties (`MSBuildProjectName`, `MSBuildThisFileDirectory`) fail with `MSB4004` on assignment
-- `_` prefixes a property private to its file, and an `_` property that an SDK file defines is never read or assigned
+- `_` prefixes a property private to its file, SDK `_` properties included
 
 ```xml
 <PropertyGroup>
@@ -161,7 +161,7 @@ Item elements perform one operation each, in order of appearance across every im
 - Outside a target, an item condition reads properties and `@(Item)` lists only, `%(Custom)` fails with `MSB4191` and `%(Filename)` with `MSB4190`, and the transform `@(Item->'%(Meta)')` is the one `%()` form an evaluation-time item, condition, or property accepts
 - `ItemDefinitionGroup` sets default metadata for a type, an item's own metadata wins, and `@(Item)` in a definition fails with `MSB4164`
 - `Include` paths resolve against the project directory even in an imported file, and a path prefixed with `$(MSBuildThisFileDirectory)` resolves beside the importing file
-- Every item carries `%(FullPath)`, `%(RootDir)`, `%(Filename)`, `%(Extension)`, `%(RelativeDir)`, `%(RecursiveDir)`, `%(Identity)`, and `%(DefiningProjectDirectory)`
+- Every item has `%(FullPath)`, `%(RootDir)`, `%(Filename)`, `%(Extension)`, `%(RelativeDir)`, `%(RecursiveDir)`, `%(Identity)`, and `%(DefiningProjectDirectory)`
 
 ```xml
 <ItemGroup>
@@ -193,7 +193,7 @@ Item functions and transforms return a new list and are legal wherever `@()` is:
 |  [07]   | `@(Item->ClearMetadata())`                           | Identities with every metadata value removed                |
 |  [08]   | `@(Item->HasMetadata('Kind'))`, `->Exists()`         | Items with that metadata name, items present on disk        |
 
-- See `dotnet-msbuild-execution` for task batching and target batching, which run inside targets, and for `MSB4096` and `MSB4116`
+- Use `dotnet-msbuild-execution` for task and target batching inside targets
 
 Prove items with `dotnet msbuild <project> -getItem:Type`, which prints every item with its well-known metadata as JSON, and `jq -r '.Items.Type[].Identity'` lists the identities.
 
@@ -218,8 +218,8 @@ Each declaration has one owning file, chosen by what it must read and who must o
 |  [13]   | Properties and targets a package gives its consumers                                                 | The package `build/` files       |
 
 - `ArtifactsProjectName` in a project file renames `bin` and `publish` only while `obj` keeps the project name
-- See `dotnet-msbuild-packaging` for the artifacts layout, `Directory.Packages.props`, nested package files, package `build/` and `buildTransitive/` layouts, and solution files
-- See `dotnet-msbuild-diagnostics` for the `build_check.*` keys in `.editorconfig`
+- Use `dotnet-msbuild-packaging` for the artifacts layout, the package files, and solution files
+- Use `dotnet-msbuild-diagnostics` for the `build_check.*` keys in `.editorconfig`
 
 MSBuild imports only the nearest `Directory.Build.props` and `Directory.Build.targets` above a project, a nested file opens with an import of the outer one, and the private property keeps nested quotes out of the condition:
 
@@ -246,4 +246,4 @@ Each symptom has one cause and one fix:
 |  [07]   | `-getProperty` fails with `MSB1063`      | The argument is a solution                     | Point the query at one project file   |
 
 - `dotnet msbuild <project> -p:TargetFramework=net10.0 -getProperty:Name` evaluates one inner build of a multi-targeting project
-- See `dotnet-msbuild-diagnostics` for `-pp:`, the `-v:diag` property reassignment messages, `-getTargetResult`, BuildCheck, and every `binlog` MCP query
+- Use `dotnet-msbuild-diagnostics` for the switches and `binlog` MCP queries that prove an evaluation

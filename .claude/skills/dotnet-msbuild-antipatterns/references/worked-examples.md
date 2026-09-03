@@ -20,7 +20,7 @@ The consumer form calls `Publish` on a tool project from another project:
 </ItemGroup>
 ```
 
-- `UndefineProperties="_IsPublishing"` is required because `dotnet publish` on the consumer passes `_IsPublishing=true` into the referenced build, where it satisfies the tool's condition and the tool publishes nothing
+- `UndefineProperties="_IsPublishing"` is required because `dotnet publish` on the consumer passes `_IsPublishing=true` into the referenced build, and it satisfies the tool's condition and the tool publishes nothing
 - The consumer derives the tool publish directory from `$(Configuration)` and the tool's `PublishDir` convention
 - Extra global properties are safe only when the effective `OutputPath` and `IntermediateOutputPath` contain their values, `Platform` is never a pivot under the artifacts layout, and a build that needs a property outside the path gets its own `BaseIntermediateOutputPath` and output path
 
@@ -75,7 +75,7 @@ The path comes from a property with a default, the `Reference` items derive from
 
 ## [04]-[LAYER_VALIDATION_TARGET]
 
-The role derives from the project directory in `Directory.Build.props`, where `$(MSBuildProjectDirectory)` is already set.
+The role derives from the project directory in `Directory.Build.props`, and `$(MSBuildProjectDirectory)` is set there.
 
 ```xml
 <!-- Directory.Build.props -->

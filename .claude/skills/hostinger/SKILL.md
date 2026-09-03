@@ -12,23 +12,23 @@ description: >-
 
 # [HOSTINGER]
 
-Hostinger's account is a single API with the entry interfaces below, and the work's shape chooses the interface, never habit. Treat the NixOS VPS as a production machine: snapshot before destructive work, route lifecycle through the interfaces below.
+Hostinger's account is one API with the listed entry interfaces, and the work's shape chooses the interface. Treat the NixOS VPS as a production machine, snapshot before destructive work and route lifecycle through the interfaces.
 
-| [INDEX] | [INTERFACE]     | [SURFACE]                                                     | [WHEN]                                          |
+| [INDEX] | [INTERFACE]     | [ACCESS]                                                      | [WHEN]                                          |
 | :-----: | :-------------- | :------------------------------------------------------------ | :---------------------------------------------- |
 |  [01]   | `hostinger` MCP | `domains` `DNS` `VPS` `hosting` `ecommerce` `reach` `billing` | Interactive agent operations, the default       |
 |  [02]   | REST API        | `https://developers.hostinger.com` with `HOSTINGER_API_TOKEN` | Scripts, CI, bulk loops, SDK-driven automation  |
 |  [03]   | SSH             | Universal key in `~/.ssh/config`                              | Server work: deploys, logs, compose, migrations |
 
-MCP tool names mirror the REST resources one-to-one (`VPS_createSnapshotV1` is `POST /api/vps/v1/virtual-machines/{id}/snapshot`), each REST entry in the references reads as an MCP entry and vice versa. REST authenticates with `Authorization: Bearer $HOSTINGER_API_TOKEN`. Official SDKs (Python, TypeScript, PHP) and the `hapi` CLI wrap the same endpoints.
+MCP tool names match the REST resources one-to-one (`VPS_createSnapshotV1` is `POST /api/vps/v1/virtual-machines/{id}/snapshot`), each REST entry in the references reads as an MCP entry and vice versa. REST authenticates with `Authorization: Bearer $HOSTINGER_API_TOKEN`. Official SDKs (Python, TypeScript, PHP) and the `hapi` CLI wrap the same endpoints.
 
 [REFERENCES]:
-- [01]-[DOMAINS](references/domains.md): Registration, nameservers, DNS zone records, forwarding, WHOIS profiles, lock, privacy, transfer, bulk audit
-- [02]-[DEPLOYMENT](references/deployment.md): SSH-first Docker deploys: baseline, update order, verification levels, rollback, SSH-versus-API split
-- [03]-[HOSTING](references/hosting.md): Websites, WordPress installs, plugins, themes, databases, Node.js apps, cache, cron, PHP, Horizons AI builder
-- [04]-[ECOMMERCE](references/ecommerce.md): Stores, products, sales channels, payment and shipping prerequisites
-- [05]-[REACH](references/reach.md): Email marketing: sender profiles, deliverability, contacts, behavioral segments
-- [06]-[BILLING](references/billing.md): Catalog item-id grammar, payment methods, subscriptions, renewals
+- [01]-[DOMAINS](references/domains.md): The domain portfolio from availability to bulk audit
+- [02]-[DEPLOYMENT](references/deployment.md): SSH-first Docker deploys with the rollback path and the SSH-versus-API split
+- [03]-[HOSTING](references/hosting.md): Shared hosting from websites and WordPress to the Horizons AI builder
+- [04]-[ECOMMERCE](references/ecommerce.md): Stores from creation through their prerequisites to sales channels
+- [05]-[REACH](references/reach.md): Email marketing from sender deliverability to behavioral segments
+- [06]-[BILLING](references/billing.md): The catalog item-id grammar every purchase consumes, with payment methods and subscriptions
 
 ## [01]-[SAFETY_RULES]
 
@@ -37,21 +37,21 @@ MCP tool names mirror the REST resources one-to-one (`VPS_createSnapshotV1` is `
 - [FIREWALL_BINDING]: One firewall binds per VM with a default policy dropping all inbound traffic
 - [DESTRUCTIVE_CONFIRMATION]: Explicit operator confirmation of the specific target precedes every irreversible act
 - [IRREVERSIBLE]: VM recreate, backup and snapshot restore, Docker project `down`, WordPress install deletion with files or database, domain deletion
-- [ASYNC_ACTIONS]: VM mutations return an action resource, confirm completion by polling the action, never assume it
+- [ASYNC_ACTIONS]: VM mutations return an action resource, confirm completion by polling the action
 - [ASYNC_HOSTING]: Website creation and every WordPress, plugin, theme, core, and Node.js mutation is fire-and-poll, a list re-poll proves completion
-- [PURCHASES]: Purchases consume a catalog price `item_id` and go through the resource endpoint owning it (domains, VPS), never a generic billing order
-- [PAYMENT_METHODS]: Payment methods are added in hPanel, never through the API
-- [DNS_OWNERSHIP]: Hostinger's DNS API acts only while the domain uses Hostinger nameservers, once delegated externally, records live there
-- [SECRETS]: Every API token enters commands as `$HOSTINGER_API_TOKEN`, never inline, output carrying credentials never lands in transcripts
+- [PURCHASES]: Purchases consume a catalog price `item_id` and go through the resource endpoint owning it (domains, VPS)
+- [PAYMENT_METHODS]: Payment methods are added in hPanel
+- [DNS_OWNERSHIP]: Hostinger's DNS API acts only while the domain uses Hostinger nameservers, once delegated externally, records belong there
+- [SECRETS]: Every API token enters commands as `$HOSTINGER_API_TOKEN`, and output with credentials stays out of transcripts
 
 ## [02]-[HOSTINGER_VPS]
 
-VPS: VM lifecycle, Docker Manager projects, firewalls, SSH keys, provisioning surfaces, backups and snapshots, recovery, malware scanning, and metrics. REST entries map one-to-one onto the `hostinger` MCP `VPS_*` tools. Every mutation returns an async action polled to completion via `GET .../actions/{actionId}`.
+VPS work runs from the VM lifecycle to metrics. REST entries map one-to-one onto the `hostinger` MCP `VPS_*` tools, and every mutation returns an async action polled to completion through `GET .../actions/{actionId}`.
 
 [LIFECYCLE]: VMs move `initial` → `running` → `stopped`, a VM in `initial` state needs setup before anything else. Purchase takes an `item_id` from the billing catalog, an OS `template_id` (`GET /api/vps/v1/templates`), and a `data_center_id` (`GET /api/vps/v1/data-centers`).
 
 ```bash
-# Purchase, then setup when the VM lands in initial state
+# Purchase, then setup when the VM reaches initial state
 curl -X POST "https://developers.hostinger.com/api/vps/v1/virtual-machines" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" \
   -d '{ "item_id": "hostingercom-vps-kvm2-usd-1m", "payment_method_id": <payment-method-id>,
@@ -68,7 +68,7 @@ curl -X POST "https://developers.hostinger.com/api/vps/v1/virtual-machines/12345
 
 ## [03]-[DOCKER_MANAGER]
 
-Docker Manager deploys Compose projects through the API from inline content, a GitHub repo URL (auto-resolves `docker-compose.yaml` on the master branch), or any URL returning raw compose content. Deploying under an existing project name replaces that project, the zero-config redeploy path. Hostinger marks these endpoints subject to change, a production deployment with an existing compose file uses SSH instead.
+Docker Manager deploys Compose projects through the API from inline content, a GitHub repo URL (auto-resolves `docker-compose.yaml` on the master branch), or any URL returning raw compose content. Deploying under an existing project name replaces that project, the zero-config redeploy path. Hostinger marks the endpoints subject to change, a production deployment with an existing compose file uses SSH instead.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/vps/v1/virtual-machines/12345/docker" \
@@ -116,10 +116,10 @@ Rule-set patterns by role, ports accept `"3000:3999"` range syntax and `source` 
 | :-----: | :-------------- | :---------------------------------------------------------------------- |
 |  [01]   | Web server      | 22, 80, 443 from `0.0.0.0/0`                                            |
 |  [02]   | Database server | 22 from the admin IP `/32`, 5432 or 3306 from the app server `/32` only |
-|  [03]   | Docker host     | 22, 80, 443, and the app port range (e.g. `3000:3999`)                  |
+|  [03]   | Docker host     | 22, 80, 443, and the app port range (`3000:3999`)                       |
 |  [04]   | Mail server     | 22, 25, 465, 587, 143, 993                                              |
 
-Hardening: SSH narrows to known IPs where feasible, database ports never open to `0.0.0.0/0`, unused rules and firewalls are removed (deleting a firewall auto-deactivates it everywhere), switching firewalls is deactivate-then-activate.
+Hardening: SSH narrows to known IPs where feasible, database ports stay closed to `0.0.0.0/0`, unused rules and firewalls are removed (deleting a firewall auto-deactivates it everywhere), switching firewalls is deactivate-then-activate.
 
 ## [06]-[DATA_SAFETY]
 
@@ -146,4 +146,4 @@ Hardening: SSH narrows to known IPs where feasible, database ports never open to
 |  [09]   | `GET/POST/DELETE`     | `/api/vps/v1/public-keys[...]`                            | SSH keys, attach                         |
 |  [10]   | `GET`                 | `/api/vps/v1/templates`, `data-centers`                   | OS templates, data centers               |
 |  [11]   | `GET/POST/PUT/DELETE` | `/api/vps/v1/post-install-scripts`                        | Provisioning scripts                     |
-|  [12]   | `GET/POST/DELETE`     | `.../backups`, `snapshot`, `recovery`, `ptr`, `monarx`    | Data safety and security surfaces        |
+|  [12]   | `GET/POST/DELETE`     | `.../backups`, `snapshot`, `recovery`, `ptr`, `monarx`    | Data safety and security endpoints       |

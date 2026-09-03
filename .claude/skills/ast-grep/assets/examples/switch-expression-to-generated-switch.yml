@@ -11,7 +11,7 @@ rule:
             kind: switch_expression_arm
             has:
                 kind: declaration_pattern
-        - not: # Fires only when every arm is a bare qualified pattern, guards, discards, and list patterns refuse the fix, no arm semantics drop silently
+        - not: # Fires only when every arm is a plain qualified pattern, guards, discards, and list patterns refuse the fix
             has:
                 kind: switch_expression_arm
                 any:
@@ -21,7 +21,7 @@ rule:
                             kind: declaration_pattern
                             has:
                                 kind: qualified_name
-        - not: # A compound subject (await, cast, binary, conditional) rebinds under member access
+        - not: # Compound subjects (await, cast, binary, conditional) rebind under member access
             has:
                 nthChild: 1 # The subject is the first named child, switch_expression exposes no field for it
                 any:

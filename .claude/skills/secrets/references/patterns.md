@@ -6,7 +6,7 @@ Consumption patterns for secret material that is not process-env shaped, and the
 
 `doppler secrets substitute <template>` renders Go `text/template` against the scoped config and writes stdout, `--output <file>` binds only where the target owner requires a durable file.
 
-- `{{.KEY}}` interpolates a value, `{{if .OPTIONAL_KEY}}...{{end}}` guards a key that a config carries conditionally
+- `{{.KEY}}` interpolates a value, `{{if .OPTIONAL_KEY}}...{{end}}` guards a key that a config holds conditionally
 - `{{tojson .KEY}}` stringifies multiline material (private keys, certificates) into valid JSON/YAML scalars
 - `{{fromjson .KEY}}` expands a structured secret value into template-addressable fields
 
@@ -31,7 +31,7 @@ Shell operators require the quoted `--command` form:
 doppler run --project <p> --config <c> --command='<preflight> && exec <process>; <cleanup>'
 ```
 
-Command chains are generated inside owned wrappers (Nix modules, driver code), never assembled from freeform input.
+Command chains are generated inside owned wrappers (Nix modules, driver code).
 
 ## [04]-[MCP]
 

@@ -21,7 +21,7 @@ const object = new aws.s3.BucketObject('object', {
 });
 ```
 
-`apply()` remains correct for transforming output values into tags, names, or computed strings, for logging, and for conditional logic that affects resource properties, never resource existence.
+`apply()` remains correct for transforming output values into tags, names, or computed strings, for logging, and for conditional logic that affects resource properties, while resource existence stays outside it.
 
 ## [02]-[OUTPUTS_AS_INPUTS]
 
@@ -64,7 +64,7 @@ class StaticSite extends pulumi.ComponentResource {
 
 ## [04]-[PARENT_THIS]
 
-Every child inside a component carries `{ parent: this }`, without it children land at the stack root, the console hierarchy collapses, and aliases on the component stop reaching them. Parenting also cascades deletion and provider inheritance.
+Every child inside a component takes `{ parent: this }`, without it children land at the stack root, the console hierarchy collapses, and aliases on the component stop reaching them. Parenting also cascades deletion and provider inheritance.
 
 ```typescript
 class MyComponent extends pulumi.ComponentResource {

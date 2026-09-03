@@ -1,10 +1,10 @@
 # [FUNCTIONS]
 
-Covers functions as values: the combinators that apply and join functions, functions stored as data, specialization through partial application and currying, adapters that expose delegates, the composition root, and the end-to-end flow from a request to its effects. Which delegate a signature takes, how arguments are ordered, and which dependency shape a consumer receives are decisions in `dotnet-coding`.
+Covers functions as values, from the combinators to the flow from a request to its effects. Use `dotnet-coding` for the delegate, argument order, and dependency shape decisions.
 
 ## [01]-[COMBINATORS]
 
-Combinators apply or join functions. `Pipe` applies one function to a whole value, where `Map` applies a function to each element of a sequence, piping a sequence treats the sequence as the input value, and the generic input and output types let each step change type. LanguageExt has no `Pipe`, and this implementation is custom:
+Combinators apply or join functions. `Pipe` applies one function to a whole value while `Map` applies a function to each element of a sequence, piping a sequence treats the sequence as the input value, and the generic input and output types let each step change type. LanguageExt has no `Pipe`, and the implementation is custom:
 
 ```csharp
 internal static class Piping {
@@ -30,12 +30,12 @@ internal static class Forks {
 }
 ```
 
-`flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`, `flip(Subtract)` receives the right operand first, and an adapter of that kind returns a new function with a different signature while delegating to the original.
-- See `dotnet-coding-languageext` for `Do`, `when`, and `unless`, the observing and guarding steps that sit between transformations
+`flip` from the Prelude swaps the parameters of a `Func<A, B, R>`, `flip(Subtract)` receives the right operand first, and an adapter of that kind returns a new function with a different signature while delegating to the original.
+- Use `dotnet-coding-languageext` for the observing and guarding steps (`Do`, `when`, `unless`) between transformations
 
 ## [02]-[FUNCTIONS_AS_DATA]
 
-Functions stored in collections, passed into adapters, or returned express control flow as data, and functions stored together need compatible signatures, where every type in `Func<T1, ..., TResult>` except the last is a parameter type. Selectors parameterize a larger function: a report builder written once accepts its grouping key, and each new report supplies a selector and a title in place of copying the grouping and row construction:
+Functions stored in collections, passed into adapters, or returned express control flow as data, and functions stored together need compatible signatures, every type in `Func<T1, ..., TResult>` except the last is a parameter type. Selectors parameterize a larger function: a report builder written once accepts its grouping key, and each new report supplies a selector and a title in place of copying the grouping and row construction:
 
 ```csharp
 internal static class Reports {
@@ -44,7 +44,7 @@ internal static class Reports {
 }
 ```
 
-Broader higher-order functions centralize retrieval, empty-result handling, transmission, and error handling while only the selector and the name vary, and small named wrappers preserve intent. Collections of transformations apply many views to one input, assemble at runtime, extend by one element, and stay separate from the aggregation, where `Seq.Map` is deferred and the functions run when the result is enumerated:
+Broader higher-order functions centralize retrieval, empty-result handling, transmission, and error handling while only the selector and the name vary, and small named wrappers preserve intent. Collections of transformations apply many views to one input, assemble at runtime, extend by one element, and stay separate from the aggregation, and `Seq.Map` is deferred, the functions run when the result is enumerated:
 
 ```csharp
 internal static class Descriptions {
@@ -65,7 +65,7 @@ internal static class Policies {
 }
 ```
 
-Short-circuiting suits a boolean answer and not a report of every failure, because later rules do not run, and validators that return typed errors accumulate instead. The `if` and `else if` chain becomes an ordered table of predicate and transform pairs, where the first matching predicate wins, the order is part of the meaning, each predicate holds its criteria or delegates to a named function, and the explicit fallback makes the operation total:
+Short-circuiting suits a boolean answer and not a report of every failure, because later rules do not run, and validators that return typed errors accumulate instead. The `if` and `else if` chain becomes an ordered table of predicate and transform pairs, the first matching predicate wins, the order is part of the meaning, each predicate holds its criteria or delegates to a named function, and the explicit fallback makes the operation total:
 
 ```csharp
 internal static class RuleTables {
@@ -80,9 +80,9 @@ internal static class RuleTables {
 }
 ```
 
-`Seq.Find` returns an `Option`, the missing case is `None`, and its `Match` selects the fallback without a null check, where a staged design that infers no match by comparing the transformed value with `default(TOutput)` fails because a matching transform can return `0`, `false`, or `null`. The table matches values with predicates and not object types, a fixed decision over types is a native switch expression, and `KeyValuePair` in place of tuples adds syntax without changing the mechanism.
+`Seq.Find` returns an `Option`, the missing case is `None`, and its `Match` selects the fallback without a null check, while a staged design that infers no match by comparing the transformed value with `default(TOutput)` fails because a matching transform can return `0`, `false`, or `null`. The table matches values with predicates, a fixed decision over types is a native switch expression, and `KeyValuePair` in place of tuples adds syntax without changing the mechanism.
 
-Returned functions capture the original value in a closure and expose one operation: `number => names.Find(number).IfNone("unknown")` narrows a `HashMap<int, string>` to one lookup, keeps the map in scope, converts an absent key into a fallback, and prevents the caller from enumerating, modifying, or otherwise querying the map. Repeated parsing branches move into focused conversion functions, where `parseInt(text).IfNone(fallback)` collapses missing and invalid input into one fallback, it suits only a caller that need not distinguish them, and `IfNone` applies at the boundary that selects the fallback because `parseInt` and `HashMap.Find` preserve every outcome.
+Returned functions capture the original value in a closure and expose one operation: `number => names.Find(number).IfNone("unknown")` narrows a `HashMap<int, string>` to one lookup, keeps the map in scope, converts an absent key into a fallback, and prevents the caller from enumerating, modifying, or otherwise querying the map. Repeated parsing branches move into focused conversion functions, `parseInt(text).IfNone(fallback)` collapses missing and invalid input into one fallback for a caller that need not distinguish them, and `IfNone` applies at the boundary that selects the fallback because `parseInt` and `HashMap.Find` preserve every outcome.
 
 ## [03]-[SPECIALIZATION]
 
@@ -123,7 +123,7 @@ internal static class Families {
 }
 ```
 
-Explicit lambda parameter types are needed where the compiler does not infer the delegate's generic arguments at the `curry` call, a delegate value with a declared `Func` type needs no annotation, the returned function retains each supplied value and invokes the original only when the remaining arguments arrive, and currying adds nothing when every argument arrives together. Fixing a logger's level the same way creates one function per level that needs only a message. Partial application turns a general operation into a unary function for mapping or composition, where a noncommutative operation fixes its first parameter first and takes the pipeline value last:
+Explicit lambda parameter types are needed where the compiler does not infer the delegate's generic arguments at the `curry` call, a delegate value with a declared `Func` type needs no annotation, the returned function retains each supplied value and invokes the original only when the remaining arguments arrive, and currying adds nothing when every argument arrives together. Fixing a logger's level the same way creates one function per level that needs only a message. Partial application turns a general operation into a unary function for mapping or composition, and a noncommutative operation fixes its first parameter first and takes the pipeline value last:
 
 ```csharp
 internal static class Scaling {
@@ -138,7 +138,7 @@ The costs are `Func` conversion with occasional explicit type annotations and ne
 
 ## [04]-[ADAPTERS]
 
-Unary methods convert where a `Func<T, R>` is expected, generic higher-order operations over multi-argument method groups defeat type inference, local functions share that limit, and explicit generic arguments or delegate casts add syntax, a function used in partial application is exposed as a delegate value, where each form has one reach:
+Unary methods convert where a `Func<T, R>` is expected, generic higher-order operations over multi-argument method groups defeat type inference, local functions share that limit, and explicit generic arguments or delegate casts add syntax, a function used in partial application is exposed as a delegate value, and each form has one reach:
 
 ```csharp
 internal sealed class Greeter(string separator) {
@@ -151,7 +151,7 @@ internal sealed class Greeter(string separator) {
 
 - Field initializers cannot depend on instance state
 - Getter-only properties create delegates that close over instance state
-- Factory methods introduce generic type parameters, which fields and properties cannot
+- Factory methods introduce generic type parameters, and fields and properties cannot
 - `fun` gives a lambda its `Func` type at the call site, it is invoked or passed without a declared local
 
 Existing APIs can expose arguments in an order that works poorly for partial application, and an adapter exposes domain-specific types in place of ambiguous primitives, acquires a short-lived resource only when the operation runs, and returns a `Func` so later specialization benefits from delegate inference:
@@ -212,7 +212,7 @@ The framework entry point stays thin while the behavior it invokes arrives as na
 
 ## [06]-[END_TO_END_FLOW]
 
-Compositional programs are sequences of typed transformations, and each step's effect on the value and its enclosing structure stays visible, where reusable operations hold the iteration, branching, and enumeration mechanics and a terminal operation evaluates the preceding lazy sequence:
+Compositional programs are sequences of typed transformations, and each step's effect on the value and its enclosing structure stays visible, reusable operations hold the iteration, branching, and enumeration mechanics, and a terminal operation evaluates the preceding lazy sequence:
 
 ```csharp
 internal static class DataFlow {
@@ -292,8 +292,8 @@ internal sealed class Handler(IRepository<State> states, INotifier notifier) {
 }
 ```
 
-`Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel instead of nesting result types, `Save` and `Send` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the typed error. Expressions move effects to explicit boundaries in this order: receive external input, transform and validate through expressions, compute the new domain state with pure functions, then persist or communicate at the effect boundary, and a terminal step with more than one effect keeps each one visible. Composition has limits:
+`Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel instead of nesting result types, `Save` and `Send` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the typed error. Expressions move effects to explicit boundaries in order: receive external input, transform and validate through expressions, compute the new domain state with pure functions, then persist or communicate at the effect boundary, and a terminal step with more than one effect keeps each one visible. Composition has limits:
 - `Option` discards the reason for a failure and `Fin` keeps it, `Option` short-circuits but cannot distinguish a missing state from an insufficient balance
 - Composition does not make distributed effects atomic, saving a state and sending a notification can fail between the operations, and a database transaction cannot protect an external call from a process failure after the call and before the commit
 - One multi-system pattern persists a representation of the combined work atomically, processes it until every effect completes, and makes repeat execution safe through idempotency
-- Confidence comes from tests, not from inspecting the implementation and assuming its abstracted operations are correct
+- Confidence comes from tests

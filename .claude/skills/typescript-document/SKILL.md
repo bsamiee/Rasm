@@ -34,7 +34,7 @@ Document exported declarations (types, interfaces, enums, functions, constants) 
 ## [03]-[STYLE]
 
 - Summary and every description (`@param`, `@returns`, `@remarks`, `@defaultValue`): one sentence in the third person that states what the declaration does or returns ("Runs", "Returns"), a noun phrase for a type, no trailing period, no hedge, and no restatement of the signature
-- `@remarks`: observable behavior with one fact per sentence, never the implementation, and a business rule only when the code cannot show it and the author has its source
+- `@remarks`: observable behavior with one fact per sentence, and a business rule only when the code cannot show it and the author has its source
 
 ## [04]-[STRUCTURE]
 
@@ -78,14 +78,14 @@ Order: summary, `@remarks`, `@param` and `@typeParam`, `@returns` and `@throws`,
 
 | [INDEX] | [TAG]                   | [RULE]                                                                                                 |
 | :-----: | :---------------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `@defaultValue`         | Block on an `interface` or `class` member, default in backticks, never "Default: 5000" in the summary  |
+|  [01]   | `@defaultValue`         | Block on an `interface` or `class` member, default in backticks                                        |
 |  [02]   | `@throws`               | First line holds `{@link ErrorType}` alone as the block title, the condition follows on the next line  |
 |  [03]   | `@example`              | Tag-line text is the title, the fenced `ts` block opens with its `import` lines, docgen type-checks it |
-|  [04]   | `@see`                  | Takes an explicit `{@link}`, bare text after `@see` is not linked                                      |
+|  [04]   | `@see`                  | Takes an explicit `{@link}`, plain text after `@see` is not linked                                     |
 |  [05]   | `@deprecated`           | Followed by the replacement in one sentence, applies to every member of the container                  |
 |  [06]   | `{@inheritDoc Target}`  | Copies summary, `@remarks`, `@param`, `@typeParam`, and `@returns` only, and forbids an own summary    |
 |  [07]   | `@internal`             | Modifier on the last line, docgen omits the export, `tsc` keeps it in `.d.ts` without `stripInternal`  |
-|  [08]   | `@packageDocumentation` | Modifier in the first `/**` comment of the entry file, never on a declaration                          |
+|  [08]   | `@packageDocumentation` | Modifier in the first `/**` comment of the entry file                                                  |
 |  [09]   | `@category`             | Groups the export in docgen output, the default group is `utils`                                       |
 
 ## [05]-[INTERFACES]
@@ -115,7 +115,7 @@ Each documentation run reports:
 3. Skipped — the symbols left alone and the reason (trivial, unclear, private)
 4. Open questions — only when missing intent makes the docs wrong
 
-Document only what the code proves, never an API, link, or behavior absent from the code, and when intent is unclear, ask one short question.
+Document only what the code proves, and when intent is unclear, ask one short question.
 
 ## [07]-[AVOID]
 

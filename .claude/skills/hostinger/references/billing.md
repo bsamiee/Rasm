@@ -4,7 +4,7 @@ Every domain and VPS purchase consumes a catalog price `item_id` and an optional
 
 ## [01]-[CATALOG]
 
-Catalog resolution is nested: a catalog item carries a `category`, a string `id`, and a `prices[]` array, and each price carries its own string `id`. Purchases consume the PRICE `id`, never the catalog-item `id`.
+Catalog resolution is nested: a catalog item has a `category`, a string `id`, and a `prices[]` array, and each price has its own string `id`. Purchases consume the price `id`.
 
 - Catalog-item id: `hostingercom-<category>-<sku>` (`hostingercom-vps-kvm2`, `hostingercom-domain-com`)
 - Price id: `<catalog-item-id>-<currency>-<periodN><unit>` (`hostingercom-vps-kvm2-usd-1m`, `hostingercom-domain-com-usd-1y`)
@@ -14,11 +14,11 @@ Catalog resolution is nested: a catalog item carries a `category`, a string `id`
 curl -X GET "https://developers.hostinger.com/api/billing/v1/catalog?category=vps" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 ```
 
-Each price carries `currency`, `price`, `first_period_price` (the promotional first-term price), `period`, and `period_unit` (`month`, `year`, `day`, `week`, `none`), and the catalog-item `metadata` shape varies by category. Orders land through the resource endpoint owning the product (`POST /api/domains/v1/portfolio` for a domain, `POST /api/vps/v1/virtual-machines` for a VM), each taking the price `item_id` and an optional `payment_method_id`. The generic billing orders endpoint was retired, no order goes through `/api/billing/v1` directly.
+Each price has `currency`, `price`, `first_period_price` (the promotional first-term price), `period`, and `period_unit` (`month`, `year`, `day`, `week`, `none`), and the catalog-item `metadata` shape varies by category. Orders go through the resource endpoint that owns the product (`POST /api/domains/v1/portfolio` for a domain, `POST /api/vps/v1/virtual-machines` for a VM), each taking the price `item_id` and an optional `payment_method_id`. No order goes through `/api/billing/v1` directly.
 
 ## [02]-[PAYMENT_METHODS]
 
-Payment methods are created only in hPanel (`hpanel.hostinger.com/billing/payment-methods`), the API lists, sets the default, and deletes, never creates. Omitted `payment_method_id` on a purchase falls to the account default.
+Payment methods are created only in hPanel (`hpanel.hostinger.com/billing/payment-methods`), the API lists, sets the default, and deletes. Omitted `payment_method_id` on a purchase falls to the account default.
 
 ```bash
 curl -X GET  "https://developers.hostinger.com/api/billing/v1/payment-methods" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
@@ -29,7 +29,7 @@ curl -X POST "https://developers.hostinger.com/api/billing/v1/payment-methods/<p
 
 ## [03]-[SUBSCRIPTIONS]
 
-Subscriptions carry `status`, `total_price`, `renewal_price`, `is_auto_renewed`, `expires_at`, and `next_billing_at`. API-created orders auto-renew by default, the toggle is asymmetric (enable is `PATCH`, disable is `DELETE`), and there is no stable API cancel, cancellation runs through hPanel.
+Subscriptions have `status`, `total_price`, `renewal_price`, `is_auto_renewed`, `expires_at`, and `next_billing_at`. API-created orders auto-renew by default, the toggle is asymmetric (enable is `PATCH`, disable is `DELETE`), and cancellation runs through hPanel.
 
 ```bash
 curl -X GET    "https://developers.hostinger.com/api/billing/v1/subscriptions" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"

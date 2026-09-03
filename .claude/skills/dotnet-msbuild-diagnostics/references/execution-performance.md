@@ -1,6 +1,6 @@
 # [EXECUTION_PERFORMANCE]
 
-Covers target execution, project scheduling, and task cost in build duration, where every finding is a delta between two captures taken under the same conditions.
+Covers target execution, project scheduling, and task cost in build duration, and every finding is a delta between two captures taken under the same conditions.
 
 ## [01]-[COMPARABLE_CAPTURES]
 
@@ -15,9 +15,9 @@ Change only the input or setting under measurement. Hold the command, properties
 
 - `dotnet build-server shutdown` stops the MSBuild server and the compiler server before a capture, and `--disable-build-servers` keeps them out of one capture
 - `-nr:false` stops node reuse, and the next capture starts its worker nodes again
-- Record the state chosen for each of those with the capture, because a warm server and reused nodes remove process startup from the measured duration
-- Use `binlog_compare` for property and package drift between two captures, never for timing
-- Compare the build against its own captures, not against a universal threshold
+- Record the chosen state of each with the capture, because a warm server and reused nodes remove process startup from the measured duration
+- Use `binlog_compare` for property and package drift between two captures
+- Compare the build against its own captures
 
 ## [02]-[BINLOG_DIAGNOSIS]
 
@@ -44,7 +44,7 @@ Treat a `ProjectReference` as an ordering edge and an output dependency.
 - Remove the reference only when the consumer needs neither the output nor the ordering edge
 - Set `ReferenceOutputAssembly="false"` when the build needs the ordering edge and the compiler does not consume the output
 - Replace a project reference with a package only when the dependency is a prebuilt artifact
-- Use a solution filter to reduce the graph, not to raise parallelism inside the retained graph
+- Use a solution filter to reduce the graph
 
 After each graph change, capture the same build again and run `binlog_build_graph` for the new critical path.
 
@@ -60,7 +60,7 @@ dotnet build Solution.slnx --no-restore -tl:off -graph -isolate -bl:<dir>/graph-
 - `<MSBuild Projects="...">` calls add no graph edge, and `ProjectReference` or a `ProjectReferenceTargets` entry declares it
 - `MSB4252` names the calling project, the called project, and both global-property sets, and the difference between the sets is the undeclared instance
 - `GraphIsolationExemptReference` with the full path of a project exempts one reference from the isolation check
-- Both switches are experimental, for measurement and for finding edges, never for a build setting
+- Both switches are experimental, for measurement and for finding edges
 
 ## [06]-[MSBUILD_TASK_PARALLELISM]
 
@@ -76,7 +76,7 @@ The `<MSBuild>` task submits the whole project list to the engine at once when o
 
 ## [07]-[MULTITHREADED_MODE]
 
-`-mt` builds projects on threads inside one MSBuild process instead of on worker processes, and `-maxCpuCount` still sets the thread count. The switch is experimental and unsupported, for measurement and never for a build setting.
+`-mt` builds projects on threads inside one MSBuild process instead of on worker processes, and `-maxCpuCount` still sets the thread count. The switch is experimental and unsupported, for measurement.
 
 ## [08]-[RESOLVE_ASSEMBLY_REFERENCE]
 
@@ -107,12 +107,12 @@ When `binlog_expensive_tasks` shows `Copy` cost:
 2. Read `SourceFiles`, `DestinationFiles`, and `DestinationFolder`
 
 Then apply the fix the evidence selects:
-- Combine independent files in one `Copy` task instead of one task per file
-- Use `SkipUnchangedFiles="true"` when a size and timestamp comparison is valid for those files
+- Combine independent files in one `Copy` task
+- Use `SkipUnchangedFiles="true"` when a size and timestamp comparison is valid for the files
 - Remove a copy only when nothing downstream reads the destination file
-- `CopyToOutputDirectory="Always"` copies on every build, which `BC0106` reports, and `dotnet-msbuild-execution` owns the mode choice
+- `CopyToOutputDirectory="Always"` copies on every build, which `BC0106` reports, and use `dotnet-msbuild-execution` for the mode choice
 
 ## [11]-[RESTORE]
 
 Run `binlog_nuget` when restore contributes to the measured build and read its duration, sources, and package count, and the build-only capture separates restore from execution without reducing the combined duration.
-- See `dotnet-msbuild-packaging` for `RestoreUseStaticGraphEvaluation`, lock files, and source configuration
+- Use `dotnet-msbuild-packaging` for `RestoreUseStaticGraphEvaluation`, lock files, and source configuration

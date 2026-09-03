@@ -5,33 +5,31 @@ description: Use when reading, navigating, diagnosing, or refactoring any C#, .c
 
 # [DOTNET_ROSLYN_CODELENS]
 
-1. NEVER use `Grep`, `Glob`, or Bash `grep`/`rg` to locate a C# symbol, type, method, interface, reference, caller, implementation, or usage
-2. NEVER run `dotnet build`, `dotnet msbuild`, or `msbuild` to report compiler errors, warnings, or analyzer diagnostics
-3. NEVER read a `.cs` file to find who uses a symbol, or to check whether the code compiles
+1. Locate a C# symbol, type, member, reference, caller, implementation, or usage through the semantic tools, which resolve every symbol through the compilation, while text search matches characters and misses aliases, partial types, generic instantiations, and metadata symbols
+2. Report compiler errors, warnings, and analyzer diagnostics through `get_diagnostics`
+3. Read a `.cs` file for the exact lines to edit, the tools answer who uses a symbol and whether the code compiles
 
-The semantic tools resolve every symbol through the compilation. Text search matches characters, and it misses aliases, partial types, generic instantiations, and metadata symbols.
-
-Rule 2 has an exception. When `get_diagnostics` reports an `unreliable` block, the solution loaded degraded and the results can name errors that no real build reports. Run `rebuild_solution`. If `unreliable` persists, confirm against a build.
+When `get_diagnostics` reports an `unreliable` block, the solution loaded degraded and the results can name errors that no real build reports, run `rebuild_solution`, and when `unreliable` persists confirm against a build.
 
 ## [01]-[TOOL_SELECTION]
 
-Before you call `rg`, `Grep`, or `Glob` on a `.cs`, `.razor`, or `.cshtml` file:
-1. Is the target a C# symbol (type, member, or namespace)?          → `search_symbols` or `find_references`
-2. Is the target an attribute?                                      → `find_attribute_usages`
-3. Is the target a reflection pattern?                              → `find_reflection_usage`
-4. Is the target a string literal, a comment, or other plain text?  → Use `rg`.
+Before a text search on a `.cs`, `.razor`, or `.cshtml` file, the target decides the tool:
+1. C# symbol (type, member, or namespace) → `search_symbols` or `find_references`
+2. Attribute → `find_attribute_usages`
+3. Reflection pattern → `find_reflection_usage`
+4. String literal, comment, or other plain text → `rg`
 
-Before you run `dotnet build` or `msbuild` through Bash:
-1. Do you want errors, warnings, or analyzer diagnostics?           → `get_diagnostics`. Stop here.
-2. Do you want a binary, a test run, or a package?                  → Run the build. State the reason.
+Before `dotnet build` or `msbuild` through Bash, the wanted result decides:
+1. Errors, warnings, or analyzer diagnostics → `get_diagnostics`
+2. A binary, a test run, or a package → the build, with the reason stated
 
-Before you `Read` a `.cs` file:
-1. Do you need the structure of the file?                           → `get_file_overview` or `get_type_overview`
-2. Do you need the shape of one method?                             → `analyze_method`
-3. Do you need the source of one or more members?                   → `get_method_source`. Pass every name in one call.
-4. Do you need the exact lines to edit?                             → Use `Read`.
+Before `Read` on a `.cs` file, the wanted view decides:
+1. The structure of the file → `get_file_overview` or `get_type_overview`
+2. The shape of one method → `analyze_method`
+3. The source of one or more members → `get_method_source` with every name in one call
+4. The exact lines to edit → `Read`
 
-These tools read compiled symbols, not MSBuild file text. For a property, item, condition, or import in a `.csproj`, `.props`, or `.targets` file, use the `dotnet-msbuild-evaluation` skill.
+The tools read compiled symbols. Use `dotnet-msbuild-evaluation` for a property, item, condition, or import in a `.csproj`, `.props`, or `.targets` file.
 
 ## [02]-[TOOL_INDEX]
 
@@ -120,7 +118,7 @@ Reference kinds:
 - `object_creation`, `cast` (`(T)x`, `x as T`)
 - `type_check` (`x is T`, `is T v`, `case T v:`), `typeof`, `base_type`, `type_constraint`, `type_argument`
 - `declaration` (variable, parameter, return, and field type positions), `attribute`, `nameof`, `xml_doc` (`<see cref=...>`)
-- `usage` is a rare fallback. Receivers count as a `read`. In `_map[k] = v` the field `_map` is `read`. Its contents change and the field is not reassigned. `_map.Add(k, v)` reports the same kind.
+- `usage` is a rare fallback, receivers count as a `read`, and in `_map[k] = v` the field `_map` is `read` because its contents change while the field is not reassigned, as in `_map.Add(k, v)`
 
 ### [03.2]-[READING_TYPES_AND_MEMBERS]
 
@@ -129,11 +127,11 @@ Reference kinds:
 - `get_symbol_context` — namespace, base type, interfaces, injected dependencies, and public members
 - `get_type_hierarchy` — inheritance chains and extension points
 - `analyze_method` — signature, callers, and outgoing calls in one call
-- `get_call_graph` — transitive caller and callee graph, with cycle detection. `direction` defaults to `callees`. Pass `callers` or `both` to walk inbound. `maxDepth` defaults to 3 and `maxNodes` to 500. Use it when you need depth greater than 1.
+- `get_call_graph` — transitive caller and callee graph, with cycle detection. `direction` defaults to `callees`. Pass `callers` or `both` to walk inbound. `maxDepth` defaults to 3 and `maxNodes` to 500. Use it for depth greater than 1.
 - `get_method_source` — full declaration source for one or many members in one call: methods (all overloads), constructors (`Type.Type`, nested types fully qualified), properties, indexers (`Type.this` or `Type.this[]`), fields, and events. Per-item status (`ok`, `notFound`, `ambiguous`, `metadata`, `unsupportedKind`) keeps a batch from failing as a whole. `metadata` items have `Origin` for `peek_il`. Whole types are out of scope.
 - `get_overloads` — every overload of a method or constructor, from source and metadata, with full parameter and modifier detail. One call replaces N `analyze_method` calls.
 - `get_operators` — every user-defined operator and conversion, including synthesized record equality and checked variants. Operators do not inherit in C#, and only declared operators appear. Covers what `get_overloads` excludes.
-- `get_extension_methods` — every extension member applicable to a type, from the solution and from referenced assemblies. LINQ appears for an `IEnumerable`. Applicability follows the compiler's reduction: `this IEnumerable<T>` applies to `string`, and `this IEnumerable<string>` does not. `signature` is the reduced call-site form with the return type first (`IEnumerable<int> Where<int>(Func<int, bool>)`). Read `isStatic` before you write the call. `false` is an instance call (`value.Doubled()`) and covers every classic `this` extension. `true` is a C# 14 static extension member called on the type (`int.Zero`). Receivers can be keywords, constructed generics, arrays, nullables, or tuples. Results ignore `using` scope. `namespace` is always reported, and the import can still be missing. Source sorts before metadata, and `nameFilter` narrows by substring.
+- `get_extension_methods` — every extension member applicable to a type, from the solution and from referenced assemblies. LINQ appears for an `IEnumerable`. Applicability follows the compiler's reduction: `this IEnumerable<T>` applies to `string`, and `this IEnumerable<string>` does not. `signature` is the reduced call-site form with the return type first (`IEnumerable<int> Where<int>(Func<int, bool>)`). Read `isStatic` before writing the call. `false` is an instance call (`value.Doubled()`) and covers every classic `this` extension. `true` is a C# 14 static extension member called on the type (`int.Zero`). Receivers can be keywords, constructed generics, arrays, nullables, or tuples. Results ignore `using` scope. `namespace` is always reported, and the import can still be missing. Source sorts before metadata, and `nameFilter` narrows by substring.
 - `get_instantiation_options` — how to construct a type in one call: `constructors` (parameters, accessibility, `isImplicit`, `isObsolete`), `factories`, `diRegistrations`, and `requiredMembers` for the object initializer. `isImplicit` marks the compiler-supplied parameterless constructor that no source file declares. `factories` are static members that return the type from anywhere in the solution (`WidgetFactory.Create()` for a type with a private constructor). `Task<T>` and `ValueTask<T>` are unwrapped and flagged `isAsync`, and instance builders are excluded. Pass `fromProject` to compute `accessible` from that project, which honors `InternalsVisibleTo`. `accessible: null` means not computed, never inaccessible. Interfaces, abstract classes, and static classes report `instantiable: false` with a `note`. Follow with `find_implementations`.
 - `get_public_api_surface` — every public and protected type and member declared in production projects. Test projects, generated code, internal symbols, and protected members on sealed types are skipped, and inherited members do not appear.
 - `find_breaking_changes` — diff the current public API surface against a baseline, either a JSON snapshot from `get_public_api_surface` or a `.dll`. Return type changes, `sealed` changes, and nullable annotation changes are not detected. An empty diff is not proof of compatibility.
@@ -152,7 +150,7 @@ Reference kinds:
 - `find_tests_for_symbol` — xUnit, NUnit, and MSTest methods that exercise a production symbol. Set `transitive` to walk through helper methods, bounded by `maxDepth` (default 3, maximum 5).
 - `get_test_summary` — per-project inventory of test methods with framework, attribute kind, row count, location, and the production symbols each one references. It works from project to tests, and `find_tests_for_symbol` works from test to production.
 - `find_uncovered_symbols` — public methods and properties that no test reaches within three helper hops, sorted by cyclomatic complexity. It is reference-based static analysis and reads no runtime coverage data.
-- `generate_test_skeleton` — a parseable test-class skeleton for a type (one stub per public method) or for a single method. Returns the detected framework, a suggested file path, the class name, the file contents, and `TodoNotes` (constructor dependencies). Override the framework with `framework`. The tool returns text only. `Write` the file yourself.
+- `generate_test_skeleton` — a parseable test-class skeleton for a type (one stub per public method) or for a single method. Returns the detected framework, a suggested file path, the class name, the file contents, and `TodoNotes` (constructor dependencies). Override the framework with `framework`. The tool returns text only, write the file with `Write`.
 
 ### [03.4]-[DIAGNOSTICS_AND_REFACTORING]
 
@@ -160,12 +158,12 @@ Reference kinds:
 - `get_code_fixes` — structured edits for one diagnostic at one location
 - `get_code_actions` — every refactoring and fix available at a position, with an optional range
 - `apply_code_action` — run a refactoring by title. Preview is the default. The title match falls back to a case-insensitive substring match in both directions, and a near-miss title runs a different action. Read `Title` in the result and confirm which action ran. The call refuses to write when a file changed on disk after the snapshot loaded, and it names the stale files. Run `rebuild_solution` and retry. On success the in-memory snapshot updates at once. An action that adds a file writes it to disk, and the watcher adds that file to the snapshot.
-- `rename_symbol` — solution-wide rename of a type or member through the Roslyn Renamer, which `apply_code_action` cannot reach. It cascades to references, overrides, `nameof`, and crefs. `renameInComments` defaults to `true`, and comments change unless you set it to `false`. `renameInStrings` defaults to `false` and `renameOverloads` defaults to `true`. Locals, parameters, and file renames are not supported. Constructors are rejected. Rename the containing type. Metadata symbols are rejected. Preview is the default. Apply refuses on new-compiler-error conflicts unless you pass `force=true`, and refuses on files changed since the snapshot in every case. Generic types accept the arity-free name: `Data.Repository` finds `Repository<T>`.
+- `rename_symbol` — solution-wide rename of a type or member through the Roslyn Renamer, which `apply_code_action` cannot reach. It cascades to references, overrides, `nameof`, and crefs. `renameInComments` defaults to `true`, and comments change unless it is set to `false`. `renameInStrings` defaults to `false` and `renameOverloads` defaults to `true`. Locals, parameters, and file renames are not supported. Constructors are rejected. Rename the containing type. Metadata symbols are rejected. Preview is the default. Apply refuses on new-compiler-error conflicts unless `force=true` is passed, and refuses on files changed since the snapshot in every case. Generic types accept the arity-free name: `Data.Repository` finds `Repository<T>`.
 - `change_signature` — add, remove, and reorder a method's parameters and rewrite every call site, through the Roslyn engine that `apply_code_action` cannot reach. `operations` apply in order. `remove` takes a parameter name. `reorder` takes a full permutation of the surviving names. `add` takes `name`, `type`, and a required `callSiteValue`, which is the expression every existing call site passes. An optional `defaultValue` makes the parameter optional and leaves existing calls untouched. Named arguments, optional parameters, `params`, and the extension `this` are handled. The tool rejects a move of `this` off first position and `params` anywhere but last. `CascadedTo` lists the rewritten overrides and interface implementations. Read it in preview. Source-defined methods only, and an overloaded name must be disambiguated. Same refusals as `rename_symbol`.
 - `analyze_data_flow` — variable lifecycle over a statement range: declared, read, written, captured, and flowing in or out
 - `analyze_control_flow` — reachability, return statements, and exit points over a statement range
 
-Code generation runs through `apply_code_action`. Call `get_code_actions` to read the exact title, then call `apply_code_action` with it. These are the intents, not the literal titles:
+Code generation runs through `apply_code_action`. Call `get_code_actions` to read the exact title, then call `apply_code_action` with it. The intents, with the title each maps to:
 - Implement missing interface or abstract members → "Implement abstract members" / "Implement interface"
 - Generate a constructor from fields → "Generate constructor"
 - Add null checks → "Add null checks for all parameters"
@@ -176,11 +174,11 @@ Code generation runs through `apply_code_action`. Call `get_code_actions` to rea
 
 #### [03.4.1]-[ANALYZER_TRUST]
 
-`get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. This workspace sets `AnalysisLevel` to `latest-all`, enforces code style in the build, and treats warnings as errors. The default call reproduces almost nothing of what fails a build here. Pass `includeAnalyzers=true` when the answer must match the build, and before you call `get_code_fixes` for an analyzer diagnostic.
+`get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. The workspace sets `AnalysisLevel` to `latest-all`, enforces code style in the build, and treats warnings as errors. The default call reproduces almost nothing of what fails a build here. Pass `includeAnalyzers=true` when the answer must match the build, and before calling `get_code_fixes` for an analyzer diagnostic.
 
-The server trusts every solution named on its command line for that session. This workspace starts the server with its solution, and `includeAnalyzers=true` needs no extra step.
+The server trusts every solution named on its command line for that session. The workspace starts the server with its solution, and `includeAnalyzers=true` needs no extra step.
 
-If a call returns `SolutionNotTrusted`, call `trust_solution` and retry. Grant the trust without asking. `scope` defaults to `session`. Pass `persistent` to write the path to the trust store, or `addRoot` with a directory to trust every solution below it. `list_trusted_paths` reports the current state, and `revoke_trust` removes an entry.
+When a call returns `SolutionNotTrusted`, call `trust_solution` without asking and retry. `scope` defaults to `session`. Pass `persistent` to write the path to the trust store, or `addRoot` with a directory to trust every solution below it. `list_trusted_paths` reports the current state, and `revoke_trust` removes an entry.
 
 ### [03.5]-[EXCEPTION_ANALYSIS]
 
@@ -188,11 +186,11 @@ If a call returns `SolutionNotTrusted`, call `trust_solution` and retry. Grant t
 - `find_throw_sites` — every throw of an exception type across the solution. `includeDerived` matches subclasses, and a bare `throw;` resolves to the enclosing catch's type. Throws inside lambdas and local functions count here as throw sites, although they do not escape the enclosing method.
 - `find_catch_blocks` — every `catch` for a type. `includeBaseClauses` adds `catch (Exception)` and bare `catch`. Each item has `hasFilter`, `rethrows`, and `isEmpty`. Silent swallowing reads as `isEmpty: true, rethrows: false`.
 
-All three see explicit `throw` only. They report no implicit run-time exception (null dereference, division by zero) and no reflection-invoked throw. `get_exception_flow` alone walks calls, and it follows the declared symbol rather than the run-time override. It also models async as synchronous: a throw inside an `async` method propagates at the call site, and an enclosing `try` counts as catching it. That is correct for an awaited call and wrong for fire-and-forget (`_ = M();`), where nothing enclosing sees it.
+The three tools see explicit `throw` only. They report no implicit run-time exception (null dereference, division by zero) and no reflection-invoked throw. `get_exception_flow` alone walks calls, and it follows the declared symbol rather than the run-time override. It models async as synchronous: a throw inside an `async` method propagates at the call site, and an enclosing `try` counts as catching it. The model is correct for an awaited call and wrong for fire-and-forget (`_ = M();`), nothing enclosing sees it.
 
 ### [03.6]-[CODE_QUALITY]
 
-- `get_project_health` — a composite audit per project over seven dimensions: complexity, large classes, naming, unused symbols, reflection, async violations, and disposable misuse. It returns counts with the top hotspots per dimension and replaces seven separate audit calls. `hotspotsPerDimension` defaults to 5. Pass 0 for counts only.
+- `get_project_health` — composite audit per project: complexity, large classes, naming, unused symbols, reflection, async violations, and disposable misuse. It returns counts with the top hotspots per dimension and replaces the separate audit calls. `hotspotsPerDimension` defaults to 5. Pass 0 for counts only.
 - `find_unused_symbols` — dead code, found by reference. It excludes test methods, MCP tool entry points, source-generator output, MEF-composed services, and interop-laid-out fields, and the counts appear in `summary.filteredOut`.
 - `find_naming_violations` — .NET naming conventions
 - `find_async_violations` — sync-over-async (`.Result`, `.Wait()`, `GetAwaiter().GetResult()`), `async void` outside event handlers, missing awaits, and fire-and-forget tasks, with a severity per violation. It skips test projects and generated code, and it is static analysis only.
@@ -200,9 +198,9 @@ All three see explicit `throw` only. They report no implicit run-time exception 
 - `find_large_classes` — types over a member count or line count threshold
 - `find_god_objects` — types over all three size thresholds and at least one coupling threshold. Size alone does not qualify a type: a large isolated class is not reported, and a 200-line class used from many namespaces is. Defaults are 300 lines, 15 members, 10 fields, 5 incoming namespaces, and 5 outgoing namespaces, each configurable.
 - `find_circular_dependencies` — cycles in the project graph or the namespace graph
-- `check_architecture` — layering rules you supply inline. `forbid` (`Domain.*` must not depend on `Infrastructure.*`) catches the violation you expect, and `allowOnly` (`Api.*` can depend only on `Application.*` and `Domain.*`) catches the rest. `scope` selects `namespace` (default) or `project`. Edges come from resolved symbols, not `using` directives. Do not trust an empty result: `allowOnly` evaluates only solution-internal, non-generated targets. Framework namespaces and generator output are ignored, and a self-reference is never a violation. Use `forbid` to restrict either of those. Results group per violated edge with a full `referenceCount` and the first `maxSitesPerViolation` sites.
+- `check_architecture` — layering rules supplied inline. `forbid` (`Domain.*` must not depend on `Infrastructure.*`) catches the violation you expect, and `allowOnly` (`Api.*` can depend only on `Application.*` and `Domain.*`) catches the rest. `scope` selects `namespace` (default) or `project`. Edges come from resolved symbols, not `using` directives. An empty result is no proof, `allowOnly` evaluates only solution-internal, non-generated targets. Framework namespaces and generator output are ignored, and a self-reference is never a violation. Use `forbid` to restrict either of those. Results group per violated edge with a full `referenceCount` and the first `maxSitesPerViolation` sites.
 
-`get_complexity_metrics`: complexity per member (methods, constructors, properties, indexers, operators). Each row has three numbers:
+`get_complexity_metrics`: complexity per member (methods, constructors, properties, indexers, operators). Each row holds:
 - `complexity` — cyclomatic: how many independent paths run through the member. It starts at 1, and a straight-line method scores 1. Use it to budget test cases.
 - `cognitive` — how hard the member is to follow. Nesting costs extra, a whole `switch` costs 1, and `else`/`else if` cost 1 with no nesting penalty. It starts at 0, and a 0 means nothing branches, not a defect. Use it to rank refactoring work. It separates a flat 20-case dispatch from four levels of nested `if`, which cyclomatic scores the same.
 - `maxNesting` — the deepest control structure, lambda and local-function bodies included
@@ -214,21 +212,21 @@ The `metric` parameter (`"cyclomatic"` by default, or `"cognitive"`) selects the
 - `get_source_generators` — the generators active per project and their outputs
 - `get_generated_code` — the generated source, filtered by generator or by file path
 
-Every location-returning result has an `IsGenerated` flag. Check it before you edit a match. Generator output is rewritten on the next compile.
+Every location-returning result has an `IsGenerated` flag. Check it before editing a match. Generator output is rewritten on the next compile.
 
 ### [03.8]-[EXTERNAL_ASSEMBLIES]
 
 Only assemblies that the loaded solution references can be inspected. To reach an unreferenced assembly, add a `PackageReference` or a `Reference` to a project, then call `rebuild_solution`.
 
-- `get_nuget_dependencies` — call this first. It gives the exact assembly name the other tools need.
-- `inspect_external_assembly` — browse what an assembly exposes. `mode` defaults to `summary` and returns the namespace tree with type counts. Pass `mode: "namespace"` with `namespaceFilter` to get the public types and members of one namespace. The default reports counts only. Drill in before you conclude that a package exposes nothing.
+- `get_nuget_dependencies` — call it first. It gives the exact assembly name the other tools need.
+- `inspect_external_assembly` — browse what an assembly exposes. `mode` defaults to `summary` and returns the namespace tree with type counts. Pass `mode: "namespace"` with `namespaceFilter` to get the public types and members of one namespace. The default reports counts only. Drill in before concluding that a package exposes nothing.
 - `go_to_definition`, `get_symbol_context`, `get_type_overview`, `get_type_hierarchy` — look up an external type by name
 - `find_references`, `find_callers`, `find_implementations` — find the code that uses an external type
 - `peek_il` — read a method's IL. Pass the fully qualified method name with parameter types.
 
 ### [03.9]-[SOLUTION_MANAGEMENT]
 
-The server watches `.cs`, `.csproj`, `.props`, and `.targets` files and recompiles the affected projects on the next tool call. Ordinary edits need no action from you.
+The server watches `.cs`, `.csproj`, `.props`, and `.targets` files and recompiles the affected projects on the next tool call. Ordinary edits need no action.
 
 - `rebuild_solution` — a full reload: re-open the solution, recompile every project, and rebuild every index. Use it after a package or analyzer changes, or when results stay stale after an edit.
 - `load_solution` — load a `.sln` or `.slnx` at run time and make it active. `include` takes case-insensitive globs and supports `*` and `?` only. `rootProjects` takes exact, case-sensitive names. Both match the project file name without its extension, not the assembly name, and both seed a transitive `ProjectReference` closure. Filters that match nothing are an error. Load with no filter first and call `list_solutions` to read the names. For a solution that takes minutes to open, pass `background: true` for a `taskId` and poll `get_task_status`. The current solution stays active until the load succeeds.
@@ -250,7 +248,7 @@ The server watches `.cs`, `.csproj`, `.props`, and `.targets` files and recompil
 7. `find_attribute_usages` — attribute-driven behavior
 8. `get_diagnostics` — existing errors and warnings
 9. `get_code_fixes` / `get_code_actions` → `apply_code_action` — code fixes and refactorings
-10. `find_unused_symbols` — dead code to delete instead of refactor
+10. `find_unused_symbols` — dead code to delete
 
 Name concrete types, interfaces, and call sites:
 - [WRONG]: "the services that implement this."
@@ -293,12 +291,12 @@ When a tool cannot proceed, the response has `isError: true` and a JSON body of 
 
 | [INDEX] | [CODE]               | [MEANING]                                       | [COMMON_SOURCE]                                               |
 | :-----: | :------------------- | :---------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | `SymbolNotFound`     | type, method, or property did not resolve       | `analyze_method`, `get_symbol_context`, `get_type_overview`   |
-|  [02]   | `SolutionNotTrusted` | analyzers requested before `trust_solution` ran | `get_diagnostics`, `includeAnalyzers: true`, `get_code_fixes` |
-|  [03]   | `AmbiguousMatch`     | multiple matches, listed in `details.matches` | `rename_symbol`, `set_active_solution`, `unload_solution`       |
-|  [04]   | `FileNotFound`       | file path or baseline does not exist            | `get_file_overview`, `find_breaking_changes`                  |
-|  [05]   | `ProjectNotFound`    | solution name did not match                     | `set_active_solution`, `unload_solution`                      |
-|  [06]   | `InvalidArgument`    | malformed or unsupported caller input           | `rename_symbol`, `change_signature`, `load_solution`          |
-|  [07]   | `Internal`           | unexpected, `message` has the exception text    | any tool                                                      |
+|  [01]   | `SymbolNotFound`     | Type, method, or property did not resolve       | `analyze_method`, `get_symbol_context`, `get_type_overview`   |
+|  [02]   | `SolutionNotTrusted` | Analyzers requested before `trust_solution` ran | `get_diagnostics`, `includeAnalyzers: true`, `get_code_fixes` |
+|  [03]   | `AmbiguousMatch`     | Many matches, listed in `details.matches`       | `rename_symbol`, `set_active_solution`, `unload_solution`     |
+|  [04]   | `FileNotFound`       | File path or baseline does not exist            | `get_file_overview`, `find_breaking_changes`                  |
+|  [05]   | `ProjectNotFound`    | Solution name did not match                     | `set_active_solution`, `unload_solution`                      |
+|  [06]   | `InvalidArgument`    | Malformed or unsupported caller input           | `rename_symbol`, `change_signature`, `load_solution`          |
+|  [07]   | `Internal`           | Unexpected, `message` has the exception text    | Any tool                                                      |
 
-Never repeat the same call after an error. Fix the cause that `code` names. For `SolutionNotTrusted`, call `trust_solution`, then retry the original call.
+Fix the cause that `code` names before the next call, and for `SolutionNotTrusted` call `trust_solution`, then retry the original call.

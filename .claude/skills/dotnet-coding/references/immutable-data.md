@@ -1,6 +1,6 @@
 # [IMMUTABLE_DATA]
 
-Covers the material behind the immutability rules of `dotnet-coding`: the snapshot and transition model, the hazards of shared mutation, values against entities, an immutable domain state with its permitted transitions, the copy techniques and their limits, the cost model, and the persistent list and tree structures with their operation costs.
+Covers the snapshot and transition model behind the immutability rules of `dotnet-coding`, with the persistent structures and their costs.
 
 ## [01]-[TRANSITIONS]
 
@@ -16,13 +16,13 @@ Entities keep their identity through many immutable states, freezing keeps an ac
 
 ## [02]-[SHARED_MUTATION]
 
-Shared mutable state creates these problems:
-1. Lost updates, where concurrent operations read the same old value and overwrite one another's results
-2. Temporary invalid states, where a multi-field update exposes intermediate combinations when fields change separately
-3. Hidden coupling, where every reader depends on every code path that can change the shared object
-4. Loss of purity, because changing state outside a function's local scope is an observable side effect
+Shared mutable state creates problems:
+- Lost updates, concurrent operations read the same old value and overwrite one another's results
+- Temporary invalid states, a multi-field update exposes intermediate combinations when fields change separately
+- Hidden coupling, every reader depends on every code path that can change the shared object
+- Loss of purity, changing state outside a function's local scope is an observable side effect
 
-Locks protect one update, and coordination becomes difficult when one business action affects many objects or subsystems, the larger the scope of shared mutation, the harder atomicity and correctness are to reason about. The concurrency source need not be threads, because asynchronous and parallel execution raise the same hazards, and a system that combines concurrency with state mutation cannot be proved free of race conditions, correctness comes from removing mutation from shared state and not from coordinating access. Mutation confined to a function is different, a local accumulator hidden from callers does not make the function impure, and `Fold` expresses that intent directly.
+Locks protect one update, and coordination becomes difficult when one business action affects many objects or subsystems, the larger the scope of shared mutation, the harder atomicity and correctness are to reason about. The concurrency source need not be threads, because asynchronous and parallel execution raise the same hazards, and a system that combines concurrency with state mutation cannot be proved free of race conditions, correctness comes from removing mutation from shared state. Mutation confined to a function is different, a local accumulator hidden from callers does not make the function impure, and `Fold` expresses that intent directly.
 
 ## [03]-[VALUES_AND_ENTITIES]
 
@@ -72,7 +72,7 @@ Public setters let callers replace properties, private setters still let code in
 ## [05]-[COPIES]
 
 Lenses update a nested field without a chain of `with` expressions.
-- See `dotnet-coding-languageext` for the `Lens<A, B>` API and its composition through `lens(outer, inner)`
+- Use `dotnet-coding-languageext` for the `Lens<A, B>` API and its composition through `lens(outer, inner)`
 
 Reflection can copy an object and replace one backing field, and it removes boilerplate at the cost of speed and of the control over legal transitions, explicit copy methods stay preferred. Data can be declared in F#, where declarations are immutable by default and support copy-and-update expressions while C# implements the behavior, at the cost of a mixed-language solution and an extra assembly boundary. No C# technique prevents all mutation, because reflection can alter private and read-only fields, and the goal is to prevent accidental mutation and to communicate the intended model.
 
@@ -125,7 +125,7 @@ When emptiness matters, the sequence is consumed through `Match`, and a recursiv
 
 ## [08]-[PERSISTENT_TREES]
 
-Binary trees are defined recursively, `Map<K, V>` implements this model, `Select` rebuilds the same shape with transformed values, and `Fold` threads an accumulator through the tree:
+Binary trees are defined recursively, `Map<K, V>` implements the model, `Select` rebuilds the same shape with transformed values, and `Fold` threads an accumulator through the tree:
 
 ```text
 Tree<T> = Leaf(value: T) | Branch(left: Tree<T>, right: Tree<T>)

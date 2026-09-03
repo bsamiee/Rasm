@@ -28,7 +28,7 @@ curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/ship
 
 ## [03]-[PRODUCTS]
 
-Products are created published with a single variant, these endpoints carry no draft or multi-variant path. Physical products take `name` and `price` (cents, positive) with optional `description` and `currency`, digital products add `download_url`, the external link delivered after purchase. Currency defaults to the store currency.
+Products are created published with a single variant, the endpoints have no draft or multi-variant path. Physical products take `name` and `price` (cents, positive) with optional `description` and `currency`, digital products add `download_url`, the external link delivered after purchase. Currency defaults to the store currency.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/products/physical" \

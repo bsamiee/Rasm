@@ -2,8 +2,8 @@
 id: <rule-id> # Imperative grammar: no-<construct> / require-<shape>, defaults to the filename stem when omitted
 language: <language>
 severity: error
-files: ['<scope-glob>'] # Relative to sgconfig.yml, never ./-prefixed, string glob or {glob, caseInsensitive}
-ignores: ['<boundary-glob>'] # Tested before files, the only exclusion channel, a !-negated glob inside files: is inert
+files: ['<scope-glob>'] # Relative to sgconfig.yml without a ./ prefix, string glob or {glob, caseInsensitive}
+ignores: ['<boundary-glob>'] # Tested before files and the one exclusion channel, a !-negated glob inside files: is inert
 utils:
     <util-id>:
         any:
@@ -23,9 +23,9 @@ fix: <template referencing $VAR and $NEW> # Only when the repair is mechanical
 message: <one line naming the violation>
 note: <the exact repair, the shape to produce>
 labels:
-    <VAR>: {style: primary, message: '<span fact>'} # rule/constraints vars only, a rule carrying fix: renders the diff, never labels
+    <VAR>: {style: primary, message: '<span fact>'} # rule/constraints vars only, a rule carrying fix: renders the diff
 metadata:
-    <key>: <routing-fact> # Surfaces only under --json --include-metadata
+    <key>: <routing-fact> # Appears under --json --include-metadata
 ---
 id: <sibling-rule-id> # One topic file carries the rule family, rules split by ---
 language: <language>

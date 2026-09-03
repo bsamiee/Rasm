@@ -5,7 +5,7 @@ rule: # matches: <param> stops kind pruning, carry an explicit kind guard beside
     kind: <kind>
     has: {matches: <param-id>}
 constraints:
-    <VAR>: {regex: '<grammar>'} # <VAR> must bind in this util's own rule, an unbound name aborts the entire scan
+    <VAR>: {regex: '<grammar>'} # <VAR> must bind in the util's own rule, an unbound name aborts the whole scan
 utils:
-    <local-util-id>: <rule> # Local to this file, a rule-file utils: entry shadows a same-named global
+    <local-util-id>: <rule> # Local to the file, a rule-file utils: entry shadows a same-named global
     # call: rule: { matches: { <util-id>: { <param-id>: <rule> } } }

@@ -21,7 +21,7 @@ rule:
                     has:
                         kind: block_mapping_pair
                         has: {field: key, regex: '^timeout-minutes$'}
-        - not: # A reusable-workflow caller carries uses: and rejects timeout-minutes outright
+        - not: # Reusable-workflow callers hold uses: and reject timeout-minutes
             has:
                 kind: block_node
                 has:

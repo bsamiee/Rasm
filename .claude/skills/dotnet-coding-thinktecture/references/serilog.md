@@ -109,7 +109,7 @@ The unwrapped families render their inner value, that value renders as a scalar 
 
 ## [04]-[STRING_RENDERING]
 
-`TypesToRenderAsString` is a `[Flags]` enum, a flagged family renders as `new ScalarValue(value)` and Serilog calls `ToString()` on it when it writes the event, an unflagged family unwraps as before, and no flag reaches a complex value object, a keyless smart enum, or a regular union, because the policy declines those first:
+`TypesToRenderAsString` is a `[Flags]` enum, a flagged family renders as `new ScalarValue(value)` and Serilog calls `ToString()` on it when it writes the event, an unflagged family unwraps as before, and no flag reaches a complex value object, a keyless smart enum, or a regular union, because the policy declines them first:
 
 | [INDEX] | [MEMBER]       | [VALUE] | [EFFECT]                                         |
 | :-----: | :------------- | :------ | :----------------------------------------------- |
@@ -132,5 +132,5 @@ String-keyed smart enums print the same text under every setting because its `To
 ## [05]-[CAVEATS]
 
 The `@` operator selects destructuring, and without it Serilog calls `ToString()` and the policy never runs: a string-keyed smart enum prints the same text either way, a decimal value object becomes a string, and a record collapses into one string (`"Entry { Status = Paid, Total = 99.95 }"`). Ad hoc union structs that were never assigned have no active member, their `Value` throws `InvalidOperationException` (`This struct of type 'StatusOrText' is not initialized. Make sure all fields, properties and variables are initialized with non-default values.`), Serilog catches the exception during property capture and writes `"Capturing the property value threw an exception: InvalidOperationException"` in its place, and the log call survives without the value:
-- The analyzer reports 047 on `default(StatusOrText)` and `new StatusOrText()` and 104 on a settable field or property of the type until it is `required`, and an array element or a generic `default` draws nothing, an uninitialized union reaches a logger through those routes unless every struct union is assigned before the log call
+- The analyzer reports 047 on `default(StatusOrText)` and `new StatusOrText()` and 104 on a settable field or property of the type until it is `required`, and an array element or a generic `default` draws nothing, an uninitialized union reaches a logger through the routes unless every struct union is assigned before the log call
 - `DefaultValueHandling = UnionDefaultValueHandling.MapToFirstMember` with a stateless first member makes `default` valid, `Value` returns `default` of the first member type, a reference-type first member logs `null`, and a struct first member logs its type tag

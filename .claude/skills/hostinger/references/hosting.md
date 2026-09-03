@@ -1,8 +1,8 @@
 # [HOSTINGER_HOSTING]
 
-Shared hosting: websites, WordPress installations, MySQL databases, Node.js apps, cache, cron, and PHP, all scoped to a hosting account. REST entries on `/api/hosting/v1` map one-to-one onto the `hostinger` MCP `hosting_*` tools. Account-scoped paths carry `{username}` (the account, `u123456789`), and every WordPress operation additionally keys on `{software}`, the installation id from `listWordPressInstallationsV1`. Listings paginate on `page` and `per_page` (default 50).
+Shared hosting work scoped to a hosting account, from websites to the composite deploy pipeline. REST entries on `/api/hosting/v1` map one-to-one onto the `hostinger` MCP `hosting_*` tools. Account-scoped paths take `{username}` (the account, `u123456789`), and every WordPress operation additionally keys on `{software}`, the installation id from `listWordPressInstallationsV1`. Listings paginate on `page` and `per_page` (default 50).
 
-Website creation and every WordPress, plugin, theme, core, and Node.js build mutation is asynchronous: a `2xx` means the job is queued, never done, and no response carries a completion field. Confirm completion by re-polling the matching list (`listWebsitesV1`, `listWordPressInstallationsV1`, `listInstalledWordPressPluginsV1`, `listNodeJSBuildsV1`) until the state settles.
+Website creation and every WordPress, plugin, theme, core, and Node.js build mutation is asynchronous: a `2xx` means the job is queued, and no response holds a completion field. Confirm completion by re-polling the matching list (`listWebsitesV1`, `listWordPressInstallationsV1`, `listInstalledWordPressPluginsV1`, `listNodeJSBuildsV1`) until the state settles.
 
 ## [01]-[WEBSITES]
 
@@ -35,7 +35,7 @@ curl -X POST "https://developers.hostinger.com/api/hosting/v1/accounts/{username
 
 ## [03]-[DATABASES]
 
-Database names and users carry the account prefix: `createAccountDatabaseV1` auto-adds `u123456789_` when omitted, the stored name differs from the sent one, and every later call keys on the full name from `listAccountDatabasesV1`. Password changes do not rewrite any `wp-config.php` or app config referencing the database, that update is manual.
+Database names and users have the account prefix: `createAccountDatabaseV1` auto-adds `u123456789_` when omitted, the stored name differs from the sent one, and every later call keys on the full name from `listAccountDatabasesV1`. Password changes do not rewrite any `wp-config.php` or app config referencing the database, that update is manual.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/hosting/v1/accounts/{username}/databases" \
@@ -47,7 +47,7 @@ Remote access opens per database (`POST .../databases/{name}/remote-connections`
 
 ## [04]-[NODE_JS]
 
-Node.js builds take a source archive, `createNodeJSBuildFromArchiveV1` with a `.zip`/`.tar.gz`/`.tgz` under 50 MB containing SOURCE ONLY (no `node_modules`, no build output, the build runs server-side). `node_version` (`18`/`20`/`22`/`24`), `app_type` (`vite`, `express`, `nest`, and peers), and `package_manager` auto-detect from `package.json` when omitted. Each build carries a `state` of `pending` → `running` → `completed`/`failed`, polled via `listNodeJSBuildsV1`, `restartNode_jsApplicationV1` cycles the running app.
+Node.js builds take a source archive, `createNodeJSBuildFromArchiveV1` with a `.zip`/`.tar.gz`/`.tgz` under 50 MB containing the source without `node_modules` or build output, the build runs server-side. `node_version` (`18`/`20`/`22`/`24`), `app_type` (`vite`, `express`, `nest`, and peers), and `package_manager` auto-detect from `package.json` when omitted. Each build has a `state` of `pending` → `running` → `completed`/`failed`, polled through `listNodeJSBuildsV1`, `restartNode_jsApplicationV1` cycles the running app.
 
 ## [05]-[CACHE_CRON_PHP]
 
@@ -58,11 +58,11 @@ Node.js builds take a source archive, `createNodeJSBuildFromArchiveV1` with a `.
 
 ## [06]-[HORIZONS]
 
-Horizons AI builder generates a site from a prompt: `horizons_createWebsiteV1` takes `message` as an array of `{ "type": "text", "text": ... }` items, the text carrying the full project spec up to 20000 characters. `horizons_getWebsiteV1` returns an edit link into the Horizons UI, a Horizons site is editable only there, never through the API.
+Horizons AI builder generates a site from a prompt: `horizons_createWebsiteV1` takes `message` as an array of `{ "type": "text", "text": ... }` items, the text carrying the full project spec up to 20000 characters. `horizons_getWebsiteV1` returns an edit link into the Horizons UI, a Horizons site is editable in that UI only.
 
 ## [07]-[COMPOSITE_DEPLOY]
 
-`deployStaticWebsite`, `deployJsApplication`, `deployWordpressPlugin`, `deployWordpressTheme`, `importWordpressWebsite`, `listJsDeployments`, and `showJsDeploymentLogs` compose an upload pipeline absent from the spec (`POST /api/hosting/v1/files/upload-urls` → upload → a per-type deploy or build endpoint). `deployStaticWebsite` uploads PRE-BUILT files, no build step. `deployJsApplication` uploads SOURCE ONLY and builds server-side, routed by `package.json` presence. `importWordpressWebsite` takes a site archive and a `.sql` dump, naming a directory input `<dir>_YYYYMMDD_HHMMSS.zip`.
+`deployStaticWebsite`, `deployJsApplication`, `deployWordpressPlugin`, `deployWordpressTheme`, `importWordpressWebsite`, `listJsDeployments`, and `showJsDeploymentLogs` compose an upload pipeline absent from the spec (`POST /api/hosting/v1/files/upload-urls` → upload → a per-type deploy or build endpoint). `deployStaticWebsite` uploads prebuilt files with no build step, and `deployJsApplication` uploads the source and builds server-side, routed by `package.json` presence. `importWordpressWebsite` takes a site archive and a `.sql` dump, naming a directory input `<dir>_YYYYMMDD_HHMMSS.zip`.
 
 ## [08]-[API_REFERENCE]
 

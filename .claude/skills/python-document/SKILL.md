@@ -5,7 +5,7 @@ description: "Use when ruff reports a D or DOC violation, or when a public Pytho
 
 # [PYTHON_DOCUMENT]
 
-Covers Google-style docstrings on Python modules, classes, functions, and methods: which symbols get one, the summary and section layout, and the patterns for classes, generators, async functions, overloads, properties, and examples.
+Covers Google-style docstrings on Python modules, classes, functions, and methods, from which symbols get one to the example layout.
 
 - `ruff check` enforces `convention = "google"` with `preview = true`: every `D` rule the convention keeps, `D420`, `D421`, and every `DOC` rule except the ignored `DOC502` fire, and section headers are `Name:` lines with no underline (`D416`)
 
@@ -18,7 +18,7 @@ What gets a docstring:
 - Private functions and methods (`_name`) with logic the name does not state, as a one-liner the `DOC` rules skip (`ignore-one-line-docstrings = true`), a multi-line private docstring has `Returns:`, `Yields:`, and `Raises:` because the `DOC` rules have no visibility filter
 - Module docstrings at the top of the file, one sentence on the module contents
 
-What not to document:
+Exemptions:
 - Methods decorated with `typing.override` unless the override changes the base contract, `D102` exempts them and `ignore-decorators` lists the decorator
 - `self`, `cls`, `*args`, and `**kwargs` under `Args:`, `ignore-var-parameters = true` exempts `*args` and `**kwargs` from `D417`
 - Summaries that repeat the name (`"""Runs the job."""` on `run_job()`), the summary states the effect, return, or side effect the name and signature leave out
@@ -30,14 +30,14 @@ Existing work:
 ## [02]-[FORMAT]
 
 Formatting rules:
-- Summary line: one sentence in the third person that states what the member does or returns (`Fetches rows`, not `Fetch rows` or `This function fetches`), with no filler, no hedge, and no restatement of the signature (`D402`), on the first physical line after the opening quotes (`D212`), ending with a period (`D415`), within the 300-column `E501` limit because `ruff format` never wraps docstring text, and in one style per file because Google also accepts the imperative and `D401` is off under `google`
+- Summary line: one sentence in the third person that states what the member does or returns (`Fetches rows`), with no filler, no hedge, and no restatement of the signature (`D402`), on the first physical line after the opening quotes (`D212`), ending with a period (`D415`), within the 300-column `E501` limit because `ruff format` never wraps docstring text, and in one style per file because Google also accepts the imperative and `D401` is off under `google`
 - Blank lines: one between the summary and the description (`D205`), one before each section (`D411`), one between sections (`D410`), and no empty section (`D414`)
 - Section headers: capitalized (`D405`), ending with a colon (`D416`), and followed by the first entry with no blank line between (`D412`)
 - Indentation: section entries 4 spaces from the header and continuation lines 4 more (8 total), Google accepts 2 or 4 with one width per file, and the docstring body aligns with the opening quotes (`D207`, `D208`)
 
 ### [02.1]-[SECTIONS]
 
-Use these sections and omit any that do not apply, `D420` orders `Args:`, then `Returns:` or `Yields:`, then `Raises:` and leaves the other sections unordered:
+Use the sections that apply, `D420` orders `Args:`, then `Returns:` or `Yields:`, then `Raises:` and leaves the other sections unordered:
 
 | [INDEX] | [SECTION]                 | [WHEN_TO_USE]                                                                                              |
 | :-----: | :------------------------ | :--------------------------------------------------------------------------------------------------------- |
@@ -115,7 +115,7 @@ Returns:
     The parsed configuration, or None when the file does not exist.
 ```
 
-Functions returning `expression.Result` describe the `Ok` value and each `Error` variant under `Returns:`, never under `Raises:`.
+Functions returning `expression.Result` describe the `Ok` value and each `Error` variant under `Returns:`.
 
 ### [04.2]-[RAISES]
 
@@ -131,7 +131,7 @@ Raises:
 
 ### [04.3]-[GENERATORS]
 
-- `Yields:` replaces `Returns:` (`DOC402` on a missing one) and describes the item `next()` returns, not the generator object
+- `Yields:` replaces `Returns:` (`DOC402` on a missing one) and describes the item `next()` returns
 
 The generator docstring:
 
@@ -176,12 +176,12 @@ def parse(data: str | bytes) -> dict[str, object]:
 
 ### [04.6]-[DECORATORS]
 
-- Document the effect of the decorator on the wrapped function, not the wrapper internals
+- Document the effect of the decorator on the wrapped function
 - In a decorator that replaces the function, copy `__doc__` with `functools.wraps`, autodoc reads `__doc__` from the imported object and a wrapper without it hides the docstring
 
 ## [05]-[CLASSES]
 
-Class docstrings open with what an instance represents (`"""The address of a shop."""`, not `"""Class that describes a shop address."""`), and an exception class states what the error represents, not when it occurs.
+Class docstrings open with what an instance represents (`"""The address of a shop."""`), and an exception class states what the error represents.
 
 Regular class with `Attributes:` and an `__init__` docstring:
 
@@ -213,7 +213,7 @@ class HTTPClient:
 
 Dataclasses, Pydantic models, TypedDicts, and NamedTuples:
 - Each field gets a string literal on the line after the field, autodoc reads that literal (or a `#:` comment before the field) as the attribute docstring
-- The class docstring has no `Attributes:` entry for those fields, one field is documented in one place
+- The class docstring has no `Attributes:` entry for the fields, one field is documented in one place
 
 Inline attribute docstrings on a dataclass:
 
@@ -263,7 +263,7 @@ Rules:
 - Code blocks indent 4 spaces within the section, and a blank line separates a block from the label before it and the entry after it
 - Each example gets a label when the section holds more than one
 - `ruff format` reformats `>>>` doctest lines, Markdown fences, and rST `::` blocks under `docstring-code-format = true` and skips a block that does not parse, an indented plain block stays as written
-- Examples are indented plain blocks, not `>>>` lines: `addopts` has no `--doctest-modules` and `testpaths` is `tests`, nothing runs a doctest and no check detects a stale one
+- Examples are indented plain blocks, `addopts` has no `--doctest-modules` and `testpaths` is `tests`, nothing runs a doctest and no check detects a stale one
 
 The docstring with labeled examples:
 

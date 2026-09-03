@@ -55,17 +55,17 @@ class StaticSite(pulumi.ComponentResource):
 
 Every type URN spells `<package>:<module>:<type>` (organization or package name, module usually `index`, PascalCase type): `myorg:index:StaticSite`.
 
-Missing `registerOutputs()` leaves the component stuck "creating" in the console and its outputs unpersisted, it is always the constructor's last line. Child names derive from the component name (`${name}-bucket`), a hardcoded child name collides the moment two instances exist.
+Missing `registerOutputs()` leaves the component stuck "creating" in the console and its outputs unpersisted, it is the constructor's last line. Child names derive from the component name (`${name}-bucket`), a hardcoded child name collides the moment two instances exist.
 
 ## [02]-[ARGS_DESIGN]
 
 Args interfaces define what consumers configure and how composable the component is.
 
-- [INPUT_WRAP]: Every property wraps in `Input<T>` to accept plain values and `Output<T>` alike, a bare `string` forces consumers to unwrap outputs with `.apply()`
+- [INPUT_WRAP]: Every property wraps in `Input<T>` to accept plain values and `Output<T>` alike, a plain `string` forces consumers to unwrap outputs with `.apply()`
 - [FLAT]: Flat interfaces with optional properties beat nested arg objects, deep nesting is hard to use and harder to evolve
 - [NO_UNIONS]: Union types (`string | number`) break Python, Go, and C# SDK generation, variants become separate optional properties (`sizeGb`, `sizeMb`)
 - [NO_FUNCTIONS]: Callbacks cannot serialize across language boundaries, configuration properties (`namePrefix`, `nameSuffix`) replace them
-- [DEFAULTS]: Sensible defaults land in the constructor via `??`, consumers configure only what they need, security defaults on (`args.enableVersioning !== false` gates the opt-out)
+- [DEFAULTS]: Defaults sit in the constructor through `??`, consumers configure only what they need, security defaults on (`args.enableVersioning !== false` gates the opt-out)
 
 ```typescript
 interface DatabaseArgs {
@@ -78,7 +78,7 @@ interface DatabaseArgs {
 
 ## [03]-[OUTPUTS]
 
-Components expose only what consumers need (endpoint, port, security group id), never every internal resource, over-exposure leaks implementation detail into every consumer. Composite values derive with `pulumi.interpolate` or `pulumi.concat`:
+Components expose only what consumers need (endpoint, port, security group id), over-exposure leaks implementation detail into every consumer. Composite values derive with `pulumi.interpolate` or `pulumi.concat`:
 
 ```typescript
 this.connectionString = pulumi.interpolate`postgresql://${args.username}:${args.password}@${cluster.endpoint}:${cluster.port}/${args.databaseName}`;
@@ -89,7 +89,7 @@ this.registerOutputs({ connectionString: this.connectionString });
 
 - [CONDITIONAL_CREATION]: Optional args gate sub-resource creation, `if (args.enableMonitoring)` wraps the topic, subscription, and alarm block, absent means absent
 - [COMPOSITION]: Higher-level components compose lower-level ones, each level owning one concern, a `Platform` instantiates a `VpcNetwork` child with `{ parent: this }` and feeds its outputs into a cluster
-- [PROVIDER_PASSTHROUGH]: `ComponentResourceOptions` carries explicit providers to children automatically, a consumer passes `{ providers: [usWest] }` for multi-region or multi-account deployments and every `parent: this` child inherits it with no extra code
+- [PROVIDER_PASSTHROUGH]: `ComponentResourceOptions` passes explicit providers to children automatically, a consumer passes `{ providers: [usWest] }` for multi-region or multi-account deployments and every `parent: this` child inherits it with no extra code
 
 ## [05]-[MULTI_LANGUAGE]
 
@@ -109,7 +109,7 @@ Consumers install with `pulumi package add <git-repo-url>[@vX.Y.Z]`, which downl
 |  [02]   | Same organization  | Private registry | `pulumi package publish` to Pulumi Cloud      |
 |  [03]   | Same organization  | Git repository   | `pulumi package add <repo>` with version tags |
 |  [04]   | Language ecosystem | Package manager  | npm, PyPI, NuGet, Maven                       |
-|  [05]   | Public community   | Pulumi Registry  | Submit via the pulumi/registry GitHub repo    |
+|  [05]   | Public community   | Pulumi Registry  | Submit through the pulumi/registry GitHub repo |
 
 Private registries generate API documentation automatically, manage versions, and make components org-wide discoverable. Versions are `v`-prefixed git tags, a README is required and becomes the registry documentation page, type annotations (JSDoc, docstrings, Go `Annotate()`) enrich generated SDK docs.
 

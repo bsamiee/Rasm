@@ -1,6 +1,6 @@
 # [SEQUENCES]
 
-Covers the sequence flows behind the expression rules of `dotnet-coding`: when a pipeline defers and when it materializes, how stages are named, how `Fold` expresses every reduction, how one element is replaced without mutation, how adjacent elements are compared, and how one text becomes one report.
+Covers the sequence flows behind the expression rules of `dotnet-coding`, from deferral to the pipeline that turns one text into one report.
 
 ## [01]-[DEFERRAL]
 
@@ -79,7 +79,7 @@ Fold     = f(f(f(seed, item0), item1), item2)
 FoldBack = f(f(f(seed, item2), item1), item0)
 ```
 
-Sequences have 2 constructors, the empty sequence and `Cons`, and `FoldBack` replaces both: the seed replaces the empty sequence and the step replaces each `Cons`. The same derivation produces a fold for any recursive type, one replacement per constructor, where each recursive position receives an already-folded result, and `Fold` can express `Map`, `Filter`, and `Bind`.
+Sequences have 2 constructors, the empty sequence and `Cons`, and `FoldBack` replaces both: the seed replaces the empty sequence and the step replaces each `Cons`. The same derivation produces a fold for any recursive type, one replacement per constructor with each recursive position receiving an already-folded result, and `Fold` can express `Map`, `Filter`, and `Bind`.
 
 ## [04]-[REPLACEMENT]
 

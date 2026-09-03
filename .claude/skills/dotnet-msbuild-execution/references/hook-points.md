@@ -1,6 +1,6 @@
 # [HOOK_POINTS]
 
-Every row names an SDK target that a custom target attaches to with `BeforeTargets` or `AfterTargets`, the phase it runs in, and the items and properties that exist at that point. The .NET SDK 10 chains read, in execution order: `Restore`, then `Build` = `BeforeBuild`, `CoreBuild`, `AfterBuild`, where `CoreBuild` = `BuildOnlySettings`, `PrepareForBuild`, `PreBuildEvent`, `ResolveReferences`, `PrepareResources`, `ResolveKeySource`, `Compile`, `ExportWindowsMDFile`, `UnmanagedUnregistration`, `GenerateSerializationAssemblies`, `CreateSatelliteAssemblies`, `GenerateManifests`, `GetTargetPath`, `PrepareForRun`, `UnmanagedRegistration`, `IncrementalClean`, `PostBuildEvent`, then `Publish` and `Pack` on top of `Build`.
+Every row names an SDK target that a custom target attaches to with `BeforeTargets` or `AfterTargets`, the phase it runs in, and the items and properties that exist at that point. The .NET SDK 10 chains read, in execution order: `Restore`, then `Build` = `BeforeBuild`, `CoreBuild`, `AfterBuild`, and `CoreBuild` = `BuildOnlySettings`, `PrepareForBuild`, `PreBuildEvent`, `ResolveReferences`, `PrepareResources`, `ResolveKeySource`, `Compile`, `ExportWindowsMDFile`, `UnmanagedUnregistration`, `GenerateSerializationAssemblies`, `CreateSatelliteAssemblies`, `GenerateManifests`, `GetTargetPath`, `PrepareForRun`, `UnmanagedRegistration`, `IncrementalClean`, `PostBuildEvent`, then `Publish` and `Pack` on top of `Build`.
 
 ## [01]-[RESTORE]
 
@@ -40,7 +40,7 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 
 ## [03]-[PUBLISH]
 
-`Publish` = `_PublishBuildAlternative` (`Build` unless `NoBuild=true`), `PrepareForPublish`, `ComputeAndCopyFilesToPublishDirectory`, `PublishItemsOutputGroup`, where `ComputeAndCopyFilesToPublishDirectory` = `ComputeFilesToPublish`, `CopyFilesToPublishDirectory`.
+`Publish` = `_PublishBuildAlternative` (`Build` unless `NoBuild=true`), `PrepareForPublish`, `ComputeAndCopyFilesToPublishDirectory`, `PublishItemsOutputGroup`, and `ComputeAndCopyFilesToPublishDirectory` = `ComputeFilesToPublish`, `CopyFilesToPublishDirectory`.
 
 | [INDEX] | [HOOK]                                              | [RUNS]                              | [AVAILABLE]                                |
 | :-----: | :-------------------------------------------------- | :---------------------------------- | :----------------------------------------- |
@@ -62,4 +62,4 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 |  [02]   | `AfterTargets="Pack"`            | After the `.nupkg` exists                          | `@(NuGetPackOutput)`, `$(PackageOutputPath)` |
 
 - `GenerateNuspec` runs once in the outer build of a multi-targeting project and calls the inner builds through the `MSBuild` task with `TargetFramework` as `AdditionalProperties`
-- See `dotnet-msbuild-packaging` for the pack items, `PackagePath`, and the `.nuspec` content
+- Use `dotnet-msbuild-packaging` for the package layout

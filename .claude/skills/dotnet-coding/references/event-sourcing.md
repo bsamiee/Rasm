@@ -4,7 +4,7 @@ Functional design applies to persisted data as well as in-memory values, because
 
 ## [01]-[STORAGE]
 
-Append-only storage replaces updates and deletes with appends: existing data is never overwritten or deleted, new information is recorded as additional data, history stays available for audit, analysis, and reconstruction, and appends avoid the write contention of concurrent overwrites of one record. Event sourcing stores an ordered history of things that happened, and valid-time storage stores facts with the intervals during which they are valid. Event sourcing focuses on transitions rather than snapshots, and the current state is derived data:
+Append-only storage replaces updates and deletes with appends: existing data stays as written, new information is recorded as additional data, history stays available for audit, analysis, and reconstruction, and appends avoid the write contention of concurrent overwrites of one record. Event sourcing stores an ordered history of things that happened, and valid-time storage stores facts with the intervals during which they are valid. Event sourcing focuses on transitions rather than snapshots, and the current state is derived data:
 
 ```text
 initial state = Create(first event)
@@ -41,7 +41,7 @@ Event types have different payload shapes, the storage options from most to leas
 
 ## [03]-[STATE]
 
-State is an immutable snapshot derived for one purpose, and it is not the persisted source of truth. The command side needs only enough state to decide whether a command is allowed (status, code, balance, limit, not the full transaction list), the query side needs read models shaped for each view, and analytics use other projections, because each answers an independent question. The snapshot exposes read-only values and transformation methods that return new instances, and business rules belong in command validation rather than in these methods:
+State is an immutable snapshot derived for one purpose, and it is not the persisted source of truth. The command side needs only enough state to decide whether a command is allowed (status, code, balance, limit, not the full transaction list), the query side needs read models shaped for each view, and analytics use other projections, because each answers an independent question. The snapshot exposes read-only values and transformation methods that return new instances, and business rules belong in command validation rather than in the snapshot methods:
 
 ```csharp
 internal enum Status { Requested = 0, Active = 1, Frozen = 2 }
@@ -116,7 +116,7 @@ internal static partial class Entry {
 }
 ```
 
-Loading history returns `IO<Seq<Event>>`, saving an event returns `IO<Unit>`, and the handler composes them in one query over `IO`, where the expected rejection enters the `IO` error channel through `IO.lift(Fin<A>)` beside the failures of loading and saving, `RunSafe` at the host returns one `Fin` and one `Match` reads both outcomes:
+Loading history returns `IO<Seq<Event>>`, saving an event returns `IO<Unit>`, and the handler composes them in one query over `IO`, the expected rejection enters the `IO` error channel through `IO.lift(Fin<A>)` beside the failures of loading and saving, `RunSafe` at the host returns one `Fin` and one `Match` reads both outcomes:
 
 ```csharp
 internal static class Commands {

@@ -7,7 +7,7 @@ Restore reports `NU1xxx` codes and `dotnet pack` reports `NU5xxx` codes, `TreatW
 | [INDEX] | [CODE]   | [CAUSE]                                                      | [FIX]                                                        |
 | :-----: | :------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | `NU1004` | Locked mode found a graph unlike the lock file               | `dotnet restore --force-evaluate`, then commit the lock file |
-|  [02]   | `NU1008` | `PackageReference` carries `Version` under CPM               | `PackageVersion` item, or `VersionOverride` on the reference |
+|  [02]   | `NU1008` | `PackageReference` has `Version` under CPM                   | `PackageVersion` item, or `VersionOverride` on the reference |
 |  [03]   | `NU1009` | `PackageVersion` for a package the SDK references itself     | Delete the item, the SDK owns that version                   |
 |  [04]   | `NU1010` | `PackageReference` has no `PackageVersion` item              | Add the item to `Directory.Packages.props`                   |
 |  [05]   | `NU1011` | `PackageVersion` with a floating version                     | Write the exact version                                      |

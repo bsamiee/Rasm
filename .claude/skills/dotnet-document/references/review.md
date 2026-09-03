@@ -1,12 +1,12 @@
 # [REVIEW]
 
-Covers the review of existing XML documentation comments: the severity classes the findings take, the procedure, the factual, example, and quality checks, and the report that ends a review.
+Covers the review of existing XML documentation comments against their source, from the severity classes to the closing report.
 
 ## [01]-[SCOPE]
 
 Review compares each doc comment with the source it documents and reports findings, and the fix step runs only when the caller approved fixes:
 - Every finding cites the source `path:line` that contradicts the doc text, a finding without a citation stays out of the report
-- Every finding keeps its severity class, no CRITICAL finding drops to a lower class to shorten the report
+- Every finding keeps its severity class
 - Files reviewed without their source read are incomplete, doc text that reads well is not evidence that it is right
 
 ## [02]-[SEVERITY]
@@ -15,14 +15,14 @@ Findings take one severity class, and the class decides what the fix step does w
 
 ### [02.1]-[CRITICAL]
 
-The fix step edits these without a per-finding choice:
+The fix step edits CRITICAL findings without a per-finding choice:
 - Fabricated members: a doc or example names a type, member, or overload the source does not declare
 - Malformed XML: an unescaped `<`, `>`, or `&`, a missing closing tag, or mismatched tag names (`CS1570`)
 - Credentials, internal URLs, or personal data inside doc text
 
 ### [02.2]-[IMPORTANT]
 
-The fix step edits these when the caller selects the finding:
+The fix step edits IMPORTANT findings when the caller selects the finding:
 - Placeholders: TODO, FIXME, TBD, or a bracketed template (`[Describe ...]`)
 - Diagnostics the build reports on the comment, the `dotnet build` output is the evidence
 - Phrasing that departs from the phrase for the member kind, the declaration (accessor list, `abstract`, return type) is the evidence
@@ -32,7 +32,7 @@ The fix step edits these when the caller selects the finding:
 
 ### [02.3]-[MINOR]
 
-The report lists these and the fix step leaves them:
+The report lists MINOR findings and the fix step leaves them:
 - Patterns that differ between members of the same kind
 - Parameter names in text without `<paramref>`
 - Trailing spaces or a space before a period

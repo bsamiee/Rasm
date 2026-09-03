@@ -10,21 +10,21 @@ description: >-
 
 # [SECRETS]
 
-`op` owns permanent local and session storage. Doppler owns project configuration and explicit process delivery.
+`op` holds permanent local and session storage, and Doppler holds project configuration and explicit process delivery.
 
-Topology (projects, environments, configs, service tokens, directory scopes) lives as IaC entries in `Parametric_Forge/services/topology.ts`, materialized by `repo.ts` and applied by `driver.ts` over the Pulumi Automation API. `doppler` reads and writes secret values against declared configs, `doppler run` and owner-specific downloads inject values at the consuming process, `~/.doppler` holds CLI scope and authentication state.
+Topology (projects, environments, configs, service tokens, directory scopes) sits as IaC entries in `Parametric_Forge/services/topology.ts`, rendered by `repo.ts` and applied by `driver.ts` over the Pulumi Automation API. `doppler` reads and writes secret values against declared configs, `doppler run` and owner-specific downloads inject values at the consuming process, `~/.doppler` holds CLI scope and authentication state.
 
 [REFERENCES]:
-- [01]-[PATTERNS](references/patterns.md): Template rendering, mounts, multi-command wrappers, MCP server entry, plan-gated features
+- [01]-[PATTERNS](references/patterns.md): Consumption patterns for secret material that is not process-env shaped, with the plan gates
 
 ## [01]-[RESOLUTION]
 
-- `~/.doppler` is the CLI config dir, scopes live in `~/.doppler/.doppler.yaml`, written by `doppler configure set` through the driver's `scopes apply`
-- Repo-local `doppler.yaml` is vendor setup guidance, not the repo scope owner, the repo carries none
+- `~/.doppler` is the CLI config dir, scopes sit in `~/.doppler/.doppler.yaml`, written by `doppler configure set` through the driver's `scopes apply`
+- Repo-local `doppler.yaml` is vendor setup guidance, and the repo has none
 - Precedence, highest first: a service token's embedded project/config, runtime flags, env vars, config-file scope
 - Config-file scope resolves an exact directory match before the nearest ancestor
 - Scope env vars: `DOPPLER_TOKEN`, `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, `DOPPLER_CONFIG_DIR`, `DOPPLER_PASSPHRASE`
-- Agents pass `--project`/`--config` explicitly, env carries only the token
+- Agents pass `--project`/`--config` explicitly, env holds only the token
 - Ambient `DOPPLER_TOKEN` outranks flags and represents one config, strip it with `env -u DOPPLER_TOKEN` when fetching more than one source
 
 ## [02]-[DOPPLER_CLI]
@@ -41,9 +41,9 @@ Topology (projects, environments, configs, service tokens, directory scopes) liv
 |  [08]   | Inject env into a process         | `doppler run --project <p> --config <c> --command '<cmd>'`                                 |
 |  [09]   | Render a template                 | `doppler secrets substitute <template>`                                                    |
 
-- One directory's scope keys land as `enclave.project`, `enclave.config`, the set is driver-owned and scope `/` stays untouched
-- Secret downloads pipe to `jq 'keys'` or `jq 'length'`, configure reads strip the root token with `del(.token)`, a bare `configure debug` or `configure --all` prints it
-- Transcripts and logs carry key names and counts, never values or tokens
+- One directory's scope keys are written as `enclave.project`, `enclave.config`, the set is driver-owned and scope `/` stays untouched
+- Secret downloads pipe to `jq 'keys'` or `jq 'length'`, configure reads strip the root token with `del(.token)`, an unfiltered `configure debug` or `configure --all` prints it
+- Transcripts and logs hold key names and counts
 
 ## [03]-[OP_CLI]
 
@@ -59,7 +59,7 @@ Topology (projects, environments, configs, service tokens, directory scopes) liv
 |  [06]   | Personal-vault SSH item         | `env -u OP_SERVICE_ACCOUNT_TOKEN op item get "Forge SSH Key" --vault Personal` |
 |  [07]   | Rename an item to its real name | `op item edit "<old-title>" title="<official-name>" --vault Tokens`            |
 
-- `op` serves the SSH key to `ssh`, `git`, WezTerm, Yazi, and rclone through the 1Password agent socket, the item ref lives in `1Password/ssh/agent.toml`, never a private key on disk
+- `op` serves the SSH key to `ssh`, `git`, WezTerm, Yazi, and rclone through the 1Password agent socket, the item ref sits in `1Password/ssh/agent.toml`, with no private key on disk
 - Read a secret only to verify presence or wire a one-off, standing local consumption uses the activation-generated session cache
 
 ## [04]-[SESSION_CACHE]
@@ -71,24 +71,23 @@ Topology (projects, environments, configs, service tokens, directory scopes) liv
 
 ## [05]-[STORAGE]
 
-Local storage is `op`, never the OS keychain: every service, IaC, and MCP token and the SSH key live in a `Tokens` or `Personal` vault item. Personal `doppler login` is the only credential Doppler keeps in the keychain, used for the operator's ad-hoc interactive work alone, no pipeline depends on it.
+Local storage is `op`: every service, IaC, and MCP token and the SSH key sit in a `Tokens` or `Personal` vault item. Personal `doppler login` is the only credential Doppler keeps in the keychain, used for the operator's ad-hoc interactive work alone, no pipeline depends on it.
 
 | [INDEX] | [CLASS]                          | [STORAGE]                                     | [USE]                           |
 | :-----: | :------------------------------- | :-------------------------------------------- | :------------------------------ |
 |  [01]   | Config-scoped service token      | Pulumi stack secret output                    | Explicit runtime reads          |
-|  [02]   | IaC admin token                  | `op://Tokens/DOPPLER_IAC_TOKEN/token`         | Topology writes via Pulumi only |
+|  [02]   | IaC admin token                  | `op://Tokens/DOPPLER_IAC_TOKEN/token`         | Topology writes through Pulumi  |
 |  [03]   | Pulumi stack passphrase          | `op://Tokens/PULUMI_FORGE_SERVICES/password`  | Stack state decryption          |
 |  [04]   | MCP token                        | Ambient personal CLI token as `DOPPLER_TOKEN` | Read-only agent MCP             |
-|  [05]   | Provider PATs (GitHub and peers) | `op://Tokens` items, mirrored into configs    | Activation or process injection |
+|  [05]   | Provider PATs (GitHub and peers) | `op://Tokens` items, copied into configs      | Activation or process injection |
 
-- Config-scoped service token: issued by topology entries, static Developer-plan tokens are revoked and reissued, never rotated in place
+- Config-scoped service token: issued by topology entries, static Developer-plan tokens are revoked and reissued
 - IaC admin token and stack passphrase: brokered by `driver.ts`, an ambient `DOPPLER_TOKEN` or `PULUMI_CONFIG_PASSPHRASE` short-circuits the op read per run
 - MCP token: the launcher prelude resolves the ambient personal CLI token, its grants are the enforcement, `--read-only` filters the toolset to GET endpoints
-- Provider PATs are never topology identity
 
 ## [06]-[RULES]
 
-- One item, one official name: an item carries the credential's real published name, never a handrolled synonym, a consumer needing a different env-var name renames the item at the source and repoints every reader, never adds another item or a duplicate export aliasing the same secret. Naming mistakes are fixed by renaming in `op` and Doppler, never papered over.
-- New projects land as project/config entries in `Parametric_Forge/services/topology.ts` and a directory scope entry, then `pulumi up`, retiring one deletes its entries
-- Repos carry zero Doppler files, their agents resolve through scope and hook automatically
+- One item, one official name: an item has the credential's real published name, a consumer needing a different env-var name renames the item at the source and repoints every reader, and naming mistakes are fixed by renaming in `op` and Doppler
+- New projects are added as project/config entries in `Parametric_Forge/services/topology.ts` and a directory scope entry, then `pulumi up`, retiring one deletes its entries
+- Repos hold no Doppler files, their agents resolve through scope and hook automatically
 - Rendered secret material is ephemeral: `--mount`/`--mount-template` over durable renders, plaintext binds only where the target owner requires it

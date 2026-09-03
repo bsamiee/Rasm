@@ -5,16 +5,16 @@ description: "Use when diagnosing a .NET build from its .binlog: capture switche
 
 # [DOTNET_MSBUILD_DIAGNOSTICS]
 
-Covers binary log capture, queries through the `binlog` MCP server (`Microsoft.AITools.BinlogMcp`), failed build triage, BuildCheck, shared output paths and second project instances, and build performance. `.binlog` files are binary, query them through the MCP tools and never through `cat` or `strings`.
+Covers diagnosing a build from its binary log, from capture through the `binlog` MCP server (`Microsoft.AITools.BinlogMcp`) to build performance. `.binlog` files are binary, query them through the MCP tools.
 
-- `dotnet-msbuild-evaluation` owns the fix for a property, item, condition, or import that evaluates to a wrong value
-- `dotnet-msbuild-execution` owns the fix for a target, `DependsOn` chain, `Inputs` and `Outputs`, or `FileWrites`
-- `dotnet-msbuild-antipatterns` owns the corrected file beside each detected defect
-- `dotnet-msbuild-packaging` owns restore, lock files, central package management diagnostics, and CI logger flags
-- `monorepo-build-infrastructure` owns the `eng/` directory, task runner targets, native packaging projects, and provisioning
-- `dotnet-roslyn-codelens` owns compiler and analyzer diagnostics in C# source
+- Use `dotnet-msbuild-evaluation` for the fix of a property, item, condition, or import that evaluates to a wrong value
+- Use `dotnet-msbuild-execution` for the fix of a target, `DependsOn` chain, `Inputs` and `Outputs`, or `FileWrites`
+- Use `dotnet-msbuild-antipatterns` for the corrected file beside each detected defect
+- Use `dotnet-msbuild-packaging` for restore, lock files, central package management diagnostics, and CI logger flags
+- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
+- Use `dotnet-roslyn-codelens` for compiler and analyzer diagnostics in C# source
 
-[AGENT]: `msbuild-debugger` takes one build symptom and returns cause, change, and proof. Use it when binlog output fills the context window.
+[AGENT]: Use `msbuild-debugger` when binlog output fills the context window, it takes one build symptom and returns cause, change, and proof.
 
 [REFERENCES]:
 - [01]-[EXECUTION_PERFORMANCE](references/execution-performance.md): Scheduling and task cost measured as a delta between two comparable captures
@@ -22,7 +22,7 @@ Covers binary log capture, queries through the `binlog` MCP server (`Microsoft.A
 
 ## [01]-[CAPTURE]
 
-Pass `-bl:<dir>/<purpose>-{}.binlog` on every MSBuild invocation, where `<dir>` is an artifacts directory the build owns, and MSBuild replaces `{}` with a UTC date, time, process id, and random string, which keeps one file per invocation. Every `dotnet` command that runs MSBuild accepts the switch.
+Pass `-bl:<dir>/<purpose>-{}.binlog` on every MSBuild invocation, `<dir>` is an artifacts directory the build owns, and MSBuild replaces `{}` with a UTC date, time, process id, and random string, one file per invocation. Every `dotnet` command that runs MSBuild accepts the switch.
 
 | [INDEX] | [SWITCH]                                             | [EFFECT]                                                                 |
 | :-----: | :--------------------------------------------------- | :----------------------------------------------------------------------- |
@@ -110,10 +110,10 @@ Run the tools in order: `binlog_overview`, then `binlog_diagnose` on a failed bu
 |  [41]   | `binlog_extract`                      | Standalone `.binlog` of the selected projects, without embedded source files   |
 |  [42]   | `list_mcp_instances`                  | Running server instances with memory and `isOrphaned`                          |
 |  [43]   | `stop_instance`                       | Stop one instance by PID                                                       |
-|  [44]   | `stop`                                | Stop this instance                                                             |
+|  [44]   | `stop`                                | Stop the current instance                                                      |
 
 - The reader drops records that a newer MSBuild wrote, and `binlog_warnings` reports the loss as one warning, `Skipped some data unknown to this version of Viewer`, which `binlog_overview` includes in its warning count
-- `binlog_extract` refuses a log with those records unless `allow_unsupported_records=true`, and the extract then omits them
+- `binlog_extract` refuses a log with dropped records unless `allow_unsupported_records=true`, and the extract then omits them
 - `binlog_analyzer_summary`, `binlog_incremental_analysis`, and `binlog_task_details` accept no size limit, and on a solution the result goes to a file
 - `binlog_explore_node` addresses a different node than the `[id]` that `binlog_search` printed, and `binlog_search_targets`, `binlog_tasks_in_target`, and `binlog_projects` give ids it accepts
 - `binlog_target_reasons` prints `Chain: skipped. Previously built successfully.` for a target that ran, and the `skipped` field of `binlog_search_targets` decides
@@ -125,7 +125,7 @@ Run the tools in order: `binlog_overview`, then `binlog_diagnose` on a failed bu
 
 ### [02.1]-[SEARCH_SYNTAX]
 
-`binlog_search` matches nodes, and a match on a target or task includes its child messages up to `context` levels, where task output, copy details, and up-to-date reasons are.
+`binlog_search` matches nodes, and a match on a target or task includes its child messages up to `context` levels, and task output, copy details, and up-to-date reasons sit there.
 
 | [INDEX] | [QUERY]                       | [MATCHES]                                             |
 | :-----: | :---------------------------- | :---------------------------------------------------- |
@@ -221,23 +221,23 @@ build_check.BC0202.AllowUninitializedPropertiesInConditions = false
 ```
 
 - `severity` takes `default`, `none`, `suggestion`, `warning`, or `error`, and `scope` takes `project_file`, `work_tree_imports`, or `all`
-- `MSBuildTreatWarningsAsErrors` and `-warnAsError` turn every reported warning into a build failure, and a code the build accepts gets `severity = none` instead of a lowered switch
+- `MSBuildTreatWarningsAsErrors` and `-warnAsError` turn every reported warning into a build failure, and a code the build accepts gets `severity = none`
 
 ### [04.1]-[WORKFLOW]
 
 1. Run `dotnet build <solution> -t:Rebuild -tl:off -check -bl:<dir>/check-{}.binlog`
 2. Read each `BC` line on the console, or run `binlog_warnings` with `category=BuildCheck` on the log
-3. Fix the file the report names, where `BC0201` and `BC0202` name `file(line,col)` and `BC0101` and `BC0102` name the path and both projects
+3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)` and `BC0101` and `BC0102` name the path and both projects
 4. Run the same command again and confirm the code is gone from the console and the log
 
 ## [05]-[SHARED_OUTPUT_PATHS]
 
-MSBuild creates one project instance per project path and global-property set. Two instances with one `OutputPath` or `IntermediateOutputPath`, or two projects with one directory, succeed more often than they fail: one project consumes the other's `project.assets.json`, `MSB3026` copy retries and file locks appear in parallel builds, and outputs disappear or come from the wrong instance. The console and `binlog_diagnose` show nothing on a successful build, and this order detects them:
+MSBuild creates one project instance per project path and global-property set. Two instances with one `OutputPath` or `IntermediateOutputPath`, or two projects with one directory, succeed more often than they fail: one project consumes the other's `project.assets.json`, `MSB3026` copy retries and file locks appear in parallel builds, and outputs disappear or come from the wrong instance. The console and `binlog_diagnose` show nothing on a successful build, and the steps detect them:
 
-1. Run the BuildCheck workflow command, then read `BC0101` for each shared directory and `BC0102` for each file two tasks wrote, where `Library.csproj and Library.csproj` names a second instance of one project
-2. Run `binlog_compare_property` on `IntermediateOutputPath`, then `OutputPath`, where an absolute value that groups two projects is the shared directory, the relative SDK default groups every project and means nothing, and the tool never reports two instances of one project
+1. Run the BuildCheck workflow command, then read `BC0101` for each shared directory and `BC0102` for each file two tasks wrote, and `Library.csproj and Library.csproj` names a second instance of one project
+2. Run `binlog_compare_property` on `IntermediateOutputPath`, then `OutputPath`, an absolute value that groups two projects is the shared directory, the relative SDK default groups every project and means nothing, and the tool never reports two instances of one project
 3. Run `binlog_double_writes` for the directories that more than one project copied into, which covers projects `binlog_compare_property` reports as `NOT SET`
-4. Run `binlog_search_targets` on `CoreCompile`, where two `skipped: false` rows for one project file are two instances
+4. Run `binlog_search_targets` on `CoreCompile`, and two `skipped: false` rows for one project file are two instances
 5. Run `binlog_evaluations` with the `project` filter, then `binlog_evaluation_global_properties` per evaluation, discard the restore pass marked `MSBuildIsRestoring`, and the global property that differs between the remaining evaluations names the extra instance
 6. Run `dotnet build --no-restore -graph -isolate`, which turns an instance the graph did not declare into `MSB4252`
 
@@ -291,7 +291,7 @@ Restore writes `project.assets.json` under `MSBuildProjectExtensionsPath`, which
 <BaseOutputPath>$(MSBuildThisFileDirectory)bin/$(MSBuildProjectName)/</BaseOutputPath>
 ```
 
-- See `dotnet-msbuild-evaluation` for the artifacts layout under `ArtifactsPath`
+- Use `dotnet-msbuild-evaluation` for the artifacts layout under `ArtifactsPath`
 
 ## [06]-[BUILD_PERFORMANCE]
 

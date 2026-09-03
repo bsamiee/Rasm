@@ -16,7 +16,7 @@ internal static class Monoids {
 }
 ```
 
-The self-typed trait works while every operation stays within one concrete type, and mapping breaks it: `Map` must change the element type while it keeps the surrounding shape, and a trait over `SELF` alone cannot connect the stored element to the input of the mapping function, while putting the element type on the trait fixes the whole result to `SELF`. C# can parameterize the `A` in `Option<A>` and cannot receive `Option` itself as a parameter `F` to form `F<A>`, `Select`, `SelectMany`, `Where`, `GetEnumerator`, and `GetAwaiter` bind to compiler-recognized members and not to one trait. `K<F, A>` is the encoding that answers it: an empty interface with no members, where `F` is the type constructor and `A` the element, `Map` is `K<F, B> Map<A, B>(Func<A, B> f, K<F, A> ma)` and replaces `A` with `B` without touching `F`.
+The self-typed trait works while every operation stays within one concrete type, and mapping breaks it: `Map` must change the element type while it keeps the surrounding shape, and a trait over `SELF` alone cannot connect the stored element to the input of the mapping function, while putting the element type on the trait fixes the whole result to `SELF`. C# can parameterize the `A` in `Option<A>` and cannot receive `Option` itself as a parameter `F` to form `F<A>`, `Select`, `SelectMany`, `Where`, `GetEnumerator`, and `GetAwaiter` bind to compiler-recognized members and not to one trait. `K<F, A>` is the encoding that answers it: an empty interface with no members, `F` is the type constructor and `A` the element, and `Map` is `K<F, B> Map<A, B>(Func<A, B> f, K<F, A> ma)` and replaces `A` with `B` without touching `F`.
 
 ## [02]-[WITNESSES]
 
@@ -47,7 +47,7 @@ The witness implements the primitives `FoldWhile` and `FoldBackWhile`, receives 
 - Strict folds cannot stop the traversal, the default `ForAll`, `Exists`, and `IsEmpty` visit the whole structure, and boolean short-circuiting inside the step skips predicate calls without stopping enumeration, while a witness override gives the early exit
 - Array-backed witnesses read `Count` and `IsEmpty` from the stored length, convert to an enumerable without copying, and run `Fold` and `FoldBack` as index loops without an intermediate reversal
 
-Generic functions target `Foldable<T>` and still reach the optimized witness members, where an `IEnumerable<A>` view loses the representation facts (a stored length, direct indexing), and a specialization preserves results, traversal direction, empty behavior, and predicate evaluation order.
+Generic functions target `Foldable<T>` and still reach the optimized witness members, while an `IEnumerable<A>` view loses the representation facts (a stored length, direct indexing), and a specialization preserves results, traversal direction, empty behavior, and predicate evaluation order.
 
 ## [04]-[APPLICATIVES]
 
@@ -67,7 +67,7 @@ The equivalent query (`from a in first from b in second select a + b`) needs no 
 
 ## [05]-[TRAVERSABLES]
 
-`Map` with an effect-returning function preserves the nesting (`Seq<Option<int>>`), and `Traverse` transforms every value and swaps the structures, `(A -> F<B>) -> T<A> -> F<T<B>>`, where `T` is the traversed structure, `F` the effect per value, and the behavior that combines results comes from `F` alone, a traversal exposes no accumulator. `Traversable<T>` extends `Functor<T>` and `Foldable<T>` with one `Traverse<F, A, B>(Func<A, K<F, B>> f, K<T, A> ta) where F : Applicative<F>`, and one implementation composes with every applicative:
+`Map` with an effect-returning function preserves the nesting (`Seq<Option<int>>`), and `Traverse` transforms every value and swaps the structures, `(A -> F<B>) -> T<A> -> F<T<B>>`, `T` is the traversed structure, `F` the effect per value, and the behavior that combines results comes from `F` alone, a traversal exposes no accumulator. `Traversable<T>` extends `Functor<T>` and `Foldable<T>` with one `Traverse<F, A, B>(Func<A, K<F, B>> f, K<T, A> ta) where F : Applicative<F>`, and one implementation composes with every applicative:
 
 | [INDEX] | [APPLICATIVE] | [BEHAVIOR]                                                   |
 | :-----: | :------------ | :----------------------------------------------------------- |
@@ -93,7 +93,7 @@ Monads sequence computations in a context through `Bind : M<A> -> (A -> M<B>) ->
 | [INDEX] | [MONAD]                  | [BEHAVIOR]                                                                |
 | :-----: | :----------------------- | :------------------------------------------------------------------------ |
 |  [01]   | `Option<A>`              | Continues from `Some`, preserves `None` without invoking the continuation |
-|  [02]   | `Either<L, R>`, `Fin<A>` | Continues from `Right` or `Succ`, carries `Left` or `Fail` through        |
+|  [02]   | `Either<L, R>`, `Fin<A>` | Continues from `Right` or `Succ`, passes `Left` or `Fail` through         |
 |  [03]   | `Validation<F, A>`       | Terminates on `Fail`, and its `Apply` combines both failures with `+`     |
 |  [04]   | `Try<A>`                 | Builds another delayed thunk, `Run` moves the exception into `Fin`        |
 |  [05]   | `Iterable<A>`, `Seq<A>`  | Nested iteration, an empty collection terminates that branch              |
@@ -102,7 +102,7 @@ Monads sequence computations in a context through `Bind : M<A> -> (A -> M<B>) ->
 |  [08]   | `State<S, A>`            | Runs the next stage with the state the previous one returned              |
 |  [09]   | `IO<A>`                  | Runs the deferred computation, then the one the continuation returns      |
 
-The monad in a return type marks the expression with its behavior, `IO<A>` declares that it performs I/O and `Option<A>` that it can produce no value, and a visible context separates effectful from non-effectful code while it preserves composition. Custom monads are ordinary application types with cross-cutting behavior (a database monad that manages connections and I/O, a service monad that manages configuration and third-party access), the trait operations enable the generic library behavior including LINQ, and the type's supporting functions (`ask`, `tell`, `get`, `put`) form its practical API. These are single-feature monads, `Option` and `IO` do not combine in one expression, and handwritten combined types grow with every pairing, which transformers replace.
+The monad in a return type marks the expression with its behavior, `IO<A>` declares that it performs I/O and `Option<A>` that it can produce no value, and a visible context separates effectful from non-effectful code while it preserves composition. Custom monads are ordinary application types with cross-cutting behavior (a database monad that manages connections and I/O, a service monad that manages configuration and third-party access), the trait operations enable the generic library behavior including LINQ, and the type's supporting functions (`ask`, `tell`, `get`, `put`) form its practical API. Each is a single-feature monad, `Option` and `IO` do not combine in one expression, and handwritten combined types grow with every pairing, which transformers replace.
 
 ## [07]-[LAWS]
 
@@ -116,11 +116,11 @@ internal static class Laws {
 }
 ```
 
-- See `dotnet-coding/references/results.md` for the law equations and property-based tests over generated values
+- Use `dotnet-coding/references/results.md` for the law equations and their property-based tests
 
 ## [08]-[TRANSFORMERS]
 
-`Bind` continues only in the same higher-kinded type, `Option<A>` computations cannot bind `IO<B>`, and a nested `IO<Option<A>>` compiles while the caller inspects the inner `Option` by hand and reproduces its branching inside `IO`. Transformers package that nested behavior under the contract `MonadT<T, M> : Monad<T>` with `Lift<A>(K<M, A>) : K<T, A>`, where `T` is itself a monad and stacks inside another transformer, and `OptionT` lifts an `IO` continuation through its LINQ `Bind` and `SelectMany` extensions without an explicit lift:
+`Bind` continues only in the same higher-kinded type, `Option<A>` computations cannot bind `IO<B>`, and a nested `IO<Option<A>>` compiles while the caller inspects the inner `Option` by hand and reproduces its branching inside `IO`. Transformers package that nested behavior under the contract `MonadT<T, M> : Monad<T>` with `Lift<A>(K<M, A>) : K<T, A>`, and `T` is itself a monad that stacks inside another transformer, and `OptionT` lifts an `IO` continuation through its LINQ `Bind` and `SelectMany` extensions without an explicit lift:
 
 ```csharp
 internal static class Lookups {
@@ -131,7 +131,7 @@ internal static class Lookups {
 }
 ```
 
-Regular monads become transformers only through a custom implementation, the reverse holds through `Identity` (`OptionT<Identity, A>` corresponds to `Option<A>`) while the dedicated regular type stays preferable for performance, and transformer types carry the `T` suffix. The known and lifted monads occupy no universal nesting order, `OptionT<M, A>` stores `K<M, Option<A>>` with `M` outside and `ReaderT<Env, M, A>` stores `Func<Env, K<M, A>>`, the concrete wrapped type and not the suffix decides what each `Run` returns, and a consumer stops after any layer when the partially unwrapped result serves another expression. No `IOT` exists: `IO<A>` is the innermost monad of an `IO` stack, repeated `lift(lift(lift(io)))` exposes the depth, and `liftIO` forwards the action through every transformer to the `IO` layer, where lifting is the identity. C# cannot make a transformer implement a trait only for the `M` that contains `IO`, `MonadIO<M>` declares that a type supports `IO` and is a constraint, every transformer implements it and passes `IO` operations to the lifted `M` unless `IO` is barred from every stack that uses it, and specialized `Bind` and `SelectMany` extensions let an `IO<B>` continuation appear in a `MonadIO<M>` expression:
+Regular monads become transformers only through a custom implementation, the reverse holds through `Identity` (`OptionT<Identity, A>` corresponds to `Option<A>`) while the dedicated regular type stays preferable for performance, and transformer types have the `T` suffix. The known and lifted monads occupy no universal nesting order, `OptionT<M, A>` stores `K<M, Option<A>>` with `M` outside and `ReaderT<Env, M, A>` stores `Func<Env, K<M, A>>`, the concrete wrapped type and not the suffix decides what each `Run` returns, and a consumer stops after any layer when the partially unwrapped result serves another expression. No `IOT` exists: `IO<A>` is the innermost monad of an `IO` stack, repeated `lift(lift(lift(io)))` exposes the depth, and `liftIO` forwards the action through every transformer to the `IO` layer, at which lifting is the identity. C# cannot make a transformer implement a trait only for the `M` that contains `IO`, `MonadIO<M>` declares that a type supports `IO` and is a constraint, every transformer implements it and passes `IO` operations to the lifted `M` unless `IO` is barred from every stack that uses it, and specialized `Bind` and `SelectMany` extensions let an `IO<B>` continuation appear in a `MonadIO<M>` expression:
 
 ```csharp
 internal static class Stacks {
@@ -175,7 +175,7 @@ Running the request computation with `Run(session)` threads the read-only contex
 
 ## [10]-[STATE_AND_WRITER]
 
-`StateT<S, M, A>` wraps `Func<S, K<M, (A Value, S State)>>`, differs from `ReaderT` in its return type, and its `Bind` runs the next computation with the state the previous one returned, an update propagates through every later operation where `Readable.local` alters an environment only for a nested scope. Stacks combine the concerns the domain needs without a custom type: `StateT` threads the current pool, `OptionT` stops the computation when nothing remains, and `IO` holds randomness and console interaction:
+`StateT<S, M, A>` wraps `Func<S, K<M, (A Value, S State)>>`, differs from `ReaderT` in its return type, and its `Bind` runs the next computation with the state the previous one returned, an update propagates through every later operation while `Readable.local` alters an environment only for a nested scope. Stacks combine the concerns the domain needs without a custom type: `StateT` threads the current pool, `OptionT` stops the computation when nothing remains, and `IO` holds randomness and console interaction:
 
 ```csharp
 internal sealed record Pool(Seq<Item> Items);
@@ -192,7 +192,7 @@ internal static class Pools {
 }
 ```
 
-`Head` returns `None` for an empty pool, lifting it into `OptionT` stops the computation, the update runs only when an item exists, and `gets(f)` equals mapping `f` over `get` while a domain-named accessor concentrates knowledge of the state shape. Console operations lift into `IO` and compose in the same query, the `>>` operator expresses `ma.Bind(_ => mb)` when an earlier result is irrelevant, `when(condition, mb)` keeps a conditional step inside the workflow, and a recursive loop over the stack stays stack-safe because `IO` runs it without growing the CLR stack. Removing explicit state arguments hides which operations modify state and lets application-wide state approach a global variable, keep state queries and updates small and named, partition the domain rules into pure functions over the state, keep I/O separate from those rules, use `Stateful.local` for a temporary context that is restored afterward and a propagating update for a durable change, and hide a deep stack behind a domain type. With `IO` inside `StateT`, a forked computation (including the parallel branches of `Traverse`) inherits the current state and evolves an independent copy, parents at `0` fork 2 counters that each reach `10` and stay `0`, a change comes back only when the fork returns the required value, the parent awaits it, and sets the state explicitly.
+`Head` returns `None` for an empty pool, lifting it into `OptionT` stops the computation, the update runs only when an item exists, and `gets(f)` equals mapping `f` over `get` while a domain-named accessor concentrates knowledge of the state shape. Console operations lift into `IO` and compose in the same query, the `>>` operator expresses `ma.Bind(_ => mb)` when an earlier result is irrelevant, `when(condition, mb)` keeps a conditional step inside the workflow, and a recursive loop over the stack stays stack-safe because `IO` runs it without growing the CLR stack. Removing explicit state arguments hides which operations modify state and lets application-wide state approach a global variable, keep state queries and updates small and named, partition the domain rules into pure functions over the state, keep I/O separate from the rules, use `Stateful.local` for a temporary context that is restored afterward and a propagating update for a durable change, and hide a deep stack behind a domain type. With `IO` inside `StateT`, a forked computation (including the parallel branches of `Traverse`) inherits the current state and evolves an independent copy, parents at `0` fork 2 counters that each reach `10` and stay `0`, a change comes back only when the fork returns the required value, the parent awaits it, and sets the state explicitly.
 
 `WriterT<W, M, A>` is `StateT` with the threaded value renamed to output and constrained to `Monoid<W>`, and the distinct name declares that the threaded value is accumulated output. Representations that return `(W Output, A Value)` and combine outputs on every `Bind` waste work when either output is empty and rebuilds growing immutable outputs on every step, the threaded representation `Func<W, (W Output, A Value)>` passes the accumulated output forward and `tell` alone combines, `tell(value) = output => (output.Combine(value), unit)`, which needs the `Monoid<W>` constraint only there. The same operation is `StateT.modify<M, W>(output => output.Combine(value))` or `Stateful.modify` on any `Stateful<M, W>`. `RWST<R, W, S, M, A>` wraps `ReaderT<R, WriterT<W, StateT<S, M>>, A>` and implements `MonadT`, `Readable`, `Writable`, and `Stateful` by lifting the behaviors the wrapped types already provide.
 

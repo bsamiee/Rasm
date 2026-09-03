@@ -1,6 +1,6 @@
 # [EFFECTS]
 
-Covers keeping effects at the boundary: isolating I/O around a pure core, injecting values and effects, deferring work as `IO<A>` and `Try<A>`, reading an environment through `Reader`, scoping resources, and running the composed effect at the host.
+Covers keeping effects at the boundary, from isolating I/O around a pure core to running the composed effect at the host.
 
 ## [01]-[ISOLATION]
 
@@ -100,7 +100,7 @@ The validator stays pure and the effect is explicit and replaceable, the host ru
 
 ## [03]-[DEFERRAL]
 
-C# evaluates every argument before the call, a function that needs only one of its arguments pays for both, and a thunk (`Func<A>` or `IO<A>`) recovers call-by-name for that argument: an unused argument never runs, even one that throws, and an argument used twice runs twice. Memoizing a thunk gives call-by-need, where `memo(Func<A>)` runs the function once and keeps the result:
+C# evaluates every argument before the call, a function that needs only one of its arguments pays for both, and a thunk (`Func<A>` or `IO<A>`) recovers call-by-name for that argument: an unused argument never runs, even one that throws, and an argument used twice runs twice. Memoizing a thunk gives call-by-need, and `memo(Func<A>)` runs the function once and keeps the result:
 
 ```csharp
 internal static class Selection {
@@ -108,7 +108,7 @@ internal static class Selection {
 }
 ```
 
-Wrapping the expression in `IO<A>` changes an eager value into an effect that produces a value when run, and the receiving function decides which effect to return. The shapes differ in how work starts and how the consumer receives the result: `Option<T>` can contain a `T`, `Func<T>` does no work until the consumer invokes it, and `Task<T>` starts its work when the operation is called and produces a `T` later or faults, the consumer controls neither. `IO<A>` holds the `Func<Task<A>>` that `IO.liftAsync` receives and calls it again on each run, which is why fallback and retry operate on an `IO<A>` and not on a started task, and an operation that returns a non-generic `Task` adapts to `IO<Unit>` to stay composable. `Map` transforms the deferred result without running the source, `Bind` sequences an effect with a next step that returns an effect and flattens the `IO<IO<B>>` a dependent step introduces, and the LINQ query is one bind per dependent `from`:
+Wrapping the expression in `IO<A>` changes an eager value into an effect that produces a value when run, and the receiving function decides which effect to return. The shapes differ in how work starts and how the consumer receives the result: `Option<T>` can contain a `T`, `Func<T>` does no work until the consumer invokes it, and `Task<T>` starts its work when the operation is called and produces a `T` later or faults, the consumer controls neither. `IO<A>` holds the `Func<Task<A>>` that `IO.liftAsync` receives and calls it again on each run, fallback and retry operate on an `IO<A>` and not on a started task, and an operation that returns a non-generic `Task` adapts to `IO<Unit>` to stay composable. `Map` transforms the deferred result without running the source, `Bind` sequences an effect with a next step that returns an effect and flattens the `IO<IO<B>>` a dependent step introduces, and the LINQ query is one bind per dependent `from`:
 
 ```csharp
 internal sealed record Quote(string Provider, decimal Price);
@@ -128,7 +128,7 @@ internal static class Quotes {
 
 Failed sources skip the transformation, and the returned effect holds the error. `await` extracts a task's value and an `async` method wraps its return in a task, and the query pattern gives an effect the same composition for any monad through `Monad<M>`, the workflow remains inside `IO` and the host runs it once at the boundary, because extracting a value earlier waits for the task to complete.
 
-Repeated `try/catch` blocks obscure a computation, exception-prone lazy work is a `Try<A>` that wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` with `IsExceptional` true, `Run()` returns `Fin<A>`, and `Try.lift(() => new Uri(value)).Run()` captures and runs one-off work in one expression. The operations compose in query syntax, the `Try<B>` that `Bind` returns stays deferred, and when run it runs the first stage, propagates its error unchanged, or runs the dependent stage with the successful value, where `Run()` captures a property lookup that throws inside the `let` clause:
+Repeated `try/catch` blocks obscure a computation, exception-prone lazy work is a `Try<A>` that wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` with `IsExceptional` true, `Run()` returns `Fin<A>`, and `Try.lift(() => new Uri(value)).Run()` captures and runs one-off work in one expression. The operations compose in query syntax, the `Try<B>` that `Bind` returns stays deferred, and when run it runs the first stage, propagates its error unchanged, or runs the dependent stage with the successful value, and `Run()` captures a property lookup that throws inside the `let` clause:
 
 ```csharp
 internal static class Parsing {
@@ -177,7 +177,7 @@ internal static partial class Environments {
 
 ## [05]-[SCOPES]
 
-Resource and instrumentation helpers take a callback and act before and after it (`R Connect<R>(Func<Connection, R> use)`, `A Time<A>(string operation, Func<A> run)`, `R Transact<R>(Connection connection, Func<Transaction, R> use)`), and after their configuration is partially applied they share the continuation type `(T -> R) -> R`: the computation produces a `T`, supplies it to the continuation, and returns its result, creating a resource before and releasing, committing, or timing after. Combining such helpers nests callbacks, and `Bracket(Use:, Fin:)` on `IO<A>` expresses the same before-and-after around a continuation, a timing helper transforms `IO<A>` into `IO<A>` and its `Fin` runs after the continuation succeeds and after a failure inside it, while a pre-built `IO.fail` received as the work stays deferred and skips `Fin`:
+Resource and instrumentation helpers take a callback and act before and after it (`R Connect<R>(Func<Connection, R> use)`, `A Time<A>(string operation, Func<A> run)`, `R Transact<R>(Connection connection, Func<Transaction, R> use)`), and after their configuration is partially applied they share the continuation type `(T -> R) -> R`: the computation produces a `T`, supplies it to the continuation, and returns its result, creating a resource before and releasing, committing, or timing after. Combining such helpers nests callbacks, and `Bracket(Use:, Fin:)` on `IO<A>` expresses the same before-and-after around a continuation, a timing helper transforms `IO<A>` into `IO<A>`, its `Fin` runs after the continuation succeeds and after a failure inside it, while a pre-built `IO.fail` received as the work stays deferred and skips `Fin`:
 
 ```csharp
 internal static class Scopes {
@@ -208,7 +208,7 @@ internal static class Removals {
 }
 ```
 
-The order of the bracketed effects determines which downstream work each scope surrounds, and adding, removing, or reordering a cross-cutting behavior changes the corresponding query clauses, where `Bracket`, `use`, `Map`, and `Bind` are not database-specific:
+The order of the bracketed effects determines which downstream work each scope surrounds, and adding, removing, or reordering a cross-cutting behavior changes the corresponding query clauses, and `Bracket`, `use`, `Map`, and `Bind` are not database-specific:
 - Timing outside connection acquisition measures acquisition and database work, and timing inside the connection scope measures only downstream work
 - The transaction scope follows the connection scope because it depends on the connection
 - Operations that must be atomic sit inside the transaction scope, before the commit step

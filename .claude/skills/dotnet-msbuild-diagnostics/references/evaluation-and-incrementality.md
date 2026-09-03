@@ -31,7 +31,7 @@ Change a glob, an import, or a property function only when the measured evaluati
 
 GLOBS:
 - The SDK includes `**/*.cs` when `EnableDefaultItems` and `EnableDefaultCompileItems` are `true`, minus `DefaultItemExcludes` and `DefaultExcludesInProjectFolder`, and the same pattern applies to `None` and `EmbeddedResource`
-- `DefaultItemExcludes` holds `$(BaseOutputPath)/**`, `$(BaseIntermediateOutputPath)/**`, `**/*.user`, and the project and solution file patterns, and a large directory goes on the end of it, never in place of it
+- `DefaultItemExcludes` holds `$(BaseOutputPath)/**`, `$(BaseIntermediateOutputPath)/**`, `**/*.user`, and the project and solution file patterns, and a large directory appends to it
 - For a custom `Include`, put `Exclude` on the same element
 - Disable a default item type only when the project declares every item of that type
 
@@ -48,11 +48,11 @@ MULTIPLE EVALUATIONS:
 
 PROPERTY FUNCTIONS:
 - Property functions inside a property or item expression run on every evaluation, including design-time builds and `-getProperty` queries
-- Keep evaluation expressions deterministic and free of file reads, and `dotnet-msbuild-antipatterns` owns the correction in its evaluation entries
+- Keep evaluation expressions deterministic and free of file reads, and use `dotnet-msbuild-antipatterns` for the correction
 
 ## [02]-[INCREMENTALITY]
 
-`dotnet-msbuild-execution` owns the `Inputs`, `Outputs`, and `FileWrites` authoring rules. This workflow finds the target that breaks them.
+Use `dotnet-msbuild-execution` for the `Inputs`, `Outputs`, and `FileWrites` authoring rules, the workflow finds the target that breaks them.
 
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
@@ -70,7 +70,7 @@ Analyze the second binlog:
 6. Run `binlog_search_files` for the target declaration when its `Inputs` and `Outputs` are in question
 
 - Targets without `Inputs` and `Outputs` run on every build and log no up-to-date reason
-- `IncrementalClean` deletes a file that a prior build wrote and this build did not record, and a file that vanishes on every second build belongs in `FileWrites` from an `ItemGroup` inside the target
+- `IncrementalClean` deletes a file that a prior build wrote and the current build did not record, and a file that vanishes on every second build belongs in `FileWrites` from an `ItemGroup` inside the target
 
 ### [02.2]-[COMPILATION]
 

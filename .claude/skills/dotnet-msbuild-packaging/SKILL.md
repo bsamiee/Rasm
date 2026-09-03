@@ -5,13 +5,13 @@ description: "Use when a .csproj, Directory.Packages.props, NuGet.config, packag
 
 # [DOTNET_MSBUILD_PACKAGING]
 
-Covers the project set a repository needs, central package management, restore, package authoring without a `.nuspec`, the `.slnx` solution file, and the build properties and switches a CI pipeline passes.
+Covers the package and project files of a repository, from the project set to the properties a CI pipeline passes.
 
-- `dotnet-msbuild-evaluation` owns import order, conditions, and the file that owns a property or item
-- `dotnet-msbuild-execution` owns targets, `DependsOn` chains, and the SDK hook points
-- `dotnet-msbuild-antipatterns` owns the review catalog of build-file smells
-- `dotnet-msbuild-diagnostics` owns binlog capture and queries and BuildCheck
-- `monorepo-build-infrastructure` owns the `eng/` directory, task runner targets, and the isolation of a packaging subtree from the root build files
+- Use `dotnet-msbuild-evaluation` for import order, conditions, and the file that owns a property or item
+- Use `dotnet-msbuild-execution` for targets, `DependsOn` chains, and the SDK hook points
+- Use `dotnet-msbuild-antipatterns` for the review catalog of build-file smells
+- Use `dotnet-msbuild-diagnostics` for binlog capture and queries and BuildCheck
+- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, and the isolation of a packaging subtree from the root build files
 
 [REFERENCES]:
 - [01]-[NUGET_CODES](references/nuget-codes.md): `NU1xxx` restore codes and `NU5xxx` pack codes with the cause and the fix of each
@@ -33,7 +33,7 @@ Project files hold only what differs from the root `Directory.Build.props`: the 
 </Project>
 ```
 
-These files have no place in the project set:
+Files with no place in the project set:
 
 | [INDEX] | [FILE]                                          | [REASON]                                                                       |
 | :-----: | :---------------------------------------------- | :----------------------------------------------------------------------------- |
@@ -46,7 +46,7 @@ These files have no place in the project set:
 |  [07]   | Committed `.nupkg` files                        | `dotnet pack` writes them under `PackageOutputPath`, which `.gitignore` covers |
 |  [08]   | `bin/` or `obj/` under the tree                 | `UseArtifactsOutput` moves both, a stray copy means a project set its own path |
 
-`UseArtifactsOutput` or `ArtifactsPath` in the root `Directory.Build.props` gives `<ArtifactsPath>/<type>/<project>/<pivot>/`, where type is `bin`, `obj`, or `publish`, and restore writes `project.assets.json`, `*.nuget.g.props`, and `*.nuget.g.targets` to `<ArtifactsPath>/obj/<project>/`. `ArtifactsPath` takes `NormalizePath`, because the SDK composes `<ArtifactsPath>\bin\<project>\` itself and the trailing slash of a `NormalizeDirectory` value yields `<ArtifactsPath>//bin/<project>/`, which `dotnet msbuild <project> -getProperty:OutputPath` shows.
+`UseArtifactsOutput` or `ArtifactsPath` in the root `Directory.Build.props` gives `<ArtifactsPath>/<type>/<project>/<pivot>/`, type is `bin`, `obj`, or `publish`, and restore writes `project.assets.json`, `*.nuget.g.props`, and `*.nuget.g.targets` to `<ArtifactsPath>/obj/<project>/`. `ArtifactsPath` takes `NormalizePath`, because the SDK composes `<ArtifactsPath>\bin\<project>\` itself and the trailing slash of a `NormalizeDirectory` value yields `<ArtifactsPath>//bin/<project>/`, which `dotnet msbuild <project> -getProperty:OutputPath` shows.
 
 ```xml
 <!-- Directory.Build.props -->
@@ -69,7 +69,7 @@ These files have no place in the project set:
     <PackageVersion Include="Contoso.Logging.Abstractions" Version="10.0.11" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Every project restores it with PrivateAssets=all and no compile asset, its Version sits here and not in a PackageVersion item -->
+    <!-- Every project restores it with PrivateAssets=all and no compile asset, its Version sits on the element itself -->
     <GlobalPackageReference Include="Contoso.Analyzers" Version="3.0.203" />
   </ItemGroup>
 </Project>
@@ -183,7 +183,7 @@ Transitive pinning is right when a lower transitive version is a defect `Directo
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <EnableDefaultItems>false</EnableDefaultItems>
     <StageRoot>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'stage', '$(MSBuildProjectName)'))</StageRoot>
-    <!-- Unix seconds or RFC 3339, every zip entry takes this time and the nupkg bytes repeat -->
+    <!-- Unix seconds or RFC 3339, every zip entry takes the time and the nupkg bytes repeat -->
     <DeterministicTimestamp>1735689600</DeterministicTimestamp>
   </PropertyGroup>
   <ItemGroup>
@@ -295,7 +295,7 @@ Every CI property sits in one `PropertyGroup` in the root `Directory.Build.props
 - `SatelliteResourceLanguages=en` keeps only the named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and turns on `CS1591`, and both belong to the unconditioned group
 - `EnableWindowsTargeting` stays unset on a non-Windows runner, and a Windows target framework then fails with `NETSDK1100` instead of downloading packs
 - `global.json` `rollForward: disable` pins the SDK on the runner and keeps the lock file in step with the SDK, and `DOTNET_ROLL_FORWARD` governs the runtime an application host selects and not the SDK
-- `-check` runs BuildCheck on the pipeline build, and `dotnet-msbuild-diagnostics` owns the checks
+- `-check` runs BuildCheck on the pipeline build, use `dotnet-msbuild-diagnostics` for the checks
 
 ```bash
 dotnet restore Product.slnx -p:CI=true

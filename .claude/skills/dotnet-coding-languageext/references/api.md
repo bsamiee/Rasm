@@ -265,7 +265,7 @@
 - `PartitionFallible` is the effectful counterpart of `FinExtensions.Partition`, which splits an already-evaluated collection of `Fin` values, it runs a collection of pending effects, does not short-circuit, and returns both branches inside one `M`, its receivers are `Seq`, `Lst`, `Set`, `HashSet`, `Iterable`, `IEnumerable`, and any `K<F, K<M, A>>`, and `Succs` and `Fails` are the one-branch projections over the same receivers
 - The result tuple is `(Seq<Error> Fails, Seq<A> Succs)`, fails first, the opposite order of `Fin.Match(Succ, Fail)`, positional deconstruction across both reads the branches backwards, and both fields are named, read them by name
 - `Catch` has selector arities: `int Code` against an `Errors` value or a domain error code, `Error Match` against a value, and `Func<Error, bool>` where neither suffices, each pairs with a value argument, an `Error` argument, or a `K<F, A>` argument, and recovery strategies compose as values instead of a `try`/`catch` chain at the call site
-- `FallibleExtensionsE` has the same members generalized over the failure type `E`, where `FallibleExtensions` fixes it to `Error`, and types that fail in a non-`Error` type reach the same operators by naming their own `E`
+- `FallibleExtensionsE` has the same members generalized over the failure type `E`, while `FallibleExtensions` fixes it to `Error`, and types that fail in a non-`Error` type reach the same operators by naming their own `E`
 
 [MEMBER_SCOPE]: `Try`, `Eff`, `IO`, the deferred effect types
 
@@ -405,7 +405,7 @@
 |  [13]   | `WriterT<W, M, A>`                                          | record   | The same accumulation over any `Monad<M>` |
 
 - `W : Monoid<W>` is the entire contract, each bind `Combine`s both outputs, the accumulator is the monoid and no mutable list is threaded beside the computation, `Seq<A>` output makes the writer an append-only log, and an `Error` output makes it a warning channel that never fails
-- `Writer<W, A>` has no failure branch and accumulates without failing, where `Validation<F, A>` accumulates failures and fails at the fold, and computations that need both stack them as `WriterT<W, Fin, A>` instead of folding the output into the failure channel
+- `Writer<W, A>` has no failure branch and accumulates without failing, while `Validation<F, A>` accumulates failures and fails at the fold, and computations that need both stack them as `WriterT<W, Fin, A>` instead of folding the output into the failure channel
 - `Run()` is the only exit and it is total, the output is otherwise unreadable mid-computation except through `Listen`/`Listens`, which return it as a value for later steps to branch on, and `Censor` and `Pass` are the rewrite forms, `Censor` decides the rewrite from outside and `Pass` lets the step hold the rewriter in its value position
 - `Tell<W>` is the type-agnostic output literal beside `Pure<A>` and `Fail<E>`, a `tell` step binds inside a `Writer`, a `WriterT`, an `RWST`, or any `Writable<M, W>` body without naming the concrete type
 
@@ -546,7 +546,7 @@
 |  [31]   | `Prelude.identity(A)`                    | static   | The identity function                 |
 
 - `memoK` caches the construction of a `K<F, A>`, never its execution, memoized `IO` or `Eff` is built once and then runs on every call, a `memoK` effect is not a cached result, caching a result memoizes past the run (`memo` over the executed value), and the `memoK(K<F,A>)` and `memoK(A)` arities are the preloaded forms where the value already exists
-- `memo(IEnumerable<A>)` retains each item as it is first enumerated, a second traversal replays from the cache and an expensive generator runs once, and it is the lazy counterpart to forcing into a `Seq`, where forcing pays the whole cost up front
+- `memo(IEnumerable<A>)` retains each item as it is first enumerated, a second traversal replays from the cache and an expensive generator runs once, and it is the lazy counterpart to forcing into a `Seq`, forcing pays the whole cost up front
 
 [MEMBER_SCOPE]: `AtomHashMap<K, V>`, the lock-free map (`Prelude.AtomHashMap(…)` or `AtomHashMap.ToAtom()` creates one). Every mutation returns `Unit`, publishes on `Change`, and commits under a CAS retry loop. `AtomHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter.
 
@@ -617,6 +617,6 @@
 |  [35]   | `Lose(Func<A,Void>)` / `Route(Func<A,Either<B,C>>, K, K)`             | static   | `Decidable` absurd and branch                   |
 |  [36]   | `Fold(Func<A,Func<S,S>>, S, K<Supertype,A>)`                          | static   | `Foldable` fold, forwarded to the `Subtype`     |
 
-- `Transform` and `CoTransform` are the only required members, wrappers declaring `Deriving.MonadUnliftIO<Supertype, Subtype>`, `Deriving.Fallible<Supertype, Subtype>`, and `Deriving.Final<Supertype, Subtype>` compile with those members alone, `Deriving.Alternative` has no body of its own and composes the `Choice` and `Applicative` derivations, and `Alternative<Supertype>.Empty` stays abstract, the wrapper implements it or the compiler reports `CS0535`
+- `Transform` and `CoTransform` are the only required members, wrappers declaring `Deriving.MonadUnliftIO<Supertype, Subtype>`, `Deriving.Fallible<Supertype, Subtype>`, and `Deriving.Final<Supertype, Subtype>` compile with the pair alone, `Deriving.Alternative` has no body of its own and composes the `Choice` and `Applicative` derivations, and `Alternative<Supertype>.Empty` stays abstract, the wrapper implements it or the compiler reports `CS0535`
 - `Supertype` heads every parameter list while `Subtype` moves, `Deriving.Readable<Supertype, Env, Subtype>` places it last, `Deriving.Stateful<Supertype, Subtype, S>`, `Deriving.Writable<Supertype, Subtype, W>`, and `Deriving.MonadT<Supertype, Subtype, M>` place it second, `Deriving.Fallible<E, Supertype, Subtype>` puts the failure type first, and `Deriving.Fallible<Supertype, Subtype>` is that interface with `E` fixed to `Error`
 - `LanguageExt.Deriving` is a static class, `using LanguageExt.Deriving;` fails with `CS0138` and every derivation writes `Deriving.Monad<Supertype, Subtype>` through the `LanguageExt` namespace import, `LanguageExt.Traits.Deriving<Supertype, Subtype>` is a separate arity-two interface aliasing `NaturalIso<Supertype, Subtype>`, and the arity difference resolves both names unqualified with both namespaces imported

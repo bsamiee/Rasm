@@ -19,7 +19,7 @@ type _Refinement = Callable[[list[str], str], str]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _INTERP = "<inline-interpreter>"
-_BACKTICK = re.compile(r"`([^`]*)`")
+_BACKTICK = re.compile(r"(?<!\\)`((?:[^`\\]|\\.)*)`")  # An escaped backtick is a literal, never a substitution edge
 _CONTINUE = re.compile(r"\\\n")
 _CTRL = re.compile(r"[\x00-\x1f\x7f]+")
 _HEREDOC = re.compile(r"<<-?\s*(['\"])(\w+)\1\n.*?^\t*\2$", re.DOTALL | re.MULTILINE)  # Quoted delimiter: the body expands nothing

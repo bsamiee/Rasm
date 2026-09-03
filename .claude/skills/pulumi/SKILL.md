@@ -24,12 +24,12 @@ Single-bucket requests in a directory with no Pulumi project are L1 tasks, no pr
 
 Level choice requires knowing what is already on disk: inspect the filesystem first, and in a restricted context ask before any Pulumi command runs, a command requiring a login silently provisions a new agent account parallel to one the operator already owns.
 
-Uncertain CLI flags, command shapes, or resource properties are looked up, never guessed: `npx pulumi <command> --help` documents every flag from the CLI itself, the full reference, provider catalog, and concept docs live at https://www.pulumi.com/docs and https://www.pulumi.com/registry/.
+Uncertain CLI flags, command shapes, or resource properties are looked up: `npx pulumi <command> --help` documents every flag from the CLI itself, the full reference, provider catalog, and concept docs are at https://www.pulumi.com/docs and https://www.pulumi.com/registry/.
 
 [REFERENCES]:
 - [01]-[CLI_OPERATIONS](references/cli-operations.md): Driving one-off resource work from the CLI, and graduating it into a program
 - [02]-[BEST_PRACTICES](references/best-practices.md): Rules every non-trivial program obeys before it runs
-- [03]-[COMPONENTS](references/components.md): `ComponentResource` anatomy, args interface design, multi-language packaging, and distribution
+- [03]-[COMPONENTS](references/components.md): Authoring a `ComponentResource` from its anatomy to distribution
 - [04]-[AUTOMATION_API](references/automation-api.md): Embedding Pulumi in a program, multi-stack orchestration, and inline versus local programs
 
 ## [01]-[ONE_SHOT_OPERATIONS]
@@ -45,7 +45,7 @@ pulumi do <pkg:mod:type> list [flags]
 - `create` provisions and prints properties as JSON including the cloud `id`, pass `--yes` in non-interactive contexts
 - `read <id>` fetches live provider state, writes nothing
 - `patch <id>` shallow-overlays top-level properties in place, a change requiring replacement fails rather than recreating
-- `delete <id>` is irreversible, explicit operator confirmation of the specific resource precedes `--yes`, never a non-interactive default
+- `delete <id>` is irreversible, explicit operator confirmation of the specific resource precedes `--yes`
 - `list` enumerates existing instances where the resource type implements listing
 
 First invocation without saved credentials provisions an ephemeral agent account and prints a claim banner to stderr. Show the claim URL to the operator immediately and again in the final response, a session ending without it strands resources. On authentication failure, ask the operator to run `pulumi login`, never fall back to `pulumi login --local` or set `PULUMI_CONFIG_PASSPHRASE`. Provider credentials arrive separately through the provider's native environment variables (`AWS_PROFILE`, `CLOUDFLARE_API_TOKEN`), when absent, ask before any command that calls out to the cloud.
@@ -58,12 +58,12 @@ Pulumi projects are code in Python, TypeScript, Go, C#, or Java describing relat
 
 ```bash
 npx pulumi new aws-typescript      # Template list: npx pulumi template list
-npx pulumi preview                 # Show what would change, always before up
+npx pulumi preview                 # Show the pending change, before every up
 npx pulumi up                      # Apply
 npx pulumi refresh                 # Reconcile state with cloud reality
 ```
 
-`pulumi destroy` tears down every resource in the stack and is generally irreversible, explicit operator confirmation of the stack name precedes it. Stacks only touch resources tracked in their state, removing a resource from the program deletes it from the cloud on the next `up`, `protect: true` guards anything unaffordable to lose.
+`pulumi destroy` tears down every resource in the stack and is irreversible, explicit operator confirmation of the stack name precedes it. Stacks only touch resources tracked in their state, removing a resource from the program deletes it from the cloud on the next `up`, `protect: true` guards anything unaffordable to lose.
 
 Stacks isolate instances of a project, one per environment (`dev`, `staging`, `prod`) is the standard pattern:
 
@@ -79,7 +79,7 @@ Pulumi Cloud layers governance onto a project: ESC composes secrets and configur
 
 ```bash
 npx pulumi env init my_org/aws/prod
-npx pulumi env run my_org/aws/prod -- aws s3 ls     # Injects credentials, never capture `env open` output
+npx pulumi env run my_org/aws/prod -- aws s3 ls     # Injects credentials, `env open` output stays out of captures
 npx pulumi policy new aws-typescript
 npx pulumi deployment run update --stack my_org/proj/prod
 npx pulumi refresh --preview-only                    # Ad-hoc local drift check
@@ -94,13 +94,13 @@ Failed `pulumi up` or `pulumi preview` runs already recorded their error. Debugg
 
 ### [04.1]-[IDENTIFY_THE_OPERATION]
 
-Operations arrive as org, project, stack, and an update version or preview id, usually in prose ("debug update 161 of vvm-dev"). Missing fields fill from context: the selected stack (`pulumi stack --show-name`, `pulumi stack ls`) or `Pulumi.yaml`, a missing version means the most recent update. Confirm the identified operation (version or preview id, kind, result, stack) with the operator before reading further.
+Operations arrive as org, project, stack, and an update version or preview id, in prose ("debug update 161 of vvm-dev"). Missing fields fill from context: the selected stack (`pulumi stack --show-name`, `pulumi stack ls`) or `Pulumi.yaml`, a missing version means the most recent update. Confirm the identified operation (version or preview id, kind, result, stack) with the operator before reading further.
 
-When nothing identifies the operation, the target is the operator's most recent one. Update lists never record who ran each update, identity resolves through the API: `pulumi whoami` gives the login, `pulumi api /api/stacks/{orgName}/{projectName}/{stackName}/updates/latest` gives the latest update and its `requestedBy.githubLogin`, on mismatch, walk back one version at a time via `/updates/<n>` until the login matches.
+When nothing identifies the operation, the target is the operator's most recent one. Update lists never record who ran each update, identity resolves through the API: `pulumi whoami` gives the login, `pulumi api /api/stacks/{orgName}/{projectName}/{stackName}/updates/latest` gives the latest update and its `requestedBy.githubLogin`, on mismatch, walk back one version at a time through `/updates/<n>` until the login matches.
 
 ### [04.2]-[READ_WHAT_FAILED]
 
-Failed updates and failed previews both record engine events, the error lives in the diagnostic messages inside them.
+Failed updates and failed previews both record engine events, the error sits in the diagnostic messages inside them.
 
 ```bash
 # Failed update by version number
@@ -114,7 +114,7 @@ pulumi api /api/stacks/{orgName}/{projectName}/{stackName}/preview/<preview-id>/
   | sed 's/<{%reset%}>//g'
 ```
 
-Every message matters, not only `severity == "error"`: a provider error carries the `error` tag, but a program error (the common case when a preview fails) arrives as a stderr diagnostic tagged `info#err`. The trailing `sed` strips the terminal color codes Pulumi embeds.
+Every message matters: a provider error has the `error` tag, and a program error (the common case when a preview fails) arrives as a stderr diagnostic tagged `info#err`. The trailing `sed` strips the terminal color codes Pulumi embeds.
 
 ### [04.3]-[PLACE_THE_FIX]
 
@@ -122,6 +122,6 @@ Operations can fail with errors from more than one resource: read all diagnostic
 
 - [PROGRAM]: Code is wrong: a bad reference, wrong type, rejected input, or a value used before it resolved. Usual failed-preview cause, the plan never built. Fix by editing the code.
 - [STATE]: Code is correct but stored state and cloud reality disagree. Reconcile drift with `pulumi refresh`, bring an existing external resource under management with `pulumi import` rather than recreating it. Operations that failed partway may have already changed resources, check current state before deciding.
-- [ENVIRONMENT]: Problem sits outside Pulumi: credentials, permissions, OIDC, quota. Fix the role, the ESC environment, or the capacity the provider rejected, never the resource code.
+- [ENVIRONMENT]: Problem sits outside Pulumi: credentials, permissions, OIDC, quota. Fix the role, the ESC environment, or the capacity the provider rejected.
 
 Smallest change addressing the root cause wins, confirmation and delivery of the fix follow the active mode's workflow.

@@ -5,7 +5,7 @@ description: "Use when mapping domain types to or from transport, persistence, o
 
 # [DOTNET_CODING_MAPPERLY]
 
-Covers mapping at the host boundary with `Riok.Mapperly`: where the mapper sits, its configuration levels and conversion allowlist, how a target is constructed and owned, how generated domain types and LanguageExt contexts pass through it, query projections, the mapping method shapes, every attribute and option, the enum and strategy types, conversion priority, and reference handling.
+Covers mapping at the host boundary with `Riok.Mapperly`, from where the mapper sits to conversion priority and reference handling.
 
 [SKILLS]:
 - `dotnet-coding`: Where the boundary sits and which result type crosses it
@@ -25,7 +25,7 @@ The adapter that references both representations owns the mapper, and the domain
 | :-----: | :------------------------------------------------ | :-------------------------- | :---------------------------------------------------- |
 |  [01]   | External contract to raw input model              | Structural mapping          | Validate the raw model before domain construction     |
 |  [02]   | External contract to constrained domain value     | None                        | Call the hand-written `From` factory, keep its error  |
-|  [03]   | Validated components to domain aggregate          | Optional construction       | Use one constructor total for those components        |
+|  [03]   | Validated components to domain aggregate          | Optional construction       | Use one constructor total over the components         |
 |  [04]   | Domain value to transport or persistence          | Structural projection       | Map only after the domain result is successful        |
 |  [05]   | Domain snapshot to next domain snapshot           | None                        | Call a named transition returning the next value      |
 |  [06]   | Closed union to external case                     | Structural mapping per case | Dispatch through the union's exhaustive `Switch`      |
@@ -38,8 +38,7 @@ Mappings that can reject input are not plain `TSource -> TTarget` functions, val
 internal static Fin<ItemDto> ToDto(Fin<Item> value) => value.Map(ItemMapper.ToDto);
 ```
 
-Mapperly never selects or rebuilds the cases of `Option`, `Either`, `Validation`, `Try`, `IO`, `Eff`, a transformer, or a higher-kinded context.
-- See `dotnet-coding/references/results.md` for combining independent `From` results with the tuple `Apply` before the aggregate is constructed
+- Use `dotnet-coding/references/results.md` for combining independent `From` results before the aggregate is constructed
 
 ## [02]-[MAPPER_CONFIGURATION]
 
@@ -57,10 +56,10 @@ Configure every project from one `PropertyGroup` in `Directory.Build.props`, nam
 The allowlist omits every conversion that parses, formats, casts, or constructs, direct assignment and object-member mapping have no bit and stay available, and every disabled conversion falls through to object-member mapping. `string`, enum, and primitive targets have no mappable members and report `RMG007` as a member and `RMG008` as a mapping method, and a composite target maps its members and reports `RMG013`, `RMG066`, or nothing. `MappingConversionType.None` is not the stricter setting, because it clears `Enumerable` and `Dictionary`, and `List` and `Dictionary` members with a differing element type then map to empty collections with no diagnostic. The workspace compiles warnings as errors, RMG codes fail the build, and the silent fallthroughs are the cases an explicit mapping must cover.
 
 The MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method attributes (`MapperRequiredMappingAttribute`, `MapperIgnoreObsoleteMembersAttribute`, `MapEnumAttribute`) configure a mapper, each overriding the one before it. `MapperDefaultsAttribute` derives from `MapperAttribute` with the same options, an override replaces the whole value, and a deviating mapper names its full `EnabledConversions` allowlist:
-- Inbound mappers that feed constrained domain types never allow `ParseMethod`, `Constructor`, `StaticConvertMethods`, or a cast in place of validation
+- Inbound mappers that feed constrained domain types keep `ParseMethod`, `Constructor`, `StaticConvertMethods`, and the casts out of their allowlist
 - Outbound mappers enable `ImplicitCast` for the generated value-object-to-key operator, and the inbound operator is explicit and calls the throwing `Create`
 - Named mappings selected with `Use` own every remaining conversion
-- Mappers that add `ToStringMethod` treat it as formatting, not a wire contract, and pass a fixed provider or an explicit culture input
+- Mappers that add `ToStringMethod` treat it as formatting and pass a fixed provider or an explicit culture input
 - Automatic member matching applies only when names and meanings agree, one exact pair has one intentional default, alternatives have unique names, generic mapping methods are disjoint, and no selection depends on declaration order
 
 External mappings stay local to the mapper that consumes them, and assembly-wide registrations expose only disjoint pairs. Configuration inclusion copies configuration rather than implementation and needs identical direction, member meaning, null policy, and omissions. Additional parameters hold immutable values that the boundary already resolved and forward to nested user mappings and `Use` methods where remaining parameter names match. Type pairs shared between mappers belong in one `internal static class` reached through `[UseStaticMapper<T>]`, and a private `[UserMapping]` stays for a mapper-local pair.
@@ -79,18 +78,18 @@ The mapping form decides who owns the target while its members are written:
 
 Prefer one total constructor for an immutable external record. `[MapperConstructor]` chooses between equivalent external constructors and does not select a domain transition, a type with invariants that depend on assignments after construction is not a valid mapping target, and Mapperly cannot skip an init-only assignment to preserve its member initializer.
 
-Mapperly object factories allocate or select the target and expose no typed failure channel: the factory is pure, deterministic, and synchronous, returns a non-void type, takes zero parameters or one, can be generic with or without constraints, and the first factory with a matching signature wins. Nullable results fall back to a public parameterless construction or throw `NullReferenceException`, and a factory never resolves services, allocates domain identity, or calls a rejecting domain factory. The Mapperly object factory is unrelated to the Thinktecture `[ObjectFactory<T>]`, which declares a validating conversion to and from one other type.
+Mapperly object factories allocate or select the target and expose no typed failure channel: the factory is pure, deterministic, and synchronous, returns a non-void type, takes zero parameters or one, can be generic with or without constraints, and the first factory with a matching signature wins. Nullable results fall back to a public parameterless construction or throw `NullReferenceException`. The Mapperly object factory is unrelated to the Thinktecture `[ObjectFactory<T>]`, which declares a validating conversion to and from one other type.
 
-Member and constructor visibility stays at `AllAccessible`, and an unsafe accessor that calls a private constructor or writes a hidden member never constructs or modifies a constrained domain type. Direct assignment can return the source reference, and sharing is valid only when the complete reachable graph is immutable, because deep cloning is an allocation strategy, not proof of ownership, validity, or a completed domain transition.
+Member and constructor visibility stays at `AllAccessible`. Direct assignment can return the source reference, and sharing is valid only when the complete reachable graph is immutable, because deep cloning is an allocation strategy, not proof of ownership, validity, or a completed domain transition.
 
-Existing-target mappings mutate their target, and an existing collection adds without replacement: lists add, queues enqueue, stacks push the added segment in reverse source order, and a null source collection leaves the target unchanged. Null-skipping implements merge behavior, not patch semantics, because it cannot distinguish an omitted member from one cleared to null, and an explicit optional wrapper folds against `[MappingTargetOriginalValue]` at a mutable boundary, where a constructor or init-only target receives `default` as the original value.
+Existing-target mappings mutate their target, and an existing collection adds without replacement: lists add, queues enqueue, stacks push the added segment in reverse source order, and a null source collection leaves the target unchanged. Null-skipping implements merge behavior, not patch semantics, because it cannot distinguish an omitted member from one cleared to null, and an explicit optional wrapper folds against `[MappingTargetOriginalValue]` at a mutable boundary, and a constructor or init-only target receives `default` as the original value.
 
 Reference handling materializes an external graph that requires cycles or shared identity, and one handler serves one mapping call. Constructor and init-only edges run before registration and cannot close a generated cycle, an existing-target root starts unregistered, the pair is registered before mapping when a back-reference must retain the supplied root, and domain identity uses explicit identifiers rather than mapper reference state.
 
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
-Generated domain types cross the mapper only through their declared conversions, inbound through the `From` factory and outbound through the key member or the `ToValue` of a declared `[ObjectFactory<T>]`, and `ToString()` does not define that representation. `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception. Mapperly enum configuration applies only to CLR enums, and independent CLR enum contracts map by case-sensitive name or explicit value pairs, never by numeric position.
-- See `dotnet-coding` for the `From` factory that maps `Validate` to `Fin<T>`, and `dotnet-coding-thinktecture` for the lookup that maps `TryGet` to `Option<T>`
+Generated domain types cross the mapper only through their declared conversions, inbound through the `From` factory and outbound through the key member or the `ToValue` of a declared `[ObjectFactory<T>]`, and `ToString()` does not define that representation. `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception. Mapperly enum configuration applies only to CLR enums, and independent CLR enum contracts map by case-sensitive name or explicit value pairs.
+- Use `dotnet-coding` for the `From` factory over `Validate`, and `dotnet-coding-thinktecture` for the lookup over `TryGet`
 
 Closed unions use their generated `Switch` as the outer dispatcher, Mapperly maps one known case inside each arm, and case selection stays exhaustive while member translation stays structural. `Map` takes one value per case and receives no mapper call:
 
@@ -115,7 +114,7 @@ Nullable analysis and the property-null options do not apply inside a projection
 
 ## [06]-[MAPPING_METHODS]
 
-Attributes on a `[Mapper] partial class` or `[Mapper] static partial class` and its partial methods hold the configuration, and a non-partial method with the matching types implements a member mapping by hand. Under `AutoUserMappings = false`, a hand-written mapping needs `[UserMapping]` for its type pair, and Mapperly then uses it in place of an automatic conversion, where `Default` marks the pair's one default mapping and `Ignore` excludes a discovered method. One user mapping carries the `ToValue` of a complex value object that declares `[ObjectFactory<string>]` outward, and another formats with a text pattern:
+Attributes on a `[Mapper] partial class` or `[Mapper] static partial class` and its partial methods hold the configuration, and a non-partial method with the matching types implements a member mapping by hand. Under `AutoUserMappings = false`, a hand-written mapping needs `[UserMapping]` for its type pair, and Mapperly then uses it in place of an automatic conversion, `Default` marks the pair's one default mapping, and `Ignore` excludes a discovered method. One user mapping carries the `ToValue` of a complex value object that declares `[ObjectFactory<string>]` outward, and another formats with a text pattern:
 
 ```csharp
 [Mapper]
@@ -197,7 +196,7 @@ Every attribute Mapperly reads, with its declaration target and whether it repea
 
 ## [08]-[OPTIONS_AND_MEMBERS]
 
-Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`, where `RequiredEnumMappingStrategy` takes `RequiredMappingStrategy`, `EnabledConversions` takes `MappingConversionType`, `IncludedMembers` and `IncludedConstructors` take `MemberVisibility`, and every other option takes `bool` or the type its name spells:
+Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`, `RequiredEnumMappingStrategy` takes `RequiredMappingStrategy`, `EnabledConversions` takes `MappingConversionType`, `IncludedMembers` and `IncludedConstructors` take `MemberVisibility`, and every other option takes `bool` or the type its name spells:
 
 | [INDEX] | [PROPERTY]                           | [DEFAULT]       | [EFFECT]                       |
 | :-----: | :----------------------------------- | :-------------- | :----------------------------- |
@@ -221,9 +220,9 @@ Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`, where `R
 |  [18]   | `AutoUserMappings`                   | `true`          | Discovery by signature         |
 
 - `AllowNullPropertyAssignment` at `false` turns an existing-target mapping into a merge, and the null options do not apply to a required init property
-- `StackCloningStrategy` decides the element order whenever Mapperly builds a `Stack<T>` through `Stack<T>(IEnumerable<T>)`, in every new-instance mapping and never for an existing-target stack or a `Queue<T>`, where `PreserveOrder` emits a `Reverse` call and `ReverseOrder` the bare constructor, which reverses the sequence
+- `StackCloningStrategy` decides the element order whenever Mapperly builds a `Stack<T>` through `Stack<T>(IEnumerable<T>)`, in every new-instance mapping and never for an existing-target stack or a `Queue<T>`, and `PreserveOrder` emits a `Reverse` call while `ReverseOrder` uses the plain constructor, which reverses the sequence
 
-Mapperly resolves a flattening (`Item.Owner.Id` to `ItemDto.OwnerId`) from PascalCase names, does not resolve unflattening, which needs `MapPropertyAttribute`, and ignores indexed members. `MapNestedPropertiesAttribute` brings every member under one path into scope as if the source declared them, immediate source members outrank nested ones, automatic flattening outranks both, and nested paths that reach the same target member have no defined order, and `MapPropertyAttribute` names that mapping. `MapPropertyAttribute` resolves a name mismatch instead of renaming domain or DTO members, and `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` silence the unmapped-member diagnostic for a computed field or another deliberate omission:
+Mapperly resolves a flattening (`Item.Owner.Id` to `ItemDto.OwnerId`) from PascalCase names, does not resolve unflattening, which needs `MapPropertyAttribute`, and ignores indexed members. `MapNestedPropertiesAttribute` brings every member under one path into scope as if the source declared them, immediate source members outrank nested ones, automatic flattening outranks both, and nested paths that reach the same target member have no defined order, and `MapPropertyAttribute` names that mapping. `MapPropertyAttribute` resolves a name mismatch while domain and DTO members keep their names, and `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` silence the unmapped-member diagnostic for a computed field or another deliberate omission:
 
 ```csharp
 [Mapper]
@@ -252,7 +251,7 @@ Attributes that configure one enum mapping:
 |  [03]   | `MapperIgnoreSourceValueAttribute(object source)`     | `SourceValue` as `Enum?`      |
 |  [04]   | `MapperIgnoreTargetValueAttribute(object target)`     | `TargetValue` as `Enum?`      |
 
-`MapEnumAttribute` applies to a mapping method that takes an enum and takes `IgnoreCase` (`bool`, default `false`), `FallbackValue` (`object?`, default `null`), and `NamingStrategy` (`EnumNamingStrategy`, default `MemberName`), where `FallbackValue` replaces the throw for an unmapped value under `ByName` and `ByValueCheckDefined` only, and neither `FallbackValue` nor `MapEnumValueAttribute` passes through the naming strategy. `MapEnumValueAttribute` applies to an enum-to-enum, enum-to-string, or string-to-enum mapping and pairs an enum member with another enum member or a string literal, and the ignore-value attributes cast their argument to `Enum` and take an enum member only. Under the workspace `ByName` default, members that match by name need no configuration, and explicit pairs cover the rest:
+`MapEnumAttribute` applies to a mapping method that takes an enum and takes `IgnoreCase` (`bool`, default `false`), `FallbackValue` (`object?`, default `null`), and `NamingStrategy` (`EnumNamingStrategy`, default `MemberName`), `FallbackValue` replaces the throw for an unmapped value under `ByName` and `ByValueCheckDefined` only, and neither `FallbackValue` nor `MapEnumValueAttribute` passes through the naming strategy. `MapEnumValueAttribute` applies to an enum-to-enum, enum-to-string, or string-to-enum mapping and pairs an enum member with another enum member or a string literal, and the ignore-value attributes cast their argument to `Enum` and take an enum member only. Under the workspace `ByName` default, members that match by name need no configuration, and explicit pairs cover the rest:
 
 ```csharp
 [Mapper]
@@ -266,12 +265,12 @@ internal enum InternalState { Draft, InProgress, Done, Cancelled }
 internal enum ExternalState { Active, Completed, Cancelled, Draft }
 ```
 
-The options and attributes name these strategy types, and `RequiredMappingStrategy`, `IgnoreObsoleteMembersStrategy`, and `MemberVisibility` declare `[Flags]`, where `|` adds a member and `& ~` removes one:
+The options and attributes name the strategy types, and `RequiredMappingStrategy`, `IgnoreObsoleteMembersStrategy`, and `MemberVisibility` declare `[Flags]`, `|` adds a member and `& ~` removes one:
 - `StackCloningStrategy`: `PreserveOrder` `ReverseOrder`
 - `PropertyNameMappingStrategy`: `CaseSensitive` `CaseInsensitive` `SnakeCase` `UpperSnakeCase`
 - `RequiredMappingStrategy` and `IgnoreObsoleteMembersStrategy`: `None = 0` `Both = ~None` `Source = 1 << 0` `Target = 1 << 1`
-- `EnumMappingStrategy`: `ByValue` `ByName` `ByValueCheckDefined`, where the last maps by value and checks that the value is defined
-- `EnumNamingStrategy`: `MemberName` `CamelCase` `PascalCase` `SnakeCase` `UpperSnakeCase` `KebabCase` `UpperKebabCase` `ComponentModelDescriptionAttribute` `SerializationEnumMemberAttribute`, where `ComponentModelDescriptionAttribute` reads `DescriptionAttribute.Description`, `SerializationEnumMemberAttribute` reads `EnumMemberAttribute.Value`, and both fall back to the member name
+- `EnumMappingStrategy`: `ByValue` `ByName` `ByValueCheckDefined`, and the last maps by value and checks that the value is defined
+- `EnumNamingStrategy`: `MemberName` `CamelCase` `PascalCase` `SnakeCase` `UpperSnakeCase` `KebabCase` `UpperKebabCase` `ComponentModelDescriptionAttribute` `SerializationEnumMemberAttribute`, `ComponentModelDescriptionAttribute` reads `DescriptionAttribute.Description`, `SerializationEnumMemberAttribute` reads `EnumMemberAttribute.Value`, and both fall back to the member name
 - `MemberVisibility`: `AllAccessible = All | Accessible` `All = Public | Internal | Protected | Private` `Accessible = 1 << 0` `Public = 1 << 1` `Internal = 1 << 2` `Protected = 1 << 3` `Private = 1 << 4`
 
 `Source` and `Target` name the side each strategy acts on, `RequiredMappingStrategy` warns about unmapped members there, `IgnoreObsoleteMembersStrategy` skips obsolete ones, and `MapPropertyAttribute` maps an obsolete member whatever the strategy says.
@@ -331,3 +330,6 @@ Mapperly calls `TryGetReference` before it creates a target, a `true` result set
 |  [06]   | Validation or effects inside a query projection                   | Project, materialize, then validate and construct          |
 |  [07]   | Existing-target mapping over a value the caller published         | New-instance mapping, or a target that never escapes       |
 |  [08]   | Private `[UserMapping]` repeated in every mapper that needs it    | One `internal static class` behind `[UseStaticMapper<T>]`  |
+|  [09]   | Mapper-built `Option`, `Either`, `Validation`, `Try`, `IO`, or `Eff` | Value passed through, cases selected in boundary code      |
+|  [10]   | An unsafe accessor over a private constructor or hidden member    | The declared factory of the constrained type               |
+|  [11]   | An object factory that resolves services                          | A pure factory over its parameters                         |

@@ -1,6 +1,6 @@
 # [MULTI_LEVEL_EXAMPLES]-[SHARED_BUILD_FILES]
 
-These files serve a repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.props`, and a `Directory.Build.targets`, and each project file keeps only what differs.
+The files serve a repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.props`, and a `Directory.Build.targets`, and each project file keeps only what differs.
 
 ## [01]-[LAYOUT]
 
@@ -139,4 +139,4 @@ These files serve a repository with a root `Directory.Build.props`, a nested `te
 </Project>
 ```
 
-See `dotnet-msbuild-packaging` for `Directory.Packages.props` and the nested package file rule.
+Use `dotnet-msbuild-packaging` for `Directory.Packages.props` and the nested package file rule.

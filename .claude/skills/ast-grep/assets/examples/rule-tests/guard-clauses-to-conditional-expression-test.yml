@@ -3,7 +3,7 @@ valid:
     - | # Already a chain
       def flat(ceiling, raw):
           return Error("<empty>") if raw == "" else Ok(len(raw))
-    - | # Statement-bearing body is never flattened
+    - | # Statement-bearing body stays
       def kernel(ceiling, raw):
           trimmed = raw.strip()
           if trimmed == "":

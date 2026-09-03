@@ -28,6 +28,10 @@ Identifier and file renames update every reference:
 - BEFORE: `It returns counts plus the top hotspots per dimension`
 - AFTER: `It returns counts with the top hotspots per dimension`
 
+- BEFORE: `The chain becomes an ordered table of pairs, where the first matching predicate wins`
+- AFTER: `The chain becomes an ordered table of pairs, the first matching predicate wins`
+- WRONG: `The chain becomes an ordered table of pairs, while the first matching predicate wins` (a connective swapped for another)
+
 - KEEP: `Every <package> member routes through the lookup, and a boundary between packages names both sides`
 - WRONG: `Every <package> member, a boundary between packages names both sides` (the verb went with the deletion, the subject dangles)
 
@@ -207,3 +211,17 @@ Identifier and file renames update every reference:
 - BEFORE: `` Read a `.binlog` only through the `binlog` MCP tools, never directly ``
 - AFTER: `` Read a `.binlog` through the `binlog` MCP tools `` (the direct read goes in the anti-pattern table)
 - WRONG: `` Read a `.binlog` through the `binlog` MCP tools, not directly `` (the negative kept as a tail)
+
+- BEFORE: `Confidence comes from tests, not from inspecting the implementation`
+- AFTER: `Confidence comes from tests`
+- WRONG: `Confidence comes from tests, inspecting the implementation proves nothing` (one negative swapped for another)
+
+- KEEP: `A consumer that only saves receives the save function`, `acquires the resource only when the operation runs` (a restriction that is the fact)
+- WRONG: `A consumer that saves receives the save function` (the restriction went with the word, the fact changed)
+
+- KEEP: `` `AfterBuild` in a `.csproj` never runs `` (a fact about behavior)
+- WRONG: `` `AfterBuild` in a `.csproj` does not run `` (a synonym swap of a fact)
+
+- BEFORE: `Return the fix, never apply it` (an agent constraint)
+- AFTER: `Return the fix for the caller to apply`
+- WRONG: `Return the fix` (the constraint went with the word)

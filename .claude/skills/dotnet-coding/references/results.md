@@ -1,6 +1,6 @@
 # [RESULTS]
 
-Covers the result-type flows: validators and their combination, `Fin` workflows and application inside an effect, translation at the host, domain unions with their folds, and the laws with their property tests. Which type a function returns and which operator joins two steps are decisions in `dotnet-coding`, and how each operation and recovery overload behaves is in `dotnet-coding-languageext`.
+Covers the result-type flows, from validators to the laws and their property tests. Use `dotnet-coding` for the type and operator decisions, and `dotnet-coding-languageext` for the behavior of each operation and recovery overload.
 
 ## [01]-[VALIDATION]
 
@@ -119,7 +119,7 @@ internal static class Lifting {
 }
 ```
 
-`fun` gives an inline lambda the delegate type these overloads need, and `As()` returns the concrete type from the `K<Option, int>` the trait method returns.
+`fun` gives an inline lambda the delegate type the overloads need, and `As()` returns the concrete type from the `K<Option, int>` the trait method returns.
 
 C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that passes earlier values into the final projection without nested lambdas, one query shape runs over `Option` and over `Validation<Error, A>`:
 
@@ -143,7 +143,7 @@ internal static class Queries {
 
 ## [03]-[HOST_TRANSLATION]
 
-Validation and persistence express different effects, accumulation and a deferred side effect, one `Bind` cannot flatten them: validation exits through `ToFin`, `IO.lift(Fin<A>)` places that result on the `IO` error channel, one query binds both, and the effect runs only for a valid command. Exception-throwing dependencies convert at their integration boundary, where `IO.lift` captures the exception from only that call as an `Exceptional` error:
+Validation and persistence express different effects, accumulation and a deferred side effect, one `Bind` cannot flatten them: validation exits through `ToFin`, `IO.lift(Fin<A>)` places that result on the `IO` error channel, one query binds both, and the effect runs only for a valid command. Exception-throwing dependencies convert at their integration boundary, and `IO.lift` captures the exception from only that call as an `Exceptional` error:
 
 ```csharp
 internal static class Handler {
@@ -211,7 +211,7 @@ internal static class Inputs {
 
 The `Catch` overload with a predicate maps the captured error to the `ReadFailure` case at the boundary, a read failure is a case the consumer matches, code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
 
-Union cases can carry the union type itself, and such a union models a tree the domain owns (configuration, expressions, UI hierarchies, document fragments), where wire serialization stays with `System.Text.Json` at the host boundary:
+Union cases can carry the union type itself, and a union of that kind models a tree the domain owns (configuration, expressions, UI hierarchies, document fragments), while wire serialization stays with `System.Text.Json` at the host boundary:
 
 ```csharp
 [Union]
@@ -255,7 +255,7 @@ internal static class Folds {
 }
 ```
 
-The scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and the union has 6 constructors, a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, where a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with a distinct `Expected` per wrong shape, a consumer classifies by code, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
+The scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and the union has 6 constructors, a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with a distinct `Expected` per wrong shape, a consumer classifies by code, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
 
 ## [05]-[LAWS]
 
@@ -270,9 +270,9 @@ Monad left identity:  Pure(t).Bind(f) == f(t)
 Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 ```
 
-The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion, and associativity is why a multi-argument function enters a monadic pipeline: the right-associated form lets the innermost function close over every earlier value, and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run these checks, and their API sits in `dotnet-coding-languageext`.
+The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion, and associativity is why a multi-argument function enters a monadic pipeline: the right-associated form lets the innermost function close over every earlier value, and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks, and their API sits in `dotnet-coding-languageext`.
 
-Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and domain invariants (removing items from a cart never increases its total), where random sampling raises confidence without proving a universal law:
+Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and domain invariants (removing items from a cart never increases its total), and random sampling raises confidence without proving a universal law:
 
 ```csharp
 internal static class Properties {

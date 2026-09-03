@@ -8,9 +8,9 @@ rule:
         - has: {field: name, pattern: $NAME}
         - has: {field: body, pattern: $BODY}
         - not: {has: {field: body, has: {kind: property_identifier}}} # Ordinal-less member: no synthesizable value, no fix
-        - not: {inside: {kind: export_statement}} # Exported surface: hand repair owns the API break
+        - not: {inside: {kind: export_statement}} # Exported member, hand repair covers the API break
         - not: {inside: {kind: ambient_declaration}} # declare enum: a const initializer is illegal in ambient context
-        - not: {regex: '^const'} # const enum has no emit, the object would create a runtime value it never had
+        - not: {regex: '^const'} # const enum has no emit, an object adds a runtime value the enum never had
 rewriters:
     - id: enum-row
       rule:

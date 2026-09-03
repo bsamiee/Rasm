@@ -15,7 +15,7 @@ valid:
           public static int Fallback(Request request) =>
               request switch { Request.Open o => 1, _ => 0 };
       }
-    - | # Bare compound subject would rebind under member access, the guard refuses it
+    - | # Compound subject rebinds under member access, the guard refuses it
       public static class S {
           public static Fin<Outcome> Waited(Task<Request> t, Ledger ledger) =>
               await t switch { Request.Open o => ledger.Open(o.Code), Request.Close c => ledger.Close(c.Code) };

@@ -11,7 +11,7 @@ utils:
     declares-degree:
         has:
             field: arguments
-            has: # Default neighbor traversal, a degree inside a nested callback never satisfies this call
+            has: # Default neighbor traversal, a degree inside a nested callback never satisfies the call
                 kind: object
                 has:
                     any:
@@ -24,4 +24,4 @@ rule:
         - matches: fan-out-call
         - not: {matches: declares-degree}
 message: Fan-out omits its concurrency option and silently serializes
-note: 'Add `{ concurrency: <n | "unbounded" | "inherit"> }` at this call, an options identifier or wrapped object cannot be proven, inline the bare object'
+note: 'Add `{ concurrency: <n | "unbounded" | "inherit"> }` at the call as an object literal, an options identifier or wrapped object cannot be proven'

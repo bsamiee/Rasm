@@ -8,7 +8,7 @@ utils:
             - pattern: |
                 if $C:
                     return $R
-            - not: {has: {any: [{kind: elif_clause}, {kind: else_clause}]}} # An if carrying alternatives is no guard, the bare pattern would swallow them
+            - not: {has: {any: [{kind: elif_clause}, {kind: else_clause}]}} # Ifs with an elif or else are no guards, the pattern alone swallows them
 rule:
     all:
         - pattern:
@@ -18,7 +18,7 @@ rule:
                     return $FINAL
             selector: block
         - has: {kind: if_statement}
-        - not: # Totality closure: every statement is a guard-if or a return, a body carrying any other statement (a binding, an effect) is never flattened
+        - not: # Totality closure, every statement is a guard-if or a return, a body with any other statement (a binding, an effect) stays
             has:
                 not:
                     any:

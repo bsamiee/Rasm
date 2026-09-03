@@ -69,7 +69,7 @@ Attribute settings of value objects, smart enums, ad hoc unions, and regular uni
 
 ## [05]-[GENERATOR_PROPERTIES]
 
-Project-level MSBuild properties carry the prefix `ThinktectureRuntimeExtensions_SourceGenerator_`, reach the compiler as `build_property.<PropertyName>`, and apply to every generated type in the project:
+Project-level MSBuild properties have the prefix `ThinktectureRuntimeExtensions_SourceGenerator_`, reach the compiler as `build_property.<PropertyName>`, and apply to every generated type in the project:
 
 | [INDEX] | [PROPERTY]                     | [VALUES]                                                                      | [DEFAULT] |
 | :-----: | :----------------------------- | :---------------------------------------------------------------------------- | :-------- |

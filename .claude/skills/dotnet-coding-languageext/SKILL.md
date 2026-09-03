@@ -5,15 +5,15 @@ description: "Use when calling a LanguageExt member: conversions, errors and rec
 
 # [DOTNET_CODING_LANGUAGEEXT]
 
-Covers the LanguageExt types and their operations: the result and effect types with their conversions, the error model and recovery, `IO` construction, execution, resources, concurrency, recursion, schedules, and runtimes, the traits and transformers, the collections with their folds and pitfalls, lenses, shared state, and streams.
+Covers the LanguageExt types and their operations, from the result types and their conversions to streams.
 
 [SKILLS]:
 - `dotnet-coding`: Which type a function returns, where the boundary sits, and which operator joins the steps
 
 [REFERENCES]:
-- [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Higher kinds, witnesses, traits, law checks, transformers, domain monads
-- [02]-[STREAMS](references/streams.md): Sources and events, reduction, conduits and buffer policy, pipes
-- [03]-[API](references/api.md): Public types and members by scope
+- [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Trait encoding, transformer stacks, and the domain monads over them
+- [02]-[STREAMS](references/streams.md): The stream API from sources to pipes, with the buffer policies and their forking order
+- [03]-[API](references/api.md): Public types and members by scope, with the notes each scope needs
 
 The result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Examples assume `using static LanguageExt.Prelude`, which binds the constructors and module functions as unqualified names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`), and the static import binds `List` to `Prelude.List`, the module is named `LanguageExt.List.unfold` in full.
 
@@ -31,7 +31,7 @@ The result and effect types and their runtime shapes:
 |  [06]   | `IO<A>`                | abstract record class |
 |  [07]   | `Eff<RT, A>`           | record class          |
 
-Each type exposes `Match` with one function per case, and `Match` on `IO` and `Eff` returns an effect. `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, ignores the inner value in the `None` state, and is closed, a `Match` over its cases is total, as is a `Match` over `Fin`. The implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, and `Some(x)` wraps the value as given. `Option<A>` defines `operator true`, `left || right` evaluates the right operand only when the left is `None`, where `left | right` evaluates both. `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, and both return `A`.
+Each type exposes `Match` with one function per case, and `Match` on `IO` and `Eff` returns an effect. `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, ignores the inner value in the `None` state, and is closed, a `Match` over its cases is total, as is a `Match` over `Fin`. The implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, and `Some(x)` wraps the value as given. `Option<A>` defines `operator true`, `left || right` evaluates the right operand only when the left is `None`, while `left | right` evaluates both. `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, and both return `A`.
 
 Each conversion is a method on the source type named for the target, and converting from `Option` requires the `Error` it lacks:
 
@@ -194,7 +194,7 @@ internal static class Recursion {
 
 ### [04.4]-[SCHEDULES]
 
-`Schedule.spaced` and `Schedule.exponential` build delay sequences, and `recurs`, `repeat`, `jitter`, and `maxDelay` are `ScheduleTransformer` values that cap the attempt count, replay the whole schedule, randomize each delay, and cap each delay, where each delay is the library's own `LanguageExt.Duration` that converts implicitly from the `TimeSpan` a NodaTime `Duration` returns through `ToTimeSpan()`. Between schedules `|` is a union that takes the shorter delay and `&` an intersection that takes the longer, where one side is a transformer both operators apply it, and a transformer passed alone converts to `Schedule.Forever` with the transformer applied. `Retry(Schedule)` reruns a deferred effect that failed, and `Repeat(Schedule)` reruns a successful one, `Repeat(Schedule.recurs(2))` runs the effect once and then twice more:
+`Schedule.spaced` and `Schedule.exponential` build delay sequences, and `recurs`, `repeat`, `jitter`, and `maxDelay` are `ScheduleTransformer` values that cap the attempt count, replay the whole schedule, randomize each delay, and cap each delay, and each delay is the library's own `LanguageExt.Duration` that converts implicitly from the `TimeSpan` a NodaTime `Duration` returns through `ToTimeSpan()`. Between schedules `|` is a union that takes the shorter delay and `&` an intersection that takes the longer, when one side is a transformer both operators apply it, and a transformer passed alone converts to `Schedule.Forever` with the transformer applied. `Retry(Schedule)` reruns a deferred effect that failed, and `Repeat(Schedule)` reruns a successful one, `Repeat(Schedule.recurs(2))` runs the effect once and then twice more:
 
 ```csharp
 internal static class Schedules {
@@ -263,7 +263,7 @@ Transformers stack one concern over an inner monad `M`, and the wrapped represen
 |  [07]   | `WriterT<W, M, A>`         | `W` beside the value         | Returns the value with `W`    |
 |  [08]   | `RWST<R, W, S, M, A>`      | `ask`, `tell`, `get`, `put`  | Combines the 3 runs           |
 
-`lift` adds a layer to an evaluated value (`Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner `K<M, A>`), `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom, `Run` removes one layer and the host runs the layers from the outside in, and `ValidationT` serves only errors that must accumulate inside an effect. The domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` with `Transform` and `CoTransform` alone, `Deriving.MonadIO` needs a stack that implements `MonadIO`, which `StateT` does not, and such a wrapper lifts an effect through `CoTransform` over `StateT.liftIO`.
+`lift` adds a layer to an evaluated value (`Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner `K<M, A>`), `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom, `Run` removes one layer and the host runs the layers from the outside in, and `ValidationT` serves only errors that must accumulate inside an effect. The domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` with `Transform` and `CoTransform` alone, `Deriving.MonadIO` needs a stack that implements `MonadIO`, which `StateT` does not, and the wrapper lifts an effect through `CoTransform` over `StateT.liftIO`.
 
 ## [06]-[COLLECTIONS]
 
@@ -295,7 +295,7 @@ internal static class Folds {
 
 `Choose` maps to `Option` and keeps the `Some` values in one pass, `Partition` splits by a predicate into a deconstructable tuple, `Zip` pairs sequences and its projection overload takes a function, `Scan` emits the seed first, the result has one more element than the source, `At(index)`, `Head`, and `Last` are `Option<A>`, `Tail` is empty for an empty source, the indexed `Map` passes the item first and the index second, `Rev` reverses, `LanguageExt.List.unfold` runs a state seed until the step returns `None`, and `Cons` resolves as `head.Cons(tail)` because `LanguageExt.Pretty.Cons<A>` is a type.
 
-The compiler rejects these forms:
+Forms the compiler rejects:
 - `Zip` names its tuple elements `First` and `Second`, and comparing the result with a `Seq` of unnamed tuples is ambiguous (CS9342), the expected value declares the same names
 - `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121), membership is `Exists` and a sum is `Fold`
 - `Seq<A>.Empty` in expression context fails (CS0119) because the simple name `Seq` binds to the `Prelude` function, the empty value is `Seq<A>()`
@@ -335,4 +335,4 @@ internal static class SharedState {
 ## [08]-[STREAMS]
 
 `Source<A>` is the stream type, `Sink<A>` its consumer end, `Conduit.make(Buffer<A>)` builds a joined pair under a buffer policy, `Event.from(ref Action<A>)` adapts a callback-based producer into a `Source<A>`, and `ProducerT`, `PipeT`, and `ConsumerT` are the roles that `|` fuses into an `EffectT`. `Reduce(seed, f)` is the fold that yields a value as `IO<S>`, and `Fold` on a lifted finite sequence emits nothing.
-- See `references/streams.md` for the sources and events, reduction, the buffer policies with their forking order, and pipes
+- Use `references/streams.md` for the stream API from sources to pipes

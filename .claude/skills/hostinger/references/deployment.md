@@ -1,6 +1,6 @@
 # [HOSTINGER_DEPLOYMENT]
 
-SSH-first deployment for Dockerized applications on a Hostinger VPS: SSH and Docker Compose carry the deploy, the Hostinger API carries account-level infrastructure (keys, firewalls, snapshots). Repos that already include compose files and deployment scripts deploy over SSH, the Docker Manager API serves quick prototyping and simple single-container deploys from a URL. Never replace a working SSH workflow with the Docker Manager API unbidden. Run a repo's own deployment scripts and runbooks before any generic command below.
+SSH-first deployment for Dockerized applications on a Hostinger VPS: SSH and Docker Compose run the deploy, the Hostinger API handles account-level infrastructure (keys, firewalls, snapshots). Repos that already include compose files and deployment scripts deploy over SSH, the Docker Manager API serves quick prototyping and simple single-container deploys from a URL. Run a repo's own deployment scripts and runbooks before the generic commands.
 
 ## [01]-[INPUTS_AND_ACCESS]
 
@@ -28,10 +28,10 @@ Baseline gates before the first deploy:
 
 ## [03]-[DEPLOY_AND_UPDATE]
 
-Deploys keep the order dependencies, migrations, app, and every command stays idempotent. `docker compose up -d` recreates only changed services. `docker compose down -v` destroys volumes and data and never runs in production without explicit approval.
+Deploys keep the order dependencies, migrations, app, and every command stays idempotent. `docker compose up -d` recreates only changed services. `docker compose down -v` destroys volumes and data, and explicit approval precedes it in production.
 
 ```bash
-# Sync code (never .env from git, scp the production env file separately)
+# Sync code, the production env file goes by scp on its own
 rsync -avz --exclude='.git' --exclude='node_modules' --exclude='.env.local' ./ $SSH_USER@$SSH_HOST:~/app/
 scp .env.production $SSH_USER@$SSH_HOST:~/app/.env
 
@@ -55,9 +55,9 @@ Verify from infrastructure to functionality:
 
 ## [05]-[ROLLBACK]
 
-Before every risky deploy (migrations, major version bumps), take a VPS snapshot via the API (`POST .../snapshot`, the new snapshot overwrites the old) and an on-server database dump (`docker compose exec db pg_dump -U postgres mydb > /tmp/backup_$(date +%Y%m%d_%H%M%S).sql`).
+Before every risky deploy (migrations, major version bumps), take a VPS snapshot through the API (`POST .../snapshot`, the new snapshot overwrites the old) and an on-server database dump (`docker compose exec db pg_dump -U postgres mydb > /tmp/backup_$(date +%Y%m%d_%H%M%S).sql`).
 
-Failed-deploy recovery, smallest step first: restore the previous compose or image version (`git checkout HEAD~1 -- docker-compose.yaml` or the previous tag), `docker compose up -d`, restore the DB dump when a migration proved incompatible, then re-verify. Full snapshot restore via the API is the last resort, it overwrites the entire VM.
+Failed-deploy recovery, smallest step first: restore the previous compose or image version (`git checkout HEAD~1 -- docker-compose.yaml` or the previous tag), `docker compose up -d`, restore the DB dump when a migration proved incompatible, then re-verify. Full snapshot restore through the API is the last resort, it overwrites the entire VM.
 
 ## [06]-[INTERFACE_SPLIT]
 
@@ -71,7 +71,7 @@ Failed-deploy recovery, smallest step first: restore the previous compose or ima
 |  [06]   | Monarx malware scanner            | API                        |
 
 Safety rules:
-- Secrets enter commands as environment variables and never print
-- `.env` files never land in git
+- Secrets enter commands as environment variables and stay out of output
+- `.env` files stay out of git
 - Critical env keys validate non-empty before deploy
-- Database schema changes are the riskiest step and always follow the snapshot
+- Database schema changes are the riskiest step and follow the snapshot

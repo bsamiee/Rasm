@@ -59,7 +59,7 @@ Delete the word and read the sentence again, and the remainder stands when it st
 
 | [INDEX] | [CATEGORY]                 | [DELETE]                                                                                           |
 | :-----: | :------------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | Connectives                | so (as a result), therefore, thus, hence, plus, consequently, as such, furthermore, moreover, also |
+|  [01]   | Connectives                | so (as a result), therefore, thus, hence, which is why, consequently, furthermore, moreover, also  |
 |  [02]   | Fillers                    | simply, just, actually, essentially, basically, really, very, quite, rather, somewhat, easily      |
 |  [03]   | Marketing                  | robust, powerful, comprehensive, seamless, elegant, clean (as praise), modern, lightweight, best   |
 |  [04]   | Meta phrases               | note that, it is worth noting, it is important to, in other words, as mentioned, in summary        |
@@ -75,7 +75,7 @@ Delete the word and read the sentence again, and the remainder stands when it st
 |  [04]   | etc.          | Name the items                                                                                  |
 |  [05]   | and/or        | One of them, or "X, Y, or both"                                                                 |
 
-Numbers stay as real values, and counts of items the reader can see go. Prose names a package, tool, or API at the newest standard without a version, and a version stays in a package manager manifest or where the fact holds for one version alone. Frequency and time words stay when the source measured them and otherwise become the condition. Hedges with real uncertainty stay as "can" or as the condition under which the statement holds. Sentences and clauses that repeat a fact the file or the owning file states, or state what the heading, the code, or the previous sentence supplies, go, and a fact only they held moves into the sentence that holds its topic.
+Numbers stay as real values in their original spelling, and counts of items the reader can see go. Prose names a package, tool, or API at the newest standard without a version, and a version stays in a package manager manifest or where the fact holds for one version alone. Frequency and time words stay when the source measured them and otherwise become the condition. Hedges with real uncertainty stay as "can" or as the condition under which the statement holds. Sentences and clauses that repeat a fact the file or the owning file states, or state what the heading, the code, or the previous sentence supplies, go, and a fact only they held moves into the sentence that holds its topic.
 
 ## [04]-[SENTENCES]
 
@@ -92,7 +92,9 @@ Each sentence states one instruction or one fact in active voice and simple pres
 - Noun chains stop at three words, and a longer chain breaks with a preposition (`the timeout value for the connection pool`)
 - Lines the reader must act on are instructions, and lines that record what the system does are statements
 - Instructions use the imperative, with the condition before the command and a comma between them
-- Instructions state the required form once, and forbidden forms sit in an anti-pattern table as patterns beside the correct form
+- Instructions state the required form once, and a forbidden form goes in the section's anti-pattern table beside the correct form
+- Forbidden forms that protect the reader stay as facts when the section has no table
+- Agent definitions address the agent as "you" in the role statement, and their procedure lines are imperative
 - Warnings precede the step they guard and state the command or condition, then the risk
 - Verbs name actions, and nominalizations and phrasal verbs take the verb from the word map
 - Statements name the actor as their subject, and passive voice stays for an unknown actor
@@ -116,13 +118,14 @@ Sections follow the order of work or dependency, each under a `## [NN]-[NOUN]` h
 - The heading, the lead-in, and the previous sentence supply the subject, and sentences under them open with a part of it, its pronoun, or the verb
 - The subject noun repeats where the fact otherwise attaches to another subject
 - The opening sentence states the scope as one category, and every other sentence about the file, the section, or the skill goes
-- Pointers to another file or skill are one line, `Use <name> for <purpose>`, naming the whole file and the purpose it serves
+- Pointers to another file or skill are one line, `Use <name> for <purpose>`, with the purpose as one clause for the whole file
 - Lines that describe a file, directory, section, or diagram node state its purpose, and the contents stay in it
 - Prose about code names the command, identifier, or file and states its purpose, and the steps it performs stay in the code
 - Facts sit where the reader needs them, and a link is the location of a thing the reader opens
 - Paragraphs hold one topic, and parallel cases sit in one list, or in one sentence when each case is a phrase
 - Entries (list items, steps, listing lines, table rows, tree and diagram comments) hold one fact or purpose in one line under 150 columns
 - Entries open with a capital letter or an identifier and end without a period
+- An entry over the width holds two facts or an example, and the second fact or the example moves to the section text or a reference
 - List items share one grammatical form and follow their lead-in colon without a blank line
 - Items under an uppercase label hold the sentences the label needs
 - Labels and sentence position give emphasis
@@ -196,9 +199,9 @@ New text follows the same rules from the first draft and gets the table and scan
 |  [19]   | `this`, `these`, `that`, `those` before a noun or as the subject  | Demonstrative           | Delete, or repeat the noun                |
 |  [20]   | `<name>` owns, `is responsible for` before a topic                | Ownership statement     | `Use <name> for <purpose>`                |
 |  [21]   | File, directory, or reference line holding a comma list           | Content enumeration     | State the purpose                         |
-|  [22]   | `**`, emoji, or an uppercase word outside code and labels         | Emphasis markup         | Label or sentence position                |
+|  [22]   | `**`, emoji, or an uppercase word outside code and `[LABELS]`     | Emphasis markup         | Label or sentence position                |
 |  [23]   | External URL outside a package page, download, or tool document   | Citation                | Delete, state the fact                    |
-|  [24]   | `never`, `only`, `instead of`, `not` stating what a rule forbids  | Negative framing        | State the form, forbidden form to a row   |
+|  [24]   | `never`, `instead of`, `not`, or `only` forbidding a form         | Negative framing        | State the form, forbidden form to a row   |
 |  [25]   | Sentence that walks the steps a command, target, or script runs   | Paraphrased code        | Name it, state its purpose                |
 |  [26]   | Opening sentence or docstring with a `:` list of the contents     | Scope enumeration       | One category, or delete                   |
 |  [27]   | `?` outside a quoted message                                      | Question                | State the fact or the purpose             |

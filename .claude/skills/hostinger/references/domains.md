@@ -1,6 +1,6 @@
 # [HOSTINGER_DOMAINS]
 
-Domain portfolio: availability through purchase, delegation, DNS zone records, forwarding, WHOIS, lock and privacy, verification, outbound transfer, and bulk audit. REST entries map one-to-one onto the `hostinger` MCP `domains_*` and `DNS_*` tools. curl is the canonical scripted form, the Python/TypeScript/PHP SDKs wrap the same endpoints with the same field names.
+Domain portfolio work from availability to bulk audit. REST entries map one-to-one onto the `hostinger` MCP `domains_*` and `DNS_*` tools. curl is the canonical scripted form, the Python/TypeScript/PHP SDKs wrap the same endpoints with the same field names.
 
 ## [01]-[AVAILABILITY_AND_PURCHASE]
 
@@ -36,7 +36,7 @@ curl -X PUT "https://developers.hostinger.com/api/domains/v1/portfolio/example.c
   -d '{ "ns1": "ns1.custom-dns.com", "ns2": "ns2.custom-dns.com" }'
 ```
 
-After delegation to an external provider (Cloudflare, Route53), zone records live there, the Hostinger DNS API acts only under Hostinger nameservers. Propagation runs up to 48 hours, `dig NS example.com` verifies the switch and the presence of records on the new servers.
+After delegation to an external provider (Cloudflare, Route53), zone records belong there, the Hostinger DNS API acts only under Hostinger nameservers. Propagation runs up to 48 hours, `dig NS example.com` verifies the switch and the presence of records on the new servers.
 
 Zone records under Hostinger nameservers use the `DNS_*` MCP tools: get, update, and delete records (`DNS_getDNSRecordsV1`, `DNS_updateDNSRecordsV1`, `DNS_deleteDNSRecordsV1`), validate a record set before applying (`DNS_validateDNSRecordsV1`), reset a zone (`DNS_resetDNSRecordsV1`), and restore from the automatic zone snapshots (`DNS_getDNSSnapshotListV1`, `DNS_getDNSSnapshotV1`, `DNS_restoreDNSSnapshotV1`). Validation precedes every zone mutation, a snapshot id identifies every restore.
 
@@ -71,7 +71,7 @@ curl -X GET "https://developers.hostinger.com/api/domains/v1/whois/<whois-profil
 
 ## [05]-[LOCK_PRIVACY_VERIFICATION]
 
-Domain lock blocks unauthorized transfers and stays on for every production domain, privacy protection hides owner data from public WHOIS. Lock comes off only immediately before an intended transfer. Registrar-imposed lock periods can follow registration, `.com` typically holds 60 days.
+Domain lock blocks unauthorized transfers and stays on for every production domain, privacy protection hides owner data from public WHOIS. Lock comes off only immediately before an intended transfer. Registrar-imposed lock periods can follow registration, `.com` can hold 60 days.
 
 ```bash
 # PUT enables, DELETE disables, same paths
@@ -79,7 +79,7 @@ curl -X PUT "https://developers.hostinger.com/api/domains/v1/portfolio/example.c
 curl -X PUT "https://developers.hostinger.com/api/domains/v1/portfolio/example.com/privacy-protection" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 ```
 
-Domain access verification lives on a different base path and returns pending and completed verifications for a set of domains:
+Domain access verification sits on a different base path and returns pending and completed verifications for a set of domains:
 
 ```bash
 curl -X GET "https://developers.hostinger.com/api/v2/direct/verifications/active" \
@@ -92,7 +92,7 @@ curl -X GET "https://developers.hostinger.com/api/v2/direct/verifications/active
 1. Disable domain lock (`DELETE .../portfolio/{domain}/domain-lock`)
 2. Read domain details for the auth/EPP code context (`GET .../portfolio/{domain}`)
 3. Initiate the transfer at the receiving registrar with the EPP code, outside the Hostinger API
-4. Approve the transfer when notified, via email or hPanel
+4. Approve the transfer when notified, through email or hPanel
 
 ## [07]-[BULK_AUDIT]
 
@@ -115,4 +115,4 @@ Portfolio-wide security audit runs as a list call and a per-domain detail loop: 
 |  [11]   | `GET`        | `/api/domains/v1/whois/{whoisId}/usage`                 | Profile usage                       |
 |  [12]   | `GET`        | `/api/v2/direct/verifications/active`                   | Pending and completed verifications |
 
-Full API docs, changelog, SDKs, and the `hapi` CLI live under https://developers.hostinger.com and https://github.com/hostinger.
+Full API docs, changelog, SDKs, and the `hapi` CLI are under https://developers.hostinger.com and https://github.com/hostinger.

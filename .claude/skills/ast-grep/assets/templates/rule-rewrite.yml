@@ -8,14 +8,14 @@ rewriters:
     - id: <rewriter-id> # Ordered sequence: per node the first matching rewriter wins
       rule: {pattern: $ITEM, kind: <kind>}
       transform:
-        <LOCAL>: <op>($ITEM, <key>=<value>) # Sealed scope: vars, transform, utils stay inside this rewriter
+        <LOCAL>: <op>($ITEM, <key>=<value>) # Vars, transform, and utils stay inside the rewriter
       fix: <per-item template referencing $ITEM and $LOCAL>
 transform:
     <OUT>:
         rewrite:
-            source: $$$ITEMS # Rewriters apply to the capture's descendants, outer nodes first, never overlapping
+            source: $$$ITEMS # Rewriters apply to the capture's descendants, outer nodes first, without overlap
             rewriters: [<rewriter-id>]
-            joinBy: '<sep>' # Filters then joins, unmatched members drop, if absent rewritten items splice back in place
+            joinBy: '<sep>' # Joins the rewritten items and drops unmatched members, absent it splices them back in place
 fix: <template referencing $OUT>
 message: <one line naming the violation>
 note: <the exact repair, the shape to produce>
@@ -26,6 +26,6 @@ severity: error
 rule: <rule>
 fix:
     template: '' # Empty template deletes the matched node
-    expandEnd: {regex: '<separator>'} # Consumes exactly one adjacent sibling matching the rule, expandStart mirrors
+    expandEnd: {regex: '<separator>'} # Consumes exactly one following sibling matching the rule, expandStart the preceding one
 message: <why>
 note: <repair>

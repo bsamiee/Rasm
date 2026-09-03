@@ -5,16 +5,16 @@ description: "Use when adding or reviewing XML doc comments on a C# member, or w
 
 # [DOTNET_DOCUMENT]
 
-Covers XML documentation comments (`///`) on C# members: the tag and cross-reference syntax, the summary standard, the opening phrase and tag set for each member kind, and the diagnostics the build raises on them. `GenerateDocumentationFile` is on in every project, member documentation is optional (`CS1591`, `RCS1140`, `RCS1141`, `RCS1142`, and `RCS1181` are off), and every member that has a doc comment follows these patterns.
+Covers XML documentation comments (`///`) on C# members, from the tag syntax to the diagnostics the build raises on them. `GenerateDocumentationFile` is on in every project, member documentation is optional (`CS1591`, `RCS1140`, `RCS1141`, `RCS1142`, and `RCS1181` are off), and every member that has a doc comment follows the patterns.
 
 [REFERENCES]:
-- [01]-[REVIEW](references/review.md): Severity classes, the procedure, the factual, example, and quality checks, and the closing report
+- [01]-[REVIEW](references/review.md): The review of existing doc comments against their source, with severity classes and the closing report
 
 ## [01]-[PRINCIPLES]
 
-- Write doc comments on the members a caller uses without opening the source, never on trivial accessors with no side effect
+- Write doc comments on the members a caller uses without opening the source
 - Name types and members with `<see cref="..."/>` and parameters with `<paramref name="..."/>`, the compiler does not resolve a plain-text name and a rename leaves it unchanged
-- State what the member does, not how the body does it, a sentence that names a private field, a loop, or a called helper describes the implementation and goes
+- State what the member does, a sentence that names a private field, a loop, or a called helper describes the implementation and goes
 - Put the reason for a marshaling choice or a platform branch in `<remarks>`, the code shows the branch without its reason
 - Document every `DllImport` or `LibraryImport` method with the C function it calls and its marshaling behavior
 
@@ -44,7 +44,7 @@ Each tag has one use, and an element with no content goes (`RCS1228` fails the b
 
 ### [02.2]-[CROSS_REFERENCES]
 
-Cross-references name types, members, parameters, and keywords through these tags:
+Cross-references name types, members, parameters, and keywords:
 - `cref` names a type or member, the compiler resolves it through the `using` directives (`CS1574` when unresolved, `CS1584` when the syntax is wrong, `CS1580` when it names a type parameter), a generic target takes the form `List{T}`, and link text sits between `<see cref="...">` and `</see>`
 - `<see href="...">` names a URL, `cref` produces no link for a URL
 - `<see langword="...">` names a keyword (`true`, `false`, `null`), `<c>true</c>` and backticks fail `MA0154`
@@ -68,7 +68,7 @@ Cross-references name types, members, parameters, and keywords through these tag
 
 ### [02.3]-[ESCAPING]
 
-Escape these characters inside documentation text, an unescaped one fails `CS1570`:
+Unescaped characters inside documentation text fail `CS1570`:
 
 | [INDEX] | [CHARACTER] | [ESCAPE] |
 | :-----: | :---------- | :------- |
@@ -80,7 +80,7 @@ Escape these characters inside documentation text, an unescaped one fails `CS157
 
 Every documented member has a `<summary>` on one line (`RCS1253` with `roslynator_doc_comment_summary_style = single_line`), and its text is one sentence in the third person that states what the member does, returns, or represents, with no filler, no hedge, and no trailing period:
 - Open with a present-tense verb, except the exception class ("The exception that is thrown when"), the enum member (a noun phrase), and the abstract or virtual member ("When overridden in a derived class,")
-- Name the behavior, not the member name: `String.Format` reads "Replaces each format item in a specified string with the string representation of a specified object", not "Formats a string"
+- Name the behavior: `String.Format` reads "Replaces each format item in a specified string with the string representation of a specified object"
 - Restate no part of the signature: no parameter name, no member name, and no type name, except the type name in a constructor or `Dispose` summary
 - Give overloads one general summary broad enough for every overload, and each overload a summary that names what its parameters add
 
@@ -118,7 +118,7 @@ Constructor summaries by kind:
 <!-- Class constructor -->
 <summary>Initializes a new instance of the <see cref="Drawing.Paint" /> class</summary>
 
-<!-- With parameters, the text after the phrase names what this overload adds -->
+<!-- With parameters, the text after the phrase names what the overload adds -->
 <summary>Initializes a new instance of the <see cref="Drawing.Bitmap" /> class with the specified dimensions</summary>
 <param name="width">The width of the bitmap, in pixels</param>
 <param name="height">The height of the bitmap, in pixels</param>
@@ -132,7 +132,7 @@ Constructor summaries by kind:
 
 ### [04.3]-[PROPERTIES]
 
-The accessor list decides the opening verb, read it and never infer the verb from the property's purpose:
+The accessor list decides the opening verb:
 - `{ get; set; }` opens with "Gets or sets", `{ get; }` with "Gets", and `{ get; init; }` with "Gets or initializes"
 - Boolean properties open with "Gets a value that indicates whether" or "Gets or sets a value that indicates whether"
 - Struct properties with a `set` accessor are settable, value semantics do not make them read-only
@@ -223,7 +223,7 @@ Enum type and member summaries:
 ### [04.7]-[PARAMETERS]
 
 - Cover every parameter or none (`CS1573`), in declaration order (`RCS1232`)
-- Open with an article, state the unit, the valid range, and the default in the description, and write `<see langword="null" />` for a nullable parameter, not `default`
+- Open with an article, state the unit, the valid range, and the default in the description, and write `<see langword="null" />` for a nullable parameter
 - Write "One of the enumeration values that specifies ..." for an enum parameter and "A bitwise combination of the enumeration values that specifies ..." for a `[Flags]` parameter
 - Write "When this method returns, contains ... This parameter is treated as uninitialized" for an `out` parameter, ", passed by reference" at the end of a `ref` parameter, and "The zero-based index of ..." for an indexer integer
 
@@ -251,7 +251,7 @@ Parameter descriptions by kind:
 
 ### [04.8]-[RETURN_VALUES]
 
-- LanguageExt returns name the success value and each failure case, never the result type: `Option<A>` reads "The X, or none when ...", `Fin<A>` reads "The X, or a `<see cref>` error when ...", `Validation<Error, A>` reads "The X, or every error from ...", and `Either<L, R>` reads "The L when ..., or the R when ..."
+- LanguageExt returns name the success value and each failure case: `Option<A>` reads "The X, or none when ...", `Fin<A>` reads "The X, or a `<see cref>` error when ...", `Validation<Error, A>` reads "The X, or every error from ...", and `Either<L, R>` reads "The L when ..., or the R when ..."
 - `Task` and `ValueTask` returns read "A task object that, when awaited, produces ...", enums "One of the enumeration values that indicates ...", and `[Flags]` enums "A bitwise combination of the enumeration values that ..."
 
 Return descriptions by kind:

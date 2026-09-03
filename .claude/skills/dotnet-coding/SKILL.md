@@ -5,28 +5,28 @@ description: "Use when writing or reviewing C#: honest signatures, purity, patte
 
 # [DOTNET_CODING]
 
-Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, PURITY, BOUNDARY): how a signature is shaped, what stays pure, which result or effect type a function returns, which operator joins two steps, and where the host boundary sits. LanguageExt, Thinktecture, and Mapperly are part of the language here, every example uses their types as vocabulary, and each package has its own skill:
+Covers the decisions of writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, PURITY, BOUNDARY), from the shape of a signature to the host boundary. LanguageExt, Thinktecture, and Mapperly are part of the language, every example uses their types as vocabulary, and each package has its own skill:
 
 [SKILLS]:
-- `dotnet-coding-languageext`: The library's types and operations, conversions, recovery, `IO` execution, traits, transformers, collections, streams
-- `dotnet-coding-thinktecture`: Declaring value objects, smart enums, and unions, their generated API, settings, factories, and integrations
-- `dotnet-coding-mapperly`: Mapping between domain types and host contracts, the conversion allowlist, attributes, options, projections
+- `dotnet-coding-languageext`: The library's types and their operations, from conversions and recovery to `IO` execution and streams
+- `dotnet-coding-thinktecture`: Declaring value objects, smart enums, and unions, with their generated API and integrations
+- `dotnet-coding-mapperly`: Mapping between domain types and host contracts
 
 [REFERENCES]:
-- [01]-[FUNCTIONS](references/functions.md): Combinators, functions as data, specialization, delegate adapters, the composition root, end-to-end flows
-- [02]-[SEQUENCES](references/sequences.md): Deferral and materialization, named stages, `Fold` reductions, replacement, adjacent pairs, a pipeline
-- [03]-[RESULTS](references/results.md): Validator folds, fail-fast workflows, lifting into an effect, host translation, union folds, law tests
-- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions, shared mutation, `With`, cost, persistent structures
-- [05]-[EFFECTS](references/effects.md): I/O around a pure core, injection, `IO` and `Try`, `Reader`, resource scopes, policies, stacked effects
-- [06]-[STATE](references/state.md): The transition shape, a cache as `State` and `StateT`, seeded generators, tree numbering, the loop forms
-- [07]-[STREAMS](references/streams.md): The observable model, operators, per-item failure, backpressure, agents, entities
-- [08]-[EVENT_SOURCING](references/event-sourcing.md): Append-only storage, events as a union, transitions, reconstruction, command and query sides
+- [01]-[FUNCTIONS](references/functions.md): Worked flows for functions as values, from combinators to the composition root and a request's effects
+- [02]-[SEQUENCES](references/sequences.md): Worked flows behind the expression rules, from deferral to a text-to-report pipeline
+- [03]-[RESULTS](references/results.md): Worked flows for validators, `Fin` workflows, host translation, union folds, and the law tests
+- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions behind the immutability rules, with the persistent structures and their costs
+- [05]-[EFFECTS](references/effects.md): Worked flows for effects at the boundary, from isolating I/O and injection to running the composed effect
+- [06]-[STATE](references/state.md): Worked flows for state passed through `State` and `StateT`, with the generators and the loop forms
+- [07]-[STREAMS](references/streams.md): The observable model and the agent model, with per-item failure, backpressure, and entity processes
+- [08]-[EVENT_SOURCING](references/event-sourcing.md): Event history as the source of truth, from storage to the command and query sides
 
 Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as unqualified names. `Seq<A>` is the default collection in domain code, `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types, NodaTime's `Instant`, `LocalDate`, and `Duration` are the time types with the clock injected as `IClock` or `Func<Instant>`, and value objects, smart enums, and unions come from the generator. `Directory.Build.targets` imports `NodaTime` and `NodaTime.Extensions` and aliases `Duration` to `NodaTime.Duration` in every project that references the package, and the library's delay type is spelled `LanguageExt.Duration`.
 
 ## [01]-[FUNCTIONS]
 
-Function signatures are contracts: the input types describe every value the function accepts, and the return type describes every outcome the caller must handle. Arrow notation keeps a signature compact, `()` stands for no input or no returned information, grouped inputs form a tuple, and the delegate carries the signature in code:
+Function signatures are contracts: the input types describe every value the function accepts, and the return type describes every outcome the caller must handle. Arrow notation keeps a signature compact, `()` stands for no input or no returned information, grouped inputs form a tuple, and the delegate states the signature in code:
 
 | [INDEX] | [PURPOSE]                   | [ARROW_NOTATION]                      | [DELEGATE]                                |
 | :-----: | :-------------------------- | :------------------------------------ | :---------------------------------------- |
@@ -47,7 +47,9 @@ Function signatures are contracts: the input types describe every value the func
 Functions honor their signature when each declared input produces a declared output, they return no `null` and throw no exception as an outcome the signature omits. Repair a dishonest contract by narrowing the input to a validated type or widening the output to `Option<A>` or `Fin<A>`:
 - `int -> Tier` is incomplete when some integers fail validation, and `Quantity -> Tier` is accurate for every constructible `Quantity`
 - `string -> int` hides the undefined parses, `string -> Option<int>` describes every outcome, and `parseInt` has that signature
-- `void` splits delegates into `Func` and `Action` families and tasks into `Task` and `Task<T>`, `Unit` is the one-value type that removes the split, `fun` converts an `Action` into a `Func<Unit>` so an `Action` overload delegates to the `Func<T>` implementation, `void` stays on an imperative API that returns nothing, and `Unit` does not make an effectful function pure
+- `Unit` is the one-value type that removes the split `void` makes between `Func` and `Action` and between `Task` and `Task<T>`, and `void` stays on an imperative API that returns nothing
+- `fun` converts an `Action` into a `Func<Unit>`, and an `Action` overload delegates to the `Func<T>` implementation through it
+- `Unit` does not make an effectful function pure
 - Nullable reference types stay enabled, `?` appears only where an external representation requires it, and `Optional` converts that value to `Option<A>` at the parse boundary
 
 ### [01.2]-[PURITY]
@@ -73,7 +75,7 @@ Seq<DayOfWeek> StartingWith(string prefix) => days.Filter(day => day.ToString().
 Seq<DayOfWeek> matched = StartingWith("S"); // Sunday, Saturday
 ```
 
-Function factories turn configuration into behavior, and `compose(f, g)` joins functions into one reusable function that applies `f` first (method groups need its explicit type arguments), where method chaining expresses the same flow inline:
+Function factories turn configuration into behavior, and `compose(f, g)` joins functions into one reusable function that applies `f` first (method groups need its explicit type arguments), and method chaining expresses the same flow inline:
 
 ```csharp
 internal static class Factories {
@@ -82,9 +84,9 @@ internal static class Factories {
 }
 ```
 
-Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters so left-to-right application is useful: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<Instant>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into such functions, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components while dependencies point downward, and no rule requires each layer to call only its neighbor, because a low-level I/O call makes every delegating layer impure.
+Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters so left-to-right application is useful: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<Instant>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into functions of that shape, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components while dependencies point downward, and no rule requires each layer to call only its neighbor, because a low-level I/O call makes every delegating layer impure.
 
-Use these techniques when specialized functions simplify call sites, function collections when behaviors share a signature and vary as data, `ForAll` or `Exists` when only a short-circuiting boolean is required, an ordered rule table with an explicit fallback for a first-match decision over values, a returned closure to narrow a noisy API to one operation, and ordinary functions when the helper is larger than the duplication it removes or hides ordering, effects, missing-value behavior, or termination risk.
+Use specialization when it simplifies call sites, function collections when behaviors share a signature and vary as data, `ForAll` or `Exists` when a short-circuiting boolean suffices, an ordered rule table with an explicit fallback for a first-match decision over values, a returned closure to narrow a noisy API to one operation, and ordinary functions when the helper is larger than the duplication it removes or hides ordering, effects, missing-value behavior, or termination risk.
 
 ## [02]-[EXPRESSIONS]
 
@@ -185,7 +187,7 @@ In-place updates destroy the prior value, and transformations preserve it:
 ```csharp
 // BAD: In-place updates destroy the prior value
 List<int> values = [7, 6, 1];
-values.Sort(); // values is now 1, 6, 7
+values.Sort(); // values becomes 1, 6, 7
 
 // GOOD: Functional alternatives preserve it
 Seq<int> values = Seq(7, 6, 1);
@@ -193,8 +195,7 @@ Seq<int> sorted = toSeq(values.Order());              // values remains 7, 6, 1
 Seq<int> odd = values.Filter(static x => x % 2 == 1); // 7, 1
 ```
 
-Two readers can observe the same stable value safely, while a concurrent reorder of a shared list during a sum gives the reader an inconsistent traversal, and a separate ordered view removes the interference. Choose the collection by the operation the domain performs most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
-- See `dotnet-coding-languageext` for the construction, memoization, folds, sequence operations, and compiler pitfalls of each collection type
+Readers observe the same stable value safely, while a concurrent reorder of a shared list during a sum gives the reader an inconsistent traversal, and a separate ordered view removes the interference. Choose the collection by the operation the domain performs most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
 
 ## [04]-[RESULTS]
 
@@ -210,7 +211,7 @@ Every function returns an explicit result type, and one type serves one concern:
 |  [06]   | `IO<A>`                | Side effects with a failure channel             |
 |  [07]   | `Eff<RT, A>`           | Effects that read a capability                  |
 
-The input boundary selects the result type, domain functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations, and a domain function never runs an effect. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, and `Pure(x)` and `Fail<Error>(e)` make the lift explicit when the branches of a conditional differ in type. The empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one, and a producer that maps an operational failure to `None` hides the failure from the consumer.
+The input boundary selects the result type, domain functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, and `Pure(x)` and `Fail<Error>(e)` make the lift explicit when the branches of a conditional differ in type. The empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one, and a producer that maps an operational failure to `None` hides the failure from the consumer.
 
 ### [04.1]-[COMPOSITION]
 
@@ -264,11 +265,11 @@ internal readonly partial struct Quantity {
 }
 ```
 
-`Validate` is the generated hook, and the `From` factory maps it to `Fin<Quantity>`, every consumer receives a validated value and none re-validates. Consumers classify an error with `Is`, `HasCode`, `IsType<E>`, and `Filter<E>`, never with the message text, and a package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`, and the host separates them in one `Match`: `Expected` or `ManyErrors` renders the business errors, and `Exceptional` logs the detail and renders a generic failure.
+`Validate` is the generated hook, and the `From` factory maps it to `Fin<Quantity>`, every consumer receives a validated value and none re-validates. Consumers classify an error with `Is`, `HasCode`, `IsType<E>`, and `Filter<E>`, and a package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`, and the host separates them in one `Match`: `Expected` or `ManyErrors` renders the business errors, and `Exceptional` logs the detail and renders a generic failure.
 
 ### [04.3]-[UNIONS]
 
-Model each valid state as a distinct case, not as a flag with fields that are meaningful for one flag value, and count the values a type admits (a product multiplies the counts of its fields, `Option<A>` adds one) to expose states the domain does not need:
+Model each valid state as a distinct case, and count the values a type admits (a product multiplies the counts of its fields, `Option<A>` adds one) to expose states the domain does not need:
 
 ```csharp
 [Union]
@@ -279,7 +280,7 @@ internal abstract partial record Identity {
 ```
 
 - Put shared data on the abstract base and case-specific data in its case, call `Switch` only where behavior depends on the case, and pass the union onward elsewhere
-- Treat a case as an alternative to its siblings and not as an extension of one, name each case's data in its own terms, and hold mixed cases in one `Seq` of the base type
+- Treat a case as an alternative to its siblings, name each case's data in its own terms, and hold mixed cases in one `Seq` of the base type
 - Use a union for a growing set of operations and abstract members for a growing set of cases, because a new union case is a compile error at every `Switch` until it gains an arm
 - Use a domain union when the consumer needs domain outcome names, and `Option`, `Fin`, or `Either` otherwise, keeping absence and failure separate when the consumer responds differently
 - Fold a recursive union with one replacement per constructor, and fold an unbounded depth through `Trampoline<A>`
@@ -296,6 +297,8 @@ internal abstract partial record Identity {
 |  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step        |
 |  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary               |
 |  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases |
+|  [09]   | A flag with fields that are meaningful for one flag value                 | One union case per valid state                |
+|  [10]   | A union case that extends a sibling case                                  | Sibling cases with their own data             |
 
 ## [05]-[EFFECTS]
 
@@ -323,7 +326,7 @@ internal static class Validators {
 }
 ```
 
-The host reads the date once from a `ZonedClock` (`clock.InZone(zone)`) through `GetCurrentDate()`, request handling supplies the command later, and tests supply a date without a fake clock. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, and a commit belongs to a step after the work, not to the release action.
+The host reads the date once from a `ZonedClock` (`clock.InZone(zone)`) through `GetCurrentDate()`, request handling supplies the command later, and tests supply a date without a fake clock. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, and a commit is a step after the work, outside the release action.
 
 ### [05.2]-[POLICIES]
 
@@ -337,6 +340,6 @@ Keep the failure policies distinct: fallback runs a lower-priority effect after 
 |  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound   |
 |  [05]   | Best effort                  | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs` |
 
-Independent effects combine with the tuple `Apply` or with `Fork` and `Await`, and `awaitAll` runs a `Seq<IO<A>>`. Avoid shared state by default, and when one logical value must be shared, `Atom<A>` replaces it with compare-and-swap, `AtomHashMap<K, V>` holds a registry with `FindOrAdd`, `Ref<A>` under `atomic` commits coordinated updates, a `Conduit` reduced under `Fork` serializes commands as an agent, and every update function stays free of effects because a conflict reruns it. The delivery shape selects the construct:
+Independent effects combine with the tuple `Apply` or with `Fork` and `Await`, and `awaitAll` runs a `Seq<IO<A>>`. Keep state unshared, and when one logical value must be shared, `Atom<A>` replaces it with compare-and-swap, `AtomHashMap<K, V>` holds a registry with `FindOrAdd`, `Ref<A>` under `atomic` commits coordinated updates, a `Conduit` reduced under `Fork` serializes commands as an agent, and every update function stays free of effects because a conflict reruns it. The delivery shape selects the construct:
 - `Source<A>` fits values that arrive over time, logic across events or sources (sequences, transitions, windows), and one-way dataflow, and an expected per-item failure stays a `Fin<A>` value inside the stream
 - Independent events take a callback or an `IO<A>`, request-response work stays out of a stream, and coordination that needs explicit queues and exact sequencing takes a `Conduit` as the queue or `Pipes` as the pipeline

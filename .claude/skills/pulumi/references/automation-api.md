@@ -86,7 +86,7 @@ try {
 
 ## [04]-[OPERATIONAL_SHAPE]
 
-- [EXTERNAL_CONFIG]: Stack lists, environments, and deploy parameters live in a config file or environment variables the orchestrator reads, enabling compiled-binary distribution without source exposure
+- [EXTERNAL_CONFIG]: Stack lists, environments, and deploy parameters sit in a config file or environment variables the orchestrator reads, enabling compiled-binary distribution without source exposure
 - [STREAMED_OUTPUT]: `onOutput` streams long operations in real time to stdout, a logging system, or a websocket
 
 | [INDEX] | [SCENARIO]                   | [APPROACH]                             |

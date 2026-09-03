@@ -5,13 +5,13 @@ description: "Use when writing an MSBuild target: SDK hook points, incremental I
 
 # [DOTNET_MSBUILD_EXECUTION]
 
-Covers the execution phase: target order, the SDK hook points, incremental targets, generated files, tasks inside targets, batching, errors and results, multi-targeting and publish scope, and the copy-to-output rules.
+Covers the execution phase, from target order to the copy-to-output rules.
 
-- `dotnet-msbuild-evaluation` owns properties, items, conditions, transforms, and batching outside targets, and the placement of each declaration
-- `dotnet-msbuild-antipatterns` owns the review catalog of smells with `BAD` and `GOOD` pairs
-- `dotnet-msbuild-diagnostics` owns binlog capture and queries, failure triage, performance, double builds, and BuildCheck
-- `dotnet-msbuild-packaging` owns `Pack`, `GenerateNuspec` content, central package management, solution files, and CI properties
-- `monorepo-build-infrastructure` owns the `eng/` directory, task runner targets, native packaging projects, and provisioning
+- Use `dotnet-msbuild-evaluation` for properties, items, conditions, transforms, and batching outside targets, and the placement of each declaration
+- Use `dotnet-msbuild-antipatterns` for the review catalog of smells with `BAD` and `GOOD` pairs
+- Use `dotnet-msbuild-diagnostics` for binlog capture and queries, failure triage, performance, double builds, and BuildCheck
+- Use `dotnet-msbuild-packaging` for `Pack`, `GenerateNuspec` content, central package management, solution files, and CI properties
+- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 
 [REFERENCES]:
 - [01]-[HOOK_POINTS](references/hook-points.md): Every SDK hook point with its phase and the items and properties present there
@@ -23,9 +23,9 @@ MSBuild runs each target at most once per project instance, in an order that the
 
 | [INDEX] | [ATTRIBUTE]        | [OWNER]              | [USE_WHEN]                                                                 |
 | :-----: | :----------------- | :------------------- | :------------------------------------------------------------------------- |
-|  [01]   | `DependsOnTargets` | The consuming target | The named target is yours and must finish before this one reads its output |
-|  [02]   | `BeforeTargets`    | The inserted target  | The named target is not yours and this one must run before it              |
-|  [03]   | `AfterTargets`     | The inserted target  | The named target is not yours and it produces what this one consumes       |
+|  [01]   | `DependsOnTargets` | The consuming target | The named target is your own and must finish before the consumer reads it  |
+|  [02]   | `BeforeTargets`    | The inserted target  | The named target is another file's and the inserted one must run before it |
+|  [03]   | `AfterTargets`     | The inserted target  | The named target is another file's and produces what the inserted consumes |
 
 - Combine them on one target: `DependsOnTargets` for your own chain and one of `BeforeTargets` or `AfterTargets` for the SDK target
 - MSBuild evaluates a target `Condition` when the target is about to run, after every earlier target updated the properties and items it reads
@@ -63,7 +63,7 @@ Extend the SDK chain from a target that names an SDK target in `BeforeTargets` o
   <Message Importance="high" Text="built $(TargetPath)" />
 </Target>
 
-<!-- GOOD: Directory.Build.targets, the SDK assigned CompileDependsOn before this import and the append keeps the chain -->
+<!-- GOOD: Directory.Build.targets, the SDK assigned CompileDependsOn before the import and the append keeps the chain -->
 <PropertyGroup>
   <CompileDependsOn>$(CompileDependsOn);ReportCompile</CompileDependsOn>
 </PropertyGroup>
@@ -71,7 +71,7 @@ Extend the SDK chain from a target that names an SDK target in `BeforeTargets` o
 
 - `BeforeTargets="CoreCompile"` reaches design-time builds and `BeforeTargets="BeforeCompile"` does not, and a generated source target names `CoreCompile`
 - Every hook runs in the project instance that runs the SDK target, and an item added there is visible to every later target without an `<MSBuild>` call
-- `references/hook-points.md` holds the full hook table per phase
+- Use `references/hook-points.md` for the full hook table per phase
 
 ## [03]-[INCREMENTAL_TARGETS]
 
@@ -82,7 +82,7 @@ MSBuild skips a target with every output at least as new as its inputs, and a ta
 - MSBuild compares timestamps only, reads only the input list of the current run, and a file that left the list does not make the target stale
 - Put `$(MSBuildAllProjects)` in `Inputs`, it names the project and every imported file, and a change in `Directory.Build.targets` or the `.targets` file that holds the generator then reruns it
 - Skipped targets still apply their `ItemGroup` and `PropertyGroup` children and infer a task `<Output>` with a `TaskParameter` that is also a task input, and an output the task computes (`CopiedFiles`) stays unset
-- Add every written file to `@(FileWrites)` under `$(OutDir)` or `$(IntermediateOutputPath)`, `IncrementalClean` deletes a file that a prior build wrote and this build did not, and `Clean` deletes every recorded file
+- Add every written file to `@(FileWrites)` under `$(OutDir)` or `$(IntermediateOutputPath)`, `IncrementalClean` deletes a file that a prior build wrote and the current build did not, and `Clean` deletes every recorded file
 - `@(FileWritesShareable)` records a copy that another project can also write (a copy-local reference), and `IncrementalClean` keeps it when the file is outside the project directory
 - `_CleanRecordFileWrites` runs inside `CoreBuild`, a target after `Build` records nothing, and `Clean` leaves its file
 - `@(IntermediateAssembly)` names the compiled assembly under `$(IntermediateOutputPath)` when a target needs the compile output as an input
@@ -129,7 +129,7 @@ Globs outside a target expand during evaluation and cannot see a file that a tar
 
 - `WriteOnlyWhenDifferent="true"` keeps the timestamp when the content is unchanged, and `CoreCompile` stays up to date after a rerun of the generator
 - `%0A` and `%3B` escape a newline and a semicolon inside `Lines`, because `Lines` is an item list and a plain `;` splits it
-- Roslyn source generator output belongs to `EmitCompilerGeneratedFiles` and `CompilerGeneratedFilesOutputPath`, which defaults to `$(IntermediateOutputPath)generated/`, never to a target
+- Roslyn source generator output belongs to `EmitCompilerGeneratedFiles` and `CompilerGeneratedFilesOutputPath`, which defaults to `$(IntermediateOutputPath)generated/`
 
 ## [05]-[TASKS]
 
@@ -163,7 +163,7 @@ Tasks inside a target run at execution time with the current properties and item
 ```
 
 - `TargetOutputs` holds only the returns of the named targets, never of their dependencies, and each item has `MSBuildSourceProjectFile` and `MSBuildSourceTargetName` metadata
-- `references/task-parameters.md` holds the parameters per task and the inline task form
+- Use `references/task-parameters.md` for the parameters per task and the inline task form
 
 ## [06]-[BATCHING_IN_TARGETS]
 
@@ -233,7 +233,7 @@ The command line proves what a target returns and controls the whole build:
 </ItemGroup>
 ```
 
-- See `dotnet-msbuild-diagnostics` for the binlog queries that show why a target ran, was skipped, or built twice
+- Use `dotnet-msbuild-diagnostics` for the binlog queries that show why a target ran, was skipped, or built twice
 
 ## [08]-[MULTI_TARGETING_AND_PUBLISH]
 
@@ -243,7 +243,7 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 | :-----: | :---------------------- | :------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | Inner build only        | `'$(TargetFramework)' != ''`           | Per-assembly work, `OutDir` and `IntermediateOutputPath` set |
 |  [02]   | Outer build only        | `'$(IsCrossTargetingBuild)' == 'true'` | Per-project work, no compile output, `TargetFrameworks` set  |
-|  [03]   | Publish only            | `'$(_IsPublishing)' == 'true'`         | Never set it yourself, the SDK changes the output path on it |
+|  [03]   | Publish only            | `'$(_IsPublishing)' == 'true'`         | The SDK sets it and changes the output path on it            |
 |  [04]   | Not a design-time build | `'$(DesignTimeBuild)' != 'true'`       | IDE loads, hooks that write files or fail the build test it  |
 |  [05]   | `CoreBuild` only        | `'$(BuildingProject)' == 'true'`       | `BuildOnlySettings` sets it, false in `GetTargetPath` calls  |
 
@@ -264,7 +264,7 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 </Target>
 ```
 
-- See `dotnet-msbuild-antipatterns` for the second build that `Properties="_IsPublishing=true"` on an `MSBuild` call creates and its `DependsOnTargets="Publish"` fix
+- Use `dotnet-msbuild-antipatterns` for the second build that `Properties="_IsPublishing=true"` on an `MSBuild` call creates and its `DependsOnTargets="Publish"` fix
 
 ## [09]-[COPY_TO_OUTPUT]
 
@@ -302,4 +302,4 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 </Target>
 ```
 
-- See `dotnet-msbuild-evaluation` for `Update` placement and the `Directory.Build.targets` import order that these items depend on
+- Use `dotnet-msbuild-evaluation` for `Update` placement and the `Directory.Build.targets` import order the items depend on

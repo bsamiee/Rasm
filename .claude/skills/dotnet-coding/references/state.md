@@ -1,6 +1,6 @@
 # [STATE]
 
-Covers computations that depend on earlier inputs without mutating a value in place: the transition shape, `State` and `StateT` for sequences of dependent transitions, explicit-seed generators, and the loop forms that advance a state until a runtime condition holds.
+Covers computations that depend on earlier inputs without mutating a value in place, from the transition shape to the loop forms.
 
 ## [01]-[TRANSITIONS]
 
@@ -14,8 +14,8 @@ stateful:  Input -> State -> (Value, NewState)
 The caller passes the returned state into the next operation, earlier state values stay unchanged, and the program remains stateful because each new state affects later behavior. The shape `S -> (A, S)` characterizes the function, not the architecture around it, and `State<S, A>` wraps a `Func<S, (A Value, S State)>` while `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Explicit state passing suits an isolated transition, and once transitions are sequenced, extracting and forwarding the state by hand repeats itself, the operations capture that protocol:
 - `Map` transforms the produced value and preserves the returned state
 - `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the returned state
-- `State.pure` lifts a value into a computation that returns the state unchanged, `State.gets` reads a projection, `State.put` replaces the state, and `State.modify` replaces it with a function of it, where `put` and `modify` produce `Unit`
-- `Select` and `SelectMany` expose these to LINQ query syntax, which hides the extraction and forwarding and preserves the dependency and its order
+- `State.pure` lifts a value into a computation that returns the state unchanged, `State.gets` reads a projection, `State.put` replaces the state, and `State.modify` replaces it with a function of it, and `put` and `modify` produce `Unit`
+- `Select` and `SelectMany` expose the operations to LINQ query syntax, which hides the extraction and forwarding and preserves the dependency and its order
 - `Stateful.state` and `Stateful.local` are the trait forms for a domain wrapper over `State` or `StateT`, and `Stateful.local` restores the prior state after the nested computation
 
 The produced value can be an `Option<A>` that the consumer matches at the boundary, or a function, which lets a stateful computation hold behavior beside data. Keep explicit tuple passing for a short state flow, use composition when many dependent transitions otherwise repeat the forwarding, and treat sequencing as semantic: each computation receives the state its predecessor produced.
@@ -87,7 +87,7 @@ internal static class Generator {
 }
 ```
 
-`Map` changes only the value and keeps the next seed, a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order determines the sequence of generator states. Recursive generators choose between an empty result and a generated head followed by another list, where `State.pure` supplies the empty result without consuming state:
+`Map` changes only the value and keeps the next seed, a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order determines the sequence of generator states. Recursive generators choose between an empty result and a generated head followed by another list, and `State.pure` supplies the empty result without consuming state:
 
 ```csharp
 internal static class ListGenerator {
@@ -103,7 +103,7 @@ internal static class ListGenerator {
 }
 ```
 
-This policy yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
+The policy yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
 
 ## [04]-[GENERALIZATION]
 
@@ -159,8 +159,8 @@ internal static class Trampolined {
 }
 ```
 
-`FirstZero` handles exhaustion: `At` returns `None` past the end and the result is `None`, and an unreachable base case loops indefinitely. `Bind` chains a second `Trampoline` onto the final state with the stack still constant, `next` must produce a state satisfying `stop`, and a `next` that performs I/O or mutation keeps the expression impure. When the transition is an effect, `Monad.recur` returns only the terminal state, and the state must contain everything both delegates need, a termination that depends on the last action or the latest random outcome belongs in the returned state, not in a mutable flag, and the host runs the result with `RunSafe` and receives the final state as `Fin<S>`.
-- See `dotnet-coding-languageext` for `Monad.recur` with `Next.Loop` and `Next.Done`, `tail` recursion in `IO` with its exit restrictions, and `RepeatUntil` and `RepeatWhile`
+`FirstZero` handles exhaustion: `At` returns `None` past the end and the result is `None`, and an unreachable base case loops indefinitely. `Bind` chains a second `Trampoline` onto the final state with the stack still constant, `next` must produce a state satisfying `stop`, and a `next` that performs I/O or mutation keeps the expression impure. When the transition is an effect, `Monad.recur` returns only the terminal state, the state must contain everything both delegates need, a termination that depends on the last action or the latest random outcome belongs in the returned state, and the host runs the result with `RunSafe` and receives the final state as `Fin<S>`.
+- Use `dotnet-coding-languageext` for the effectful loop forms (`Monad.recur`, `tail` recursion in `IO`, `RepeatUntil`, `RepeatWhile`)
 
 When the intermediate states are meaningful, `LanguageExt.List.unfold` produces them lazily from an initial state and a step that returns `Some((emitted, next))` or `None` at the terminal state, and `toSeq` wraps the result as a `Seq` that reads each state on demand and keeps it:
 

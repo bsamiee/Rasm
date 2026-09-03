@@ -5,13 +5,13 @@ description: "Use when changing eng/, nx.json, or an Nx target: directory map, p
 
 # [MONOREPO_BUILD_INFRASTRUCTURE]
 
-Covers the shared build infrastructure of a polyglot monorepo: the `eng/` directory, the Nx task graph, native packaging, provisioning, packaging subtrees isolated from the root MSBuild chain, and the CI entry point.
+Covers the shared build infrastructure of a polyglot monorepo, from the `eng/` directory to the CI entry point.
 
-- `dotnet-msbuild-packaging` owns NuGet package projects, central package management, `NuGet.config`, the solution file, lock files, and CI build properties
-- `dotnet-msbuild-evaluation` owns the placement of properties, items, conditions, and imports across `.props`, `.targets`, and project files
-- `dotnet-msbuild-execution` owns targets, `DependsOn` chains, incremental `Inputs` and `Outputs`, and generated files
-- `dotnet-msbuild-antipatterns` owns the review catalog for `.props`, `.targets`, and project files
-- `dotnet-msbuild-diagnostics` owns binlog capture and every build failure or timing investigation
+- Use `dotnet-msbuild-packaging` for NuGet package projects, central package management, `NuGet.config`, the solution file, lock files, and CI build properties
+- Use `dotnet-msbuild-evaluation` for the placement of properties, items, conditions, and imports across `.props`, `.targets`, and project files
+- Use `dotnet-msbuild-execution` for targets, `DependsOn` chains, incremental `Inputs` and `Outputs`, and generated files
+- Use `dotnet-msbuild-antipatterns` for the review catalog for `.props`, `.targets`, and project files
+- Use `dotnet-msbuild-diagnostics` for binlog capture and every build failure or timing investigation
 
 ## [01]-[DIRECTORY_MAP]
 
@@ -53,7 +53,7 @@ Nx infers targets from the files a plugin globs, and a `project.json` exists onl
 |  [03]   | Outputs derive from `ArtifactsPath`      | One `ArtifactsPath` under `.artifacts/` makes every output cacheable             |
 |  [04]   | `pack` outputs the `PackageOutputPath`   | One output over a shared feed caches every sibling, `pack: false` replaces it    |
 |  [05]   | `exclude` is a registration property     | Packaging subtrees leave the inferred graph without `project.json`               |
-|  [06]   | Directory files are per-target inputs    | `sharedGlobals` holds `global.json` and `NuGet.config`, never a directory file   |
+|  [06]   | Directory files are per-target inputs    | `sharedGlobals` holds `global.json` and `NuGet.config`                           |
 
 Register one local plugin under `tools/` by path for a target shape that repeats per directory, it globs the per-directory file and returns the targets:
 
@@ -152,7 +152,7 @@ Stage the layout NuGet's runtime graph reads, `dotnet pack` includes the tree wi
 ```
 
 Staging rules:
-- Stage every library from one script module, where a lookup table maps the library name to its staging function and the shared operations (download, digest check, extract, vcpkg install, copy) exist once
+- Stage every library from one script module, a lookup table maps the library name to its staging function, and the shared operations (download, digest check, extract, vcpkg install, copy) exist once
 - Run vcpkg with `--x-manifest-root` and `--x-install-root` under `.artifacts/` and `VCPKG_DEFAULT_BINARY_CACHE` under `.cache/`
 - Check the baseline port version against the manifest `version-string` before any download
 - On macOS, rewrite every install name in a shared library closure to `@loader_path` and sign it ad hoc, and the set loads from its own directory
@@ -160,14 +160,14 @@ Staging rules:
 - Key the output of a long compile by commit under `.cache/`, and a repeat run copies it
 
 The asset-only package holds `runtimes/`, `contentFiles/`, and a `lib/<tfm>/_._` placeholder with `IncludeBuildOutput` false, and a pinned `DeterministicTimestamp` makes the package bytes a function of content and version:
-- See `dotnet-msbuild-packaging` for the pack items, the `PackagePath` metadata, and the deterministic pack properties
+- Use `dotnet-msbuild-packaging` for the package layout
 
 Give a library with a generated binding a managed packaging project, `Item` beside `Native.Item`, that compiles `stage/managed/*.cs` with `IncludeBuildOutput` true, shares the manifest version, and depends on the native `stage` target. Separate package ids keep the native assets loadable from any binding and the binding free of platform-specific content.
 
 The local feed is a folder source in `NuGet.config` under `.artifacts/`, and package source mapping pins every workspace id to that source and every other id to the registry:
-- See `dotnet-msbuild-packaging` for the `packageSourceMapping` element and the source list
+- Use `dotnet-msbuild-packaging` for the source list and its mapping
 
-Reference the native package beside the binding, and an `Error` task in the root `Directory.Build.targets` fails a project that references one without the other, because the binding package carries no native asset.
+Reference the native package beside the binding, and an `Error` task in the root `Directory.Build.targets` fails a project that references one without the other, because the binding package holds no native asset.
 
 ## [04]-[PROVISIONING]
 
@@ -241,7 +241,7 @@ CI rules:
 - Task sync generators run in dry-run mode on CI and fail the task when the workspace is out of sync, and `disabledTaskSyncGenerators` in `nx.json` removes a generator for a file the workspace maintains by hand
 - The CI host caches each package folder keyed on its lock file hash, `packages.lock.json` for the NuGet global packages folder, `uv.lock` for the uv cache, and `pnpm-lock.yaml` for the pnpm store
 - The pipeline file and the README's CI jobs appear together, once the repository has a CI host
-- See `dotnet-msbuild-packaging` for the MSBuild properties and switches the pipeline passes
+- Use `dotnet-msbuild-packaging` for the MSBuild properties and switches the pipeline passes
 
 ## [07]-[ANTI_PATTERNS]
 
