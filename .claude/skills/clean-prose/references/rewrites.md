@@ -15,7 +15,7 @@ Identifier and file renames update every reference:
 <_NativeAssetPayload Include="@(StagedFile)" Anchor="$(PackageId)" DirectDelivery="build" />
 
 <!-- AFTER -->
-<_NativeAssetFile Include="@(StagedFile)" ManagedPackage="$(PackageId)" SkipDirectConsumers="true" />
+<_NativeFile Include="@(StagedFile)" Package="$(PackageId)" SkipDirectConsumers="true" />
 ```
 
 ## [02]-[CONNECTIVE_DELETION]
@@ -27,6 +27,9 @@ Identifier and file renames update every reference:
 
 - BEFORE: `It returns counts plus the top hotspots per dimension`
 - AFTER: `It returns counts with the top hotspots per dimension`
+
+- KEEP: `Every <package> member routes through the lookup, and a boundary between packages names both sides`
+- WRONG: `Every <package> member, a boundary between packages names both sides` (the verb went with the deletion, the subject dangles)
 
 ## [03]-[SUCH_AS_AND_WHOSE]
 
@@ -58,20 +61,24 @@ Identifier and file renames update every reference:
 - BEFORE: `` An `Inputs` or `Outputs` expression that evaluates to empty skips the target ``
 - AFTER: `` `Inputs` or `Outputs` expressions that evaluate to empty skip the target ``
 
-- BEFORE: `| A composite audit per project over seven dimensions |`
-- AFTER: `| Composite audit per project over seven dimensions |`
+- BEFORE: `| A composite audit per project over seven dimensions: complexity, naming, unused symbols |`
+- AFTER: `| Composite audit per project: complexity, naming, unused symbols |` (the count of a visible list goes with the article)
 
 ## [06]-[SENTENCE_INTENT]
 
 - BEFORE: `<tool> creates the <dir> directory at the root. This directory cannot be relocated. The gitignore excludes it. Reports still go to the configured artifact directory.`
 - AFTER: `<tool> creates <dir> at the root with no relocation option, .gitignore excludes it, and reports still go to the configured artifact directory` (one fact, the exception around the directory)
 - WRONG: `<tool> creates <dir>. It is fixed. Gitignore excludes it. Reports go to artifacts.` (fragments, dropped articles, dropped facts)
+- WRONG: `<tool> creates <dir>, it cannot be relocated, .gitignore excludes it, and reports go to the artifact directory` (joined, intent unstated)
 
 - BEFORE: `Language-specific idioms may differ, but the composition rules do not; define a result type when a language has no suitable one instead of introducing another error mechanism`
-- AFTER: `Language idioms differ but the composition rules do not, and a language without a suitable result type defines one instead of adding another error mechanism`
+- AFTER: `Language idioms differ but the composition rules do not. When a language lacks a result type, define one` (the forbidden alternative moves to an anti-pattern entry)
 
 - BEFORE: `Statements, list items, and table cells open with the subject, instructions open with the verb, a subject that needs "a" or "an" is pluralized or takes "the", and a run of items with one article and noun opener restructures around the verb or the category noun` (four rules in one list item)
-- AFTER: `Statements, list items, and table cells open with the noun that names their subject, and instructions open with the verb` / `A generic singular subject becomes the plural or the instruction's verb` / `A run of list items with one noun opener restructures around the verb or the category noun` (one rule per item)
+- AFTER, one rule per item:
+  - `Statements, list items, and table cells open with the noun that names their subject, and instructions open with the verb`
+  - `Generic singular subjects become the plural or the instruction's verb`
+  - `Runs of list items with one noun opener restructure around the verb or the category noun`
 
 ## [07]-[OVERLAP_AND_NO_OP]
 
@@ -88,7 +95,7 @@ Identifier and file renames update every reference:
 
 - BEFORE (layout): `Root <manifest> owns resolution and the single lock file`
 - BEFORE (dependencies): `Every dependency resolves through the root <manifest>, and the lock file at the root is the only one`
-- AFTER (dependencies): `Root <manifest> owns resolution, dependency groups, and the lock file`
+- AFTER (dependencies): `Every dependency resolves through the root <manifest>, and the root holds the one lock file`
 - AFTER (layout): (deleted)
 
 ## [09]-[COMMENTS]
@@ -125,7 +132,7 @@ Identifier and file renames update every reference:
 ## [10]-[MESSAGES]
 
 - BEFORE: `"<library> native runtime failed to load; reference the <library> native runtime package for this RID and restart, the CLR caches the failed type initializer"`
-- AFTER: `"<library> native runtime failed to load. The CLR caches the failed type initializer, reference the runtime package for this RID and restart"`
+- AFTER: `"<library> native runtime failed to load. The CLR caches the failed type initializer. Reference the runtime package for this RID and restart"`
 
 - BEFORE: `Expected {0}; got {1}.`
 - AFTER: `Expected {0}, got {1}`
@@ -188,3 +195,15 @@ Identifier and file renames update every reference:
 
 - BEFORE: `` Condition these properties in `Directory.Build.targets` `` (a rule under an entry that names the properties)
 - AFTER: `` Condition the properties in `Directory.Build.targets` ``
+
+## [16]-[PARAPHRASED_CODE]
+
+- BEFORE: `` `<script>` reads `<manifest>`, downloads the pinned archive, checks its hash, and extracts it under `.cache/` `` (a README line)
+- AFTER: `` `<script>` places the pinned release archives under `.cache/` `` (the steps stay in the script)
+- WRONG: `` `<script>` downloads and extracts the pinned archives `` (the steps shortened, the purpose still unstated)
+
+## [17]-[NEGATIVE_FRAMING]
+
+- BEFORE: `` Read a `.binlog` only through the `binlog` MCP tools, never directly ``
+- AFTER: `` Read a `.binlog` through the `binlog` MCP tools `` (the direct read goes in the anti-pattern table)
+- WRONG: `` Read a `.binlog` through the `binlog` MCP tools, not directly `` (the negative kept as a tail)

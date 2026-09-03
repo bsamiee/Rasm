@@ -11,12 +11,13 @@ Deletion rows remove the word, replacement rows substitute the listed word, and 
 |  [03]   | Praise           | groundbreaking, cutting-edge, state-of-the-art, innovative, unprecedented, transformative, revolutionary |
 |  [04]   | Decoration       | tapestry, testament, synergy, interplay, intricate, vibrant, nuanced, multifaceted, holistic, meticulous |
 |  [05]   | Ease             | effortlessly, blazingly, performant, intuitively, conveniently                                           |
-|  [06]   | Time markers     | now, currently (state the version or condition instead), at this point, at this time, going forward      |
+|  [06]   | Time markers     | now, currently, at this point, at this time, going forward                                               |
 |  [07]   | Sequence markers | additionally, in addition, subsequently, lastly, finally (outside a numbered step)                       |
 |  [08]   | Chat phrases     | please, certainly, absolutely, great, oops, let us, feel free, I hope this helps, that being said        |
 |  [09]   | Scope padding    | in terms of, with regard to, as far as, when it comes to, from the perspective of, in the context of     |
 |  [10]   | Rhetoric         | not just X but Y, decorative triplets, studies show, ranging from X to Y without real limits             |
 |  [11]   | Purpose padding  | is designed to, aims to, is intended to (state what it does)                                             |
+|  [12]   | Stance adverbs   | genuinely, honestly, frankly, truly, admittedly, straightforward (as a hedge)                            |
 
 ## [02]-[REPLACEMENTS]
 
@@ -68,7 +69,7 @@ Deletion rows remove the word, replacement rows substitute the listed word, and 
 |  [10]   | allows for, provides the ability | allows, can  |
 |  [11]   | is able to, has the ability to   | can          |
 |  [12]   | is used to compute               | computes     |
-|  [13]   | in charge of                     | owns         |
+|  [13]   | in charge of building            | builds       |
 
 ## [04]-[PHRASAL_VERBS]
 
