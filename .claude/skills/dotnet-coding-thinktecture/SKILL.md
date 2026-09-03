@@ -1,11 +1,11 @@
 ---
 name: dotnet-coding-thinktecture
-description: "Use when declaring a value object, smart enum, or union with Thinktecture.Runtime.Extensions, its generated API, settings, factories, and framework integration."
+description: "Use when declaring a Thinktecture value object, smart enum, or union, or a TTRESG diagnostic appears: hooks, generated API, Switch, Map, settings, factories, integrations."
 ---
 
 # [DOTNET_CODING_THINKTECTURE]
 
-Covers declaring the types that `Thinktecture.Runtime.Extensions` generates (value objects, smart enums, ad hoc and regular unions), their generated API and settings, the validation and normalization hooks, `Switch` and `Map`, object factories for a second wire format, the convenience members, and the packages that carry those types across JSON, MessagePack, model binding, OpenAPI, Entity Framework Core, and Serilog.
+Covers declaring the types that `Thinktecture.Runtime.Extensions` generates (value objects, smart enums, ad hoc and regular unions), their generated API and settings, the validation and normalization hooks, `Switch` and `Map`, object factories for a second wire format, the convenience members, and the packages that integrate those types with JSON, MessagePack, model binding, OpenAPI, Entity Framework Core, and Serilog.
 
 [SKILLS]:
 - `dotnet-coding`: Which type a domain concept becomes, how a union is designed, and how `Validate` maps to `Fin<T>`
@@ -46,14 +46,14 @@ internal sealed partial class Code {
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidInterval>]
-internal sealed partial class Interval {
+[ValidationError<InvalidBounds>]
+internal sealed partial class Bounds {
     public decimal Lower { get; }
     public decimal Upper { get; }
 
-    static partial void ValidateFactoryArguments(ref InvalidInterval? validationError, ref decimal lower, ref decimal upper) {
+    static partial void ValidateFactoryArguments(ref InvalidBounds? validationError, ref decimal lower, ref decimal upper) {
         if (lower > upper) {
-            validationError = new InvalidInterval();
+            validationError = new InvalidBounds();
             return;
         }
         lower = Math.Round(lower, 2, MidpointRounding.ToEven);
@@ -64,7 +64,7 @@ internal sealed partial class Interval {
 
 The declaration rules the analyzer enforces:
 - Every field is read-only (001), every property has no setter (003), an `init` accessor is private (042), a primary constructor is rejected (043), and the key member is non-nullable
-- String keys carry both comparer attributes (048), a complex value object with string members sets `DefaultStringComparison` (049), and `[IgnoreMember]` removes a member from equality, the factories, and every other generated member
+- String keys need both comparer attributes (048), a complex value object with string members sets `DefaultStringComparison` (049), and `[IgnoreMember]` removes a member from equality, the factories, and every other generated member
 - The complex form accepts one member or none, and with one member it receives no key-derived members
 - `[ValidationError<T>]` switches the hook parameter, the second `TryCreate` overload, and `Validate` to a type that implements `IValidationError<T>` with `static abstract T Create(string message)`, which the generator calls for its own errors, and `ToString()` of that type is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state
 
@@ -72,21 +72,21 @@ The declaration rules the analyzer enforces:
 
 | [INDEX] | [MEMBER]                             | [BEHAVIOR]                                                                              |
 | :-----: | :----------------------------------- | :-------------------------------------------------------------------------------------- |
-|   [01]  | `Create(value)`                      | Validates and returns the instance, or throws `ValidationException` with the error text |
-|   [02]  | `TryCreate(value, out obj)`          | Returns `false` on rejection, and the 3-parameter overload hands back the error         |
-|   [03]  | `Validate(value, provider, out obj)` | Returns the error or `null` and never throws, the complex form has no provider          |
-|   [04]  | Equality, `GetHashCode`, `==`, `!=`  | Run through the configured comparer                                                     |
-|   [05]  | `ToString()`                         | The key's `ToString()`, or `{ Lower = 1.23, Upper = 2.57 }` for the complex form        |
-|   [06]  | `IComparable<T>`, `IFormattable`     | Present when the key is comparable or formattable, simple form only                     |
-|   [07]  | `IParsable<T>`, `ISpanParsable<T>`   | Present when the key is parsable or a `string`, `Parse` throws `FormatException`        |
-|   [08]  | Conversions                          | To the key implicit, from the key explicit through `Create`, unsafe to a value-type key |
-|   [09]  | `[TypeConverter]`                    | Emitted on every simple value object that has factory methods                           |
+|  [01]   | `Create(value)`                      | Validates and returns the instance, or throws `ValidationException` with the error text |
+|  [02]   | `TryCreate(value, out obj)`          | Returns `false` on rejection, and the 3-parameter overload returns the error            |
+|  [03]   | `Validate(value, provider, out obj)` | Returns the error or `null` and never throws, the complex form has no provider          |
+|  [04]   | Equality, `GetHashCode`, `==`, `!=`  | Run through the configured comparer                                                     |
+|  [05]   | `ToString()`                         | The key's `ToString()`, or `{ Lower = 1.23, Upper = 2.57 }` for the complex form        |
+|  [06]   | `IComparable<T>`, `IFormattable`     | Present when the key is comparable or formattable, simple form only                     |
+|  [07]   | `IParsable<T>`, `ISpanParsable<T>`   | Present when the key is parsable or a `string`, `Parse` throws `FormatException`        |
+|  [08]   | Conversions                          | To the key implicit, from the key explicit through `Create`, unsafe to a value-type key |
+|  [09]   | `[TypeConverter]`                    | Emitted on every simple value object that has factory methods                           |
 
 Complex value objects take one argument per member in declaration order, a `null` argument for a non-nullable key or member returns an error before the hook runs, and the hook never repeats that null check.
 
 ### [02.2]-[HOOK]
 
-`ValidateFactoryArguments` is `static partial void` with `ref TError? validationError` first and the key or each member by `ref` in declaration order, it rejects by assigning the error and returning, it normalizes by assigning the `ref` parameter, the compiler erases an absent hook, and every entry point runs it: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, the JSON converters, the MessagePack formatter, and model binding. The hook reports the first violated rule over one value, and independent rules over several inputs accumulate at the input boundary. `ValidateConstructorArguments(ref TKey value)` exists beside it and rejects by throwing alone.
+`ValidateFactoryArguments` is `static partial void` with `ref TError? validationError` first and the key or each member by `ref` in declaration order, it rejects by assigning the error and returning, it normalizes by assigning the `ref` parameter, the compiler erases an absent hook, and every entry point runs it: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, the JSON converters, the MessagePack formatter, and model binding. The hook reports the first violated rule over one value, and independent rules over many inputs accumulate at the input boundary. `ValidateConstructorArguments(ref TKey value)` exists beside it and rejects by throwing alone.
 
 Trailing parameters after the members are declared by value without a default (076), and the generator then emits `private static TError? ValidateCore(members, extras, out T? obj)` and `private static T CreateCore(members, extras)`, where the public `Validate` passes `default` for every extra and a hand-written factory delegates to `CreateCore`:
 
@@ -106,15 +106,15 @@ internal readonly partial struct Amount {
 }
 ```
 
-Rounding runs once inside the hook whichever factory is called, and multiplication by `decimal` is disabled because the product needs a rounding decision. A hook declared `private static partial string ValidateFactoryArguments(...)` returns a value that the generated `Validate` passes to `partial void FactoryPostInit(string value)` on the constructed instance after validation succeeded, the receiving field carries `[IgnoreMember]` and an initializer, and a `readonly` struct cannot hold it, so that form belongs to a class.
+Rounding runs once inside the hook whichever factory is called, and multiplication by `decimal` is disabled because the product needs a rounding decision. Hooks declared `private static partial string ValidateFactoryArguments(...)` return a value that the generated `Validate` passes to `partial void FactoryPostInit(string value)` on the constructed instance after validation succeeded, the receiving field has `[IgnoreMember]` and an initializer, and a `readonly` struct cannot hold it, that form belongs to a class.
 
 ### [02.3]-[COMPARERS_AND_SETTINGS]
 
 String keys compare with `StringComparer.OrdinalIgnoreCase` by default and every other key with its own `Equals`. `[KeyMemberEqualityComparer<TAccessor, TKey>]` selects the equality comparer, `[KeyMemberComparer<TAccessor, TKey>]` selects the ordering comparer for `IComparable<T>` and the comparison operators on the simple form alone, a comparer without an equality comparer is 102, an equality comparer without a comparer is 103 when the key is comparable and `SkipIComparable` is not set, and the accessors are `ComparerAccessors.StringOrdinal`, `StringOrdinalIgnoreCase`, `CurrentCulture`, `CurrentCultureIgnoreCase`, `InvariantCulture`, `InvariantCultureIgnoreCase`, and `Default<T>`, where a custom accessor implements `IEqualityComparerAccessor<T>` or `IComparerAccessor<T>` with one static property. Complex value objects compare every assignable member, `DefaultStringComparison` sets the comparison of their string members, and `[MemberEqualityComparer<TAccessor, TMember>]` on one member changes its comparer and drops every unattributed member out of equality and hashing.
 
-The attribute settings are listed in `references/settings.md`. `DefaultWithKeyTypeOverloads` adds overloads with the key type in both operand positions, so `amount > 42m` compiles without a conversion, and the generator emits `operator checked +` beside the unchecked form when the key declares it. Struct value objects reject `default(T)` and `new T()` through `IDisallowDefaultValue` (047), a settable property of the type elsewhere warns until it is `required` (104), `AllowDefaultStructs` stays `false` when the key is a reference type (057), a member disallows default (058), or the type implements `IDisallowDefaultValue` by hand (080), and `IDisallowDefaultValue` on a class warns (110). Choose a struct for a small value that is always valid, allow the default when it has a domain meaning (zero, an open end), and represent absence as `Option<T>` rather than a `null` class. `SkipKeyMember = true` with `KeyMemberName` lets a nullable backing field map the CLR default to a domain value, and a hand-written `ToString()` sets `SkipToString` and `SkipIFormattable` together, because the generated `IFormattable` still formats the key.
+The attribute settings are listed in `references/settings.md`. `DefaultWithKeyTypeOverloads` adds overloads with the key type in both operand positions, `amount > 42m` compiles without a conversion, and the generator emits `operator checked +` beside the unchecked form when the key declares it. Struct value objects reject `default(T)` and `new T()` through `IDisallowDefaultValue` (047), a settable property of the type elsewhere warns until it is `required` (104), `AllowDefaultStructs` stays `false` when the key is a reference type (057), a member disallows default (058), or the type implements `IDisallowDefaultValue` by hand (080), and `IDisallowDefaultValue` on a class warns (110). Choose a struct for a small value that is always valid, allow the default when it has a domain meaning (zero, an open end), and represent absence as `Option<T>` rather than a `null` class. `SkipKeyMember = true` with `KeyMemberName` lets a nullable backing field map the CLR default to a domain value, and a hand-written `ToString()` sets `SkipToString` and `SkipIFormattable` together, because the generated `IFormattable` still formats the key.
 
-Complex value objects compose simple value objects, smart enums, and other complex value objects, each component keeps its own rule, and the composite adds the rule that spans components. `[ValueObject<TypeParamRef1>]` through `TypeParamRef5` bind the key to a type parameter that carries a `notnull`, `struct`, or `class` constraint (074), and the generated surface follows the constraints, so `where T : INumber<T>` yields parsing, comparison, formatting, and arithmetic together.
+Complex value objects compose simple value objects, smart enums, and other complex value objects, each component keeps its own rule, and the composite adds the rule that spans components. `[ValueObject<TypeParamRef1>]` through `TypeParamRef5` bind the key to a type parameter that carries a `notnull`, `struct`, or `class` constraint (074), and the generated members follow the constraints, `where T : INumber<T>` yields parsing, comparison, formatting, and arithmetic together.
 
 ## [03]-[SMART_ENUMS]
 
@@ -146,7 +146,7 @@ The generator emits one private constructor per base constructor, and its parame
 - Instance fields and properties are read-only (001, 003, and 034, 035 on a plain base class), `[IgnoreMember]` hides a member from the generator, the type has no primary constructor (043), and the generator seals a smart enum that declares no derived class
 - `ValidateConstructorArguments` receives the key, the own members, and the base arguments by `ref` and not the delegates, rejects by throwing alone, and a `null` key throws `ArgumentNullException` after it returns
 - `[UseDelegateFromConstructor]` marks a `partial` method without type parameters (050, 051), the generator adds a private delegate field and implements the method through it, `DelegateName` or a parameter a `Func` cannot carry (`ref`) makes it emit a nested delegate type, and `Empty.Action` supplies the `Action` of an item without behavior
-- Static fields initialize in declaration order, so an item that refers to a later item reads it through a `Lazy<T>` built from a static method
+- Static fields initialize in declaration order, an item that refers to a later item reads it through a `Lazy<T>` built from a static method
 - Derived classes nest inside the smart enum, first-level derived classes are `private` (014) and deeper ones `public` (015), a derived class that is neither abstract nor a base is `sealed` (037), a derived class can be generic, and `Items` doubles as the list of permitted implementations
 - Keyless smart enums have no key member, `Get`, conversion operators, comparer settings, or generated `ToString`, only `[ObjectFactory<string>]` serializes or binds them, and a `ToString` override supplies the item name that `Switch`, `Map`, and Serilog otherwise render as the type name
 
@@ -154,15 +154,15 @@ The generator emits one private constructor per base constructor, and its parame
 
 | [INDEX] | [MEMBER]                            | [BEHAVIOR]                                                                                      |
 | :-----: | :---------------------------------- | :---------------------------------------------------------------------------------------------- |
-|   [01]  | `Items`                             | The items in declaration order                                                                  |
-|   [02]  | `Get(key)`                          | `null` for a `null` key, `UnknownSmartEnumIdentifierException` for an unknown key               |
-|   [03]  | `TryGet(key, out item)`             | `false` for an unknown key                                                                      |
-|   [04]  | `Validate(key, provider, out item)` | `null` or the error, a `null` key counts as unknown, `[ValidationError<T>]` types the error     |
-|   [05]  | Conversions                         | To the key implicit and `null` for a `null` item, from the key explicit through `Get`           |
-|   [06]  | Equality                            | Identity, `GetHashCode` computed once from the key with the configured comparer                 |
-|   [07]  | `IParsable<T>`, `ISpanParsable<T>`  | Present when the key implements them, which includes `string`, `Parse` throws `FormatException` |
-|   [08]  | `IComparable<T>`, `IFormattable`    | Present for a comparable or formattable key, with the comparison operators                      |
-|   [09]  | `ToString()`, `[TypeConverter]`     | The key's string form, and `ThinktectureTypeConverter<T, TKey, TValidationError>`               |
+|  [01]   | `Items`                             | The items in declaration order                                                                  |
+|  [02]   | `Get(key)`                          | `null` for a `null` key, `UnknownSmartEnumIdentifierException` for an unknown key               |
+|  [03]   | `TryGet(key, out item)`             | `false` for an unknown key                                                                      |
+|  [04]   | `Validate(key, provider, out item)` | `null` or the error, a `null` key counts as unknown, `[ValidationError<T>]` types the error     |
+|  [05]   | Conversions                         | To the key implicit and `null` for a `null` item, from the key explicit through `Get`           |
+|  [06]   | Equality                            | Identity, `GetHashCode` computed once from the key with the configured comparer                 |
+|  [07]   | `IParsable<T>`, `ISpanParsable<T>`  | Present when the key implements them, which includes `string`, `Parse` throws `FormatException` |
+|  [08]   | `IComparable<T>`, `IFormattable`    | Present for a comparable or formattable key, with the comparison operators                      |
+|  [09]   | `ToString()`, `[TypeConverter]`     | The key's string form, and `ThinktectureTypeConverter<T, TKey, TValidationError>`               |
 
 `UnknownSmartEnumIdentifierException` is a `KeyNotFoundException` with the message `There is no item of type 'Kind' with the identifier 'nope'.`, lookups use a `FrozenDictionary`, string keys gain span overloads of `Get`, `TryGet`, `Validate`, `Parse`, and `TryParse`, and `Items`, `Get`, `TryGet`, and `Validate` implement the static abstract members of `ISmartEnum<TKey, T, TValidationError>`, which generic code reaches through the constraint:
 
@@ -177,7 +177,7 @@ internal static class Lookup {
 
 ### [03.2]-[COMPARERS_AND_SETTINGS]
 
-String keys use `StringComparer.OrdinalIgnoreCase` for equality, the hash code, `CompareTo`, and the comparison operators, so `TryGet("STANDARD")` finds `Standard`, every other key uses its default comparer, `[KeyMemberEqualityComparer<TAccessor, TKey>]` and `[KeyMemberComparer<TAccessor, TKey>]` replace them with the same accessors as a value object, an accessor that does not match the key type is 041, 102 and 103 apply as for a value object, and a string-keyed smart enum without comparer attributes compiles without 048 and keeps the case-insensitive default. The span-based lookup uses the alternate lookup of `FrozenDictionary`, a predefined accessor gets `GetAlternateLookup<ReadOnlySpan<char>>()`, and a custom comparer without `IAlternateEqualityComparer<ReadOnlySpan<char>, string>` allocates a string per span call.
+String keys use `StringComparer.OrdinalIgnoreCase` for equality, the hash code, `CompareTo`, and the comparison operators, `TryGet("STANDARD")` finds `Standard`, every other key uses its default comparer, `[KeyMemberEqualityComparer<TAccessor, TKey>]` and `[KeyMemberComparer<TAccessor, TKey>]` replace them with the same accessors as a value object, an accessor that does not match the key type is 041, 102 and 103 apply as for a value object, and a string-keyed smart enum without comparer attributes compiles without 048 and keeps the case-insensitive default. The span-based lookup uses the alternate lookup of `FrozenDictionary`, a predefined accessor gets `GetAlternateLookup<ReadOnlySpan<char>>()`, and a custom comparer without `IAlternateEqualityComparer<ReadOnlySpan<char>, string>` allocates a string per span call.
 
 The attribute settings are listed in `references/settings.md`. `SkipIComparable` removes `IComparable` and `IComparable<T>` and leaves the comparison operators in place, the keyless attribute exposes only `EqualityComparisonOperators`, `SwitchMethods`, `MapMethods`, and `SwitchMapStateParameterName`, and `[SmartEnum<TypeParamRef1>]` binds the key to a `notnull` type parameter (074) where `Get`, `TryGet`, `Validate`, `Items`, equality, `Switch`, `Map`, and the conversions are always generated and the interfaces follow the constraints. Smart enums model a closed set of named items with one shape, cases with different shapes are a union, and items are `static readonly` fields that cannot serve as an attribute argument or a `case` label.
 
@@ -187,14 +187,14 @@ Ad hoc unions combine existing types that share no base, regular unions are clas
 
 | [INDEX] | [ASPECT]    | [AD_HOC_UNION]                                          | [REGULAR_UNION]                                              |
 | :-----: | :---------- | :------------------------------------------------------ | :----------------------------------------------------------- |
-|   [01]  | Declaration | `partial class`, `partial struct`, `ref partial struct` | `partial class` or `partial record`, generated as `abstract` |
-|   [02]  | Attribute   | `[Union<T1, T2>]` up to 5 types, or `[AdHocUnion]`      | `[Union]` on the base                                        |
-|   [03]  | Cases       | The type arguments                                      | Nested types that derive from the base                       |
-|   [04]  | Generic     | `TypeParamRef1` to `TypeParamRef5` name type parameters | The base can be generic, a case cannot (053)                 |
+|  [01]   | Declaration | `partial class`, `partial struct`, `ref partial struct` | `partial class` or `partial record`, generated as `abstract` |
+|  [02]   | Attribute   | `[Union<T1, T2>]` up to 5 types, or `[AdHocUnion]`      | `[Union]` on the base                                        |
+|  [03]   | Cases       | The type arguments                                      | Nested types that derive from the base                       |
+|  [04]   | Generic     | `TypeParamRef1` to `TypeParamRef5` name type parameters | The base can be generic, a case cannot (053)                 |
 
 ### [04.1]-[AD_HOC_UNIONS]
 
-`[AdHocUnion]` with `typeof` exists for a member type a generic attribute cannot spell (`List<string?>`), both forms generate `IsX` and `AsX` named after the member type (`IsString`, `AsInt32`), `Value` as `object`, and a `Normalize{Member}` partial hook per stateful member that runs first in the generated constructor before any null check, so equality, `ToString`, `Switch`, `Value`, and every serializer read the normalized value:
+`[AdHocUnion]` with `typeof` exists for a member type a generic attribute cannot spell (`List<string?>`), both forms generate `IsX` and `AsX` named after the member type (`IsString`, `AsInt32`), `Value` as `object`, and a `Normalize{Member}` partial hook per stateful member that runs first in the generated constructor before any null check, equality, `ToString`, `Switch`, `Value`, and every serializer read the normalized value:
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Count")]
@@ -215,7 +215,7 @@ internal sealed partial class TextOrCount {
 
 ### [04.2]-[REGULAR_UNIONS]
 
-The generator gives the base a private constructor, so types declared outside it cannot derive from it, class cases are `sealed` or keep private constructors (054), record cases are `sealed` (055), a non-abstract case is no less accessible than the base (056), a nested type that does not derive from the base is 106, positional record cases are the natural form, abstract members hold behavior that needs no dependency, and a transition that reads context passes it through the `Switch` state overload:
+The generator gives the base a private constructor, types declared outside it cannot derive from it, class cases are `sealed` or keep private constructors (054), record cases are `sealed` (055), a non-abstract case is no less accessible than the base (056), a nested type that does not derive from the base is 106, positional record cases are the natural form, abstract members hold behavior that needs no dependency, and a transition that reads context passes it through the `Switch` state overload:
 
 ```csharp
 [Union]
@@ -241,13 +241,13 @@ internal static class Transitions {
 ```
 
 - Cases with a single-parameter constructor of a type unique among the cases get an implicit conversion from that type to the base, and `ConversionFromValue = None` on `[Union]` removes those operators
-- Class cases carrying `[Union]` become nested unions with their own cases, records cannot nest a union, the outer `Switch` prefixes nested arm names with the parent (`failureNotFound`), `NestedUnionParameterNames = Simple` drops the prefix and collides when 2 nested unions declare a case with one name, and `[UnionSwitchMapOverload(StopAt = [typeof(Nested)])]` adds a non-exhaustive overload that delegates the nested union to its own `Switch`
+- Class cases with `[Union]` become nested unions with their own cases, records cannot nest a union, the outer `Switch` prefixes nested arm names with the parent (`failureNotFound`), `NestedUnionParameterNames = Simple` drops the prefix and collides when 2 nested unions declare a case with one name, and `[UnionSwitchMapOverload(StopAt = [typeof(Nested)])]` adds a non-exhaustive overload that delegates the nested union to its own `Switch`
 - Cases can be value objects or smart enums, the union names the kind and each case owns its value and rules, and an `Unknown` case is a `[ComplexValueObject(SkipFactoryMethods = true)]` with one `Instance` rather than `null`
 - Shared data sits on the base with a private constructor that the record cases pass it to, and a hand-written operator on the base can accept an external type
 
 ## [05]-[SWITCH_AND_MAP]
 
-Smart enums and unions generate `Switch` with one `Action` per case, `Switch<TResult>` with one `Func` per case, and `Map<TResult>` with one value per case, every argument is named after its case in camel case (046), every lambda is `static` (1001), captured context travels through the state overloads that take `TState` first and hand it to every lambda, the state parameter is named `state` unless `SwitchMapStateParameterName` renames it, `TState : allows ref struct` holds, and when the arms return different but compatible types an explicit `TResult` on the call moves the error to the one arm that disagrees:
+Smart enums and unions generate `Switch` with one `Action` per case, `Switch<TResult>` with one `Func` per case, and `Map<TResult>` with one value per case, every argument is named after its case in camel case (046), every lambda is `static` (1001), captured context enters through the state overloads that take `TState` first and pass it to every lambda, the state parameter is named `state` unless `SwitchMapStateParameterName` renames it, `TState : allows ref struct` holds, and when the arms return different but compatible types an explicit `TResult` on the call moves the error to the one arm that disagrees:
 
 ```csharp
 internal static class Matching {
@@ -271,13 +271,13 @@ static ValidationError? Validate(T? value, IFormatProvider? provider, out TSelf?
 ```
 
 - The method returns `null` and sets `item` on success, returns the error and a `null` item on failure, and `null` input sets a `null` item and returns `null`, which no serializer or model binder passes and which makes `Parse` return `null` and an Entity Framework Core read throw
-- Factories on a keyed type or a complex value object delegate to the generated `Validate` of the key or the members, so normalization in the hook runs once for both paths, and a factory with `T` equal to the key type collides with the generated overload
+- Factories on a keyed type or a complex value object delegate to the generated `Validate` of the key or the members, normalization in the hook runs once for both paths, and a factory with `T` equal to the key type collides with the generated overload
 - Factories are one-way until `UseForSerialization` other than `None` or `UseWithEntityFramework = true` makes them two-way, adds `IConvertible<T>`, and demands an instance `T ToValue()` (062)
 - `UseForSerialization` is a flags enum (`SystemTextJson`, `NewtonsoftJson`, `Json` for both, `MessagePack`, `All`), `UseForModelBinding = true` binds from one route, query, header, or form value, and `HasCorrespondingConstructor = true` declares a one-`T` constructor that Entity Framework Core reads through without `Validate` (059, and 060 on a smart enum)
 - For a keyed smart enum or a simple value object a flag replaces the key-based conversion at that integration point, for a complex value object or a union it enables a conversion that does not exist otherwise, and the flags register nothing at the host
 - Each integration point belongs to at most one factory (068, 069, 070), and `SkipFactoryMethods = true` on a value object removes its converters until a factory with `UseForSerialization` restores them
 
-Ad hoc unions carry no discriminator, so a `string` factory is their one wire format, where `Validate` assigns a member through the implicit conversion and `ToValue` renders the active case through `Switch`:
+Ad hoc unions serialize no discriminator, a `string` factory is their one wire format, where `Validate` assigns a member through the implicit conversion and `ToValue` renders the active case through `Switch`:
 
 ```csharp
 [Union<string, int>(T1Name = "Text", T2Name = "Count")]
@@ -297,16 +297,16 @@ internal sealed partial class TextOrCount {
 }
 ```
 
-Invalid text surfaces as `JsonException` with the error message, `Parse` throws `FormatException` with the same message, `TryParse` returns `false`, and JSON `null` deserializes to `null` without a `Validate` call.
+Invalid text throws `JsonException` with the error message, `Parse` throws `FormatException` with the same message, `TryParse` returns `false`, and JSON `null` deserializes to `null` without a `Validate` call.
 
 ## [07]-[CONVENIENCE_MEMBERS]
 
 The package supplies plain static members beside its generators, and they stay at the BCL boundary, because domain code uses `Seq<A>()`, `Seq(x)`, `Set(x)`, and `toSeq` in their place:
 - `Thinktecture.Empty.Action` converts to every `Action` delegate up to 16 parameters, `Empty.Disposable()` and `Empty.AsyncDisposable()` return cached no-op instances, and `Empty.Collection<T>()`, `Empty.Dictionary<TKey, TValue>()`, `Empty.Lookup<TKey, TValue>()`, and `Empty.Set<T>()` return cached read-only empties that follow the argument rules of the BCL collections (a `null` key throws on the dictionary)
-- `SingleItem.Set`, `SingleItem.Dictionary`, and `SingleItem.Lookup` build a read-only collection around one item with an optional comparer, so an overload for one item wraps its argument and delegates to the collection overload, and `SingleItem.Lookup` exposes its element sequence live
+- `SingleItem.Set`, `SingleItem.Dictionary`, and `SingleItem.Lookup` build a read-only collection around one item with an optional comparer, an overload for one item wraps its argument and delegates to the collection overload, and `SingleItem.Lookup` exposes its element sequence live
 - `ToReadOnlyCollection(count)` wraps a sequence without enumerating it and trusts the caller's count, and `ToReadOnlyCollection(selector)` composes a projection with the source count and reruns the selector on every enumeration
 - `TrimOrNullify()` returns `null` for blank text and the trimmed text otherwise, `TrimOrNullify(maxLength)` cuts the trimmed text by `char` count, and its place is inside a validation hook that assigns the result back to `value`, never as an absence marker for a domain value, which is `Option<string>` through `Optional`
-- `Thinktecture.Collections.ProjectionEqualityComparer<T, TItem>` compares projections, and `StringKeyedObjectComparer<T>` compares `ToValue()` of any `IConvertible<string>` type with its `Ordinal` and culture fields, so `Ordinal` restores exact matches for one collection of a case-insensitive type
+- `Thinktecture.Collections.ProjectionEqualityComparer<T, TItem>` compares projections, and `StringKeyedObjectComparer<T>` compares `ToValue()` of any `IConvertible<string>` type with its `Ordinal` and culture fields, `Ordinal` restores exact matches for one collection of a case-insensitive type
 
 ## [08]-[FRAMEWORK_INTEGRATION]
 
@@ -314,40 +314,40 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 
 | [INDEX] | [INTEGRATION]                  | [PACKAGE]               | [REGISTRATION]                                                          |
 | :-----: | :----------------------------- | :---------------------- | :---------------------------------------------------------------------- |
-|   [01]  | `System.Text.Json`             | `Json`                  | Referenced by the declaring project, the converter attribute is emitted |
-|   [02]  | `System.Text.Json` at the host | `Json`                  | `options.Converters.Add(new ThinktectureJsonConverterFactory())`        |
-|   [03]  | `Newtonsoft.Json`              | `Newtonsoft.Json`       | `ThinktectureNewtonsoftJsonConverterFactory`                            |
-|   [04]  | MessagePack                    | `MessagePack`           | Generated formatter, or `ThinktectureMessageFormatterResolver.Instance` |
-|   [05]  | MVC model binding              | `AspNetCore`            | `ModelBinderProviders.Insert(0, new ThinktectureModelBinderProvider())` |
-|   [06]  | OpenAPI                        | `Swashbuckle`           | `services.AddThinktectureOpenApiFilters()`                              |
-|   [07]  | Entity Framework Core          | `EntityFrameworkCore10` | `optionsBuilder.UseThinktectureValueConverters()`                       |
-|   [08]  | Serilog                        | `Serilog`               | `Destructure.UsingThinktectureRuntimeExtensions()`                      |
+|  [01]   | `System.Text.Json`             | `Json`                  | Referenced by the declaring project, the converter attribute is emitted |
+|  [02]   | `System.Text.Json` at the host | `Json`                  | `options.Converters.Add(new ThinktectureJsonConverterFactory())`        |
+|  [03]   | `Newtonsoft.Json`              | `Newtonsoft.Json`       | `ThinktectureNewtonsoftJsonConverterFactory`                            |
+|  [04]   | MessagePack                    | `MessagePack`           | Generated formatter, or `ThinktectureMessageFormatterResolver.Instance` |
+|  [05]   | MVC model binding              | `AspNetCore`            | `ModelBinderProviders.Insert(0, new ThinktectureModelBinderProvider())` |
+|  [06]   | OpenAPI                        | `Swashbuckle`           | `services.AddThinktectureOpenApiFilters()`                              |
+|  [07]   | Entity Framework Core          | `EntityFrameworkCore10` | `optionsBuilder.UseThinktectureValueConverters()`                       |
+|  [08]   | Serilog                        | `Serilog`               | `Destructure.UsingThinktectureRuntimeExtensions()`                      |
 
-`Json`, `MessagePack`, `EntityFrameworkCore10`, and `Serilog` are in `Directory.Packages.props`, and `Newtonsoft.Json`, `AspNetCore`, and `Swashbuckle` are not, so a project that needs one of them adds it there first.
+`Json`, `MessagePack`, `EntityFrameworkCore10`, and `Serilog` are in `Directory.Packages.props`, and `Newtonsoft.Json`, `AspNetCore`, and `Swashbuckle` are not, a project that needs one of them adds it there first.
 - The declaring project references `Json` and receives the `[JsonConverter]` attribute, and only a project that cannot do so registers the converter factory at the host, where MVC reads `AddControllers().AddJsonOptions`, minimal APIs read `ConfigureHttpJsonOptions`, and the factory constructor `(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` skips attributed types and opts single types out of span-based reads
 - Unknown keys and rejected values on read throw `JsonException` with the validation text, string keys read through a span-based converter that rejects a non-string token, and a regular union needs one `[JsonDerivedType]` on the base per case, Newtonsoft `TypeNameHandling` (a deserialization risk unless the binder restricts the types), or a `[ObjectFactory<string>]` on the base, and MessagePack has no integration for it
-- Minimal APIs bind through `IParsable<T>.TryParse` and answer a failed bind with a plain 400, so an application-side `MaybeBound<T, TKey, TValidationError>` wrapper with a `TryParse` that always succeeds and stores the value or the error text lets an endpoint filter answer with the text, MVC runs `Validate`, writes the error into `ModelState`, and `[ApiController]` answers 400 with the text, and the binder provider goes in front of the default providers with `skipBindingFromBody` at its default `true`
+- Minimal APIs bind through `IParsable<T>.TryParse` and answer a failed bind with a plain 400, an application-side `MaybeBound<T, TKey, TValidationError>` wrapper with a `TryParse` that always succeeds and stores the value or the error text lets an endpoint filter answer with the text, MVC runs `Validate`, writes the error into `ModelState`, and `[ApiController]` answers 400 with the text, and the binder provider goes in front of the default providers with `skipBindingFromBody` at its default `true`
 - `AddThinktectureOpenApiFilters` renders a value object as its key or its members and a smart enum as its key with the allowed values, `SmartEnumSchemaFilter` selects `Default`, `OneOf`, `AnyOf`, `AllOf`, or `FromDependencyInjection`, `SmartEnumSchemaExtension` adds `x-enum-varnames`, and `RequiredMemberEvaluator` marks a member that implements `IDisallowDefaultValue` or a non-nullable reference member as required, with `All` and `None` as the overrides
-- Entity Framework Core stores a keyed type in one column of the key type, `UseThinktectureValueConverters` applies to every context on the options, `AddThinktectureValueConverters` narrows to a model, entity, owned, or complex builder, `HasThinktectureValueConverter` to one property, `UseConstructorForRead` defaults to `true` so a row materializes without the hook, a complex value object maps as a complex property or an owned type, and a regular union maps as table-per-hierarchy through `HasDiscriminator<string>` with one `HasValue<TCase>` per case or as table-per-type, where 2 cases with one property name share a column through `HasColumnName`
+- Entity Framework Core stores a keyed type in one column of the key type, `UseThinktectureValueConverters` applies to every context on the options, `AddThinktectureValueConverters` narrows to a model, entity, owned, or complex builder, `HasThinktectureValueConverter` to one property, `UseConstructorForRead` defaults to `true`, a row materializes without the hook, a complex value object maps as a complex property or an owned type, and a regular union maps as table-per-hierarchy through `HasDiscriminator<string>` with one `HasValue<TCase>` per case or as table-per-type, where 2 cases with one property name share a column through `HasColumnName`
 - Serilog logs a keyed smart enum and a simple value object as the key and an ad hoc union as its `Value` once the policy is registered and the template uses `{@Property}`
 
 ## [09]-[ANTI_PATTERNS]
 
-| [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                    |
-| :-----: | :------------------------------------------------------------------ | :---------------------------------------------------------------- |
-|   [01]  | `throw` inside the hook, which skips `TryCreate` and the frameworks | Assign `validationError` and `return`                             |
-|   [02]  | Hooks that trim into a local and never assign `value`               | `value = trimmed`                                                 |
-|   [03]  | `value.Trim().ToUpper()` in a hook depends on the current culture   | `value.Trim().ToUpperInvariant()`                                 |
-|   [04]  | `[ValueObject<string>]` without comparer attributes                 | Both `[KeyMemberEqualityComparer]` and `[KeyMemberComparer]`      |
-|   [05]  | `TrimOrNullify(maxLength)` as a length rule in a hook               | Reject the over-long input, a cut maps 2 inputs to 1 value        |
-|   [06]  | `HasConversion` with a lambda that calls `Create`                   | `HasThinktectureValueConverter()` or the converter registration   |
-|   [07]  | The host converter factory for a complex value object               | `Json` referenced by the declaring project, or an object factory  |
-|   [08]  | Native `switch` with `_ =>` over a smart enum or union              | The generated `Switch` or `Map`                                   |
-|   [09]  | Lambdas without `static` in a `Switch` arm                          | The state overload with a `static` lambda                         |
-|   [10]  | `SwitchPartially` where every case matters                          | The exhaustive `Switch`                                           |
-|   [11]  | `default(TUnion)` or `new TUnion()` on a struct union               | Member values, or `MapToFirstMember` with a stateless first case  |
-|   [12]  | Stateless markers as classes                                        | `readonly record struct`                                          |
-|   [13]  | `string` failure case beside a `string` success value               | One distinct type per case                                        |
-|   [14]  | Hand-written serializers for an ad hoc union                        | `[ObjectFactory<string>]` with `ToValue` and `Validate`           |
-|   [15]  | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary  | `Thinktecture.Empty.Collection<T>()`                              |
-|   [16]  | `Fin<T>` or `Validation<Error, T>` adapters that call `Create`      | `Validate`, which never throws                                    |
+| [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                   |
+| :-----: | :------------------------------------------------------------------ | :--------------------------------------------------------------- |
+|  [01]   | `throw` inside the hook, which skips `TryCreate` and the frameworks | Assign `validationError` and `return`                            |
+|  [02]   | Hooks that trim into a local and never assign `value`               | `value = trimmed`                                                |
+|  [03]   | `value.Trim().ToUpper()` in a hook depends on the current culture   | `value.Trim().ToUpperInvariant()`                                |
+|  [04]   | `[ValueObject<string>]` without comparer attributes                 | Both `[KeyMemberEqualityComparer]` and `[KeyMemberComparer]`     |
+|  [05]   | `TrimOrNullify(maxLength)` as a length rule in a hook               | Reject the over-long input, a cut maps 2 inputs to 1 value       |
+|  [06]   | `HasConversion` with a lambda that calls `Create`                   | `HasThinktectureValueConverter()` or the converter registration  |
+|  [07]   | The host converter factory for a complex value object               | `Json` referenced by the declaring project, or an object factory |
+|  [08]   | Native `switch` with `_ =>` over a smart enum or union              | The generated `Switch` or `Map`                                  |
+|  [09]   | Lambdas without `static` in a `Switch` arm                          | The state overload with a `static` lambda                        |
+|  [10]   | `SwitchPartially` where every case matters                          | The exhaustive `Switch`                                          |
+|  [11]   | `default(TUnion)` or `new TUnion()` on a struct union               | Member values, or `MapToFirstMember` with a stateless first case |
+|  [12]   | Stateless markers as classes                                        | `readonly record struct`                                         |
+|  [13]   | `string` failure case beside a `string` success value               | One distinct type per case                                       |
+|  [14]   | Hand-written serializers for an ad hoc union                        | `[ObjectFactory<string>]` with `ToValue` and `Validate`          |
+|  [15]   | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary  | `Thinktecture.Empty.Collection<T>()`                             |
+|  [16]   | `Fin<T>` or `Validation<Error, T>` adapters that call `Create`      | `Validate`, which never throws                                   |

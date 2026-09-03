@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-execution
-description: "Use when adding or ordering an MSBuild target, extending a DependsOn chain, making a target incremental, copying items to output, or registering generated files."
+description: "Use when adding, ordering, or extending an MSBuild target or DependsOn chain: OnError, Returns, CopyToOutputDirectory, Inputs and Outputs, FileWrites, generated files, multi-targeting or publish scope."
 ---
 
 # [DOTNET_MSBUILD_EXECUTION]

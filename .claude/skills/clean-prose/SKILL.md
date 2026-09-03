@@ -40,6 +40,7 @@ Words that fail the tests take the current term for the thing they name, listed 
 |  [17]   | phantom, ghost, census, sweep                      | missing, undefined, coverage check, assertion  |
 |  [18]   | materialize, egress, pristine, in-flight           | write, exporter, empty, uncommitted            |
 |  [19]   | interior, flips, autosave, mirrors (verb)          | inside, disabled, output file, matches         |
+|  [20]   | bare (name), edge, bespoke, weave, unlock, surfaces | unqualified, boundary, custom, insert, enable, throws |
 
 The repository, product, or organization name belongs in identifiers the ecosystem requires, in package descriptions, in CLI help text, and in prose only as a contrast with another product. Text under a heading that names its subject refers to the subject by pronoun or by its parts.
 

@@ -73,9 +73,9 @@ concurrent requests
         v
 coordinator: currency pair -> agent
         |
-        +--> EUR/USD agent  -- serial for this pair
-        +--> GBP/USD agent  -- concurrent with EUR/USD
-        +--> CHF/USD agent  -- concurrent with both
+        +-> EUR/USD agent  -- serial for this pair
+        +-> GBP/USD agent  -- concurrent with EUR/USD
+        +-> CHF/USD agent  -- concurrent with both
 ```
 
 The coordinator only owns the registry of per-key agents and delegates immediately. Requests for different keys can progress concurrently. Requests for the same key queue behind one owner, preventing duplicate updates or remote lookups for that key.

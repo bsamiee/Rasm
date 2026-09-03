@@ -33,7 +33,7 @@ internal static class Sources {
 }
 ```
 
-A lifted single value emits and completes at once, a lifted enumerable emits its elements and completes, `Reduce` subscribes a lifted observable, `Source.pure` emits one value and completes, `Source.merge` joins sources, `Zip` pairs them, and `Map`, `Filter`, `Take`, `Skip`, and a query that flattens an inner source are the operators. `Event.from(ref Action<A>)` adds its callback to the delegate's invocation list, `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation, and disposing the `Event` detaches the delegate. `Combine` subscribes to the second source only after the first completes, so a first source that never completes hides the second, and `Source.pure(value).Combine(source)` prefixes an initial value.
+Lifted single values emit and complete at once, lifted enumerables emit their elements and complete, `Reduce` subscribes a lifted observable, `Source.pure` emits one value and completes, `Source.merge` joins sources, `Zip` pairs them, and `Map`, `Filter`, `Take`, `Skip`, and a query that flattens an inner source are the operators. `Event.from(ref Action<A>)` adds its callback to the delegate's invocation list, `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation, and disposing the `Event` detaches the delegate. `Combine` subscribes to the second source only after the first completes, a first source that never completes hides the second, and `Source.pure(value).Combine(source)` prefixes an initial value.
 
 ## [02]-[REDUCTION]
 
@@ -51,12 +51,12 @@ internal static class Reductions {
 
 `Conduit.make(Buffer<A>)` builds a `Sink<A>` and `Source<A>` pair, `Post` writes to the sink, `Comap` adapts the sink's input type, `Complete()` closes it and a later `Post` fails, and the buffer policy decides what happens when production outpaces consumption, because the consumer cannot slow the producer by requesting the next item:
 
-| [INDEX] | [BUFFER]              | [BEHAVIOR]                                                         |
-| :-----: | :-------------------- | :----------------------------------------------------------------- |
-|  [01]   | `Unbounded`           | Keeps every value                                                  |
-|  [02]   | `Bounded(n)`, `Single` | Holds `n` values or one, and `Post` waits when full              |
-|  [03]   | `Latest(seed)`        | Starts from the seed and keeps only the last value                 |
-|  [04]   | `Newest(n)`           | Keeps the last `n` values                                          |
+| [INDEX] | [BUFFER]               | [BEHAVIOR]                                          |
+| :-----: | :--------------------- | :-------------------------------------------------- |
+|  [01]   | `Unbounded`            | Keeps every value                                   |
+|  [02]   | `Bounded(n)`, `Single` | Holds `n` values or one, and `Post` waits when full |
+|  [03]   | `Latest(seed)`         | Starts from the seed and keeps only the last value  |
+|  [04]   | `Newest(n)`            | Keeps the last `n` values                           |
 
 With an unbounded buffer the producer posts, completes, and the reduction reads afterward, while a bounded buffer needs the consumer forked before the producer posts, or `Post` blocks on the full buffer:
 
@@ -83,7 +83,7 @@ internal static class Queues {
 }
 ```
 
-A conduit reduced under `Fork()` while a client posts is a message queue, and a second conduit carries a reply that `Source.Take(1).Last()` reads.
+Conduits reduced under `Fork()` while a client posts are message queues, and a second conduit carries a reply that `Source.Take(1).Last()` reads.
 - See `dotnet-coding/references/streams.md` for the agent loop, the reply pattern, and entity processes built on conduits
 
 ## [04]-[PIPES]

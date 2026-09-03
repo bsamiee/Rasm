@@ -6,19 +6,19 @@ One `Validate` and `ToValue` pair serves System.Text.Json, Newtonsoft.Json, Mess
 
 Each integration point filters the type's factories by its flag and the value type, falls back to the key member when no factory matches, and a type without a key member has no conversion at that point:
 
-| [INDEX] | [INTEGRATION]                | [CONDITION]                                                    | [FALLBACK]                          |
-| :-----: | :--------------------------- | :------------------------------------------------------------- | :---------------------------------- |
+| [INDEX] | [INTEGRATION]                | [CONDITION]                                                      | [FALLBACK]                          |
+| :-----: | :--------------------------- | :--------------------------------------------------------------- | :---------------------------------- |
 |  [01]   | System.Text.Json             | `SystemTextJson` flag, `T` no ref struct or `ReadOnlySpan<char>` | Key member                          |
-|  [02]   | Newtonsoft.Json, MessagePack | The matching flag, `T` no ref struct                           | Key member                          |
-|  [03]   | Entity Framework Core        | `UseWithEntityFramework = true`, `T` no `ReadOnlySpan<char>`   | Key member                          |
-|  [04]   | Model binding                | `UseForModelBinding = true`, `T` no `ReadOnlySpan<char>`       | Key member                          |
-|  [05]   | Serilog destructuring        | None                                                           | Key member, union value, or nothing |
+|  [02]   | Newtonsoft.Json, MessagePack | The matching flag, `T` no ref struct                             | Key member                          |
+|  [03]   | Entity Framework Core        | `UseWithEntityFramework = true`, `T` no `ReadOnlySpan<char>`     | Key member                          |
+|  [04]   | Model binding                | `UseForModelBinding = true`, `T` no `ReadOnlySpan<char>`         | Key member                          |
+|  [05]   | Serilog destructuring        | None                                                             | Key member, union value, or nothing |
 
-`ISpanParsable<TSelf>` joins `IParsable<TSelf>` when the key member is span parsable or a `ReadOnlySpan<char>` factory exists, and the span overloads of `Parse` and `TryParse` parse the key, so `Parse("express".AsSpan(), provider: null)` on an `int`-keyed type with a `string` factory throws `FormatException`.
+`ISpanParsable<TSelf>` joins `IParsable<TSelf>` when the key member is span parsable or a `ReadOnlySpan<char>` factory exists, and the span overloads of `Parse` and `TryParse` parse the key, `Parse("express".AsSpan(), provider: null)` on an `int`-keyed type with a `string` factory throws `FormatException`.
 
 ## [02]-[ENTITY_FRAMEWORK_READ_PATH]
 
-`HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, the generated metadata holds the expression `static TSelf (T value) => new TSelf(value)`, and the value converter compiles it for reads while `UseConstructorForRead` is `true`, so a row materializes without `Validate` and without normalization, the stored value is trusted as it is, and a row that breaks the format fails inside the constructor (an index error on a row without its separator). Entity Framework Core alone uses the constructor, 059 reports a missing constructor, 060 reports a smart enum with the setting, and JSON, MessagePack, and model binding read through `Validate` in every case. Without the constructor, or with `UseConstructorForRead = false`, a read calls `Validate(value, null, out item)`, the error becomes a `ValidationException`, a `null` item for a non-null column becomes an exception that names the factory and the type, and every write calls `ToValue`:
+`HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, the generated metadata holds the expression `static TSelf (T value) => new TSelf(value)`, and the value converter compiles it for reads while `UseConstructorForRead` is `true`, a row materializes without `Validate` and without normalization, the stored value is trusted as it is, and a row that breaks the format fails inside the constructor (an index error on a row without its separator). Entity Framework Core alone uses the constructor, 059 reports a missing constructor, 060 reports a smart enum with the setting, and JSON, MessagePack, and model binding read through `Validate` in every case. Without the constructor, or with `UseConstructorForRead = false`, a read calls `Validate(value, null, out item)`, the error becomes a `ValidationException`, a `null` item for a non-null column becomes an exception that names the factory and the type, and every write calls `ToValue`:
 
 ```csharp
 [ComplexValueObject(DefaultStringComparison = StringComparison.OrdinalIgnoreCase)]
@@ -52,7 +52,7 @@ internal sealed partial class Location {
 }
 ```
 
-The `string` `Validate` splits the text and delegates to the generated member `Validate`, so the hook trims and rejects on the JSON, model binding, and `Parse` paths, a read of `" store :doc"` through the constructor keeps the padding, and the same read through `Validate` trims it. The `Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` sets column lengths, the strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
+The `string` `Validate` splits the text and delegates to the generated member `Validate`, the hook trims and rejects on the JSON, model binding, and `Parse` paths, a read of `" store :doc"` through the constructor keeps the padding, and the same read through `Validate` trims it. The `Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` sets column lengths, the strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
 
 | [INDEX] | [SETTING]                             | [DEFAULT]                               | [EFFECT]                                           |
 | :-----: | :------------------------------------ | :-------------------------------------- | :------------------------------------------------- |
@@ -110,7 +110,7 @@ Both JSON serializers write `"high"`, MessagePack converts through the `char` fa
 
 ## [04]-[SPAN_BASED_JSON]
 
-`ReadOnlySpan<char>` factories flagged `SystemTextJson` receive the JSON string as a span through the generated `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`: the reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters, rents longer values from `ArrayPool<char>.Shared`, unescapes an escaped value through `CopyString` first, and rejects a token other than a string or a property name with `JsonException`, so a span matched against string constants creates no `string` for a known value:
+`ReadOnlySpan<char>` factories flagged `SystemTextJson` receive the JSON string as a span through the generated `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`: the reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters, rents longer values from `ArrayPool<char>.Shared`, unescapes an escaped value through `CopyString` first, and rejects a token other than a string or a property name with `JsonException`, a span matched against string constants creates no `string` for a known value:
 
 ```csharp
 [ValueObject<string>]

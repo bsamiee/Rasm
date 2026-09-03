@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding-languageext
-description: "Use when calling a LanguageExt type or operation: conversions, errors and recovery, IO execution, resources, schedules, runtimes, traits, transformers, collections, shared state, and streams."
+description: "Use when calling a LanguageExt member: conversions, errors and recovery, IO construction and execution, resources, concurrency, recursion, schedules, runtimes, traits, transformers, collections, shared state, streams."
 ---
 
 # [DOTNET_CODING_LANGUAGEEXT]
@@ -15,7 +15,7 @@ Covers the LanguageExt types and their operations: the result and effect types w
 - [02]-[STREAMS](references/streams.md): Sources and events, reduction, conduits and buffer policy, pipes
 - [03]-[API](references/api.md): Public types and members by scope
 
-The result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Examples assume `using static LanguageExt.Prelude`, which binds the constructors and module functions as bare names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`), and the static import binds `List` to `Prelude.List`, so the module is named `LanguageExt.List.unfold` in full.
+The result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Examples assume `using static LanguageExt.Prelude`, which binds the constructors and module functions as unqualified names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`), and the static import binds `List` to `Prelude.List`, the module is named `LanguageExt.List.unfold` in full.
 
 ## [01]-[RESULT_TYPES]
 
@@ -31,7 +31,7 @@ The result and effect types and their runtime shapes:
 |  [06]   | `IO<A>`                | abstract record class |
 |  [07]   | `Eff<RT, A>`           | record class          |
 
-Each type exposes `Match` with one function per case, and `Match` on `IO` and `Eff` returns an effect. `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, ignores the inner value in the `None` state, and is closed, so a `Match` over its cases is total, as is a `Match` over `Fin`. The implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, and `Some(x)` wraps the value as given. `Option<A>` defines `operator true`, so `left || right` evaluates the right operand only when the left is `None`, where `left | right` evaluates both. `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, and both return `A`.
+Each type exposes `Match` with one function per case, and `Match` on `IO` and `Eff` returns an effect. `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, ignores the inner value in the `None` state, and is closed, a `Match` over its cases is total, as is a `Match` over `Fin`. The implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, and `Some(x)` wraps the value as given. `Option<A>` defines `operator true`, `left || right` evaluates the right operand only when the left is `None`, where `left | right` evaluates both. `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, and both return `A`.
 
 Each conversion is a method on the source type named for the target, and converting from `Option` requires the `Error` it lacks:
 
@@ -56,14 +56,14 @@ internal static class Conversions {
 
 `Option<A>`, `Seq<A>`, and `Fin<A>` share the operation names, `Fin<A>` has no `Filter`, `Seq<A>` has no `Pure`, and LINQ names `Map` as `Select`, `Bind` as `SelectMany`, and `Filter` as `Where`:
 
-| [INDEX] | [OPERATION] | [SIGNATURE]                 | [BEHAVIOR]                                                      |
-| :-----: | :---------- | :-------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `Pure`      | `A -> F<A>`                 | Lifts a plain value, converts into `Option`, `Fin`, and `IO`    |
-|  [02]   | `Map`       | `(F<A>, A -> B) -> F<B>`    | Applies the function to each value and preserves `F`           |
-|  [03]   | `Bind`      | `(F<A>, A -> F<B>) -> F<B>` | Applies the function and flattens the nested result             |
-|  [04]   | `Filter`    | `(F<A>, A -> bool) -> F<A>` | Keeps the values that satisfy the predicate                     |
-|  [05]   | `Iter`      | `(F<A>, Action<A>) -> Unit` | Runs the action for each value at once and returns `Unit`       |
-|  [06]   | `Do`        | `(F<A>, Action<A>) -> F<A>` | Runs the action for each value and returns the input            |
+| [INDEX] | [OPERATION] | [SIGNATURE]                 | [BEHAVIOR]                                                   |
+| :-----: | :---------- | :-------------------------- | :----------------------------------------------------------- |
+|  [01]   | `Pure`      | `A -> F<A>`                 | Lifts a plain value, converts into `Option`, `Fin`, and `IO` |
+|  [02]   | `Map`       | `(F<A>, A -> B) -> F<B>`    | Applies the function to each value and preserves `F`         |
+|  [03]   | `Bind`      | `(F<A>, A -> F<B>) -> F<B>` | Applies the function and flattens the nested result          |
+|  [04]   | `Filter`    | `(F<A>, A -> bool) -> F<A>` | Keeps the values that satisfy the predicate                  |
+|  [05]   | `Iter`      | `(F<A>, Action<A>) -> Unit` | Runs the action for each value at once and returns `Unit`    |
+|  [06]   | `Do`        | `(F<A>, Action<A>) -> F<A>` | Runs the action for each value and returns the input         |
 
 `Map` on `Option` applies the function once for `Some` and never for `None`, and on `Seq` applies it lazily to every element. `Bind` on `Option` skips the function after `None`, and on `Seq` concatenates every produced sequence into one. `Filter` on `Option` turns a failed predicate into `None`, and LINQ `where` works the same. `Iter` needs its own name because overload resolution cannot distinguish `Action<A>` from `Func<A, B>` by return type, `Fin<A>` supplies `IfSucc` in place of `Do`, a side effect inside `IO` is a bound `IO.lift` step, and after `None` or a failure no later action runs. `ToSeq` converts an option to a zero-or-one-element sequence, `Choose` maps each element to an `Option<B>` and keeps the `Some` values in one pass, `Somes` does the same for an existing `Seq<Option<A>>`, and `Flatten` on the `ToSeq` of an `Option<Seq<A>>` yields the `Seq<A>`.
 
@@ -93,7 +93,7 @@ internal static class Classify {
 }
 ```
 
-`IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`, `Count` returns the number of accumulated errors, `Head` returns the first leaf, `HasCode` and `Catch(int)` select a code the same package declares, and codes from several packages meet in one `ManyErrors` where `IsType<E>` separates them. `Error.New(string, Error)` has code `0`, and `IsType`, `HasCode`, `Is`, and `Catch` do not descend into `Inner`, so only the typed record that wraps a cause stays classifiable. `Error` implements `Monoid<Error>`, a bespoke failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it, `&` on operands with one success type collects the successes into `Seq<A>` and accumulates the failures, and `|` returns the first success and combines the errors only when both fail.
+`IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`, `Count` returns the number of accumulated errors, `Head` returns the first leaf, `HasCode` and `Catch(int)` select a code the same package declares, and codes from many packages meet in one `ManyErrors` where `IsType<E>` separates them. `Error.New(string, Error)` has code `0`, and `IsType`, `HasCode`, `Is`, and `Catch` do not descend into `Inner`, only the typed record that wraps a cause stays classifiable. `Error` implements `Monoid<Error>`, a custom failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it, `&` on operands with one success type collects the successes into `Seq<A>` and accumulates the failures, and `|` returns the first success and combines the errors only when both fail.
 
 Recovery is a function from an error to the same result type, and the overloads select the error by code, by value, or by predicate:
 
@@ -143,7 +143,7 @@ internal static class Construction {
 }
 ```
 
-`Run` and `RunAsync` represent an `Expected` error as an `ErrorException` and rethrow the exception an `Exceptional` error captured, `Try.lift(io.Run).Run()` captures the thrown error and returns the original `Expected`, the disposable `EnvIO.New(token:)` carries the cancellation token into `Run(env)`, and a cancelled token escapes `RunSafe` as an exception that a host captures with `Try.lift`.
+`Run` and `RunAsync` represent an `Expected` error as an `ErrorException` and rethrow the exception an `Exceptional` error captured, `Try.lift(io.Run).Run()` captures the thrown error and returns the original `Expected`, the disposable `EnvIO.New(token:)` passes the cancellation token into `Run(env)`, and a cancelled token escapes `RunSafe` as an exception that a host captures with `Try.lift`.
 
 ### [04.1]-[RESOURCES]
 
@@ -161,7 +161,7 @@ internal static class Resources {
 
 ### [04.2]-[CONCURRENCY]
 
-`Fork` starts the effect on one `TaskCreationOptions.LongRunning` thread and returns a `ForkIO` with `Await` and `Cancel`, `awaitAll` runs every effect of a `Seq<IO<A>>` and collects the values, `awaitAny` returns the first value, `timeout(duration, effect)` fails the effect after the duration, and `Uninterruptible` masks cancellation. `PartitionFallible` takes a `Seq<K<IO, A>>` (`Map<K<IO, A>>` sets that element type), runs every effect without a short-circuit, and returns `(Seq<Error> Fails, Seq<A> Succs)`, and `Succs` and `Fails` return one side. `Traverse` under `IO` starts every element effect before awaiting any, effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread, so a bounded fan-out chunks the collection and traverses the chunks with `TraverseM`:
+`Fork` starts the effect on one `TaskCreationOptions.LongRunning` thread and returns a `ForkIO` with `Await` and `Cancel`, `awaitAll` runs every effect of a `Seq<IO<A>>` and collects the values, `awaitAny` returns the first value, `timeout(duration, effect)` fails the effect after the duration, and `Uninterruptible` masks cancellation. `PartitionFallible` takes a `Seq<K<IO, A>>` (`Map<K<IO, A>>` sets that element type), runs every effect without a short-circuit, and returns `(Seq<Error> Fails, Seq<A> Succs)`, and `Succs` and `Fails` return one side. `Traverse` under `IO` starts every element effect before awaiting any, effects built with `IO.liftAsync` overlap without a bound, and effects built with `IO.lift` run in order on the calling thread, a bounded fan-out chunks the collection and traverses the chunks with `TraverseM`:
 
 ```csharp
 internal static class Concurrency {
@@ -177,7 +177,7 @@ internal static class Concurrency {
 
 ### [04.3]-[RECURSION]
 
-`tail` marks the last bind continuation after a deferred effect and keeps the stack constant, and a `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only, because `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a continuation after the tail call and fail. `Monad.recur<M, A, B>` loops a state `A` with `Next.Loop<A, B>` and finishes with `Next.Done<A, B>` holding a `B`, works with every host operation, returns `K<IO, B>` that `.As()` narrows, and checks the state before it advances, so an already-finished initial state returns unchanged. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while it does:
+`tail` marks the last bind continuation after a deferred effect and keeps the stack constant, and a `tail`-recursive `IO` exits through `Run()` or `RunAsync()` only, because `RunSafe()`, `Try()`, `Map`, and a later `Bind` add a continuation after the tail call and fail. `Monad.recur<M, A, B>` loops a state `A` with `Next.Loop<A, B>` and finishes with `Next.Done<A, B>` holding a `B`, works with every host operation, returns `K<IO, B>` that `.As()` narrows, and checks the state before it advances, an already-finished initial state returns unchanged. `RepeatUntil` polls one effect until its value satisfies the predicate, and `RepeatWhile` polls while it does:
 
 ```csharp
 internal static class Recursion {
@@ -194,7 +194,7 @@ internal static class Recursion {
 
 ### [04.4]-[SCHEDULES]
 
-`Schedule.spaced` and `Schedule.exponential` build delay sequences, and `recurs`, `repeat`, `jitter`, and `maxDelay` are `ScheduleTransformer` values that cap the attempt count, replay the whole schedule, randomize each delay, and cap each delay, where each delay is the library's own `LanguageExt.Duration` that converts implicitly from the `TimeSpan` a NodaTime `Duration` returns through `ToTimeSpan()`. Between schedules `|` is a union that takes the shorter delay and `&` an intersection that takes the longer, where one side is a transformer both operators apply it, and a transformer passed alone converts to `Schedule.Forever` with the transformer applied. `Retry(Schedule)` reruns a deferred effect that failed, and `Repeat(Schedule)` reruns a successful one, so `Repeat(Schedule.recurs(2))` runs the effect once and then twice more:
+`Schedule.spaced` and `Schedule.exponential` build delay sequences, and `recurs`, `repeat`, `jitter`, and `maxDelay` are `ScheduleTransformer` values that cap the attempt count, replay the whole schedule, randomize each delay, and cap each delay, where each delay is the library's own `LanguageExt.Duration` that converts implicitly from the `TimeSpan` a NodaTime `Duration` returns through `ToTimeSpan()`. Between schedules `|` is a union that takes the shorter delay and `&` an intersection that takes the longer, where one side is a transformer both operators apply it, and a transformer passed alone converts to `Schedule.Forever` with the transformer applied. `Retry(Schedule)` reruns a deferred effect that failed, and `Repeat(Schedule)` reruns a successful one, `Repeat(Schedule.recurs(2))` runs the effect once and then twice more:
 
 ```csharp
 internal static class Schedules {
@@ -206,7 +206,7 @@ internal static class Schedules {
 
 ### [04.5]-[RUNTIMES]
 
-A runtime record implements `Has<Eff<RT>, T>` once per capability with `Eff.runtime<RT>().Map(static rt => rt.Capability)`, a consumer generic over `RT` reads the capability through `RT.Ask` or through a module constrained on the trait (`Console<RT>.writeLine` and `Console<RT>.readLine` need `ConsoleIO`, `File<RT>` needs `FileIO` and `EncodingIO`), `Run(rt)` returns `Fin<A>`, and `RunAsync(rt)` returns `Task<Fin<A>>`:
+Runtime records implement `Has<Eff<RT>, T>` once per capability with `Eff.runtime<RT>().Map(static rt => rt.Capability)`, a consumer generic over `RT` reads the capability through `RT.Ask` or through a module constrained on the trait (`Console<RT>.writeLine` and `Console<RT>.readLine` need `ConsoleIO`, `File<RT>` needs `FileIO` and `EncodingIO`), `Run(rt)` returns `Fin<A>`, and `RunAsync(rt)` returns `Task<Fin<A>>`:
 
 ```csharp
 internal sealed record AppRuntime(ConsoleIO Console) : Has<Eff<AppRuntime>, ConsoleIO> {
@@ -252,18 +252,18 @@ internal static class Generic {
 
 Transformers stack one concern over an inner monad `M`, and the wrapped representation decides what each `Run` returns:
 
-| [INDEX] | [TRANSFORMER]              | [HOLDS]                          | [RUN]                          |
-| :-----: | :------------------------- | :------------------------------- | :----------------------------- |
-|  [01]   | `OptionT<M, A>`            | `K<M, Option<A>>`                | Returns the wrapped value      |
-|  [02]   | `FinT<M, A>`               | `K<M, Fin<A>>` as `runFin`       | Returns the wrapped value      |
-|  [03]   | `EitherT<L, M, A>`         | `K<M, Either<L, A>>`             | Returns the wrapped value      |
-|  [04]   | `ValidationT<Error, M, A>` | Accumulates inside an effect     | Returns the wrapped value      |
-|  [05]   | `ReaderT<Env, M, A>`       | `Func<Env, K<M, A>>`             | Applies the function to `Env`  |
-|  [06]   | `StateT<S, M, A>`          | `Func<S, K<M, (A, S)>>`          | Applies the function to `S`    |
-|  [07]   | `WriterT<W, M, A>`         | `W` beside the value             | Returns the value with `W`     |
-|  [08]   | `RWST<R, W, S, M, A>`      | `ask`, `tell`, `get`, `put`      | Combines the 3 runs            |
+| [INDEX] | [TRANSFORMER]              | [HOLDS]                      | [RUN]                         |
+| :-----: | :------------------------- | :--------------------------- | :---------------------------- |
+|  [01]   | `OptionT<M, A>`            | `K<M, Option<A>>`            | Returns the wrapped value     |
+|  [02]   | `FinT<M, A>`               | `K<M, Fin<A>>` as `runFin`   | Returns the wrapped value     |
+|  [03]   | `EitherT<L, M, A>`         | `K<M, Either<L, A>>`         | Returns the wrapped value     |
+|  [04]   | `ValidationT<Error, M, A>` | Accumulates inside an effect | Returns the wrapped value     |
+|  [05]   | `ReaderT<Env, M, A>`       | `Func<Env, K<M, A>>`         | Applies the function to `Env` |
+|  [06]   | `StateT<S, M, A>`          | `Func<S, K<M, (A, S)>>`      | Applies the function to `S`   |
+|  [07]   | `WriterT<W, M, A>`         | `W` beside the value         | Returns the value with `W`    |
+|  [08]   | `RWST<R, W, S, M, A>`      | `ask`, `tell`, `get`, `put`  | Combines the 3 runs           |
 
-`lift` adds a layer to an evaluated value (`Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner `K<M, A>`), `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom, `Run` removes one layer and the host runs the layers from the outside in, and `ValidationT` serves only errors that must accumulate inside an effect. A domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` with `Transform` and `CoTransform` alone, `Deriving.MonadIO` needs a stack that implements `MonadIO`, which `StateT` does not, and such a wrapper lifts an effect through `CoTransform` over `StateT.liftIO`.
+`lift` adds a layer to an evaluated value (`Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner `K<M, A>`), `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom, `Run` removes one layer and the host runs the layers from the outside in, and `ValidationT` serves only errors that must accumulate inside an effect. The domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` with `Transform` and `CoTransform` alone, `Deriving.MonadIO` needs a stack that implements `MonadIO`, which `StateT` does not, and such a wrapper lifts an effect through `CoTransform` over `StateT.liftIO`.
 
 ## [06]-[COLLECTIONS]
 
@@ -293,13 +293,13 @@ internal static class Folds {
 }
 ```
 
-`Choose` maps to `Option` and keeps the `Some` values in one pass, `Partition` splits by a predicate into a deconstructable tuple, `Zip` pairs sequences and its projection overload takes a function, `Scan` emits the seed first so the result has one more element than the source, `At(index)`, `Head`, and `Last` are `Option<A>`, `Tail` is empty for an empty source, the indexed `Map` passes the item first and the index second, `Rev` reverses, `LanguageExt.List.unfold` runs a state seed until the step returns `None`, and `Cons` resolves as `head.Cons(tail)` because `LanguageExt.Pretty.Cons<A>` is a type.
+`Choose` maps to `Option` and keeps the `Some` values in one pass, `Partition` splits by a predicate into a deconstructable tuple, `Zip` pairs sequences and its projection overload takes a function, `Scan` emits the seed first, the result has one more element than the source, `At(index)`, `Head`, and `Last` are `Option<A>`, `Tail` is empty for an empty source, the indexed `Map` passes the item first and the index second, `Rev` reverses, `LanguageExt.List.unfold` runs a state seed until the step returns `None`, and `Cons` resolves as `head.Cons(tail)` because `LanguageExt.Pretty.Cons<A>` is a type.
 
 The compiler rejects these forms:
-- `Zip` names its tuple elements `First` and `Second`, and comparing the result with a `Seq` of unnamed tuples is ambiguous (CS9342), so the expected value declares the same names
-- `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121), so membership is `Exists` and a sum is `Fold`
-- `Seq<A>.Empty` in expression context fails (CS0119) because the simple name `Seq` binds to the `Prelude` function, so the empty value is `Seq<A>()`
-- `Seq<A>` has no `Sort` instance, so sorting is LINQ `Order()` followed by `toSeq`
+- `Zip` names its tuple elements `First` and `Second`, and comparing the result with a `Seq` of unnamed tuples is ambiguous (CS9342), the expected value declares the same names
+- `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121), membership is `Exists` and a sum is `Fold`
+- `Seq<A>.Empty` in expression context fails (CS0119) because the simple name `Seq` binds to the `Prelude` function, the empty value is `Seq<A>()`
+- `Seq<A>` has no `Sort` instance, sorting is LINQ `Order()` followed by `toSeq`
 
 ## [07]-[LENSES_AND_SHARED_STATE]
 
@@ -318,7 +318,7 @@ internal static class Lenses {
 }
 ```
 
-`Atom<A>` manages one value with compare-and-swap, `Swap` returns the new value and reruns its function on conflict, and `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key, `SwapKey(key, Func<V, V>)` updates a present key and `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes, `Find` reads, and `FindOrAdd` adds a missing value or returns the existing one in one atomic step. `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction, `swap` reads the transactional value, `commute` applies its function inside the transaction and again at the commit point against the last committed value, and `Isolation.Serialisable` sets serializable isolation. `TrackingHashMap<K, V>` records each key change in `Changes` and `Snapshot()` clears the log and keeps the entries. `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`, and `memoK` caches the construction of a `K<F, A>` and not its execution, so a memoized `IO` is constructed once and runs each time `Value` is read:
+`Atom<A>` manages one value with compare-and-swap, `Swap` returns the new value and reruns its function on conflict, and `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key, `SwapKey(key, Func<V, V>)` updates a present key and `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes, `Find` reads, and `FindOrAdd` adds a missing value or returns the existing one in one atomic step. `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction, `swap` reads the transactional value, `commute` applies its function inside the transaction and again at the commit point against the last committed value, and `Isolation.Serialisable` sets serializable isolation. `TrackingHashMap<K, V>` records each key change in `Changes` and `Snapshot()` clears the log and keeps the entries. `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`, and `memoK` caches the construction of a `K<F, A>` and not its execution, a memoized `IO` is constructed once and runs each time `Value` is read:
 
 ```csharp
 internal static class SharedState {

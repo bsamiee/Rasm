@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding
-description: "Use when writing or reviewing C# domain code: signatures, purity, immutability, result and effect types, pattern matching, and composition under the workspace standards."
+description: "Use when writing or reviewing C#: honest signatures, purity, pattern matching, immutability, Option, Fin, Validation, IO, composition operators, errors, unions, dependencies, and failure policies."
 ---
 
 # [DOTNET_CODING]
@@ -216,14 +216,14 @@ The input boundary selects the result type, domain functions preserve it, and co
 
 Give each step a function and select the operator by the step's signature and by whether the steps depend on each other:
 
-| [INDEX] | [SIGNATURE]                     | [OPERATOR]                             | [BEHAVIOR]                                                  |
-| :-----: | :------------------------------ | :------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `T -> R`                        | `Map`                                  | Transforms a present value and preserves the result type    |
-|  [02]   | `T -> bool`                     | `Filter` on `Option`, `guard` on `Fin` | Keeps a value only when it passes, `guard` names the error  |
-|  [03]   | `T -> F<R>`                     | `Bind`, one `from` per step in LINQ    | Continues with a dependent step, the first failure stops it |
-|  [04]   | `(F<A>, F<B>)` independent      | Tuple `Apply`                          | Accumulates errors under `Validation`, overlaps under `IO`  |
-|  [05]   | `Seq<A>` with `A -> F<B>`       | `Traverse`, `TraverseM`                | `Traverse` accumulates or overlaps, `TraverseM` stops first |
-|  [06]   | `T -> void`                     | `Iter`                                 | Performs the terminal effect only for a present value       |
+| [INDEX] | [SIGNATURE]                | [OPERATOR]                             | [BEHAVIOR]                                                  |
+| :-----: | :------------------------- | :------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `T -> R`                   | `Map`                                  | Transforms a present value and preserves the result type    |
+|  [02]   | `T -> bool`                | `Filter` on `Option`, `guard` on `Fin` | Keeps a value only when it passes, `guard` names the error  |
+|  [03]   | `T -> F<R>`                | `Bind`, one `from` per step in LINQ    | Continues with a dependent step, the first failure stops it |
+|  [04]   | `(F<A>, F<B>)` independent | Tuple `Apply`                          | Accumulates errors under `Validation`, overlaps under `IO`  |
+|  [05]   | `Seq<A>` with `A -> F<B>`  | `Traverse`, `TraverseM`                | `Traverse` accumulates or overlaps, `TraverseM` stops first |
+|  [06]   | `T -> void`                | `Iter`                                 | Performs the terminal effect only for a present value       |
 
 - Errors from one traversed element hold the element index as a typed field
 - Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling, and a nested `Bind` becomes a query
@@ -286,16 +286,16 @@ internal abstract partial record Identity {
 
 ### [04.4]-[ANTI_PATTERNS]
 
-| [INDEX] | [WRONG_FORM]                                                              | [CORRECT_FORM]                                     |
-| :-----: | :------------------------------------------------------------------------ | :------------------------------------------------- |
-|  [01]   | `Match` in the middle of a pipeline unwraps a value the next step relifts | `Bind` the next step                               |
-|  [02]   | `IfNone` with an arbitrary default hides absence                          | `ToFin` with an `Error`                            |
-|  [03]   | Matching on message text couples the consumer to prose                    | `HasCode` or `IsType<E>`                           |
-|  [04]   | `Option` nested inside an effect forces two unwraps                       | `OptionT<IO, A>`                                   |
-|  [05]   | `Fin` nested inside an effect duplicates the failure channel              | Typed `Expected` on the `IO` error channel         |
-|  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step             |
-|  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary                    |
-|  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases      |
+| [INDEX] | [WRONG_FORM]                                                              | [CORRECT_FORM]                                |
+| :-----: | :------------------------------------------------------------------------ | :-------------------------------------------- |
+|  [01]   | `Match` in the middle of a pipeline unwraps a value the next step relifts | `Bind` the next step                          |
+|  [02]   | `IfNone` with an arbitrary default hides absence                          | `ToFin` with an `Error`                       |
+|  [03]   | Matching on message text couples the consumer to prose                    | `HasCode` or `IsType<E>`                      |
+|  [04]   | `Option` nested inside an effect forces two unwraps                       | `OptionT<IO, A>`                              |
+|  [05]   | `Fin` nested inside an effect duplicates the failure channel              | Typed `Expected` on the `IO` error channel    |
+|  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step        |
+|  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary               |
+|  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases |
 
 ## [05]-[EFFECTS]
 
@@ -329,13 +329,13 @@ The host reads the date once from a `ZonedClock` (`clock.InZone(zone)`) through 
 
 Keep the failure policies distinct: fallback runs a lower-priority effect after the preferred one fails (`primary | secondary`, or `Catch(code, f)` for one classified error), retry reruns a transient failure on a schedule (`Retry(Schedule.exponential(delay) | Schedule.recurs(3))`), and recovery maps a final error to a value at the host (`IfFail` on the `Fin<A>`). Libraries return their result type with their own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation. The dependency structure and the concurrency bound select the traversal:
 
-| [INDEX] | [SCENARIO]                   | [TRAVERSAL]                             | [BEHAVIOR]                                                  |
-| :-----: | :--------------------------- | :-------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | Independent checks           | `Traverse` under `Validation`           | Accumulates every error                                     |
-|  [02]   | Independent effects          | `Traverse` under `IO`                   | Overlaps without a bound, fails if one effect fails         |
-|  [03]   | Dependent or ordered effects | `TraverseM`                             | Serial, stops at the first failure                          |
-|  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound         |
-|  [05]   | Best effort                  | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs`       |
+| [INDEX] | [SCENARIO]                   | [TRAVERSAL]                             | [BEHAVIOR]                                            |
+| :-----: | :--------------------------- | :-------------------------------------- | :---------------------------------------------------- |
+|  [01]   | Independent checks           | `Traverse` under `Validation`           | Accumulates every error                               |
+|  [02]   | Independent effects          | `Traverse` under `IO`                   | Overlaps without a bound, fails if one effect fails   |
+|  [03]   | Dependent or ordered effects | `TraverseM`                             | Serial, stops at the first failure                    |
+|  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound   |
+|  [05]   | Best effort                  | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs` |
 
 Independent effects combine with the tuple `Apply` or with `Fork` and `Await`, and `awaitAll` runs a `Seq<IO<A>>`. Avoid shared state by default, and when one logical value must be shared, `Atom<A>` replaces it with compare-and-swap, `AtomHashMap<K, V>` holds a registry with `FindOrAdd`, `Ref<A>` under `atomic` commits coordinated updates, a `Conduit` reduced under `Fork` serializes commands as an agent, and every update function stays free of effects because a conflict reruns it. The delivery shape selects the construct:
 - `Source<A>` fits values that arrive over time, logic across events or sources (sequences, transitions, windows), and one-way dataflow, and an expected per-item failure stays a `Fin<A>` value inside the stream

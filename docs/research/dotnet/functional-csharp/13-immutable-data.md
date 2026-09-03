@@ -16,7 +16,7 @@ Entities retain identity through many immutable states. Freezing keeps a bank ac
 Avoiding mutation and enforcing immutability are separate concerns. The first is a design discipline: transitions return new values. The second uses constructors, access restrictions, and immutable referenced values to prevent accidental violations of that discipline.
 
 ```text
-current state --transition--> next state
+current state --transition-> next state
       |                          |
    unchanged                  new value
 ```

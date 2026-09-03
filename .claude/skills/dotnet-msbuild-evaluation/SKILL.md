@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-evaluation
-description: "Use when deciding which MSBuild file owns a property, item, condition, or import across Directory.Build.props, .targets, .csproj, or Directory.Packages.props, or why a condition never matched."
+description: "Use when writing a property, item, condition, import, transform, or batch in a .props, .targets, or project file, or a value evaluates unexpectedly."
 ---
 
 # [DOTNET_MSBUILD_EVALUATION]

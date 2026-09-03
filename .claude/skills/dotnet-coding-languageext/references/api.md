@@ -32,7 +32,7 @@
 |  [03]   | `Lst<A>`                      | readonly struct | Persistent linked list                                    |
 |  [04]   | `HashMap<K, V>`               | readonly struct | Hashed persistent map                                     |
 |  [05]   | `Map<K, V>`                   | readonly struct | Ordered persistent map                                    |
-|  [06]   | `TrackingHashMap<K, V>`       | readonly struct | Map carrying its own change log                           |
+|  [06]   | `TrackingHashMap<K, V>`       | readonly struct | Map with its own change log                               |
 |  [07]   | `HashSet<A>`                  | readonly struct | Hashed persistent set                                     |
 |  [08]   | `Set<A>`                      | readonly struct | Ordered persistent set                                    |
 |  [09]   | `Stck<A>`                     | readonly struct | Persistent LIFO stack                                     |
@@ -45,7 +45,7 @@
 |  [16]   | `AtomHashMapChangeEvent<K,V>` | delegate        | `AtomHashMap.Change` handler over a patch                 |
 |  [17]   | `Ref<A>`                      | sealed class    | Transactional reference that `atomic` commits             |
 |  [18]   | `Memo<A>`                     | class           | Resettable memoized thunk                                 |
-|  [19]   | `Memo<F, A>`                  | class           | Memoized `K<F, A>` CONSTRUCTION, not its run              |
+|  [19]   | `Memo<F, A>`                  | class           | Memoized `K<F, A>` construction, not its run              |
 |  [20]   | `Lens<A, B>`                  | readonly struct | Composable get and immutable set                          |
 |  [21]   | `Range<A>`                    | record          | Generated bounded sequence, `Range.fromMinMax` creates it |
 |  [22]   | `AtomChangedEvent<A>`         | delegate        | `Atom.Change` handler over the new value                  |
@@ -58,7 +58,7 @@
 | :-----: | :--------------------- | :-------------- | :-------------------------------------------- |
 |  [01]   | `K<F, A>`              | interface       | Higher-kinded interface every type implements |
 |  [02]   | `Functor<F>`           | interface       | `Map` conformance                             |
-|  [03]   | `Applicative<F>`       | interface       | `Apply` fan-in conformance                    |
+|  [03]   | `Applicative<F>`       | interface       | `Apply` conformance                           |
 |  [04]   | `Monad<M>`             | interface       | `Bind` and tail-recursive `Recur`             |
 |  [05]   | `MonadIO<M>`           | interface       | `IO` lifting into another monad               |
 |  [06]   | `Semigroup<A>`         | interface       | Associative `Combine`                         |
@@ -88,7 +88,7 @@
 
 | [INDEX] | [SYMBOL]                         | [DECLARATION] | [DESCRIPTION]                          |
 | :-----: | :------------------------------- | :------------ | :------------------------------------- |
-|  [01]   | `DomainType<SELF>`               | interface     | Arity-one marker interface, NO members |
+|  [01]   | `DomainType<SELF>`               | interface     | Arity-one marker interface, no members |
 |  [02]   | `DomainType<SELF, REPR>`         | interface     | `From`/`FromUnsafe` in, `To()` out     |
 |  [03]   | `Identifier<SELF>`               | interface     | Equality-only domain identity          |
 |  [04]   | `VectorSpace<SELF, SCALAR>`      | interface     | Addition and scalar multiplication     |
@@ -97,29 +97,29 @@
 
 [TYPE_SCOPE]: trait derivation (`LanguageExt.Deriving`), each interface lifts one `LanguageExt.Traits` conformance off the `Subtype` its `Supertype` wraps
 
-| [INDEX] | [SYMBOL]                                     | [DECLARATION] | [DESCRIPTION]                                             |
-| :-----: | :------------------------------------------- | :------------ | :-------------------------------------------------------- |
-|  [01]   | `Deriving.Alternative<Supertype, Subtype>`   | interface     | `Choose`, `Pure`, `Apply`, `Map`, not `Empty`  |
-|  [02]   | `Deriving.Applicative<Supertype, Subtype>`   | interface     | `Pure`, `Action`, both `Apply` arities                    |
-|  [03]   | `Deriving.Choice<Supertype, Subtype>`        | interface     | `Choose` over a strict and a `Memo` right side            |
-|  [04]   | `Deriving.Cofunctor<Supertype, Subtype>`     | interface     | `Comap` contravariant projection                          |
-|  [05]   | `Deriving.Decidable<Supertype, Subtype>`     | interface     | `Lose` and `Route` over `Either<B, C>`                    |
-|  [06]   | `Deriving.Divisible<Supertype, Subtype>`     | interface     | `Divide` and `Conquer`, constrained on `Decidable`        |
-|  [07]   | `Deriving.Fallible<E, Supertype, Subtype>`   | interface     | `Fail` and predicate `Catch` in the failure type `E`      |
-|  [08]   | `Deriving.Fallible<Supertype, Subtype>`      | interface     | `Fail` and `Catch` with `E` fixed to `Error`              |
-|  [09]   | `Deriving.Final<Supertype, Subtype>`         | interface     | `Finally` teardown across either branch                   |
-|  [10]   | `Deriving.Foldable<Supertype, Subtype>`      | interface     | Every fold, search, aggregate, and `ToSeq` default        |
-|  [11]   | `Deriving.Functor<Supertype, Subtype>`       | interface     | `Map`                                                     |
-|  [12]   | `Deriving.Monad<Supertype, Subtype>`         | interface     | `Bind`, `Flatten`, tail-recursive `Recur`                 |
-|  [13]   | `Deriving.MonadIO<Supertype, Subtype>`       | interface     | Both `LiftIO` arities                                     |
-|  [14]   | `Deriving.MonadT<Supertype, Subtype, M>`     | interface     | `Lift` from the inner `M`                                 |
-|  [15]   | `Deriving.MonadUnliftIO<Supertype, Subtype>` | interface     | `ToIO`, `MapIO`, bracket, timeout, repeat, retry, fold-IO |
-|  [16]   | `Deriving.MonoidK<Supertype, Subtype>`       | interface     | `Empty` identity element                                  |
-|  [17]   | `Deriving.Readable<Supertype, Env, Subtype>` | interface     | `Ask`, `Asks`, `Local` over `Env`                         |
-|  [18]   | `Deriving.SemigroupK<Supertype, Subtype>`    | interface     | `Combine`                                                 |
-|  [19]   | `Deriving.Stateful<Supertype, Subtype, S>`   | interface     | `Get`, `Put`, `Modify`, `Gets` over `S`                   |
-|  [20]   | `Deriving.Traversable<Supertype, Subtype>`   | interface     | `Traverse`, `Sequence`, their `M` variants, and `Foldable`   |
-|  [21]   | `Deriving.Writable<Supertype, Subtype, W>`   | interface     | `Tell`, `Listen`, `Pass` over `W : Monoid<W>`             |
+| [INDEX] | [SYMBOL]                                     | [DECLARATION] | [DESCRIPTION]                                              |
+| :-----: | :------------------------------------------- | :------------ | :--------------------------------------------------------- |
+|  [01]   | `Deriving.Alternative<Supertype, Subtype>`   | interface     | `Choose`, `Pure`, `Apply`, `Map`, not `Empty`              |
+|  [02]   | `Deriving.Applicative<Supertype, Subtype>`   | interface     | `Pure`, `Action`, both `Apply` arities                     |
+|  [03]   | `Deriving.Choice<Supertype, Subtype>`        | interface     | `Choose` over a strict and a `Memo` right side             |
+|  [04]   | `Deriving.Cofunctor<Supertype, Subtype>`     | interface     | `Comap` contravariant projection                           |
+|  [05]   | `Deriving.Decidable<Supertype, Subtype>`     | interface     | `Lose` and `Route` over `Either<B, C>`                     |
+|  [06]   | `Deriving.Divisible<Supertype, Subtype>`     | interface     | `Divide` and `Conquer`, constrained on `Decidable`         |
+|  [07]   | `Deriving.Fallible<E, Supertype, Subtype>`   | interface     | `Fail` and predicate `Catch` in the failure type `E`       |
+|  [08]   | `Deriving.Fallible<Supertype, Subtype>`      | interface     | `Fail` and `Catch` with `E` fixed to `Error`               |
+|  [09]   | `Deriving.Final<Supertype, Subtype>`         | interface     | `Finally` cleanup on either branch                         |
+|  [10]   | `Deriving.Foldable<Supertype, Subtype>`      | interface     | Every fold, search, aggregate, and `ToSeq` default         |
+|  [11]   | `Deriving.Functor<Supertype, Subtype>`       | interface     | `Map`                                                      |
+|  [12]   | `Deriving.Monad<Supertype, Subtype>`         | interface     | `Bind`, `Flatten`, tail-recursive `Recur`                  |
+|  [13]   | `Deriving.MonadIO<Supertype, Subtype>`       | interface     | Both `LiftIO` arities                                      |
+|  [14]   | `Deriving.MonadT<Supertype, Subtype, M>`     | interface     | `Lift` from the inner `M`                                  |
+|  [15]   | `Deriving.MonadUnliftIO<Supertype, Subtype>` | interface     | `ToIO`, `MapIO`, bracket, timeout, repeat, retry, fold-IO  |
+|  [16]   | `Deriving.MonoidK<Supertype, Subtype>`       | interface     | `Empty` identity element                                   |
+|  [17]   | `Deriving.Readable<Supertype, Env, Subtype>` | interface     | `Ask`, `Asks`, `Local` over `Env`                          |
+|  [18]   | `Deriving.SemigroupK<Supertype, Subtype>`    | interface     | `Combine`                                                  |
+|  [19]   | `Deriving.Stateful<Supertype, Subtype, S>`   | interface     | `Get`, `Put`, `Modify`, `Gets` over `S`                    |
+|  [20]   | `Deriving.Traversable<Supertype, Subtype>`   | interface     | `Traverse`, `Sequence`, their `M` variants, and `Foldable` |
+|  [21]   | `Deriving.Writable<Supertype, Subtype, W>`   | interface     | `Tell`, `Listen`, `Pass` over `W : Monoid<W>`              |
 
 ## [02]-[MEMBERS]
 
@@ -138,7 +138,7 @@
 |  [09]   | `Fin.BindFail(Func<Error,Fin<A>>)`               | instance | Failure-branch recovery chain               |
 |  [10]   | `Fin.BiBind(Func<A,Fin<B>>, Func<Error,Fin<B>>)` | instance | Both-branch chain                           |
 |  [11]   | `Fin.SelectMany(Func<A,Guard<Error,Unit>>)`      | instance | `guard` inside a LINQ query                 |
-|  [12]   | `Fin.IfFail(Func<Error,A>)`                      | instance | Failure escape to a value                   |
+|  [12]   | `Fin.IfFail(Func<Error,A>)`                      | instance | Value on `Fail`                             |
 |  [13]   | `Fin.IfSucc(Action<A>)`                          | instance | Success effect tap                          |
 |  [14]   | `Fin.Iter(Action<A>)`                            | instance | Success iteration                           |
 |  [15]   | `Fin.Fold(S, Func<S,A,S>)`                       | fold     | Success state fold                          |
@@ -172,7 +172,7 @@
 |  [02]   | `Prelude.Optional(A?)`                             | static    | Null-tolerant construction          |
 |  [03]   | `Option<A>.None`                                   | field     | Absent literal                      |
 |  [04]   | `Option.Match(Func<A,B>, Func<B>)`                 | instance  | Total fold over both branches       |
-|  [05]   | `Option.IfNone(A)`                                 | instance  | default escape                      |
+|  [05]   | `Option.IfNone(A)`                                 | instance  | Value on `None`                     |
 |  [06]   | `Option.Filter(Func<A,bool>)`                      | instance  | Predicate narrowing                 |
 |  [07]   | `Option.Bind(Func<A,Option<B>>)`                   | instance  | Monadic chain                       |
 |  [08]   | `Option.ToFin(Error)`                              | instance  | Conversion to `Fin`                 |
@@ -185,7 +185,7 @@
 |  [15]   | `FinGuardExtensions.ToFin(Guard<Error,Unit>)`      | static    | Guard to `Fin<Unit>`                |
 |  [16]   | `FinGuardExtensions.SelectMany(Func<Unit,Fin<B>>)` | static    | Guard as a LINQ `from` clause       |
 |  [17]   | `IOptional`                                        | interface | Non-generic optional read           |
-|  [18]   | `IOptional.IsSome` / `IsNone`                      | property  | Presence on a BOXED `Option<A>`     |
+|  [18]   | `IOptional.IsSome` / `IsNone`                      | property  | Presence on a boxed `Option<A>`     |
 |  [19]   | `Option.Exists(Func<A,bool>)`                      | instance  | Predicate over the `Some` branch    |
 |  [20]   | `Option.Map<B>(Func<A,B>) -> Option<B>`            | instance  | Functor over the `Some` branch      |
 |  [21]   | `Option.Iter(Action<A>) -> Unit`                   | instance  | Side effect on the `Some` branch    |
@@ -209,13 +209,13 @@
 |  [13]   | `ValidationExtensions.Successes()`                | static   | Success values of a collection          |
 |  [14]   | `ValidationExtensions.Fails()`                    | static   | Failure values of a collection          |
 |  [15]   | `Validation operator \|`                          | operator | First-success choice, left failure kept |
-|  [16]   | `ApplicativeExtensions.Apply(tuple, Func<A,B,R>)` | static   | Higher-kinded fan-in, arities 2–10      |
+|  [16]   | `ApplicativeExtensions.Apply(tuple, Func<A,B,R>)` | static   | Higher-kinded tuple apply, arities 2–10 |
 |  [17]   | `Error.New(int, string)`                          | static   | `Expected` construction                 |
 |  [18]   | `Error.New(string, Exception)`                    | static   | Exception-preserving construction       |
 |  [19]   | `Error.New(Exception)`                            | static   | `Exceptional` construction              |
 |  [20]   | `Error.Many(Seq<Error>)`                          | static   | `ManyErrors` construction               |
 |  [21]   | `Error.Combine(Error)`                            | instance | Monoidal failure join                   |
-|  [22]   | `Error operator +`                                | operator | Terse monoidal failure join             |
+|  [22]   | `Error operator +`                                | operator | Operator form of `Combine`              |
 |  [23]   | `Error.Head`                                      | property | First accumulated failure               |
 |  [24]   | `Error.Tail`                                      | property | Remaining accumulated failures          |
 |  [25]   | `Error.Count`                                     | property | Accumulated-failure count               |
@@ -224,7 +224,7 @@
 |  [28]   | `Error.IsType<E>()`                               | instance | Failure type test                       |
 |  [29]   | `Error.HasCode(int)`                              | instance | Failure code test                       |
 |  [30]   | `Error.Filter<E>()`                               | instance | Failure-subset selection                |
-|  [31]   | `Error.Exception`                                 | property | Optional exceptional payload            |
+|  [31]   | `Error.Exception`                                 | property | Optional captured exception             |
 |  [32]   | `Error.Inner`                                     | property | Optional cause chain                    |
 |  [33]   | `Error.ToErrorException()`                        | instance | Expected-error exception wrapper        |
 |  [34]   | `Error.ToException()`                             | instance | Conversion to `Exception`               |
@@ -241,8 +241,8 @@
 |  [45]   | `Errors.None`                                     | static   | The empty `ManyErrors` value            |
 |  [46]   | `Errors.ParseError(string)`                       | static   | Parse failure construction              |
 
-- `Error.New(string, Exception)` requires an argument statically typed as `Exception`. Derived or generic exceptions convert implicitly to `Error`, which makes the two-argument call ambiguous with `Error.New(string, Error)`. Widen or cast the argument before the call.
-- `Errors` declares the package failure values as a closed negative-code block, `Error.HasCode` and `Error.Is` separate a cancellation from a timeout, an empty sequence from a validation failure, and a completed source from a closed one. Matches on the message text re-classify when the text changes. The block occupies the `-2000000001`..`-2000000015` span.
+- `Error.New(string, Exception)` requires an argument statically typed as `Exception`, derived or generic exceptions convert implicitly to `Error` and make the two-argument call ambiguous with `Error.New(string, Error)`, widen or cast the argument before the call
+- `Errors` declares the package failure values as a closed negative-code block, `Error.HasCode` and `Error.Is` separate a cancellation from a timeout, an empty sequence from a validation failure, and a completed source from a closed one, matches on the message text re-classify when the text changes, and the block occupies the `-2000000001`..`-2000000015` span
 
 [MEMBER_SCOPE]: `Fallible<E, F>`, the recovery and partition members shared by every failing type
 
@@ -255,17 +255,17 @@
 |  [05]   | `Catch(Func<Error, Error>)`                              | static | Failure reprojection, still failed         |
 |  [06]   | `Catch(Func<Error, A>)`                                  | static | Recovery to a value under `Applicative<F>` |
 |  [07]   | `Catch(K<F,A>)` / `Catch(Pure<A>)` / `Catch(A)`          | static | Unconditional alternative                  |
-|  [08]   | `Catch(CatchM<Error, F, A>)`                             | static | Handler VALUE applied to the type          |
+|  [08]   | `Catch(CatchM<Error, F, A>)`                             | static | Handler value applied to the type          |
 |  [09]   | `CatchIO(Func<Error, K<IO,A>>)`                          | static | Recovery into `IO` under `MonadIO<M>`      |
 |  [10]   | `PartitionFallible(Seq<K<M,A>>)`                         | static | `K<M, (Seq<Error> Fails, Seq<A> Succs)>`   |
 |  [11]   | `PartitionFallible(K<F, K<M,A>>)`                        | static | The same over any `Foldable<F>`            |
 |  [12]   | `Succs(Seq<K<M,A>>)`                                     | static | `K<M, Seq<A>>`, failures dropped           |
 |  [13]   | `Fails(Seq<K<M,A>>)`                                     | static | `K<M, Seq<Error>>`, successes dropped      |
 
-- `PartitionFallible` is the effectful counterpart of `FinExtensions.Partition`. `Partition` splits an already-evaluated collection of `Fin` values. `PartitionFallible` runs a collection of pending effects, does not short-circuit, and returns both branches inside one `M`. Its receivers are `Seq`, `Lst`, `Set`, `HashSet`, `Iterable`, `IEnumerable`, and any `K<F, K<M, A>>`. `Succs` and `Fails` are the one-branch projections over the same receivers.
-- The result tuple is `(Seq<Error> Fails, Seq<A> Succs)`, FAILS FIRST, the opposite order of `Fin.Match(Succ, Fail)`. Positional deconstructions across the two read the branches backwards. Both fields are named. Read them by name.
-- `Catch` has selector arities: `int Code` against an `Errors` value or a domain error code, `Error Match` against a value, and `Func<Error, bool>` where neither suffices. Each pairs with a value argument, an `Error` argument, or a `K<F, A>` argument. Recovery strategies compose as values instead of a `try`/`catch` chain at the call site.
-- `FallibleExtensionsE` carries the same members generalized over the failure type `E`, where `FallibleExtensions` fixes it to `Error`. Types that fail in a non-`Error` type reach the identical operators by naming their own `E`.
+- `PartitionFallible` is the effectful counterpart of `FinExtensions.Partition`, which splits an already-evaluated collection of `Fin` values, it runs a collection of pending effects, does not short-circuit, and returns both branches inside one `M`, its receivers are `Seq`, `Lst`, `Set`, `HashSet`, `Iterable`, `IEnumerable`, and any `K<F, K<M, A>>`, and `Succs` and `Fails` are the one-branch projections over the same receivers
+- The result tuple is `(Seq<Error> Fails, Seq<A> Succs)`, fails first, the opposite order of `Fin.Match(Succ, Fail)`, positional deconstruction across both reads the branches backwards, and both fields are named, read them by name
+- `Catch` has selector arities: `int Code` against an `Errors` value or a domain error code, `Error Match` against a value, and `Func<Error, bool>` where neither suffices, each pairs with a value argument, an `Error` argument, or a `K<F, A>` argument, and recovery strategies compose as values instead of a `try`/`catch` chain at the call site
+- `FallibleExtensionsE` has the same members generalized over the failure type `E`, where `FallibleExtensions` fixes it to `Error`, and types that fail in a non-`Error` type reach the same operators by naming their own `E`
 
 [MEMBER_SCOPE]: `Try`, `Eff`, `IO`, the deferred effect types
 
@@ -317,18 +317,18 @@
 |  [44]   | `Prelude.use(Func<A>, Action<A>)`                                            | static   | Resource-scoped acquisition               |
 |  [45]   | `Prelude.tail(IO<A>)`                                                        | static   | Tail-recursion marker for deep binds      |
 
-- `Try.lift(...).Run()` normalizes thrown cancellation and timeout exceptions to the package `Expected` values and expands `AggregateException` into `ManyErrors`. Thrown `Error` values return unchanged.
+- `Try.lift(...).Run()` normalizes thrown cancellation and timeout exceptions to the package `Expected` values and expands `AggregateException` into `ManyErrors`, and thrown `Error` values return unchanged
 - `IO.lift` rethrows cancellation during execution, a token-aware boundary must capture the cancellation before the lift
-- In the three-argument `IO.Bracket` form, the `Catch` argument receives the `Error` alone, never the acquired value. Releases that need the resource use the trailing `Fin` argument.
-- `IO.lift` overload selection for a `Fin`-returning thunk is silent, not ambiguous. `Func<Fin<A>>` is the more specific candidate, `IO.lift(() => <Fin<T>>)` resolves to the result-typed overload and returns `IO<T>` with the `Fail` folded onto the error channel, NEVER `IO<Fin<T>>`. To carry the `Fin` as the value, write the type argument: `IO.lift<Fin<T>>(…)`.
-- `Prelude.tail` wraps the recursive call as the last bind continuation of a deferred effect. The run loop unwraps it, and any `Map`, `Bind`, `Try()`, or `RunSafe()` placed after the recursion fails with `NotSupportedException` ("You can't map a tail call"). `tail`-recursive effects exit through `Run()` or `RunAsync()` alone.
-- `IO.Fork` starts one dedicated `TaskCreationOptions.LongRunning` thread per fork. Forked effects overlap fully before the await, and the pool imposes NO concurrency bound. Unbounded fan-out creates an unbounded thread count.
+- In the 3-argument `IO.Bracket` form, the `Catch` argument receives the `Error` alone, never the acquired value, and releases that need the resource use the trailing `Fin` argument
+- `IO.lift` overload selection for a `Fin`-returning thunk is silent, not ambiguous, `Func<Fin<A>>` is the more specific candidate, `IO.lift(() => <Fin<T>>)` resolves to the result-typed overload and returns `IO<T>` with the `Fail` folded onto the error channel, never `IO<Fin<T>>`, and the type argument `IO.lift<Fin<T>>(…)` keeps the `Fin` as the value
+- `Prelude.tail` wraps the recursive call as the last bind continuation of a deferred effect, the run loop unwraps it, any `Map`, `Bind`, `Try()`, or `RunSafe()` placed after the recursion fails with `NotSupportedException` ("You can't map a tail call"), and `tail`-recursive effects exit through `Run()` or `RunAsync()` alone
+- `IO.Fork` starts one dedicated `TaskCreationOptions.LongRunning` thread per fork, forked effects overlap before the await, the pool imposes no concurrency bound, and unbounded fan-out creates an unbounded thread count
 
 [MEMBER_SCOPE]: `Schedule`, the repeat and retry policy every `IO.Repeat`/`Retry` overload accepts
 
 | [INDEX] | [MEMBER]                                                     | [KIND]            | [DESCRIPTION]                             |
 | :-----: | :----------------------------------------------------------- | :---------------- | :---------------------------------------- |
-|  [01]   | `Schedule.Forever` / `Never` / `Once`                        | static            | The three degenerate policies             |
+|  [01]   | `Schedule.Forever` / `Never` / `Once`                        | static            | The degenerate policies                   |
 |  [02]   | `Schedule.spaced(Duration)`                                  | static            | One constant delay, unbounded             |
 |  [03]   | `Schedule.linear(Duration seed, double factor)`              | static            | Arithmetic growth                         |
 |  [04]   | `Schedule.exponential(Duration seed, double factor)`         | static            | Geometric growth, factor defaults `2.0`   |
@@ -339,21 +339,21 @@
 |  [09]   | `Schedule.secondOfMinute` / `minuteOfHour` / `hourOfDay`     | static            | Calendar-aligned cadence                  |
 |  [10]   | `Schedule.dayOfWeek(DayOfWeek, Func<DateTime>?)`             | static            | Weekly-aligned cadence                    |
 |  [11]   | `Schedule.TimeSeries(Seq<Duration>)`                         | static            | Explicit delay sequence                   |
-|  [12]   | `Schedule.recurs(int) -> ScheduleTransformer`                | static            | Cap the ATTEMPT count                     |
-|  [13]   | `Schedule.repeat(int) -> ScheduleTransformer`                | static            | Replay the WHOLE schedule n times         |
+|  [12]   | `Schedule.recurs(int) -> ScheduleTransformer`                | static            | Cap the attempt count                     |
+|  [13]   | `Schedule.repeat(int) -> ScheduleTransformer`                | static            | Replay the whole schedule n times         |
 |  [14]   | `Schedule.jitter(double factor, Option<int> seed)`           | static            | Proportional randomization                |
 |  [15]   | `Schedule.jitter(Duration min, Duration max, Option<int>)`   | static            | Absolute-window randomization             |
 |  [16]   | `Schedule.decorrelate(double factor, Option<int> seed)`      | static            | De-correlated jitter for parallel callers |
 |  [17]   | `Schedule.maxDelay(Duration)`                                | static            | Per-step ceiling                          |
 |  [18]   | `Schedule.maxCumulativeDelay(Duration)`                      | static            | Stop once the total budget is spent       |
 |  [19]   | `Schedule.resetAfter(Duration)`                              | static            | Restart the policy past a cumulative max  |
-|  [20]   | `Schedule.intersperse(Schedule)`                             | static            | Weave a second policy between steps       |
+|  [20]   | `Schedule.intersperse(Schedule)`                             | static            | Insert a second policy between steps      |
 |  [21]   | `Schedule.Transform(Func<Schedule, Schedule>)`               | static            | Create a transformer from a function      |
 |  [22]   | `Schedule.Identity` / `NoDelayOnFirst` / `RepeatForever`     | static            | The built-in transformers                 |
-|  [23]   | `Union(Schedule)` / `operator \|`                            | instance/operator | MIN delay, runs while EITHER runs         |
-|  [24]   | `Intersect(Schedule)` / `operator &`                         | instance/operator | MAX delay, stops when EITHER stops        |
+|  [23]   | `Union(Schedule)` / `operator \|`                            | instance/operator | Min delay, runs while either runs         |
+|  [24]   | `Intersect(Schedule)` / `operator &`                         | instance/operator | Max delay, stops when either stops        |
 |  [25]   | `Combine(Schedule)` / `operator +`                           | instance/operator | Append the second after the first         |
-|  [26]   | `Interleave(Schedule)`                                       | instance          | Alternate the two step by step            |
+|  [26]   | `Interleave(Schedule)`                                       | instance          | Alternate both step by step               |
 |  [27]   | `Take(int)` / `Skip(int)` / `Tail`                           | instance/property | Positional narrowing, `Tail` a property   |
 |  [28]   | `Filter(Func<Duration,bool>)` / `Where`                      | instance          | Drop steps by their delay                 |
 |  [29]   | `Map(Func<Duration,Duration>)` / `Map(Func<Duration,int,_>)` | instance          | Reshape each delay, index second          |
@@ -363,28 +363,28 @@
 |  [33]   | `ScheduleTransformer.Apply(Schedule)`                        | instance          | The one application member                |
 |  [34]   | `operator +(ScheduleTransformer, ScheduleTransformer)`       | operator          | Transformer composition                   |
 
-- `|` and `&` mean DIFFERENT things by operand type and the two forms look identical. Between two `Schedule` values they are union and intersection. Wherever one side is a `ScheduleTransformer` (in EITHER argument order) both operators collapse to `Apply`. `Forever | jitter(0.5)` and `Forever & jitter(0.5)` are the SAME schedule, while `spaced(1s) | spaced(3s)` and `spaced(1s) & spaced(3s)` are not. Transformers never intersect. Only a schedule does.
-- `ScheduleTransformer` converts implicitly to `Schedule` by applying itself to `Forever`, `IO.Retry(Schedule.recurs(3))` compiles bare and means `Forever.Take(3)`, exactly three attempts with no delay. Transformers passed to a `Schedule` parameter are never type errors and never no-ops. To cap an existing policy, apply the transformer to it explicitly.
-- `recurs(n)` caps attempts while `repeat(n)` replays the entire schedule n times, `exponential(1s) | repeat(3)` runs the backoff series three times over and `exponential(1s) | recurs(3)` truncates it to three steps
-- `maxCumulativeDelay` STOPS the schedule once the accumulated delay crosses its budget while `resetAfter` restarts the policy at that same crossing
+- `|` and `&` mean different things by operand type and both forms look identical, between two `Schedule` values they are union and intersection, wherever one side is a `ScheduleTransformer` (in either argument order) both operators collapse to `Apply`, `Forever | jitter(0.5)` and `Forever & jitter(0.5)` are the same schedule while `spaced(1s) | spaced(3s)` and `spaced(1s) & spaced(3s)` are not, and transformers never intersect, only a schedule does
+- `ScheduleTransformer` converts implicitly to `Schedule` by applying itself to `Forever`, `IO.Retry(Schedule.recurs(3))` compiles and means `Forever.Take(3)`, exactly 3 attempts with no delay, transformers passed to a `Schedule` parameter are never type errors and never no-ops, and capping an existing policy applies the transformer to it
+- `recurs(n)` caps attempts while `repeat(n)` replays the entire schedule n times, `exponential(1s) | repeat(3)` runs the backoff series 3 times over and `exponential(1s) | recurs(3)` truncates it to 3 steps
+- `maxCumulativeDelay` stops the schedule once the accumulated delay crosses its budget while `resetAfter` restarts the policy at that same crossing
 - Each wall-clock constructor takes an optional `Func<DateTime>?` clock, adapted from the injected `IClock` as `() => clock.GetCurrentInstant().ToDateTimeUtc()`, and deterministic tests supply that clock instead of waiting through the real cadence
 
 [MEMBER_SCOPE]: `FinT<M, A>`, the `Fin`-over-`M` transformer
 
-| [INDEX] | [MEMBER]                                | [KIND]      | [DESCRIPTION]                                         |
-| :-----: | :-------------------------------------- | :---------- | :---------------------------------------------------- |
-|  [01]   | `new FinT<M, A>(K<M, Fin<A>> runFin)`   | constructor | Construction from `K<M, Fin<A>>`                      |
-|  [02]   | `FinT.Succ(A)` / `FinT.Fail(Error)`     | static      | Construction from an evaluated value                  |
-|  [03]   | `FinT.lift(Fin<A>)`                     | static      | Conversion from an evaluated `Fin`                    |
-|  [04]   | `FinT.lift(K<M, A>)`                    | static      | Lift from `K<M, A>`                                   |
-|  [05]   | `FinT.lift(K<M, Fin<A>>)`               | static      | Named form of the constructor                         |
-|  [06]   | `FinT.liftIO(IO<A>)`                    | static      | Lift from `IO<A>` under `MonadIO<M>`                  |
-|  [07]   | `FinT.liftIO(IO<Fin<A>>)`               | static      | Lift from `IO<Fin<A>>` directly                       |
-|  [08]   | `FinT.runFin`                           | property    | The `K<M, Fin<A>>` result                             |
-|  [09]   | `FinT.Bind` / `SelectMany` overload set | instance    | Binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, bare `Fin<B>` |
-|  [10]   | `FinT.Match(Succ, Fail)` / `MapFail`    | instance    | `K<M, B>` fold / failure map                          |
+| [INDEX] | [MEMBER]                                | [KIND]      | [DESCRIPTION]                                    |
+| :-----: | :-------------------------------------- | :---------- | :----------------------------------------------- |
+|  [01]   | `new FinT<M, A>(K<M, Fin<A>> runFin)`   | constructor | Construction from `K<M, Fin<A>>`                 |
+|  [02]   | `FinT.Succ(A)` / `FinT.Fail(Error)`     | static      | Construction from an evaluated value             |
+|  [03]   | `FinT.lift(Fin<A>)`                     | static      | Conversion from an evaluated `Fin`               |
+|  [04]   | `FinT.lift(K<M, A>)`                    | static      | Lift from `K<M, A>`                              |
+|  [05]   | `FinT.lift(K<M, Fin<A>>)`               | static      | Named form of the constructor                    |
+|  [06]   | `FinT.liftIO(IO<A>)`                    | static      | Lift from `IO<A>` under `MonadIO<M>`             |
+|  [07]   | `FinT.liftIO(IO<Fin<A>>)`               | static      | Lift from `IO<Fin<A>>` directly                  |
+|  [08]   | `FinT.runFin`                           | property    | The `K<M, Fin<A>>` result                        |
+|  [09]   | `FinT.Bind` / `SelectMany` overload set | instance    | Binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, `Fin<B>` |
+|  [10]   | `FinT.Match(Succ, Fail)` / `MapFail`    | instance    | `K<M, B>` fold / failure map                     |
 
-- `FinT.Bind` also binds `Pure<B>` and `Fail<Error>`. `SelectMany` binds `Pure<B>` but NOT `Fail<Error>`, and LINQ query syntax lowers to `SelectMany`. Bare `Fail<Error>` steps inside a `FinT` query need an explicit lift.
+- `FinT.Bind` binds `Pure<B>` and `Fail<Error>`, `SelectMany` binds `Pure<B>` but not `Fail<Error>`, LINQ query syntax lowers to `SelectMany`, and `Fail<Error>` steps inside a `FinT` query need an explicit lift
 
 [MEMBER_SCOPE]: `Writer<W, A>`, monoidal output accumulated beside a value, `W : Monoid<W>` throughout
 
@@ -393,8 +393,8 @@
 |  [01]   | `Writer.pure<W, A>(A)`                                      | static   | Value with the empty output               |
 |  [02]   | `Writer.tell<W>(W item)`                                    | static   | Emit output, value is `Unit`              |
 |  [03]   | `Writer.write<W, A>(A value, W item)`                       | static   | Emit value and output together            |
-|  [04]   | `Writer.listen(Writer<W, A>)`                               | static   | Surface the accumulated output as a value |
-|  [05]   | `Writer.listens(Func<W, B>, Writer<W, A>)`                  | static   | Surface a projection of the output        |
+|  [04]   | `Writer.listen(Writer<W, A>)`                               | static   | Return the accumulated output as a value  |
+|  [05]   | `Writer.listens(Func<W, B>, Writer<W, A>)`                  | static   | Return a projection of the output         |
 |  [06]   | `Writer.censor(Func<W, W>, Writer<W, A>)`                   | static   | Rewrite the output, value untouched       |
 |  [07]   | `Writer.pass(Writer<W, (A, Func<W, W>)>)`                   | static   | The step supplies its own output rewriter |
 |  [08]   | `Writer.Run() -> (A Value, W Output)`                       | instance | The only extraction, total                |
@@ -404,9 +404,9 @@
 |  [12]   | `Tell<W>.ToWriter()` / `ToWriterT<M>()` / `ToWritable<M>()` | instance | The literal converted to each type        |
 |  [13]   | `WriterT<W, M, A>`                                          | record   | The same accumulation over any `Monad<M>` |
 
-- `W : Monoid<W>` is the entire contract. Each bind `Combine`s the two outputs, the accumulator IS the monoid and no mutable list is threaded beside the computation. `Seq<A>` output makes the writer an append-only log, and an `Error` output makes it a warning channel that never fails.
-- `Writer<W, A>` publishes NO failure branch. It accumulates without failing, which separates it from `Validation<F, A>`: `Validation` accumulates failures and fails at the fold, `Writer` accumulates output and always succeeds. Computations that need both stack them as `WriterT<W, Fin, A>` instead of folding the output into the failure channel.
-- `Run()` is the only exit and it is total. The output is otherwise unreadable mid-computation except through `Listen`/`Listens`, which return it as a VALUE. Later steps can branch on what has accumulated. `Censor` and `Pass` are the rewrite forms. `Censor` decides the rewrite from outside. `Pass` lets the step itself carry the rewriter in its value position.
+- `W : Monoid<W>` is the entire contract, each bind `Combine`s both outputs, the accumulator is the monoid and no mutable list is threaded beside the computation, `Seq<A>` output makes the writer an append-only log, and an `Error` output makes it a warning channel that never fails
+- `Writer<W, A>` has no failure branch and accumulates without failing, where `Validation<F, A>` accumulates failures and fails at the fold, and computations that need both stack them as `WriterT<W, Fin, A>` instead of folding the output into the failure channel
+- `Run()` is the only exit and it is total, the output is otherwise unreadable mid-computation except through `Listen`/`Listens`, which return it as a value for later steps to branch on, and `Censor` and `Pass` are the rewrite forms, `Censor` decides the rewrite from outside and `Pass` lets the step hold the rewriter in its value position
 - `Tell<W>` is the type-agnostic output literal beside `Pure<A>` and `Fail<E>`, a `tell` step binds inside a `Writer`, a `WriterT`, an `RWST`, or any `Writable<M, W>` body without naming the concrete type
 
 [MEMBER_SCOPE]: `Seq`, `Arr`, `HashMap`, `Set`, immutable collections
@@ -417,7 +417,7 @@
 |  [02]   | `Prelude.toSeq(IEnumerable<A>)`                                    | static   | Construction from `IEnumerable<A>`        |
 |  [03]   | `Seq.Map(Func<A,B>)`                                               | instance | Element projection                        |
 |  [04]   | `Seq.Map(Func<A,int,B>)`                                           | instance | Indexed `(value, index)` projection       |
-|  [05]   | `LanguageExt.Seq.map(Seq<A>, Func<int,A,B>)`                       | static   | Indexed `(index, value)` overload             |
+|  [05]   | `LanguageExt.Seq.map(Seq<A>, Func<int,A,B>)`                       | static   | Indexed `(index, value)` overload         |
 |  [06]   | `Seq.Bind(Func<A,Seq<B>>)`                                         | instance | Monadic expansion                         |
 |  [07]   | `Seq.Filter(Func<A,bool>)`                                         | instance | Predicate narrowing                       |
 |  [08]   | `Seq.Partition(Func<A,bool>)`                                      | instance | One-pass two-way split                    |
@@ -435,7 +435,7 @@
 |  [20]   | `Seq.Inits`                                                        | property | Every prefix                              |
 |  [21]   | `Seq.Add(A)`                                                       | instance | Append one member                         |
 |  [22]   | `Seq.Concat(Seq<A>)`                                               | instance | Cross-collection join                     |
-|  [23]   | `Seq.Intersperse(A)`                                               | instance | Separator weave                           |
+|  [23]   | `Seq.Intersperse(A)`                                               | instance | Separator insertion                       |
 |  [24]   | `Seq.Strict()`                                                     | instance | Force a lazily-built sequence             |
 |  [25]   | `Seq.AsSpan()`                                                     | instance | Zero-copy contiguous read                 |
 |  [26]   | `Seq.AsIterable()`                                                 | instance | Lazy-view lift                            |
@@ -487,18 +487,18 @@
 |  [72]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`               | fold     | Bounded monoidal aggregation, nested      |
 |  [73]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`           | fold     | One pass over `K<T, K<U, A>>`             |
 
-- The bounded folds split their predicate arity, and the two look the same at the call site. The PURE `FoldWhile`/`FoldUntil` take `Func<(S State, A Value), bool>`, the running state AND the element. The MONADIC `FoldWhileM`/`FoldUntilM` take `Func<A, bool>` over the element ALONE. State-reading stop conditions lack a monadic form. They either fold pure and lift afterwards, or carry the condition into the effect and return a state the next step reads. `foldWhileM` is the same operator with the arguments flipped to `(f, pred, state, ta)`, a mechanical rewrite between the instance and module forms silently transposes them.
-- The monadic fold pair is DIRECTION-SWAPPED against the pure pair. `Fold` walks head-to-tail, but `FoldM` walks TAIL-TO-HEAD (a string-append fold over `[1, 2, 3]` answers `321`) while `FoldBackM` walks head-to-tail (`123`). Order-dependent monadic folds over an ascending sequence use `FoldBackM`. `FoldM` there silently feeds the step its input reversed.
-- `FoldMaybe` is the fold with its STOP in the folder rather than beside it. The step answers `Option<S>` and a `None` ends the traversal, returning the last committed state. It is the form a search-and-accumulate takes when the decision to continue is the same computation as the accumulation. `FoldMaybe` has a `FoldBackMaybe` right-to-left form and no `*T` form. Only the `Fold`/`FoldWhile`/`FoldUntil` family carries `FoldT`/`FoldWhileT`/`FoldUntilT`, which fold one pass over a nested `K<T, K<U, A>>`. Foldables of foldables never flatten first.
-- `Seq<A>` carries the throwing `this[Index]` as its only instance index member. The `Option`-returning positional read is `FoldableExtensions.At(K<T, A>, Index) : Option<A>`, which applies to `Seq` through `Foldable<Seq>`. `seq.At(n)` answers `None` past the end.
-- `LanguageExt.List.unfold` runs the state seed until the unfolder answers `None`. The static import of `Prelude` binds the simple name `List` to `Prelude.List<T>()`, the call is spelled `LanguageExt.List.unfold`. Five overloads exist. The state-only `Func<S, Option<S>>` overload returns `IEnumerable<S>`. The other four return `IEnumerable<A>`: one takes a plain `S` seed, and the other three take a two-, three-, or four-slot tuple seed.
+- The bounded folds split their predicate arity and both look the same at the call site, the pure `FoldWhile`/`FoldUntil` take `Func<(S State, A Value), bool>`, the running state and the element, the monadic `FoldWhileM`/`FoldUntilM` take `Func<A, bool>` over the element alone, state-reading stop conditions lack a monadic form and either fold pure and lift afterwards or pass the condition into the effect and return a state the next step reads, and `foldWhileM` is the same operator with the arguments reordered to `(f, pred, state, ta)`, a mechanical rewrite between the instance and module forms transposes them
+- The monadic fold pair is direction-swapped against the pure pair, `Fold` walks head-to-tail but `FoldM` walks tail-to-head (a string-append fold over `[1, 2, 3]` answers `321`) while `FoldBackM` walks head-to-tail (`123`), and order-dependent monadic folds over an ascending sequence use `FoldBackM`, because `FoldM` there passes the step its input reversed
+- `FoldMaybe` is the fold with its stop in the folder rather than beside it, the step answers `Option<S>` and a `None` ends the traversal and returns the last committed state, it is the form a search-and-accumulate takes when the decision to continue is the same computation as the accumulation, it has a `FoldBackMaybe` right-to-left form and no `*T` form, and only the `Fold`/`FoldWhile`/`FoldUntil` family has `FoldT`/`FoldWhileT`/`FoldUntilT`, which fold one pass over a nested `K<T, K<U, A>>` without flattening first
+- `Seq<A>` has the throwing `this[Index]` as its only instance index member, the `Option`-returning positional read is `FoldableExtensions.At(K<T, A>, Index) : Option<A>`, which applies to `Seq` through `Foldable<Seq>`, and `seq.At(n)` answers `None` past the end
+- `LanguageExt.List.unfold` runs the state seed until the unfolder answers `None`, the static import of `Prelude` binds the simple name `List` to `Prelude.List<T>()`, the call is spelled `LanguageExt.List.unfold`, 5 overloads exist, the state-only `Func<S, Option<S>>` overload returns `IEnumerable<S>`, and the other 4 return `IEnumerable<A>` from a plain `S` seed or a 2-, 3-, or 4-slot tuple seed
 
-[MEMBER_SCOPE]: `TrackingHashMap<K, V>`, the change-logged map (`HashMap.ToTrackingHashMap()` lifts into it). `TrackingHashMap<EqK, K, V>` is the same surface with an explicit `EqK` equality trait type parameter, and the static `TrackingHashMap` module creates one (`empty`/`create`/`createRange`/`singleton` over `(K, V)` tuples, `KeyValuePair`s, or a `ReadOnlySpan`) where no source map exists to lift.
+[MEMBER_SCOPE]: `TrackingHashMap<K, V>`, the change-logged map (`HashMap.ToTrackingHashMap()` lifts into it). `TrackingHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter, and the static `TrackingHashMap` module creates one (`empty`/`create`/`createRange`/`singleton` over `(K, V)` tuples, `KeyValuePair`s, or a `ReadOnlySpan`) where no source map exists to lift.
 
 | [INDEX] | [MEMBER]                                                          | [KIND]   | [DESCRIPTION]                                       |
 | :-----: | :---------------------------------------------------------------- | :------- | :-------------------------------------------------- |
 |  [01]   | `TrackingHashMap.Changes`                                         | property | `HashMap<K, Change<V>>` log since the last snapshot |
-|  [02]   | `TrackingHashMap.Snapshot()`                                      | instance | Zeroes the change log, holds the data               |
+|  [02]   | `TrackingHashMap.Snapshot()`                                      | instance | Clears the change log, holds the data               |
 |  [03]   | `TrackingHashMap.AddOrUpdate(K, V)`                               | instance | Logged unconditional upsert                         |
 |  [04]   | `TrackingHashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`              | instance | Logged matched upsert, `Func<V>` fills the miss     |
 |  [05]   | `TrackingHashMap.AddOrUpdate(K, Func<V,V>, V)`                    | instance | Logged matched upsert, value fills the miss         |
@@ -537,7 +537,7 @@
 |  [22]   | `Prelude.memo(Func<A>)`                  | static   | Memoized nullary thunk                |
 |  [23]   | `Prelude.memo(IEnumerable<A>)`           | static   | Replay-cached lazy enumeration        |
 |  [24]   | `Prelude.memoUnsafe(Func<A,B>)`          | static   | Unsynchronized memo table             |
-|  [25]   | `Prelude.memoK(Func<K<F,A>>)`            | static   | Caches the `K<F,A>` CONSTRUCTION      |
+|  [25]   | `Prelude.memoK(Func<K<F,A>>)`            | static   | Caches the `K<F,A>` construction      |
 |  [26]   | `Prelude.memoK(K<F,A>)` / `memoK(A)`     | static   | Preloaded memo over an existing value |
 |  [27]   | `Memo.Reset()`                           | instance | Drop a memoized value                 |
 |  [28]   | `Range.fromMinMax(A, A, A)`              | static   | Generated bounded sequence            |
@@ -545,10 +545,10 @@
 |  [30]   | `Prelude.unit`                           | property | The `Unit` literal                    |
 |  [31]   | `Prelude.identity(A)`                    | static   | The identity function                 |
 
-- `memoK` caches the CONSTRUCTION of a `K<F, A>`, never its execution. Memoized `IO` or `Eff` is built once and then runs on every call, a `memoK` effect is not a cached RESULT. To cache a result, memoize past the run (`memo` over the executed value). The `memoK(K<F,A>)` and `memoK(A)` arities are the preloaded forms where the value already exists.
-- `memo(IEnumerable<A>)` retains each item as it is first enumerated, a second traversal replays from the cache and an expensive generator runs once. It is the lazy counterpart to forcing into a `Seq`, where forcing pays the whole cost up front.
+- `memoK` caches the construction of a `K<F, A>`, never its execution, memoized `IO` or `Eff` is built once and then runs on every call, a `memoK` effect is not a cached result, caching a result memoizes past the run (`memo` over the executed value), and the `memoK(K<F,A>)` and `memoK(A)` arities are the preloaded forms where the value already exists
+- `memo(IEnumerable<A>)` retains each item as it is first enumerated, a second traversal replays from the cache and an expensive generator runs once, and it is the lazy counterpart to forcing into a `Seq`, where forcing pays the whole cost up front
 
-[MEMBER_SCOPE]: `AtomHashMap<K, V>`, the lock-free map (`Prelude.AtomHashMap(…)` or `AtomHashMap.ToAtom()` creates one). Every mutation returns `Unit`, publishes on `Change`, and commits under a CAS retry loop. `AtomHashMap<EqK, K, V>` is the same surface with an explicit `EqK` equality trait type parameter.
+[MEMBER_SCOPE]: `AtomHashMap<K, V>`, the lock-free map (`Prelude.AtomHashMap(…)` or `AtomHashMap.ToAtom()` creates one). Every mutation returns `Unit`, publishes on `Change`, and commits under a CAS retry loop. `AtomHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter.
 
 | [INDEX] | [MEMBER]                                                  | [KIND]   | [DESCRIPTION]                                     |
 | :-----: | :-------------------------------------------------------- | :------- | :------------------------------------------------ |
@@ -571,52 +571,52 @@
 |  [17]   | `Fold(S, Func<S,K,V,S>)` / `Iter(Action<K,V>)`            | fold     | Key-and-value iteration over a snapshot           |
 |  [18]   | `HashMapPatch.From` / `To` / `Changes`                    | property | The two snapshots and the `HashMap<K, Change<V>>` |
 
-- `AtomHashMap<K, V>` is the ONE type where mutation is in place and the value is shared. `Atom<HashMap<K,V>>` makes every keyed write a whole-map `Swap` returning a new map, while `SwapKey` commits one key under the same CAS discipline. The cost is that a mutation returns `Unit`, nothing about the commit is readable from the return value. Read the result through `Change` or a later `Find`.
-- `Swap` hands the transition function a `TrackingHashMap<K, V>`, a whole-map update can read the deltas it is itself producing and decide from them. The emitted `HashMapPatch.Changes` is built from that log.
-- `Change` fires ONCE per accepted commit with a `HashMapPatch<K, V>` carrying `From`, `To`, and a `HashMap<K, Change<V>>` of per-key deltas, which makes the type an observable keyed store rather than a mutable dictionary that a watcher polls. Bulk members commit one patch covering every touched key, a range write is one notification and not one per entry.
+- `AtomHashMap<K, V>` is the one type where mutation is in place and the value is shared, `Atom<HashMap<K,V>>` makes every keyed write a whole-map `Swap` returning a new map while `SwapKey` commits one key under the same CAS discipline, and the cost is that a mutation returns `Unit`, nothing about the commit is readable from the return value, read the result through `Change` or a later `Find`
+- `Swap` passes the transition function a `TrackingHashMap<K, V>`, a whole-map update can read the deltas it is producing and decide from them, and the emitted `HashMapPatch.Changes` is built from that log
+- `Change` fires once per accepted commit with a `HashMapPatch<K, V>` of `From`, `To`, and a `HashMap<K, Change<V>>` of per-key deltas, which makes the type an observable keyed store rather than a mutable dictionary that a watcher polls, and bulk members commit one patch covering every touched key, a range write is one notification and not one per entry
 - Every mutating member re-runs its transition inside the CAS loop exactly as `Atom<A>.Swap` does, the same restriction on side effects applies: a dispose, a counter increment, or a log inside a swap runs once per failed attempt
 
 [MEMBER_SCOPE]: `Deriving.*` defaults declared on the `Supertype`, `Transform` unwraps to the `Subtype`, `CoTransform` rewraps, and every listed member routes through that pair
 
-| [INDEX] | [MEMBER]                                                              | [KIND]   | [DESCRIPTION]                                      |
-| :-----: | :-------------------------------------------------------------------- | :------- | :------------------------------------------------- |
-|  [01]   | `Transform(K<Supertype,A>) -> K<Subtype,A>`                           | static   | Unwrap to the inner type, hand-written             |
-|  [02]   | `CoTransform(K<Subtype,A>) -> K<Supertype,A>`                         | static   | Rewrap the inner result, hand-written              |
-|  [03]   | `Map(Func<A,B>, K<Supertype,A>)`                                      | static   | `Functor` projection                               |
-|  [04]   | `Pure(A)`                                                             | static   | `Applicative` lift                                 |
-|  [05]   | `Apply(K<Supertype,Func<A,B>>, K<Supertype,A>)`                       | static   | Fan-in, `Memo` arity beside it                     |
-|  [06]   | `Action(K<Supertype,A>, K<Supertype,B>)`                              | static   | Sequence, keeping the right                        |
-|  [07]   | `Bind(K<Supertype,A>, Func<A,K<Supertype,B>>)`                        | static   | `Monad` chain                                      |
-|  [08]   | `Flatten(K<Supertype,K<Supertype,A>>)`                                | static   | `Monad` join                                       |
-|  [09]   | `Recur(A, Func<A,K<Supertype,Next<A,B>>>)`                            | static   | Tail-recursive loop                                |
-|  [10]   | `LiftIO(IO<A>)` / `LiftIO(K<IO,A>)`                                   | static   | `MonadIO` lift                                     |
-|  [11]   | `ToIO(K<Supertype,A>)` / `MapIO(K<Supertype,A>, Func<IO<A>,IO<B>>)`   | static   | `MonadUnliftIO` window                             |
-|  [12]   | `BracketIO(K<Supertype,A>, Func<A,IO<C>>, Func<A,IO<B>>)`             | static   | Acquire-use-release, `Catch` arity beside it       |
+| [INDEX] | [MEMBER]                                                              | [KIND]   | [DESCRIPTION]                                   |
+| :-----: | :-------------------------------------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `Transform(K<Supertype,A>) -> K<Subtype,A>`                           | static   | Unwrap to the inner type, hand-written          |
+|  [02]   | `CoTransform(K<Subtype,A>) -> K<Supertype,A>`                         | static   | Rewrap the inner result, hand-written           |
+|  [03]   | `Map(Func<A,B>, K<Supertype,A>)`                                      | static   | `Functor` projection                            |
+|  [04]   | `Pure(A)`                                                             | static   | `Applicative` lift                              |
+|  [05]   | `Apply(K<Supertype,Func<A,B>>, K<Supertype,A>)`                       | static   | Apply, `Memo` arity beside it                   |
+|  [06]   | `Action(K<Supertype,A>, K<Supertype,B>)`                              | static   | Sequence, keeping the right                     |
+|  [07]   | `Bind(K<Supertype,A>, Func<A,K<Supertype,B>>)`                        | static   | `Monad` chain                                   |
+|  [08]   | `Flatten(K<Supertype,K<Supertype,A>>)`                                | static   | `Monad` join                                    |
+|  [09]   | `Recur(A, Func<A,K<Supertype,Next<A,B>>>)`                            | static   | Tail-recursive loop                             |
+|  [10]   | `LiftIO(IO<A>)` / `LiftIO(K<IO,A>)`                                   | static   | `MonadIO` lift                                  |
+|  [11]   | `ToIO(K<Supertype,A>)` / `MapIO(K<Supertype,A>, Func<IO<A>,IO<B>>)`   | static   | `MonadUnliftIO` access                          |
+|  [12]   | `BracketIO(K<Supertype,A>, Func<A,IO<C>>, Func<A,IO<B>>)`             | static   | Acquire-use-release, `Catch` arity beside it    |
 |  [13]   | `RepeatIO(K<Supertype,A>, Schedule)`                                  | static   | Cadence, `RepeatWhileIO`/`RepeatUntilIO` beside |
 |  [14]   | `RetryIO(K<Supertype,A>, Schedule)`                                   | static   | Retry, `RetryWhileIO`/`RetryUntilIO` beside     |
 |  [15]   | `FoldIO(K<Supertype,A>, Schedule, S, Func<S,A,S>)`                    | static   | Stream fold, `FoldWhileIO`/`FoldUntilIO` beside |
-|  [16]   | `LocalIO(K)` / `PostIO(K)` / `TimeoutIO(K, TimeSpan)`                 | static   | `IO` scope, ordering, and deadline                 |
-|  [17]   | `Fail(E)`                                                             | static   | `Fallible` raise                                   |
-|  [18]   | `Catch(K<Supertype,A>, Func<E,bool>, Func<E,K<Supertype,A>>)`         | static   | `Fallible` predicate recovery                      |
-|  [19]   | `Finally(K<Supertype,A>, K<Supertype,X>)`                             | static   | `Final` teardown                                   |
-|  [20]   | `Choose(K<Supertype,A>, K<Supertype,A>)`                              | static   | First-success, `Memo` arity beside it              |
-|  [21]   | `Combine(K<Supertype,A>, K<Supertype,A>)`                             | static   | `SemigroupK` join                                  |
-|  [22]   | `Empty()`                                                             | static   | `MonoidK` identity                                 |
-|  [23]   | `Ask`                                                                 | property | `Readable` environment read                        |
-|  [24]   | `Asks(Func<Env,A>)` / `Local(Func<Env,Env>, K<Supertype,A>)`          | static   | Environment projection and shadowing               |
-|  [25]   | `Get`                                                                 | property | `Stateful` state read                              |
-|  [26]   | `Put(S)` / `Modify(Func<S,S>)` / `Gets(Func<S,A>)`                    | static   | State write and projection                         |
-|  [27]   | `Tell(W)` / `Listen(K<Supertype,A>)`                                  | static   | `Writable` output and its capture                  |
-|  [28]   | `Pass(K<Supertype,(A,Func<W,W>)>)`                                    | static   | Rewrite the captured output                        |
-|  [29]   | `Lift(K<M,A>)`                                                        | static   | `MonadT` inner-type lift                           |
-|  [30]   | `Traverse(Func<A,K<F,B>>, K<Supertype,A>)` / `TraverseM`              | static   | Effect and shape inversion                         |
-|  [31]   | `Sequence(K<Supertype,K<F,A>>)` / `SequenceM`                         | static   | Inversion with the map already applied             |
-|  [32]   | `TraverseDefault(Func<A,K<F,B>>, K<Supertype,A>)`                     | static   | `Traverse` through `Sequence`                      |
-|  [33]   | `Comap(Func<A,B>, K<Supertype,B>)`                                    | static   | `Cofunctor` contramap                              |
-|  [34]   | `Divide(Func<A,(B,C)>, K<Supertype,B>, K<Supertype,C>)` / `Conquer()` | static   | `Divisible` split and unit                         |
-|  [35]   | `Lose(Func<A,Void>)` / `Route(Func<A,Either<B,C>>, K, K)`             | static   | `Decidable` absurd and branch                      |
-|  [36]   | `Fold(Func<A,Func<S,S>>, S, K<Supertype,A>)`                          | static   | `Foldable` fold, forwarded to the `Subtype`        |
+|  [16]   | `LocalIO(K)` / `PostIO(K)` / `TimeoutIO(K, TimeSpan)`                 | static   | `IO` scope, ordering, and deadline              |
+|  [17]   | `Fail(E)`                                                             | static   | `Fallible` raise                                |
+|  [18]   | `Catch(K<Supertype,A>, Func<E,bool>, Func<E,K<Supertype,A>>)`         | static   | `Fallible` predicate recovery                   |
+|  [19]   | `Finally(K<Supertype,A>, K<Supertype,X>)`                             | static   | `Final` cleanup                                 |
+|  [20]   | `Choose(K<Supertype,A>, K<Supertype,A>)`                              | static   | First-success, `Memo` arity beside it           |
+|  [21]   | `Combine(K<Supertype,A>, K<Supertype,A>)`                             | static   | `SemigroupK` join                               |
+|  [22]   | `Empty()`                                                             | static   | `MonoidK` identity                              |
+|  [23]   | `Ask`                                                                 | property | `Readable` environment read                     |
+|  [24]   | `Asks(Func<Env,A>)` / `Local(Func<Env,Env>, K<Supertype,A>)`          | static   | Environment projection and shadowing            |
+|  [25]   | `Get`                                                                 | property | `Stateful` state read                           |
+|  [26]   | `Put(S)` / `Modify(Func<S,S>)` / `Gets(Func<S,A>)`                    | static   | State write and projection                      |
+|  [27]   | `Tell(W)` / `Listen(K<Supertype,A>)`                                  | static   | `Writable` output and its capture               |
+|  [28]   | `Pass(K<Supertype,(A,Func<W,W>)>)`                                    | static   | Rewrite the captured output                     |
+|  [29]   | `Lift(K<M,A>)`                                                        | static   | `MonadT` inner-type lift                        |
+|  [30]   | `Traverse(Func<A,K<F,B>>, K<Supertype,A>)` / `TraverseM`              | static   | Effect and shape inversion                      |
+|  [31]   | `Sequence(K<Supertype,K<F,A>>)` / `SequenceM`                         | static   | Inversion with the map already applied          |
+|  [32]   | `TraverseDefault(Func<A,K<F,B>>, K<Supertype,A>)`                     | static   | `Traverse` through `Sequence`                   |
+|  [33]   | `Comap(Func<A,B>, K<Supertype,B>)`                                    | static   | `Cofunctor` contramap                           |
+|  [34]   | `Divide(Func<A,(B,C)>, K<Supertype,B>, K<Supertype,C>)` / `Conquer()` | static   | `Divisible` split and unit                      |
+|  [35]   | `Lose(Func<A,Void>)` / `Route(Func<A,Either<B,C>>, K, K)`             | static   | `Decidable` absurd and branch                   |
+|  [36]   | `Fold(Func<A,Func<S,S>>, S, K<Supertype,A>)`                          | static   | `Foldable` fold, forwarded to the `Subtype`     |
 
-- `Transform` and `CoTransform` are the only required members. Wrappers declaring `Deriving.MonadUnliftIO<Supertype, Subtype>`, `Deriving.Fallible<Supertype, Subtype>`, and `Deriving.Final<Supertype, Subtype>` compile with those two members alone. `Deriving.Alternative` carries no body of its own, it composes the `Choice` and `Applicative` derivations. `Alternative<Supertype>.Empty` stays abstract. The wrapper must implement it, or the compiler reports `CS0535`.
-- `Supertype` heads every parameter list while `Subtype` moves. `Deriving.Readable<Supertype, Env, Subtype>` places it LAST. `Deriving.Stateful<Supertype, Subtype, S>`, `Deriving.Writable<Supertype, Subtype, W>`, and `Deriving.MonadT<Supertype, Subtype, M>` place it SECOND. `Deriving.Fallible<E, Supertype, Subtype>` puts the failure type FIRST, and `Deriving.Fallible<Supertype, Subtype>` is that interface with `E` fixed to `Error`.
-- `LanguageExt.Deriving` is a static CLASS, `using LanguageExt.Deriving;` fails with `CS0138` and every derivation writes `Deriving.Monad<Supertype, Subtype>` through the `LanguageExt` namespace import. `LanguageExt.Traits.Deriving<Supertype, Subtype>` is a separate arity-two interface aliasing `NaturalIso<Supertype, Subtype>`. The arity difference resolves both names unqualified with both namespaces imported.
+- `Transform` and `CoTransform` are the only required members, wrappers declaring `Deriving.MonadUnliftIO<Supertype, Subtype>`, `Deriving.Fallible<Supertype, Subtype>`, and `Deriving.Final<Supertype, Subtype>` compile with those members alone, `Deriving.Alternative` has no body of its own and composes the `Choice` and `Applicative` derivations, and `Alternative<Supertype>.Empty` stays abstract, the wrapper implements it or the compiler reports `CS0535`
+- `Supertype` heads every parameter list while `Subtype` moves, `Deriving.Readable<Supertype, Env, Subtype>` places it last, `Deriving.Stateful<Supertype, Subtype, S>`, `Deriving.Writable<Supertype, Subtype, W>`, and `Deriving.MonadT<Supertype, Subtype, M>` place it second, `Deriving.Fallible<E, Supertype, Subtype>` puts the failure type first, and `Deriving.Fallible<Supertype, Subtype>` is that interface with `E` fixed to `Error`
+- `LanguageExt.Deriving` is a static class, `using LanguageExt.Deriving;` fails with `CS0138` and every derivation writes `Deriving.Monad<Supertype, Subtype>` through the `LanguageExt` namespace import, `LanguageExt.Traits.Deriving<Supertype, Subtype>` is a separate arity-two interface aliasing `NaturalIso<Supertype, Subtype>`, and the arity difference resolves both names unqualified with both namespaces imported

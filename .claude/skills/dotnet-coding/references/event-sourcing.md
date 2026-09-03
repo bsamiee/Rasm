@@ -15,7 +15,7 @@ Two snapshots show that state changed and not why, while the event with the prio
 
 ## [02]-[EVENTS]
 
-Events are immutable, serializable data objects carrying the minimum information about something that already happened:
+Events are immutable, serializable data objects holding the minimum information about something that already happened:
 - The name is past tense (`Created`, `Credited`, `Debited`, `Frozen`)
 - The event cannot be rejected or changed
 - The payload describes the occurrence, not a mutable entity snapshot
@@ -37,7 +37,7 @@ internal abstract partial record Event {
 }
 ```
 
-Event types have different payload shapes, so the storage options from most to least suitable are an event store, a document database that accepts heterogeneous documents, and a relational database. Relational event tables need headers (entity id, timestamp, event type) and a payload column for the serialized event, the headers support retrieving one entity's history in order and filtering it by time, and an existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
+Event types have different payload shapes, the storage options from most to least suitable are an event store, a document database that accepts heterogeneous documents, and a relational database. Relational event tables need headers (entity id, timestamp, event type) and a payload column for the serialized event, the headers support retrieving one entity's history in order and filtering it by time, and an existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
 
 ## [03]-[STATE]
 
@@ -116,7 +116,7 @@ internal static partial class Entry {
 }
 ```
 
-Loading history returns `IO<Seq<Event>>`, saving an event returns `IO<Unit>`, and the handler composes them in one query over `IO`, where the expected rejection enters the `IO` error channel through `IO.lift(Fin<A>)` beside the failures of loading and saving, so `RunSafe` at the host returns one `Fin` and one `Match` reads both outcomes:
+Loading history returns `IO<Seq<Event>>`, saving an event returns `IO<Unit>`, and the handler composes them in one query over `IO`, where the expected rejection enters the `IO` error channel through `IO.lift(Fin<A>)` beside the failures of loading and saving, `RunSafe` at the host returns one `Fin` and one `Match` reads both outcomes:
 
 ```csharp
 internal static class Commands {
@@ -150,7 +150,7 @@ internal static class Queries {
 }
 ```
 
-As history grows, replaying it for every query becomes expensive, so the query side subscribes to new events and maintains cached projections incrementally, publishes changed views to connected clients where that is wanted, or uses a dedicated query database shaped for filtering, and the system rebuilds every projection from the event history, which remains the source of truth. Command and query concerns can stay separate inside one application or deploy and scale independently, query load benefits from more instances, and command processing can need tighter coordination of writes.
+As history grows, replaying it for every query becomes expensive, the query side subscribes to new events and maintains cached projections incrementally, publishes changed views to connected clients where that is wanted, or uses a dedicated query database shaped for filtering, and the system rebuilds every projection from the event history, which remains the source of truth. Command and query concerns can stay separate inside one application or deploy and scale independently, query load benefits from more instances, and command processing can need tighter coordination of writes.
 
 ## [08]-[FIT]
 

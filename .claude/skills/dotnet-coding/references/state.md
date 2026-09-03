@@ -11,14 +11,14 @@ stateless: Input -> Value
 stateful:  Input -> State -> (Value, NewState)
 ```
 
-The caller carries the returned state into the next operation, earlier state values stay unchanged, and the program remains stateful because each new state affects later behavior. The shape `S -> (A, S)` characterizes the function, not the architecture around it, and `State<S, A>` wraps a `Func<S, (A Value, S State)>` while `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Explicit state passing suits an isolated transition, and once transitions are sequenced, extracting and forwarding the state by hand repeats itself, so the operations capture that protocol:
+The caller passes the returned state into the next operation, earlier state values stay unchanged, and the program remains stateful because each new state affects later behavior. The shape `S -> (A, S)` characterizes the function, not the architecture around it, and `State<S, A>` wraps a `Func<S, (A Value, S State)>` while `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Explicit state passing suits an isolated transition, and once transitions are sequenced, extracting and forwarding the state by hand repeats itself, the operations capture that protocol:
 - `Map` transforms the produced value and preserves the returned state
 - `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the returned state
 - `State.pure` lifts a value into a computation that returns the state unchanged, `State.gets` reads a projection, `State.put` replaces the state, and `State.modify` replaces it with a function of it, where `put` and `modify` produce `Unit`
 - `Select` and `SelectMany` expose these to LINQ query syntax, which hides the extraction and forwarding and preserves the dependency and its order
 - `Stateful.state` and `Stateful.local` are the trait forms for a domain wrapper over `State` or `StateT`, and `Stateful.local` restores the prior state after the nested computation
 
-The produced value can be an `Option<A>` that the consumer matches at the boundary, or a function, which lets a stateful computation carry behavior beside data. Keep explicit tuple passing for a short state flow, use composition when many dependent transitions otherwise repeat the forwarding, and treat sequencing as semantic: each computation receives the state its predecessor produced.
+The produced value can be an `Option<A>` that the consumer matches at the boundary, or a function, which lets a stateful computation hold behavior beside data. Keep explicit tuple passing for a short state flow, use composition when many dependent transitions otherwise repeat the forwarding, and treat sequencing as semantic: each computation receives the state its predecessor produced.
 
 ## [02]-[CACHE]
 
@@ -44,7 +44,7 @@ remote lookup: string -> decimal
 cached lookup: string -> HashMap<string, decimal> -> (decimal, HashMap<string, decimal>)
 ```
 
-The application starts with an empty map, dependent lookups bind in one query, and the host supplies the start state through `Run(state)`, which returns the value with the final state. Removing mutation does not remove the network effect, and passing the fetch as a `Func<string, decimal>` makes it explicit and testable with a deterministic function. The effect and its failure belong in the type, so the fetch becomes `string -> IO<decimal>` and the cache becomes `StateT<HashMap<string, decimal>, IO, decimal>`:
+The application starts with an empty map, dependent lookups bind in one query, and the host supplies the start state through `Run(state)`, which returns the value with the final state. Removing mutation does not remove the network effect, and passing the fetch as a `Func<string, decimal>` makes it explicit and testable with a deterministic function. The effect and its failure belong in the type, the fetch becomes `string -> IO<decimal>` and the cache becomes `StateT<HashMap<string, decimal>, IO, decimal>`:
 
 ```csharp
 internal static class EffectfulQuoteCache {
@@ -87,7 +87,7 @@ internal static class Generator {
 }
 ```
 
-`Map` changes only the value and keeps the next seed, so a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order determines the sequence of generator states. Recursive generators choose between an empty result and a generated head followed by another list, where `State.pure` supplies the empty result without consuming state:
+`Map` changes only the value and keeps the next seed, a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order determines the sequence of generator states. Recursive generators choose between an empty result and a generated head followed by another list, where `State.pure` supplies the empty result without consuming state:
 
 ```csharp
 internal static class ListGenerator {
@@ -103,7 +103,7 @@ internal static class ListGenerator {
 }
 ```
 
-This policy yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, so long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
+This policy yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
 
 ## [04]-[GENERALIZATION]
 
@@ -136,13 +136,13 @@ The numbering function returns a computation, supplying the initial counter runs
 
 ## [05]-[LOOPS]
 
-Indefinite loops advance a state until a runtime condition holds, and their length is not known in advance, so `Map` and `Fold` over a fixed collection do not supply the stopping rule. The model separates 4 concerns, each an explicit value or function:
+Indefinite loops advance a state until a runtime condition holds, and their length is not known in advance, `Map` and `Fold` over a fixed collection do not supply the stopping rule. The model separates concerns, each an explicit value or function:
 - State transition: `Func<S, S>` produces the next state from the current one
 - Termination: `Func<S, bool>` decides whether a state is final
 - Execution: apply the transition until termination
 - Consumption: retain only the final state, or every intermediate state
 
-The library keeps the mutable loop variable inside the execution mechanism and leaves the transition and stopping rule explicit. Tail-recursive functions return the final value or make their recursive call last, and each call can add a stack frame because C# provides no tail-call optimization, so a condition that takes many iterations can overflow the stack, and a small but unbounded iteration count does not remove the risk. `Trampoline.More` returns the recursive call as a deferred value and `Run()` evaluates the calls in a loop, and a reusable trampolined loop checks the stopping predicate before each transition:
+The library keeps the mutable loop variable inside the execution mechanism and leaves the transition and stopping rule explicit. Tail-recursive functions return the final value or make their recursive call last, and each call can add a stack frame because C# provides no tail-call optimization, a condition that takes many iterations can overflow the stack, and a small but unbounded iteration count does not remove the risk. `Trampoline.More` returns the recursive call as a deferred value and `Run()` evaluates the calls in a loop, and a reusable trampolined loop checks the stopping predicate before each transition:
 
 ```csharp
 internal static class Trampolined {
@@ -159,7 +159,7 @@ internal static class Trampolined {
 }
 ```
 
-`FirstZero` handles exhaustion explicitly: `At` returns `None` past the end and the result is `None`, and an unreachable base case loops indefinitely. `Bind` chains a second `Trampoline` onto the final state with the stack still constant, `next` must produce a state satisfying `stop`, and a `next` that performs I/O or mutation keeps the expression impure. When the transition is an effect, `Monad.recur` returns only the terminal state, and the state must contain everything both delegates need, so a termination that depends on the last action or the latest random outcome belongs in the returned state, not in a mutable flag, and the host runs the result with `RunSafe` and receives the final state as `Fin<S>`.
+`FirstZero` handles exhaustion: `At` returns `None` past the end and the result is `None`, and an unreachable base case loops indefinitely. `Bind` chains a second `Trampoline` onto the final state with the stack still constant, `next` must produce a state satisfying `stop`, and a `next` that performs I/O or mutation keeps the expression impure. When the transition is an effect, `Monad.recur` returns only the terminal state, and the state must contain everything both delegates need, a termination that depends on the last action or the latest random outcome belongs in the returned state, not in a mutable flag, and the host runs the result with `RunSafe` and receives the final state as `Fin<S>`.
 - See `dotnet-coding-languageext` for `Monad.recur` with `Next.Loop` and `Next.Done`, `tail` recursion in `IO` with its exit restrictions, and `RepeatUntil` and `RepeatWhile`
 
 When the intermediate states are meaningful, `LanguageExt.List.unfold` produces them lazily from an initial state and a step that returns `Some((emitted, next))` or `None` at the terminal state, and `toSeq` wraps the result as a `Seq` that reads each state on demand and keeps it:
@@ -176,10 +176,10 @@ internal static class Traces {
 }
 ```
 
-`Step` returns `Some` for the transition that first produces the terminal state and `None` on the following call, the sequence yields each state after a transition and not the initial state, and an already-terminal initial state yields an empty `Seq`, so decide whether enumeration is empty, emits the initial state, or advances once when the initial state can be terminal. Constructing the sequence does not run the loop, reading it does:
+`Step` returns `Some` for the transition that first produces the terminal state and `None` on the following call, the sequence yields each state after a transition and not the initial state, and an already-terminal initial state yields an empty `Seq`, decide whether enumeration is empty, emits the initial state, or advances once when the initial state can be terminal. Constructing the sequence does not run the loop, reading it does:
 - `Last` reads until the sequence ends and returns the terminal state as an `Option`, `None` for an empty sequence
 - `Map` defines a lazy transformation of every yielded state, and `Fold` retains accumulated output beside the latest state
-- `Head`, `Take`, and similar operators stop enumeration before the loop's own condition, so they serve only intentional early termination (limiting a participant to a fixed number of actions)
+- `Head`, `Take`, and similar operators stop enumeration before the loop's own condition, they serve only intentional early termination (limiting a participant to a fixed number of actions)
 - `foreach` is a consumer, and mutating an outer variable inside it reintroduces imperative state at the call site
 
-One `Seq` keeps every state it read, and a second pass does not rerun `advance`, while each `unfold` call constructs a new producer that reruns the whole process, so when `advance` reads input or randomness, build the `Seq` once and read every required result from it.
+One `Seq` keeps every state it read, and a second pass does not rerun `advance`, while each `unfold` call constructs a new producer that reruns the whole process, when `advance` reads input or randomness, build the `Seq` once and read every required result from it.

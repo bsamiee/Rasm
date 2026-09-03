@@ -149,4 +149,4 @@ old root                 new root
 L      R         ->      L    rebuilt R
 ```
 
-In a balanced tree of `n` elements an insertion creates about `log n + 2` objects, the logarithm's base is the tree's arity, a higher-arity tree stays shallow for a large collection, and `Map<K, V>` balances itself on every `Add`, which keeps the rebuilt path within that bound. Immutable snapshots and persistent structures remove time-dependent behavior from data access, so components share values without coordinating changes.
+In a balanced tree of `n` elements an insertion creates about `log n + 2` objects, the logarithm's base is the tree's arity, a higher-arity tree stays shallow for a large collection, and `Map<K, V>` balances itself on every `Add`, which keeps the rebuilt path within that bound. Immutable snapshots and persistent structures remove time-dependent behavior from data access, components share values without coordinating changes.

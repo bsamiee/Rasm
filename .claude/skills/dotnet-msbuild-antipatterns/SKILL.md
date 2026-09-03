@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-antipatterns
-description: "Use when reviewing, auditing, or fixing a .csproj, .props, or .targets file, or when a build defect traces to how the file is authored."
+description: "Use when reviewing or changing a .csproj, .props, or .targets file: unquoted conditions, misplaced properties, unguarded imports, absolute paths, Exec, monolithic targets, and double builds."
 ---
 
 # [DOTNET_MSBUILD_ANTIPATTERNS]

@@ -156,6 +156,7 @@ The build and review sequences of the 4 skills exposed patterns that every later
 |   [11]  | A reference intro repeating the sibling pointer    | Pointers live in the skill intro only                            |
 |   [12]  | A skill naming a package the manifest lacks        | Every named package is in the manifest, or its absence is stated |
 |   [13]  | A catalog restating skill facts with extra detail  | A catalog holds members and signatures, facts live in the skill  |
+|   [14]  | Diagram arrows `-->` inside a research marker      | Diagrams inside markers use `->` for every arrow                 |
 
 | [INDEX] | [SKILL]      | [ITEM]                                                        | [ACTION]                                                 |
 | :-----: | :----------- | :------------------------------------------------------------ | :------------------------------------------------------- |
@@ -181,5 +182,5 @@ The build and review sequences of the 4 skills exposed patterns that every later
 |   [20]  | coding       | `Duration` ambiguous between LanguageExt and NodaTime         | Applied, `Directory.Build.targets` aliases it, compiled  |
 |   [21]  | mapperly     | `Interval` placeholder collides with `NodaTime.Interval`      | Applied, renamed to `Bounds` and compiled                |
 |   [22]  | coding       | `NotPast` derives today as `clock().InUtc().Date`             | Applied, `NotPast` takes the date a `ZonedClock` reads   |
-|   [23]  | thinktecture | `Interval` placeholder in [02] and `serilog.md`               | Rename in the polish pass                                |
-|   [24]  | time         | Transitive NodaTime references get no namespace or alias      | `dotnet-time` states the direct reference rule           |
+|   [23]  | thinktecture | `Interval` placeholder in [02] and `serilog.md`               | Applied, renamed to `Bounds` in both files               |
+|   [24]  | coding       | Arrows `-->` in research 13 and 20 closed their markers       | Applied, arrows shortened to `->`                        |
