@@ -1,3 +1,4 @@
+<!-- Fully integrated, [01] [03.1] [05.1] into dotnet-coding/SKILL.md and the rest into dotnet-coding/references/effects.md -->
 # [PURITY]
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
@@ -29,6 +30,7 @@ Replacing the call with its result for a given input changes nothing. This prope
 Purity is about observable behavior. Mutation of state that is local to a function and never escapes is not a side effect. Mutation of an instance field is, even when that field is private, because other methods on the object can observe it.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [02]-[ISOLATING_IMPURITY]
 
 Useful programs require I/O, the goal is not universal purity. Different effects need different treatment: I/O must be isolated, argument mutation can be eliminated by returning data, errors can always be handled without exceptions, and non-local state mutation can be designed away. Keep unavoidable I/O outside the computational core and place as much computation as possible in pure functions.
@@ -45,7 +47,9 @@ internal static class Greeting {
 ```
 
 `Greet` describes the console reads and writes as an `Eff<RT, Unit>`, and the host performs them at `Run(rt)`. `Greet` reads the console capability through `Console<RT>`. `GreetingFor` contains the reusable, deterministic logic. Impure functions can call pure functions.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ### [02.1]-[RETURN_OVER_MUTATION]
 
 Output parameters represented by a mutable collection hide part of a function's result and couple caller and callee through initialization rules and mutation order. Return every computed value explicitly instead:
@@ -65,7 +69,9 @@ internal static class Orders {
 ```
 
 The signature exposes the complete output. `Fold` sums the lines and `Filter` selects the lines to delete, both over the same `Seq<OrderLine>`. Neither side must know how the other manages a shared collection. If one operation both mutates an object and calculates a result, separate those responsibilities, the calculation can remain pure.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [03]-[CONCURRENCY]
 
 In this list formatter, sentence casing is pure, and numbering through an instance counter is not:
@@ -110,6 +116,7 @@ internal static class Formatting {
 Treat `Map` as a value transformation and keep its function pure. The API accepts an impure delegate, but parallel execution can change its behavior.
 
 The compiler cannot infer whether an arbitrary delegate is pure, parallel execution must be requested explicitly. Its overhead is justified only by sufficient work and input size.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ### [03.1]-[STATIC_METHODS]
@@ -121,6 +128,7 @@ Pure methods can safely be static because all required data is explicit or immut
 Avoid mutable static fields and direct dependencies on static I/O methods.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [04]-[TESTABILITY]
 
 Unit tests for pure functions supply inputs and assert the output. They are isolated and repeatable by construction.
@@ -139,6 +147,7 @@ Impure functions behave like a larger pure transformation:
 This explains the extra cost of testing effects. Arrange must construct substitute external state and program state. Assert must inspect both explicit results and externally visible changes. Mocks can model external state, while assertions over internal mutation are brittle and break encapsulation.
 
 Parameterized tests make inputs and expected outputs explicit: each test case supplies values, adapts them into the function's input, and returns or asserts the expected output across boundary cases.
+-->
 
 ## [05]-[PUSHING_EFFECTS_OUTWARD]
 
@@ -155,6 +164,7 @@ Choose the narrowest dependency that represents what the consumer needs:
 Interfaces remain appropriate as a common contract for distinct implementations. One-method interfaces for every effect add unnecessary infrastructure.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ### [05.2]-[VALUE_INJECTION]
 
 Reading `DateTime.UtcNow` inside validation makes the result depend on the system clock. Let the code that constructs the validator read the date once and inject that value:
@@ -185,7 +195,9 @@ internal static class Capabilities {
 ```
 
 `DateNotPast` reads the `Clock` through `RT.Ask` and passes the snapshot to the validator. Test runtimes carry a fixed `Clock`. The same runtime also carries `ConsoleIO`, it runs `Greet`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ### [05.3]-[EFFECT_INJECTION]
 
 Validators need the list of valid bank codes. The caller loads the codes as an effect and passes the `Seq<string>`:
@@ -205,11 +217,15 @@ internal static class Transfers {
 Production composition supplies the `IO<Seq<string>>` that queries the codes. Tests supply `IO.pure`. The `IO<Seq<string>>` defers the query until `BicExists` binds it. The codes are read only when the check runs. The validator stays pure and the effect is explicit and replaceable. The host runs `BicExists` with `RunSafe()` and matches the `Fin<bool>`.
 
 Function signatures are narrow interfaces. Injecting an effect value can replace a one-method interface, its implementation, constructor wiring, dependency-injection registration, and test fake.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [06]-[ASYNC_AND_MULTICORE]
 
 Distributed systems delegate computation to other processes, which raises the amount of I/O and lowers how much of a program stays pure. Performance gains come from more cores rather than faster single cores, and pure computations parallelize safely. Both trends raise the value of a small, explicit impure boundary.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [07]-[DESIGN_CHECKLIST]
 
 - List every non-local value a function reads and every externally visible change it makes
@@ -219,3 +235,4 @@ Distributed systems delegate computation to other processes, which raises the am
 - Treat `Map` transformations as pure
 - Inject stable snapshots as values, deferred effects as `IO`, and many capabilities through a runtime `RT`
 - Keep effects near application boundaries and let those boundaries call inward to pure logic
+-->

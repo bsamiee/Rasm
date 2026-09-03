@@ -1,5 +1,7 @@
+<!-- Fully integrated, [01.1] into dotnet-languageext/SKILL.md and the rest into dotnet-coding/references/effects.md -->
 # [LAZY_TRY_CONTINUATIONS]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [01]-[LAZINESS]
 
 C# uses call-by-value evaluation: every argument is evaluated before the call, including an argument the body never uses. Call-by-name evaluation substitutes the unevaluated expression instead: an unused argument never runs, even one that throws, and an argument used twice runs twice. Thunks, `Func<A>` or `IO<A>`, recover call-by-name for one argument. The cost of call by value appears when a function needs only one of its arguments:
@@ -30,6 +32,7 @@ internal static partial class Laziness {
     }
 }
 ```
+-->
 
 <!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ### [01.1]-[LAZY_FALLBACKS]
@@ -64,6 +67,7 @@ internal static partial class Laziness {
 - `Func<A>` avoids work when the value is expensive and can go unused
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [02]-[COMPOSE_THEN_EXECUTE]
 
 `Map` transforms an `IO<A>` result without running the source effect:
@@ -84,7 +88,9 @@ internal static partial class Composition {
 ```
 
 `RunSafe()` remains the explicit execution boundary and returns `Fin<A>` to the host. `Map` applies a function to the deferred result. `Bind` flattens the nested `IO<IO<B>>` introduced by a dependent next step.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [03]-[TRY]
 
 Repeated `try/catch` blocks obscure the computation. Represent exception-prone lazy work with `Try<A>` and centralize execution. `Try<A>` wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` with `IsExceptional` true, and `Run()` returns `Fin<A>`.
@@ -116,7 +122,9 @@ For query syntax, a monadic type supplies:
 - `Select` as an alias for `Map`
 - `SelectMany` as an alias for `Bind`
 - Projection overload of `SelectMany` for multiple `from` clauses
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [04]-[MONADIC_COMPOSITION]
 
 Ordinary functions compose when their shapes line up:
@@ -136,7 +144,9 @@ B -> Try<C>
 `Bind` defines how to connect them while preserving `Try` semantics: remain lazy, stop on failure, and carry the failure to the final result. Monadic composition connects functions that return a computational context, and each context's `Bind` captures its sequencing rules.
 
 The sequencing rule changes with the return type: a `(value, K)` pair combines the `K` values, a stateful shape threads a seed forward, and a continuation shape surrounds downstream work.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [05]-[READER]
 
 `Reader<Env, A>` stores a function that cannot run until `Run(env)` supplies its environment:
@@ -182,7 +192,9 @@ internal static partial class Environments {
 This avoids carrying the environment through every step in tuples. `Reader` passes dependencies as an explicit environment, which can contain a connection, identifier, configuration value, or another required input.
 
 The environment type is the smallest structure the workflow reads.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [06]-[CONTINUATIONS]
 
 Resource and instrumentation helpers take a callback to act before and after it:
@@ -231,7 +243,9 @@ internal static partial class Scopes {
 ```
 
 `Time` transforms `IO<A>` into `IO<A>`. `Fin` runs after the continuation succeeds and after a failure occurs while it runs. `Fin` does not run when `Time` receives a pre-built `IO.fail`, the supplied work remains deferred.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [07]-[RESOURCE_SCOPES]
 
 Once helpers return `IO<A>`, query syntax exposes scoped behavior without callback nesting:
@@ -255,7 +269,9 @@ internal static partial class Scopes {
 ```
 
 `use(Func<A>)` accepts an `IDisposable` and disposes it when the effect succeeds or fails. The transaction scope depends on the connection and supplies a transaction downstream. The commit step runs only after both statements succeed. Failures skip it, and `Dispose` rolls the open transaction back. `use(Func<A>, Action<A>)` runs its release action on every exit, a commit does not belong in a release action.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [08]-[SCOPE_ORDERING]
 
 The order of bracketed effects determines which downstream work each scope surrounds:
@@ -265,3 +281,4 @@ The order of bracketed effects determines which downstream work each scope surro
 - Operations that must be atomic belong inside the transaction scope, before the commit step
 
 Adding, removing, or reordering cross-cutting behavior changes the corresponding query clauses. `Bracket`, `use`, `Map`, and `Bind` are not database-specific.
+-->

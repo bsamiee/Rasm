@@ -15,7 +15,7 @@ Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, P
 - [02]-[SEQUENCES](references/sequences.md): Deferred `Iterable`, aggregation, adjacent pairs, the CSV pipeline
 - [03]-[RESULTS](references/results.md): Validators and their folds, fail-fast workflows, lifting into an effect, host translation, union outcomes and folds, laws and property tests
 - [04]-[IMMUTABLE_DATA](references/immutable-data.md): Persistent lists and trees, the cost model, lenses
-- [05]-[EFFECTS](references/effects.md): `Try`, `Reader`, scope ordering, stacked effects, host exits
+- [05]-[EFFECTS](references/effects.md): Isolating I/O around a pure core, value and effect injection, deferral with `IO` and `Try`, `Reader` environments, resource scopes and their order, failure policies, traversal shapes, stacked effects
 - [06]-[STATE](references/state.md): `State` and `StateT`, generators, trampolines, `Monad.recur`, `unfold`
 - [07]-[STREAMS](references/streams.md): `Source` operators, per-item failure, backpressure, agents, entity registries
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Events, transitions, reconstruction, command and query sides

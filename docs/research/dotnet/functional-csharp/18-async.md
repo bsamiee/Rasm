@@ -1,5 +1,7 @@
+<!-- Fully integrated, [10] into dotnet-coding/SKILL.md and the rest into dotnet-coding/references/effects.md -->
 # [ASYNC]
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [01]-[TASK]
 
 `Task<T>` represents a computation that produces a `T` asynchronously. Use it for operations that must not block a thread while waiting, above all I/O. `await` suspends the current context and frees the thread, synchronous waiting blocks it. Compare the shapes:
@@ -10,7 +12,9 @@
 Lazy and asynchronous computations differ in how work starts and how consumers receive results. Creating a `Func<T>` does no work, and its consumer chooses when to invoke it. Calling a task-returning operation starts the work, and its consumer does not control when the result arrives. `IO<A>` is the effect type for the workflow: `IO.liftAsync` holds the `Func<Task<A>>`, and each run calls it again. Fallback and retry operate on `IO<A>` and not on a started task.
 
 Adapt an asynchronous operation that returns a non-generic `Task` to `IO<Unit>` to keep it composable.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [02]-[LIFT_MAP_BIND]
 
 ```csharp
@@ -36,7 +40,9 @@ internal static class Lifts {
 `await` extracts a task's value, and an `async` method wraps its returned value in a task. The LINQ query pattern gives effects the same composition: each dependent `from` is a bind step. Unlike `await`, LINQ syntax can be implemented for any monad, and LanguageExt supplies it through `Monad<M>`.
 
 Remain inside `IO` throughout the workflow. The host runs the effect once at its boundary. Extracting a value earlier waits for the task to complete.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [03]-[FAILURE_POLICIES]
 
 `IO<A>` captures exceptions from an asynchronous computation as `Exceptional` errors on its error channel. Expected domain errors are typed `Expected` on the same channel, never a nested result type.
@@ -60,7 +66,9 @@ internal static class Policies {
 `Recover` is a host operation: `RunSafe()` returns the `Fin<A>`, and `IfFail` maps its failed case to the substitute.
 
 Each failure waits for the next delay of the schedule and invokes the effect again. `Schedule.exponential` doubles the delay after each attempt, and `Schedule.recurs` caps the attempt count. When the schedule expires, the last error remains observable.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [04]-[SEQUENCING_AND_PARALLELISM]
 
 `Bind` is sequential because `next` needs the first effect's `A` before it can create the second effect. Independent operations use the tuple `Apply`, and its operands are already-created effects:
@@ -81,7 +89,9 @@ internal static class Independence {
 ```
 
 `Apply` starts both operands before it waits for either. Both calls overlap, and completion time is governed by the slower call rather than their sum. `Fork` starts one effect on its own thread and returns a `ForkIO<A>`, and its `Await` yields the value. `awaitAll` starts every effect of a `Seq<IO<A>>` and collects the values in order. Each fork takes one dedicated thread. Chunk the collection before a large fan-out through `Fork`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [05]-[TRAVERSE]
 
 ```text
@@ -99,7 +109,9 @@ internal static partial class Traversals {
         values.Traverse(static s => parseDouble(s)).As();
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [06]-[VALIDATION_TRAVERSAL]
 
 The same signature can encode different evaluation behavior:
@@ -114,7 +126,9 @@ internal static partial class Traversals {
 ```
 
 `TraverseM` stops calling validators after the first invalid value. `Traverse` calls the validator for every independent value and accumulates all errors. Use it when validation must return all errors.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [07]-[TASK_TRAVERSAL]
 
 For `Seq<A>` and `A -> IO<B>`, applicative traversal yields one `IO<Seq<B>>`, and monadic traversal stops creating later effects after a failure. `Traverse` under `IO` overlaps the element effects, and `TraverseM` runs them one after another.
@@ -131,7 +145,9 @@ internal static partial class Traversals {
 ```
 
 `PartitionFallible` runs every effect, does not short-circuit, and returns the `Fails` and the `Succs` inside one `IO`. `PartitionFallible` binds each effect to the previous one, the effects run in order.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [08]-[OPTION_TRAVERSAL]
 
 `Option`, `Either`, and `Validation` are traversables with one value on success and none on failure. The failure branch preserves its existing error without calling the effect-returning function. The success branch applies that function and maps the original success constructor over it.
@@ -146,7 +162,9 @@ internal static class Layers {
 ```
 
 Using the identity function swaps nested structures: `Validation<Error, Option<A>>` becomes `Option<Validation<Error, A>>`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/effects.md
 ## [09]-[STACKED_EFFECTS]
 
 Nested effects cannot compose directly because each `Bind` understands only its outer effect. `OptionT<IO, A>` is the transformer stack for a lookup that can return no value: `OptionT.lift` enters it from an `Option` or from a lifted `IO`, `OptionT.liftIO` lifts an `IO<A>` through it, and `Run()` removes one layer. Reduce unnecessary effects before building the workflow.
@@ -212,6 +230,7 @@ internal static class Host {
 ```
 
 At the host boundary, `RunSafe()` returns the `Fin<A>`: map an `Exceptional` error to an unexpected-error response, an `Expected` error to a client error, and a success to success. `Eff<RT, A>` exits through `RunAsync(rt)`, which returns `Task<Fin<A>>`. If one transformer stack appears throughout the workflow, encapsulate it in a dedicated type.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [10]-[OPERATIONAL_CHOICES]
