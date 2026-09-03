@@ -157,19 +157,22 @@ The build and review sequences of the 4 skills exposed patterns that every later
 |   [12]  | A skill naming a package the manifest lacks        | Every named package is in the manifest, or its absence is stated |
 |   [13]  | A catalog restating skill facts with extra detail  | A catalog holds members and signatures, facts live in the skill  |
 
-| [INDEX] | [SKILL]      | [ITEM]                                                    | [ACTION]                                            |
-| :-----: | :----------- | :-------------------------------------------------------- | :-------------------------------------------------- |
-|   [01]  | coding       | `DateTime` in every time snippet                          | NodaTime pass with a scratch compile, before tier 1 |
-|   [02]  | coding       | Static classes only, interfaces absent                    | Instance-type and interface rules in `dotnet-types` |
-|   [03]  | coding       | Functions reference: composition needs no container       | Align with `dotnet-hosting` when it exists          |
-|   [04]  | coding       | Quantities as `decimal` and `double`                      | Vocabulary pass when `dotnet-numerics` exists       |
-|   [05]  | languageext  | `api.md` restates `IO.lift`, `tail`, `Fork`, `Bracket`    | Trim the rows to members and signatures             |
-|   [06]  | languageext  | `LanguageExt.Parsec` with no research                     | Research folder under `dotnet-text`                 |
-|   [07]  | languageext  | Scratch compile project in a session scratchpad           | Durable snippet project under `tests/dotnet/`       |
-|   [08]  | thinktecture | AspNetCore, Swashbuckle, Newtonsoft integrations unlisted | Add to the manifest or remove from the skill        |
-|   [09]  | thinktecture | Swashbuckle schema filters undocumented                   | Research, then state or record the omission         |
-|   [10]  | thinktecture | Value-objects [15] dates and currency uncommented         | Homes in `dotnet-time` and `dotnet-numerics`        |
-|   [11]  | thinktecture | `Thinktecture.EntityFrameworkCore.*` not in the manifest  | Decide when `dotnet-data` is planned                |
-|   [12]  | mapperly     | `Seq<Line>` to `List<LineDto>` at the DTO edge            | Kept with the host-contract sentence, recheck       |
-|   [13]  | all          | Analyzer diagnostics unnamed beside the rules             | Pass after the analyzer configuration settles       |
-|   [14]  | all          | Pidgin beside Parsec in the manifest                      | Remove unless a recorded need stays                 |
+| [INDEX] | [SKILL]      | [ITEM]                                                    | [ACTION]                                             |
+| :-----: | :----------- | :-------------------------------------------------------- | :--------------------------------------------------- |
+|   [01]  | coding       | `DateTime` in every time snippet                          | NodaTime pass with a scratch compile, before tier 1  |
+|   [02]  | coding       | Static classes only, interfaces absent                    | Instance-type and interface rules in `dotnet-types`  |
+|   [03]  | coding       | Functions reference: composition needs no container       | Align with `dotnet-hosting` when it exists           |
+|   [04]  | coding       | Quantities as `decimal` and `double`                      | Vocabulary pass when `dotnet-numerics` exists        |
+|   [05]  | languageext  | `api.md` restates `IO.lift`, `tail`, `Fork`, `Bracket`    | Trim the rows to members and signatures              |
+|   [06]  | languageext  | `LanguageExt.Parsec` with no research                     | Research folder under `dotnet-text`                  |
+|   [07]  | languageext  | Scratch compile project in a session scratchpad           | Durable snippet project under `tests/dotnet/`        |
+|   [08]  | thinktecture | AspNetCore, Swashbuckle, Newtonsoft integrations unlisted | Add to the manifest or remove from the skill         |
+|   [09]  | thinktecture | Swashbuckle schema filters undocumented                   | Research, then state or record the omission          |
+|   [10]  | thinktecture | Value-objects [15] dates and currency uncommented         | Homes in `dotnet-time` and `dotnet-numerics`         |
+|   [11]  | thinktecture | `Thinktecture.EntityFrameworkCore.*` not in the manifest  | Decide when `dotnet-data` is planned                 |
+|   [12]  | mapperly     | `Seq<Line>` to `List<LineDto>` at the DTO edge            | Kept with the host-contract sentence, recheck        |
+|   [13]  | all          | Analyzer diagnostics unnamed beside the rules             | Pass after the analyzer configuration settles        |
+|   [14]  | all          | Pidgin beside Parsec in the manifest                      | Remove unless a recorded need stays                  |
+|   [15]  | mapperly     | Research [12] priority numbers wrong inside the comment   | Correct the comment when the research is next opened |
+|   [16]  | mapperly     | `Seq` to `List<T>` target reports `RMG020`                | Upstream issue, `IReadOnlyList<T>` targets meanwhile |
+|   [17]  | mapperly     | `Directory.Build.props` has no Mapperly property group    | Add the group the skill's [02] describes             |
