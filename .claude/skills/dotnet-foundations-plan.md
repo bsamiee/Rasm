@@ -2,7 +2,30 @@
 
 The 4 foundation skills (`dotnet-coding`, `dotnet-languageext`, `dotnet-thinktecture`, `dotnet-mapperly`) cover composition, the result and effect library, the generated types, and boundary mapping. This plan surveys `Directory.Packages.props` and the language against them, names the gaps, and sets the next skills as categories of concern in tiers, each built by the workflow in `dotnet-skills-plan.md` [03] to [08] from a research folder that must exist before the skill, because no section is written from memory.
 
-## [01]-[SURVEY]
+## [01]-[START]
+
+Read this section as the brief for any session that extends the .NET skills. The goal is one unified standard for a monorepo that will hold many domains (mathematics, algorithms, science, data in every form, backends, messaging, native work), where every skill drives agent behavior under the workspace standards in CLAUDE.md and the 4 foundation skills, and nothing an agent writes from a skill is naive, forced, hand-rolled, legacy, or coupled to one project.
+
+Orientation, in order: this plan, `dotnet-skills-plan.md` for the workflow and the ownership split, the memories on skill authoring, content, snippets, and the research folder, the intros of every existing skill, then the tier table in [04] to find the next skill and `docs/research/dotnet/<skill>/` to see whether its research exists.
+
+When the research does not exist, research comes first and produces no skill text:
+1. Define the concern and its full set of concepts as the field understands them today, exhaustive and current only, independent of this project, with the manifest's packages for the concern placed inside that set rather than driving it
+2. Check for an official skill from each package's repository and for well-made skills on GitHub, read them as coverage starting points, and copy nothing of their structure or wording, because most are below this standard and some state wrong behavior
+3. Gather the material through the search skills and the package documentation, verify every member and behavior against the package (documentation lookup, the package XML, a scratch compile), and write it into research files under the conventions in the research-folder memory, in the source's framing without pretending to be a skill
+4. Extend this plan with the disposition of every research file, the fork sequence, and any concept that has no owning skill yet, added to the tier table before anything is built
+
+When the research exists, run the workflow: the disposition in the plan, sequential forks with a commit between each, the consistency pass, the fresh-agent reviews, and the findings recorded in [07].
+
+Every concept enters whole. Caching means the layers, keys, expiry and eviction, invalidation, and stampede protection, not a memoization example, and the same completeness applies to a state machine, a channel, publish and subscribe, a retry policy, or a parser, each placed in the skill that owns its concern and built with the sibling packages as vocabulary only where the functionality belongs to them. A concept with no owning skill is a gap in the tier table, never a paragraph squeezed into the nearest skill.
+
+Rules that hold in every session:
+- Nothing legacy, obsolete, or version-bound enters, prose names no version numbers, and every term is the current established term of its field
+- One approach per concept unless the concern needs two, and then the rule states which applies when, so no skill carries dual paradigms
+- Every rule sits at the workspace's abstraction level, so an agent never builds result flow in the wrong layer, spams types, or forces a package where the construct does not belong
+- Every snippet follows the snippet discipline and compiles against the package before a fork reports
+- Every agent runs alone, reports in at most 15 lines, and adjusts the plan when the plan is wrong
+
+## [02]-[SURVEY]
 
 The manifest groups packages by domain, and the skills own concerns, so the survey maps each group to the concern that owns it. The Core group is covered apart from the packages listed, the analyzers apart from the Thinktecture one, and every other group is uncovered:
 
@@ -24,7 +47,7 @@ The manifest groups packages by domain, and the skills own concerns, so the surv
 
 Time is the largest overlooked vocabulary gap: NodaTime sits in the Core group and every skill snippet uses `DateTime` or `DateTimeOffset`, and the library holds more than the replacement types: `IClock` with `SystemClock` and `FakeClock` for injection, the `Instant`, `LocalDateTime`, `ZonedDateTime`, and `OffsetDateTime` distinctions, `DateTimeZoneProviders.Tzdb`, `Duration` against `Period`, `Interval`, calendar systems, `NodaTime.Text` patterns for invariant parsing and formatting, and the serialization and store integrations already in the manifest (System.Text.Json, Protobuf, Npgsql, Marten). Quantities are the second: money and physical values appear as `decimal` and `double`. `LanguageExt.Parsec` is the one library companion with no home, and it needs a research file before a section exists.
 
-## [02]-[LANGUAGE_GAPS]
+## [03]-[LANGUAGE_GAPS]
 
 `dotnet-coding` covers composition (functions, expressions, immutability, results, effects) and leaves declaration decisions uncovered. These belong to one new skill, `dotnet-types`, because they are rules rather than worked flows and the coding skill is at its size:
 - Interfaces: when a real interface (several implementations behind one contract, a static abstract member set, a host framework requirement) and when a function dependency, abstract classes, default interface members out
@@ -37,7 +60,7 @@ Time is the largest overlooked vocabulary gap: NodaTime sits in the Core group a
 
 Hardening risks in the 4 skills that the same work settles: every snippet is an `internal static class`, so the rule for an instance type with immutable state (a record with methods, a class holding injected functions, a host adapter) must be stated once, and interfaces appear only as a repository in one reference, so an agent never writes one.
 
-## [03]-[CATEGORIES]
+## [04]-[CATEGORIES]
 
 A category skill owns a concern of code (how time, text, bytes, numbers, or concurrency are handled) and treats the packages that serve it as vocabulary, with one reference per package family. A package skill exists only where the package is a language of its own with a generated API or a large surface an agent writes against directly (the 3 existing ones, the future domain packs). A package that serves a concern never gets its own skill, and minutiae never get a skill.
 
@@ -62,7 +85,7 @@ A category skill owns a concern of code (how time, text, bytes, numbers, or conc
 |   [17]  | 3      | Domain packs           | Each pack's packages, AI and MCP among them                                  |
 
 Each skill's scope:
-- `dotnet-types` holds the declaration decisions in [02], reflection confined to a boundary with source generation preferred, and the patterns reference
+- `dotnet-types` holds the declaration decisions in [03], reflection confined to a boundary with source generation preferred, and the patterns reference
 - `dotnet-time` holds clocks as injected values, the instant, local, zoned, and offset distinctions, zones, durations and periods, intervals, text patterns, and scheduling
 - `dotnet-concurrency` holds `Task` at the boundary, cancellation, timeouts, channels and async streams with their conversion to a `Source`, parallelism, and synchronization
 - `dotnet-text` holds strings and spans of chars, regex generation, `SearchValues`, format and parse, encoding, globalization, CSV, parser combinators, and expression evaluation
@@ -89,11 +112,11 @@ Placement decisions inside the tiers:
 - Caching is one skill because expiry, eviction, invalidation, and stampede protection are one discipline across layers, and the memoization and state-threaded forms in `dotnet-languageext` and the `dotnet-coding` references stay where they are as the pure-side forms it points to
 - Analyzer diagnostics belong to the skill that owns the rule they enforce, named beside the rule as `dotnet-document` names its Roslynator rules
 
-## [04]-[ORDER]
+## [05]-[ORDER]
 
 Tier 1 first, in the listed order, because `dotnet-types` closes the language foundation, `dotnet-time` fixes the vocabulary that every later snippet uses, and concurrency, text, and serialization are the boundary concerns every application meets. Testing is planned separately and is not part of these tiers. Before each skill: gather its research folder under `docs/research/dotnet/<skill>/` (extracted documentation, articles, or fresh research through the search skills), read it in full, then extend this plan with the disposition of its files and the fork sequence. Before the tier, once the review sequence of the 4 skills is committed, one fresh agent runs the NodaTime vocabulary pass over the 4 skills with each type verified against the package by a scratch compile. After the tier: a fresh-agent review of the new skills against the existing ones, and the quantities vocabulary pass once `dotnet-numerics` exists.
 
-## [05]-[DECISIONS]
+## [06]-[DECISIONS]
 
 - NodaTime as vocabulary: every skill snippet that touches time uses `Instant`, `LocalDate`, `ZonedDateTime`, and an injected `IClock` or `Func<Instant>`, with `DateTimeOffset` only at a host boundary, and the 4 existing skills are updated in the vocabulary pass
 - Quantities as vocabulary: money is `NodaMoney.Money` and a physical value is a `UnitsNet` quantity, never `decimal` or `double` in the domain, stated in `dotnet-numerics` and the coding intro
@@ -101,7 +124,7 @@ Tier 1 first, in the listed order, because `dotnet-types` closes the language fo
 - Splitting declarations into `dotnet-types` rather than growing `dotnet-coding` past its size
 - Dependency injection: the container wires the runtime record and the specialized functions at the composition root and the domain never sees it, to be stated in `dotnet-hosting`, with the functions reference's "no container required" sentence aligned
 
-## [06]-[FINDINGS]
+## [07]-[FINDINGS]
 
 The build and review sequences of the 4 skills exposed patterns that every later skill avoids, and specific items that the next passes fix:
 
