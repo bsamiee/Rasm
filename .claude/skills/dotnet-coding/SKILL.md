@@ -24,7 +24,7 @@ Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None
 
 ## [01]-[FUNCTIONS]
 
-Function signatures are contracts: the input types describe every value the function accepts, and the return type describes every outcome the caller must handle. Arrow notation keeps a signature compact, and the delegate carries it in code:
+Function signatures are contracts: the input types describe every value the function accepts, and the return type describes every outcome the caller must handle. Arrow notation keeps a signature compact, `()` stands for no input or no returned information, grouped inputs form a tuple, and the delegate carries the signature in code:
 
 | [INDEX] | [PURPOSE]                   | [ARROW_NOTATION]                      | [DELEGATE]                                |
 | :-----: | :-------------------------- | :------------------------------------ | :---------------------------------------- |
@@ -38,18 +38,19 @@ Function signatures are contracts: the input types describe every value the func
 - Use `Func` and `Action` when only the signature matters, and a custom delegate when its name conveys domain intent that `Func<T, bool>` does not
 - Expose a `Func` field, property, or factory for a function used in partial application, because generic higher-order operations over multi-argument method groups defeat type inference, and `fun` gives an inline lambda its delegate type
 - Keep names precise, because a signature cannot express every semantic detail (`Where` and `TakeWhile` share one)
+- Keep data and behavior apart: records carry inputs and outputs, functions carry behavior, and a constrained type owns only the validation that constructs it and the operations (comparison) that protect its representation
 
 ### [01.1]-[HONEST_SIGNATURES]
 
-A function honors its signature when each declared input produces a declared output, so it returns no `null` and throws no exception as an outcome the signature omits. Repair a dishonest contract by narrowing the input to a validated type or widening the output to `Option<A>` or `Fin<A>`:
+Functions honor their signature when each declared input produces a declared output, so they return no `null` and throw no exception as an outcome the signature omits. Repair a dishonest contract by narrowing the input to a validated type or widening the output to `Option<A>` or `Fin<A>`:
 - `int -> Tier` is incomplete when some integers fail validation, and `Quantity -> Tier` is accurate for every constructible `Quantity`
 - `string -> int` hides the undefined parses, `string -> Option<int>` describes every outcome, and `parseInt` has that signature
-- `void` splits delegates into `Func` and `Action` families, `Unit` is the one-value type that removes the split, and `fun` converts an `Action` into a `Func<Unit>`
+- `void` splits delegates into `Func` and `Action` families and tasks into `Task` and `Task<T>`, `Unit` is the one-value type that removes the split, `fun` converts an `Action` into a `Func<Unit>` so an `Action` overload delegates to the `Func<T>` implementation, `void` stays on an imperative API that returns nothing, and `Unit` does not make an effectful function pure
 - Nullable reference types stay enabled, `?` appears only where an external representation requires it, and `Optional` converts that value to `Option<A>` at the parse boundary, because `Some(x)` wraps `null` as given
 
 ### [01.2]-[PURITY]
 
-A function is pure when its return value depends only on its inputs, including immutable values fixed at construction, and evaluating it causes no side effect. Side effects are mutating state visible outside the function (instance fields included), mutating an argument, throwing, and I/O (the clock, console, filesystem, database, network, or another process). Instance methods that read mutable fields and lambdas that close over mutable variables are impure, and mutation local to a function that never escapes is not a side effect. Pure functions are safe for parallel evaluation, lazy evaluation, and memoization, and the same transformations can change the behavior of an impure function. Expose a variable dependency as input data:
+Functions are pure when their return value depends only on their inputs, including immutable values fixed at construction, and evaluating them causes no side effect, so a call can be replaced by its result (referential transparency). Side effects are mutating state visible outside the function (instance fields included), mutating an argument, throwing, and I/O (the clock, console, filesystem, database, network, or another process). Instance methods that read mutable fields and lambdas that close over mutable variables are impure, and mutation local to a function that never escapes is not a side effect. Pure functions are safe for parallel evaluation, lazy evaluation, and memoization, and the same transformations can change the behavior of an impure function. Expose a variable dependency as input data:
 
 ```csharp
 internal static class Stamps {
@@ -62,7 +63,7 @@ Pure methods can be static because every value they need is explicit or immutabl
 
 ### [01.3]-[HIGHER_ORDER_FUNCTIONS]
 
-Higher-order functions accept a function, return one, or both, and a delegate is the function value. The higher-order function owns the stable control flow and the caller supplies the varying rule: `Filter` owns iteration and the caller owns the inclusion criterion, `IfNone(Func<T>)` owns the cache miss and the caller owns the fallback work. Closures combine a lambda with its declaring context, the declared signature stays unary and the computation also reads the captured values:
+Higher-order functions accept a function, return one, or both, and a delegate is the function value. The higher-order function owns the stable control flow and the caller supplies the varying rule: `Filter` owns iteration and the caller owns the inclusion criterion, `IfNone(Func<T>)` owns the cache miss and the caller owns the fallback work. Closures combine a lambda with its declaring context, the declared signature stays unary and the computation reads the captured values beside its argument:
 
 ```csharp
 Seq<DayOfWeek> days = toSeq(Enum.GetValues<DayOfWeek>());
@@ -70,7 +71,7 @@ Seq<DayOfWeek> StartingWith(string prefix) => days.Filter(day => day.ToString().
 Seq<DayOfWeek> matched = StartingWith("S"); // Sunday, Saturday
 ```
 
-Function factories turn configuration into behavior, and `compose(f, g)` joins functions into one reusable function that applies `f` first, where method chaining expresses the same flow inline:
+Function factories turn configuration into behavior, and `compose(f, g)` joins functions into one reusable function that applies `f` first (method groups need its explicit type arguments), where method chaining expresses the same flow inline:
 
 ```csharp
 internal static class Factories {
@@ -79,9 +80,9 @@ internal static class Factories {
 }
 ```
 
-Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters so left-to-right application is useful: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<DateTime>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into such functions, partially applies dependencies and policies, and injects only specialized functions into handlers. A top-level entry point composes functions from lower-level components while dependencies point downward, and no rule requires each layer to call only its neighbor, because a low-level I/O call makes every delegating layer impure.
+Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters so left-to-right application is useful: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<DateTime>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into such functions, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components while dependencies point downward, and no rule requires each layer to call only its neighbor, because a low-level I/O call makes every delegating layer impure.
 
-Use these techniques when specialized functions simplify call sites, function collections when behaviors share a signature and vary as data, `ForAll` or `Exists` when only a short-circuiting boolean is required, and an ordered rule table with an explicit fallback for a first-match decision over values.
+Use these techniques when specialized functions simplify call sites, function collections when behaviors share a signature and vary as data, `ForAll` or `Exists` when only a short-circuiting boolean is required, an ordered rule table with an explicit fallback for a first-match decision over values, a returned closure to narrow a noisy API to one operation, and ordinary functions when the helper is larger than the duplication it removes or hides ordering, effects, missing-value behavior, or termination risk.
 
 ## [02]-[EXPRESSIONS]
 
@@ -144,12 +145,12 @@ internal static class Report {
 
 Recursive functions need a base case that returns the final value, a recursive case that calls the same function with values closer to that condition, and a returned value on every path. C# does not optimize tail calls, so the depth bound selects the form:
 
-| [INDEX] | [APPROACH]                | [USE_WHEN]                                                          |
-| :-----: | :------------------------ | :------------------------------------------------------------------ |
-|  [01]   | Direct recursion          | The maximum depth is small and bounded                              |
-|  [02]   | `Trampoline<A>`           | The transition is pure and the depth is unbounded                   |
-|  [03]   | `Monad.recur`             | The transition is an effect and only the final value is needed      |
-|  [04]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>`        |
+| [INDEX] | [APPROACH]                | [USE_WHEN]                                                     | [COST]                                   |
+| :-----: | :------------------------ | :------------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | Direct recursion          | The maximum depth is small and bounded                         | Unbounded calls grow the stack           |
+|  [02]   | `Trampoline<A>`           | The transition is pure and the depth is unbounded              | Every step is a deferred call            |
+|  [03]   | `Monad.recur`             | The transition is an effect and only the final value is needed | Intermediate states are lost             |
+|  [04]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>`   | Each `unfold` call reruns the transition |
 
 ## [03]-[IMMUTABILITY]
 
@@ -207,7 +208,7 @@ Every function returns an explicit result type, and one type serves one concern:
 |  [06]   | `IO<A>`                | Side effects with a failure channel             |
 |  [07]   | `Eff<RT, A>`           | Effects that read a capability                  |
 
-The input boundary selects the result type, domain functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`), where converting from `Option` requires the `Error` it lacks. `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations, and a domain function never runs an effect. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, and `Pure(x)` and `Fail<Error>(e)` make the lift explicit when the branches of a conditional differ in type. An empty `Seq<A>` is a result and not absence, and a producer that maps an operational failure to `None` hides the failure from the consumer.
+The input boundary selects the result type, domain functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`), where converting from `Option` requires the `Error` it lacks. `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations, and a domain function never runs an effect. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, and `Pure(x)` and `Fail<Error>(e)` make the lift explicit when the branches of a conditional differ in type. The empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one, and a producer that maps an operational failure to `None` hides the failure from the consumer.
 
 ### [04.1]-[COMPOSITION]
 
@@ -218,13 +219,12 @@ Give each step a function and select the operator by the step's signature and by
 |  [01]   | `T -> R`                        | `Map`                                  | Transforms a present value and preserves the result type    |
 |  [02]   | `T -> bool`                     | `Filter` on `Option`, `guard` on `Fin` | Keeps a value only when it passes, `guard` names the error  |
 |  [03]   | `T -> F<R>`                     | `Bind`, one `from` per step in LINQ    | Continues with a dependent step, the first failure stops it |
-|  [04]   | `(F<A>, F<B>)` independent      | Tuple `Apply`                          | Combines independent values, accumulates or overlaps        |
-|  [05]   | `Seq<A>` with `A -> F<B>`       | `Traverse`, `TraverseM`                | Flips the structures, accumulates or stops at the first     |
+|  [04]   | `(F<A>, F<B>)` independent      | Tuple `Apply`                          | Accumulates errors under `Validation`, overlaps under `IO`  |
+|  [05]   | `Seq<A>` with `A -> F<B>`       | `Traverse`, `TraverseM`                | `Traverse` accumulates or overlaps, `TraverseM` stops first |
 |  [06]   | `T -> void`                     | `Iter`                                 | Performs the terminal effect only for a present value       |
 
-- Independent steps combine with the tuple `Apply`, which under `Validation` accumulates every error and under `IO` starts every operand before it waits
-- A collection traverses with `Traverse` to accumulate every failure or overlap every effect, and with `TraverseM` to stop at the first failure and run in order
-- A value stays in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling, and a nested `Bind` becomes a query
+- Errors from one traversed element carry the element index as a typed field
+- Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling, and a nested `Bind` becomes a query
 - Nested contexts (`IO<Option<A>>`) compose through a transformer (`OptionT<IO, A>`), and a stack that appears throughout a workflow becomes a dedicated type
 
 ```csharp
@@ -266,7 +266,7 @@ internal readonly partial struct Quantity {
 
 ### [04.3]-[UNIONS]
 
-Model each valid state as a distinct case, not as a flag with fields that are meaningful for one flag value:
+Model each valid state as a distinct case, not as a flag with fields that are meaningful for one flag value, and count the values a type admits (a product multiplies the counts of its fields, `Option<A>` adds one) to expose states the domain does not need:
 
 ```csharp
 [Union]
@@ -277,6 +277,7 @@ internal abstract partial record Identity {
 ```
 
 - Put shared data on the abstract base and case-specific data in its case, call `Switch` only where behavior depends on the case, and pass the union onward elsewhere
+- Treat a case as an alternative to its siblings and not as an extension of one, name each case's data in its own terms, and hold mixed cases in one `Seq` of the base type
 - Use a union for a growing set of operations and abstract members for a growing set of cases, because a new union case is a compile error at every `Switch` until it gains an arm
 - Use a domain union when the consumer needs domain outcome names, and `Option`, `Fin`, or `Either` otherwise, keeping absence and failure separate when the consumer responds differently
 - Fold a recursive union with one replacement per constructor, and fold an unbounded depth through `Trampoline<A>`
@@ -296,7 +297,7 @@ internal abstract partial record Identity {
 
 ## [05]-[EFFECTS]
 
-`IO<A>` is the effect type: it describes a side effect with a failure channel, performs nothing until the host runs it, and carries a domain rejection as a typed `Expected` on that channel rather than as a nested result. `IO.lift` defers a thunk, `IO.lift(Fin<A>)` puts an evaluated rejection on the channel, `IO.liftAsync` adapts a task thunk and its `EnvIO` overload passes `env.Token`, and `IO.pure` and `IO.fail` build the plain cases. `Eff<RT, A>` reads a capability from a runtime `RT` through `Has<Eff<RT>, T>`, and `IO<A>` converts to it implicitly. The host runs the effect once, `RunSafe()` returns the `Fin<A>` for translation into the host's vocabulary, and `Run` throws and belongs to `Main`:
+`IO<A>` is the effect type: it describes a side effect with a failure channel, performs nothing until the host runs it, and carries a domain rejection as a typed `Expected` on that channel rather than as a nested result. `IO.lift` defers a thunk, `IO.lift(Fin<A>)` puts an evaluated rejection on the channel, `IO.liftAsync` adapts a task thunk and its `EnvIO` overload passes `env.Token`, an operation that waits on I/O enters that way and has no synchronous counterpart that blocks a thread, and `IO.pure` and `IO.fail` build the plain cases. `Eff<RT, A>` reads a capability from a runtime `RT` through `Has<Eff<RT>, T>`, and `IO<A>` converts to it implicitly. The host runs the effect once, `RunSafe()` returns the `Fin<A>` for translation into the host's vocabulary, and `Run` throws and belongs to `Main`:
 
 ```csharp
 internal static class Host {
@@ -324,7 +325,7 @@ Composition supplies the clock once, request handling supplies the command later
 
 ### [05.2]-[POLICIES]
 
-Keep the failure policies distinct: fallback runs a lower-priority effect after the preferred one fails (`primary | secondary`, or `Catch(code, f)` for one classified error), retry reruns a transient failure on a schedule (`Retry(Schedule.exponential(delay) | Schedule.recurs(3))`), and recovery maps a final error to a value at the host (`IfFail` on the `Fin<A>`). The dependency structure and the concurrency bound select the traversal:
+Keep the failure policies distinct: fallback runs a lower-priority effect after the preferred one fails (`primary | secondary`, or `Catch(code, f)` for one classified error), retry reruns a transient failure on a schedule (`Retry(Schedule.exponential(delay) | Schedule.recurs(3))`), and recovery maps a final error to a value at the host (`IfFail` on the `Fin<A>`). Libraries return their result type with their own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation. The dependency structure and the concurrency bound select the traversal:
 
 | [INDEX] | [SCENARIO]                   | [TRAVERSAL]                             | [BEHAVIOR]                                                  |
 | :-----: | :--------------------------- | :-------------------------------------- | :---------------------------------------------------------- |
@@ -332,6 +333,8 @@ Keep the failure policies distinct: fallback runs a lower-priority effect after 
 |  [02]   | Independent effects          | `Traverse` under `IO`                   | Overlaps without a bound, fails if one effect fails         |
 |  [03]   | Dependent or ordered effects | `TraverseM`                             | Serial, stops at the first failure                          |
 |  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound         |
-|  [05]   | Best effort                  | `PartitionFallible`                     | No short-circuit, returns `Fails` and `Succs`               |
+|  [05]   | Best effort                  | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs`       |
 
-Independent effects also combine with the tuple `Apply` or with `Fork` and `Await`, and `awaitAll` runs a `Seq<IO<A>>`. Avoid shared state by default, and when one logical value must be shared, `Atom<A>` replaces it with compare-and-swap, `AtomHashMap<K, V>` holds a registry with `FindOrAdd`, `Ref<A>` under `atomic` commits coordinated updates, a `Conduit` reduced under `Fork` serializes commands as an agent, and every update function stays free of effects because a conflict reruns it. `Source<A>` is the stream for values that arrive over time, an expected per-item failure stays a `Fin<A>` value inside the stream, and request-response work stays out of it.
+Independent effects combine with the tuple `Apply` or with `Fork` and `Await`, and `awaitAll` runs a `Seq<IO<A>>`. Avoid shared state by default, and when one logical value must be shared, `Atom<A>` replaces it with compare-and-swap, `AtomHashMap<K, V>` holds a registry with `FindOrAdd`, `Ref<A>` under `atomic` commits coordinated updates, a `Conduit` reduced under `Fork` serializes commands as an agent, and every update function stays free of effects because a conflict reruns it. The delivery shape selects the construct:
+- `Source<A>` fits values that arrive over time, logic across events or sources (sequences, transitions, windows), and one-way dataflow, and an expected per-item failure stays a `Fin<A>` value inside the stream
+- Independent events take a callback or an `IO<A>`, request-response work stays out of a stream, and coordination that needs explicit queues and exact sequencing takes a `Conduit` as the queue or `Pipes` as the pipeline

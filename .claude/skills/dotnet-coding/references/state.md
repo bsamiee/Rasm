@@ -4,14 +4,14 @@ Covers computations that depend on earlier inputs without mutating a value in pl
 
 ## [01]-[TRANSITIONS]
 
-A program is stateful when behavior depends on previous inputs, and the label depends on the boundary: a server is stateless by itself while the server with its database forms a stateful system. State becomes an explicit input, and the operation returns its successor beside the value:
+Programs are stateful when behavior depends on previous inputs, and the label depends on the boundary: a server is stateless by itself while the server with its database forms a stateful system. State becomes an explicit input, and the operation returns its successor beside the value:
 
 ```text
 stateless: Input -> Value
 stateful:  Input -> State -> (Value, NewState)
 ```
 
-The caller carries the returned state into the next operation, earlier state values stay unchanged, and the program remains stateful because each new state affects later behavior. The shape `S -> (A, S)` characterizes the function, not the architecture around it, and `State<S, A>` wraps a `Func<S, (A Value, S State)>` while `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Explicit state passing suits an isolated transition, and once several transitions are sequenced, extracting and forwarding the state by hand repeats itself, so the operations capture that protocol:
+The caller carries the returned state into the next operation, earlier state values stay unchanged, and the program remains stateful because each new state affects later behavior. The shape `S -> (A, S)` characterizes the function, not the architecture around it, and `State<S, A>` wraps a `Func<S, (A Value, S State)>` while `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Explicit state passing suits an isolated transition, and once transitions are sequenced, extracting and forwarding the state by hand repeats itself, so the operations capture that protocol:
 - `Map` transforms the produced value and preserves the returned state
 - `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the returned state
 - `State.pure` lifts a value into a computation that returns the state unchanged, `State.gets` reads a projection, `State.put` replaces the state, and `State.modify` replaces it with a function of it, where `put` and `modify` produce `Unit`
@@ -22,7 +22,7 @@ The produced value can be an `Option<A>` that the consumer matches at the bounda
 
 ## [02]-[CACHE]
 
-A lookup that caches results is a state transition over the cache. A `HashMap<string, decimal>` from codes to quotes is the state, and the lookup is a `State<HashMap<string, decimal>, decimal>`:
+Lookups that cache results are state transitions over the cache: the `HashMap<string, decimal>` from codes to quotes is the state, and the lookup is a `State<HashMap<string, decimal>, decimal>`:
 
 ```csharp
 internal static class QuoteCache {
@@ -37,7 +37,7 @@ internal static class QuoteCache {
 }
 ```
 
-A hit returns the cached value with the same state, and a miss fetches, returns a new map with the quote, and uses no global state. The signature changes from a stateless lookup into a state transition:
+Hits return the cached value with the same state, and a miss fetches, returns a new map with the quote, and uses no global state. The signature changes from a stateless lookup into a state transition:
 
 ```text
 remote lookup: string -> decimal
@@ -61,11 +61,11 @@ internal static class EffectfulQuoteCache {
 }
 ```
 
-`StateT.get` reads the whole state, `StateT.liftIO` lifts the fetch into the transformer, and `StateT.put` writes the new map. A fetch that fails on the `IO` error channel leaves the host with the original cache, and only a successful lookup yields a cache containing the new quote. `Run(state)` on a `StateT` returns `K<IO, (Value, State)>`, `.As()` converts it, `RunSafe()` executes it, and the host maps the `Fin` cases to its own result type. An `IO` forked inside the transformer reads no state and writes none back.
+`StateT.get` reads the whole state, `StateT.liftIO` lifts the fetch into the transformer, and `StateT.put` writes the new map. Fetches that fail on the `IO` error channel leave the host with the original cache, and only a successful lookup yields a cache containing the new quote. `Run(state)` on a `StateT` returns `K<IO, (Value, State)>`, `.As()` converts it, `RunSafe()` executes it, and the host maps the `Fin` cases to its own result type. `IO` forked inside the transformer reads no state and writes none back.
 
 ## [03]-[GENERATORS]
 
-Composable generators serve property-based testing, load testing, and simulation. A conventional pseudo-random generator is deterministic but hides its state: the seed is an implicit input to the next call and the updated seed an implicit output. A `State<int, A>` makes both explicit as `int -> (A, int)`, generation becomes repeatable and testable, the host chooses the seed through `Run(seed)`, and seeding from the clock is impure and not testable. The primitive generator scrambles its input seed and returns the result as both the value and the next seed, and every derived generator reuses it:
+Composable generators serve property-based testing, load testing, and simulation. Conventional pseudo-random generators are deterministic but hide their state: the seed is an implicit input to the next call and the updated seed an implicit output. The `State<int, A>` makes both explicit as `int -> (A, int)`, generation becomes repeatable and testable, the host chooses the seed through `Run(seed)`, and seeding from the clock is impure and not testable. The primitive generator scrambles its input seed and returns the result as both the value and the next seed, and every derived generator reuses it:
 
 ```csharp
 internal static class Generator {
@@ -87,7 +87,7 @@ internal static class Generator {
 }
 ```
 
-`Map` changes only the value and keeps the next seed, so a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order determines the sequence of generator states. A recursive generator chooses between an empty result and a generated head followed by another list, where `State.pure` supplies the empty result without consuming state:
+`Map` changes only the value and keeps the next seed, so a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order determines the sequence of generator states. Recursive generators choose between an empty result and a generated head followed by another list, where `State.pure` supplies the empty result without consuming state:
 
 ```csharp
 internal static class ListGenerator {
@@ -136,13 +136,13 @@ The numbering function returns a computation, supplying the initial counter runs
 
 ## [05]-[LOOPS]
 
-An indefinite loop advances a state until a runtime condition holds, and its length is not known in advance, so `Map` and `Fold` over a fixed collection do not supply the stopping rule. The model separates 4 concerns, each an explicit value or function:
+Indefinite loops advance a state until a runtime condition holds, and their length is not known in advance, so `Map` and `Fold` over a fixed collection do not supply the stopping rule. The model separates 4 concerns, each an explicit value or function:
 - State transition: `Func<S, S>` produces the next state from the current one
 - Termination: `Func<S, bool>` decides whether a state is final
 - Execution: apply the transition until termination
 - Consumption: retain only the final state, or every intermediate state
 
-The library keeps the mutable loop variable inside the execution mechanism and leaves the transition and stopping rule explicit. A tail-recursive function returns the final value or makes its recursive call last, and each call can add a stack frame because C# provides no tail-call optimization, so a condition that takes many iterations can overflow the stack, and a small but unbounded iteration count does not remove the risk. `Trampoline.More` returns the recursive call as a deferred value and `Run()` evaluates the calls in a loop, and a reusable trampolined loop checks the stopping predicate before each transition:
+The library keeps the mutable loop variable inside the execution mechanism and leaves the transition and stopping rule explicit. Tail-recursive functions return the final value or make their recursive call last, and each call can add a stack frame because C# provides no tail-call optimization, so a condition that takes many iterations can overflow the stack, and a small but unbounded iteration count does not remove the risk. `Trampoline.More` returns the recursive call as a deferred value and `Run()` evaluates the calls in a loop, and a reusable trampolined loop checks the stopping predicate before each transition:
 
 ```csharp
 internal static class Trampolined {

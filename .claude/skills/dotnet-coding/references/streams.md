@@ -12,18 +12,18 @@ Covers values that arrive over time and the process that owns a shared value: th
 |  [01]   | One value     | `T`              | `Task<T>`        |
 |  [02]   | Many values   | `IEnumerable<T>` | `IObservable<T>` |
 
-An observable pushes notifications to an observer under the protocol `OnNext* (OnCompleted | OnError)?`: `OnNext(T)` delivers zero or more values, `OnCompleted()` ends the stream, `OnError(Exception)` ends it abnormally, a stream can run forever, and nothing emits after either terminal notification. `Subscribe` connects producer and consumer and returns the `IDisposable` that owns the subscription lifetime, which the consumer scopes or disposes, and a source that never completes depends on that disposal. `Source.lift(IObservable<A>)` supplies the observer once, and `Reduce(seed, f)` folds every value into one `IO<S>` that the host runs.
+Observables push notifications to an observer under the protocol `OnNext* (OnCompleted | OnError)?`: `OnNext(T)` delivers zero or more values, `OnCompleted()` ends the stream, `OnError(Exception)` ends it abnormally, a stream can run forever, and nothing emits after either terminal notification. `Subscribe` connects producer and consumer and returns the `IDisposable` that owns the subscription lifetime, which the consumer scopes or disposes, and a source that never completes depends on that disposal. `Source.lift(IObservable<A>)` supplies the observer once, and `Reduce(seed, f)` folds every value into one `IO<S>` that the host runs.
 
 ## [02]-[STRUCTURE]
 
-A stream program has 3 layers, and the separation keeps the dataflow composable and shows where effects run and resources are managed:
+Stream programs have 3 layers, and the separation keeps the dataflow composable and shows where effects run and resources are managed:
 1. Acquire sources by adapting callbacks, tasks, collections, or external producers into observables
 2. Describe the dataflow by transforming and combining streams with operators, with no side effect in this layer
 3. Run effects at the edge by subscribing only to the final streams, performing output, persistence, and diagnostics in observers, and reducing a `Source<A>` once so the host runs the resulting `IO<S>`
 
 ## [03]-[CREATION]
 
-Subscription behavior depends on the source, so not every observable is lazy. A callback-based producer (a message subscription) enters through `Event.from`, an event-based API through `FromEvent` or `FromEventPattern`, and a `Subject<T>` belongs only at a callback boundary that no dedicated source expresses directly, which keeps observer calls out of the stream definition.
+Subscription behavior depends on the source, so not every observable is lazy. Callback-based producers (a message subscription) enter through `Event.from`, event-based APIs through `FromEvent` or `FromEventPattern`, and a `Subject<T>` belongs only at a callback boundary that no dedicated source expresses directly, which keeps observer calls out of the stream definition.
 
 ## [04]-[OPERATORS]
 
@@ -44,7 +44,7 @@ Operators produce new observables in place of handling individual events imperat
 |  [11]   | `Scan`          | Emits every successive accumulated state                                               | `Scan` on `Seq` |
 |  [12]   | `GroupBy`       | Splits one stream into keyed streams                                                   | none            |
 
-A query over `Source<A>` with a `from` per stage flattens the inner source of each value instead of blocking on it. `Combine` depends on completion: if its first source never completes, the second is never observed. Partitioning is the stream form of branching, each branch transforms independently, normalizes to a common type, and rejoins with `Source.merge`:
+Queries over `Source<A>` with a `from` per stage flatten the inner source of each value instead of blocking on it. `Combine` depends on completion: if its first source never completes, the second is never observed. Partitioning is the stream form of branching, each branch transforms independently, normalizes to a common type, and rejoins with `Source.merge`:
 
 ```csharp
 internal static class Branches {
@@ -59,7 +59,7 @@ internal static class Branches {
 
 ## [05]-[FAILURES]
 
-`OnError` is terminal: when a derived stream reports an error, that stream and every downstream stream terminate permanently while upstream streams continue, so only part of the dataflow stays active. An expected per-item failure never uses that channel. Apply the operation with `Map`, return a `Fin<R>` per item, keep both cases in one stream by translating them to a common output with `Match`, or reduce the stream into values and errors:
+`OnError` is terminal: when a derived stream reports an error, that stream and every downstream stream terminate permanently while upstream streams continue, so only part of the dataflow stays active. Expected per-item failures never use that channel. Apply the operation with `Map`, return a `Fin<R>` per item, keep both cases in one stream by translating them to a common output with `Match`, or reduce the stream into values and errors:
 
 ```csharp
 internal sealed record UnknownCode() : Expected("unknown code", 1901);
@@ -134,7 +134,7 @@ Parallel computations with independent inputs compute partial results and combin
 |  [03]   | Transactional memory (`Ref`) | Coordinated updates with an atomic commit | Retries on conflict, transaction bodies hold no effects  |
 |  [04]   | Message passing (agent)      | State owned by a process, one handler    | Requires ownership, granularity, and lifecycle design    |
 
-An agent has an inbox that queues messages, state that only the agent owns, and a processing loop that handles one message at a time, and for each message the processing function can perform effects, send messages, create agents, and compute the state for the next message, so the state is the fold of all messages received. The invariants are that no caller reads or mutates the owned state directly, that messages for one agent are processed sequentially, and that the state values passed through the loop are immutable snapshots, because a mutable state object lets code outside the loop modify it concurrently. The minimal implementation keeps the state in the accumulator of a fold over the inbox, not in a private field, and avoids a recursive loop, which is not stack-safe in C#:
+Agents have an inbox that queues messages, state that only the agent owns, and a processing loop that handles one message at a time, and for each message the processing function can perform effects, send messages, create agents, and compute the state for the next message, so the state is the fold of all messages received. The invariants are that no caller reads or mutates the owned state directly, that messages for one agent are processed sequentially, and that the state values passed through the loop are immutable snapshots, because a mutable state object lets code outside the loop modify it concurrently. The minimal implementation keeps the state in the accumulator of a fold over the inbox, not in a private field, and avoids a recursive loop, which is not stack-safe in C#:
 
 ```csharp
 internal static class Agent {
@@ -148,7 +148,7 @@ internal static class Agent {
 
 `Reduce` runs the fold inside the conduit and calls one handler at a time, `Reduced.ContinueIO(next)` keeps the loop running and `Reduced.DoneIO(next)` ends it from inside the reducer, running the `IO<ForkIO<S>>` starts the loop, and `Await` yields the final state after `Complete()` closes the inbox. The second overload accepts an effectful processing function, and a stateless agent uses `Unit` as its state to serialize effects without retaining a value. Callers hold the inbox and the message contract, and the state type appears only in the returned `ForkIO<S>`.
 
-Putting every request through one agent makes the whole service sequential, so align each agent with the smallest independently mutable resource with an invariant to protect, and serialize by dependency on shared state, not by request type or application layer. For a keyed cache, a coordinator owns only the registry of per-key agents and delegates immediately, requests for different keys progress concurrently, and requests for the same key queue behind one owner, which prevents duplicate lookups for that key. Each per-key agent holds an `Option<A>` of its cached value in its accumulator, `None` at first and `Some` after the first lookup, the processing function decides whether a remote lookup is needed, and expiry and error handling remain explicit design concerns.
+Putting every request through one agent makes the whole service sequential, so align each agent with the smallest independently mutable resource with an invariant to protect, and serialize by dependency on shared state, not by request type or application layer. For a keyed cache, a coordinator owns only the registry of per-key agents and delegates immediately, requests for different keys progress concurrently, and requests for the same key queue behind one owner, which prevents duplicate lookups for that key. Each per-key agent holds an `Option<A>` of its cached value in its accumulator, `None` at first and `Some` after the first lookup, the processing function decides whether a remote lookup is needed, expiry and error handling remain explicit design concerns, and one agent sends every reply only when sending is fire-and-forget and does not delay its queue.
 
 Agents and actors share exclusive ownership, inboxes, sequential processing, and message-based cooperation, and differ in boundary: an agent is local to one process, referenced as an instance, unsupervised, and can leak mutable state when the discipline lapses, while an actor can run across machines, is referenced by location-transparent identity, is supervised, and prevents shared references through serialized messages. Use agents when all coordinated access passes through one process, and an actor system, with its own terminology, persistence, transport, and delivery guarantees, only when ownership must span processes. Agent messaging is command-oriented and effectful and is not a value-returning pipeline, so either use a unidirectional event-driven flow between agents, or keep agents as private concurrency primitives behind value-returning APIs, and in both styles keep domain decisions in pure functions and use the agent only to order transitions and effects.
 
@@ -224,7 +224,7 @@ internal sealed record EntityProcess(Conduit<Debit, Debit> Inbox, ForkIO<Snapsho
 
 The command path evaluates the pure transition against the current state, retains the state and returns the typed rejection when invalid, persists and publishes the event when valid, adopts the computed next state only after persistence succeeds, and returns the result, where `IO.lift(reply)` raises the rejection on the caller's `IO` error channel. Persistence belongs inside the processing function because the next message must not observe the new in-memory state before its event is persisted, and the pure transition stays outside the concurrency mechanism.
 
-A controller needs the one live process for an entity id, and an application-wide `AtomHashMap<Guid, EntityProcess>` owns that map. A registry that loads missing state inside its update stalls every lookup until the read completes, and the update reruns on conflict, so the load happens in the caller's `IO` outside the registry: read `Find(id)` and return the existing process, otherwise load the state, start the process, and register it with `FindOrAdd(id, started)`, and its atomic check and add alone makes creation unique, so the process that `FindOrAdd` did not return completes its inbox:
+Controllers need the one live process for an entity id, and an application-wide `AtomHashMap<Guid, EntityProcess>` owns that map. Registries that load missing state inside their update stall every lookup until the read completes, and the update reruns on conflict, so the load happens in the caller's `IO` outside the registry: read `Find(id)` and return the existing process, otherwise load the state, start the process, and register it with `FindOrAdd(id, started)`, and its atomic check and add alone makes creation unique, so the process that `FindOrAdd` did not return completes its inbox:
 
 ```csharp
 internal sealed record UnknownEntity() : Expected("no entity has this id", 2002);

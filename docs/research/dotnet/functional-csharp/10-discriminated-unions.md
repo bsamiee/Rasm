@@ -33,6 +33,7 @@ internal abstract partial record Customer {
 Consumers call `Switch` on named cases, and each case carries only its required data.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md [04.3], the case-as-alternative, per-case naming, and mixed-collection rules
 Travel systems sell holidays and day trips. One class with all fields and an `IsDayTrip` flag violates Interface Segregation: every instance carries properties that do not describe its case, while names (`Destination`, `StartDate`) mean concepts named `Attraction` and `DateOfTrip`.
 
 Use an abstract union base:
@@ -70,6 +71,7 @@ internal static class Offerings {
 ```
 
 `BritishName` can carry first, middle, and last names with an honorific placed first, and a `ChineseName` can carry family, given, courtesy, and honorific fields with a different output order. The abstract `Name` permits one collection, while variants preserve meaningful fields and formatting rather than forcing one culture's name structure onto another.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/references/results.md
 ## [03]-[OUTCOMES_AS_CASES]

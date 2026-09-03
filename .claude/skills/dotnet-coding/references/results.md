@@ -1,6 +1,6 @@
 # [RESULTS]
 
-Worked flows for the result types: validators and their combination, `Fin` workflows and application inside an effect, translation at the host, domain unions with their folds, and the laws with their property tests. Which type a function returns and which operator joins two steps are decisions in `dotnet-coding`, and how each operation and recovery overload behaves is in `dotnet-languageext`.
+Covers the result-type flows: validators and their combination, `Fin` workflows and application inside an effect, translation at the host, domain unions with their folds, and the laws with their property tests. Which type a function returns and which operator joins two steps are decisions in `dotnet-coding`, and how each operation and recovery overload behaves is in `dotnet-languageext`.
 
 ## [01]-[VALIDATION]
 
@@ -55,7 +55,7 @@ internal static class Validators {
 }
 ```
 
-`FailFast` skips the remaining rules after the first invalid result, so cheap structural checks go before expensive database or remote checks, and `Harvest` evaluates every rule and accumulates every error for a caller that repairs all violations at once. An empty rule list returns the input as valid, on success the traversal holds one copy of the input per rule, and `Map` discards those copies.
+`FailFast` skips the remaining rules after the first invalid result, so cheap structural checks go before expensive database or remote checks, and `Harvest` evaluates every rule and accumulates every error for a caller that repairs all violations at once. The empty rule list returns the input as valid, on success the traversal holds one copy of the input per rule, and `Map` discards those copies.
 
 ## [02]-[WORKFLOWS]
 
@@ -82,7 +82,7 @@ internal static class Roots {
 }
 ```
 
-Both `double` and `Error` convert to `Fin<double>` without a constructor call, and the ternary chain selects the lift by its return type. A fail-fast workflow binds steps that share the failure type `Error`, each `Succ` passes its value to the next step, the first `Fail` skips every later step and reaches the final handler, and `Unit` marks a success with no payload:
+Both `double` and `Error` convert to `Fin<double>` without a constructor call, and the ternary chain selects the lift by its return type. Fail-fast workflows bind steps that share the failure type `Error`, each `Succ` passes its value to the next step, the first `Fail` skips every later step and reaches the final handler, and `Unit` marks a success with no payload:
 
 ```csharp
 internal sealed record Request(string Key, decimal Amount);
@@ -143,7 +143,7 @@ internal static class Queries {
 
 ## [03]-[HOST_TRANSLATION]
 
-Validation and persistence express different effects, accumulation and a deferred side effect, so one `Bind` cannot flatten them: validation exits through `ToFin`, `IO.lift(Fin<A>)` places that result on the `IO` error channel, one query binds both, and the effect runs only for a valid command. An exception-throwing dependency converts at its integration boundary, where `IO.lift` captures the exception from only that call as an `Exceptional` error:
+Validation and persistence express different effects, accumulation and a deferred side effect, so one `Bind` cannot flatten them: validation exits through `ToFin`, `IO.lift(Fin<A>)` places that result on the `IO` error channel, one query binds both, and the effect runs only for a valid command. Exception-throwing dependencies convert at their integration boundary, where `IO.lift` captures the exception from only that call as an `Exceptional` error:
 
 ```csharp
 internal static class Handler {
@@ -158,7 +158,7 @@ internal static class Handler {
 }
 ```
 
-The tuple `Apply` reports both violations together, `RunSafe` at the outer boundary returns one `Fin<Unit>` for the host `Match`, and the host logs the `Inner` of a translated dependency failure beside the business errors it renders. Within the core the workflow composes with `Map` and `Bind`, and only an outer adapter translates when the protocol, UI, or host requires another response type. Every library returns its result type with its own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation:
+The tuple `Apply` reports both violations together, `RunSafe` at the outer boundary returns one `Fin<Unit>` for the host `Match`, and the host logs the `Inner` of a translated dependency failure beside the business errors it renders. Within the core the workflow composes with `Map` and `Bind`, and only an outer adapter translates when the protocol, UI, or host requires another response type:
 
 ```csharp
 IActionResult Post(Request request) =>
@@ -171,7 +171,7 @@ For an optional lookup the boundary translates `None` to not found and `Some(val
 
 ## [04]-[UNIONS]
 
-A discriminated union holds exactly one of several alternatives, consumers pattern-match the value to reach its case and that case's data, and components that do not care which case they hold pass the union unchanged. Cases can be unrelated alternatives that share only an API type or a collection. A lookup has 3 meaningful outcomes, found, absent, and failed, and `OptionT<IO, Item>` names each: `Some` is the found item, `None` is absence, and a lookup failure sits on the `IO` error channel:
+Discriminated unions hold exactly one of their alternatives, consumers pattern-match the value to reach its case and that case's data, and components that do not care which case they hold pass the union unchanged. Cases can be unrelated alternatives that share only an API type or a collection. Lookups have 3 meaningful outcomes, found, absent, and failed, and `OptionT<IO, Item>` names each: `Some` is the found item, `None` is absence, and a lookup failure sits on the `IO` error channel:
 
 ```csharp
 internal sealed record Item(int Id, string Name);
@@ -267,7 +267,7 @@ The abstractions form a hierarchy, `Functor < Applicative < Monad < Fold`, and e
 |  [02]   | `Applicative<F>` | `Pure`, `Apply` | Combines independent values inside an effect with a multi-argument function |
 |  [03]   | `Monad<M>`       | `Pure`, `Bind`  | Sequences computations where the next step depends on a prior value        |
 
-A dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. The laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
+The dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. The laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
 
 ```text
 Functor identity:    fa.Map(x => x) == fa

@@ -1,6 +1,6 @@
 # [EFFECTS]
 
-Worked flows for keeping effects at the boundary: isolating I/O around a pure core, injecting values and effects, deferring work as `IO<A>` and `Try<A>`, reading an environment through `Reader`, scoping resources, and running the composed effect at the host.
+Covers keeping effects at the boundary: isolating I/O around a pure core, injecting values and effects, deferring work as `IO<A>` and `Try<A>`, reading an environment through `Reader`, scoping resources, and running the composed effect at the host.
 
 ## [01]-[ISOLATION]
 
@@ -17,7 +17,7 @@ internal static class Prompting {
 }
 ```
 
-An output parameter represented by a mutable collection hides part of a function's result and couples caller and callee through initialization rules and mutation order, so every computed value returns explicitly, and an operation that both mutates an object and calculates a result splits into the calculation, which stays pure, and the mutation:
+Output parameters represented by a mutable collection hide part of a function's result and couple caller and callee through initialization rules and mutation order, so every computed value returns explicitly, and an operation that both mutates an object and calculates a result splits into the calculation, which stays pure, and the mutation:
 
 ```csharp
 internal sealed record Item(string Name, decimal Price);
@@ -46,14 +46,14 @@ internal static class Formatting {
 
 `Range(1, items.Count)` generates the indices, `Zip` pairs each item with one, and state is input data rather than shared mutable state, so parallel evaluation preserves behavior. Asynchronous code begins another task before an outstanding operation completes, parallel code runs work across cores, and multithreading schedules threads the hardware cannot all run at once, and each makes a hidden dependency on mutable state harder to control. `Map` accepts an impure delegate, so its function stays pure, parallel execution is requested explicitly because the compiler cannot infer purity, and its overhead is justified only by sufficient work and input size.
 
-A unit test for a pure function supplies inputs and asserts the output, and an impure function has hidden inputs (the current time, database contents, the environment), hidden outputs (emails sent, files written, fields changed), or both, so it behaves like a larger pure transformation:
+Unit tests for a pure function supply inputs and assert the output, and an impure function has hidden inputs (the current time, database contents, the environment), hidden outputs (emails sent, files written, fields changed), or both, so it behaves like a larger pure transformation:
 
 ```text
 (arguments, current program state, current world state)
     -> (return value, new program state, new world state)
 ```
 
-Arrange must construct substitute external and program state, assert must inspect both the explicit result and the externally visible changes, mocks model the external state, and assertions over internal mutation are brittle and break encapsulation. Parameterized tests make inputs and expected outputs explicit across boundary cases. Distributed systems delegate computation to other processes and raise the share of I/O, and performance now comes from more cores, which pure computations use safely, so both trends raise the value of the small explicit boundary.
+Arrange must construct substitute external and program state, assert must inspect both the explicit result and the externally visible changes, mocks model the external state, and assertions over internal mutation are brittle and break encapsulation. Parameterized tests make inputs and expected outputs explicit across boundary cases.
 
 ## [02]-[INJECTION]
 
@@ -82,7 +82,7 @@ internal static class Capabilities {
 }
 ```
 
-A validator that needs a list of valid codes receives the codes as a `Seq<string>` that the caller loads as an effect, production composition supplies the `IO<Seq<string>>` that queries them, tests supply `IO.pure`, and the query runs only when the check runs because the `IO` defers it until the bind:
+Validators that need a list of valid codes receive the codes as a `Seq<string>` that the caller loads as an effect, production composition supplies the `IO<Seq<string>>` that queries them, tests supply `IO.pure`, and the query runs only when the check runs because the `IO` defers it until the bind:
 
 ```csharp
 internal sealed class CodeValidator(Seq<string> validCodes) {
@@ -126,9 +126,9 @@ internal static class Quotes {
 }
 ```
 
-If the source fails, the transformation is skipped and the returned effect carries the error. `await` extracts a task's value and an `async` method wraps its return in a task, and the query pattern gives an effect the same composition for any monad through `Monad<M>`, so the workflow remains inside `IO` and the host runs it once at the boundary, because extracting a value earlier waits for the task to complete.
+Failed sources skip the transformation, and the returned effect carries the error. `await` extracts a task's value and an `async` method wraps its return in a task, and the query pattern gives an effect the same composition for any monad through `Monad<M>`, so the workflow remains inside `IO` and the host runs it once at the boundary, because extracting a value earlier waits for the task to complete.
 
-Repeated `try/catch` blocks obscure a computation, so exception-prone lazy work is a `Try<A>` that wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` with `IsExceptional` true, `Run()` returns `Fin<A>`, and `Try.lift(() => new Uri(value)).Run()` captures and runs one-off work in one expression. The operations compose in query syntax, the `Try<B>` that `Bind` returns stays deferred, and when run it runs the first stage, propagates its error unchanged, or runs the dependent stage with the successful value, where `Run()` also captures a property lookup that throws inside the `let` clause:
+Repeated `try/catch` blocks obscure a computation, so exception-prone lazy work is a `Try<A>` that wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` with `IsExceptional` true, `Run()` returns `Fin<A>`, and `Try.lift(() => new Uri(value)).Run()` captures and runs one-off work in one expression. The operations compose in query syntax, the `Try<B>` that `Bind` returns stays deferred, and when run it runs the first stage, propagates its error unchanged, or runs the dependent stage with the successful value, where `Run()` captures a property lookup that throws inside the `let` clause:
 
 ```csharp
 internal static class Parsing {
@@ -163,7 +163,7 @@ internal static partial class Environments {
 }
 ```
 
-Each bind wraps another deferred transformation, the environment type stays fixed while the value type changes, and the environment can hold a connection, an identifier, a configuration value, or another required input, which avoids carrying it through every step in tuples. An effectful workflow uses `ReaderT<Env, IO, A>`: `ReaderT.ask<IO, Env>()` reads the environment, an `IO<A>` binds directly in the query, `ReaderT.with` maps a larger environment, and `Run(env)` returns a `K<IO, A>` that `.As()` narrows to the `IO<A>` the host runs with `RunSafe()`:
+Each bind wraps another deferred transformation, the environment type stays fixed while the value type changes, and the environment can hold a connection, an identifier, a configuration value, or another required input, which avoids carrying it through every step in tuples. Effectful workflows use `ReaderT<Env, IO, A>`: `ReaderT.ask<IO, Env>()` reads the environment, an `IO<A>` binds directly in the query, `ReaderT.with` maps a larger environment, and `Run(env)` returns a `K<IO, A>` that `.As()` narrows to the `IO<A>` the host runs with `RunSafe()`:
 
 ```csharp
 internal static partial class Environments {

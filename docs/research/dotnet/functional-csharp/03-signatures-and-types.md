@@ -1,4 +1,4 @@
-<!-- [03] Timing example and [04] Option examples go to references, [04.1] belongs to dotnet-languageext -->
+<!-- Fully integrated, [04.1] into dotnet-languageext and the rest into dotnet-coding/SKILL.md, the Timing snippet of [03] and the Match snippet of [04] stay as prose rules, and the optional-parameter null exception of [07] is superseded by `Option<A> = default` parameters -->
 # [SIGNATURES_AND_TYPES]
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
@@ -87,6 +87,7 @@ Types can be modeled as sets of possible values. If `Age` has 120 values and `Ge
 `Option<A>` is a union: all `Some(A)` values and the single `None` value. Types with `n` values yield options with `n + 1` values. Counting possible instances exposes types that hold states the domain does not need. Once component types are constrained, they can be composed into larger data objects without reintroducing invalid primitive states.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md [01.1] and [04]
 ## [03]-[UNIT]
 
 `void` is a language special case rather than an ordinary return type. This splits delegates into `Func` and `Action` families and can force duplicate higher-order-function implementations. The same split appears between `Task<T>` and `Task`.
@@ -134,6 +135,7 @@ internal static class Greetings {
 `Match` belongs at the host, where a result type becomes a rendered value. Inside the domain, `Bind` sequences computations for `Some`, and `Map` transforms its value.
 
 Changing a required `string` property to `Option<string>` is a breaking change: code that treats the property as a `string` stops compiling until it handles absence. This trades possible runtime `NullReferenceException`s for compile-time errors that require explicit handling.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ### [04.1]-[IMPLEMENTATION]

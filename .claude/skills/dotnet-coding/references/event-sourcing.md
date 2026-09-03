@@ -37,7 +37,7 @@ internal abstract partial record Event {
 }
 ```
 
-Event types have different payload shapes, so the storage options from most to least suitable are an event store, a document database that accepts heterogeneous documents, and a relational database. A relational event table needs headers (entity id, timestamp, event type) and a payload column for the serialized event, the headers support retrieving one entity's history in order and filtering it by time, and an existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
+Event types have different payload shapes, so the storage options from most to least suitable are an event store, a document database that accepts heterogeneous documents, and a relational database. Relational event tables need headers (entity id, timestamp, event type) and a payload column for the serialized event, the headers support retrieving one entity's history in order and filtering it by time, and an existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
 
 ## [03]-[STATE]
 
@@ -55,7 +55,7 @@ internal sealed record Snapshot(Status Status, string Code, decimal Balance, dec
 
 ## [04]-[TRANSITIONS]
 
-A transition after creation is a pure function `Snapshot -> Event -> Snapshot`, and creation is the special case `Created -> Snapshot` with no prior state that can establish initial domain values (a new entry starts active). The transition selects the event case through `Switch` and returns a new snapshot, and one transition function serves both the live occurrence and the replay, because a duplicate implementation risks a live state that history cannot reconstruct. A replayed creation event leaves an existing snapshot unchanged, and a new case fails every `Switch` to compile until it gains an arm:
+Transitions after creation are pure functions `Snapshot -> Event -> Snapshot`, and creation is the special case `Created -> Snapshot` with no prior state that can establish initial domain values (a new entry starts active). The transition selects the event case through `Switch` and returns a new snapshot, and one transition function serves both the live occurrence and the replay, because a duplicate implementation risks a live state that history cannot reconstruct. Replayed creation events leave an existing snapshot unchanged, and a new case fails every `Switch` to compile until it gains an arm:
 
 ```csharp
 internal static partial class Entry {
@@ -130,7 +130,7 @@ internal static class Commands {
 }
 ```
 
-Accepted events can trigger subscribers (external transfers, derived calculations, notifications, projection updates), and persisting the event and publishing it to them must behave atomically, because saving and then crashing before subscribers see it leaves the system inconsistent. The guarantee depends on the storage and messaging infrastructure, durable subscriptions can use the event store as the event stream with at-least-once delivery, and the handler then only saves the event. Prefer one resulting event per command, and let downstream handlers translate it into further events for the same or other entities. Command-side handlers perform follow-up actions and can emit further events, and query-side handlers update read models. A rule that depends on the snapshot observed before the event is created needs one process per entity that serializes its commands, with persistence inside that process.
+Accepted events can trigger subscribers (external transfers, derived calculations, notifications, projection updates), and persisting the event and publishing it to them must behave atomically, because saving and then crashing before subscribers see it leaves the system inconsistent. The guarantee depends on the storage and messaging infrastructure, durable subscriptions can use the event store as the event stream with at-least-once delivery, and the handler then only saves the event. Prefer one resulting event per command, and let downstream handlers translate it into further events for the same or other entities. Command-side handlers perform follow-up actions and can emit further events, and query-side handlers update read models. Rules that depend on the snapshot observed before the event is created need one process per entity that serializes its commands, with persistence inside that process.
 
 ## [07]-[QUERIES]
 

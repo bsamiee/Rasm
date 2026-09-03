@@ -1,10 +1,10 @@
 # [SEQUENCES]
 
-Holds the worked sequence flows behind the expression rules of `dotnet-coding`: when a pipeline defers and when it materializes, how stages are named, how `Fold` expresses every reduction, how one element is replaced without mutation, how adjacent elements are compared, and how one text becomes one report.
+Covers the sequence flows behind the expression rules of `dotnet-coding`: when a pipeline defers and when it materializes, how stages are named, how `Fold` expresses every reduction, how one element is replaced without mutation, how adjacent elements are compared, and how one text becomes one report.
 
 ## [01]-[DEFERRAL]
 
-A LINQ operator over an `IEnumerable<A>` returns a description of how to produce a sequence, and execution begins when a consumer enumerates it. `Iterable<A>` is the lazy form over `IEnumerable<A>`, and `AsIterable()` lifts into it:
+LINQ operators over an `IEnumerable<A>` return a description of how to produce a sequence, and execution begins when a consumer enumerates it. `Iterable<A>` is the lazy form over `IEnumerable<A>`, and `AsIterable()` lifts into it:
 
 ```csharp
 internal static class Stages {
@@ -52,7 +52,7 @@ internal static class Totals {
 }
 ```
 
-A tuple seed computes several results in one pass, and each step returns a new accumulated value with no external running total. No median operator exists, so sorting and reading the middle element or pair expresses it without an accumulator, `At` reads the middle as an `Option`, and an empty sequence has no middle:
+Tuple seeds compute more than one result in one pass, and each step returns a new accumulated value with no external running total. No median operator exists, so sorting and reading the middle element or pair expresses it without an accumulator, `At` reads the middle as an `Option`, and an empty sequence has no middle:
 
 ```csharp
 internal static class Medians {
@@ -79,11 +79,11 @@ Fold     = f(f(f(seed, item0), item1), item2)
 FoldBack = f(f(f(seed, item2), item1), item0)
 ```
 
-A sequence has 2 constructors, the empty sequence and `Cons`, and `FoldBack` replaces both: the seed replaces the empty sequence and the step replaces each `Cons`. The same derivation produces a fold for any recursive type, one replacement per constructor, where each recursive position receives an already-folded result, and `Fold` can express `Map`, `Filter`, and `Bind`.
+Sequences have 2 constructors, the empty sequence and `Cons`, and `FoldBack` replaces both: the seed replaces the empty sequence and the step replaces each `Cons`. The same derivation produces a fold for any recursive type, one replacement per constructor, where each recursive position receives an already-folded result, and `Fold` can express `Map`, `Filter`, and `Bind`.
 
 ## [04]-[REPLACEMENT]
 
-An indexed `Map` replaces one item and derives the replacement from the old item at that position, and the source stays unchanged:
+The indexed `Map` replaces one item and derives the replacement from the old item at that position, and the source stays unchanged:
 
 ```csharp
 internal static class Replacement {
@@ -109,7 +109,7 @@ Sorting first and then testing whether any adjacent pair differs by one answers 
 
 ## [06]-[PIPELINE]
 
-A report pipeline reads one text, splits it into records, parses typed values, groups them, aggregates each group, formats lines, and joins them into one result, and each stage produces a new value:
+Report pipelines read one text, split it into records, parse typed values, group them, aggregate each group, format lines, and join them into one result, and each stage produces a new value:
 
 ```text
 single text -> records -> typed values -> groups -> totals -> lines -> single report
@@ -152,4 +152,4 @@ internal static class Summary {
 }
 ```
 
-An empty line parses to `None`, so the text cannot end with a newline, and the parser handles no quoted fields or embedded commas.
+Empty lines parse to `None`, so the text cannot end with a newline, and the parser handles no quoted fields or embedded commas.
