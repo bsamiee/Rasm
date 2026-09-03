@@ -190,18 +190,8 @@ Seq<int> sorted = toSeq(values.Order());              // values remains 7, 6, 1
 Seq<int> odd = values.Filter(static x => x % 2 == 1); // 7, 1
 ```
 
-Two readers can observe the same stable value safely, while a concurrent reorder of a shared list during a sum gives the reader an inconsistent traversal, and a separate ordered view removes the interference. The collection types:
-
-| [INDEX] | [TYPE]          | [PURPOSE]                       | [CONSTRUCTION]                             |
-| :-----: | :-------------- | :------------------------------ | :----------------------------------------- |
-|  [01]   | `Seq<A>`        | Ordered, memoized, the default  | `Seq(1, 2, 3)`, `toSeq(source)`            |
-|  [02]   | `Lst<A>`        | `Insert`, `RemoveAt`, `SetItem` | `List(1, 2, 3)`                            |
-|  [03]   | `Map<K, V>`     | Keyed, ordered by key           | `Map(("b", 2), ("a", 1))`                  |
-|  [04]   | `HashMap<K, V>` | Keyed, hashed                   | `HashMap(("a", 1))`, `toHashMap(pairs)`    |
-|  [05]   | `Set<A>`        | Unique, ordered                 | `Set(3, 1, 2)`, `toSet(items)`             |
-|  [06]   | `Iterable<A>`   | Lazy over `IEnumerable`         | `source.AsIterable()`, `ToSeq()` forces it |
-
-`Seq<A>` reads its source once and memoizes every item, `Map` and `Filter` on it are deferred until enumeration, `Iterable<A>` does not memoize, `Seq<A>()` is the empty value, and sorting is LINQ `Order()` followed by `toSeq`.
+Two readers can observe the same stable value safely, while a concurrent reorder of a shared list during a sum gives the reader an inconsistent traversal, and a separate ordered view removes the interference. Choose the collection by the operation the domain performs most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
+- See `dotnet-languageext` for the construction, memoization, folds, sequence operations, and compiler pitfalls of each collection type
 
 ## [04]-[RESULTS]
 

@@ -1,8 +1,9 @@
-<!-- Seed of dotnet-languageext, the skill dotnet-coding holds 6 rows of the [01] table and the [06] strategy summary -->
+<!-- Fully integrated into dotnet-languageext [06] and [07], the conduit code of [06] also feeds its streams reference -->
 # [LANGUAGEEXT_COLLECTIONS_AND_SHARED_STATE]
 
 Every collection in domain code is a LanguageExt collection, and `Seq<A>` is the default. BCL `List<T>` or `Dictionary<K, V>` stays inside a scope publishing an immutable value, and `toSeq` is the conversion at that boundary. This file documents collection types, fold and sequence operations, lenses, and shared-state types.
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [01]-[COLLECTION_TYPES]
 
 | [INDEX] | [TYPE]          | [PURPOSE]                       | [CONSTRUCTION]                                 |
@@ -42,7 +43,9 @@ internal static class Partition {
     public static Seq<int> Counted => toSeq(Range(1, 3));
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [02]-[FOLDS]
 
 `Fold` folds left to right with a seed, and `FoldBack` folds right to left. `FoldWhile` reads the state and the next element before each step and stops when the predicate returns `false`. `FoldUntil` stops when the predicate returns `true`. Both predicates receive a `(State, Value)` tuple. `FoldM` binds each step through a monad and folds right to left, while `FoldBackM` folds left to right. Both return `K<M, S>`. Call `.As()` to convert that value to the concrete monad type. The seedless `Fold()` combines a monoid and prepends each element to the accumulator. Folding a sequence of sequences returns the groups in reverse order. `Exists` stops at the first match, and `ForAll` stops at the first failure.
@@ -63,7 +66,9 @@ internal static class Folds {
     public static bool AllPositive(Seq<int> values, Atom<int> visited) => values.ForAll(x => visited.Swap(static n => n + 1) > 0 && x > 0);
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [03]-[SEQUENCE_OPERATIONS]
 
 `Choose` maps to `Option` and keeps the `Some` values in one pass. `Partition` splits by a predicate into a tuple that deconstructs. `Zip` pairs two sequences, and its projection overload takes a function. `Scan` emits the seed first. The result has one more element than the source. `At(Index)` returns `Option<A>`. `Head` and `Last` are `Option<A>`, and `Tail` is a `Seq<A>` that is empty for an empty source. The indexed `Map` passes the item first and the index second. `Bind` flattens, `Somes` drops `None`, and `Rev` reverses. `LanguageExt.List.unfold` runs a state seed until the step returns `None`. The static import of `Prelude` binds `List` to `Prelude.List`. `LanguageExt.List.unfold` names the namespace explicitly. `Cons` resolves with extension-method syntax, `head.Cons(tail)`, because `LanguageExt.Pretty.Cons<A>` is a type.
@@ -88,7 +93,9 @@ internal static class Shapes {
     public static Seq<int> Prepended(int head, Seq<int> tail) => head.Cons(tail);
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [04]-[EQUALITY_PITFALLS]
 
 `==` on `Seq<A>` compares the items in order. `Zip` names the tuple elements `First` and `Second`. Comparing this result with a `Seq` of unnamed tuples is ambiguous (CS9342). Declare the same tuple names in the expected value. `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121). Use `Exists` for membership and `Fold` for summing values. `Seq<A>.Empty` in expression context fails with CS0119 because the simple name `Seq` binds to the `Prelude` function. Use `Seq<A>()` for the empty value. `Seq<A>` has no `Sort` instance. Sorting requires LINQ `Order()` followed by `toSeq`.
@@ -106,7 +113,9 @@ internal static class Equality {
     public static Seq<int> Ascending(Seq<int> values) => toSeq(values.Order());
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [05]-[LENSES]
 
 `Lens<A, B>.New` takes a getter and a curried setter. `Get` reads the focus. `Set` writes a value, `Update` applies a function, and both return a new `A`. `lens(outer, inner)` composes two lenses into one lens that focuses on a value in a nested record.
@@ -127,7 +136,9 @@ internal static class Lenses {
     public static string Read(Customer customer) => CustomerPostcode.Get(customer);
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [06]-[SHARED_STATE]
 
 `Atom<A>` manages one value with compare-and-swap. `Swap` returns the new value. Conflicts can rerun the update function. The function must have no side effects. `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, and its update functions must have no side effects. `TryAdd` ignores a present key. `SwapKey(key, Func<V, V>)` updates a present key, and `SwapKey(key, Func<Option<V>, Option<V>>)` also inserts. `Find` reads, and `FindOrAdd` atomically adds a missing value or returns the existing value. `Ref<A>` updates occur inside `atomic`. `swap` reads the transactional value. `commute` applies its function inside the transaction and again at the commit point against the last committed value. `atomic(Func<R>)` returns the function result from the transaction. `Isolation.Serialisable` sets serializable transaction isolation. `TrackingHashMap<K, V>` records each key change in `Changes`, and `Snapshot()` clears the change log and preserves the entries. `memo(Func<A, B>)` caches one result per argument. `memo(Func<A>)` returns a `Memo<A>`, and its `Value` runs the thunk once. `memoK` caches the construction of a `K<F, A>`, not its execution. Memoized `IO` is constructed once and runs each time `Value` is read.
@@ -162,3 +173,4 @@ internal static class SharedState {
         });
 }
 ```
+-->

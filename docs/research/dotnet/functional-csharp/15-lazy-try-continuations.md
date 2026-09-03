@@ -31,6 +31,7 @@ internal static partial class Laziness {
 }
 ```
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ### [01.1]-[LAZY_FALLBACKS]
 
 Eager fallbacks defeat a cache because the database lookup runs even when the cache contains the value:
@@ -61,6 +62,7 @@ internal static partial class Laziness {
 `Option<A>` offers both overloads:
 - Use a direct value when its construction is negligible
 - `Func<A>` avoids work when the value is expensive and can go unused
+-->
 
 ## [02]-[COMPOSE_THEN_EXECUTE]
 

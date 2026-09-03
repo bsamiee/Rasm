@@ -49,7 +49,7 @@ A skill drives behavior, it is instructions to an agent and not a textbook. Fram
 - Keep every rule at the abstraction level the workspace uses, so an agent does not invent result flow in the wrong layer or a type per snippet
 - Keep snippets in `SKILL.md` small and complete, one shape per rule, and never oversized
 - Keep reference snippets non-anchoring: a category of language functionality shown in one coupled way becomes the only way an agent writes it
-- Strip domain nouns from snippets into tokens and placeholders, name every local by its type rather than `var`, and do this as a later pass, not while restructuring
+- Write every snippet with placeholder names from the start (`Command`, `State`, `Item`, `Quantity`), translated to a coherent shape rather than copied from the research, name every local by its type rather than `var`, and keep it rich enough to show the rule without hardening one shape into the only way an agent writes that construct
 
 ## [04]-[SKILL_SHAPE]
 

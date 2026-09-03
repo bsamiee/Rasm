@@ -135,6 +135,7 @@ internal static class Greetings {
 
 Changing a required `string` property to `Option<string>` is a breaking change: code that treats the property as a `string` stops compiling until it handles absence. This trades possible runtime `NullReferenceException`s for compile-time errors that require explicit handling.
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ### [04.1]-[IMPLEMENTATION]
 
 `Option<A>` is one readonly struct. It holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, and selects the case through `Match`. The Prelude supplies `Some(x)` and `None`. The implicit conversion from `A` maps `null` to `None`, and `Optional(x)` does the same when nullable input enters the domain. `Some(x)` wraps the value as given and is not a null check:
@@ -151,6 +152,8 @@ internal static class Construction {
 The default inner value in the `None` state is ignored. The contract is an empty case, a present case, and a way to handle both cases safely. Other libraries name the same abstraction `Maybe`, with cases `Nothing` and `Just`. Open class hierarchies cannot stop a caller from adding a third case.
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
+-->
+
 ## [05]-[TOTALITY]
 
 Total functions cover every value in their declared input domains, partial functions do not. Returning `Option` totalizes a partial computation: return `Some(result)` where the computation is defined and `None` otherwise.

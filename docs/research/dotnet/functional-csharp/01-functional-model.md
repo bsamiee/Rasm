@@ -159,7 +159,7 @@ LINQ is the clearest built-in example of functional programming:
 - These operators accept functions and return new sequences instead of modifying their inputs
 -->
 
-<!-- dotnet-languageext: traits and K<F, A> -->
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 The static import of `LanguageExt.Prelude` supplies constructors and functions as bare names: `Some`, `None`, `Seq`, `toSeq`, `Range`, and `parseInt`. `K<F, A>` pairs the witness `F` for the type constructor with the element type `A`. Traits (`Functor<F>`) state what a witness supports, and `.As()` restores the concrete type.
 
 ```csharp
@@ -171,6 +171,7 @@ internal static partial class Traits {
     public static Seq<int> TripledSeq() => Tripled(Seq(1, 2, 3)).As();  // 3, 6, 9
 }
 ```
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 These language features reduce functional-code boilerplate:

@@ -1,8 +1,9 @@
-<!-- Seed of dotnet-languageext, the skill dotnet-coding holds the [01] table without its SHAPE column, the [02] and [03] rules, and the [08] table -->
+<!-- Fully integrated, [01] and [04] to [07] into dotnet-languageext, [02] [03] [08] into dotnet-coding -->
 # [LANGUAGEEXT_RESULT_TYPES]
 
 Every function in this set returns an explicit result type.
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [01]-[ONE_TYPE_PER_CONCERN]
 
 | [INDEX] | [TYPE]                 | [CONCERN]                                       | [SHAPE]               |
@@ -49,7 +50,9 @@ internal static class Concerns {
 ```
 
 `Find` returns `Option` because absence carries no `Error`. `Restrict` returns `Fin` because an out-of-range age produces an `Error`. `Register` combines independent checks and reports every failure. `Load` returns `IO` with the typed `NotFound` on its failure channel. `Stamp` reads the `Clock` capability from any runtime that declares `Has<Eff<RT>, Clock>`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [02]-[BOUNDARY_RULE]
 
 The input boundary selects the result type, and domain functions preserve it. Conversion between types happens at one named boundary. `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations, and domain functions never run an effect. `Register` validates the raw form and returns `Validation`. `Handle` converts with `ToFin` and binds the domain transition, and `Respond` matches at the host.
@@ -63,7 +66,9 @@ internal static class Boundary {
     public static string Respond(string name, int years) => Handle(name, years).Match(Succ: static ticket => ticket.Holder, Fail: static error => error.Message);
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [03]-[IMPLICIT_LIFTS]
 
 Values of type `A` lift into `Fin<A>` and `Validation<Error, A>`. `Error` values, including `Expected` subclasses, lift into the failure case. `Pure(x)` and `Fail<Error>(e)` make the intended lift explicit when the two branches of a conditional differ in type. Smart constructors map the value object's generated `Validate` to `Fin<Age>`. This gives every consumer a validated value.
@@ -88,7 +93,9 @@ internal static class Lifts {
 ```
 
 The return type `Fin<Age>` selects the lift for the `InvalidAge` and `item` branches.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [04]-[CONVERSIONS]
 
 Each conversion is a method on the source type, and the name states the target. Converting `Option` to `Fin` or `Validation` requires an `Error`, because `Option` contains none. `Validation` becomes `Fin` at the end of input validation. `Fin` from a smart constructor converts to `Validation` before combining with independent validations. `Try`, `IO`, and `Eff` return `Fin` when run.
@@ -107,7 +114,9 @@ internal static class Conversions {
     public static Fin<DateTimeOffset> Stamped(Runtime runtime) => Concerns.Stamp<Runtime>().Run(runtime);
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [05]-[ERROR_MODEL]
 
 Domain errors are `sealed record`s extending `Expected` with a message and a code. `Codes` holds the codes of the package declaring the errors. `Exceptional` is the error that `Try` produces from a captured exception. `ManyErrors` is the error that `+` and `Validation` produce from accumulation. Errors a value object raises also implement `IValidationError<T>`, and the generated `Validate` returns them. LanguageExt's `Errors` class holds shared values (`Errors.TimedOut`, `Errors.None`).
@@ -143,7 +152,9 @@ internal static class Classify {
 ```
 
 Consumers classify with `Is`, `HasCode`, `IsType<E>`, `Filter<E>`, `Count`, and `Head`, never with the message text. `IsType<E>` and `Filter<E>` search the leaves of a `ManyErrors`. `Count` returns the number of accumulated errors, and `Head` returns the first leaf. `HasCode` and `Catch(int)` select a code the same package declares. Codes from several packages meet in one `ManyErrors`, and `IsType<E>` separates them. The message is for the host to render.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [06]-[RECOVERY]
 
 Recovery is a function from an error to the same result type. The `Catch` overloads select by code, by error value, or by predicate. The code and error-value overloads are extensions that return `K<F, A>`, `.As()` restores the concrete type. `IO<A>` declares the predicate overload as an instance method that returns `IO<A>`. The `|` operator uses the right alternative when the left one fails. `BindFail` lets the recovery function return either `Fin` case. `MapFail` adds context by wrapping the original error as the inner error. `IfFail` returns a non-`Fin` value.
@@ -160,7 +171,9 @@ internal static class Recovery {
     public static int AtHost(Fin<int> result) => result.IfFail(static _ => -1);
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/SKILL.md
 ## [07]-[LINQ_GUARDS]
 
 `guard` raises an `Error` when its flag is false. `when` runs its alternative when the flag is true, and `unless` runs it when the flag is false. The alternative is a failed `Fin<Unit>` or a failed `IO<Unit>`, and the query continues with the same type. `guard<Error>` names the type argument because an `Expected` subclass selects the generic overload.
@@ -180,7 +193,9 @@ internal static class Guards {
     private static Fin<Unit> Reject(Error error) => error;
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ## [08]-[ANTI_PATTERNS]
 
 | [INDEX] | [WRONG_FORM]                                                                       | [CORRECT_FORM]                                                |
@@ -203,3 +218,4 @@ internal static class CorrectForms {
     public static Option<string> Nickname(string? raw) => Optional(raw);
 }
 ```
+-->
