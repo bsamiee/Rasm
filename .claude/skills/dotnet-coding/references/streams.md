@@ -23,7 +23,7 @@ Stream programs have 3 layers, and the separation keeps the dataflow composable 
 
 ## [03]-[CREATION]
 
-Subscription behavior depends on the source, so not every observable is lazy. Callback-based producers (a message subscription) enter through `Event.from`, event-based APIs through `FromEvent` or `FromEventPattern`, and a `Subject<T>` belongs only at a callback boundary that no dedicated source expresses directly, which keeps observer calls out of the stream definition.
+Subscription behavior depends on the source, so not every observable is lazy. Callback-based producers (a message subscription) enter through `Event.from`, event-based APIs through `FromEvent` or `FromEventPattern` of `System.Reactive`, and a `Subject<T>` belongs only at a callback boundary that no dedicated source expresses directly, which keeps observer calls out of the stream definition.
 
 ## [04]-[OPERATORS]
 
@@ -179,7 +179,7 @@ internal sealed class Counter(Conduit<Increment, Increment> inbox) {
 
 ## [09]-[ENTITIES]
 
-Event sourcing reconstructs a correct aggregate from concurrent events, but it does not protect a rule that depends on the state observed before an event is created: two concurrent debits can each validate against the same snapshot, both events are accepted, and replaying them yields a balance that violates the limit while the log stays internally consistent. Associate one lightweight process with each entity, and one server process hosts millions of them when it is the sole route for changes, while cross-process access needs actors. The responsibilities separate into an immutable snapshot, pure functions that validate a command and compute the event with the next state, and the process that owns the current state and serializes commands:
+Event sourcing reconstructs a correct aggregate from concurrent events, but it does not protect a rule that depends on the state observed before an event is created: two concurrent debits can each validate against the same snapshot, both events are accepted, and replaying them yields a balance that violates the limit while the log stays internally consistent. Associate one process with each entity, and one server process hosts millions of them when it is the sole route for changes, while cross-process access needs actors. The responsibilities separate into an immutable snapshot, pure functions that validate a command and compute the event with the next state, and the process that owns the current state and serializes commands:
 
 ```csharp
 internal sealed record Overdrawn() : Expected("debit exceeds the limit", 2001);

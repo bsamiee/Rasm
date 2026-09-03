@@ -46,7 +46,7 @@ Functions honor their signature when each declared input produces a declared out
 - `int -> Tier` is incomplete when some integers fail validation, and `Quantity -> Tier` is accurate for every constructible `Quantity`
 - `string -> int` hides the undefined parses, `string -> Option<int>` describes every outcome, and `parseInt` has that signature
 - `void` splits delegates into `Func` and `Action` families and tasks into `Task` and `Task<T>`, `Unit` is the one-value type that removes the split, `fun` converts an `Action` into a `Func<Unit>` so an `Action` overload delegates to the `Func<T>` implementation, `void` stays on an imperative API that returns nothing, and `Unit` does not make an effectful function pure
-- Nullable reference types stay enabled, `?` appears only where an external representation requires it, and `Optional` converts that value to `Option<A>` at the parse boundary, because `Some(x)` wraps `null` as given
+- Nullable reference types stay enabled, `?` appears only where an external representation requires it, and `Optional` converts that value to `Option<A>` at the parse boundary
 
 ### [01.2]-[PURITY]
 
@@ -98,7 +98,7 @@ internal static class Projections {
 }
 ```
 
-Prefer a query over a mutable accumulator, use `Fold` with a seed for a reduction (`Sum` and `Average` on `Seq<A>` are ambiguous with LINQ), and use the indexed `Map` overload in place of a declared counter.
+Prefer a query over a mutable accumulator, use `Fold` with a seed for a reduction, and use the indexed `Map` overload in place of a declared counter.
 
 ### [02.1]-[PATTERN_MATCHING]
 
@@ -262,7 +262,7 @@ internal readonly partial struct Quantity {
 }
 ```
 
-`Validate` is the generated hook, and `From` maps it to `Fin<Quantity>`, so every consumer receives a validated value and none re-validates. Consumers classify an error with `Is`, `HasCode`, `IsType<E>`, and `Filter<E>`, never with the message text, and a package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`, and the host separates them in one `Match`: `Expected` or `ManyErrors` renders the business errors, and `Exceptional` logs the detail and renders a generic failure.
+`Validate` is the generated hook, and the `From` factory maps it to `Fin<Quantity>`, so every consumer receives a validated value and none re-validates. Consumers classify an error with `Is`, `HasCode`, `IsType<E>`, and `Filter<E>`, never with the message text, and a package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`, and the host separates them in one `Match`: `Expected` or `ManyErrors` renders the business errors, and `Exceptional` logs the detail and renders a generic failure.
 
 ### [04.3]-[UNIONS]
 
@@ -292,7 +292,7 @@ internal abstract partial record Identity {
 |  [04]   | `Option` nested inside an effect forces two unwraps                       | `OptionT<IO, A>`                                   |
 |  [05]   | `Fin` nested inside an effect duplicates the failure channel              | Typed `Expected` on the `IO` error channel         |
 |  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step             |
-|  [07]   | `Some` as a null guard, because `Some(null)` holds `null`                 | `Optional` at the null boundary                    |
+|  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary                    |
 |  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases      |
 
 ## [05]-[EFFECTS]
@@ -321,7 +321,7 @@ internal static class Validators {
 }
 ```
 
-Composition supplies the clock once, request handling supplies the command later, and tests supply a deterministic clock without a fake service. Pair acquisition and release in one scope: `use` disposes an `IDisposable` when the effect succeeds or fails, `Bracket(Use:, Fin:)` names the release as an `IO` action that runs on both paths, and a commit belongs to a step after the work, not to the release action.
+The composition root supplies the clock once, request handling supplies the command later, and tests supply a deterministic clock without a fake service. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, and a commit belongs to a step after the work, not to the release action.
 
 ### [05.2]-[POLICIES]
 

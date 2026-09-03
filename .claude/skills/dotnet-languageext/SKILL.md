@@ -12,7 +12,7 @@ Covers the LanguageExt types and their operations: the result and effect types w
 - [02]-[STREAMS](references/streams.md): Sources and events, reduction, conduits and buffer policy, pipes
 - [03]-[API](references/api.md): Public types and members by scope
 
-Examples assume `using static LanguageExt.Prelude`, which binds the constructors and module functions as bare names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`), and the static import binds `List` to `Prelude.List`, so the module is named `LanguageExt.List.unfold` in full.
+The result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Examples assume `using static LanguageExt.Prelude`, which binds the constructors and module functions as bare names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`), and the static import binds `List` to `Prelude.List`, so the module is named `LanguageExt.List.unfold` in full.
 
 ## [01]-[RESULT_TYPES]
 
@@ -43,11 +43,11 @@ internal static class Conversions {
     public static Validation<Error, Quantity> Widen(Fin<Quantity> quantity) => quantity.ToValidation();
     public static Fin<int> Captured(Try<int> attempt) => attempt.Run();
     public static Fin<Item> Ran(IO<Item> effect) => effect.RunSafe();
-    public static Fin<string> Answered(Runtime runtime) => Prompts.Ask<Runtime>("name").Run(runtime);
+    public static Fin<string> Answered(AppRuntime runtime) => Prompts.Ask<AppRuntime>("name").Run(runtime);
 }
 ```
 
-`ToOption` on a `Fin` drops the failure reason, `Validation` becomes `Fin` at the end of input validation, a `Fin` from a smart constructor becomes `Validation` before it combines with independent validations, and `Try`, `IO`, and `Eff` return `Fin` when run.
+`ToOption` on a `Fin` drops the failure reason, `Validation` becomes `Fin` at the end of input validation, a `Fin` from a `From` factory becomes `Validation` before it combines with independent validations, and `Try`, `IO`, and `Eff` return `Fin` when run.
 
 ## [02]-[OPERATIONS]
 
@@ -64,7 +64,7 @@ internal static class Conversions {
 
 `Map` on `Option` applies the function once for `Some` and never for `None`, and on `Seq` applies it lazily to every element. `Bind` on `Option` skips the function after `None`, and on `Seq` concatenates every produced sequence into one. `Filter` on `Option` turns a failed predicate into `None`, and LINQ `where` works the same. `Iter` needs its own name because overload resolution cannot distinguish `Action<A>` from `Func<A, B>` by return type, `Fin<A>` supplies `IfSucc` in place of `Do`, a side effect inside `IO` is a bound `IO.lift` step, and after `None` or a failure no later action runs. `ToSeq` converts an option to a zero-or-one-element sequence, `Choose` maps each element to an `Option<B>` and keeps the `Some` values in one pass, `Somes` does the same for an existing `Seq<Option<A>>`, and `Flatten` on the `ToSeq` of an `Option<Seq<A>>` yields the `Seq<A>`.
 
-Values in context have type `F<A>`, and the type constructor supplies the computational effect: `Option` adds absence, `Seq` adds zero or more values, `Func<A>` adds deferred evaluation, `Fin` adds expected failure with a reason, and `IO` adds a deferred side effect with a failure channel. No general operation extracts one `A` from every `F<A>`, and the operations that do (`Match`, `Count`, `Fold`, `IfNone`, `RunSafe`) belong to the host.
+Values in context have type `F<A>`, and the type constructor supplies the computational effect: `Option` adds absence, `Seq` adds zero or more values, `Func<A>` adds deferred evaluation, `Fin` adds expected failure with a reason, and `IO` adds a deferred side effect with a failure channel. No general operation extracts one `A` from every `F<A>`, and `Match`, `Count`, `Fold`, `IfNone`, and `RunSafe` are the type-specific extractions.
 
 ## [03]-[ERRORS]
 
@@ -180,11 +180,11 @@ internal static class Concurrency {
 internal static class Recursion {
     public static IO<int> CountTo(int current, int limit) =>
         current >= limit ? IO.pure(current) : IO.lift(() => current + 1).Bind(next => tail(CountTo(next, limit)));
-    public static IO<State> Play(State initial, IO<int> readMove) =>
-        Monad.recur<IO, State, State>(initial, state =>
-            state.HasExited
-                ? IO.pure(Next.Done<State, State>(state))
-                : readMove.Map(move => Next.Loop<State, State>(state.Apply(move)))).As();
+    public static IO<Session> Play(Session initial, IO<int> readMove) =>
+        Monad.recur<IO, Session, Session>(initial, session =>
+            session.HasExited
+                ? IO.pure(Next.Done<Session, Session>(session))
+                : readMove.Map(move => Next.Loop<Session, Session>(session.Apply(move)))).As();
     public static IO<int> Poll(Atom<int> polls) => IO.lift(() => polls.Swap(static n => n + 1)).RepeatUntil(static n => n >= 3);
 }
 ```
@@ -206,8 +206,8 @@ internal static class Schedules {
 A runtime record implements `Has<Eff<RT>, T>` once per capability with `Eff.runtime<RT>().Map(static rt => rt.Capability)`, a consumer generic over `RT` reads the capability through `RT.Ask` or through a module constrained on the trait (`Console<RT>.writeLine` and `Console<RT>.readLine` need `ConsoleIO`, `File<RT>` needs `FileIO` and `EncodingIO`), `Run(rt)` returns `Fin<A>`, and `RunAsync(rt)` returns `Task<Fin<A>>`:
 
 ```csharp
-internal sealed record Runtime(ConsoleIO Console) : Has<Eff<Runtime>, ConsoleIO> {
-    static K<Eff<Runtime>, ConsoleIO> Has<Eff<Runtime>, ConsoleIO>.Ask => Eff.runtime<Runtime>().Map(static rt => rt.Console);
+internal sealed record AppRuntime(ConsoleIO Console) : Has<Eff<AppRuntime>, ConsoleIO> {
+    static K<Eff<AppRuntime>, ConsoleIO> Has<Eff<AppRuntime>, ConsoleIO>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Console);
 }
 
 internal static class Prompts {
@@ -315,7 +315,7 @@ internal static class Lenses {
 }
 ```
 
-`Atom<A>` manages one value with compare-and-swap, `Swap` returns the new value and reruns its function on conflict, and `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key, `SwapKey(key, Func<V, V>)` updates a present key and `SwapKey(key, Func<Option<V>, Option<V>>)` also inserts, `Find` reads, and `FindOrAdd` adds a missing value or returns the existing one in one atomic step. `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction, `swap` reads the transactional value, `commute` applies its function inside the transaction and again at the commit point against the last committed value, and `Isolation.Serialisable` sets serializable isolation. `TrackingHashMap<K, V>` records each key change in `Changes` and `Snapshot()` clears the log and keeps the entries. `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`, and `memoK` caches the construction of a `K<F, A>` and not its execution, so a memoized `IO` is constructed once and runs each time `Value` is read:
+`Atom<A>` manages one value with compare-and-swap, `Swap` returns the new value and reruns its function on conflict, and `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key, `SwapKey(key, Func<V, V>)` updates a present key and `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes, `Find` reads, and `FindOrAdd` adds a missing value or returns the existing one in one atomic step. `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction, `swap` reads the transactional value, `commute` applies its function inside the transaction and again at the commit point against the last committed value, and `Isolation.Serialisable` sets serializable isolation. `TrackingHashMap<K, V>` records each key change in `Changes` and `Snapshot()` clears the log and keeps the entries. `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`, and `memoK` caches the construction of a `K<F, A>` and not its execution, so a memoized `IO` is constructed once and runs each time `Value` is read:
 
 ```csharp
 internal static class SharedState {

@@ -1,6 +1,6 @@
 ---
 name: dotnet-mapperly
-description: "Use when mapping between domain types and transport, persistence, or read-model contracts with Mapperly: mapper placement, conversions, attributes, options, and projections."
+description: "Use when mapping between domain types and transport, persistence, or read-model contracts with Mapperly: mapper placement, the conversion allowlist, attributes, options, and projections."
 ---
 
 # [DOTNET_MAPPERLY]
@@ -19,7 +19,7 @@ The adapter that references both representations owns the mapper, and the domain
 | [INDEX] | [DIRECTION]                                       | [MAPPERLY_ROLE]             | [REQUIRED_FORM]                                       |
 | :-----: | :------------------------------------------------ | :-------------------------- | :---------------------------------------------------- |
 |  [01]   | External contract to raw input model              | Structural mapping          | Validate the raw model before domain construction     |
-|  [02]   | External contract to constrained domain value     | None                        | Call the hand-written `From` adapter, keep its error  |
+|  [02]   | External contract to constrained domain value     | None                        | Call the hand-written `From` factory, keep its error  |
 |  [03]   | Validated components to domain aggregate          | Optional construction       | Use one constructor total for those components        |
 |  [04]   | Domain value to transport or persistence          | Structural projection       | Map only after the domain result is successful        |
 |  [05]   | Domain snapshot to next domain snapshot           | None                        | Call a named transition returning the next value      |
@@ -34,7 +34,7 @@ internal static Fin<ItemDto> ToDto(Fin<Item> value) => value.Map(ItemMapper.ToDt
 ```
 
 Mapperly never selects or rebuilds the cases of `Option`, `Either`, `Validation`, `Try`, `IO`, `Eff`, a transformer, or a higher-kinded context.
-- See `dotnet-coding` for combining independent `From` results with the tuple `Apply` before the aggregate is constructed
+- See `dotnet-coding/references/results.md` for combining independent `From` results with the tuple `Apply` before the aggregate is constructed
 
 ## [02]-[MAPPER_CONFIGURATION]
 
@@ -84,8 +84,8 @@ Reference handling materializes an external graph that requires cycles or shared
 
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
-A generated domain type crosses the mapper only through its declared conversions, inbound through the `From` adapter and outbound through the key member or the `ToValue` of a declared `[ObjectFactory<T>]`, and `ToString()` does not define that representation. `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception. Mapperly enum configuration applies only to CLR enums, and independent CLR enum contracts map by case-sensitive name or explicit value pairs, never by numeric position.
-- See `dotnet-coding` for the `From` adapter that maps `Validate` to `Fin<T>`, and `dotnet-thinktecture` for the lookup that maps `TryGet` to `Option<T>`
+A generated domain type crosses the mapper only through its declared conversions, inbound through the `From` factory and outbound through the key member or the `ToValue` of a declared `[ObjectFactory<T>]`, and `ToString()` does not define that representation. `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception. Mapperly enum configuration applies only to CLR enums, and independent CLR enum contracts map by case-sensitive name or explicit value pairs, never by numeric position.
+- See `dotnet-coding` for the `From` factory that maps `Validate` to `Fin<T>`, and `dotnet-thinktecture` for the lookup that maps `TryGet` to `Option<T>`
 
 A closed union uses its generated `Switch` as the outer dispatcher, Mapperly maps one known case inside each arm, and case selection stays exhaustive while member translation stays structural. `Map` takes one value per case and receives no mapper call:
 
@@ -106,7 +106,7 @@ Query projections are expression trees that a query provider interprets, they be
 
 Mapperly must inline each user method, and the query provider must translate the resulting expression: inlining needs an expression body, one return statement, or one local declaration followed by a return, any other shape reports `RMG068` and leaves the call in the expression. Additional parameters are immutable scalar query values, and services, mapper state, clocks, configuration objects, and request contexts do not enter the expression.
 
-Nullable analysis and the property-null options do not apply inside a projection, a nullable path can become empty text, `default`, or a conditional fallback, and the read model matches storage nullability. Object factories, existing-target mapping, dictionary mapping, deep cloning, and reference handling do not apply, reference handling reports `RMG029`, and unsupported enum configuration reports `RMG032` and emits a value cast. Project stored values, materialize the query, then validate and construct domain values, and the `Fin`-returning `From` adapters, LanguageExt composition, and effects run after materialization. An unmatched derived projection returns `default(TTarget)`, valid only when the target contract states that result, and `AsEnumerable` does not hide the boundary, because a narrow query materializes before the in-memory pipeline begins.
+Nullable analysis and the property-null options do not apply inside a projection, a nullable path can become empty text, `default`, or a conditional fallback, and the read model matches storage nullability. Object factories, existing-target mapping, dictionary mapping, deep cloning, and reference handling do not apply, reference handling reports `RMG029`, and unsupported enum configuration reports `RMG032` and emits a value cast. Project stored values, materialize the query, then validate and construct domain values, and the `Fin`-returning `From` factories, LanguageExt composition, and effects run after materialization. An unmatched derived projection returns `default(TTarget)`, valid only when the target contract states that result, and `AsEnumerable` does not hide the boundary, because a narrow query materializes before the in-memory pipeline begins.
 
 ## [06]-[MAPPING_METHODS]
 
@@ -298,7 +298,7 @@ The options and attributes name these strategy types, and `RequiredMappingStrate
 |  [19]   | `StaticConvertMethods` | `1 << 18` |   16   | Static `ToTTarget`, `Create`, `CreateFrom`, `FromTSource`    |
 |  [20]   | `Expression`           | `1 << 19` |   -    | Declared only, the generator never reads it                  |
 
-`StaticConvertMethods` finds a static `ToTTarget` on the source type and `Create`, `CreateFrom`, `CreateFromTSource`, and `FromTSource` in any casing on the target type, an array-typed source adds the `From<TElement>Array` and `CreateFrom<TElement>Array` spellings, the list matches the generated `Create(TKey)` of a value object, and the `Fin`-returning `From` adapter matches no listed name. `Tuple` emits a tuple expression outside a queryable projection and `ValueTuple` inside one, the `Enumerable` and `Dictionary` bits cover arrays and every constructible collection target, `EnumUnderlyingType` casts inside the `EnumToEnum` step, the `DateTime` bits gate the static-method step for their pairs, and `Tuple` gates the tuple form of the member-mapping step.
+`StaticConvertMethods` finds a static `ToTTarget` on the source type and `Create`, `CreateFrom`, `CreateFromTSource`, and `FromTSource` in any casing on the target type, an array-typed source adds the `From<TElement>Array` and `CreateFrom<TElement>Array` spellings, the list matches the generated `Create(TKey)` of a value object, and the `Fin`-returning `From` factory matches no listed name. `Tuple` emits a tuple expression outside a queryable projection and `ValueTuple` inside one, the `Enumerable` and `Dictionary` bits cover arrays and every constructible collection target, `EnumUnderlyingType` casts inside the `EnumToEnum` step, the `DateTime` bits gate the static-method step for their pairs, and `Tuple` gates the tuple form of the member-mapping step.
 
 `MapDerivedTypeAttribute(Type sourceType, Type targetType)` and `MapDerivedTypeAttribute<TSource, TTarget>` register one pair for a base-type or interface mapping: every source type extends or implements the parameter type, every target type extends or implements the return type, each source type appears once, source types can share one target type, an ordinary mapping emits a runtime switch that throws `ArgumentException` for an unregistered type, and derived types work for new-instance and existing-target mappings.
 
@@ -318,8 +318,8 @@ Mapperly calls `TryGetReference` before it creates a target, a `true` result set
 
 | [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                             |
 | :-----: | :------------------------------------------------------------------ | :--------------------------------------------------------- |
-|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type   | The hand-written `From` adapter over `Validate`            |
-|  [02]   | `MapDerivedType`, `SwitchPartially`, or a `@default` arm on a union | The generated exhaustive `Switch`, one mapper call per arm |
+|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type   | The hand-written `From` factory over `Validate`            |
+|  [02]   | `MapDerivedType` or a partial `Switch` over a closed union          | The generated exhaustive `Switch`, one mapper call per arm |
 |  [03]   | `EnabledConversions` on a mapper naming the one added bit           | The whole allowlist, the value replaces and never merges   |
 |  [04]   | Mapper method that returns `Fin<T>` or unwraps one                  | Mapper over the success value, `Map` keeps the context     |
 |  [05]   | `ToString()` as the wire contract of a value object                 | The key member, or `ToValue` of an `[ObjectFactory<T>]`    |

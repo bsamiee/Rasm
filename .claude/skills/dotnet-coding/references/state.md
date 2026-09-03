@@ -159,30 +159,14 @@ internal static class Trampolined {
 }
 ```
 
-`FirstZero` handles exhaustion explicitly: `At` returns `None` past the end and the result is `None`, and an unreachable base case loops indefinitely. `Bind` chains a second `Trampoline` onto the final state with the stack still constant, `next` must produce a state satisfying `stop`, and a `next` that performs I/O or mutation keeps the expression impure. When the transition is an effect, `Monad.recur` returns only the terminal state, and the state must contain everything both delegates need, so a termination that depends on the last action or the latest random outcome belongs in the returned state, not in a mutable flag:
-
-```csharp
-internal sealed record Session(int Remaining, bool HasExited);
-
-internal static class Sessions {
-    public static IO<Session> Play(Session initial, IO<int> readMove) =>
-        Monad.recur<IO, Session, Session>(initial, session =>
-            session.HasExited
-                ? IO.pure(Next.Done<Session, Session>(session))
-                : readMove.Map(move => Next.Loop<Session, Session>(Advance(session, move)))).As();
-    private static Session Advance(Session session, int move) {
-        int remaining = session.Remaining - move;
-        return new Session(remaining, remaining <= 0);
-    }
-}
-```
-
-The stopping predicate reads the state, the transition is an `IO<int>` the caller supplies, and the host runs the result with `RunSafe` and receives the final state as `Fin<Session>`.
-- See `dotnet-languageext` for `tail` recursion in `IO`, its exit restrictions, and `RepeatUntil` and `RepeatWhile`
+`FirstZero` handles exhaustion explicitly: `At` returns `None` past the end and the result is `None`, and an unreachable base case loops indefinitely. `Bind` chains a second `Trampoline` onto the final state with the stack still constant, `next` must produce a state satisfying `stop`, and a `next` that performs I/O or mutation keeps the expression impure. When the transition is an effect, `Monad.recur` returns only the terminal state, and the state must contain everything both delegates need, so a termination that depends on the last action or the latest random outcome belongs in the returned state, not in a mutable flag, and the host runs the result with `RunSafe` and receives the final state as `Fin<S>`.
+- See `dotnet-languageext` for `Monad.recur` with `Next.Loop` and `Next.Done`, `tail` recursion in `IO` with its exit restrictions, and `RepeatUntil` and `RepeatWhile`
 
 When the intermediate states are meaningful, `LanguageExt.List.unfold` produces them lazily from an initial state and a step that returns `Some((emitted, next))` or `None` at the terminal state, and `toSeq` wraps the result as a `Seq` that reads each state on demand and keeps it:
 
 ```csharp
+internal sealed record Session(int Remaining, bool HasExited);
+
 internal static class Traces {
     public static Seq<Session> Of(Session initial, Func<Session, Session> advance) =>
         toSeq(LanguageExt.List.unfold(initial, session => Step(session, advance)));

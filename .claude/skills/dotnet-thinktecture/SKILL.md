@@ -12,7 +12,7 @@ Covers declaring the types that `Thinktecture.Runtime.Extensions` generates (val
 - [02]-[FACTORY_PATHS](references/factory-paths.md): Entity Framework Core read path, span-based JSON, multiple factories, runtime factory selection, polymorphic discriminators
 - [03]-[SERILOG](references/serilog.md): Destructuring policy, depth limits, string rendering, caveats
 
-Every package name omits the prefix `Thinktecture.Runtime.Extensions.`, every analyzer code omits the prefix `TTRESG`, each analyzer rule fails the build, and every generated type and every type that encloses one is `partial` (006).
+Every package name omits the prefix `Thinktecture.Runtime.Extensions.`, every analyzer code omits the prefix `TTRESG`, each rule of the `Analyzers` package fails the build, and every generated type and every type that encloses one is `partial` (006).
 
 ## [01]-[GENERATOR_CONFIGURATION]
 
@@ -260,7 +260,7 @@ internal static class Matching {
 
 ## [06]-[OBJECT_FACTORIES]
 
-`[ObjectFactory<T>]` declares a conversion between a type and one other type `T` on a smart enum, a value object, a union, or a plain partial type, the generator adds `IObjectFactory<TSelf, T, ValidationError>` and demands one static method (061), and a `string` factory also adds `IParsable<TSelf>`:
+`[ObjectFactory<T>]` declares a conversion between a type and one other type `T` on a smart enum, a value object, a union, or a plain partial type, the generator adds `IObjectFactory<TSelf, T, ValidationError>` and demands one static method (061), and a `string` factory adds `IParsable<TSelf>`:
 
 ```text
 static ValidationError? Validate(T? value, IFormatProvider? provider, out TSelf? item)
@@ -319,6 +319,7 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 |   [07]  | Entity Framework Core          | `EntityFrameworkCore10` | `optionsBuilder.UseThinktectureValueConverters()`                       |
 |   [08]  | Serilog                        | `Serilog`               | `Destructure.UsingThinktectureRuntimeExtensions()`                      |
 
+`Json`, `MessagePack`, `EntityFrameworkCore10`, and `Serilog` are in `Directory.Packages.props`, and `Newtonsoft.Json`, `AspNetCore`, and `Swashbuckle` are not, so a project that needs one of them adds it there first.
 - The declaring project references `Json` and receives the `[JsonConverter]` attribute, and only a project that cannot do so registers the converter factory at the host, where MVC reads `AddControllers().AddJsonOptions`, minimal APIs read `ConfigureHttpJsonOptions`, and the factory constructor `(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` skips attributed types and opts single types out of span-based reads
 - Unknown keys and rejected values on read throw `JsonException` with the validation text, string keys read through a span-based converter that rejects a non-string token, and a regular union needs one `[JsonDerivedType]` on the base per case, Newtonsoft `TypeNameHandling` (a deserialization risk unless the binder restricts the types), or a `[ObjectFactory<string>]` on the base, and MessagePack has no integration for it
 - Minimal APIs bind through `IParsable<T>.TryParse` and answer a failed bind with a plain 400, so an application-side `MaybeBound<T, TKey, TValidationError>` wrapper with a `TryParse` that always succeeds and stores the value or the error text lets an endpoint filter answer with the text, MVC runs `Validate`, writes the error into `ModelState`, and `[ApiController]` answers 400 with the text, and the binder provider goes in front of the default providers with `skipBindingFromBody` at its default `true`

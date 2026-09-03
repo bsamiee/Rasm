@@ -52,7 +52,7 @@ internal sealed partial class Location {
 }
 ```
 
-The `string` `Validate` splits the text and delegates to the generated member `Validate`, so the hook trims and rejects on the JSON, model binding, and `Parse` paths, a read of `" store :doc"` through the constructor keeps the padding, and the same read through `Validate` trims it. The `Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` also sets column lengths, the strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
+The `string` `Validate` splits the text and delegates to the generated member `Validate`, so the hook trims and rejects on the JSON, model binding, and `Parse` paths, a read of `" store :doc"` through the constructor keeps the padding, and the same read through `Validate` trims it. The `Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` sets column lengths, the strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
 
 | [INDEX] | [SETTING]                             | [DEFAULT]                               | [EFFECT]                                           |
 | :-----: | :------------------------------------ | :-------------------------------------- | :------------------------------------------------- |

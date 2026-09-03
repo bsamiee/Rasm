@@ -259,14 +259,6 @@ The scalar cases are the leaves and `Many` and `Keyed` are the containers, the r
 
 ## [05]-[LAWS]
 
-The abstractions form a hierarchy, `Functor < Applicative < Monad < Fold`, and each trait captures its operations over `K<F, A>`:
-
-| [INDEX] | [ABSTRACTION]    | [OPERATIONS]    | [CAPABILITY]                                                               |
-| :-----: | :--------------- | :-------------- | :------------------------------------------------------------------------- |
-|  [01]   | `Functor<F>`     | `Map`           | Transforms a value without leaving its effect                              |
-|  [02]   | `Applicative<F>` | `Pure`, `Apply` | Combines independent values inside an effect with a multi-argument function |
-|  [03]   | `Monad<M>`       | `Pure`, `Bind`  | Sequences computations where the next step depends on a prior value        |
-
 The dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. The laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
 
 ```text
@@ -280,7 +272,7 @@ Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 
 The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion, and associativity is why a multi-argument function enters a monadic pipeline: the right-associated form lets the innermost function close over every earlier value, and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run these checks, and their API sits in `dotnet-languageext`.
 
-Property-based tests state invariants over generated inputs and check algebraic laws and domain invariants (removing items from a cart never increases its total), where random sampling raises confidence without proving a universal law:
+Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and domain invariants (removing items from a cart never increases its total), where random sampling raises confidence without proving a universal law:
 
 ```csharp
 internal static class Properties {

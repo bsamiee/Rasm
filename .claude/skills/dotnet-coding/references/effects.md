@@ -71,9 +71,9 @@ Where a consumer reads many capabilities, a runtime record carries them with one
 
 ```csharp
 internal sealed record Clock(DateTime Today);
-internal sealed record Runtime(Clock Clock, ConsoleIO Console) : Has<Eff<Runtime>, Clock>, Has<Eff<Runtime>, ConsoleIO> {
-    static K<Eff<Runtime>, Clock> Has<Eff<Runtime>, Clock>.Ask => Eff.runtime<Runtime>().Map(static rt => rt.Clock);
-    static K<Eff<Runtime>, ConsoleIO> Has<Eff<Runtime>, ConsoleIO>.Ask => Eff.runtime<Runtime>().Map(static rt => rt.Console);
+internal sealed record AppRuntime(Clock Clock, ConsoleIO Console) : Has<Eff<AppRuntime>, Clock>, Has<Eff<AppRuntime>, ConsoleIO> {
+    static K<Eff<AppRuntime>, Clock> Has<Eff<AppRuntime>, Clock>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Clock);
+    static K<Eff<AppRuntime>, ConsoleIO> Has<Eff<AppRuntime>, ConsoleIO>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Console);
 }
 
 internal static class Capabilities {
@@ -146,7 +146,7 @@ Ordinary functions compose when their shapes line up (`A -> B` then `B -> C`), a
 
 ## [04]-[ENVIRONMENT]
 
-`Reader<Env, A>` stores a function that cannot run until `Run(env)` supplies its environment, so a complete workflow is built before a database connection or other shared input exists and runs once that input arrives, and the environment type is the smallest structure the workflow reads. `Reader.ask<Env>()` reads the whole environment, `Reader.asks` reads a projection, `Reader.local` runs one `Reader` under a changed environment of the same type, and the instance `With<Env1>(Func<Env1, Env>)` adapts a `Reader` to a larger environment:
+`Reader<Env, A>` stores a function that cannot run until `Run(env)` supplies its environment, so a complete workflow is built before a database connection or other shared input exists and runs once that input arrives, and the environment type is the smallest structure the workflow reads. `Reader.ask<Env>()` and `Reader.asks` read the environment or a projection, and `Reader.local` and the instance `With<Env1>(Func<Env1, Env>)` are the `local` and `with` forms:
 
 ```csharp
 internal sealed record Settings(string Target, int Timeout);
@@ -215,20 +215,7 @@ The order of the bracketed effects determines which downstream work each scope s
 
 ## [06]-[EXECUTION]
 
-Each retry waits for the next delay of the schedule and invokes the effect again, when the schedule expires the last error remains observable, and recovery happens on the `Fin<A>` that `RunSafe()` returns:
-
-```csharp
-internal sealed record ProviderDown() : Expected("provider down", 3001);
-
-internal static class Policies {
-    public static IO<Quote> Fallback(IO<Quote> primary, IO<Quote> secondary) => primary | secondary;
-    public static IO<Quote> FallbackOnOutage(IO<Quote> primary, IO<Quote> secondary) => primary.Catch(3001, _ => secondary).As();
-    public static IO<Quote> Retried(IO<Quote> attempt) => attempt.Retry(Schedule.exponential(TimeSpan.FromMilliseconds(1)) | Schedule.recurs(3));
-    public static Quote Recovered(IO<Quote> quote, Quote substitute) => quote.RunSafe().IfFail(substitute);
-}
-```
-
-`Bind` is sequential because the next step needs the first effect's value before it can create the second effect, and independent operations use the tuple `Apply` over already-created effects, which both start before either is awaited so completion time follows the slower call rather than their sum, or `Fork` and `Await` for explicit control, and `awaitAll` for a `Seq<IO<A>>`:
+Each retry waits for the next delay of the schedule and invokes the effect again, when the schedule expires the last error remains observable, and recovery happens on the `Fin<A>` that `RunSafe()` returns. `Bind` is sequential because the next step needs the first effect's value before it can create the second effect, and independent operations use the tuple `Apply` over already-created effects, which both start before either is awaited so completion time follows the slower call rather than their sum, or `Fork` and `Await` for explicit control, and `awaitAll` for a `Seq<IO<A>>`:
 
 ```csharp
 internal static class Independence {
@@ -283,7 +270,7 @@ internal static class Stacks {
             await publish().ConfigureAwait(false);
             return unit;
         });
-    public static Task<Fin<State>> ExitAsync(Eff<Runtime, State> workflow, Runtime runtime) => workflow.RunAsync(runtime);
+    public static Task<Fin<State>> ExitAsync(Eff<AppRuntime, State> workflow, AppRuntime runtime) => workflow.RunAsync(runtime);
 }
 ```
 

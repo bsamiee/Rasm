@@ -1,6 +1,6 @@
 # [SERILOG]
 
-The `Serilog` package (Serilog 4.0.0 or newer) adds one `IDestructuringPolicy` that unwraps a keyed smart enum and a simple value object to the key and an ad hoc union to its current `Value`, and every other type falls through to Serilog's own destructuring.
+The `Serilog` package adds one `IDestructuringPolicy` that unwraps a keyed smart enum and a simple value object to the key and an ad hoc union to its current `Value`, and every other type falls through to Serilog's own destructuring.
 
 ## [01]-[REGISTRATION]
 

@@ -187,8 +187,8 @@ The runtime record holds the configuration and implements one `Has` trait per ca
 
 ```csharp
 internal sealed record OwnerUnknown() : Expected("the owner is unknown", 101);
-internal sealed record Runtime(ConnectionIO Connection, Func<DateTime> Clock) : Has<Eff<Runtime>, ConnectionIO> {
-    static K<Eff<Runtime>, ConnectionIO> Has<Eff<Runtime>, ConnectionIO>.Ask => Eff.runtime<Runtime>().Map(static rt => rt.Connection);
+internal sealed record AppRuntime(ConnectionIO Connection, Func<DateTime> Clock) : Has<Eff<AppRuntime>, ConnectionIO> {
+    static K<Eff<AppRuntime>, ConnectionIO> Has<Eff<AppRuntime>, ConnectionIO>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Connection);
 }
 
 internal static class Workflow {
@@ -203,8 +203,8 @@ internal static class Workflow {
 }
 
 internal static class Host {
-    public static Fin<Entry> Book(Runtime runtime, Func<Command, IO<Unit>> save, Command command) =>
-        Workflow.Book(Validators.NotPast(runtime.Clock), Lookups<Runtime>.Lookup, save, command).Run(runtime);
+    public static Fin<Entry> Book(AppRuntime runtime, Func<Command, IO<Unit>> save, Command command) =>
+        Workflow.Book(Validators.NotPast(runtime.Clock), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
 }
 ```
 

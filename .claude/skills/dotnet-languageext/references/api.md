@@ -49,7 +49,7 @@
 |  [20]   | `Lens<A, B>`                  | readonly struct | Composable get and immutable set                          |
 |  [21]   | `Range<A>`                    | record          | Generated bounded sequence, `Range.fromMinMax` creates it |
 |  [22]   | `AtomChangedEvent<A>`         | delegate        | `Atom.Change` handler over the new value                  |
-|  [23]   | `Change<A>`                   | abstract class  | `TrackingHashMap` change-log entry, cases below           |
+|  [23]   | `Change<A>`                   | abstract class  | `TrackingHashMap` change-log entry                        |
 |  [24]   | `IOptional`                   | interface       | Non-generic interface every `Option<A>` implements        |
 
 [TYPE_SCOPE]: traits and monad transformers (`LanguageExt.Traits`)
@@ -576,7 +576,7 @@
 - `Change` fires ONCE per accepted commit with a `HashMapPatch<K, V>` carrying `From`, `To`, and a `HashMap<K, Change<V>>` of per-key deltas, which makes the type an observable keyed store rather than a mutable dictionary that a watcher polls. Bulk members commit one patch covering every touched key, a range write is one notification and not one per entry.
 - Every mutating member re-runs its transition inside the CAS loop exactly as `Atom<A>.Swap` does, the same restriction on side effects applies: a dispose, a counter increment, or a log inside a swap runs once per failed attempt
 
-[MEMBER_SCOPE]: `Deriving.*` defaults declared on the `Supertype`, `Transform` unwraps to the `Subtype`, `CoTransform` rewraps, and every member below routes through that pair
+[MEMBER_SCOPE]: `Deriving.*` defaults declared on the `Supertype`, `Transform` unwraps to the `Subtype`, `CoTransform` rewraps, and every listed member routes through that pair
 
 | [INDEX] | [MEMBER]                                                              | [KIND]   | [DESCRIPTION]                                      |
 | :-----: | :-------------------------------------------------------------------- | :------- | :------------------------------------------------- |
