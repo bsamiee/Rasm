@@ -54,6 +54,15 @@
         <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers"  PrivateAssets="all" />
     </ItemGroup>
 
+    <!-- The release version comes from the nearest v-prefixed tag, no project file states a version -->
+    <PropertyGroup Label="Release Version">
+        <MinVerTagPrefix>v</MinVerTagPrefix>
+    </PropertyGroup>
+
+    <ItemGroup Label="Release Version">
+        <PackageReference Include="MinVer" PrivateAssets="all" />
+    </ItemGroup>
+
     <PropertyGroup Label="Rhino Host Bundle">
         <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and '$(RHINO_APP_PATH)' != ''">$(RHINO_APP_PATH)</RhinoAppPath>
         <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and Exists('/Applications/Rhino 9.app')">/Applications/Rhino 9.app</RhinoAppPath>

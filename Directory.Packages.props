@@ -14,6 +14,10 @@
         <PackageVersion Include="Thinktecture.Runtime.Extensions.Analyzers"               Version="10.5.0" />                <!-- Analyzers validating smart enum, value object, and union declarations -->
     </ItemGroup>
 
+    <ItemGroup Label="Versioning">
+        <PackageVersion Include="MinVer"                                                  Version="7.0.0" />                 <!-- Assembly and package version from the nearest git tag -->
+    </ItemGroup>
+
     <ItemGroup Label="Rhino">
         <PackageVersion Include="System.Drawing.Common"                                   Version="10.0.11" />               <!-- GDI+ based drawing, imaging, and text rendering API -->
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0-beta1" />          <!-- openNURBS geometry access for reading and writing 3dm files -->

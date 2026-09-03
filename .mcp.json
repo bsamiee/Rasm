@@ -4,7 +4,13 @@
             "type": "stdio",
             "command": "dotnet",
             "args": ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"],
-            "env": {}
+            "env": { "DOTNET_CLI_TELEMETRY_OPTOUT": "1" }
+        },
+        "binlog": {
+            "type": "stdio",
+            "command": "dotnet",
+            "args": ["dnx", "Microsoft.AITools.BinlogMcp"],
+            "env": { "DOTNET_CLI_TELEMETRY_OPTOUT": "1" }
         }
     }
 }

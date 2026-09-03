@@ -2,9 +2,23 @@
     "version": 1,
     "isRoot": true,
     "tools": {
+        "dotnet-reportgenerator-globaltool": {
+            "version": "5.5.11",
+            "commands": ["reportgenerator"],
+            "rollForward": true
+        },
         "dotnet-stryker": {
             "version": "4.16.0",
-            "commands": ["dotnet-stryker"]
+            "commands": ["dotnet-stryker"],
+            "rollForward": true
+        },
+        "microsoft.aitools.binlogmcp": {
+            "version": "3.0.2",
+            "commands": ["binlog-mcp"]
+        },
+        "roslyncodelens.mcp": {
+            "version": "2.18.0",
+            "commands": ["roslyn-codelens-mcp"]
         }
     }
 }

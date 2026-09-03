@@ -51,13 +51,18 @@ The skill names no repository, product, or person. It states rules with the cate
 | :-----: | :--------------- | :---------------------------------------------------------------------------------------- | :------- |
 |  [01]   | Research folder  | `docs/research/monorepo/*.md`, this plan                                                  | Done     |
 |  [02]   | Toolchain        | `mise.toml`, `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `.vscode/settings.json` | Done     |
-|  [03]   | .NET manifest    | `.config/dotnet-tools.json`, `.mcp.json`, `Directory.Build.props`, `eng/msbuild/*.targets` | Pending  |
+|  [03]   | .NET manifest    | `.config/dotnet-tools.json`, `.mcp.json`, `Directory.Build.props`, `Directory.Packages.props` | Done     |
 |  [04]   | Nx               | `tools/nx/workspace.ts`, `nx.json`, root `project.json`, `vitest.config.ts`, `biome.json` | Pending  |
 |  [05]   | Coverage         | ReportGenerator merge, pytest coverage path, Vitest thresholds, `tests/README.md`         | Pending  |
 |  [06]   | Infrastructure   | `infra/` Pulumi program, Doppler adoption, CI token, `secrets` skill rule                 | Pending  |
 |  [07]   | CI               | `.github/workflows/ci.yml`, `.github/workflows/release.yml`                               | Pending  |
 |  [08]   | Tools in use     | KTX2 CLI and `git lfs install` in provisioning, protobuf generation target                | Pending  |
 |  [09]   | Documentation    | Root, `tests/`, `apps/`, `libs/dotnet/` READMEs, `CLAUDE.md`, the Forge removal memory    | Pending  |
+
+Decisions the steps recorded:
+- The root `Directory.Build.targets` stays one file, because its conditions select by host token and role and a split by role would add files without removing a condition
+- The dylib repair in `Directory.Build.targets` retargets a NuGet package's library at copy time and the repair in `eng/scripts/stage.py` relinks a closure the workspace builds, two inputs with two owners
+- `binlogtool` stays out of the manifest, because the two commands the binlog MCP lacks, `redact` and `stats`, serve a binlog that leaves the machine or exceeds the MCP threshold, and neither exists
 
 ## [05]-[SKILL_SHAPE]
 
@@ -104,3 +109,4 @@ Each repository step corrects one category of mistake, and the skill's last sect
 | :-----: | :----: | :---------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
 |  [01]   |  [01]  | Source material scattered across plan files and session scratch directories   | One research folder per skill area, one file per report, integration markers   |
 |  [02]   |  [02]  | Runtimes installed by a machine profile outside the repository, versions restated as ranges and guards | One installer file pinning exact runtimes, each manifest pinning its own packages, one statement per version |
+|  [03]   |  [03]  | Tools resolved at latest on each launch, a tool installed by the machine for one repository's checks | Every tool the repository's checks run pinned in the repository's manifest, servers included |
