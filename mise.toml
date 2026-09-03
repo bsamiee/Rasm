@@ -1,19 +1,27 @@
-# Runtimes and standalone binaries no package manifest can pin, the .NET SDK version comes from global.json
+# Runtimes and standalone binaries at their newest release, the .NET SDK version comes from global.json
 
 [tools]
-node = "26.8.1"
-pnpm = "12.3.1"
-python = "3.15.0rc2"
-uv = "0.12.9"
-git-lfs = "3.8.0"
-act = "0.2.89"
-actionlint = "1.7.12"
+node = "latest"
+pnpm = "latest"
+python = "3.15.0rc2" # latest and the 3.15 prefix resolve the -dev branch build, the exact pin moves to latest with the stable 3.15 release
+uv = "latest"
+git-lfs = "latest"
+act = "latest"
+actionlint = "latest"
+doppler = "latest"
+pulumi = "latest"
 
 [settings]
+prereleases = true
+minimum_release_age = "0s"
 idiomatic_version_file_enable_tools = ["dotnet"]
 
 [env]
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+NUGET_PACKAGES = "{{config_root}}/.cache/nuget/packages"
+UV_PYTHON = { value = "{{ tools.python.path }}/bin/python", tools = true }
+VCPKG_DEFAULT_BINARY_CACHE = "{{config_root}}/.cache/vcpkg-archives"
+VCPKG_DOWNLOADS = "{{config_root}}/.cache/vcpkg-downloads"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"
 NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data"

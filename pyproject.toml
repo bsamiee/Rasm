@@ -382,6 +382,7 @@ protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archiv
 # mise installs the interpreter, uv never downloads one
 [tool.uv]
 default-groups = ["workspace", "dev"]
+prerelease = "allow"
 cache-dir = ".cache/uv"
 python-preference = "only-system"
 

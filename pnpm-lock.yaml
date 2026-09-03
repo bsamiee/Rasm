@@ -827,9 +827,6 @@ catalogs:
     prosemirror-view:
       specifier: 1.42.3
       version: 1.42.3
-    pulumi:
-      specifier: 3.261.0
-      version: 3.261.0
     react:
       specifier: 19.3.0-canary-711c445b-20260722
       version: 19.3.0-canary-711c445b-20260722
@@ -1680,9 +1677,6 @@ importers:
       prosemirror-view:
         specifier: 'catalog:'
         version: 1.42.3
-      pulumi:
-        specifier: 'catalog:'
-        version: 3.261.0
       react:
         specifier: 'catalog:'
         version: 19.3.0-canary-711c445b-20260722
@@ -5815,18 +5809,6 @@ packages:
 
   '@pulumi/postgresql@3.18.0':
     resolution: {integrity: sha512-OHPQ0UP/bFgR3kBXaYiu1PIHNz9Gp18y35Dyi1lu8Ar5PbYd4MLC8nkDT0LK3cKAkkwKDsnJ8cDy8Qt+BdPWvQ==}
-
-  '@pulumi/pulumi@3.260.0':
-    resolution: {integrity: sha512-lLDISSiEToYj1/bT3dmzju9gyLrP7EcVHKo3IZ6pQY2uMfApyAeabOapDFJlrWvQedtpqIKBR7y5nNm6M91gJg==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      ts-node: '>= 7.0.1 < 12'
-      typescript: '>= 3.8.3 < 7'
-    peerDependenciesMeta:
-      ts-node:
-        optional: true
-      typescript:
-        optional: true
 
   '@pulumi/pulumi@3.261.0':
     resolution: {integrity: sha512-gZDiCmaBKxXpIagOytLTOc/GOWYMj/8OgW/X78RN7ngv7+N550+tWIu9dETPrz7NmWVWfeXdjGeRmH+GxuaPxg==}
@@ -11480,11 +11462,6 @@ packages:
   proxy-from-env@2.1.0:
     resolution: {integrity: sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==}
     engines: {node: '>=10'}
-
-  pulumi@3.261.0:
-    resolution: {integrity: sha512-UHDqcDqKv/zNSN3HQIX5l1rmbkzFKenYCb9+oq/Av+0jFWB1tcQkuvPcb7W6qOQxMGZMzWsQ1RYc6imi/70tnA==}
-    engines: {node: '>=18'}
-    hasBin: true
 
   pump@3.0.4:
     resolution: {integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==}
@@ -17853,7 +17830,7 @@ snapshots:
 
   '@pulumi/docker@3.6.1(supports-color@7.2.0)(typescript@7.0.2)':
     dependencies:
-      '@pulumi/pulumi': 3.260.0(supports-color@7.2.0)(typescript@7.0.2)
+      '@pulumi/pulumi': 3.261.0(supports-color@7.2.0)(typescript@7.0.2)
       semver: 5.7.2
     transitivePeerDependencies:
       - supports-color
@@ -17946,38 +17923,6 @@ snapshots:
       - supports-color
       - ts-node
       - typescript
-
-  '@pulumi/pulumi@3.260.0(supports-color@7.2.0)(typescript@7.0.2)':
-    dependencies:
-      '@grpc/grpc-js': 1.14.4
-      '@logdna/tail-file': 2.2.0
-      '@npmcli/arborist': 9.9.1(supports-color@7.2.0)
-      '@opentelemetry/api': 1.9.1
-      '@opentelemetry/core': 2.11.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/exporter-trace-otlp-grpc': 0.220.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/exporter-zipkin': 2.11.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@7.2.0)
-      '@opentelemetry/instrumentation-grpc': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@7.2.0)
-      '@opentelemetry/resources': 2.11.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/sdk-trace-base': 2.11.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/sdk-trace-node': 2.11.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/semantic-conventions': 1.43.0
-      '@types/google-protobuf': 3.15.12
-      '@types/semver': 7.8.0
-      execa: 5.1.1
-      google-protobuf: 3.21.4
-      ini: 2.0.0
-      js-yaml: 4.3.2
-      minimist: 1.2.8
-      normalize-package-data: 6.0.2
-      require-from-string: 2.0.2
-      semver: 7.8.5
-      source-map-support: 0.5.21
-      upath: 1.2.0
-    optionalDependencies:
-      typescript: 7.0.2
-    transitivePeerDependencies:
-      - supports-color
 
   '@pulumi/pulumi@3.261.0(supports-color@7.2.0)(typescript@7.0.2)':
     dependencies:
@@ -24831,8 +24776,6 @@ snapshots:
       ipaddr.js: 1.9.1
 
   proxy-from-env@2.1.0: {}
-
-  pulumi@3.261.0: {}
 
   pump@3.0.4:
     dependencies:

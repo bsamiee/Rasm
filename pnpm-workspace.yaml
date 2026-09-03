@@ -235,7 +235,6 @@ catalog:
   typegpu: 0.12.4
   # Infrastructure as code
   '@pulumi/pulumi': 3.261.0
-  pulumi: 3.261.0
   '@pulumi/kubernetes': 4.34.0
   '@pulumi/aws': 7.44.0
   '@pulumi/awsx': 3.9.0
