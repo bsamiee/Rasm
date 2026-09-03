@@ -100,19 +100,19 @@ Nothing in the remaining content of file 04 is needed. Its first EXPLICIT_ALTERN
 
 The work runs as a sequence of forked agents, each with one slice, a commit between forks, and a report of at most 12 lines (files touched, facts moved, plan adjustments, open questions). The sibling skills come before the `dotnet-coding` references, because the references must defer library semantics to `dotnet-languageext` and generator mechanics to `dotnet-thinktecture`, and that boundary is visible only once those skills exist:
 
-| [INDEX] | [FORK]                       | [SOURCES]                                            | [OUTPUT]                                               |
-| :-----: | :--------------------------- | :--------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `dotnet-languageext` skill   | `functional-csharp` 21 to 24, 08                     | `SKILL.md`, reference stubs only where a topic demands |
-|  [02]   | `dotnet-thinktecture` skill  | `thinktecture` folder                                | `SKILL.md`, references for Serilog and factories       |
-|  [03]   | `dotnet-mapperly` skill      | `mapperly/mapping-boundaries.md`                     | `SKILL.md`                                             |
-|  [04]   | results reference            | 10, 11, 12, 21 [04] to [07]                          | `references/results.md`, skill adjustments             |
-|  [05]   | functions reference          | 06, 07, 09                                           | `references/functions.md`, skill adjustments           |
-|  [06]   | effects reference            | 02, 15, 18, 22 [02] [03]                             | `references/effects.md`, skill adjustments             |
-|  [07]   | sequences and immutable data | 05, 13, 24 [02] to [05]                              | 2 references, skill adjustments                        |
-|  [08]   | state and streams            | 16, 17, 19, 20, 24 [06]                              | 2 references, skill adjustments                        |
-|  [09]   | event sourcing               | 14                                                   | `references/event-sourcing.md`                         |
-|  [10]   | languageext references       | `languageext` folder, rewritten on the real types    | references under `dotnet-languageext`                  |
-|  [11]   | consistency pass             | all 4 skills                                         | duplicates removed, pointers aligned, descriptions set |
+| [INDEX] | [FORK]                    | [SOURCES]                              | [OUTPUT]                                               |
+| :-----: | :------------------------ | :------------------------------------- | :----------------------------------------------------- |
+|   [01]  | languageext skill         | 21 to 24, 08                           | `SKILL.md`, stubs only where a topic demands           |
+|   [02]  | thinktecture skill        | `thinktecture` folder                  | `SKILL.md`, Serilog and factory references             |
+|   [03]  | mapperly skill            | `mapperly` folder                      | `SKILL.md`                                             |
+|   [04]  | results reference         | 10, 11, 12, 21 [04] to [07]            | `results.md`, skill adjustments                        |
+|   [05]  | functions reference       | 06, 07, 09                             | `functions.md`, skill adjustments                      |
+|   [06]  | effects reference         | 02, 15, 18, 22 [02] [03]               | `effects.md`, skill adjustments                        |
+|   [07]  | sequences, immutable data | 05, 13, 24 [02] to [05]                | 2 references, skill adjustments                        |
+|   [08]  | state, streams            | 16, 17, 19, 20, 24 [06]                | 2 references, skill adjustments                        |
+|   [09]  | event sourcing            | 14                                     | `event-sourcing.md`                                    |
+|   [10]  | languageext references    | `languageext` folder on the real types | references under `dotnet-languageext`                  |
+|   [11]  | consistency pass          | All 4 skills                           | Duplicates removed, pointers aligned, descriptions set |
 
 Each fork reads the plan, the current state of its target and of `dotnet-coding/SKILL.md`, `git diff --stat HEAD~1`, and its research sections, then works in small moves: one section, comment the research out, read again. A fork that finds a rule in its slice that belongs in a skill moves it there, and a fork that finds the plan wrong adjusts the plan and says so in its report.
 
