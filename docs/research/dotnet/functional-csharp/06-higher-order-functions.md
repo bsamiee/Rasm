@@ -53,8 +53,7 @@ Additional parameters let a `Func` control formatting and an `Action` supply log
 
 Adapters return a new function with a different signature while delegating to the original. `flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`: for `Func<decimal, decimal, decimal> Subtract`, `flip(Subtract)` receives the right operand first.
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ## [04]-[SPECIALIZATION]
 
@@ -87,8 +86,7 @@ internal static class Lifecycles {
 
 Database operations can state only their domain-specific work. Connection acquisition, opening, and disposal remain centralized. `use` acquires the `IDisposable` `Connection` inside an `IO` query and disposes it when the scope ends. `Bracket(Use:, Fin:)` represents release as a separate `IO` action. The host runs the `IO` through `RunSafe`, and the domain code never runs it. Asynchronous bodies use `IO.liftAsync`. The pattern guarantees disposal on every `IO` exit, including failure.
 
-<!-- Integrated into .claude/skills/dotnet-coding/references/functions.md
--->
+(Integrated into .claude/skills/dotnet-coding/references/functions.md)
 
 ## [06]-[COMBINATORS]
 
@@ -134,8 +132,7 @@ Separate generic result types let a fixed set of functions produce different kin
 
 These implementations call each function directly.
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ### [06.3]-[COMPOSE]
 
@@ -299,8 +296,7 @@ The `Option`-returning forms, `parseInt` and `HashMap.Find`, preserve every outc
 
 Boundary calls to databases, web APIs, and network files can fail. Higher-order wrappers centralize `try/catch` and keep exception control flow out of the call layers. `Try.lift(f).Run()` captures a throwing synchronous dependency as a `Fin<A>`. `IO.lift(f)` defers the same call and carries the failure on the `IO` error channel for the host to run.
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ## [09]-[TECHNIQUE_SELECTION]
 

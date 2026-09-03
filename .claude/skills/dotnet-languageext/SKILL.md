@@ -1,11 +1,11 @@
 ---
 name: dotnet-languageext
-description: "ENTER LATER AFTER FINISHED, <20-25 WORDS MAX"
+description: "Use when calling a LanguageExt type or operation: conversions, errors and recovery, IO execution, resources, schedules, runtimes, traits, transformers, collections, shared state, and streams."
 ---
 
 # [DOTNET_LANGUAGEEXT]
 
-Covers the LanguageExt types and their operations: the result and effect types with their conversions, the error model and recovery, `IO` construction, execution, resources, concurrency, recursion, schedules, and runtimes, the traits and transformers, the collections with their folds and pitfalls, lenses, shared state, and streams. Which type a function returns, where the boundary sits, and which operator joins two steps are decisions that `dotnet-coding` states, and this skill states how each type and operation behaves.
+Covers the LanguageExt types and their operations: the result and effect types with their conversions, the error model and recovery, `IO` construction, execution, resources, concurrency, recursion, schedules, and runtimes, the traits and transformers, the collections with their folds and pitfalls, lenses, shared state, and streams. `dotnet-coding` states which type a function returns, where the boundary sits, and which operator joins two steps.
 
 [REFERENCES]:
 - [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Higher kinds, witnesses, foldables, applicatives, traversables, monads, law checks, transformers, readers, state and writer, domain monads
@@ -16,17 +16,17 @@ Examples assume `using static LanguageExt.Prelude`, which binds the constructors
 
 ## [01]-[RESULT_TYPES]
 
-One type serves one concern:
+The result and effect types and their runtime shapes:
 
-| [INDEX] | [TYPE]                 | [CONCERN]                                       | [SHAPE]               |
-| :-----: | :--------------------- | :---------------------------------------------- | :-------------------- |
-|  [01]   | `Option<A>`            | Absence without an `Error`                      | readonly struct       |
-|  [02]   | `Fin<A>`               | Expected failure with an `Error`, short-circuit | abstract class        |
-|  [03]   | `Either<L, R>`         | Two value types, neither an error               | abstract record class |
-|  [04]   | `Validation<Error, A>` | Independent failures, accumulate                | abstract record class |
-|  [05]   | `Try<A>`               | Synchronous exception capture, deferred         | record class          |
-|  [06]   | `IO<A>`                | Side effects with a failure channel             | abstract record class |
-|  [07]   | `Eff<RT, A>`           | Effects that read a capability                  | record class          |
+| [INDEX] | [TYPE]                 | [SHAPE]               |
+| :-----: | :--------------------- | :-------------------- |
+|  [01]   | `Option<A>`            | readonly struct       |
+|  [02]   | `Fin<A>`               | abstract class        |
+|  [03]   | `Either<L, R>`         | abstract record class |
+|  [04]   | `Validation<Error, A>` | abstract record class |
+|  [05]   | `Try<A>`               | record class          |
+|  [06]   | `IO<A>`                | abstract record class |
+|  [07]   | `Eff<RT, A>`           | record class          |
 
 Each type exposes `Match` with one function per case, and `Match` on `IO` and `Eff` returns an effect. `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, ignores the inner value in the `None` state, and is closed, so a `Match` over its cases is total, as is a `Match` over `Fin`. The implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, and `Some(x)` wraps the value as given. `Option<A>` defines `operator true`, so `left || right` evaluates the right operand only when the left is `None`, where `left | right` evaluates both. `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, and both return `A`.
 
@@ -263,7 +263,7 @@ Transformers stack one concern over an inner monad `M`, and the wrapped represen
 
 ## [06]-[COLLECTIONS]
 
-Every collection in domain code is one of these types, `Seq<A>` is the default, and a BCL `List<T>` or `Dictionary<K, V>` stays inside the scope that publishes an immutable value through `toSeq`:
+The collection types, their purpose, and their construction:
 
 | [INDEX] | [TYPE]          | [PURPOSE]                       | [CONSTRUCTION]                                 |
 | :-----: | :-------------- | :------------------------------ | :--------------------------------------------- |
@@ -314,7 +314,7 @@ internal static class Lenses {
 }
 ```
 
-`Atom<A>` manages one value with compare-and-swap, `Swap` returns the new value and reruns its function on conflict, and `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key, `SwapKey(key, Func<V, V>)` updates a present key and `SwapKey(key, Func<Option<V>, Option<V>>)` also inserts, `Find` reads, and `FindOrAdd` adds a missing value or returns the existing one in one atomic step. `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction, `swap` reads the transactional value, `commute` applies its function inside the transaction and again at the commit point against the last committed value, and `Isolation.Serialisable` sets serializable isolation. Every update function stays free of effects, because a conflict reruns it. `TrackingHashMap<K, V>` records each key change in `Changes` and `Snapshot()` clears the log and keeps the entries. `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`, and `memoK` caches the construction of a `K<F, A>` and not its execution, so a memoized `IO` is constructed once and runs each time `Value` is read:
+`Atom<A>` manages one value with compare-and-swap, `Swap` returns the new value and reruns its function on conflict, and `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key, `SwapKey(key, Func<V, V>)` updates a present key and `SwapKey(key, Func<Option<V>, Option<V>>)` also inserts, `Find` reads, and `FindOrAdd` adds a missing value or returns the existing one in one atomic step. `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction, `swap` reads the transactional value, `commute` applies its function inside the transaction and again at the commit point against the last committed value, and `Isolation.Serialisable` sets serializable isolation. `TrackingHashMap<K, V>` records each key change in `Changes` and `Snapshot()` clears the log and keeps the entries. `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`, and `memoK` caches the construction of a `K<F, A>` and not its execution, so a memoized `IO` is constructed once and runs each time `Value` is read:
 
 ```csharp
 internal static class SharedState {

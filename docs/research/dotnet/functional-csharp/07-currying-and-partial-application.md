@@ -62,8 +62,7 @@ internal static class Partials {
 }
 ```
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ### [03.2]-[ARGUMENT_ORDER]
 
@@ -158,8 +157,7 @@ internal static class Temperature {
 }
 ```
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ## [05]-[METHOD_RESOLUTION]
 
@@ -219,8 +217,7 @@ internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
 
 Custom types (`ConnectionIO`, `SqlTemplate`) make signatures intention-revealing and can own extension methods that do not belong on `string`. `Seq<A>.Head` is an `Option<A>`, lookup absence stays explicit.
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ## [07]-[FUNCTIONS_AS_DEPENDENCIES]
 
@@ -287,8 +284,7 @@ internal static class Host {
 
 The framework entry point can remain thin while the behavior it invokes is supplied as narrow functions. Composition uses ordinary function application rather than requiring an inversion-of-control container.
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ## [09]-[WHEN_TO_USE]
 

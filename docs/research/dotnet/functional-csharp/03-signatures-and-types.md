@@ -151,8 +151,7 @@ internal static class Construction {
 
 The default inner value in the `None` state is ignored. The contract is an empty case, a present case, and a way to handle both cases safely. Other libraries name the same abstraction `Maybe`, with cases `Nothing` and `Just`. Open class hierarchies cannot stop a caller from adding a third case.
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ## [05]-[TOTALITY]
 

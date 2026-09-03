@@ -4,7 +4,7 @@ Worked flows for keeping effects at the boundary: isolating I/O around a pure co
 
 ## [01]-[ISOLATION]
 
-Useful programs require I/O, so the goal is a small impure boundary rather than universal purity, and each kind of effect gets its own treatment: I/O is isolated, argument mutation is replaced by returned data, errors are results, and non-local state is designed away. The effectful function describes the reads and writes as an `Eff<RT, Unit>` that the host performs at `Run(rt)`, and the deterministic logic sits in a pure function it calls:
+Useful programs require I/O, so the goal is a small impure boundary rather than universal purity, and each kind of effect gets its own treatment: I/O is isolated, argument mutation is replaced by returned data, errors are results, and non-local state is designed away. List every non-local value a function reads and every externally visible change it makes, then extract the deterministic computation. The effectful function describes the reads and writes as an `Eff<RT, Unit>` that the host performs at `Run(rt)`, and the deterministic logic sits in a pure function it calls:
 
 ```csharp
 internal static class Prompting {
@@ -53,14 +53,7 @@ A unit test for a pure function supplies inputs and asserts the output, and an i
     -> (return value, new program state, new world state)
 ```
 
-Arrange must construct substitute external and program state, assert must inspect both the explicit result and the externally visible changes, mocks model the external state, and assertions over internal mutation are brittle and break encapsulation. Parameterized tests make inputs and expected outputs explicit across boundary cases. Distributed systems delegate computation to other processes and raise the share of I/O, and performance now comes from more cores, which pure computations use safely, so both trends raise the value of the small explicit boundary. The design checklist:
-- List every non-local value a function reads and every externally visible change it makes
-- Extract deterministic computation from I/O workflows
-- Return all computed information rather than mutating arguments
-- Replace a shared counter with generated values and `Zip`
-- Treat `Map` transformations as pure
-- Inject a stable snapshot as a value, a deferred effect as `IO`, and many capabilities through a runtime `RT`
-- Keep effects near application boundaries and let those boundaries call inward to pure logic
+Arrange must construct substitute external and program state, assert must inspect both the explicit result and the externally visible changes, mocks model the external state, and assertions over internal mutation are brittle and break encapsulation. Parameterized tests make inputs and expected outputs explicit across boundary cases. Distributed systems delegate computation to other processes and raise the share of I/O, and performance now comes from more cores, which pure computations use safely, so both trends raise the value of the small explicit boundary.
 
 ## [02]-[INJECTION]
 
@@ -195,7 +188,7 @@ internal static class Scopes {
 }
 ```
 
-Once helpers return `IO<A>`, query syntax exposes scoped behavior without callback nesting: `use(Func<A>)` acquires the `IDisposable` and disposes it when the effect succeeds or fails, a transaction scope depends on the connection and supplies the transaction downstream, the commit step runs only after every statement succeeds, a failure skips it so `Dispose` rolls the open transaction back, and `use(Func<A>, Action<A>)` runs its release action on every exit, which is why a commit never sits in a release action:
+Once helpers return `IO<A>`, query syntax exposes scoped behavior without callback nesting: a transaction scope depends on the connection and supplies the transaction downstream, the commit step runs only after every statement succeeds, and a failure skips it so `Dispose` rolls the open transaction back:
 
 ```csharp
 internal static class Removals {
@@ -222,7 +215,7 @@ The order of the bracketed effects determines which downstream work each scope s
 
 ## [06]-[EXECUTION]
 
-`IO<A>` captures an exception from an asynchronous computation as an `Exceptional` error on its channel and carries an expected domain error as a typed `Expected` on the same channel, and the three failure policies stay distinct in code: each retry waits for the next delay of the schedule and invokes the effect again, and when the schedule expires the last error remains observable, while recovery happens on the `Fin<A>` that `RunSafe()` returns:
+Each retry waits for the next delay of the schedule and invokes the effect again, when the schedule expires the last error remains observable, and recovery happens on the `Fin<A>` that `RunSafe()` returns:
 
 ```csharp
 internal sealed record ProviderDown() : Expected("provider down", 3001);
@@ -252,7 +245,7 @@ internal static class Independence {
 }
 ```
 
-`Traverse` applies an effect-returning function and flips the traversable and the effect (`Tr<T> -> (T -> A<R>) -> A<Tr<R>>` where `Map` gives `Tr<A<R>>`), `A` must be at least applicative, and the same signature encodes a different evaluation policy per effect: under `Option` one failed parse makes the whole input `None` instead of silently dropping it, under `Validation` the instance `Traverse` calls every validator and accumulates while `TraverseM` stops calling after the first invalid value, and under `IO` `Traverse` overlaps the element effects into one `IO<Seq<B>>` while `TraverseM` runs them one after another and stops creating later effects after a failure. `PartitionFallible` runs every effect in order, never short-circuits, and returns the `Fails` and the `Succs` inside one `IO`:
+`Traverse` applies an effect-returning function and flips the traversable and the effect (`Tr<T> -> (T -> A<R>) -> A<Tr<R>>` where `Map` gives `Tr<A<R>>`), and one signature takes the evaluation policy of its effect, so under `Option` one failed parse makes the whole input `None` instead of silently dropping it:
 
 ```csharp
 internal sealed record Provider(string Name, IO<Seq<Quote>> Quotes);

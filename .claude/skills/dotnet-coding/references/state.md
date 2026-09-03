@@ -107,7 +107,7 @@ This policy yields an empty list half the time, one element a quarter of the tim
 
 ## [04]-[GENERALIZATION]
 
-`State<int, A>` specializes `State<S, A>` with an integer seed, and other state types use the same `Map`, `Bind`, and `State.pure`. Numbering the leaves of a tree in traversal order uses an integer counter as the state: a leaf pairs its value with the current count and returns the incremented count, and a branch numbers its left subtree, then its right subtree with the state the left returned:
+`State<int, A>` specializes `State<S, A>` with an integer seed, and other state types use the same `Map`, `Bind`, and `State.pure`. Numbering the leaves of a tree in traversal order uses an integer counter as the state: a leaf pairs its value with the current count and returns the incremented count, and a branch numbers its left subtree, then its right subtree with the state the left returned. The tree is a generic `[Union]` with 2 cases, and the numbering sits on an abstract member because it needs no dependency:
 
 ```csharp
 internal static class Numbering {
@@ -115,18 +115,20 @@ internal static class Numbering {
     public static Tree<(int Number, T Value)> Numbered<T>(Tree<T> tree) => tree.Number().Run(0).Value;
 }
 
-internal abstract record Tree<T> {
+[Union]
+internal abstract partial record Tree<T> {
     public abstract State<int, Tree<(int Number, T Value)>> Number();
-}
 
-internal sealed record Leaf<T>(T Value) : Tree<T> {
-    public override State<int, Tree<(int Number, T Value)>> Number() => Numbering.GetAndIncrement.Map(count => new Leaf<(int, T)>((count, Value)));
-}
-internal sealed record Branch<T>(Tree<T> Left, Tree<T> Right) : Tree<T> {
-    public override State<int, Tree<(int Number, T Value)>> Number() =>
-        from left in Left.Number()
-        from right in Right.Number()
-        select (Tree<(int Number, T Value)>)new Branch<(int Number, T Value)>(left, right);
+    internal sealed record Leaf(T Value) : Tree<T> {
+        public override State<int, Tree<(int Number, T Value)>> Number() =>
+            Numbering.GetAndIncrement.Map(count => (Tree<(int Number, T Value)>)new Tree<(int Number, T Value)>.Leaf((count, Value)));
+    }
+    internal sealed record Branch(Tree<T> Left, Tree<T> Right) : Tree<T> {
+        public override State<int, Tree<(int Number, T Value)>> Number() =>
+            from left in Left.Number()
+            from right in Right.Number()
+            select (Tree<(int Number, T Value)>)new Tree<(int Number, T Value)>.Branch(left, right);
+    }
 }
 ```
 
@@ -175,7 +177,7 @@ internal static class Sessions {
 }
 ```
 
-The stopping predicate reads the state and the transition is an `IO<int>` the caller supplies. `Monad.recur` checks the initial state before advancing and performs zero or more transitions, and the host runs the result with `RunSafe` and receives the final state as `Fin<Session>`.
+The stopping predicate reads the state, the transition is an `IO<int>` the caller supplies, and the host runs the result with `RunSafe` and receives the final state as `Fin<Session>`.
 - See `dotnet-languageext` for `tail` recursion in `IO`, its exit restrictions, and `RepeatUntil` and `RepeatWhile`
 
 When the intermediate states are meaningful, `LanguageExt.List.unfold` produces them lazily from an initial state and a step that returns `Some((emitted, next))` or `None` at the terminal state, and `toSeq` wraps the result as a `Seq` that reads each state on demand and keeps it:

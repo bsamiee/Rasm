@@ -158,7 +158,7 @@ An existing API can expose arguments in an order that works poorly for partial a
 
 ```csharp
 internal sealed record Template(string Text);
-internal sealed record Entry(Guid Id, string Name);
+internal sealed record Entry(Guid Id, string Name, decimal Amount);
 
 internal interface ConnectionIO {
     public Seq<T> Query<T>(Template template, object parameters);

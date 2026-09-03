@@ -12,7 +12,7 @@ Covers values that arrive over time and the process that owns a shared value: th
 |  [01]   | One value     | `T`              | `Task<T>`        |
 |  [02]   | Many values   | `IEnumerable<T>` | `IObservable<T>` |
 
-An observable pushes notifications to an observer under the protocol `OnNext* (OnCompleted | OnError)?`: `OnNext(T)` delivers zero or more values, `OnCompleted()` ends the stream, `OnError(Exception)` ends it abnormally, a stream can run forever, and nothing emits after either terminal notification. `Subscribe` connects producer and consumer and returns the `IDisposable` that owns the subscription lifetime, which the consumer scopes or disposes, above all for a source that never completes. `Source.lift(IObservable<A>)` supplies the observer once, and `Reduce(seed, f)` folds every value into one `IO<S>` that the host runs.
+An observable pushes notifications to an observer under the protocol `OnNext* (OnCompleted | OnError)?`: `OnNext(T)` delivers zero or more values, `OnCompleted()` ends the stream, `OnError(Exception)` ends it abnormally, a stream can run forever, and nothing emits after either terminal notification. `Subscribe` connects producer and consumer and returns the `IDisposable` that owns the subscription lifetime, which the consumer scopes or disposes, and a source that never completes depends on that disposal. `Source.lift(IObservable<A>)` supplies the observer once, and `Reduce(seed, f)` folds every value into one `IO<S>` that the host runs.
 
 ## [02]-[STRUCTURE]
 
@@ -23,22 +23,7 @@ A stream program has 3 layers, and the separation keeps the dataflow composable 
 
 ## [03]-[CREATION]
 
-A lifted single value emits immediately and completes, a lifted enumerable emits its elements and completes, `Reduce` subscribes a lifted observable, and subscription behavior depends on the source, so not every observable is lazy:
-
-```csharp
-internal static class Sources {
-    private static Action<string> onMessage = static _ => { };
-    private static readonly Event<string> Messages = Event.from(ref onMessage);
-
-    public static IO<string> FirstMessage =>
-        from messages in Messages.Subscribe()
-        from _ in IO.lift(static () => onMessage("hello"))
-        from head in messages.Take(1).Last()
-        select head;
-}
-```
-
-`Event.from` adapts a callback-based producer (a message subscription) by adding its callback to the delegate's invocation list, and its source receives every later invocation. `Subject<T>` is both observer and observable, so imperative code can call its `OnNext`, `OnError`, and `OnCompleted`, and it belongs at a callback or event boundary where `Event.from` or a dedicated source does not express the source directly, which keeps observer calls out of the stream definition. `FromEvent` and `FromEventPattern` adapt event-based APIs.
+Subscription behavior depends on the source, so not every observable is lazy. A callback-based producer (a message subscription) enters through `Event.from`, an event-based API through `FromEvent` or `FromEventPattern`, and a `Subject<T>` belongs only at a callback boundary that no dedicated source expresses directly, which keeps observer calls out of the stream definition.
 
 ## [04]-[OPERATORS]
 
@@ -111,7 +96,7 @@ internal static class Transitions {
 
 `Skip(1)` shifts the second subscription by one value and `Zip` pairs each value with its successor. This subscribes to the source twice, each subscription observes values from its own subscription time, and the meaning depends on how the source behaves when subscribed more than once.
 
-When one source emits more often than the output requires, reduce it before combining: `Zip` is the choice when each value has one matching partner, and `CombineLatest` when either input invalidates the derived value. The consumer cannot slow the producer by requesting the next item, so when production outpaces consumption, the `Buffer<A>` given to `Conduit.make` states the policy, and the policy reflects whether intermediate values can be dropped, delayed, grouped, or preserved, where Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`. A bounded or single buffer blocks `Post` when full, so the consumer is forked before the producer posts:
+When one source emits more often than the output requires, reduce it before combining: `Zip` is the choice when each value has one matching partner, and `CombineLatest` when either input invalidates the derived value. When production outpaces consumption, the `Buffer<A>` given to `Conduit.make` states the policy, and the policy reflects whether intermediate values can be dropped, delayed, grouped, or preserved, where Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`:
 
 ```csharp
 internal static class Backpressure {

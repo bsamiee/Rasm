@@ -42,7 +42,7 @@ An entity is different: its identity persists while its state changes, so its st
 
 ## [04]-[DOMAIN_STATE]
 
-An immutable snapshot needs more than getter-only properties, because immutability must extend through every referenced value. The snapshot constructs through factories that establish the initial values, exposes only the transitions the domain permits, and copies a mutable input collection at the boundary so later changes to the caller's list never reach it:
+The snapshot constructs through factories that establish the initial values, exposes only the transitions the domain permits, and copies a mutable input collection at the boundary so later changes to the caller's list never reach it:
 
 ```csharp
 internal readonly record struct Code(string Value);
@@ -71,7 +71,7 @@ Public setters let callers replace properties, private setters still let code in
 
 ## [05]-[COPIES]
 
-Records give copy-and-update through `with` over `init` properties, a `readonly struct` prevents reassignment of its fields, and a lens updates a nested field without a chain of `with` expressions.
+A lens updates a nested field without a chain of `with` expressions.
 - See `dotnet-languageext` for the `Lens<A, B>` API and its composition through `lens(outer, inner)`
 
 Reflection can copy an object and replace one backing field, and it removes boilerplate at the cost of speed and of the control over legal transitions, so explicit copy methods stay preferred. Data can live in F#, where declarations are immutable by default and support copy-and-update expressions while C# implements the behavior, at the cost of a mixed-language solution and an extra assembly boundary. No C# technique prevents all mutation, because reflection can alter private and read-only fields, and the goal is to prevent accidental mutation and to communicate the intended model.

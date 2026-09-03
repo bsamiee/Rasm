@@ -204,7 +204,7 @@ Application code composes the supplied transformers and hides the stack behind a
 internal sealed record Settings(int Factor);
 internal sealed record App<A>(ReaderT<Settings, IO, A> Run) : K<App, A>;
 
-internal sealed class App : Deriving.MonadIO<App, ReaderT<Settings, IO>>, Deriving.Readable<App, ReaderT<Settings, IO>, Settings> {
+internal sealed class App : Deriving.MonadIO<App, ReaderT<Settings, IO>>, Deriving.Readable<App, Settings, ReaderT<Settings, IO>> {
     public static K<ReaderT<Settings, IO>, A> Transform<A>(K<App, A> fa) => fa.As().Run;
     public static K<App, A> CoTransform<A>(K<ReaderT<Settings, IO>, A> fa) => new App<A>(fa.As());
 }

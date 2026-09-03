@@ -114,8 +114,7 @@ internal static class Quartiles {
 }
 ```
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ## [04]-[WORKFLOW_OPERATORS]
 
@@ -225,8 +224,7 @@ Using expressions does not eliminate effects. It moves effects to explicit bound
 
 If a terminal step requires multiple effects, keep each one visible.
 
-<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
--->
+(Integrated into .claude/skills/dotnet-coding/SKILL.md)
 
 ## [08]-[LAYERING]
 

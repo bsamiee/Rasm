@@ -49,7 +49,7 @@ A skill drives behavior, it is instructions to an agent and not a textbook. Fram
 - Keep every rule at the abstraction level the workspace uses, so an agent does not invent result flow in the wrong layer or a type per snippet
 - Keep snippets in `SKILL.md` small and complete, one shape per rule, and never oversized
 - Keep reference snippets non-anchoring: a category of language functionality shown in one coupled way becomes the only way an agent writes it
-- Write every snippet with placeholder names from the start (`Command`, `State`, `Item`, `Quantity`), translated to a coherent shape rather than copied from the research, name every local by its type rather than `var`, and keep it rich enough to show the rule without hardening one shape into the only way an agent writes that construct
+- Write every snippet with placeholder names from the start (`Command`, `State`, `Item`, `Quantity`), translated to a coherent shape rather than copied from the research, name every local by its type rather than `var`, and keep it rich enough to show the rule without hardening one shape into the only way an agent writes that construct. A placeholder keeps one shape within a file, each file's snippets stand on their own, and the same name (`Entry`, `Snapshot`) can take another shape in another file
 
 ## [04]-[SKILL_SHAPE]
 
@@ -103,7 +103,7 @@ The work runs as a sequence of forked agents, each with one slice, a commit betw
 | [INDEX] | [FORK]                    | [SOURCES]                              | [OUTPUT]                                               |
 | :-----: | :------------------------ | :------------------------------------- | :----------------------------------------------------- |
 |   [01]  | languageext skill         | 21 to 24, 08                           | `SKILL.md`, stubs only where a topic demands           |
-|   [02]  | thinktecture skill        | `thinktecture` folder                  | `SKILL.md`, settings, factory-path, and Serilog references             |
+|   [02]  | thinktecture skill        | `thinktecture` folder                  | `SKILL.md`, settings, factory-path, Serilog references |
 |   [03]  | mapperly skill            | `mapperly` folder                      | `SKILL.md`                                             |
 |   [04]  | results reference         | 10, 11, 12, 21 [04] to [07]            | `results.md`, skill adjustments                        |
 |   [05]  | functions reference       | 06, 07, 09                             | `functions.md`, skill adjustments                      |
@@ -130,4 +130,4 @@ The first review of `SKILL.md` found these defects, and each is a pattern to che
 
 After fork [11], a second sequence of fresh agents (not forks) reviews the 4 skills in the same order, one skill or reference set per agent. Each agent reads the plan, its target, the research files its target absorbed (including the commented-out sections), and the other 3 skills, then checks that every fact moved rather than vanished, that no narration or meta text survived, that the complexity of the topic was carried and not trimmed away, that each snippet uses placeholders and shows one rule without hardening a shape, and that nothing is restated across skills. Corrections are surgical integrations, never additions of bulk.
 
-The thinktecture reviewers also read `.claude/skills/.tmp/thinktecture-runtime-extensions/SKILL.md` with its `references/` (equality-and-comparers, generic-types among them) and `.claude/skills/.tmp/thinktecture-entityframeworkcore`. These are the official skills from the package repositories, below this standard in quality, and they serve only as a coverage check: a topic they hold and the research omitted is either placed in the owning skill or recorded as omitted because it conflicts with the workspace approach. Legacy or obsolete material and generic agent-procedure text never enter.
+The thinktecture reviewers also read `.claude/skills/.tmp/thinktecture-runtime-extensions/SKILL.md` with its `references/` (equality-and-comparers, generic-types among them) and `.claude/skills/.tmp/thinktecture-entityframeworkcore`. These are the official skills from the package repositories, written to a lower standard, and they serve only as a coverage check: a topic they hold and the research omitted is either placed in the owning skill or recorded as omitted because it conflicts with the workspace approach. Legacy or obsolete material and generic agent-procedure text never enter.

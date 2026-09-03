@@ -56,3 +56,22 @@ Attribute settings of the three generated type families, with their defaults and
 |   [11]  | `DefaultValueHandling`        | `Disallow`             | `MapToFirstMember` makes `default` of a struct union the first member |
 |   [12]  | `SwitchMethods`, `MapMethods` | `Default`              | `DefaultWithPartialOverloads` adds partial forms, `None` removes all  |
 |   [13]  | `SwitchMapStateParameterName` | `state`                | Name of the state parameter                                           |
+
+## [04]-[GENERATOR_PROPERTIES]
+
+Project-level MSBuild properties carry the prefix `ThinktectureRuntimeExtensions_SourceGenerator_`, reach the compiler as `build_property.<PropertyName>`, and apply to every generated type in the project:
+
+| [INDEX] | [PROPERTY]                     | [VALUES]                                                                      | [DEFAULT] |
+| :-----: | :----------------------------- | :---------------------------------------------------------------------------- | :-------- |
+|   [01]  | `LogFilePath`                  | File or folder path, trimmed                                                  | No log    |
+|   [02]  | `LogFilePathMustBeUnique`      | `true` or `false`                                                             | `true`    |
+|   [03]  | `LogLevel`                     | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `None`, case-insensitive | `Warning` |
+|   [04]  | `LogMessageInitialBufferSize`  | Integer of at least 100                                                       | `100`     |
+|   [05]  | `GenerateJetBrainsAnnotations` | `disable`, `disabled`, `false`, or `0` turn it off, case-insensitive          | On        |
+|   [06]  | `Counter`                      | `enable`, `enabled`, `true`, or `1` turn it on, case-insensitive              | Off       |
+
+- `LogFilePath` gates the other logging properties, must name a folder that exists before the build, and blank disables file logging
+- `LogLevel` at `Information` shows the generator run and which serialization generators participate, and only `Information`, `Warning`, and `Error` create a file logger
+- `LogFilePathMustBeUnique` at `false` collects every compiler process in one file, and the default `true` names a new file per process with a UTC timestamp and a guid
+- The generator skips the annotation file when `JetBrains.Annotations.dll` is referenced, so `GenerateJetBrainsAnnotations` needs no value
+- `Counter` serves only to detect regeneration (every emitted file starts with `// COUNTER: <n>`), and it is off before generated files are compared or committed

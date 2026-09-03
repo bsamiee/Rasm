@@ -83,7 +83,7 @@ internal static class Queues {
 }
 ```
 
-Rx names the time-based and grouping-based policies `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`, and the chosen policy states whether intermediate values are dropped, delayed, grouped, or preserved. A conduit reduced under `Fork()` while a client posts is a message queue, and a second conduit carries a reply that `Source.Take(1).Last()` reads.
+A conduit reduced under `Fork()` while a client posts is a message queue, and a second conduit carries a reply that `Source.Take(1).Last()` reads.
 - See `dotnet-coding/references/streams.md` for the agent loop, the reply pattern, and entity processes built on conduits
 
 ## [04]-[PIPES]

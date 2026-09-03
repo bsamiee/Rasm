@@ -1,6 +1,6 @@
 ---
 name: dotnet-mapperly
-description: "ENTER LATER AFTER FINISHED, <20-25 WORDS MAX"
+description: "Use when mapping between domain types and transport, persistence, or read-model contracts with Mapperly: mapper placement, conversions, attributes, options, and projections."
 ---
 
 # [DOTNET_MAPPERLY]
@@ -85,7 +85,7 @@ Reference handling materializes an external graph that requires cycles or shared
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
 A generated domain type crosses the mapper only through its declared conversions, inbound through the `From` adapter and outbound through the key member or the `ToValue` of a declared `[ObjectFactory<T>]`, and `ToString()` does not define that representation. `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception, so no automatic conversion reaches them. Mapperly enum configuration applies only to CLR enums, and two independent CLR enum contracts map by case-sensitive name or explicit value pairs, never by numeric position.
-- See `dotnet-coding` for the `From` adapter that maps `Validate` to `Fin<T>` and `TryGet` to `Option<T>`
+- See `dotnet-coding` for the `From` adapter that maps `Validate` to `Fin<T>`, and `dotnet-thinktecture` for the lookup that maps `TryGet` to `Option<T>`
 
 A closed union uses its generated `Switch` as the outer dispatcher, Mapperly maps one known case inside each arm, and case selection stays exhaustive while member translation stays structural. `Map` takes one value per case and receives no mapper call:
 
@@ -128,6 +128,8 @@ internal static partial class ItemMapper {
 internal sealed record Item(Guid Id, Code Code, decimal Amount, DateTimeOffset ListedAt, Seq<Line> Lines);
 internal sealed record ItemDto(Guid Id, string Code, decimal Amount, string ListedAt, List<LineDto> Lines);
 ```
+
+`ItemDto.Lines` is a BCL `List<LineDto>` because the DTO is the host's contract, and the enabled `Enumerable` conversion maps each element of the `Seq<Line>` source through the `Line` to `LineDto` mapping, so the domain collection type never reaches the contract.
 
 | [INDEX] | [DECLARATION]                                                              | [CAPABILITY]                     |
 | :-----: | :------------------------------------------------------------------------- | :------------------------------- |

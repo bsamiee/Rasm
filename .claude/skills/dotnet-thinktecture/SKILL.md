@@ -1,6 +1,6 @@
 ---
 name: dotnet-thinktecture
-description: "ENTER LATER AFTER FINISHED, <20-25 WORDS MAX"
+description: "Use when declaring a value object, smart enum, or union with Thinktecture.Runtime.Extensions, its generated API, settings, factories, and framework integration."
 ---
 
 # [DOTNET_THINKTECTURE]
@@ -8,7 +8,7 @@ description: "ENTER LATER AFTER FINISHED, <20-25 WORDS MAX"
 Covers declaring the types that `Thinktecture.Runtime.Extensions` generates (value objects, smart enums, ad hoc and regular unions), their generated API and settings, the validation and normalization hooks, `Switch` and `Map`, object factories for a second wire format, the convenience members, and the packages that carry those types across JSON, MessagePack, model binding, OpenAPI, Entity Framework Core, and Serilog. Which type a domain concept becomes, how a union is designed, and how `Validate` maps to `Fin<T>` are decisions that `dotnet-coding` states, and the `Expected` records that `[ValidationError<T>]` names take their shape from `dotnet-languageext`.
 
 [REFERENCES]:
-- [01]-[SETTINGS](references/settings.md): Attribute settings of value objects, smart enums, and ad hoc unions with defaults and effects
+- [01]-[SETTINGS](references/settings.md): Attribute settings of value objects, smart enums, and ad hoc unions with defaults and effects, and the generator's MSBuild properties
 - [02]-[FACTORY_PATHS](references/factory-paths.md): Entity Framework Core read path, span-based JSON, multiple factories, runtime factory selection, polymorphic discriminators
 - [03]-[SERILOG](references/serilog.md): Destructuring policy, depth limits, string rendering, caveats
 
@@ -16,23 +16,8 @@ Every package name omits the prefix `Thinktecture.Runtime.Extensions.`, every an
 
 ## [01]-[GENERATOR_CONFIGURATION]
 
-The generator reads project-level MSBuild properties, each with the prefix `ThinktectureRuntimeExtensions_SourceGenerator_` and forwarded to the compiler as `build_property.<PropertyName>`, and they apply to every generated type in the project:
-
-| [INDEX] | [PROPERTY]                     | [VALUES]                                                                      | [DEFAULT] |
-| :-----: | :----------------------------- | :---------------------------------------------------------------------------- | :-------- |
-|   [01]  | `LogFilePath`                  | File or folder path, trimmed                                                  | No log    |
-|   [02]  | `LogFilePathMustBeUnique`      | `true` or `false`                                                             | `true`    |
-|   [03]  | `LogLevel`                     | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `None`, case-insensitive | `Warning` |
-|   [04]  | `LogMessageInitialBufferSize`  | Integer of at least 100                                                       | `100`     |
-|   [05]  | `GenerateJetBrainsAnnotations` | `disable`, `disabled`, `false`, or `0` turn it off, case-insensitive          | On        |
-|   [06]  | `Counter`                      | `enable`, `enabled`, `true`, or `1` turn it on, case-insensitive              | Off       |
-
-- Keep the properties out of the committed project file, pass them with `-p:` for one diagnostic build, or keep them in a local ignored props file
-- `LogFilePath` gates the other logging properties, must name a folder that exists before the build, and blank disables file logging
-- `LogLevel` at `Information` shows the generator run and which serialization generators participate, and only `Information`, `Warning`, and `Error` create a file logger
-- `LogFilePathMustBeUnique` at `false` collects every compiler process in one file, and the default `true` names a new file per process with a UTC timestamp and a guid
-- Leave `GenerateJetBrainsAnnotations` unset, because the generator skips the annotation file when `JetBrains.Annotations.dll` is referenced, and turning it off elsewhere fails with `CS0122` on every `Switch` delegate parameter
-- Use `Counter` only to detect regeneration (every emitted file starts with `// COUNTER: <n>`), and turn it off before generated files are compared or committed
+The generator reads project-level MSBuild properties with the prefix `ThinktectureRuntimeExtensions_SourceGenerator_` (`LogFilePath`, `LogLevel`, `Counter`) for diagnostics of one build, kept out of the committed project file and passed with `-p:` or held in a local ignored props file, and `GenerateJetBrainsAnnotations` stays unset because turning it off fails with `CS0122` on every `Switch` delegate parameter.
+- See `references/settings.md` for the properties, their values, and their effects
 
 ## [02]-[VALUE_OBJECTS]
 

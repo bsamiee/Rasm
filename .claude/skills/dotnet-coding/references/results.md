@@ -107,7 +107,7 @@ internal static class Pipeline {
 }
 ```
 
-Choose the domain errors for the workflow before composing it, because every bound function must return the same failure type. A multi-argument function enters an effect by currying: `Map` supplies the first argument and leaves a unary function inside the effect, and `Apply` supplies each remaining argument from inside the same effect, `Some` only when every input is `Some`. Lifting the function first with `Pure`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, and lifting first mirrors partial application:
+Choose the domain errors for the workflow before composing it, because every bound function must return the same failure type. Lifting a multi-argument function first with `Pure`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first mirrors partial application:
 
 ```csharp
 internal static class Lifting {
@@ -119,7 +119,7 @@ internal static class Lifting {
 }
 ```
 
-The multi-argument `Map` and `Apply` overloads curry the delegate, `fun` gives an inline lambda the delegate type these overloads need, and `As()` returns the concrete type from the `K<Option, int>` the trait method returns. An `Apply` derived from `Bind` discards accumulation, so an effect with combination semantics supplies its own `Apply`.
+`fun` gives an inline lambda the delegate type these overloads need, and `As()` returns the concrete type from the `K<Option, int>` the trait method returns.
 
 C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that carries earlier values into the final projection without nested lambdas, so one query shape runs over `Option` and over `Validation<Error, A>`:
 
@@ -158,12 +158,7 @@ internal static class Handler {
 }
 ```
 
-The tuple `Apply` reports both violations together, and `RunSafe` at the outer boundary returns one `Fin<Unit>`, and its `Match` separates the reachable outcomes:
-- `Fail` with an `Expected` error or `ManyErrors` exposes the business errors and logs the `Inner` of a translated dependency failure, and the host reads the accumulated errors with `Filter<E>`, `Count`, and `Head`
-- `Fail` with an `Exceptional` error logs the technical detail and exposes a generic failure
-- `Succ(unit)` returns success
-
-Within the core the workflow composes with `Map` and `Bind`, and only an outer adapter translates when the protocol, UI, or host requires another response type. Every library returns its result type with its own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation:
+The tuple `Apply` reports both violations together, `RunSafe` at the outer boundary returns one `Fin<Unit>` for the host `Match`, and the host logs the `Inner` of a translated dependency failure beside the business errors it renders. Within the core the workflow composes with `Map` and `Bind`, and only an outer adapter translates when the protocol, UI, or host requires another response type. Every library returns its result type with its own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation:
 
 ```csharp
 IActionResult Post(Request request) =>
@@ -272,7 +267,7 @@ The abstractions form a hierarchy, `Functor < Applicative < Monad < Fold`, and e
 |  [02]   | `Applicative<F>` | `Pure`, `Apply` | Combines independent values inside an effect with a multi-argument function |
 |  [03]   | `Monad<M>`       | `Pure`, `Bind`  | Sequences computations where the next step depends on a prior value        |
 
-The stronger abstractions define the weaker operations, `Map(fa, f)` as `Pure(f).Apply(fa)`, `Apply` as a `Bind` of the argument and then the function, `Fold` defining `Bind`, and LINQ query syntax comes from `Monad<M>`, while a dedicated `Apply` stays more efficient and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. The laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
+A dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. The laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
 
 ```text
 Functor identity:    fa.Map(x => x) == fa

@@ -227,8 +227,7 @@ The numbering function returns a computation rather than a numbered tree immedia
 
 Simulations and parsers can also use state transitions. Functional parsers can treat input text as state: they return a parsed value and the unconsumed remainder for the next parser. `LanguageExt.Parsec` follows this model: its `Parser<T>` maps a `PString` to a `ParserResult<T>` that carries the unconsumed input.
 
-<!-- Integrated into .claude/skills/dotnet-coding/references/state.md
--->
+(Integrated into .claude/skills/dotnet-coding/references/state.md)
 
 ## [06]-[REPRESENTATION_CHOICE]
 
