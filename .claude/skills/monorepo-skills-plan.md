@@ -50,7 +50,7 @@ The skill names no repository, product, or person. It states rules with the cate
 | [INDEX] | [STEP]           | [FILES]                                                                                   | [STATE]  |
 | :-----: | :--------------- | :---------------------------------------------------------------------------------------- | :------- |
 |  [01]   | Research folder  | `docs/research/monorepo/*.md`, this plan                                                  | Done     |
-|  [02]   | Toolchain        | `mise.toml`, `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `.vscode/settings.json` | Pending  |
+|  [02]   | Toolchain        | `mise.toml`, `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `.vscode/settings.json` | Done     |
 |  [03]   | .NET manifest    | `.config/dotnet-tools.json`, `.mcp.json`, `Directory.Build.props`, `eng/msbuild/*.targets` | Pending  |
 |  [04]   | Nx               | `tools/nx/workspace.ts`, `nx.json`, root `project.json`, `vitest.config.ts`, `biome.json` | Pending  |
 |  [05]   | Coverage         | ReportGenerator merge, pytest coverage path, Vitest thresholds, `tests/README.md`         | Pending  |
@@ -103,3 +103,4 @@ Each repository step corrects one category of mistake, and the skill's last sect
 | [INDEX] | [STEP] | [MISTAKE]                                                                     | [CORRECTION]                                                                    |
 | :-----: | :----: | :---------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
 |  [01]   |  [01]  | Source material scattered across plan files and session scratch directories   | One research folder per skill area, one file per report, integration markers   |
+|  [02]   |  [02]  | Runtimes installed by a machine profile outside the repository, versions restated as ranges and guards | One installer file pinning exact runtimes, each manifest pinning its own packages, one statement per version |

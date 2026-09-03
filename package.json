@@ -247,6 +247,7 @@
         "prosemirror-state": "catalog:",
         "prosemirror-transform": "catalog:",
         "prosemirror-view": "catalog:",
+        "pulumi": "catalog:",
         "react": "catalog:",
         "react-aria": "catalog:",
         "react-aria-components": "catalog:",
@@ -287,13 +288,14 @@
         "workbox-build": "catalog:",
         "workbox-window": "catalog:"
     },
+    "packageManager": "pnpm@12.3.1",
     "engines": {
         "node": ">=24.15.0"
     },
     "devEngines": {
         "packageManager": {
             "name": "pnpm",
-            "version": ">=11.9.0 <12",
+            "version": "12.3.1",
             "onFail": "error"
         }
     }

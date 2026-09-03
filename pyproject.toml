@@ -353,7 +353,7 @@ dev = [
     "pytest-socket",
     "pytest-timeout",
     "pytest-xdist",
-    "ruff>=0.16.2",
+    "ruff",
     "s3fs",                                               # Object-store test support backed by moto S3
     "scipy-stubs",
     "sniffio",                                            # Asynchronous runtime detection used by the test environment fixture
@@ -379,8 +379,12 @@ beartype = { git = "https://github.com/beartype/beartype.git", rev = "f927b66f79
 connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }  # Published Connect pins protobuf-py 0.1.1, this immutable upstream source holds the runtime and generator pair on protobuf-py 0.3
 protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
 
+# mise installs the interpreter, uv never downloads one
 [tool.uv]
 default-groups = ["workspace", "dev"]
+cache-dir = ".cache/uv"
+python-preference = "only-system"
+python-downloads = "manual"
 
 # TOML 1.0 confines an inline table to one line, per-package build settings need this dedicated table
 [tool.uv.config-settings-package]
@@ -638,7 +642,6 @@ output = ".artifacts/python/coverage/coverage.lcov"
 cache-dir = ".cache/ruff"
 preview = true
 line-length = 150
-required-version = ">=0.16.2"
 target-version = "py315"
 extend-exclude = [
     "**/.archive/**",

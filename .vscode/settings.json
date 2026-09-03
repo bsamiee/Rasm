@@ -43,9 +43,11 @@
     },
 
     // --- [PYTHON] ----------------------------------------------------------------------
-    // Unlike ruff and ty, mypy needs this pin to run the uv.lock version
+    // Every checker runs the uv.lock version from the project environment in place of the bundled copy
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "mypy-type-checker.importStrategy": "fromEnvironment",
+    "ruff.importStrategy": "fromEnvironment",
+    "ty.importStrategy": "fromEnvironment",
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff"
     },

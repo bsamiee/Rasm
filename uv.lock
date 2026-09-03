@@ -7295,7 +7295,7 @@ dev = [
     { name = "pytest-socket" },
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
-    { name = "ruff", specifier = ">=0.16.2" },
+    { name = "ruff" },
     { name = "s3fs" },
     { name = "scipy-stubs" },
     { name = "sniffio" },
