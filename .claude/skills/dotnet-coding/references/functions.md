@@ -4,7 +4,7 @@ Covers functions as values: the combinators that apply and join functions, funct
 
 ## [01]-[COMBINATORS]
 
-Combinators apply or join functions. `Pipe` applies one function to a whole value, where `Map` applies a function to each element of a sequence, so piping a sequence treats the sequence as the input value, and the generic input and output types let each step change type. LanguageExt has no `Pipe`, and this implementation is custom:
+Combinators apply or join functions. `Pipe` applies one function to a whole value, where `Map` applies a function to each element of a sequence, piping a sequence treats the sequence as the input value, and the generic input and output types let each step change type. LanguageExt has no `Pipe`, and this implementation is custom:
 
 ```csharp
 internal static class Piping {
@@ -17,7 +17,7 @@ internal static class Piping {
 }
 ```
 
-`Fork` gives the same input to more than one function and passes their outputs to a joining function, separate generic result types let a fixed set of functions produce different kinds of value, each further fixed function needs another overload, and a `Seq` of prongs holds any number when each returns the same intermediate type:
+`Fork` gives the same input to more than one function and passes their outputs to a joining function, separate generic result types let a fixed set of functions produce different kinds of value, each further fixed function needs another overload, and a `Seq` of functions holds any number when each returns the same intermediate type:
 
 ```csharp
 internal static class Forks {
@@ -30,7 +30,7 @@ internal static class Forks {
 }
 ```
 
-`flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`, so `flip(Subtract)` receives the right operand first, and an adapter of that kind returns a new function with a different signature while delegating to the original.
+`flip` from the Prelude swaps the two parameters of a `Func<A, B, R>`, `flip(Subtract)` receives the right operand first, and an adapter of that kind returns a new function with a different signature while delegating to the original.
 - See `dotnet-coding-languageext` for `Do`, `when`, and `unless`, the observing and guarding steps that sit between transformations
 
 ## [02]-[FUNCTIONS_AS_DATA]
@@ -44,7 +44,7 @@ internal static class Reports {
 }
 ```
 
-Broader higher-order functions centralize retrieval, empty-result handling, transmission, and error handling while only the selector and the name vary, and small named wrappers preserve intent. Collections of transformations apply many views to one input, assemble at runtime, extend by one element, and stay separate from the aggregation, where `Seq.Map` is deferred so the functions run when the result is enumerated:
+Broader higher-order functions centralize retrieval, empty-result handling, transmission, and error handling while only the selector and the name vary, and small named wrappers preserve intent. Collections of transformations apply many views to one input, assemble at runtime, extend by one element, and stay separate from the aggregation, where `Seq.Map` is deferred and the functions run when the result is enumerated:
 
 ```csharp
 internal static class Descriptions {
@@ -82,7 +82,7 @@ internal static class RuleTables {
 
 `Seq.Find` returns an `Option`, the missing case is `None`, and its `Match` selects the fallback without a null check, where a staged design that infers no match by comparing the transformed value with `default(TOutput)` fails because a matching transform can return `0`, `false`, or `null`. The table matches values with predicates and not object types, a fixed decision over types is a native switch expression, and `KeyValuePair` in place of tuples adds syntax without changing the mechanism.
 
-Returned functions capture the original value in a closure and expose one operation: `number => names.Find(number).IfNone("unknown")` narrows a `HashMap<int, string>` to one lookup, keeps the map in scope, converts an absent key into a fallback, and prevents the caller from enumerating, modifying, or otherwise querying the map. Repeated parsing branches move into focused conversion functions, where `parseInt(text).IfNone(fallback)` collapses missing and invalid input into one fallback, so it suits only a caller that need not distinguish them, and `IfNone` applies at the boundary that selects the fallback because `parseInt` and `HashMap.Find` preserve every outcome.
+Returned functions capture the original value in a closure and expose one operation: `number => names.Find(number).IfNone("unknown")` narrows a `HashMap<int, string>` to one lookup, keeps the map in scope, converts an absent key into a fallback, and prevents the caller from enumerating, modifying, or otherwise querying the map. Repeated parsing branches move into focused conversion functions, where `parseInt(text).IfNone(fallback)` collapses missing and invalid input into one fallback, it suits only a caller that need not distinguish them, and `IfNone` applies at the boundary that selects the fallback because `parseInt` and `HashMap.Find` preserve every outcome.
 
 ## [03]-[SPECIALIZATION]
 
@@ -134,11 +134,11 @@ internal static class Scaling {
 }
 ```
 
-The costs are `Func` conversion with occasional explicit type annotations and nested delegate types that read poorly at higher arities, so ordinary functions stay when the helper is larger or less readable than the duplication it removes.
+The costs are `Func` conversion with occasional explicit type annotations and nested delegate types that read poorly at higher arities, ordinary functions stay when the helper is larger or less readable than the duplication it removes.
 
 ## [04]-[ADAPTERS]
 
-Unary methods convert where a `Func<T, R>` is expected, generic higher-order operations over multi-argument method groups defeat type inference, local functions share that limit, and explicit generic arguments or delegate casts add syntax, so a function used in partial application is exposed as a delegate value, where each form has one reach:
+Unary methods convert where a `Func<T, R>` is expected, generic higher-order operations over multi-argument method groups defeat type inference, local functions share that limit, and explicit generic arguments or delegate casts add syntax, a function used in partial application is exposed as a delegate value, where each form has one reach:
 
 ```csharp
 internal sealed class Greeter(string separator) {
@@ -152,7 +152,7 @@ internal sealed class Greeter(string separator) {
 - Field initializers cannot depend on instance state
 - Getter-only properties create delegates that close over instance state
 - Factory methods introduce generic type parameters, which fields and properties cannot
-- `fun` gives a lambda its `Func` type at the call site, so it is invoked or passed without a declared local
+- `fun` gives a lambda its `Func` type at the call site, it is invoked or passed without a declared local
 
 Existing APIs can expose arguments in an order that works poorly for partial application, and an adapter exposes domain-specific types in place of ambiguous primitives, acquires a short-lived resource only when the operation runs, and returns a `Func` so later specialization benefits from delegate inference:
 
@@ -177,13 +177,13 @@ internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
 }
 ```
 
-The runtime `RT` supplies the connection through `Has<Eff<RT>, ConnectionIO>`, the runtime record holds the capability from startup while the implementation opens the short-lived connection when the query runs, the effect reads the trait only when the host runs it and not when the function is built, the template specializes the query to one operation and leaves only the invocation parameters, and `Seq<A>.Head` is an `Option<A>` so lookup absence stays explicit. Custom types (`ConnectionIO`, `Template`) make the signature intention-revealing and own extension methods that do not belong on `string`.
+The runtime `RT` supplies the connection through `Has<Eff<RT>, ConnectionIO>`, the runtime record holds the capability from startup while the implementation opens the short-lived connection when the query runs, the effect reads the trait only when the host runs it and not when the function is built, the template specializes the query to one operation and leaves only the invocation parameters, and `Seq<A>.Head` is an `Option<A>`, lookup absence stays explicit. Custom types (`ConnectionIO`, `Template`) make the signature intention-revealing and own extension methods that do not belong on `string`.
 
 ## [05]-[COMPOSITION_ROOT]
 
 Function dependencies decouple the consumer from the implementation, let tests inject deterministic functions, need no single-method interface or mock setup, and enforce interface segregation: a consumer that only saves receives `T -> IO<Unit>` and not a repository abstraction that exposes lookup beside saving, and independent behaviors stay separate functions. Objects and interfaces remain compatible, and functional behavior can sit behind a framework controller that handles requests and responses.
 
-The runtime record holds the configuration and implements one `Has` trait per capability, the workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies, `Eff<RT, A>.Lift(Func<Fin<A>>)` carries a `Fin` into the query, a `from` clause binds the `IO<Unit>` dependency, and the host runs the effect once with `Run(rt)`, which returns `Fin<A>`:
+The runtime record holds the configuration and implements one `Has` trait per capability, the workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies, `Eff<RT, A>.Lift(Func<Fin<A>>)` lifts a `Fin` into the query, a `from` clause binds the `IO<Unit>` dependency, and the host runs the effect once with `Run(rt)`, which returns `Fin<A>`:
 
 ```csharp
 internal sealed record OwnerUnknown() : Expected("the owner is unknown", 101);
@@ -235,7 +235,7 @@ internal static class Quartiles {
 }
 ```
 
-Nested lambdas in a fluent chain hide the first incorrect transformation, and a query with a `from` clause per stage keeps every stage bound once and inspectable, at the cost that a large intermediate value stays in scope until the containing function ends, so stages combine when a large value must be released sooner:
+Nested lambdas in a fluent chain hide the first incorrect transformation, and a query with a `from` clause per stage keeps every stage bound once and inspectable, at the cost that a large intermediate value stays in scope until the containing function ends, stages combine when a large value must be released sooner:
 
 ```csharp
 internal static class Stages {
@@ -260,7 +260,7 @@ internal static class Transitions {
 }
 ```
 
-Boundary services expose reads as `OptionT<IO, A>` and writes as `IO<Unit>` while the transition stays pure: the repository lifts its `Option` read with `OptionT.lift`, `Run` unwraps the `OptionT` layer, `ToFin` with a typed `Expected` puts absence on the `IO` error channel, and `IO.lift(Fin<A>)` carries the transition's rejection onto the same channel:
+Boundary services expose reads as `OptionT<IO, A>` and writes as `IO<Unit>` while the transition stays pure: the repository lifts its `Option` read with `OptionT.lift`, `Run` unwraps the `OptionT` layer, `ToFin` with a typed `Expected` puts absence on the `IO` error channel, and `IO.lift(Fin<A>)` lifts the transition's rejection onto the same channel:
 
 ```csharp
 internal sealed record NotFound() : Expected("state not found", 903);
@@ -293,7 +293,7 @@ internal sealed class Handler(IRepository<State> states, INotifier notifier) {
 ```
 
 `Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel instead of nesting result types, `Save` and `Send` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the typed error. Expressions move effects to explicit boundaries in this order: receive external input, transform and validate through expressions, compute the new domain state with pure functions, then persist or communicate at the effect boundary, and a terminal step with more than one effect keeps each one visible. Composition has limits:
-- `Option` discards the reason for a failure and `Fin` keeps it, so `Option` short-circuits but cannot distinguish a missing state from an insufficient balance
+- `Option` discards the reason for a failure and `Fin` keeps it, `Option` short-circuits but cannot distinguish a missing state from an insufficient balance
 - Composition does not make distributed effects atomic, saving a state and sending a notification can fail between the operations, and a database transaction cannot protect an external call from a process failure after the call and before the commit
 - One multi-system pattern persists a representation of the combined work atomically, processes it until every effect completes, and makes repeat execution safe through idempotency
 - Confidence comes from tests, not from inspecting the implementation and assuming its abstracted operations are correct

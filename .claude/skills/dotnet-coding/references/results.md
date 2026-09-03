@@ -4,7 +4,7 @@ Covers the result-type flows: validators and their combination, `Fin` workflows 
 
 ## [01]-[VALIDATION]
 
-Each validator has one shape: it accepts the request, returns it on success so the next validator receives it, and returns the error for the violated rule, and a rule that reads the clock receives it as an argument:
+Each validator has one shape: it accepts the request, returns it on success for the next validator, and returns the error for the violated rule, and a rule that reads the clock receives it as an argument:
 
 ```csharp
 internal sealed record Command(string Code, LocalDate Date);
@@ -21,7 +21,7 @@ internal static class Rules {
 }
 ```
 
-`Bind` makes the rules dependent, and the date rule runs only after the code rule passes. Independent fields validate through the generated `Validate` of a smart enum or value object, each mapped to `Validation<Error, T>`, and the tuple `Apply` builds the aggregate from every result so every failed field reports:
+`Bind` makes the rules dependent, and the date rule runs only after the code rule passes. Independent fields validate through the generated `Validate` of a smart enum or value object, each mapped to `Validation<Error, T>`, and the tuple `Apply` builds the aggregate from every result, every failed field reports:
 
 ```csharp
 internal sealed record Contact(Kind Kind, Region Region, Number Number);
@@ -42,7 +42,7 @@ internal static class Contacts {
 }
 ```
 
-`Kind` is a smart enum, so its `Validate` yields a nullable reference and `item!` follows the null check, and `Region` and `Number` are value objects with a struct `out` value. Three invalid inputs report 3 errors, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
+`Kind` is a smart enum, its `Validate` yields a nullable reference and `item!` follows the null check, and `Region` and `Number` are value objects with a struct `out` value. 3 invalid inputs report 3 errors, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
 
 Collections of validators of shape `T -> Validation<Error, T>` fold into one validator, and the traversal selects the behavior:
 
@@ -55,11 +55,11 @@ internal static class Validators {
 }
 ```
 
-`FailFast` skips the remaining rules after the first invalid result, so cheap structural checks go before expensive database or remote checks, and `Harvest` evaluates every rule and accumulates every error for a caller that repairs all violations at once. The empty rule list returns the input as valid, on success the traversal holds one copy of the input per rule, and `Map` discards those copies.
+`FailFast` skips the remaining rules after the first invalid result, cheap structural checks go before expensive database or remote checks, and `Harvest` evaluates every rule and accumulates every error for a caller that repairs all violations at once. The empty rule list returns the input as valid, on success the traversal holds one copy of the input per rule, and `Map` discards those copies.
 
 ## [02]-[WORKFLOWS]
 
-`Fin<A>` applies a function only to `Succ`, and `Fail` bypasses it and keeps its error. `Map` transforms the value with `A -> B`, `Bind` composes a step with `A -> Fin<B>`, and `Fin` has no `Where`, because a predicate supplies only `bool` and no `Error`, so a check is a validator that constructs its error and composes with `Bind`, or a `guard` clause in a query:
+`Fin<A>` applies a function only to `Succ`, and `Fail` bypasses it and keeps its error. `Map` transforms the value with `A -> B`, `Bind` composes a step with `A -> Fin<B>`, and `Fin` has no `Where`, because a predicate supplies only `bool` and no `Error`, a check is a validator that constructs its error and composes with `Bind`, or a `guard` clause in a query:
 
 ```csharp
 internal sealed record ZeroDivisor() : Expected("divisor is 0", Codes.ZeroDivisor);
@@ -82,7 +82,7 @@ internal static class Roots {
 }
 ```
 
-Both `double` and `Error` convert to `Fin<double>` without a constructor call, and the ternary chain selects the lift by its return type. Fail-fast workflows bind steps that share the failure type `Error`, each `Succ` passes its value to the next step, the first `Fail` skips every later step and reaches the final handler, and `Unit` marks a success with no payload:
+Both `double` and `Error` convert to `Fin<double>` without a constructor call, and the ternary chain selects the lift by its return type. Fail-fast workflows bind steps that share the failure type `Error`, each `Succ` passes its value to the next step, the first `Fail` skips every later step and reaches the final handler, and `Unit` marks a success with no value:
 
 ```csharp
 internal sealed record Request(string Key, decimal Amount);
@@ -107,7 +107,7 @@ internal static class Pipeline {
 }
 ```
 
-Choose the domain errors for the workflow before composing it, because every bound function must return the same failure type. Lifting a multi-argument function first with `Pure`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first mirrors partial application:
+Choose the domain errors for the workflow before composing it, because every bound function must return the same failure type. Lifting a multi-argument function first with `Pure`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first follows partial application:
 
 ```csharp
 internal static class Lifting {
@@ -121,7 +121,7 @@ internal static class Lifting {
 
 `fun` gives an inline lambda the delegate type these overloads need, and `As()` returns the concrete type from the `K<Option, int>` the trait method returns.
 
-C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that carries earlier values into the final projection without nested lambdas, so one query shape runs over `Option` and over `Validation<Error, A>`:
+C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that passes earlier values into the final projection without nested lambdas, one query shape runs over `Option` and over `Validation<Error, A>`:
 
 ```csharp
 internal sealed record NotANumber() : Expected("not a number", Codes.NotANumber);
@@ -143,7 +143,7 @@ internal static class Queries {
 
 ## [03]-[HOST_TRANSLATION]
 
-Validation and persistence express different effects, accumulation and a deferred side effect, so one `Bind` cannot flatten them: validation exits through `ToFin`, `IO.lift(Fin<A>)` places that result on the `IO` error channel, one query binds both, and the effect runs only for a valid command. Exception-throwing dependencies convert at their integration boundary, where `IO.lift` captures the exception from only that call as an `Exceptional` error:
+Validation and persistence express different effects, accumulation and a deferred side effect, one `Bind` cannot flatten them: validation exits through `ToFin`, `IO.lift(Fin<A>)` places that result on the `IO` error channel, one query binds both, and the effect runs only for a valid command. Exception-throwing dependencies convert at their integration boundary, where `IO.lift` captures the exception from only that call as an `Exceptional` error:
 
 ```csharp
 internal static class Handler {
@@ -167,7 +167,7 @@ IActionResult Post(Request request) =>
         Fail: static error => BadRequest(error));
 ```
 
-For an optional lookup the boundary translates `None` to not found and `Some(value)` to a successful response, and for `Fin` the boundary decides how domain failures map to the external contract. Two API designs exist: map `Fail` and `Succ` to protocol status codes and payloads, or always return a successful transport status with a body that is a result DTO holding `Succeeded` and either `Data` or `Error`, which unlike `Fin` exposes its values directly for serialization and client access. Mapping a business validation to an HTTP error (400) has a tradeoff, the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt, so the choice is an API-design decision.
+For an optional lookup the boundary translates `None` to not found and `Some(value)` to a successful response, and for `Fin` the boundary decides how domain failures map to the external contract. API designs differ: map `Fail` and `Succ` to protocol status codes and payloads, or always return a successful transport status with a body that is a result DTO holding `Succeeded` and either `Data` or `Error`, which unlike `Fin` exposes its values directly for serialization and client access. Mapping a business validation to an HTTP error (400) has a tradeoff, the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt, the choice is an API-design decision.
 
 ## [04]-[UNIONS]
 
@@ -185,7 +185,7 @@ internal static class Lookups {
 }
 ```
 
-`Optional` maps the `null` of a missing row to `None`, `IO.lift` captures a thrown lookup failure as an `Exceptional` error, `OptionT.Match` returns `K<IO, B>` and `.As()` restores `IO<B>`, and the host receives the lookup failure in the `Fin` that `RunSafe()` returns, so no caller infers the outcome from `null`, a status flag, or optional metadata. `Notify` returns `IO<Unit>`, where `Unit` is completion and the error channel holds transport failures.
+`Optional` maps the `null` of a missing row to `None`, `IO.lift` captures a thrown lookup failure as an `Exceptional` error, `OptionT.Match` returns `K<IO, B>` and `.As()` restores `IO<B>`, and the host receives the lookup failure in the `Fin` that `RunSafe()` returns, no caller infers the outcome from `null`, a status flag, or optional metadata. `Notify` returns `IO<Unit>`, where `Unit` is completion and the error channel holds transport failures.
 
 External input refines into typed cases in stages: the read comes in as a `Func<string>` dependency that another implementation can replace, `IO.lift` captures a read failure on the error channel, the text classifies once, and application code consumes the classified case:
 
@@ -209,7 +209,7 @@ internal static class Inputs {
 }
 ```
 
-The `Catch` overload with a predicate maps the captured error to the `ReadFailure` case at the boundary, so a read failure is a case the consumer matches, code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
+The `Catch` overload with a predicate maps the captured error to the `ReadFailure` case at the boundary, a read failure is a case the consumer matches, code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
 
 Union cases can carry the union type itself, and such a union models a tree the domain owns (configuration, expressions, UI hierarchies, document fragments), where wire serialization stays with `System.Text.Json` at the host boundary:
 
@@ -255,7 +255,7 @@ internal static class Folds {
 }
 ```
 
-The scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive payloads are ordinary case properties that leave the generator's case discovery unchanged, and the union has 6 constructors, so a fold takes one replacement per constructor: each scalar replacement receives that case's payload, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record travels as the `Switch` state so every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, where a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with a distinct `Expected` per wrong shape so a consumer classifies by code, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
+The scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and the union has 6 constructors, a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, where a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with a distinct `Expected` per wrong shape, a consumer classifies by code, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
 
 ## [05]-[LAWS]
 

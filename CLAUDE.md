@@ -86,5 +86,6 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS record each package in both the central package manager and the owning language or package `README.md` dependency list
 - ALWAYS add a missing dependency record to its owning manifest or `README.md` dependency list instead of deleting the corresponding record
 - ALWAYS assume the newest stable release
+- ALWAYS reference a package directly in every project that names its types, a transitive reference carries no global using, alias, or analyzer
 - ALWAYS spell ALL Python dependency rows as bare unpinned names, `uv.lock` alone fixes versions
 - ALWAYS use `pnpm-workspace.yaml` for TypeScript dependency versions and align each `package.json` entry with its catalog entry

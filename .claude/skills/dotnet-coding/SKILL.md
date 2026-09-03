@@ -22,7 +22,7 @@ Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, P
 - [07]-[STREAMS](references/streams.md): The observable model, operators, per-item failure, backpressure, agents, entities
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Append-only storage, events as a union, transitions, reconstruction, command and query sides
 
-Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as bare names. `Seq<A>` is the default collection in domain code, `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types, NodaTime's `Instant`, `LocalDate`, and `Duration` are the time types with the clock injected as `IClock` or `Func<Instant>`, and value objects, smart enums, and unions come from the generator. `Directory.Build.targets` imports `NodaTime` and `NodaTime.Extensions` and aliases `Duration` to `NodaTime.Duration` in every project that references the package, and the library's delay type is spelled `LanguageExt.Duration`.
+Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as unqualified names. `Seq<A>` is the default collection in domain code, `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types, NodaTime's `Instant`, `LocalDate`, and `Duration` are the time types with the clock injected as `IClock` or `Func<Instant>`, and value objects, smart enums, and unions come from the generator. `Directory.Build.targets` imports `NodaTime` and `NodaTime.Extensions` and aliases `Duration` to `NodaTime.Duration` in every project that references the package, and the library's delay type is spelled `LanguageExt.Duration`.
 
 ## [01]-[FUNCTIONS]
 
@@ -40,11 +40,11 @@ Function signatures are contracts: the input types describe every value the func
 - Use `Func` and `Action` when only the signature matters, and a custom delegate when its name conveys domain intent that `Func<T, bool>` does not
 - Expose a `Func` field, property, or factory for a function used in partial application, because generic higher-order operations over multi-argument method groups defeat type inference, and `fun` gives an inline lambda its delegate type
 - Keep names precise, because a signature cannot express every semantic detail (`Where` and `TakeWhile` share one)
-- Keep data and behavior apart: records carry inputs and outputs, functions carry behavior, and a constrained type owns only the validation that constructs it and the operations (comparison) that protect its representation
+- Keep data and behavior apart: records hold inputs and outputs, functions hold behavior, and a constrained type owns only the validation that constructs it and the operations (comparison) that protect its representation
 
 ### [01.1]-[HONEST_SIGNATURES]
 
-Functions honor their signature when each declared input produces a declared output, so they return no `null` and throw no exception as an outcome the signature omits. Repair a dishonest contract by narrowing the input to a validated type or widening the output to `Option<A>` or `Fin<A>`:
+Functions honor their signature when each declared input produces a declared output, they return no `null` and throw no exception as an outcome the signature omits. Repair a dishonest contract by narrowing the input to a validated type or widening the output to `Option<A>` or `Fin<A>`:
 - `int -> Tier` is incomplete when some integers fail validation, and `Quantity -> Tier` is accurate for every constructible `Quantity`
 - `string -> int` hides the undefined parses, `string -> Option<int>` describes every outcome, and `parseInt` has that signature
 - `void` splits delegates into `Func` and `Action` families and tasks into `Task` and `Task<T>`, `Unit` is the one-value type that removes the split, `fun` converts an `Action` into a `Func<Unit>` so an `Action` overload delegates to the `Func<T>` implementation, `void` stays on an imperative API that returns nothing, and `Unit` does not make an effectful function pure
@@ -52,7 +52,7 @@ Functions honor their signature when each declared input produces a declared out
 
 ### [01.2]-[PURITY]
 
-Functions are pure when their return value depends only on their inputs, including immutable values fixed at construction, and evaluating them causes no side effect, so a call can be replaced by its result (referential transparency). Side effects are mutating state visible outside the function (instance fields included), mutating an argument, throwing, and I/O (the clock, console, filesystem, database, network, or another process). Instance methods that read mutable fields and lambdas that close over mutable variables are impure, and mutation local to a function that never escapes is not a side effect. Pure functions are safe for parallel evaluation, lazy evaluation, and memoization, and the same transformations can change the behavior of an impure function. Expose a variable dependency as input data:
+Functions are pure when their return value depends only on their inputs, including immutable values fixed at construction, and evaluating them causes no side effect, a call can be replaced by its result (referential transparency). Side effects are mutating state visible outside the function (instance fields included), mutating an argument, throwing, and I/O (the clock, console, filesystem, database, network, or another process). Instance methods that read mutable fields and lambdas that close over mutable variables are impure, and mutation local to a function that never escapes is not a side effect. Pure functions are safe for parallel evaluation, lazy evaluation, and memoization, and the same transformations can change the behavior of an impure function. Expose a variable dependency as input data:
 
 ```csharp
 internal static class Stamps {
@@ -128,11 +128,11 @@ Each arm states an input category beside its outcome, and the switch expression 
 - Relational and logical patterns (`>`, `and`, `not`) express ranges and exclusions inside a pattern
 - `when` adds a guard, `_` is the discard for the fallback arm, and list patterns recognize values at the beginning, middle, or end of an array with known headers or footers
 
-C# has no active patterns, `Deconstruct` is the only user code that runs inside a pattern and it cannot fail, so interpret an external value once near its source into `Option<A>` or a closed union (`parseInt(text)`, a classifier that returns a `[Union]` case) and match the typed result afterward.
+C# has no active patterns, `Deconstruct` is the only user code that runs inside a pattern and it cannot fail, interpret an external value once near its source into `Option<A>` or a closed union (`parseInt(text)`, a classifier that returns a `[Union]` case) and match the typed result afterward.
 
 ### [02.2]-[TUPLES]
 
-Tuples group related values without inventing a domain type that has no independent meaning, and named elements carry lookup results together between `Map` operations on a `Seq<A>` until the next projection consumes them:
+Tuples group related values without inventing a domain type that has no independent meaning, and named elements hold lookup results together between `Map` operations on a `Seq<A>` until the next projection consumes them:
 
 ```csharp
 internal static class Report {
@@ -145,7 +145,7 @@ internal static class Report {
 
 ### [02.3]-[RECURSION]
 
-Recursive functions need a base case that returns the final value, a recursive case that calls the same function with values closer to that condition, and a returned value on every path. C# does not optimize tail calls, so the depth bound selects the form:
+Recursive functions need a base case that returns the final value, a recursive case that calls the same function with values closer to that condition, and a returned value on every path. C# does not optimize tail calls, the depth bound selects the form:
 
 | [INDEX] | [APPROACH]                | [USE_WHEN]                                                     | [COST]                                   |
 | :-----: | :------------------------ | :------------------------------------------------------------- | :--------------------------------------- |
@@ -174,8 +174,8 @@ internal static class Editions {
 }
 ```
 
-None of `readonly`, `init`, and `with` makes a referenced child object immutable, so immutability extends through every referenced value:
-- Remove setters and construct through a constructor or factory that enforces required values and invariants, so an invalid snapshot cannot exist
+None of `readonly`, `init`, and `with` makes a referenced child object immutable, immutability extends through every referenced value:
+- Remove setters and construct through a constructor or factory that enforces required values and invariants, an invalid snapshot cannot exist
 - Seal the type, store collections as `Seq<A>`, copy a mutable input collection at the boundary with `toSeq`, and keep element types immutable
 - Expose only meaningful transitions, one `With` method with `Option` parameters updates the permitted fields in one allocation, and `Lens<A, B>` with `lens(outer, inner)` updates a nested field
 - Confine local mutation to a scope that owns it, a `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value
@@ -225,7 +225,7 @@ Give each step a function and select the operator by the step's signature and by
 |  [05]   | `Seq<A>` with `A -> F<B>`       | `Traverse`, `TraverseM`                | `Traverse` accumulates or overlaps, `TraverseM` stops first |
 |  [06]   | `T -> void`                     | `Iter`                                 | Performs the terminal effect only for a present value       |
 
-- Errors from one traversed element carry the element index as a typed field
+- Errors from one traversed element hold the element index as a typed field
 - Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling, and a nested `Bind` becomes a query
 - Nested contexts (`IO<Option<A>>`) compose through a transformer (`OptionT<IO, A>`), and a stack that appears throughout a workflow becomes a dedicated type
 
@@ -245,7 +245,7 @@ The workflow runs in domain order (normalize, validate, transition), `Fin` handl
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts immediately with `IO.lift` or `Try.lift`. Each package declares its errors as `sealed record`s extending `Expected` with a message and a code from the package's `Codes` class, beside the function that returns them or the value object they protect:
+Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift`. Each package declares its errors as `sealed record`s extending `Expected` with a message and a code from the package's `Codes` class, beside the function that returns them or the value object they protect:
 
 ```csharp
 internal sealed record InvalidQuantity() : Expected("quantity out of range", Codes.InvalidQuantity), IValidationError<InvalidQuantity> {
@@ -264,7 +264,7 @@ internal readonly partial struct Quantity {
 }
 ```
 
-`Validate` is the generated hook, and the `From` factory maps it to `Fin<Quantity>`, so every consumer receives a validated value and none re-validates. Consumers classify an error with `Is`, `HasCode`, `IsType<E>`, and `Filter<E>`, never with the message text, and a package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`, and the host separates them in one `Match`: `Expected` or `ManyErrors` renders the business errors, and `Exceptional` logs the detail and renders a generic failure.
+`Validate` is the generated hook, and the `From` factory maps it to `Fin<Quantity>`, every consumer receives a validated value and none re-validates. Consumers classify an error with `Is`, `HasCode`, `IsType<E>`, and `Filter<E>`, never with the message text, and a package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`, and the host separates them in one `Match`: `Expected` or `ManyErrors` renders the business errors, and `Exceptional` logs the detail and renders a generic failure.
 
 ### [04.3]-[UNIONS]
 
@@ -299,7 +299,7 @@ internal abstract partial record Identity {
 
 ## [05]-[EFFECTS]
 
-`IO<A>` is the effect type: it describes a side effect with a failure channel, performs nothing until the host runs it, and carries a domain rejection as a typed `Expected` on that channel rather than as a nested result. `IO.lift` defers a thunk, `IO.lift(Fin<A>)` puts an evaluated rejection on the channel, `IO.liftAsync` adapts a task thunk and its `EnvIO` overload passes `env.Token`, an operation that waits on I/O enters that way and has no synchronous counterpart that blocks a thread, and `IO.pure` and `IO.fail` build the plain cases. `Eff<RT, A>` reads a capability from a runtime `RT` through `Has<Eff<RT>, T>`, and `IO<A>` converts to it implicitly. The host runs the effect once, `RunSafe()` returns the `Fin<A>` for translation into the host's vocabulary, and `Run` throws and belongs to `Main`:
+`IO<A>` is the effect type: it describes a side effect with a failure channel, performs nothing until the host runs it, and holds a domain rejection as a typed `Expected` on that channel rather than as a nested result. `IO.lift` defers a thunk, `IO.lift(Fin<A>)` puts an evaluated rejection on the channel, `IO.liftAsync` adapts a task thunk and its `EnvIO` overload passes `env.Token`, an operation that waits on I/O enters that way and has no synchronous counterpart that blocks a thread, and `IO.pure` and `IO.fail` build the plain cases. `Eff<RT, A>` reads a capability from a runtime `RT` through `Has<Eff<RT>, T>`, and `IO<A>` converts to it implicitly. The host runs the effect once, `RunSafe()` returns the `Fin<A>` for translation into the host's vocabulary, and `Run` throws and belongs to `Main`:
 
 ```csharp
 internal static class Host {

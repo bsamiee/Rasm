@@ -19,7 +19,7 @@ internal static class Stages {
 }
 ```
 
-Until enumeration every transformation stays pending, and during enumeration each input passes through `First`, `Second`, and `Third` before the next input begins, so no intermediate collection exists after each stage. `ToSeq()` forces enumeration and stores the result. Materializing after every stage changes the evaluation order and the storage, because each stage completes before the next and stores a collection. Delaying materialization avoids work that is never demanded, and materializing is right when execution must happen at that point or when the sequence is read more than once, because enumerating the same lazy query repeatedly repeats all of its work. Long deferred or recursive compositions carry memory and performance costs.
+Until enumeration every transformation stays pending, and during enumeration each input passes through `First`, `Second`, and `Third` before the next input begins, no intermediate collection exists after each stage. `ToSeq()` forces enumeration and stores the result. Materializing after every stage changes the evaluation order and the storage, because each stage completes before the next and stores a collection. Delaying materialization avoids work that is never demanded, and materializing is right when execution must happen at that point or when the sequence is read more than once, because enumerating the same lazy query repeatedly repeats all of its work. Long deferred or recursive compositions have memory and performance costs.
 
 ## [02]-[STAGES]
 
@@ -52,7 +52,7 @@ internal static class Totals {
 }
 ```
 
-Tuple seeds compute more than one result in one pass, and each step returns a new accumulated value with no external running total. No median operator exists, so sorting and reading the middle element or pair expresses it without an accumulator, `At` reads the middle as an `Option`, and an empty sequence has no middle:
+Tuple seeds compute more than one result in one pass, and each step returns a new accumulated value with no external running total. No median operator exists, sorting and reading the middle element or pair expresses it without an accumulator, `At` reads the middle as an `Option`, and an empty sequence has no middle:
 
 ```csharp
 internal static class Medians {
@@ -94,7 +94,7 @@ internal static class Replacement {
 
 ## [05]-[ADJACENCY]
 
-`source.Zip(source.Tail)` pairs each element with its successor as `(First, Second)`, and a quantifier over the pairs decides the result: `Exists` answers whether one pair matches, `ForAll` answers whether no pair disproves the condition, and fewer than 2 elements produce no pairs, so `Exists` returns `false` and `ForAll` returns `true`:
+`source.Zip(source.Tail)` pairs each element with its successor as `(First, Second)`, and a quantifier over the pairs decides the result: `Exists` answers whether one pair matches, `ForAll` answers whether no pair disproves the condition, and fewer than 2 elements produce no pairs, `Exists` returns `false` and `ForAll` returns `true`:
 
 ```csharp
 internal static class Adjacency {
@@ -115,7 +115,7 @@ Report pipelines read one text, split it into records, parse typed values, group
 single text -> records -> typed values -> groups -> totals -> lines -> single report
 ```
 
-The text enters as a `string` argument, `At` reads each field as an `Option`, `parseInt` parses the numbers, `Traverse` turns the records into `Option<Seq<Record>>` so one failed parse makes the whole input `None`, and `Fold` into a `Map<int, ...>` groups the records with `AddOrUpdate` adding each to its group total:
+The text enters as a `string` argument, `At` reads each field as an `Option`, `parseInt` parses the numbers, `Traverse` turns the records into `Option<Seq<Record>>`, one failed parse makes the whole input `None`, and `Fold` into a `Map<int, ...>` groups the records with `AddOrUpdate` adding each to its group total:
 
 ```csharp
 internal sealed record Record(int Group, string Name, int Count, int Missing);
@@ -152,4 +152,4 @@ internal static class Summary {
 }
 ```
 
-Empty lines parse to `None`, so the text cannot end with a newline, and the parser handles no quoted fields or embedded commas.
+Empty lines parse to `None`, the text cannot end with a newline, and the parser handles no quoted fields or embedded commas.
