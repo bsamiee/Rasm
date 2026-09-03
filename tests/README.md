@@ -29,7 +29,7 @@ tests/
 
 ## [02]-[TEST_CLASSIFICATION]
 
-Classify each test independently by scope, technique, and execution mode; apply every classification that fits.
+Classify each test independently by scope, technique, and execution mode, and apply every classification that fits.
 
 | [INDEX] | [AXIS]         | [VALUE]        | [DEFINITION]                                                | [ROUTE]                                                             |
 | :-----: | :------------- | :------------- | :---------------------------------------------------------- | :------------------------------------------------------------------ |
@@ -64,14 +64,14 @@ Tool configurations write reports under `.artifacts/` and relocatable temporary 
 | :-----: | :---------------- | :--------------------------------- | :----------------------------------------------------------------------------------------- |
 |  [01]   | coverlet.MTP      | .NET coverage per test project     | `test` target, `Directory.Build.targets` passes the coverlet arguments per test project    |
 |  [02]   | MTP results       | .NET results, dumps, xUnit reports | MTP default beside the test app under `.artifacts/dotnet/bin`, `nx test <project>` runs it |
-|  [03]   | pytest-cov        | Python coverage and caches         | `test` target `coverage` configuration, `pyproject.toml` tool tables                       |
+|  [03]   | pytest-cov        | Python coverage data per run       | `test` target, `pyproject.toml` `[tool.coverage.*]` tables                                 |
 |  [04]   | Hypothesis        | Example database and observability | `tests/python/support/runtime.py`                                                          |
 |  [05]   | pytest-benchmark  | Python benchmark storage           | `test` target `benchmark` configuration, `pyproject.toml` addopts                          |
-|  [06]   | Vitest            | TypeScript results and coverage    | `test` target `coverage` configuration, each `vitest.config.ts` through the root one       |
+|  [06]   | Vitest            | TypeScript results and coverage    | `test` target, each `vitest.config.ts` from `createVitestConfig` in the root one           |
 |  [07]   | Coverage merge    | One coverage report per language   | Root `coverage` target, `.artifacts/<language>/coverage/`                                  |
 |  [08]   | StrykerJS         | TypeScript mutation                | `stryker.config.json`                                                                      |
 |  [09]   | Stryker.NET       | .NET mutation reports              | `stryker-config.json`                                                                      |
-|  [10]   | Nx                | Target outputs and cache           | `@nx/dotnet` and `@nx/vitest` infer `test`, `tools/nx/workspace.ts` tags and shells        |
+|  [10]   | Nx                | Target outputs and cache           | `@nx/dotnet` and `@nx/vitest` infer `test`, `tools/nx/workspace.ts` tags and empty targets |
 
 Configure output paths through the tool's documented configuration, config file first and CLI option second, never through wrapper scripts or `conftest.py`. After the tool runs, `git status --short` and the repository-root listing must show no new generated entries.
 
@@ -92,22 +92,22 @@ Add each suite, reusable test capability, fixture, or test asset to the existing
 
 ## [06]-[MUTATION_AND_COVERAGE]
 
-Mutation runs are gates, and coverage is information about what the tests reach:
+Mutation and coverage runs report what the tests reach, and no score gates a merge:
 - Root `stryker.config.json` holds the TypeScript Stryker configuration, and root `stryker-config.json` holds the .NET one
 - .NET or TypeScript Stryker runs that discover zero mutants fail
-- The root `coverage` target merges the per-project reports into one report per language under `.artifacts/<language>/coverage/`
-- The merged formats are Cobertura and lcov for .NET, lcov and xml for Python, and lcov and json for TypeScript, with no threshold
+- Every `test` run collects coverage, and the root `coverage` target runs after them and merges the data into one report per language
+- The merged reports sit under `.artifacts/<language>/coverage/` as lcov and xml for Python and lcov and json for TypeScript, and the .NET Cobertura merge arrives with the first .NET test project
 
 ## [07]-[CONFIGURATION_OWNERS]
 
 Read the owning configuration before changing a test dependency, runner, output, or required check.
 
-| [INDEX] | [CONFIGURATION]                                  | [RESPONSIBILITY]                                                                   |
-| :-----: | :----------------------------------------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `Directory.Packages.props`                       | .NET test dependency versions                                                      |
-|  [02]   | Each test `.csproj` + `Directory.Build.targets`  | MTP runner and package references, global xUnit and CsCheck usings                 |
-|  [03]   | `pyproject.toml`                                 | Python test dependencies, pytest and coverage policy                               |
-|  [04]   | `pnpm-workspace.yaml`                            | TypeScript test dependency versions, peer resolutions, and workspace package globs |
-|  [05]   | `mise.toml` + `dotnet dnx`              | Runtimes on `PATH` and the .NET CLI tools the checks run                           |
-|  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json` | TypeScript runner defaults, generated outputs, mutation policy, and Nx targets     |
-|  [07]   | Root `package.json` `nx` field                   | The `coverage` merge target and the other root targets                             |
+| [INDEX] | [CONFIGURATION]                                    | [RESPONSIBILITY]                                                       |
+| :-----: | :------------------------------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `Directory.Packages.props`                         | .NET test dependency versions                                          |
+|  [02]   | Each test `.csproj` with `Directory.Build.targets` | MTP runner and package references, global xUnit and CsCheck usings     |
+|  [03]   | `pyproject.toml`                                   | Python test dependencies, pytest and coverage policy                   |
+|  [04]   | `pnpm-workspace.yaml`                              | TypeScript test dependency versions, peer resolutions, and package globs |
+|  [05]   | `mise.toml` with `dotnet dnx`                      | Runtimes on `PATH` and the .NET CLI tools the checks run               |
+|  [06]   | `vitest.config.ts` with `stryker*.json`            | TypeScript runner defaults, generated outputs, and mutation configuration |
+|  [07]   | `nx.json` and the root `package.json` `nx` field   | Per-language targets by tag, the root targets, and the `coverage` merge |

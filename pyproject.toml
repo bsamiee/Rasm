@@ -384,7 +384,6 @@ protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archiv
 default-groups = ["workspace", "dev"]
 cache-dir = ".cache/uv"
 python-preference = "only-system"
-python-downloads = "manual"
 
 # TOML 1.0 confines an inline table to one line, per-package build settings need this dedicated table
 [tool.uv.config-settings-package]
@@ -561,7 +560,6 @@ ignore_missing_imports = true
 # --- [PYTEST] ---------------------------------------------------------------------------
 # `pytest-benchmark` and `pytest-xdist` conflict under `filterwarnings = ["error"]`, do not add `-n` to default `addopts`
 [tool.pytest]
-minversion = "9.0"
 strict = true
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
@@ -611,8 +609,8 @@ markers = [
 [tool.coverage.run]
 branch = true
 relative_files = true  # Subprocess coverage combines through relative repo paths
-data_file = ".cache/coverage/.coverage"
-core = "sysmon"        # CPython 3.15 beta lacks coverage's compiled C tracer
+data_file = ".artifacts/python/coverage/data/.coverage"  # The root coverage target combines the per-project files beside it
+core = "sysmon"        # The pinned CPython 3.15 release candidate lacks coverage's compiled C tracer
 patch = [
     "subprocess",
 ]  # COVERAGE_PROCESS_CONFIG and the installed .pth file measure child processes, reporting combines their parallel data files

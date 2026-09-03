@@ -1,4 +1,4 @@
-// Automation API entry that selects the stack on a file backend under the XDG state directory, resolves credentials from 1Password and the Doppler CLI login, and runs preview, up, and refresh with no project or stack file in the repository
+// Automation API entry that selects the stack on a file backend, resolves credentials, and runs preview, up, and refresh
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ type Flags = {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class ShellFault extends Data.TaggedError('ShellFault')<{
+class ShellError extends Data.TaggedError('ShellError')<{
     readonly command: string;
     readonly cause: string;
     readonly action: string;
@@ -42,16 +42,16 @@ class ShellFault extends Data.TaggedError('ShellFault')<{
     }
 }
 
-class StackFault extends Data.TaggedError('StackFault')<{
+class StackError extends Data.TaggedError('StackError')<{
     readonly operation: string;
     readonly cause: string;
 }> {
     override get message(): string {
-        return `stack ${this.operation} failed, ${this.cause}, read the Pulumi diagnostics above and correct the program, the state, or the credential they name`;
+        return `stack ${this.operation} failed, ${this.cause}, correct the program, the state, or the credential the Pulumi diagnostics name`;
     }
 }
 
-class UsageFault extends Data.TaggedError('UsageFault')<{
+class UsageError extends Data.TaggedError('UsageError')<{
     readonly problem: string;
 }> {
     override get message(): string {
@@ -75,10 +75,10 @@ const _shell = (action: string, command: string, ...args: ReadonlyArray<string>)
             [spawned.exitCode, Stream.mkString(Stream.decodeText(spawned.stdout)), Stream.mkString(Stream.decodeText(spawned.stderr))],
             { concurrency: 3 },
         );
-        return yield* code === 0 ? Effect.succeed(out.trim()) : new ShellFault({ command: label, cause: err.trim() || `exit code ${code}`, action });
+        return yield* code === 0 ? Effect.succeed(out.trim()) : new ShellError({ command: label, cause: err.trim() || `exit code ${code}`, action });
     }).pipe(
         Effect.scoped,
-        Effect.catchTag('BadArgument', 'SystemError', (fault) => new ShellFault({ command, cause: fault.message, action })),
+        Effect.catchTag('BadArgument', 'SystemError', (fault) => new ShellError({ command, cause: fault.message, action })),
     );
 
 // --- [CREDENTIALS] ---------------------------------------------------------------------
@@ -95,7 +95,7 @@ const _settings = Config.all({
     ),
 });
 
-const _resolved = <R>(ambient: Option.Option<Redacted.Redacted<string>>, resolve: Effect.Effect<string, ShellFault, R>) =>
+const _resolved = <R>(ambient: Option.Option<Redacted.Redacted<string>>, resolve: Effect.Effect<string, ShellError, R>) =>
     Option.match(ambient, { onSome: Effect.succeed, onNone: () => Effect.map(resolve, Redacted.make) });
 
 const _credentials = Effect.flatMap(_settings, (cfg) =>
@@ -148,12 +148,12 @@ const _selectStack = (flags: Flags) =>
                         envVars: { PULUMI_CONFIG_PASSPHRASE: Redacted.value(credentials.passphrase), PULUMI_BACKEND_URL: backendUrl },
                     },
                 ),
-            catch: (cause) => new StackFault({ operation: 'select', cause: String(cause) }),
+            catch: (cause) => new StackError({ operation: 'select', cause: String(cause) }),
         });
     });
 
 const _operation = <A>(operation: string, run: () => Promise<A>) =>
-    Effect.tryPromise({ try: run, catch: (cause) => new StackFault({ operation, cause: String(cause) }) });
+    Effect.tryPromise({ try: run, catch: (cause) => new StackError({ operation, cause: String(cause) }) });
 
 // BOUNDARY: the engine streams its output to a void callback
 const _echo = (chunk: string): void => {
@@ -217,10 +217,10 @@ const _main = Effect.gen(function* () {
         expectNoChanges: Array.contains(argv, _FLAGS.expectNoChanges),
     };
     return yield* Option.match(stray, {
-        onSome: (flag) => new UsageFault({ problem: `unknown flag ${flag}` }),
+        onSome: (flag) => new UsageError({ problem: `unknown flag ${flag}` }),
         onNone: () =>
             Option.match(Schema.decodeUnknownOption(_Subcommand)(positional[0]), {
-                onNone: () => new UsageFault({ problem: `no subcommand among ${positional.join(' ') || '(none)'}` }),
+                onNone: () => new UsageError({ problem: `no subcommand among ${positional.join(' ') || '(none)'}` }),
                 onSome: (subcommand) => _subcommands[subcommand](flags),
             }),
     });

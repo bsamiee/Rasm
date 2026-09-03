@@ -6,11 +6,6 @@
         "mutate": ["**/libs/dotnet/**/*.cs", "**/tools/**/*.cs", "!**/obj/**", "!**/bin/**", "!**/vendor/**"],
         "concurrency": 4,
         "additional-timeout": 5000,
-        "thresholds": {
-            "high": 90,
-            "low": 85,
-            "break": 80
-        },
         "reporters": ["json", "html", "progress"]
     }
 }

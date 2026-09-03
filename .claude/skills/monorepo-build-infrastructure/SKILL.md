@@ -25,9 +25,8 @@ Covers the shared build infrastructure of a polyglot monorepo, from the `eng/` d
 |  [04]   | `eng/scripts/`                 | Target-invoked automation with control flow, one module per operation        |
 |  [05]   | `eng/project.json`             | Targets with no owning project, provisioning included                        |
 |  [06]   | `tools/<runner>/`              | Task runner plugins and rule files the runner loads from a path              |
-|  [07]   | `.config/dotnet-tools.json`    | .NET local tool manifest, restored by provisioning                           |
-|  [08]   | `.cache/<tool>/`               | Relocatable caches, downloads, checkouts, and binary caches                  |
-|  [09]   | `.artifacts/<area>/`           | Build outputs, staged trees, packages, graph exports, and reports            |
+|  [07]   | `.cache/<tool>/`               | Relocatable caches, downloads, checkouts, and binary caches                  |
+|  [08]   | `.artifacts/<area>/`           | Build outputs, staged trees, packages, graph exports, and reports            |
 
 Composition roots belong to `apps/<name>/`, library code to `libs/`, tool configuration to the root manifests, and every binary to the pipeline, which rebuilds it from a pinned manifest. `libs/` packages consume `eng/` output through package references.
 
@@ -39,8 +38,7 @@ Each fact has one owning file, and every other file reads it from there:
 |  [02]   | Package version            | Packaging project `Version`    | Target outputs, from the element               |
 |  [03]   | Local feed path            | `NuGet.config` local source    | Pack target, from the source value             |
 |  [04]   | Output and cache roots     | Root `Directory.Build.props`   | Target outputs                                 |
-|  [05]   | Tool versions              | `.config/dotnet-tools.json`    | Provisioning                                   |
-|  [06]   | Script dependency versions | Root `pyproject.toml` and lock | Scripts under `uv run`                         |
+|  [05]   | Script dependency versions | Root `pyproject.toml` and lock | Scripts under `uv run`                         |
 
 ## [02]-[TASK_GRAPH]
 
@@ -74,7 +72,7 @@ export const createNodes: CreateNodes = [
 ];
 ```
 
-Export `createDependencies` beside `createNodes`, and each `PackageReference` to a packaging project then becomes a static edge that marks the consumer affected. Nx transpiles a `.ts` plugin at load, and the file joins the root `tsconfig.json` references for `tsc --build` and the linter.
+Export `createDependencies` beside `createNodes`, and each `PackageReference` to a packaging project then becomes a static edge that marks the consumer affected. Nx transpiles a `.ts` plugin at load, and the root `tsconfig.json` includes the file for `tsc --build` and the linter.
 
 The stage, pack, and consume chain as targets:
 
@@ -85,17 +83,6 @@ The stage, pack, and consume chain as targets:
 |  [03]   | `Native.Item:pack`  | `dotnet pack eng/native/Native.Item --output <feed>` | `stage`                                          | `true`  |
 |  [04]   | `Item:pack`         | `dotnet pack eng/native/Item --output <feed>`        | `{ projects: ["Native.Item"], target: "stage" }` | `true`  |
 |  [05]   | `Consumer:build`    | `dotnet build --no-restore --no-dependencies`        | `^build`                                         | `true`  |
-
-`eng/project.json` keeps the provisioning target alone:
-
-```json
-{
-    "name": "eng",
-    "targets": {
-        "provision": { "command": "uv run python -m eng.scripts.provision", "cache": false, "parallelism": false }
-    }
-}
-```
 
 Cache a target when its outputs are a function of its declared inputs alone:
 
@@ -175,11 +162,10 @@ Every `stage` target depends on `eng:provision`, the package manager install of 
 
 | [INDEX] | [TOOL]         | [MANIFEST]                     | [PLACEMENT]                         | [IDEMPOTENCE]                                |
 | :-----: | :------------- | :----------------------------- | :---------------------------------- | :------------------------------------------- |
-|  [01]   | .NET tools     | `.config/dotnet-tools.json`    | NuGet global packages folder        | `dotnet tool restore` repeats without change |
-|  [02]   | Python scripts | `pyproject.toml` and `uv.lock` | `.venv/`                            | `uv run` syncs before every invocation       |
-|  [03]   | vcpkg          | Commit in the script           | `.cache/vcpkg/`, archives beside it | Fetch and checkout only on a HEAD mismatch   |
-|  [04]   | Host tools     | Port name in the script        | `.cache/<tool>-hosttools/`          | Skip when the executable exists              |
-|  [05]   | Release files  | Manifest digest per rid        | `.cache/<name>/<version>/`          | Skip when the digest-verified file exists    |
+|  [01]   | Python scripts | `pyproject.toml` and `uv.lock` | `.venv/`                            | `uv run` syncs before every invocation       |
+|  [02]   | vcpkg          | Commit in the script           | `.cache/vcpkg/`, archives beside it | Fetch and checkout only on a HEAD mismatch   |
+|  [03]   | Host tools     | Port name in the script        | `.cache/<tool>-hosttools/`          | Skip when the executable exists              |
+|  [04]   | Release files  | Manifest digest per rid        | `.cache/<name>/<version>/`          | Skip when the digest-verified file exists    |
 
 Provisioning rules:
 - Verify a pinned digest on every download, unlink the file on a mismatch, and give a partial download a temporary name
@@ -188,7 +174,6 @@ Provisioning rules:
 - Take every tool a package manager can pin from that manager, and download the rest
 - `uv run` syncs the groups `default-groups` under `[tool.uv]` lists, and a dependency in another group needs `--group` on the target command
 - Set `cache: false` and `parallelism: false` on the target, because provisioning mutates shared directories
-- List in the tool manifest the tools a committed configuration file needs, a mutation test runner beside its config file
 
 ## [05]-[ISOLATION]
 
@@ -261,6 +246,5 @@ Smells and the form that replaces each:
 |  [10]   | Packaging projects inside the solution file                   | The project excluded from the solution and the plugin, packed by target |
 |  [11]   | Subtree `Directory.Build.props` files that repeat root values | `Import` through `GetPathOfFileAbove` and the overrides alone           |
 |  [12]   | Manifest versions copied into a script constant               | The script reads the manifest, the project checks `Version` against it  |
-|  [13]   | Tool versions in a README or a shell profile                  | `.config/dotnet-tools.json`, `uv.lock`, and a pinned vcpkg commit       |
-|  [14]   | Stage targets that run concurrently with another              | `parallelism: false` on every target sharing a tool root                |
-|  [15]   | `ArtifactsPath` from `NormalizeDirectory`                     | `NormalizePath`, the SDK appends the separator itself                   |
+|  [13]   | Stage targets that run concurrently with another              | `parallelism: false` on every target sharing a tool root                |
+|  [14]   | `ArtifactsPath` from `NormalizeDirectory`                     | `NormalizePath`, the SDK appends the separator itself                   |

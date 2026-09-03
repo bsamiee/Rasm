@@ -29,7 +29,8 @@ Rasm/
 ├── infra/                    # Pulumi program on the Automation API for the repository settings and its Doppler project
 ├── tools/                    # Custom tools for developing this project
 │   ├── biome/                # Biome GritQL plugin rules
-│   └── nx/                   # Nx plugin that infers the packaging projects, their stage and pack targets, and their edges
+│   └── nx/                   # Nx plugin that tags every language manifest with its check targets and infers the packaging projects
+├── mise.toml                 # Pinned runtimes and standalone binaries, and the environment every task runs under
 ├── nx.json                   # Task graph, caching, and change detection across the workspace
 ├── NuGet.config              # NuGet sources and package source mapping, clears inherited machine and user sources
 ├── Directory.Build.props     # .NET build defaults, artifacts path, restore, analysis, analyzers, Rhino bundle paths
@@ -39,7 +40,7 @@ Rasm/
 ├── pnpm-workspace.yaml       # TypeScript workspace and dependency catalog
 ├── package.json              # Root TypeScript package metadata and development dependencies
 ├── tsconfig.base.json        # Base TypeScript compiler options for workspace projects
-├── tsconfig.json             # TypeScript project references that drive build order
+├── tsconfig.json             # Root TypeScript project over the config files, tools/nx, and infra
 ├── biome.json                # TypeScript lint and formatting rules
 ├── vite.config.ts            # Shared TypeScript Vite build configuration imported by app and package configs
 ├── vitest.config.ts          # TypeScript Vitest projects, coverage, and benchmark configuration
@@ -66,11 +67,12 @@ Nx defines the task graph and the build, test, lint, and generate targets.
 - Targets running a single command name that command directly
 - Steps with control flow are Python scripts under `eng/scripts/` that a target invokes
 - Scripts take their dependencies from the root `pyproject.toml` groups and run under `uv run`
-- `nx run eng:provision` restores the tool manifest and places vcpkg, its binary cache, and every pinned release archive under `.cache/`
-- `tools/nx/native-packaging.ts` infers one project per `eng/native/*/*.csproj` with a `stage` target and a cached `pack` target
+- `nx run eng:provision` places vcpkg, its binary cache, and every pinned release archive under `.cache/`
+- `tools/nx/workspace.ts` tags each language manifest and gives it the `lint`, `format`, `typecheck`, and `check` targets `targetDefaults` fill
+- The same plugin infers one project per `eng/native/*/*.csproj` with a `stage` target and a cached `pack` target
 - `stage` runs `uv run python -m eng.scripts.stage <library>` after `eng:provision`, and `pack` writes the package to the `local` source in `NuGet.config`
 - Binding projects with `IncludeBuildOutput` true get `pack` alone, which depends on the `stage` target of the native project of the same library
-- Inferred `build` targets pass `--no-restore`, and `dotnet restore Workspace.slnx` precedes `nx affected -t build test`
+- Inferred `build` targets pass `--no-restore` and depend on `rasm-workspace:restore`, which runs `dotnet restore Workspace.slnx`
 - `nx graph --file=.artifacts/nx/graph.json` writes the project graph
 - `ProjectReference` edges and `PackageReference` edges to packaging projects drive `nx affected`
 

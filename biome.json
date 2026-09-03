@@ -136,19 +136,6 @@
     },
     "overrides": [
         {
-            "includes": [".claude/skills/coding-applescript/**/*.js"],
-            "linter": {
-                "rules": {
-                    "correctness": {
-                        "noUnusedVariables": "off"
-                    },
-                    "suspicious": {
-                        "noRedundantUseStrict": "off"
-                    }
-                }
-            }
-        },
-        {
             "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
             "linter": {
                 "rules": {

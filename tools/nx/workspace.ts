@@ -1,4 +1,4 @@
-// Nx plugin that infers the language tag and the check target shells for every language manifest, and one packaging project per eng/native project file with a stage target and a cached pack target
+// Nx plugin that tags every language manifest with its empty check targets and infers a packaging project per eng/native project file
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
@@ -79,8 +79,8 @@ const _NUGET_CONFIG = 'NuGet.config';
 const _LOCAL_SOURCE_KEY = 'local'; // The local source in NuGet.config owns the pack output path, restore reads the nupkg from there
 const _TYPESCRIPT_PROJECT_FILE = 'tsconfig.json'; // A package.json is a TypeScript project when the file its typecheck target builds sits beside it
 const _REPEATED_ELEMENTS: ReadonlyArray<string> = ['PropertyGroup', 'ItemGroup', 'PackageReference', 'add'];
-// The targetDefaults entries filtered by language tag fill these shells, a default creates no target on its own
-const _SHELL_TARGETS: Record<'lint' | 'format' | 'typecheck' | 'check', TargetConfiguration> = { lint: {}, format: {}, typecheck: {}, check: {} };
+// The targetDefaults entries filtered by language tag fill these empty targets, a default creates no target on its own
+const _EMPTY_TARGETS: Record<'lint' | 'format' | 'typecheck' | 'check', TargetConfiguration> = { lint: {}, format: {}, typecheck: {}, check: {} };
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -164,7 +164,7 @@ const _library = (name: string): string => String.toLowerCase(Array.lastNonEmpty
 
 const _isNative = (file: string): boolean => String.startsWith(_NATIVE_ROOT)(file) && String.endsWith('.csproj')(file);
 
-// A project file under eng/native is a packaging project, every other manifest names a language, and the root manifests belong to the root project.json
+// eng/native project files are packaging projects, other manifests name a language, and root manifests belong to the root package.json nx field
 const _manifest = (path: Path.Path, file: string): Workspace.Manifest => {
     const root = path.dirname(file);
     const base = path.basename(file);
@@ -283,7 +283,7 @@ const _languageConfiguration = (root: string, language: Workspace.Language): Pro
     root,
     ...(language === 'python' ? { name: Array.join(String.split(root, '/'), '-') } : {}),
     tags: [`language:${language}`],
-    targets: { ..._SHELL_TARGETS },
+    targets: { ..._EMPTY_TARGETS },
 });
 
 const _localSource = (workspaceRoot: string): Effect.Effect<string, WorkspaceError, Workspace.Platform> =>

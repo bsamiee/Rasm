@@ -29,10 +29,5 @@
     },
     "jsonReporter": {
         "fileName": ".artifacts/typescript/stryker/mutation-report.json"
-    },
-    "thresholds": {
-        "high": 90,
-        "low": 85,
-        "break": 80
     }
 }

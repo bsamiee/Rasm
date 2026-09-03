@@ -1,5 +1,4 @@
 # Runtimes and standalone binaries no package manifest can pin, the .NET SDK version comes from global.json
-min_version = "2026.8.6"
 
 [tools]
 node = "26.8.1"

@@ -1,10 +1,12 @@
 {
     "compilerOptions": {
+        "allowImportingTsExtensions": true,
         "allowUnreachableCode": false,
         "allowUnusedLabels": false,
         "composite": true,
         "declaration": true,
         "declarationMap": true,
+        "emitDeclarationOnly": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
         "isolatedModules": true,
@@ -19,12 +21,10 @@
         "noPropertyAccessFromIndexSignature": true,
         "noUncheckedIndexedAccess": true,
         "noUncheckedSideEffectImports": true,
-        "outDir": "${configDir}/dist",
         "rootDir": "${configDir}",
         "skipLibCheck": true,
         "strict": true,
         "target": "esnext",
-        "tsBuildInfoFile": "${configDir}/dist/tsconfig.tsbuildinfo",
         "types": [],
         "verbatimModuleSyntax": true
     },

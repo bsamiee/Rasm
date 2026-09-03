@@ -1,22 +1,10 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
-        "emitDeclarationOnly": true,
-        "outDir": ".cache/typescript/out",
-        "tsBuildInfoFile": ".cache/typescript/out/tsconfig.tsbuildinfo",
-        "types": ["node"],
-        "allowImportingTsExtensions": true
+        "outDir": ".cache/typescript/out/root",
+        "types": ["node"]
     },
-    "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts", "infra/*.ts"],
-    "references": [
-        // One reference per workspace package tsconfig ({ "path": "./libs/typescript/{package}" })
-        {
-            "path": "./tests/typescript/support"
-        },
-        {
-            "path": "./tools/nx"
-        }
-    ],
+    "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts", "tools/nx/*.ts", "infra/*.ts"],
     "watchOptions": {
         "excludeDirectories": [
             "**/node_modules",

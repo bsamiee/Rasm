@@ -11,14 +11,6 @@
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}", "!{projectRoot}/dist/**/*"],
         "sharedGlobals": ["{workspaceRoot}/nx.json", "{workspaceRoot}/mise.toml"],
-        "dotnet": [
-            "{workspaceRoot}/.editorconfig",
-            "{workspaceRoot}/Directory.Build.props",
-            "{workspaceRoot}/Directory.Build.targets",
-            "{workspaceRoot}/Directory.Packages.props",
-            "{workspaceRoot}/global.json",
-            "{workspaceRoot}/NuGet.config"
-        ],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock"],
         "typescript": [
             "{workspaceRoot}/biome.json",
@@ -46,9 +38,7 @@
             {
                 "filter": { "projects": ["tag:language:dotnet"] },
                 "executor": "nx:noop",
-                "dependsOn": ["build"],
-                "configurations": { "check": {}, "write": {} },
-                "defaultConfiguration": "check"
+                "dependsOn": ["build"]
             },
             {
                 "filter": { "projects": ["tag:language:python"] },
@@ -75,7 +65,15 @@
                 "executor": "nx:run-commands",
                 "cache": true,
                 "dependsOn": [{ "projects": ["rasm-workspace"], "target": "restore" }],
-                "inputs": ["default", "dotnet"],
+                "inputs": [
+                    "default",
+                    "{workspaceRoot}/.editorconfig",
+                    "{workspaceRoot}/Directory.Build.props",
+                    "{workspaceRoot}/Directory.Build.targets",
+                    "{workspaceRoot}/Directory.Packages.props",
+                    "{workspaceRoot}/global.json",
+                    "{workspaceRoot}/NuGet.config"
+                ],
                 "options": { "command": "dotnet format --no-restore --verify-no-changes", "cwd": "{projectRoot}" },
                 "configurations": { "check": {}, "write": { "command": "dotnet format --no-restore" } },
                 "defaultConfiguration": "check"
@@ -130,20 +128,19 @@
                 "filter": { "projects": ["tag:language:python"] },
                 "executor": "nx:run-commands",
                 "inputs": ["default", "python"],
-                "outputs": ["{workspaceRoot}/.artifacts/python/**"],
-                "options": { "command": "uv run pytest {projectRoot}" },
-                "configurations": {
-                    "coverage": {
-                        "command": "uv run pytest --cov={projectRoot} --cov-report=lcov --cov-report=xml {projectRoot}",
-                        "env": { "COVERAGE_FILE": ".cache/coverage/.coverage.{projectName}" }
-                    },
-                    "benchmark": { "command": "uv run pytest -m benchmark {projectRoot}" }
-                }
+                "outputs": [
+                    "{workspaceRoot}/.artifacts/python/coverage/data/.coverage.{projectName}",
+                    "{workspaceRoot}/.artifacts/python/benchmarks"
+                ],
+                "options": {
+                    "command": "uv run pytest --cov={projectRoot} {projectRoot}",
+                    "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/.coverage.{projectName}" }
+                },
+                "configurations": { "benchmark": { "command": "uv run pytest -m benchmark {projectRoot}" } }
             },
             {
                 "filter": { "projects": ["tag:language:typescript"] },
-                "inputs": ["...", "^production", { "externalDependencies": ["vitest"] }, { "env": "CI" }],
-                "configurations": { "coverage": { "command": "vitest --coverage.enabled=true" } }
+                "inputs": ["...", "^production", { "externalDependencies": ["vitest"] }, { "env": "CI" }]
             }
         ],
         "check": [

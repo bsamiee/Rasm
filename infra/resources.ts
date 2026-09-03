@@ -1,4 +1,4 @@
-// Typed declarations of the repository's own resources: the GitHub repository settings and the Doppler project that holds its runtime secrets, registered by program.ts
+// Typed declarations of the GitHub repository settings and the Doppler project that program.ts registers
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 

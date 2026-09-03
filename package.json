@@ -1,6 +1,5 @@
 {
     "name": "rasm-workspace",
-    "version": "0.5.0",
     "private": true,
     "type": "module",
     "browserslist": [
@@ -288,58 +287,27 @@
         "workbox-build": "catalog:",
         "workbox-window": "catalog:"
     },
-    "packageManager": "pnpm@12.3.1",
-    "engines": {
-        "node": ">=24.15.0"
-    },
-    "devEngines": {
-        "packageManager": {
-            "name": "pnpm",
-            "version": "12.3.1",
-            "onFail": "error"
-        }
-    },
     "nx": {
         "tags": [
             "language:typescript"
         ],
-        "implicitDependencies": [
-            "@rasm/test-support"
-        ],
         "targets": {
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
-                "cache": false,
-                "inputs": [
-                    "{workspaceRoot}/Workspace.slnx",
-                    "{workspaceRoot}/Directory.Build.props",
-                    "{workspaceRoot}/Directory.Build.targets",
-                    "{workspaceRoot}/Directory.Packages.props",
-                    "{workspaceRoot}/NuGet.config",
-                    "{workspaceRoot}/global.json",
-                    "{workspaceRoot}/{apps,libs,tests,tools}/**/*.csproj",
-                    "{workspaceRoot}/{apps,libs,tests,tools}/**/packages.lock.json"
-                ]
+                "cache": false
             },
             "lint": {
                 "options": {
-                    "command": "biome check package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
+                    "command": "biome check {args}",
+                    "args": "package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
                 },
                 "configurations": {
                     "write": {
-                        "command": "biome check --write package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
+                        "command": "biome check --write {args}"
                     }
                 },
                 "inputs": [
-                    "{workspaceRoot}/package.json",
-                    "{workspaceRoot}/nx.json",
-                    "{workspaceRoot}/biome.json",
-                    "{workspaceRoot}/tsconfig.json",
-                    "{workspaceRoot}/tsconfig.base.json",
-                    "{workspaceRoot}/vite.config.ts",
-                    "{workspaceRoot}/vitest.config.ts",
-                    "{workspaceRoot}/stryker.config.json",
-                    "{workspaceRoot}/.mcp.json",
+                    "{workspaceRoot}/*",
                     "{workspaceRoot}/.vscode/**/*",
                     "{workspaceRoot}/tools/**/*",
                     "{workspaceRoot}/infra/**/*"
@@ -347,23 +315,16 @@
             },
             "format": {
                 "options": {
-                    "command": "biome format package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
+                    "command": "biome format {args}",
+                    "args": "package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
                 },
                 "configurations": {
                     "write": {
-                        "command": "biome format --write package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
+                        "command": "biome format --write {args}"
                     }
                 },
                 "inputs": [
-                    "{workspaceRoot}/package.json",
-                    "{workspaceRoot}/nx.json",
-                    "{workspaceRoot}/biome.json",
-                    "{workspaceRoot}/tsconfig.json",
-                    "{workspaceRoot}/tsconfig.base.json",
-                    "{workspaceRoot}/vite.config.ts",
-                    "{workspaceRoot}/vitest.config.ts",
-                    "{workspaceRoot}/stryker.config.json",
-                    "{workspaceRoot}/.mcp.json",
+                    "{workspaceRoot}/*",
                     "{workspaceRoot}/.vscode/**/*",
                     "{workspaceRoot}/tools/**/*",
                     "{workspaceRoot}/infra/**/*"
@@ -376,9 +337,9 @@
                     "{workspaceRoot}/tsconfig.base.json",
                     "{workspaceRoot}/package.json",
                     "{workspaceRoot}/pnpm-lock.yaml",
+                    "{workspaceRoot}/tests/typescript/support/vitest.config.ts",
                     "{workspaceRoot}/tools/nx/**/*",
                     "{workspaceRoot}/infra/**/*",
-                    "^production",
                     {
                         "externalDependencies": [
                             "typescript"
@@ -386,7 +347,7 @@
                     }
                 ],
                 "outputs": [
-                    "{workspaceRoot}/.cache/typescript/out"
+                    "{workspaceRoot}/.cache/typescript/out/root"
                 ]
             },
             "preview": {
@@ -397,32 +358,20 @@
                     }
                 },
                 "cache": false,
-                "parallelism": false,
-                "inputs": [
-                    "{workspaceRoot}/infra/**/*"
-                ]
+                "parallelism": false
             },
             "up": {
                 "command": "node infra/automation.ts up",
                 "cache": false,
-                "parallelism": false,
-                "inputs": [
-                    "{workspaceRoot}/infra/**/*"
-                ]
+                "parallelism": false
             },
             "refresh": {
                 "command": "node infra/automation.ts refresh",
                 "cache": false,
-                "parallelism": false,
-                "inputs": [
-                    "{workspaceRoot}/infra/**/*"
-                ]
+                "parallelism": false
             },
             "check": {
                 "executor": "nx:noop",
-                "inputs": [
-                    "{workspaceRoot}/nx.json"
-                ],
                 "dependsOn": [
                     "lint",
                     "format",
@@ -439,16 +388,23 @@
             "coverage": {
                 "executor": "nx:run-commands",
                 "cache": false,
+                "dependsOn": [
+                    {
+                        "projects": [
+                            "*",
+                            "!rasm-workspace"
+                        ],
+                        "target": "test"
+                    }
+                ],
                 "outputs": [
-                    "{workspaceRoot}/.artifacts/dotnet/coverage",
                     "{workspaceRoot}/.artifacts/python/coverage",
                     "{workspaceRoot}/.artifacts/typescript/coverage"
                 ],
                 "options": {
                     "commands": [
-                        "test -z \"$(find .artifacts/dotnet -name '*.cobertura.xml' 2>/dev/null)\" || dotnet dnx dotnet-reportgenerator-globaltool --yes --allow-roll-forward -- \"-reports:.artifacts/dotnet/**/*.cobertura.xml\" -targetdir:.artifacts/dotnet/coverage \"-reporttypes:Cobertura;lcov\"",
-                        "test -z \"$(find .cache/coverage -name '.coverage.*' 2>/dev/null)\" || (uv run coverage combine --keep && uv run coverage lcov --keep-combined && uv run coverage xml --keep-combined)",
-                        "test ! -d .artifacts/typescript/test-results/.vitest-reports || vitest run --merge-reports .artifacts/typescript/test-results/.vitest-reports --coverage.enabled=true"
+                        "uv run coverage combine && uv run coverage lcov && uv run coverage xml",
+                        "vitest run --merge-reports .artifacts/typescript/test-results/.vitest-reports"
                     ],
                     "parallel": false
                 }
@@ -456,10 +412,6 @@
             "mutation": {
                 "executor": "nx:run-commands",
                 "cache": false,
-                "inputs": [
-                    "{workspaceRoot}/stryker-config.json",
-                    "{workspaceRoot}/stryker.config.json"
-                ],
                 "options": {
                     "commands": [
                         "dotnet dnx dotnet-stryker --yes --allow-roll-forward",

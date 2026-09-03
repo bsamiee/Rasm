@@ -1,4 +1,4 @@
-// Inline Pulumi program that registers the declared Doppler and GitHub resources, imports live resources under the --import flag, and destroys a row removed from resources.ts on the next up
+// Inline Pulumi program that registers the declared Doppler and GitHub resources and imports the live ones under --import
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
@@ -72,7 +72,7 @@ const program =
                 })),
         );
 
-        // The repository holds protect, so a row edit fails before it deletes the repository, and archiveOnDestroy is the provider's second guard
+        // protect fails a row edit that would delete the repository, and archiveOnDestroy archives it on a destroy
         const repository = new github.Repository(
             Resources.repository.name,
             { name: Resources.repository.name, ...Resources.repository.settings },
