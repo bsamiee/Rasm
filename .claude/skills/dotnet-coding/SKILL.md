@@ -12,9 +12,9 @@ Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, P
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Combinators, functions as data, specialization by `par` and `curry`, delegate adapters, the composition root, the end-to-end flow and its limits
-- [02]-[SEQUENCES](references/sequences.md): Deferred `Iterable`, aggregation, adjacent pairs, the CSV pipeline
+- [02]-[SEQUENCES](references/sequences.md): Deferral and materialization, named stages, `Fold` as every reduction with the `FoldBack` derivation, indexed replacement, adjacent pairs, the text-to-report pipeline
 - [03]-[RESULTS](references/results.md): Validators and their folds, fail-fast workflows, lifting into an effect, host translation, union outcomes and folds, laws and property tests
-- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Persistent lists and trees, the cost model, lenses
+- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions, shared-mutation hazards, values against entities, a domain snapshot with `With`, copy techniques and their limits, the cost model, persistent lists and trees
 - [05]-[EFFECTS](references/effects.md): Isolating I/O around a pure core, value and effect injection, deferral with `IO` and `Try`, `Reader` environments, resource scopes and their order, failure policies, traversal shapes, stacked effects
 - [06]-[STATE](references/state.md): `State` and `StateT`, generators, trampolines, `Monad.recur`, `unfold`
 - [07]-[STREAMS](references/streams.md): `Source` operators, per-item failure, backpressure, agents, entity registries

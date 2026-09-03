@@ -1,3 +1,4 @@
+<!-- Fully integrated into dotnet-coding SKILL.md and references/sequences.md -->
 # [SEQUENCES_AND_LINQ]
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
@@ -44,6 +45,7 @@ internal static partial class Sequences {
 Every returned property and the inputs that determine it are visible in one place. If a calculation obscures the construction, extract it into a function and keep the construction expression central.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/sequences.md
 ## [02]-[DEFERRED_EXECUTION]
 
 Many LINQ operators return a description of how to produce a sequence. Creating the query does not execute it, execution begins when a consumer enumerates it.
@@ -66,9 +68,13 @@ internal static partial class Sequences {
 Until enumeration, all transformations remain pending. During enumeration, each input passes through `First`, `Second`, and `Third` before the next input begins. This streams values through the pipeline without creating an intermediate collection after every stage.
 
 `ToSeq()` forces enumeration and materializes a `Seq<int>`. Materializing after every stage changes the evaluation order and storage: each complete stage runs before the next one and stores a collection. Delaying materialization can avoid work that is never demanded. Materialization is appropriate when execution is required at that point or when a materialized sequence will be reused. Otherwise, enumerating the same query repeatedly can repeat all of its work. Long deferred or recursive compositions can carry memory and performance costs.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/sequences.md
 ## [03]-[SEQUENCE_OPERATIONS]
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/sequences.md
 ### [03.1]-[SELECT]
 
 Use `Select` when each input becomes one output. `Map` on a `Seq<A>` is the same projection. Fluent chains and named intermediate sequences describe the same transformation when nothing mutates the sequences or their elements.
@@ -86,7 +92,9 @@ internal static partial class Sequences {
 Named stages state each operation and let you inspect intermediate values. Use a single chain when it remains clear.
 
 Materialization does not introduce mutation. The resulting collection and its elements must remain unchanged.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ### [03.2]-[TUPLE_CONTEXT]
 
 Tuples can carry short-lived related values between transformations without mutable locals or a dedicated class.
@@ -105,6 +113,8 @@ internal static partial class Sequences {
     }
 }
 ```
+
+-->
 
 <!-- Integrated into .claude/skills/dotnet-coding/SKILL.md
 ### [03.3]-[INDEXED_SELECT]
@@ -125,6 +135,7 @@ internal static partial class Sequences {
 The indexed `Map` performs the one-to-one transformation. `string.Join` reduces the sequence of strings to one string.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/sequences.md
 ## [04]-[AGGREGATION]
 
 Use a specific reduction when one exists. Because LanguageExt and LINQ define ambiguous `Sum()` and `Average()` calls on `Seq`, this example uses `Fold`. Sum is a `Fold` with a zero seed and an addition step:
@@ -187,7 +198,9 @@ The seed defines the empty-input result, and its type is independent of the elem
 Sequences have two constructors: the empty sequence and cons, which prepends an element. `FoldBack` replaces both: the seed replaces the empty sequence, and the step replaces each cons. The same derivation produces a fold for any recursive type: one replacement per constructor, where each recursive position receives an already-folded result.
 
 `Fold` can express `Map`, `Filter`, and `Bind`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/sequences.md
 ## [05]-[NON_MUTATING_UPDATES]
 
 Use an indexed `Map` to replace one item:
@@ -201,7 +214,9 @@ internal static partial class Sequences {
 ```
 
 The function derives the replacement from the old item at one position. `Map` returns a new `Seq<A>`, and the source remains unchanged.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/sequences.md
 ## [06]-[SEQUENCE_TRAVERSAL]
 
 `Seq<A>` supplies `Tail` and `Zip`. `LanguageExt.List.unfold` produces a sequence of states.
@@ -222,7 +237,9 @@ internal static partial class Sequences {
 ```
 
 For example, sort a number sequence, then test whether any adjacent pair differs by one.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-coding/references/sequences.md
 ## [07]-[END_TO_END_PIPELINE]
 
 Reporting pipelines can read one CSV text, split it into records, parse typed values, group them, aggregate each group, format report lines, and join those lines into one result.
@@ -282,3 +299,4 @@ single text -> records -> typed values -> groups -> totals -> lines -> single re
 ```
 
 Each stage produces a new value.
+-->
