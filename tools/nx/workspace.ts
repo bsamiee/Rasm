@@ -91,11 +91,11 @@ const _MESSAGES: Record<Workspace.Reason, (file: string, detail: string) => stri
     version: (file) =>
         `${file} declares no Version property, the pack target names the nupkg after the package version, add a Version property to the project`,
     manifest: (file, detail) =>
-        `${file} has no version manifest directory at ${detail}, the stage target reads the library version from that directory, add the directory with its manifest`,
+        `${file} has no manifest directory at ${detail}, the stage target reads the library version there, add the directory with its manifest`,
     native: (file, detail) =>
-        `${file} has no native packaging project for ${detail}, its pack target depends on the stage target of that project, add the native packaging project beside it`,
+        `${file} has no native packaging project for ${detail}, pack depends on its stage target, add the native packaging project beside it`,
     source: (file, detail) =>
-        `${file} declares no package source with key ${detail}, the pack target writes the nupkg into that source, add the source under packageSources`,
+        `${file} declares no package source with key ${detail}, the pack target writes the nupkg there, add the source under packageSources`,
     dependency: (file, detail) => `${file} declares a PackageReference edge Nx rejects, ${detail}, check the project names in the graph`,
 };
 

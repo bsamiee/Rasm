@@ -610,6 +610,7 @@ markers = [
 branch = true
 relative_files = true  # Subprocess coverage combines through relative repo paths
 data_file = ".artifacts/python/coverage/data/.coverage"  # The root coverage target combines the per-project files beside it
+source = ["eng/scripts", "libs/python", "tests/python/support"]  # The bare --cov in the test command measures these trees
 core = "sysmon"        # The pinned CPython 3.15 release candidate lacks coverage's compiled C tracer
 patch = [
     "subprocess",

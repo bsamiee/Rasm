@@ -10,12 +10,12 @@ Pulumi program on the Automation API for the repository's own resources: the Git
 
 ## [01]-[TARGETS]
 
-Targets belong to the root project in the `nx` field of the root `package.json`, run uncached, and take flags after `--`: `--import` on a first apply of imported rows, `--refresh`, and `--expect-no-changes`.
+Targets belong to the root project in the `nx` field of the root `package.json`, run uncached, and take `--import` after `--` on a first apply of imported rows.
 
 | [INDEX] | [TARGET]                                          | [PROVES]                                                          |
 | :-----: | :------------------------------------------------ | :---------------------------------------------------------------- |
 |  [01]   | `nx run rasm-workspace:preview`                   | Diff of declared against live state, steady state is `{"same":N}` |
-|  [02]   | `nx run rasm-workspace:preview:expect-no-changes` | Refreshed state plans no change, the drift gate                   |
+|  [02]   | `nx run rasm-workspace:preview:expect-no-changes` | Refreshed state plans no change, the drift check                  |
 |  [03]   | `nx run rasm-workspace:up`                        | Prints the plan, asks for confirmation, then applies it           |
 |  [04]   | `nx run rasm-workspace:refresh`                   | State reconciled with live provider reads                         |
 
@@ -34,7 +34,7 @@ State sits at `file://${XDG_STATE_HOME:-$HOME/.local/state}/rasm-infra` with mod
 ## [03]-[CHANGES]
 
 - Declare a live resource with `imported: true` and its import id, then run `preview -- --import` until it plans the import alone and `up -- --import`
-- Remove a row to destroy its resource on the next `up`, the repository row holds `protect: true` and `archiveOnDestroy`
+- Remove a row to destroy its resource on the next `up`, the repository row holds `archiveOnDestroy`, and `program.ts` sets `protect: true` on it
 - Write a secret value with `doppler secrets set <NAME> --project rasm --config <config>` from stdin, values stay out of the rows
 - Issue a token for a new consumer as a service token row on its config, and hand it to GitHub as an Actions secret row
 

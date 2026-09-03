@@ -85,7 +85,7 @@ const program =
                 .map(
                     (entry) =>
                         new github.ActionsSecret(
-                            `${entry.repository}-${entry.secretName}`,
+                            `${Resources.repository.name}-${entry.secretName}`,
                             { repository: repository.name, secretName: entry.secretName, value: resource.key },
                             { provider: githubProvider },
                         ),

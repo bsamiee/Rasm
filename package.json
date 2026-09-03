@@ -299,7 +299,7 @@
             "lint": {
                 "options": {
                     "command": "biome check {args}",
-                    "args": "package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
+                    "args": "*.json *.ts .mcp.json .vscode infra tools"
                 },
                 "configurations": {
                     "write": {
@@ -309,14 +309,14 @@
                 "inputs": [
                     "{workspaceRoot}/*",
                     "{workspaceRoot}/.vscode/**/*",
-                    "{workspaceRoot}/tools/**/*",
-                    "{workspaceRoot}/infra/**/*"
+                    "{workspaceRoot}/infra/**/*",
+                    "{workspaceRoot}/tools/**/*"
                 ]
             },
             "format": {
                 "options": {
                     "command": "biome format {args}",
-                    "args": "package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
+                    "args": "*.json *.ts .mcp.json .vscode infra tools"
                 },
                 "configurations": {
                     "write": {
@@ -326,8 +326,8 @@
                 "inputs": [
                     "{workspaceRoot}/*",
                     "{workspaceRoot}/.vscode/**/*",
-                    "{workspaceRoot}/tools/**/*",
-                    "{workspaceRoot}/infra/**/*"
+                    "{workspaceRoot}/infra/**/*",
+                    "{workspaceRoot}/tools/**/*"
                 ]
             },
             "typecheck": {
@@ -397,14 +397,10 @@
                         "target": "test"
                     }
                 ],
-                "outputs": [
-                    "{workspaceRoot}/.artifacts/python/coverage",
-                    "{workspaceRoot}/.artifacts/typescript/coverage"
-                ],
                 "options": {
                     "commands": [
                         "uv run coverage combine && uv run coverage lcov && uv run coverage xml",
-                        "vitest run --merge-reports .artifacts/typescript/test-results/.vitest-reports"
+                        "vitest run --merge-reports .artifacts/typescript/test-results/.vitest-reports/@rasm"
                     ],
                     "parallel": false
                 }

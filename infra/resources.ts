@@ -74,8 +74,8 @@ const _repository = {
 } as const satisfies { readonly name: string; readonly settings: Omit<RepositoryArgs, 'name'> } & _Imported;
 
 // An Actions secret holds the key of a declared service token, and the value passes through no person and no file
-const _actionsSecrets = [{ repository: 'Rasm', secretName: 'DOPPLER_TOKEN', serviceToken: 'rasm-ci-readonly' }] as const satisfies ReadonlyArray<
-    Omit<ActionsSecretArgs, 'repository' | 'value'> & { readonly repository: typeof _repository.name; readonly serviceToken: _ServiceTokenName }
+const _actionsSecrets = [{ secretName: 'DOPPLER_TOKEN', serviceToken: 'rasm-ci-readonly' }] as const satisfies ReadonlyArray<
+    Omit<ActionsSecretArgs, 'repository' | 'value'> & { readonly serviceToken: _ServiceTokenName }
 >;
 
 // --- [RESOURCES] -----------------------------------------------------------------------

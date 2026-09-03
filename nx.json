@@ -9,13 +9,12 @@
     },
     "namedInputs": {
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
-        "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}", "!{projectRoot}/dist/**/*"],
+        "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
         "sharedGlobals": ["{workspaceRoot}/nx.json", "{workspaceRoot}/mise.toml"],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock"],
         "typescript": [
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/tsconfig.base.json",
-            "{workspaceRoot}/tsconfig.json",
             "{workspaceRoot}/package.json",
             "{workspaceRoot}/pnpm-workspace.yaml",
             "{workspaceRoot}/pnpm-lock.yaml",
@@ -26,12 +25,12 @@
     "targetDefaults": {
         "build": [
             {
-                "cache": true,
-                "inputs": ["...", "production", "^production"]
+                "cache": true
             },
             {
                 "filter": { "projects": ["tag:language:dotnet"] },
-                "dependsOn": ["^build", { "projects": ["rasm-workspace"], "target": "restore" }]
+                "dependsOn": ["^build", { "projects": ["rasm-workspace"], "target": "restore" }],
+                "inputs": ["...", "{workspaceRoot}/global.json", "{workspaceRoot}/NuGet.config"]
             }
         ],
         "lint": [
@@ -133,14 +132,23 @@
                     "{workspaceRoot}/.artifacts/python/benchmarks"
                 ],
                 "options": {
-                    "command": "uv run pytest --cov={projectRoot} {projectRoot}",
+                    "command": "uv run pytest {projectRoot} --cov",
                     "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/.coverage.{projectName}" }
                 },
                 "configurations": { "benchmark": { "command": "uv run pytest -m benchmark {projectRoot}" } }
             },
             {
+                "filter": { "projects": ["tag:language:dotnet"] },
+                "inputs": ["...", "{workspaceRoot}/global.json", "{workspaceRoot}/NuGet.config"]
+            },
+            {
                 "filter": { "projects": ["tag:language:typescript"] },
-                "inputs": ["...", "^production", { "externalDependencies": ["vitest"] }, { "env": "CI" }]
+                "outputs": [
+                    "{workspaceRoot}/.artifacts/typescript/test-results/{projectName}",
+                    "{workspaceRoot}/.artifacts/typescript/test-results/.vitest-reports/{projectName}.json",
+                    "{workspaceRoot}/.artifacts/typescript/bench/{projectName}.json",
+                    "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"
+                ]
             }
         ],
         "check": [

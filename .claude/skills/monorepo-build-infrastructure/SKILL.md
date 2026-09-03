@@ -51,7 +51,7 @@ Nx infers targets from the files a plugin globs, and a `project.json` exists onl
 |  [03]   | Outputs derive from `ArtifactsPath`      | One `ArtifactsPath` under `.artifacts/` makes every output cacheable             |
 |  [04]   | `pack` outputs the `PackageOutputPath`   | One output over a shared feed caches every sibling, `pack: false` replaces it    |
 |  [05]   | `exclude` is a registration property     | Packaging subtrees leave the inferred graph without `project.json`               |
-|  [06]   | Directory files are per-target inputs    | `sharedGlobals` holds `global.json` and `NuGet.config`                           |
+|  [06]   | Directory files are per-target inputs    | Dotnet `build` and `format` entries name `global.json` and `NuGet.config`        |
 
 Register one local plugin under `tools/` by path for a target shape that repeats per directory, it globs the per-directory file and returns the targets:
 
@@ -66,7 +66,7 @@ Register one local plugin under `tools/` by path for a target shape that repeats
 
 ```ts
 export const createNodes: CreateNodes = [
-    "eng/native/*/*.csproj",
+    "**/{*.csproj,package.json,pyproject.toml}",
     async (projectFiles, _options, context) =>
         projectFiles.map((file) => [file, { projects: { [dirname(file)]: projectFor(context.workspaceRoot, file) } }]),
 ];
@@ -88,7 +88,7 @@ Cache a target when its outputs are a function of its declared inputs alone:
 
 | [INDEX] | [TARGET]    | [INPUTS]                                                        | [OUTPUTS]                               | [VERDICT] |
 | :-----: | :---------- | :-------------------------------------------------------------- | :-------------------------------------- | :-------: |
-|  [01]   | `provision` | Network, host toolchain, tool manifest                          | `.cache/<tool>/`                        | No cache  |
+|  [01]   | `provision` | Network, host toolchain                                         | `.cache/<tool>/`                        | No cache  |
 |  [02]   | `stage`     | Network, vcpkg toolchain, host compiler                         | `.artifacts/native/<library>/stage`     | No cache  |
 |  [03]   | `pack`      | Project dir, `Directory.Build.*`, manifest dir, staged tree     | `<feed>/<Id>.<Version>.nupkg`, bin, obj |   Cache   |
 |  [04]   | `build`     | Sources, `Directory.Build.*`, `.editorconfig`, `^build` outputs | `ArtifactsPath` bin and obj per project |   Cache   |

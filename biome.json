@@ -16,7 +16,6 @@
             "!**/.mypy_cache",
             "!**/.nx",
             "!**/.parcel-cache",
-            "!**/.pulumi",
             "!**/.pytest_cache",
             "!**/.ruff_cache",
             "!**/.swc",

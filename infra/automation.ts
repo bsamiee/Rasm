@@ -61,7 +61,7 @@ class UsageError extends Data.TaggedError('UsageError')<{
 
 class Declined extends Data.TaggedError('Declined') {
     override get message(): string {
-        return 'up declined at the prompt, no resource changed, rerun up and answer y to apply the plan';
+        return 'up applied no change, the prompt got no y answer, rerun up in a terminal and answer y to apply the plan';
     }
 }
 
@@ -160,15 +160,15 @@ const _echo = (chunk: string): void => {
     process.stdout.write(chunk);
 };
 
-// --refresh diffs against refreshed live state, and --expect-no-changes turns a steady state into a gate
-const _modes = (flags: Flags): { readonly refresh?: true; readonly expectNoChanges?: true } => ({
-    ...(flags.refresh ? { refresh: true as const } : {}),
-    ...(flags.expectNoChanges ? { expectNoChanges: true as const } : {}),
+// --refresh diffs against refreshed live state, and --expect-no-changes fails a preview that plans a change
+const _modes = (refresh: boolean, expectNoChanges: boolean): { readonly refresh?: true; readonly expectNoChanges?: true } => ({
+    ...(refresh ? { refresh: true as const } : {}),
+    ...(expectNoChanges ? { expectNoChanges: true as const } : {}),
 });
 
 const _preview = (stack: Stack, flags: Flags) =>
     Effect.tap(
-        _operation('preview', () => stack.preview({ diff: true, onOutput: _echo, ..._modes(flags) })),
+        _operation('preview', () => stack.preview({ diff: true, onOutput: _echo, ..._modes(flags.refresh, flags.expectNoChanges) })),
         (result) => Console.log(JSON.stringify(result.changeSummary)),
     );
 
@@ -191,13 +191,15 @@ const _subcommands = {
             const stack = yield* _selectStack(flags);
             yield* _preview(stack, flags);
             const confirmed = yield* _confirmed;
-            const result = yield* confirmed ? _operation('up', () => stack.up({ onOutput: _echo, ..._modes(flags) })) : new Declined();
+            const result = yield* confirmed
+                ? _operation('up', () => stack.up({ onOutput: _echo, ..._modes(flags.refresh, flags.expectNoChanges) }))
+                : new Declined();
             yield* Console.log(JSON.stringify(result.summary.resourceChanges ?? {}));
         }),
     refresh: (flags: Flags) =>
         Effect.flatMap(
             Effect.flatMap(_selectStack(flags), (stack) =>
-                _operation('refresh', () => stack.refresh({ onOutput: _echo, ..._modes({ ...flags, refresh: false }) })),
+                _operation('refresh', () => stack.refresh({ onOutput: _echo, ..._modes(false, flags.expectNoChanges) })),
             ),
             (result) => Console.log(JSON.stringify(result.summary.resourceChanges ?? {})),
         ),
@@ -210,13 +212,13 @@ const _FLAGS = { import: '--import', refresh: '--refresh', expectNoChanges: '--e
 const _main = Effect.gen(function* () {
     const argv = process.argv.slice(2);
     const positional = Array.filter(argv, (arg) => !arg.startsWith('--'));
-    const stray = Array.findFirst(argv, (arg) => arg.startsWith('--') && !Array.contains(Object.values(_FLAGS), arg));
+    const unknownFlag = Array.findFirst(argv, (arg) => arg.startsWith('--') && !Array.contains(Object.values(_FLAGS), arg));
     const flags: Flags = {
         import: Array.contains(argv, _FLAGS.import),
         refresh: Array.contains(argv, _FLAGS.refresh),
         expectNoChanges: Array.contains(argv, _FLAGS.expectNoChanges),
     };
-    return yield* Option.match(stray, {
+    return yield* Option.match(unknownFlag, {
         onSome: (flag) => new UsageError({ problem: `unknown flag ${flag}` }),
         onNone: () =>
             Option.match(Schema.decodeUnknownOption(_Subcommand)(positional[0]), {
