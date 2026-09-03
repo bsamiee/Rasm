@@ -6,7 +6,7 @@ Pulumi program on the Automation API for the repository's own resources: the Git
 | :-----: | :-------------- | :----------------------------------------------------------------------------------------- |
 |  [01]   | `resources.ts`  | Typed declarations of the Doppler and GitHub resources, each with its import id and inputs |
 |  [02]   | `program.ts`    | Inline program that registers the declared resources with explicit providers               |
-|  [03]   | `automation.ts` | Entry that resolves credentials, selects the stack, and runs preview, up, and refresh       |
+|  [03]   | `automation.ts` | Entry that resolves credentials, selects the stack, and runs preview, up, and refresh      |
 
 ## [01]-[TARGETS]
 
@@ -23,11 +23,11 @@ Targets belong to the root project in the `nx` field of the root `package.json`,
 
 Each credential comes from the ambient variable when set and from its store otherwise, and none is written to a file in the repository.
 
-| [INDEX] | [VARIABLE]                | [STORE]                                        |
-| :-----: | :------------------------ | :--------------------------------------------- |
+| [INDEX] | [VARIABLE]                 | [STORE]                                          |
+| :-----: | :------------------------- | :----------------------------------------------- |
 |  [01]   | `PULUMI_CONFIG_PASSPHRASE` | `op read op://Tokens/PULUMI_RASM_INFRA/password` |
-|  [02]   | `DOPPLER_TOKEN`           | `doppler configure get token --plain`          |
-|  [03]   | `GITHUB_TOKEN`, `GH_TOKEN` | `op read op://Tokens/GITHUB_TOKEN/token`       |
+|  [02]   | `DOPPLER_TOKEN`            | `doppler configure get token --plain`            |
+|  [03]   | `GITHUB_TOKEN`, `GH_TOKEN` | `op read op://Tokens/GITHUB_TOKEN/token`         |
 
 State sits at `file://${XDG_STATE_HOME:-$HOME/.local/state}/rasm-infra` with mode 0700 under the passphrase secrets provider, and provider plugins sit under the `PULUMI_HOME` that `mise.toml` sets. The Automation API writes the project file into a temporary directory, so the repository holds no `Pulumi.yaml`, no stack file, no `.env`, and no `doppler.yaml`.
 

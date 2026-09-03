@@ -44,14 +44,14 @@ Each fact has one owning file, and every other file reads it from there:
 
 Nx infers targets from the files a plugin globs, and a `project.json` exists only where no plugin recognizes a file. The .NET plugin globs every project file and every ancestor `Directory.Build.*` and `Directory.Packages.props`:
 
-| [INDEX] | [PLUGIN_FACT]                            | [CONSEQUENCE]                                                                    |
-| :-----: | :--------------------------------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `build` runs `dotnet build --no-restore` | `dotnet restore <solution>` precedes `nx affected -t build test`                 |
-|  [02]   | `build` depends on `^build`              | `ProjectReference` edges order builds, `--no-dependencies` skips referenced ones |
-|  [03]   | Outputs derive from `ArtifactsPath`      | One `ArtifactsPath` under `.artifacts/` makes every output cacheable             |
-|  [04]   | `pack` outputs the `PackageOutputPath`   | One output over a shared feed caches every sibling, `pack: false` replaces it    |
-|  [05]   | `exclude` is a registration property     | Packaging subtrees leave the inferred graph without `project.json`               |
-|  [06]   | Directory files are per-target inputs    | Dotnet `build` and `format` entries name `global.json` and `NuGet.config`        |
+| [INDEX] | [PLUGIN_FACT]                            | [CONSEQUENCE]                                                                      |
+| :-----: | :--------------------------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `build` runs `dotnet build --no-restore` | `dotnet restore <solution>` precedes `nx affected -t build test`                   |
+|  [02]   | `build` depends on `^build`              | `ProjectReference` edges order builds, `--no-dependencies` skips referenced ones   |
+|  [03]   | Outputs derive from `ArtifactsPath`      | One `ArtifactsPath` under `.artifacts/` makes every output cacheable               |
+|  [04]   | `pack` outputs the `PackageOutputPath`   | One output over a shared feed caches every sibling, `pack: false` replaces it      |
+|  [05]   | `exclude` is a registration property     | Packaging subtrees leave the inferred graph without `project.json`                 |
+|  [06]   | Directory files are per-target inputs    | Dotnet `build`, `test`, and `format` entries name `global.json` and `NuGet.config` |
 
 Register one local plugin under `tools/` by path for a target shape that repeats per directory, it globs the per-directory file and returns the targets:
 

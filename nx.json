@@ -33,6 +33,13 @@
                 "inputs": ["...", "{workspaceRoot}/global.json", "{workspaceRoot}/NuGet.config"]
             }
         ],
+        "build:release": [
+            {
+                "filter": { "projects": ["tag:language:dotnet"] },
+                "dependsOn": ["^build:release", { "projects": ["rasm-workspace"], "target": "restore" }],
+                "inputs": ["...", "{workspaceRoot}/global.json", "{workspaceRoot}/NuGet.config"]
+            }
+        ],
         "lint": [
             {
                 "filter": { "projects": ["tag:language:dotnet"] },
@@ -53,8 +60,8 @@
                 "executor": "nx:run-commands",
                 "cache": true,
                 "inputs": ["default", "typescript"],
-                "options": { "command": "biome check {projectRoot}" },
-                "configurations": { "check": {}, "write": { "command": "biome check --write {projectRoot}" } },
+                "options": { "commands": ["biome check {projectRoot}"] },
+                "configurations": { "check": {}, "write": { "commands": ["biome check --write {projectRoot}"] } },
                 "defaultConfiguration": "check"
             }
         ],

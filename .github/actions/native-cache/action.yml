@@ -1,0 +1,19 @@
+name: Native cache
+description: Restores the vcpkg binary cache and the emgucv build output for one runtime identifier, keyed on the manifests that pin them
+
+inputs:
+  rid:
+    description: Runtime identifier the job stages
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v6
+      with:
+        path: .cache/vcpkg-archives
+        key: vcpkg-archives-${{ inputs.rid }}-${{ hashFiles('eng/native/*/vcpkg.json') }}
+    - uses: actions/cache@v6
+      with:
+        path: .cache/emgucv/artifacts
+        key: emgucv-artifacts-${{ inputs.rid }}-${{ hashFiles('eng/native/emgucv/source.json') }}

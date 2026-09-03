@@ -20,7 +20,7 @@ const defaults = {
     optimizeDeps: ['@effect/vitest', 'effect'],
     output: {
         chaiConfig: { includeStack: true, truncateThreshold: 0 },
-        diff: { expand: true, truncateThreshold: 0 },
+        diff: { expand: true },
     },
     patterns: {
         benchmarkExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
@@ -54,12 +54,12 @@ const defaults = {
 const _Manifest = Schema.parseJson(Schema.Struct({ name: Schema.String }));
 
 // The package name beside the config names the Vitest project as it names the Nx project, and every artifact path takes it
-const packageName = (directory: string): string =>
+const _packageName = (directory: string): string =>
     Schema.decodeUnknownSync(_Manifest)(readFileSync(path.join(directory, 'package.json'), 'utf8')).name;
 
 // Every vitest.config.ts is its own root, @nx/vitest infers one test target per file, and the artifacts split by package name
 const createVitestConfig = (directory: string): ViteUserConfig => {
-    const name = packageName(directory);
+    const name = _packageName(directory);
     const results = path.resolve(artifacts.results, name);
     return defineConfig({
         cacheDir: path.resolve(defaults.cacheDir, name),

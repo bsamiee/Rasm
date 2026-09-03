@@ -298,16 +298,30 @@
             },
             "lint": {
                 "options": {
-                    "command": "biome check {args}",
-                    "args": "*.json *.ts .mcp.json .vscode infra tools"
+                    "commands": [
+                        "biome check {args}",
+                        {
+                            "command": "actionlint",
+                            "forwardAllArgs": false
+                        }
+                    ],
+                    "args": "*.json *.ts .mcp.json .vscode infra tools",
+                    "parallel": false
                 },
                 "configurations": {
                     "write": {
-                        "command": "biome check --write {args}"
+                        "commands": [
+                            "biome check --write {args}",
+                            {
+                                "command": "actionlint",
+                                "forwardAllArgs": false
+                            }
+                        ]
                     }
                 },
                 "inputs": [
                     "{workspaceRoot}/*",
+                    "{workspaceRoot}/.github/**/*",
                     "{workspaceRoot}/.vscode/**/*",
                     "{workspaceRoot}/infra/**/*",
                     "{workspaceRoot}/tools/**/*"
