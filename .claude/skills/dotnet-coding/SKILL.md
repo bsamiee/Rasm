@@ -16,10 +16,10 @@ Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, P
 - [01]-[FUNCTIONS](references/functions.md): Combinators, functions as data, specialization, delegate adapters, the composition root, end-to-end flows
 - [02]-[SEQUENCES](references/sequences.md): Deferral and materialization, named stages, `Fold` reductions, indexed replacement, adjacent pairs, a pipeline
 - [03]-[RESULTS](references/results.md): Validator folds, fail-fast workflows, lifting into an effect, host translation, union folds, law tests
-- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions, shared mutation, `With`, cost model, persistent lists and trees
+- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions, shared mutation, `With`, cost model, persistent structures
 - [05]-[EFFECTS](references/effects.md): I/O around a pure core, injection, `IO` and `Try`, `Reader`, resource scopes, failure policies, stacked effects
 - [06]-[STATE](references/state.md): The transition shape, a cache as `State` and `StateT`, seeded generators, tree numbering, the loop forms
-- [07]-[STREAMS](references/streams.md): The observable model, creation, operators, per-item failure, backpressure, agents, entity processes
+- [07]-[STREAMS](references/streams.md): The observable model, operators, per-item failure, backpressure, agents, entity processes
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Append-only storage, events as a union, transitions, reconstruction, command and query sides
 
 Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as bare names. `Seq<A>` is the default collection in domain code, `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types, NodaTime's `Instant`, `LocalDate`, and `Duration` are the time types with the clock injected as `IClock` or `Func<Instant>`, and value objects, smart enums, and unions come from the generator.
