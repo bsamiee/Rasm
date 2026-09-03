@@ -72,6 +72,12 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS map external names to canonical domain names at the validating boundary, that module owns both directions
 - ALWAYS translate the result at the boundary into the host's vocabulary: exit code, status, host exception, or UI state
 
+[DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API carries a fact the API lacks
+- ALWAYS call the owning type or package directly, a wrapper, helper, or facade exists only to add a domain type, a boundary conversion, or a composed policy
+- ALWAYS name the real type, a type alias exists only to resolve a name collision between two referenced namespaces
+- ALWAYS define a custom operator, implicit conversion, or extension method for a domain meaning, never to shorten a call the direct form states
+- ALWAYS reach a dependency through the function or runtime that supplies it, no service locator, registry lookup, or layer that forwards a call unchanged
+
 ## [03]-[DEPENDENCY_POLICY]
 
 [DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
