@@ -12,12 +12,12 @@ Governs every English text in a repository: markdown, comments, doc comments, do
 
 ## [01]-[TERMINOLOGY]
 
-Each term is the current established term of the language, tool, or field the text belongs to, at the newest standard the context supports, and passes these tests:
+Each term is the current established term of the language, tool, or field the text belongs to, at the newest standard the context supports, and meets each test:
 - The word appears with that meaning in the current documentation of the language, tool, or field
 - The word names what the thing is, not what it resembles
 - The verb names the operation, not an image
 
-Words that fail the tests take the current term for the thing they name, listed here or not, and words that are the real term in their own field (SIMD lane) stay there:
+Every word that fails a test takes the current term for the thing it names, and the real term of a field (SIMD lane) stays:
 
 | [INDEX] | [COINED]                                           | [REAL]                                         |
 | :-----: | :------------------------------------------------- | :--------------------------------------------- |
@@ -42,7 +42,7 @@ Words that fail the tests take the current term for the thing they name, listed 
 |  [19]   | interior, flips, autosave, mirrors (verb)          | inside, disabled, output file, matches         |
 |  [20]   | bare (name), edge, bespoke, weave, unlock, surfaces | unqualified, boundary, custom, insert, enable, throws |
 
-The repository, product, or organization name belongs in identifiers the ecosystem requires, in package descriptions, in CLI help text, and in prose only as a contrast with another product. Text under a heading that names its subject refers to the subject by pronoun or by its parts.
+The repository, product, or organization name belongs in identifiers the ecosystem requires, in package descriptions, in CLI help text, and in prose as a contrast with another product.
 
 ## [02]-[NAMES]
 
@@ -60,7 +60,7 @@ Names that other systems resolve stay unchanged, and the report names the coupli
 
 ## [03]-[REMOVALS]
 
-Delete the word, read the sentence again, and rebuild the sentence when the remainder does not stand on its own. Removal is silent: the sentence keeps its facts with fewer words, a connective between clauses leaves a comma, and a connective between nouns becomes "with".
+Delete the word and read the sentence again, and the remainder stands when it still states the fact. The clause that followed a connective continues after the comma, and "plus" between nouns becomes "with".
 
 | [INDEX] | [CATEGORY]                 | [DELETE]                                                                                           |
 | :-----: | :------------------------- | :------------------------------------------------------------------------------------------------- |
@@ -79,39 +79,53 @@ Delete the word, read the sentence again, and rebuild the sentence when the rema
 |  [04]   | etc.          | Name the items                                                                                  |
 |  [05]   | and/or        | One of them, or "X, Y, or both"                                                                 |
 
-Numbers stay as real values, and counts of items the reader can see go. Frequency and time words stay when the source measured or observed them and otherwise become the version or condition, and a hedge with real uncertainty stays as "can" or as the condition under which the statement holds. Sentences that add nothing a nearby sentence lacks go, and any surviving fact moves into the nearest sentence as a few words.
+Numbers stay as real values, and counts of items the reader can see go. Frequency and time words stay when the source measured them and otherwise become the version or condition. A hedge with real uncertainty stays as "can" or as the condition under which the statement holds. Sentences and clauses that repeat a nearby sentence, or state what the heading, the code, or the previous sentence supplies, go, and a fact only they held moves into the nearest sentence.
 
 ## [04]-[SENTENCES]
 
-Each sentence states one complete thought in active voice and simple present or past, with every fact it needs, and the shortest form that keeps every fact is the rewrite:
-- Facts about one subject join in one sentence, and a new subject opens a new sentence
-- Sentence length has no cap, and a sentence splits only at a change of thought
-- Clauses join with a comma or "and"
-- Em dashes appear only as `value — description` in a list item or table cell
+Each sentence states one instruction or one fact in active voice and simple present or past, in the words the reader needs to act on it:
+- A sentence carries the instruction or the fact, its condition, and the reason the reader needs to apply it to the next case
+- A second fact opens a new sentence, and parallel facts become a list or a table
+- A clause continues after a comma or "and" when it completes the same instruction or fact
+- Em dashes appear as `value — description` in a list item or table cell
 - Parentheses hold a phrase, and a sentence inside them folds into the surrounding sentence or goes
-- Sentences, list items, and table cells open with the subject, and a subject that needs "a" or "an" is pluralized or takes "the"
+- Statements, list items, and table cells open with the noun that names their subject, and instructions open with the verb
+- A generic singular subject ("a target that", "an item with") becomes the plural ("targets that") or the instruction's verb, and "the" opens a subject the context already identifies
+- A run of list items with one noun opener restructures around the verb or the category noun
 - Overlap inside a sentence, one fact in two phrasings, keeps one phrasing
 - Noun chains stop at three words, and a longer chain breaks with a preposition (`the timeout value for the connection pool`)
 - Instructions use the imperative, with the condition before the command and a comma between them
+- An instruction states the required form once, and the forbidden forms sit in an anti-pattern table beside the correct form
 - Warnings precede the step they guard and state the command or condition, then the risk
 - Verbs name actions in place of nominalizations and phrasal verbs
-- Passive voice stays only when the actor is unknown, and the repair names the actor
-- Modals are must, can, and will: "should" becomes "must" for a requirement and goes for a suggestion, "may", "might", "could", and "would" become "can" or the condition, and "may have" before a participle states a possible past event and stays
+- A statement names the actor as its subject, and passive voice stays for an unknown actor
 - Articles and "that" stay inside the sentence, except before a noun followed by an identifier (`restart pod web-7f9b2`), and contractions expand
-- One concept keeps one word for the whole file and one word names one concept: "check" or "verify" for the same operation, never both
+- One word names one concept for the whole file: "check" or "verify" for one operation
 - Spelling is American
+
+Modals are must, can, and will:
+
+| [INDEX] | [MODAL]                       | [REWRITE]                    |
+| :-----: | :---------------------------- | :--------------------------- |
+|  [01]   | should, for a requirement     | must                         |
+|  [02]   | should, for a suggestion      | Delete                       |
+|  [03]   | may, might, could, would      | can, or the condition        |
+|  [04]   | may have, before a participle | Stays, a possible past event |
 
 ## [05]-[DOCUMENTS]
 
 Sections follow the order of work or dependency, each under a `## [NN]-[NOUN]` heading with no parenthetical, and each opens with the sentence a reader needs before its list or table:
 - Each fact appears once, in the section with the heading that names its topic, or the earlier section when none does, and near-duplicate sentences elsewhere merge into it
-- Facts sit where the reader needs them, in place of cross-references
-- Facts stand on their own, and a link survives only as the location of a thing the reader opens
-- Text describes its subject and never itself
-- Paragraphs hold one topic, and parallel examples or cases sit in one sentence or one list in place of a run of short sentences
+- The heading, the list lead-in, and the previous sentence supply the subject, and a sentence under them opens with the subject's part, its pronoun, or the instruction's verb
+- The subject noun repeats where the fact would otherwise attach to another subject
+- Text states facts about its subject, and a sentence about the file, the section, or the skill goes
+- A pointer to another file or skill is one line, `Use <name> for <purpose>`
+- A line that describes a file, directory, section, or reference (a tree comment, a listing line, a header comment) states the purpose the thing serves, and the contents stay in the thing
+- Facts sit where the reader needs them, and a link is the location of a thing the reader opens
+- Paragraphs hold one topic, and parallel cases sit in one list, or in one sentence when each case is a phrase
 - List items open with a capital letter or an identifier, are one sentence each, share one grammatical form, end without a period, and follow their lead-in colon without a blank line
 - Items under an uppercase label hold the sentences the label needs
-- Labels and sentence position give emphasis, and bold and emoji appear nowhere
+- Labels and sentence position give emphasis
 
 ## [06]-[TABLES]
 
@@ -139,40 +153,46 @@ Comments state intent or a constraint the code cannot show, in one line and one 
 - Section dividers, structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
 - Doc comment summaries are one sentence that states what the member returns or does, and remarks keep one fact per sentence
 - Members keep every `<param>` element or none
-- Python docstrings keep the first-line period, every public module, class, and function keeps its docstring, and the docstring text follows the other rules
+- Python docstrings keep the first-line period and follow the other rules, and every public module, class, and function keeps its docstring
 - Log, error, exception, and diagnostic messages state what happened, then the cause when known, then the action, each in one sentence with no trailing period
 
 ## [08]-[PROCESS]
 
 Rewrite of an existing file:
 1. Read the whole file, and when it already complies, report that and change nothing
-2. List every fact once, mark duplicates and near-duplicates, and choose the section for each
+2. List every fact once, mark duplicates, near-duplicates, and sentences whose fact the context supplies, and choose the section for each
 3. Rename coined identifiers and files, with every reference
-4. Edit sentence by sentence in this order: terminology, removals, sentence structure, document structure
+4. Edit sentence by sentence as targeted edits, terminology first, then removals, then sentence structure, then document structure, and reread each touched section
 5. Search the file for every entry in the removal, restructure, and word map tables and every scan pattern, and fix each hit
 6. Run the language checkers and tests to zero warnings
 7. Report bytes before and after, every rename, every coined term removed, every coupling left in place, every fact added or corrected, and every fact kept in longer form because a shorter form loses it
 
-New text follows the same rules from the first draft and gets the table and scan search before delivery. When asked to review instead of rewrite, report one row per finding: line, rule, offending text, rewrite.
+New text follows the same rules from the first draft and gets the table and scan search before delivery. A review reports one row per finding: line, rule, offending text, rewrite.
 
 ## [09]-[SCAN]
 
 | [INDEX] | [PATTERN]                                                         | [VIOLATION]             | [FIX]                                     |
 | :-----: | :---------------------------------------------------------------- | :---------------------- | :---------------------------------------- |
-|  [01]   | `;` outside code                                                  | Semicolon               | One sentence, or two                      |
-|  [02]   | `—`, ` - `, ` -- ` between statements                             | Dash                    | Rebuild, keep only `value — description`  |
-|  [03]   | `^A `, `^An `, `. A `, `: A `, `- A `, and a cell opening `A `    | Article-led sentence    | Pluralize, use "the", or reorder          |
-|  [04]   | `\. \(` and a period inside parentheses                           | Parenthetical sentence  | Fold into the sentence or delete          |
-|  [05]   | `'ll`, `'re`, `n't`, `'s` as a verb                               | Contraction             | Expand                                    |
-|  [06]   | `has been`, `have been`, `is being`, `has` + participle           | Present perfect         | Simple past or present                    |
-|  [07]   | `, making`, `, allowing`, `, ensuring`, `, which means`           | Tail clause             | Fold into the sentence or delete          |
-|  [08]   | `should`, `may`, `might`, `could`, `would`                        | Modal                   | must, can, a condition, or delete         |
-|  [09]   | ` if `, ` when ` after the command                                | Trailing condition      | Move before the command with a comma      |
-|  [10]   | `such as`, `whose`, `e.g.`, `i.e.`, `etc.`, `and/or`              | Restructure entry       | Parenthetical, list, with, that, examples |
-|  [11]   | `one`, `two`, `first`, `several`, `various`, `the two`            | Enumeration device      | Delete or pluralize unless a real value   |
-|  [12]   | Comment line ending in `.`, `.-->`, or `.</` outside doc elements | Comment period          | Delete the period                         |
-|  [13]   | Consecutive comment lines outside doc comments and sample labels  | Stacked comment         | Merge or delete                           |
-|  [14]   | Period before a cell boundary inside a table                      | Cell period             | Rewrite the cell                          |
-|  [15]   | Table row over 150 columns                                        | Row width               | Shorten cells or drop a column            |
-|  [16]   | `above`, `below`, `see `, `this file`, `this document`            | Cross-reference or meta | Delete, place the fact where it is needed |
-|  [17]   | External URL outside a package page, download, or tool document   | Citation                | Delete, state the fact                    |
+|  [01]   | `;` outside code                                                  | Semicolon               | One sentence                              |
+|  [02]   | `—`, ` - `, ` -- ` between statements                             | Dash                    | Rebuild, or `value — description`         |
+|  [03]   | `^A `, `^An `, `. A `, `: A `, `- A `, and a cell opening `A `    | Article-led sentence    | Pluralize, or open with the verb          |
+|  [04]   | Clauses chained by `:`, `;`, `—`, or repeated `, and `            | Listed content          | State the instruction, delete the rest    |
+|  [05]   | Run of sentences under 8 words                                    | Fragmented instruction  | One sentence with its condition and reason |
+|  [06]   | `\. \(` and a period inside parentheses                           | Parenthetical sentence  | Fold into the sentence or delete          |
+|  [07]   | `'ll`, `'re`, `n't`, `'s` as a verb                               | Contraction             | Expand                                    |
+|  [08]   | `has been`, `have been`, `is being`, `has` + participle           | Present perfect         | Simple past or present                    |
+|  [09]   | `, making`, `, allowing`, `, ensuring`, `, which means`           | Tail clause             | Fold into the sentence or delete          |
+|  [10]   | `should`, `may`, `might`, `could`, `would`                        | Modal                   | must, can, a condition, or delete         |
+|  [11]   | ` if `, ` when ` after the command                                | Trailing condition      | Move before the command with a comma      |
+|  [12]   | `such as`, `whose`, `e.g.`, `i.e.`, `etc.`, `and/or`              | Restructure entry       | Parenthetical, list, with, that, examples |
+|  [13]   | `one`, `two`, `first`, `several`, `various`, `the two`            | Enumeration device      | Delete or pluralize unless a real value   |
+|  [14]   | Comment line ending in `.`, `.-->`, or `.</` outside doc elements | Comment period          | Delete the period                         |
+|  [15]   | Consecutive comment lines outside doc comments and sample labels  | Stacked comment         | Merge or delete                           |
+|  [16]   | Period before a cell boundary inside a table                      | Cell period             | Rewrite the cell                          |
+|  [17]   | Table row over 150 columns                                        | Row width               | Shorten cells or drop a column            |
+|  [18]   | `above`, `below`, `see `, `[NN]` in a sentence, `this file`       | Cross-reference or meta | Delete, place the fact where it is needed |
+|  [19]   | `this`, `these`, `that`, `those` before a noun                    | Demonstrative           | Delete, or repeat the noun                |
+|  [20]   | `<name>` owns, `is responsible for` before a topic                | Ownership statement     | `Use <name> for <purpose>`                |
+|  [21]   | File, directory, or reference line holding a comma list           | Content enumeration     | State the purpose                         |
+|  [22]   | `**`, emoji outside code                                          | Emphasis markup         | Label or sentence position                |
+|  [23]   | External URL outside a package page, download, or tool document   | Citation                | Delete, state the fact                    |

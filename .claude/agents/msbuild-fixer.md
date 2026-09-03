@@ -6,6 +6,7 @@ skills:
   - dotnet-msbuild-antipatterns
   - dotnet-msbuild-evaluation
   - dotnet-msbuild-execution
+  - dotnet-msbuild-packaging
   - dotnet-roslyn-codelens
 ---
 
@@ -30,10 +31,10 @@ Read in order before the first edit:
 1. `references/multi-level-examples.md` of the `dotnet-msbuild-evaluation` skill, in full
 2. One `ToolSearch` call with `select:` and the full `mcp__roslyn-codelens__` names: `list_solutions`, `load_solution`, `get_diagnostics`, `get_project_dependencies`, `get_public_api_surface`, `find_references`, `get_nuget_dependencies`
 3. The solution: the one the prompt names, else `fd -e slnx -e sln`
-4. `list_solutions`. If the solution in scope is not active, run `load_solution` with its path. `dotnet-roslyn-codelens` `[03.4.1]` owns trust.
+4. `list_solutions`. If the solution in scope is not active, run `load_solution` with its path. `dotnet-roslyn-codelens` owns trust.
 5. The log folder `<logs>`: `$(dotnet msbuild <project> -getProperty:ArtifactsPath)logs/`, or `logs/` at the repo root when the property is empty
 6. The file list for a folder scope: `fd -e props -e targets -e csproj -e nuspec -e rsp . <scope>`. Prompts that name files skip the listing.
-7. The package layout per `dotnet-msbuild-evaluation` `[05.6]`, before any `[AP-11]` row
+7. The package layout per the package authoring section of `dotnet-msbuild-packaging`, before any unguarded import row
 8. Every in-scope file, whole, through `Read`, and `.editorconfig` when a `build_check.*` line is in play. `Edit` refuses a file that `Read` did not open.
 9. `get_diagnostics` with `includeAnalyzers=true` once. That result is the baseline.
 
@@ -41,30 +42,30 @@ Paths outside the repo, or scopes with no MSBuild file, return `result: not star
 </context_gathering>
 
 <procedure>
-1. Run `dotnet build <solution> -t:Rebuild -check -m:1 -bl:<logs>check-{}`. This is the `dotnet-msbuild-antipatterns` skill introduction with `-t:Rebuild` in place of the output directory delete.
+1. Run `dotnet build <solution> -t:Rebuild -tl:off -check -bl:<logs>check-{}.binlog`, the BuildCheck workflow command of `dotnet-msbuild-diagnostics`
 2. Read the console. Each `BC0101`, `BC0102`, and `BC0106` line is a finding with its `file:line`.
 3. Run one `rg` probe per catalog entry over `--glob '*.{props,targets,csproj}'`, unless the row carries its own glob
 
-| [INDEX] | [ID]   | [PROBE]                                                                                                    |
-| :-----: | :----- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | AP-01  | `rg -n -e 'Condition="\$\(' -e 'Condition="[^"]*[=!]= *[^\x27 "]'`                                         |
-|  [02]   | AP-04  | `rg -n 'Condition="[^"]*\$\(TargetFramework\)' --glob '*.props'`                                           |
-|  [03]   | AP-05  | `rg -n -e '<ArtifactsPath>' -e '<UseArtifactsOutput>' -e '<BaseIntermediateOutputPath>' --glob '*.csproj'` |
-|  [04]   | AP-06  | `rg -n ' Update="' --glob '*.props'`                                                                       |
-|  [05]   | AP-07  | `rg -n -e '\[System\.IO\.File\]::' -e '\[System\.IO\.Directory\]::'`                                       |
-|  [06]   | AP-09  | `rg -n 'HintPath'`                                                                                         |
-|  [07]   | AP-11  | `rg -nUP '<Import (?![^>]*Condition=)'`                                                                    |
-|  [08]   | AP-13  | `rg -n '<Exec Command="[^"]*\\'`                                                                           |
-|  [09]   | AP-15  | `rg -nUP '<Target (?![^>]*Inputs=)[^>]*>'`                                                                 |
-|  [10]   | AP-16  | `rg -n '<Exec '`                                                                                           |
-|  [11]   | AP-18  | `rg -n -e '<Exec Command="chmod' -e '<Exec Command="cmd ' -e '<Exec Command="powershell'`                  |
-|  [12]   | AP-19  | `rg -n -e '_IsPublishing' -e '<MSBuild .*Properties='`                                                     |
-|  [13]   | AP-20  | `rg -n 'SetTargetFramework='`                                                                              |
-|  [14]   | NU1008 | `rg -n '<PackageReference [^>]*Version="'`                                                                 |
+| [INDEX] | [ENTRY]                    | [PROBE]                                                                                   |
+| :-----: | :------------------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | Unquoted condition operand | `rg -n -e 'Condition="\$\(' -e 'Condition="[^"]*[=!]= *[^\x27 "]'`                        |
+|  [02]   | Props condition, late value | `rg -n 'Condition="[^"]*\$\(TargetFramework\)' --glob '*.props'`                         |
+|  [03]   | Artifacts path in project  | `rg -n '<(ArtifactsPath|UseArtifactsOutput|BaseIntermediateOutputPath)>' --glob '*.csproj'` |
+|  [04]   | Update before the include  | `rg -n ' Update="' --glob '*.props'`                                                      |
+|  [05]   | File read in a property    | `rg -n -e '\[System\.IO\.File\]::' -e '\[System\.IO\.Directory\]::'`                      |
+|  [06]   | Reference with HintPath    | `rg -n 'HintPath'`                                                                        |
+|  [07]   | Import without Exists      | `rg -nUP '<Import (?![^>]*Condition=)'`                                                   |
+|  [08]   | Backslash in Exec          | `rg -n '<Exec Command="[^"]*\\'`                                                          |
+|  [09]   | Target without Inputs      | `rg -nUP '<Target (?![^>]*Inputs=)[^>]*>'`                                                |
+|  [10]   | Exec for a task            | `rg -n '<Exec '`                                                                          |
+|  [11]   | Exec without OS condition  | `rg -n -e '<Exec Command="chmod' -e '<Exec Command="cmd ' -e '<Exec Command="powershell'` |
+|  [12]   | Duplicate project instance | `rg -n -e '_IsPublishing' -e '<MSBuild .*Properties='`                                    |
+|  [13]   | SetTargetFramework         | `rg -n 'SetTargetFramework='`                                                             |
+|  [14]   | `NU1008`                   | `rg -n '<PackageReference [^>]*Version="'`                                                |
 
-4. Answer every placement or override question with `dotnet-msbuild-evaluation` `[06]`. One call accepts many `-getProperty` and `-getItem` switches.
+4. Answer every placement or override question with the troubleshooting section of `dotnet-msbuild-evaluation`. One call accepts many `-getProperty` and `-getItem` switches.
 5. Run `get_nuget_dependencies` on the project before a `PackageVersion` row is added
-6. Before an `[AP-10]` row:
+6. Before a redundant project reference row:
    1. Run `get_project_dependencies` on the candidate project and on each project it references. The suspect edge is a direct reference that another direct reference already reaches.
    2. Run `get_public_api_surface`, then `find_references` on each public type of that project. References from the candidate remove the row.
 7. Classify each finding with the word the catalog uses: `ERROR` or `STYLE`. Findings without `file:line` and a catalog id or error code are not findings.
@@ -75,10 +76,10 @@ Paths outside the repo, or scopes with no MSBuild file, return `result: not star
 
 <evidence_rules>
 - The file read decides. Probe hits without a catalog match are not findings.
-- The `OK` forms in `[AP-04]`, `[AP-11]`, `[AP-13]`, and `[AP-20]` are never findings
+- The `OK` forms of the props condition, unguarded import, backslash, and `SetTargetFramework` entries are never findings
 - `ERROR` rows need proof: the defect fails the build on this host, or the catalog entry names the error code
 - One row per `file:line`. Later rows on the same line merge into the first.
-- The `-check` console is the record. `binlog_warnings` drops part of the `BC*` output.
+- The `-check` console and `binlog_warnings` with `category=BuildCheck` report the same `BC*` counts, and either is the record
 - Fixes that change an evaluated value report the value before and after
 - Describing a build output the run never saw is fabrication
 - Nothing found is a legitimate verdict

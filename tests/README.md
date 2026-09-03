@@ -31,12 +31,12 @@ tests/
 
 Classify each test independently by scope, technique, and execution mode; apply every classification that fits.
 
-| [INDEX] | [AXIS]         | [VALUE]        | [DEFINITION]                                                | [ROUTE]                                                          |
-| :-----: | :------------- | :------------- | :---------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | Scope          | Unit           | Isolated component behavior with controlled collaborators   | default test run per language                                    |
-|  [02]   | Scope          | Integration    | Interaction between real components or an external boundary | Python `network`/`subprocess` markers, per-language integration run    |
-|  [03]   | Technique      | Property-based | Generated examples exercise an invariant                    | `TestAssertions.Verify`, `@property_test`, `it.effect.prop`      |
-|  [04]   | Execution mode | Benchmark      | Performance measurement outside the functional test session | `-m benchmark`, benchmark include glob                           |
+| [INDEX] | [AXIS]         | [VALUE]        | [DEFINITION]                                                | [ROUTE]                                                             |
+| :-----: | :------------- | :------------- | :---------------------------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | Scope          | Unit           | Isolated component behavior with controlled collaborators   | default test run per language                                       |
+|  [02]   | Scope          | Integration    | Interaction between real components or an external boundary | Python `network`/`subprocess` markers, per-language integration run |
+|  [03]   | Technique      | Property-based | Generated examples exercise an invariant                    | `TestAssertions.Verify`, `@property_test`, `it.effect.prop`         |
+|  [04]   | Execution mode | Benchmark      | Performance measurement outside the functional test session | `-m benchmark`, benchmark include glob                              |
 
 Integration follows the subject under test, not process count: an in-process test over real components is integration, a test with controlled collaborators is unit.
 
@@ -60,17 +60,17 @@ Treat a failing test as evidence until triage identifies a production defect, an
 
 Tool configurations write reports under `.artifacts/` and relocatable temporary state under `.cache/<tool>/`. Stryker.NET creates the fixed `.stryker-tmp/` work directory, `.gitignore` excludes it and its reports still go to the configured artifact directory.
 
-| [INDEX] | [TOOL]            | [OUTPUT]                           | [CONFIGURATION]                                                                                  |
-| :-----: | :---------------- | :--------------------------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | coverlet.MTP      | .NET coverage                      | `--coverlet` on run, writes to the run results directory                                          |
-|  [02]   | MTP results       | .NET results, dumps, xUnit reports | MTP default beside the test app under `.artifacts/dotnet/bin`, `nx test <project>` runs it       |
-|  [03]   | pytest + coverage | Python coverage + caches           | `pyproject.toml` tool tables                                                                     |
-|  [04]   | Hypothesis        | Example database + observability   | `tests/python/support/runtime.py`                                                                |
-|  [05]   | Pytest-benchmark  | Python benchmark storage           | `pyproject.toml` addopts                                                                         |
-|  [06]   | Vitest            | TypeScript test outputs            | Root `vitest.config.ts`                                                                          |
-|  [07]   | StrykerJS         | TypeScript mutation                | `stryker.config.json`                                                                            |
-|  [08]   | Stryker.NET       | .NET mutation reports              | `stryker-config.json`                                                                            |
-|  [09]   | Nx                | Target outputs + cache             | `nx.json` plugins: `@nx/dotnet` infers `test` per MTP project                                    |
+| [INDEX] | [TOOL]            | [OUTPUT]                           | [CONFIGURATION]                                                                            |
+| :-----: | :---------------- | :--------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | coverlet.MTP      | .NET coverage                      | `--coverlet` on run, writes to the run results directory                                   |
+|  [02]   | MTP results       | .NET results, dumps, xUnit reports | MTP default beside the test app under `.artifacts/dotnet/bin`, `nx test <project>` runs it |
+|  [03]   | pytest + coverage | Python coverage + caches           | `pyproject.toml` tool tables                                                               |
+|  [04]   | Hypothesis        | Example database + observability   | `tests/python/support/runtime.py`                                                          |
+|  [05]   | Pytest-benchmark  | Python benchmark storage           | `pyproject.toml` addopts                                                                   |
+|  [06]   | Vitest            | TypeScript test outputs            | Root `vitest.config.ts`                                                                    |
+|  [07]   | StrykerJS         | TypeScript mutation                | `stryker.config.json`                                                                      |
+|  [08]   | Stryker.NET       | .NET mutation reports              | `stryker-config.json`                                                                      |
+|  [09]   | Nx                | Target outputs + cache             | `nx.json` plugins: `@nx/dotnet` infers `test` per MTP project                              |
 
 Configure output paths through the tool's documented configuration, config file first and CLI option second, never through wrapper scripts or `conftest.py`. After the tool runs, `git status --short` and the repository-root listing must show no new generated entries.
 
@@ -78,14 +78,14 @@ Configure output paths through the tool's documented configuration, config file 
 
 Add each suite, reusable test capability, fixture, or test asset to the existing directory or module responsible for it. Extend that location when the responsibility is unchanged, refactor it when the structure no longer fits.
 
-| [INDEX] | [ADDITION]                       | [HOME]                                 |
-| :-----: | :------------------------------- | :------------------------------------- |
-|  [01]   | .NET reusable test support       | `tests/dotnet/support`                 |
-|  [02]   | .NET package suite               | `tests/dotnet/libs/<package>/`         |
-|  [03]   | Python reusable test support     | `tests/python/support`                 |
-|  [04]   | Python package suite             | `tests/python/libs/<package>/`         |
-|  [05]   | TypeScript unit test             | Beside its source in `libs/typescript` |
-|  [06]   | TypeScript reusable support      | `tests/typescript/support`             |
+| [INDEX] | [ADDITION]                   | [HOME]                                 |
+| :-----: | :--------------------------- | :------------------------------------- |
+|  [01]   | .NET reusable test support   | `tests/dotnet/support`                 |
+|  [02]   | .NET package suite           | `tests/dotnet/libs/<package>/`         |
+|  [03]   | Python reusable test support | `tests/python/support`                 |
+|  [04]   | Python package suite         | `tests/python/libs/<package>/`         |
+|  [05]   | TypeScript unit test         | Beside its source in `libs/typescript` |
+|  [06]   | TypeScript reusable support  | `tests/typescript/support`             |
 
 .NET and Python package suites mirror their production package beneath `tests/<language>/libs`. TypeScript unit tests colocate with source, `tests/typescript/` holds reusable support and suites that span more than one package.
 

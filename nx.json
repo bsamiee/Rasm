@@ -86,6 +86,9 @@
                 "restore": false,
                 "test": true
             }
+        },
+        {
+            "plugin": "./tools/nx/native-packaging.ts"
         }
     ],
     "sync": {

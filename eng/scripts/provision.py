@@ -55,6 +55,7 @@ REPO_ROOT: Path = next(parent for parent in Path(__file__).resolve().parents if 
 _VCPKG_URL = "https://github.com/microsoft/vcpkg"
 _VCPKG_COMMIT = "30ef65cad98f08e7197c9a1656fbd871bcb72f2d"  # Equals the builtin-baseline in eng/native/lcms2/vcpkg.json
 _VCPKG_ROOT = REPO_ROOT / ".cache" / "vcpkg"
+_VCPKG_ARCHIVES = REPO_ROOT / ".cache" / "vcpkg-archives"   # Binary cache, vcpkg defaults to $HOME/.cache/vcpkg/archives
 _HOST_TOOLS = REPO_ROOT / ".cache" / "vcpkg-hosttools"
 
 _ENERGYPLUS_RELEASES = "https://github.com/NatLabRockies/EnergyPlus/releases/download"
@@ -140,9 +141,9 @@ async def _vcpkg() -> Path:
     return exe
 
 
-async def _pkg_config(vcpkg: Path) -> dict[str, str]:
+async def _pkg_config(vcpkg: Path, env: dict[str, str]) -> dict[str, str]:
     if platform.system() == "Windows":
-        return {}
+        return env
     tool = _HOST_TOOLS / "installed" / _host_triplet() / "tools" / "pkgconf" / "pkgconf"
     if not tool.exists():
         # pkgconf port validates its own pc file with pkg-config, absent on this machine
@@ -162,8 +163,9 @@ async def _pkg_config(vcpkg: Path) -> dict[str, str]:
                 "--no-print-usage",
             ],
             REPO_ROOT,
+            env,
         )
-    return {"PKG_CONFIG": str(tool)}
+    return env | {"PKG_CONFIG": str(tool)}
 
 
 async def _pinned_archive(name: str, version: str, url: str, sha256: str) -> Path:
@@ -275,9 +277,10 @@ async def _energyplus_exe() -> Path:
 
 
 async def native_build_tools() -> ToolSet:
-    """Ensure vcpkg and, except on Windows, the pkgconf host tool exist and return the set."""
+    """Ensure vcpkg, its binary cache under .cache, and, except on Windows, the pkgconf host tool exist and return the set."""
     vcpkg = await _vcpkg()
-    return ToolSet(vcpkg=vcpkg, env=await _pkg_config(vcpkg))
+    _VCPKG_ARCHIVES.mkdir(parents=True, exist_ok=True)
+    return ToolSet(vcpkg=vcpkg, env=await _pkg_config(vcpkg, {"VCPKG_DEFAULT_BINARY_CACHE": str(_VCPKG_ARCHIVES)}))
 
 
 # --- [STAGING] --------------------------------------------------------------------------
@@ -380,7 +383,8 @@ async def stage_closure(built: list[Path], work: Path, rid: Rid, rename: Callabl
 
 @_app.default
 def main() -> None:
-    """Provision the pinned build tools, EnergyPlus runtime, and DuckDB and sqlite-vec archives for the host."""
+    """Provision the .NET tool manifest, pinned build tools, EnergyPlus runtime, and DuckDB and sqlite-vec archives for the host."""
+    anyio.run(run, ["dotnet", "tool", "restore"], REPO_ROOT)
     tools = anyio.run(native_build_tools)
     energyplus = anyio.run(_energyplus_exe)
     duckdb, extensions = anyio.run(duckdb_extension_archives, host_rid())

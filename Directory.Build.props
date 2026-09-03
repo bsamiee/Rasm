@@ -1,7 +1,7 @@
 <Project>
     <PropertyGroup Label="Workspace">
         <RasmRepoRoot>$(MSBuildThisFileDirectory)</RasmRepoRoot>
-        <ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
+        <ArtifactsPath>$([MSBuild]::NormalizePath('$(RasmRepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
         <RasmLibsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'libs'))</RasmLibsRoot>
         <RasmToolsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'tools'))</RasmToolsRoot>
         <RasmTestsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'tests'))</RasmTestsRoot>

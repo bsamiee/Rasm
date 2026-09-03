@@ -86,7 +86,8 @@ _KINDS: dict[str, _Kind] = {
     "idouble": _Kind(extern="double {p}", param="double {p}", default="double"),
     "istring": _Kind(extern="[MarshalAs((UnmanagedType)48)] string {p}", param="string {p}", default="string"),
     "ivoidstar": _Kind(extern="IntPtr {p}", param="IntPtr {p}"),
-    "ivectorint": _Kind(extern="int[] {p}, long {p}_n",
+    "ivectorint": _Kind(
+        extern="int[] {p}, long {p}_n",
         param="int[] {p}",
         pre="int[] {n}_ = {p} ?? Array.Empty<int>();",
         call="{n}_, (long){n}_.Length",

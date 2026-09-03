@@ -12,6 +12,9 @@
         // One reference per workspace package tsconfig ({ "path": "./libs/typescript/{package}" })
         {
             "path": "./tests/typescript/support"
+        },
+        {
+            "path": "./tools/nx"
         }
     ],
     "watchOptions": {

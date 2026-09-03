@@ -1,0 +1,10 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "emitDeclarationOnly": true,
+        "outDir": "../../.cache/typescript/out/tools-nx",
+        "tsBuildInfoFile": "../../.cache/typescript/tools-nx.tsbuildinfo",
+        "types": ["node"]
+    },
+    "include": ["*.ts"]
+}

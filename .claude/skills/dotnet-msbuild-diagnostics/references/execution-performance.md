@@ -1,116 +1,118 @@
 # [EXECUTION_PERFORMANCE]
 
-Use this reference when target execution, project scheduling, or task cost contributes to build duration.
+Covers target execution, project scheduling, and task cost in build duration, where every finding is a delta between two captures taken under the same conditions.
 
-## [01]-[BINLOG_DIAGNOSIS]
+## [01]-[COMPARABLE_CAPTURES]
+
+Change only the input or setting under measurement. Hold the command, properties, node count, node reuse, restore state, and build server state constant across the two captures, and keep binary logging on for both, because the logger has its own cost.
+
+| [INDEX] | [CAPTURE]     | [COMMANDS]                                                                   | [MEASURES]                               |
+| :-----: | :------------ | :--------------------------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | Clean build   | `dotnet build -t:Rebuild -tl:off -bl:<dir>/rebuild-{}.binlog`                | Every target and task from empty outputs |
+|  [02]   | Changed input | One successful build, one representative edit, the same command with `-bl`   | The work one edit causes                 |
+|  [03]   | No change     | One successful build, then the same command again with `-bl`                 | Targets that run with nothing changed    |
+|  [04]   | Build only    | `dotnet restore -bl:<dir>/restore-{}.binlog`, then `--no-restore` with `-bl` | Execution without restore                |
+
+- `dotnet build-server shutdown` stops the MSBuild server and the compiler server before a capture, and `--disable-build-servers` keeps them out of one capture
+- `-nr:false` stops node reuse, and the next capture starts its worker nodes again
+- Record the state chosen for each of those with the capture, because a warm server and reused nodes remove process startup from the measured duration
+- Use `binlog_compare` for property and package drift between two captures, never for timing
+- Compare the build against its own captures, not against a universal threshold
+
+## [02]-[BINLOG_DIAGNOSIS]
 
 1. Run `binlog_build_graph` for project dependencies, durations, and the critical path
-2. Run `binlog_project_target_times` on each suspect project in that path
+2. Run `binlog_project_target_times` on each project in that path
 3. Run `binlog_tasks_in_target` on each slow target
-4. Run `binlog_task_details` when task parameters or messages can explain the cost
-5. Run `binlog_expensive_projects`, `binlog_expensive_targets`, and `binlog_expensive_tasks` for build-wide cost
+4. Run `binlog_task_details` when task parameters or messages explain the cost
 
-The target and task tools aggregate elapsed duration by name across the build. Rank findings by measured duration and critical-path effect. Do not apply universal timing or percentage thresholds.
+`binlog_expensive_targets` and `binlog_expensive_tasks` aggregate elapsed duration by name across the build, and findings rank by measured duration and critical-path effect.
 
-## [02]-[CRITICAL_PATH_AND_PARALLELISM]
+## [03]-[CRITICAL_PATH_AND_NODES]
 
-The critical path is the duration-weighted project chain that sets the dependency graph's minimum completion time. Work outside this chain can still delay it through contention.
+The critical path is the duration-weighted chain of project dependencies that sets the minimum build time, and work outside that chain still delays it through contention for nodes and disks.
 
-- `dotnet build` and `dotnet msbuild` both start multiprocess MSBuild. `MSBuildNodeCount` in the binlog reports the node count that the capture used.
-- Each MSBuild node builds one project at a time. Project dependencies, limited nodes, and shared resources constrain parallel execution.
-- `ResolveProjectReferences` can invoke referenced-project builds. Its inclusive duration includes their execution and the wait while the node yields. `_GetProjectReferenceTargetFrameworkProperties` has the same inflated duration. It builds each reference to negotiate its framework.
-- Do not infer underuse from project count alone. Compare the graph timeline with the available node count.
+- `dotnet build` passes `-maxcpucount`, and the `MSBuildNodeCount` property in the binlog records the node count the capture used
+- Each node builds one project at a time, and targets inside a project run one after another
+- `ResolveProjectReferences` and `_GetProjectReferenceTargetFrameworkProperties` include the referenced builds in their inclusive duration, and their exclusive duration is the project's own cost
+- `-clp:PerformanceSummary` prints target and task totals on the console, and `-ds` prints how projects were scheduled to nodes, for a build with no binlog
 
-## [03]-[PROJECT_GRAPH]
+## [04]-[PROJECT_GRAPH]
 
-Treat a `ProjectReference` as both an ordering edge and an output dependency.
+Treat a `ProjectReference` as an ordering edge and an output dependency.
 
 - Remove the reference only when the consumer needs neither the output nor the ordering edge
-- Set `ReferenceOutputAssembly="false"` when the build needs the ordering edge but the compiler does not consume the output
+- Set `ReferenceOutputAssembly="false"` when the build needs the ordering edge and the compiler does not consume the output
 - Replace a project reference with a package only when the dependency is a prebuilt artifact
-- Use a solution filter to reduce the graph scope, not to increase parallelism inside the retained graph
+- Use a solution filter to reduce the graph, not to raise parallelism inside the retained graph
 
-After each graph change, capture the same build again. Run `binlog_build_graph` to examine the new critical path.
+After each graph change, capture the same build again and run `binlog_build_graph` for the new critical path.
 
-## [04]-[STATIC_GRAPH]
+## [05]-[STATIC_GRAPH]
 
-Static graph mode creates the project graph from declared project references before target execution.
-
-- `-graph` schedules referenced projects before their consumers. It does not make targets incremental or cache results between builds.
-- `-isolate` enforces the graph. `MSB4252` reports only under `-isolate`. Clean `-graph` builds prove nothing about missing edges. Restore breaks isolation. Pass `--no-restore`.
+`-graph` builds the project graph from declared references before execution and schedules referenced projects before their consumers. `-isolate` enforces the graph and is the only mode that reports `MSB4252`, and a clean `-graph` build without it proves nothing about missing edges.
 
 ```bash
-dotnet build --no-restore -graph -isolate -bl:static-graph-{} # capture an isolated static graph build
+dotnet restore Solution.slnx
+dotnet build Solution.slnx --no-restore -tl:off -graph -isolate -bl:<dir>/graph-{}.binlog  # restore breaks isolation and runs first
 ```
-- Dynamic `<MSBuild Projects="...">` calls do not add a static graph edge. Declare the edge with `ProjectReference`, or add the target to `ProjectReferenceTargets`.
-- If the build reports `MSB4252`, read the named project and global properties, then declare the missing edge
-- `-graph` is experimental. Use it to measure scheduling, never as a build setting.
 
-## [05]-[MSBUILD_TASK_PARALLELISM]
+- `<MSBuild Projects="...">` calls add no graph edge, and `ProjectReference` or a `ProjectReferenceTargets` entry declares it
+- `MSB4252` names the calling project, the called project, and both global-property sets, and the difference between the sets is the undeclared instance
+- `GraphIsolationExemptReference` with the full path of a project exempts one reference from the isolation check
+- Both switches are experimental, for measurement and for finding edges, never for a build setting
 
-`<MSBuild>` builds independent projects in parallel when one task receives the project list.
+## [06]-[MSBUILD_TASK_PARALLELISM]
+
+The `<MSBuild>` task submits the whole project list to the engine at once when one call receives the list and `BuildInParallel` is `true`, and builds each project alone in turn when it is `false`.
 
 ```xml
-<!-- Build independent projects in parallel. -->
-<MSBuild Projects="@(IndependentProjects)"
-         Targets="Build"
-         BuildInParallel="true" />
+<!-- One call with the whole list, the engine schedules the projects across nodes -->
+<MSBuild Projects="@(IndependentProjects)" Targets="Build" BuildInParallel="true" />
 ```
 
-Do not batch this task into one call per project. Batching serializes the calls before `BuildInParallel` can schedule the project list.
+- Tasks batched with `%(IndependentProjects.Identity)` make one call per project, and each call finishes before the next starts
+- `BuildInParallel` defaults to `true` in `Microsoft.Common.CurrentVersion.targets`, and an explicit `false` on a call is the cause when referenced projects build one after another
 
-## [06]-[MULTITHREADED_MODE]
+## [07]-[MULTITHREADED_MODE]
 
-`-mt` builds projects on threads inside one MSBuild process instead of on separate processes. The switch is experimental and unsupported. Use it to measure, never as a build setting.
+`-mt` builds projects on threads inside one MSBuild process instead of on worker processes, and `-maxCpuCount` still sets the thread count. The switch is experimental and unsupported, for measurement and never for a build setting.
 
-```bash
-dotnet msbuild -mt -bl:multithreaded-{}  # capture a multi-threaded build
-```
-
-Task classes need `[MSBuildMultiThreadableTask]` from `Microsoft.Build.Framework` to run in-process on a thread node. Every other task runs in a separate `TaskHost` process and pays the inter-process cost. The attribute is not inherited. `IMultiThreadableTask` supplies `TaskEnvironment` and does not opt the task in.
-
-## [07]-[RESOLVE_ASSEMBLY_REFERENCE]
+## [08]-[RESOLVE_ASSEMBLY_REFERENCE]
 
 When `binlog_expensive_tasks` shows `ResolveAssemblyReference` cost:
-1. Run `binlog_task_details` for the slow task
-2. Examine its references and search paths
-3. Apply the project graph rules before you change a reference
+1. Run `binlog_task_details` with `task_name=ResolveAssemblyReference` for the slow project
+2. Read its `Assemblies` input and search paths
+3. Apply the project graph rules before a reference changes
 
-`ResolveAssemblyReference` can run during incremental builds. Targeting packs, installed assemblies, and other external inputs can change between builds.
+`ResolveAssemblyReference` runs in incremental builds, because targeting packs and installed assemblies can change between builds.
 
-## [08]-[ANALYZERS_AND_GENERATORS]
+## [09]-[COMPILER_AND_ANALYZERS]
 
-`Csc` includes analyzer and source-generator work. Capture analyzer timing only after the first binlog identifies compiler cost.
+`Csc` includes analyzer and source generator work. The .NET SDK sends every compilation to the compiler server, and `UseSharedCompilation=false` runs `csc` as a process per project, which the `CompilerServer:` message under the `Csc` task records as `server processed compilation` or `using command line tool by design`.
 
 ```bash
-dotnet build -p:ReportAnalyzer=true -bl:analyzers-{} # capture analyzer and generator timing
+dotnet build Solution.slnx -t:Rebuild -tl:off -p:ReportAnalyzer=true -bl:<dir>/analyzers-{}.binlog  # per-analyzer timing in the log
 ```
 
-- Run `binlog_analyzer_summary`. Analyzers run concurrently. Reported analyzer time can exceed elapsed time.
-- Rank analyzer outliers. Do not subtract reported analyzer time from `Csc` duration.
-- `GlobalPackageReference` applies to every importing project unless its declaration has a condition
-- Change analyzer coverage only when the evidence and quality policy permit it
+- Run `binlog_analyzer_summary` on the capture for time and invocation count per analyzer, and rank the outliers
+- Analyzers run concurrently, and the reported analyzer time can exceed the `Csc` duration and is no share of it
+- `GlobalPackageReference` in `Directory.Packages.props` gives every project the analyzer, and an outlier there costs every compilation
+- Change analyzer coverage only when the evidence and the quality policy permit it
 
-## [09]-[COPY_TASKS]
+## [10]-[COPY_TASKS]
 
 When `binlog_expensive_tasks` shows `Copy` cost:
-1. Run `binlog_task_details` for the slow task
-2. Examine `SourceFiles`, `DestinationFiles`, and `DestinationFolder`
+1. Run `binlog_task_details` with `task_name=Copy` for the slow target
+2. Read `SourceFiles`, `DestinationFiles`, and `DestinationFolder`
 
 Then apply the fix the evidence selects:
 - Combine independent files in one `Copy` task instead of one task per file
-- Use `SkipUnchangedFiles="true"` only when timestamp and size comparisons are valid for those files
-- Remove a copy only when downstream work does not require the destination file
+- Use `SkipUnchangedFiles="true"` when a size and timestamp comparison is valid for those files
+- Remove a copy only when nothing downstream reads the destination file
+- `CopyToOutputDirectory="Always"` copies on every build, which `BC0106` reports, and `dotnet-msbuild-execution` owns the mode choice
 
-## [10]-[RESTORE]
+## [11]-[RESTORE]
 
-Run `binlog_nuget` when restore contributes to the measured build. Examine restore duration, packages, versions, and sources.
-
-To measure build execution without restore, capture a compatible restore first:
-
-```bash
-dotnet restore -bl:restore-{}       # capture the restore that creates the assets
-dotnet build --no-restore -bl:{}    # reuse the compatible restore result
-```
-
-Use `--no-restore` only when the earlier restore used the same project inputs, properties, SDK, packages, and sources. This separation does not reduce the combined restore and build duration.
+Run `binlog_nuget` when restore contributes to the measured build and read its duration, sources, and package count, and the build-only capture separates restore from execution without reducing the combined duration.
+- See `dotnet-msbuild-packaging` for `RestoreUseStaticGraphEvaluation`, lock files, and source configuration

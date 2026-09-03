@@ -6,6 +6,7 @@ skills:
   - dotnet-msbuild-diagnostics
   - dotnet-msbuild-execution
   - dotnet-msbuild-evaluation
+  - dotnet-msbuild-packaging
   - dotnet-roslyn-codelens
 ---
 
@@ -28,7 +29,7 @@ The run is done when:
 Read in order before the first tool call on a log:
 1. The route for the symptom in procedure step 2, and the reference it names, in full
 2. One `ToolSearch` call with `+binlog` and `max_results` 50. One `ToolSearch` call with `select:` and the full `mcp__roslyn-codelens__` names: `list_solutions`, `load_solution`, `get_diagnostics`, `get_code_fixes`, `resolve_stack_trace`, `get_source_generators`, `get_generated_code`.
-3. `list_solutions`. If the solution in scope is not active, run `load_solution` with its path. `dotnet-roslyn-codelens` `[03.4.1]` owns trust.
+3. `list_solutions`. If the solution in scope is not active, run `load_solution` with its path. `dotnet-roslyn-codelens` owns trust.
 4. The log folder `<logs>`: `$(dotnet msbuild <project> -getProperty:ArtifactsPath)logs/`, or `logs/` at the repo root when the property is empty
 5. The existing logs: `fd -I -e binlog`. The file name carries the UTC stamp.
 6. The console output of the failing command, when the prompt supplies it
@@ -37,18 +38,18 @@ Failed builds with a log need no re-run. Prompts without a command, a log path, 
 </context_gathering>
 
 <procedure>
-1. If no log exists, capture with `-bl:<logs><purpose>-{}`. `dotnet-msbuild-diagnostics` `[01]` owns the capture rules.
+1. If no log exists, capture with `-bl:<logs><purpose>-{}`. `dotnet-msbuild-diagnostics` owns the capture rules.
 2. Route by symptom to the skill section and follow it there:
 
-| [INDEX] | [SYMPTOM]              | [ROUTE]                                                                                                     |
-| :-----: | :--------------------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | Failed build           | `dotnet-msbuild-diagnostics` `[03]`                                                                         |
-|  [02]   | Slow build             | `dotnet-msbuild-diagnostics` `[04]`                                                                         |
-|  [03]   | Clash or double build  | `dotnet-msbuild-diagnostics` `[05]`, with `-t:Rebuild` in place of the output directory delete              |
-|  [04]   | Unexpected rebuild     | `references/evaluation-and-incrementality.md` `[02]`                                                        |
-|  [05]   | Wrong property or item | `binlog_explain_property`, `binlog_compare_property`, `binlog_imports`, `dotnet-msbuild-evaluation` `[06]`  |
-|  [06]   | `NETSDK1005`           | `binlog_evaluations` with the project filter, then `binlog_evaluation_global_properties`, `[AP-20]` caution |
-|  [07]   | `dotnet test`          | `dotnet-msbuild-diagnostics` `[01]`, the build log, never the discovery log                                 |
+| [INDEX] | [SYMPTOM]               | [ROUTE]                                                                                                 |
+| :-----: | :---------------------- | :------------------------------------------------------------------------------------------------------ |
+|  [01]   | Failed build            | `dotnet-msbuild-diagnostics`, failed build triage                                                       |
+|  [02]   | Slow build              | `dotnet-msbuild-diagnostics`, build performance                                                         |
+|  [03]   | Shared path or 2 builds | `dotnet-msbuild-diagnostics`, shared output paths, `-t:Rebuild` in place of the output directory delete |
+|  [04]   | Unexpected rebuild      | `references/evaluation-and-incrementality.md`, incrementality                                           |
+|  [05]   | Wrong property or item  | `binlog_explain_property`, `binlog_compare_property`, `binlog_imports`, evaluation troubleshooting      |
+|  [06]   | `NETSDK1005`            | `binlog_evaluations` by project, then `binlog_evaluation_global_properties`, `SetTargetFramework` entry |
+|  [07]   | `dotnet test`           | `dotnet-msbuild-diagnostics`, capture, the build log, never the `-dotnet-test` log                      |
 
 3. Use Roslyn for compiler facts:
    - Compiler or analyzer errors that fail the build: `get_diagnostics` with `severity=error` and `includeAnalyzers=true`, then `get_code_fixes`. Return the fix, never apply it.
@@ -62,11 +63,11 @@ Failed builds with a log need no re-run. Prompts without a command, a log path, 
 </procedure>
 
 <evidence_rules>
-- Subtract the reader-loss warning of `dotnet-msbuild-diagnostics` `[02]` and the synthetic `Build failed.` error of `[03]` from every count
+- Subtract the `Skipped some data unknown to this version of Viewer` warning and the synthetic `Build failed.` error of the solution node from every count
 - Empty `binlog_errors` results do not prove a clean build. Targets can fail without an MSBuild error. The `binlog_overview` status and the failing target decide.
 - `binlog_files` reads a source file that is not on disk
-- `dotnet-msbuild-diagnostics` `[05]`: the `-check` console, not `binlog_warnings`, is the record for `BC*` output
-- Performance results are deltas between captures under the controls of `references/performance-baseline.md` `[01]`
+- The `-check` console and `binlog_warnings` with `category=BuildCheck` report the same `BC*` counts, and either is the record
+- Performance results are deltas between captures under the comparable capture controls of `references/execution-performance.md`
 - Describing a build output the run never saw is fabrication
 - Write the partial finding into the report before the next capture. Cut-off runs still return their reasoning.
 - Nothing found is a legitimate result

@@ -22,11 +22,11 @@ Identifier and file renames update every reference:
 
 - BEFORE: `The SDK sets the property after the project body, so a project-level assignment is lost`
 - AFTER: `The SDK sets the property after the project body, a project-level assignment is lost`
+- WRONG: `Project-level assignments are lost because the SDK sets the property after the project body` (a reorder where the deletion suffices)
 - WRONG: `The SDK sets the property after the project body. Therefore a project-level assignment is lost` (the connective survived as a new sentence)
 
 - BEFORE: `It returns counts plus the top hotspots per dimension`
 - AFTER: `It returns counts with the top hotspots per dimension`
-- WRONG: `It returns counts and the top hotspots per dimension` (a replacement connective)
 
 ## [03]-[SUCH_AS_AND_WHOSE]
 
@@ -53,6 +53,7 @@ Identifier and file renames update every reference:
 
 - BEFORE: `A recursive path calling itself with no base case loops forever`
 - AFTER: `Recursive paths with no base case loop forever`
+- WRONG: `The recursive path calling itself with no base case loops forever` (the article swapped, the structure kept)
 
 - BEFORE: `` An `Inputs` or `Outputs` expression that evaluates to empty skips the target ``
 - AFTER: `` `Inputs` or `Outputs` expressions that evaluate to empty skip the target ``
@@ -60,14 +61,17 @@ Identifier and file renames update every reference:
 - BEFORE: `| A composite audit per project over seven dimensions |`
 - AFTER: `| Composite audit per project over seven dimensions |`
 
-## [06]-[SENTENCE_MERGE]
+## [06]-[SENTENCE_INTENT]
 
 - BEFORE: `<tool> creates the <dir> directory at the root. This directory cannot be relocated. The gitignore excludes it. Reports still go to the configured artifact directory.`
-- AFTER: `<tool> creates <dir> at the root with no relocation option, .gitignore excludes it, and reports still go to the configured artifact directory`
+- AFTER: `<tool> creates <dir> at the root with no relocation option, .gitignore excludes it, and reports still go to the configured artifact directory` (one fact, the exception around the directory)
 - WRONG: `<tool> creates <dir>. It is fixed. Gitignore excludes it. Reports go to artifacts.` (fragments, dropped articles, dropped facts)
 
 - BEFORE: `Language-specific idioms may differ, but the composition rules do not; define a result type when a language has no suitable one instead of introducing another error mechanism`
 - AFTER: `Language idioms differ but the composition rules do not, and a language without a suitable result type defines one instead of adding another error mechanism`
+
+- BEFORE: `Statements, list items, and table cells open with the subject, instructions open with the verb, a subject that needs "a" or "an" is pluralized or takes "the", and a run of items with one article and noun opener restructures around the verb or the category noun` (four rules in one list item)
+- AFTER: `Statements, list items, and table cells open with the noun that names their subject, and instructions open with the verb` / `A generic singular subject becomes the plural or the instruction's verb` / `A run of list items with one noun opener restructures around the verb or the category noun` (one rule per item)
 
 ## [07]-[OVERLAP_AND_NO_OP]
 
@@ -153,3 +157,34 @@ Identifier and file renames update every reference:
 
 - BEFORE: `GPU acceleration for <model> inference` (comment on a CPU-only runtime package)
 - AFTER: `Default CPU inference runtime binaries for every platform` (longer, because the fact was wrong)
+
+## [14]-[NARRATION_TO_INSTRUCTION]
+
+- BEFORE: `Committed binaries, because the pipeline rebuilds every artifact from a pinned manifest` (an item in a list of what a directory excludes)
+- AFTER: `The pipeline rebuilds every binary from a pinned manifest` (the fact, under the pipeline's heading)
+- WRONG: `Never commit binaries, the pipeline rebuilds them` (the forbidden form leads)
+- WRONG: `Every binary belongs to the pipeline, which rebuilds it from a pinned manifest` (an ownership statement in place of the fact)
+
+- BEFORE: `The script finds the repository root as the nearest ancestor directory holding the root lock file, never the working directory or an environment variable`
+- AFTER: `Find the repository root as the nearest ancestor directory holding the root lock file`
+
+- BEFORE: `The target sets cache: false and parallelism: false, provisioning mutates shared directories`
+- AFTER: `Set cache: false and parallelism: false on the target, because provisioning mutates shared directories`
+- KEEP: the reason, the reader needs it to decide the same for the next target that mutates a shared directory
+
+## [15]-[CONTEXT_SUPPLIED_SUBJECT]
+
+- BEFORE: `` `dotnet-roslyn-codelens` owns trust `` (a step in a procedure)
+- AFTER: `` Use `dotnet-roslyn-codelens` to trust the solution ``
+
+- BEFORE: `` See `dotnet-msbuild-packaging` for the pack items, the `PackagePath` metadata, and the deterministic pack properties ``
+- AFTER: `` Use `dotnet-msbuild-packaging` for the package layout `` (the contents stay in the skill)
+
+- BEFORE: `# Nx plugin that infers the packaging projects, their stage and pack targets, and their edges` (a tree comment)
+- AFTER: `# Nx plugin that adds the native packaging projects to the task graph`
+
+- BEFORE: `` `get_diagnostics` with `includeAnalyzers=true` once. That result is the baseline. ``
+- AFTER: `` `get_diagnostics` with `includeAnalyzers=true` once, as the baseline ``
+
+- BEFORE: `` Condition these properties in `Directory.Build.targets` `` (a rule under an entry that names the properties)
+- AFTER: `` Condition the properties in `Directory.Build.targets` ``

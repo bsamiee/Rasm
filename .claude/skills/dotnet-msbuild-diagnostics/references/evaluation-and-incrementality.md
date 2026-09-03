@@ -1,69 +1,88 @@
 # [EVALUATION_AND_INCREMENTALITY]
 
-Use the evaluation workflow for evaluation cost. Use the incrementality workflow when a later build executes unexpected work.
+Covers evaluation time, projects that evaluate more often than expected, and the work a no-change build still executes.
 
 ## [01]-[EVALUATION]
 
-MSBuild evaluates a project before it executes targets.
+MSBuild evaluates a project before it executes targets, once per project instance, and the evaluation walks every import, property, item glob, and property function in order.
 
-### [01.1]-[BINLOG_DIAGNOSIS]
+### [01.1]-[MEASUREMENT]
 
-1. Run `binlog_evaluations` to identify costly project evaluations
-2. Run `binlog_evaluation_global_properties` for each suspect evaluation
+```bash
+dotnet build <project> -tl:off -profileEvaluation:<dir>/evaluation-{}.md   # one row per import, property, item, and target
+dotnet build <project> -tl:off -v:diag | rg 'Property reassignment'
+```
 
-Then run the tool the evidence selects:
-- `binlog_evaluation_properties` when an evaluated property value is relevant
-- `binlog_imports` for the import chain
-- `binlog_items` to examine evaluated item counts and contents
-- `binlog_search_files` for glob and property-function declarations
-- `binlog_preprocess` only when the complete imported source is necessary
+- `-profileEvaluation` reports inclusive and exclusive time, grouped into the passes of evaluation, and the glob rows include the directory enumeration cost
+- Class libraries with no custom files print more than a hundred `Property reassignment:` lines from the SDK, and only the lines that name a repository file matter
 
-Change a glob, an import, or a property function only when measured evaluation cost identifies it.
+### [01.2]-[BINLOG_DIAGNOSIS]
+
+1. Run `binlog_evaluations` to find the slow or repeated evaluations
+2. Run `binlog_evaluation_global_properties` for each evaluation of a repeated project
+3. Run the tool the evidence selects:
+   - `binlog_evaluation_properties` when an evaluated value is in question
+   - `binlog_imports` for the import chain and each missing import
+   - `binlog_items` for the count and content of one item type
+   - `binlog_search_files` for the glob or property function declaration in the embedded sources
+   - `-pp:` on the project file when the whole expansion is necessary
+
+Change a glob, an import, or a property function only when the measured evaluation cost names it.
 
 GLOBS:
-- Broad recursive globs can enumerate large directory trees
-- For SDK default items, add large excluded directories to `DefaultItemExcludes`
-- For a custom `Include`, put `Exclude` on the same item element
-- Disable a default item type only when the project supplies every required item of that type
+- The SDK includes `**/*.cs` when `EnableDefaultItems` and `EnableDefaultCompileItems` are `true`, minus `DefaultItemExcludes` and `DefaultExcludesInProjectFolder`, and the same pattern applies to `None` and `EmbeddedResource`
+- `DefaultItemExcludes` holds `$(BaseOutputPath)/**`, `$(BaseIntermediateOutputPath)/**`, `**/*.user`, and the project and solution file patterns, and a large directory goes on the end of it, never in place of it
+- For a custom `Include`, put `Exclude` on the same element
+- Disable a default item type only when the project declares every item of that type
 
-IMPORTS:
-- Preserve the required property, item, task, and target order
+```xml
+<PropertyGroup>
+  <!-- Large tree inside the project directory that no item type reads -->
+  <DefaultItemExcludes>$(DefaultItemExcludes);fixtures/**</DefaultItemExcludes>
+</PropertyGroup>
+```
 
 MULTIPLE EVALUATIONS:
-- Each unique project and global-property combination can require a separate evaluation
-- Outer builds, inner builds, and restore can create expected evaluations
-- Investigate only unexpected differences in global-property sets
-- Remove an evaluation only when its project instance is not required for the requested build
+- The restore pass, the outer build, and each inner build of a multi-targeting project are expected evaluations
+- Investigate only a difference in the global-property sets that the requested build does not need
 
 PROPERTY FUNCTIONS:
-- Property functions in an evaluated property or item expression run during evaluation
-- Keep evaluation expressions deterministic and free of side effects
+- Property functions inside a property or item expression run on every evaluation, including design-time builds and `-getProperty` queries
+- Keep evaluation expressions deterministic and free of file reads, and `dotnet-msbuild-antipatterns` owns the correction in its evaluation entries
 
 ## [02]-[INCREMENTALITY]
 
-The `dotnet-msbuild-execution` skill owns the `Inputs`, `Outputs`, and `FileWrites` authoring rules. This workflow finds the target that breaks them.
+`dotnet-msbuild-execution` owns the `Inputs`, `Outputs`, and `FileWrites` authoring rules. This workflow finds the target that breaks them.
 
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
 ```bash
-dotnet build -bl:prime-incremental-{}  # establish the outputs
-dotnet build -bl:incremental-{}        # capture the no-change build
+dotnet build Solution.slnx -tl:off -bl:<dir>/establish-{}.binlog   # establishes the outputs
+dotnet build Solution.slnx -tl:off -bl:<dir>/no-change-{}.binlog   # the capture to analyze
 ```
 
 Analyze the second binlog:
-1. Run `binlog_incremental_analysis` for target decisions, triggering files, and `IncrementalClean` deletions
-2. Run `binlog_project_target_times` for each suspect project
-3. Keep targets with `skipped: false` and a file path in `staleOutputs`. `staleOutputs` values that repeat the target name mark a target with no file outputs. That target runs on every build by design.
-4. Run `binlog_search` with `Building target "<name>" completely` for each unresolved target. The `Chain:` line of `binlog_target_reasons` reports a stale skip state and omits the reason.
-5. Run `binlog_expensive_targets` to prioritize costly rebuilt targets
-6. Run `binlog_preprocess` only when the imported target declaration is necessary
+1. Run `binlog_incremental_analysis`, and read `targets` for each row with `skipped: false`, its `reason`, `triggerInputs`, and `staleOutputs`, then `incrementalCleanDeletions` for a file a skipped target had declared
+2. Run `binlog_project_target_times` for each project the rows name
+3. Keep the rows with a file path in `staleOutputs`, because a `staleOutputs` value that repeats the target name marks a target with no `Outputs`
+4. Run `binlog_search` with `Building target "<name>" completely` for each unresolved target, because the message under it names the stale input or the missing output
+5. Run `binlog_expensive_targets` to order the rebuilt targets by cost
+6. Run `binlog_search_files` for the target declaration when its `Inputs` and `Outputs` are in question
 
-`Building target "X" completely` and its reason identify the stale input or missing output. Targets without an up-to-date reason or a `Skipped:` line have no declared `Inputs` and `Outputs`.
+- Targets without `Inputs` and `Outputs` run on every build and log no up-to-date reason
+- `IncrementalClean` deletes a file that a prior build wrote and this build did not record, and a file that vanishes on every second build belongs in `FileWrites` from an `ItemGroup` inside the target
 
-### [02.2]-[COMMON_DEFECTS]
+### [02.2]-[COMPILATION]
+
+`CoreCompile` declares its sources, references, and analyzers as `Inputs` and the assembly, reference assembly, and documentation file as `Outputs`, and a no-change build skips it.
+- `Deterministic` is `true` by default in the SDK, and identical inputs produce an identical assembly
+- `ProduceReferenceAssembly` is `true` by default, `Csc` writes `obj/<config>/<tfm>/refint/<name>.dll`, and `CopyRefAssembly` updates `ref/<name>.dll` only when the public surface changes. A change inside a method body recompiles the library and leaves every consumer's `CoreCompile` skipped.
+- New public types rewrite the reference assembly and recompile every consumer, which `binlog_search_targets` on `CoreCompile` shows as `skipped: false` in each dependent
+
+### [02.3]-[COMMON_DEFECTS]
 
 - Output paths contain a timestamp, build number, or random value
 - The target writes a file that `Outputs` does not declare
 - The declared inputs omit a file that affects the output
 - Changed properties alter a declared input or output path
-- Tasks rewrite unchanged output content and change its timestamp
+- Tasks rewrite unchanged output content and change its timestamp, and `WriteLinesToFile` needs `WriteOnlyWhenDifferent="true"`

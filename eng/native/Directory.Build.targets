@@ -17,11 +17,11 @@
 
     <Target Name="EnsureStagedNativeLibraries" BeforeTargets="GenerateNuspec" Condition="'$(IncludeBuildOutput)' == 'false'">
         <Error Condition="!Exists('$(StageRoot)runtimes') and !Exists('$(StageRoot)contentFiles')"
-               Text="Nothing staged under $(StageRoot), run the eng stage-$(NativeLibraryName)-native target first" />
+               Text="Nothing staged under $(StageRoot), run the stage target of the $(NativeLibraryName) packaging project first" />
     </Target>
 
     <Target Name="EnsureStagedManagedSources" BeforeTargets="CoreCompile" Condition="'$(IncludeBuildOutput)' == 'true'">
-        <Error Condition="'@(Compile)' == ''" Text="No sources staged under $(StageRoot)managed, run the eng stage-$(NativeLibraryName)-native target first" />
+        <Error Condition="'@(Compile)' == ''" Text="No sources staged under $(StageRoot)managed, run the stage target of the $(NativeLibraryName) packaging project first" />
     </Target>
 
     <Target Name="EnsureManifestVersionMatch" BeforeTargets="GenerateNuspec">

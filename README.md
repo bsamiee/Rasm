@@ -24,11 +24,13 @@ Rasm/
 │   ├── python/
 │   └── typescript/
 ├── eng/                      # Shared build and release infrastructure
-│   ├── native/               # Native packaging: vcpkg pins and packaging projects
+│   ├── native/               # Native packaging: version manifest directory and packaging projects per library
 │   └── scripts/              # Python automation that Nx targets and CI jobs invoke
 ├── tools/                    # Custom tools for developing this project
-│   └── biome/                # Biome GritQL plugin rules
+│   ├── biome/                # Biome GritQL plugin rules
+│   └── nx/                   # Nx plugin that infers the packaging projects, their stage and pack targets, and their edges
 ├── nx.json                   # Task graph, caching, and change detection across the workspace
+├── NuGet.config              # NuGet sources and package source mapping, clears inherited machine and user sources
 ├── Directory.Build.props     # .NET build defaults, artifacts path, restore, analysis, analyzers, Rhino bundle paths
 ├── Directory.Build.targets   # .NET derived items, host references, and project policy checks
 ├── Directory.Packages.props  # .NET central package versions
@@ -42,14 +44,14 @@ Rasm/
 ├── vitest.config.ts          # TypeScript Vitest projects, coverage, and benchmark configuration
 ├── stryker.config.json       # TypeScript mutation testing
 ├── stryker-config.json       # .NET mutation testing
-├── Workspace.slnx            # .NET solution listing every project
+├── Workspace.slnx            # .NET solution of the library, application, and test projects
 ├── global.json               # .NET SDK version and test runner config (MTP)
-├── NuGet.config              # NuGet feed, clears inherited machine and user sources
-├── CLAUDE.md                 # Agent standards
-├── AGENTS.md                 # Symlink to CLAUDE.md
+├── .config/dotnet-tools.json # .NET local tool manifest, restored by the eng provision target
 ├── .editorconfig             # Analyzer severity, path-specific overrides, and BuildCheck settings
 ├── .gitattributes
 ├── .gitignore
+├── CLAUDE.md                 # Agent standards
+├── AGENTS.md                 # Symlink to CLAUDE.md
 ├── README.md
 └── LICENSE                   # MIT license
 ```
@@ -64,6 +66,13 @@ Nx defines the task graph and the build, test, lint, and generate targets.
 - Targets running a single command name that command directly
 - Steps with control flow are Python scripts under `eng/scripts/` that a target invokes
 - Scripts take their dependencies from the root `pyproject.toml` groups and run under `uv run`
+- `nx run eng:provision` restores the tool manifest and places vcpkg, its binary cache, and every pinned release archive under `.cache/`
+- `tools/nx/native-packaging.ts` infers one project per `eng/native/*/*.csproj` with a `stage` target and a cached `pack` target
+- `stage` runs `uv run python -m eng.scripts.stage <library>` after `eng:provision`, and `pack` writes the package to the `local` source in `NuGet.config`
+- Binding projects with `IncludeBuildOutput` true get `pack` alone, which depends on the `stage` target of the native project of the same library
+- Inferred `build` targets pass `--no-restore`, and `dotnet restore Workspace.slnx` precedes `nx affected -t build test`
+- `nx graph --file=.artifacts/nx/graph.json` writes the project graph
+- `ProjectReference` edges and `PackageReference` edges to packaging projects drive `nx affected`
 
 ## [03]-[QUALITY]
 

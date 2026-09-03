@@ -21,7 +21,9 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS use `dotnet-msbuild-evaluation` skill for property, item, condition, and import placement across `.props`, `.targets`, and `.csproj` files
 - ALWAYS use `dotnet-msbuild-antipatterns` skill to review or audit a `.props`, `.targets`, or `.csproj` file before changing it
 - ALWAYS use `dotnet-msbuild-execution` skill for `<Target>` ordering, `DependsOn` chains, incremental `Inputs`/`Outputs`, and generated files
-- ALWAYS use `dotnet-msbuild-diagnostics` skill for all `.binlog` work: build failures, output clashes, and timing, NEVER read a `.binlog` directly
+- ALWAYS use `dotnet-msbuild-diagnostics` skill for `.binlog` work, build failures, shared output paths, and timing, NEVER read a `.binlog` directly
+- ALWAYS use `dotnet-msbuild-packaging` skill for package references, versions, sources, lock files, package projects, `.slnx`, and CI properties
+- ALWAYS use `monorepo-build-infrastructure` skill for `eng/`, Nx targets and plugins, native packaging, provisioning, and build file isolation
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex usage, config, harness work, and understanding
 
@@ -89,3 +91,4 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS reference a package directly in every project that names its types, a transitive reference carries no global using, alias, or analyzer
 - ALWAYS spell ALL Python dependency rows as bare unpinned names, `uv.lock` alone fixes versions
 - ALWAYS use `pnpm-workspace.yaml` for TypeScript dependency versions and align each `package.json` entry with its catalog entry
+- ALWAYS map every package id to one source in `NuGet.config`, `Rasm.*` to the local `.artifacts/nuget` feed and every other id to nuget.org
