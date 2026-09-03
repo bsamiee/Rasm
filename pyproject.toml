@@ -618,7 +618,6 @@ patch = [
 ]  # COVERAGE_PROCESS_CONFIG and the installed .pth file measure child processes, reporting combines their parallel data files
 
 [tool.coverage.report]
-fail_under = 90   # Sysmon records fewer arcs than the unavailable C tracer, coverage uses a 90 percent threshold
 show_missing = true
 skip_covered = true
 exclude_also = ["if TYPE_CHECKING:", "assert_never\\(", "\\.\\.\\.$", "if __name__ == .__main__.:"]

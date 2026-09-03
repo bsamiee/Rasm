@@ -406,6 +406,23 @@
                     }
                 ]
             },
+            "coverage": {
+                "executor": "nx:run-commands",
+                "cache": false,
+                "outputs": [
+                    "{workspaceRoot}/.artifacts/dotnet/coverage",
+                    "{workspaceRoot}/.artifacts/python/coverage",
+                    "{workspaceRoot}/.artifacts/typescript/coverage"
+                ],
+                "options": {
+                    "commands": [
+                        "test -z \"$(find .artifacts/dotnet -name '*.cobertura.xml' 2>/dev/null)\" || dotnet tool run reportgenerator \"-reports:.artifacts/dotnet/**/*.cobertura.xml\" -targetdir:.artifacts/dotnet/coverage \"-reporttypes:Cobertura;lcov\"",
+                        "test -z \"$(find .cache/coverage -name '.coverage.*' 2>/dev/null)\" || (uv run coverage combine --keep && uv run coverage lcov --keep-combined && uv run coverage xml --keep-combined)",
+                        "test ! -d .artifacts/typescript/test-results/.vitest-reports || vitest run --merge-reports .artifacts/typescript/test-results/.vitest-reports --coverage.enabled=true"
+                    ],
+                    "parallel": false
+                }
+            },
             "mutation": {
                 "executor": "nx:run-commands",
                 "cache": false,

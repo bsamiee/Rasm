@@ -48,7 +48,7 @@ const defaults = {
     },
     reporters: {
         coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
-        test: isCI ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const) : (['tree'] as const),
+        test: isCI ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const) : (['tree', 'blob'] as const),
     },
     setupFiles: [path.resolve(rootDirectory, 'tests/typescript/support/setup.ts')],
     snapshot: { format: { printBasicPrototype: false } },
@@ -84,13 +84,6 @@ const createVitestConfig = (directory: string): ViteUserConfig => {
                 reportOnFailure: true,
                 reportsDirectory: path.resolve(artifacts.coverage, name),
                 skipFull: true,
-                thresholds: {
-                    branches: 95,
-                    functions: 95,
-                    lines: 95,
-                    perFile: true,
-                    statements: 95,
-                },
             },
             deps: { ...defaults.dependencies },
             diff: { ...defaults.output.diff },
@@ -110,7 +103,7 @@ const createVitestConfig = (directory: string): ViteUserConfig => {
             name,
             onConsoleLog: (log) => !log.includes('Download the React DevTools'),
             outputFile: {
-                blob: path.resolve(results, '.vitest-reports'),
+                blob: path.resolve(artifacts.results, '.vitest-reports', `${name}.json`),
                 json: path.resolve(results, 'results.json'),
                 junit: path.resolve(results, 'junit.xml'),
             },
@@ -134,8 +127,22 @@ const createVitestConfig = (directory: string): ViteUserConfig => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-// The root configuration serves the mutation runner, which runs every suite from the workspace root
-const rootConfig: ViteUserConfig = createVitestConfig(rootDirectory);
+// The root configuration lists every project, the mutation runner and --merge-reports run from it, and the merge rejects a blob reporter
+const projectConfig: ViteUserConfig = createVitestConfig(rootDirectory);
+const rootConfig: ViteUserConfig = defineConfig({
+    ...projectConfig,
+    test: {
+        ...projectConfig.test,
+        coverage: {
+            ...projectConfig.test?.coverage,
+            clean: false,
+            reporter: ['lcovonly', 'json'],
+            reportsDirectory: artifacts.coverage,
+        },
+        projects: ['tests/typescript/support/vitest.config.ts', 'libs/typescript/*/vitest.config.ts'],
+        reporters: defaults.reporters.test.filter((reporter) => reporter !== 'blob'),
+    },
+});
 
 export default rootConfig;
 export { createVitestConfig };

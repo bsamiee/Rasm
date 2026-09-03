@@ -53,7 +53,7 @@ The skill names no repository, product, or person. It states rules with the cate
 |  [02]   | Toolchain        | `mise.toml`, `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `.vscode/settings.json` | Done     |
 |  [03]   | .NET manifest    | `.config/dotnet-tools.json`, `.mcp.json`, `Directory.Build.props`, `Directory.Packages.props` | Done     |
 |  [04]   | Nx               | `tools/nx/workspace.ts`, `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `biome.json` | Done     |
-|  [05]   | Coverage         | ReportGenerator merge, pytest coverage path, Vitest thresholds, `tests/README.md`         | Pending  |
+|  [05]   | Coverage         | `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `pyproject.toml`, `Directory.Build.targets`, `tests/README.md` | Done     |
 |  [06]   | Infrastructure   | `infra/` Pulumi program, Doppler adoption, CI token, `secrets` skill rule                 | Pending  |
 |  [07]   | CI               | `.github/workflows/ci.yml`, `.github/workflows/release.yml`                               | Pending  |
 |  [08]   | Tools in use     | KTX2 CLI and `git lfs install` in provisioning, protobuf generation target                | Pending  |
@@ -70,6 +70,13 @@ Decisions the steps recorded:
 - The per-language named inputs take the root files out of `sharedGlobals`, which keeps `nx.json` and `mise.toml`, and the `typescript` input carries the root `vite.config.ts` and `vitest.config.ts` that every Vitest project imports
 - Every `vitest.config.ts` is a complete standalone configuration from `createVitestConfig`, the results, benchmark, and coverage paths split by directory name, and the root configuration serves the mutation runner alone
 - `Rasm.Policy.Analyzers` declares no `AnalyzerReleases.*.md` items, the `Microsoft.CodeAnalysis.Analyzers` build assets add them, and the duplicate made `dotnet format` report a workspace warning
+- Coverage is information: no threshold in `vitest.config.ts`, `pyproject.toml`, or the merge, and the root `coverage` target merges once per language with `cache: false`
+- Collection runs through `test` configurations by language tag, `coverage` for Python and TypeScript and `benchmark` for Python, and .NET collects on every run through `TestingPlatformCommandLineArguments` under the `RasmRole` `tests` condition in `Directory.Build.targets`
+- Each merge command exits 0 without input through a POSIX shell guard (`test`, `find`), because ReportGenerator exits 1 on an empty glob, `coverage combine` on no parallel data, and `--merge-reports` on a missing directory, and no tool option covers the case
+- The Python `coverage` configuration sets `COVERAGE_FILE` to `.cache/coverage/.coverage.<project>`, because pytest-cov combines its own parallel files into one data file per run, and `coverage combine --keep` with `--keep-combined` reports merges the per-project files repeatably
+- Vitest `--merge-reports` resolves each blob by project name and recomputes the file id from that project's root, and the root `vitest.config.ts` declares `projects`, drops the blob reporter, and owns the merged `lcovonly` and `json` paths
+- Every Vitest project run writes its blob to `.artifacts/typescript/test-results/.vitest-reports/<name>.json`, a path outside the inferred outputs, and the merge reads every blob in that directory
+- `mutmut` leaves `tests/README.md`, it is not installed and no `[tool.mutmut]` table exists, the Python `benchmark` configuration exits 5 while no benchmark test exists, and `@nx/vitest` infers no `bench` target, and TypeScript benchmarks stay on the benchmark include glob
 
 ## [05]-[SKILL_SHAPE]
 
@@ -119,3 +126,4 @@ Each repository step corrects one category of mistake, and the skill's last sect
 |  [03]   |  [03]  | Tools resolved at latest on each launch, a tool installed by the machine for one repository's checks | Every tool the repository's checks run pinned in the repository's manifest, servers included |
 |  [04]   |  [04]  | Checks run as raw commands and per-tool target variants, root files rehashed by a root project, a discovery declared twice | One target name per kind of work filled by tag from `targetDefaults` with `check` and `write` configurations, a root project with explicit inputs alone, one discovery per tool |
 |  [05]   |  [04]  | A configuration file created per directory while an existing owner holds the setting (a root `project.json`, a `project.json` beside a manifest, a per-project tool config) | The existing owner: plugin inference, the manifest's `nx` field, `tsconfig.base.json`, the root tool config, and a new file only for a directory no manifest describes |
+|  [06]   |  [05]  | Coverage thresholds as gates, per-project reports with no aggregate, raw tool commands in documentation | Information reports merged once per language by one root target, `test` configurations for collection, documentation naming targets and configurations |

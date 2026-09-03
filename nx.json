@@ -122,10 +122,30 @@
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
             }
         ],
-        "test": {
-            "cache": true,
-            "inputs": ["...", "^production", { "externalDependencies": ["vitest"] }, { "env": "CI" }]
-        },
+        "test": [
+            {
+                "cache": true
+            },
+            {
+                "filter": { "projects": ["tag:language:python"] },
+                "executor": "nx:run-commands",
+                "inputs": ["default", "python"],
+                "outputs": ["{workspaceRoot}/.artifacts/python/**"],
+                "options": { "command": "uv run pytest {projectRoot}" },
+                "configurations": {
+                    "coverage": {
+                        "command": "uv run pytest --cov={projectRoot} --cov-report=lcov --cov-report=xml {projectRoot}",
+                        "env": { "COVERAGE_FILE": ".cache/coverage/.coverage.{projectName}" }
+                    },
+                    "benchmark": { "command": "uv run pytest -m benchmark {projectRoot}" }
+                }
+            },
+            {
+                "filter": { "projects": ["tag:language:typescript"] },
+                "inputs": ["...", "^production", { "externalDependencies": ["vitest"] }, { "env": "CI" }],
+                "configurations": { "coverage": { "command": "vitest --coverage.enabled=true" } }
+            }
+        ],
         "check": [
             {
                 "filter": { "projects": ["tag:language:*"] },

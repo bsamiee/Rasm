@@ -6,6 +6,7 @@
         "lint": {},
         "format": {},
         "typecheck": {},
+        "test": {},
         "check": {}
     }
 }

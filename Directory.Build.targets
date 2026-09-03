@@ -11,6 +11,11 @@
         <HostCommon Condition="$(_RasmHostTokens.Contains(';common;')) or '$(HostUi)' == 'true'">true</HostCommon>
     </PropertyGroup>
 
+    <!-- Every test project writes Cobertura coverage under its own prefix, the root coverage target merges the files -->
+    <PropertyGroup Label="Test Coverage" Condition="'$(RasmRole)' == 'tests'">
+        <TestingPlatformCommandLineArguments>--coverlet --coverlet-output-format cobertura --coverlet-file-prefix $(MSBuildProjectName)</TestingPlatformCommandLineArguments>
+    </PropertyGroup>
+
     <ItemGroup Label="Project Usings">
         <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
         <Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" />
