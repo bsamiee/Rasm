@@ -6,21 +6,21 @@ The 4 foundation skills (`dotnet-coding`, `dotnet-languageext`, `dotnet-thinktec
 
 The manifest groups packages by domain, and the skills own concerns, so the survey maps each group to the concern that owns it. The Core group is covered apart from the packages listed, the analyzers apart from the Thinktecture one, and every other group is uncovered:
 
-| [INDEX] | [GROUP]                  | [GAP]                                                                     | [HOME]                             |
-| :-----: | :----------------------- | :------------------------------------------------------------------------ | :--------------------------------- |
-|   [01]  | Core                     | NodaTime, Parsec, hashing, HighPerformance, RecyclableMemoryStream        | concurrency, text, io, performance |
-|   [02]  | Analyzers                | Meziantou, ErrorProne, Roslynator, Threading rules                        | Each skill names its diagnostics   |
-|   [03]  | Quantities               | UnitsNet, NodaMoney as typed numbers                                      | numerics, vocabulary in coding     |
-|   [04]  | Mathematics, Solvers     | Generic math, tensors, linear algebra, optimization                       | numerics                           |
-|   [05]  | Algorithms               | Graphs, spatial indexes, tries, probabilistic sets, caching, ZLinq        | algorithms                         |
-|   [06]  | Parsing                  | Parsec, Pidgin, Sep, NCalc                                                | text                               |
-|   [07]  | Serialization and RPC    | System.Text.Json contexts, converters, Protobuf, Avro, YAML, CBOR         | serialization                      |
-|   [08]  | Data Storage and Formats | EF Core, linq2db, Marten, ADO, Arrow, Parquet, HDF5                       | data                               |
-|   [09]  | Application Hosting      | DI, configuration, options, resilience, caching, command line             | hosting                            |
-|   [10]  | Observability            | OpenTelemetry, logging at the boundary                                    | hosting                            |
-|   [11]  | Testing                  | xunit v3, CsCheck, time providers, test runtimes                          | testing                            |
-|   [12]  | Messaging, Protocols     | NATS, Kafka, RabbitMQ, MQTT, CloudEvents, OPC UA                          | messaging, later                   |
-|   [13]  | Domain packs             | Geometry, geospatial, BIM, fabrication, energy, structural, ML, media, UI | One skill per pack, later          |
+| [INDEX] | [GROUP]                  | [GAP]                                                              | [HOME]                             |
+| :-----: | :----------------------- | :----------------------------------------------------------------- | :--------------------------------- |
+|   [01]  | Core                     | NodaTime, Parsec, hashing, HighPerformance, RecyclableMemoryStream | concurrency, text, io, performance |
+|   [02]  | Analyzers                | Meziantou, ErrorProne, Roslynator, Threading rules                 | Each skill names its diagnostics   |
+|   [03]  | Quantities               | UnitsNet, NodaMoney as typed numbers                               | numerics, vocabulary in coding     |
+|   [04]  | Mathematics, Solvers     | Generic math, tensors, linear algebra, optimization                | numerics                           |
+|   [05]  | Algorithms               | Graphs, spatial indexes, tries, probabilistic sets, caching, ZLinq | algorithms                         |
+|   [06]  | Parsing                  | Parsec, Pidgin, Sep, NCalc                                         | text                               |
+|   [07]  | Serialization and RPC    | System.Text.Json contexts, converters, Protobuf, Avro, YAML, CBOR  | serialization                      |
+|   [08]  | Data Storage and Formats | EF Core, linq2db, Marten, ADO, Arrow, Parquet, HDF5                | data                               |
+|   [09]  | Application Hosting      | DI, configuration, options, resilience, caching, command line      | hosting                            |
+|   [10]  | Observability            | OpenTelemetry, logging at the boundary                             | hosting                            |
+|   [11]  | Testing                  | xunit v3, CsCheck, time providers, test runtimes                   | testing                            |
+|   [12]  | Messaging, Protocols     | NATS, Kafka, RabbitMQ, MQTT, CloudEvents, OPC UA                   | messaging, later                   |
+|   [13]  | Domain packs             | Geometry, geospatial, BIM, fabrication, energy, structural, ML, UI | One skill per pack, later          |
 
 Time is the largest overlooked vocabulary gap: NodaTime sits in the Core group and every skill snippet uses `DateTime` or `DateTimeOffset`. Quantities are the second: money and physical values appear as `decimal` and `double`. `LanguageExt.Parsec` is the one library companion with no home, and it needs a research file before a section exists.
 
