@@ -239,6 +239,7 @@ Every generated `Switch` and `Map` ends in an unreachable branch. On an ad hoc u
 <!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 -->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [10]-[USE_CASES]
 
 Dates known to the year, month, or day are three cases with a shared `Year`. The base holds the shared property and a private constructor, and the record cases pass `Year` up. The hand-written operator takes `DateOnly`.

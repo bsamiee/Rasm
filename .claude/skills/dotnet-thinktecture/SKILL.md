@@ -8,11 +8,11 @@ description: "Use when declaring a value object, smart enum, or union with Think
 Covers declaring the types that `Thinktecture.Runtime.Extensions` generates (value objects, smart enums, ad hoc and regular unions), their generated API and settings, the validation and normalization hooks, `Switch` and `Map`, object factories for a second wire format, the convenience members, and the packages that carry those types across JSON, MessagePack, model binding, OpenAPI, Entity Framework Core, and Serilog. Which type a domain concept becomes, how a union is designed, and how `Validate` maps to `Fin<T>` are decisions that `dotnet-coding` states, and the `Expected` records that `[ValidationError<T>]` names take their shape from `dotnet-languageext`.
 
 [REFERENCES]:
-- [01]-[SETTINGS](references/settings.md): Attribute settings of value objects, smart enums, and ad hoc unions with defaults and effects, and the generator's MSBuild properties
+- [01]-[SETTINGS](references/settings.md): Attribute settings of value objects, smart enums, ad hoc unions, and regular unions with defaults and effects, and the generator's MSBuild properties
 - [02]-[FACTORY_PATHS](references/factory-paths.md): Entity Framework Core read path, span-based JSON, multiple factories, runtime factory selection, polymorphic discriminators
 - [03]-[SERILOG](references/serilog.md): Destructuring policy, depth limits, string rendering, caveats
 
-Every package name omits the prefix `Thinktecture.Runtime.Extensions.`, every analyzer code omits the prefix `TTRESG`, and each analyzer rule fails the build.
+Every package name omits the prefix `Thinktecture.Runtime.Extensions.`, every analyzer code omits the prefix `TTRESG`, each analyzer rule fails the build, and every generated type and every type that encloses one is `partial` (006).
 
 ## [01]-[GENERATOR_CONFIGURATION]
 
@@ -139,9 +139,9 @@ internal sealed partial class Kind {
 
 The generator emits one private constructor per base constructor, and its parameters arrive in a fixed order: the key, the own fields and properties in declaration order, the base constructor parameters, and one delegate per `[UseDelegateFromConstructor]` method last. The rules:
 - Items are `public static readonly` fields (002), static properties are not items (101), a set without items is 100, non-public items are rejected, and two items with the same key throw `ArgumentException` on the first lookup
-- Instance fields and properties are read-only (001, 003), `[IgnoreMember]` hides a member from the generator, the type has no primary constructor (043), and every enclosing type of a nested smart enum is `partial`
+- Instance fields and properties are read-only (001, 003, and 034, 035 on a plain base class), `[IgnoreMember]` hides a member from the generator, the type has no primary constructor (043), and the generator seals a smart enum that declares no derived class
 - `ValidateConstructorArguments` receives the key, the own members, and the base arguments by `ref` and not the delegates, rejects by throwing alone, and a `null` key throws `ArgumentNullException` after it returns
-- `[UseDelegateFromConstructor]` marks a `partial` method without type parameters (050, 051), the generator adds a private delegate field and implements the method through it, `DelegateName` or a parameter a `Func` cannot carry (`ref`) makes it emit a nested delegate type
+- `[UseDelegateFromConstructor]` marks a `partial` method without type parameters (050, 051), the generator adds a private delegate field and implements the method through it, `DelegateName` or a parameter a `Func` cannot carry (`ref`) makes it emit a nested delegate type, and `Empty.Action` fills the delegate of an item without behavior
 - Static fields initialize in declaration order, so an item that refers to a later item reads it through a `Lazy<T>` built from a static method
 - Derived classes nest inside the smart enum, first-level derived classes are `private` (014) and deeper ones `public` (015), a derived class that is neither abstract nor a base is `sealed` (037), a derived class can be generic, and `Items` doubles as the list of permitted implementations
 - Keyless smart enums have no key member, `Get`, conversion operators, comparer settings, or generated `ToString`, only `[ObjectFactory<string>]` serializes or binds them, and a `ToString` override supplies the item name that `Switch`, `Map`, and Serilog otherwise render as the type name
@@ -202,8 +202,9 @@ internal sealed partial class TextOrCount {
 - `AsX` on the wrong member and the explicit cast throw `InvalidOperationException` (`'TextOrCount' is not of type 'string' but of type 'int'.`)
 - Equality compares the discriminator and then the member value, `string` members compare with `OrdinalIgnoreCase` unless `DefaultStringComparison` says otherwise, and `ToString` and `GetHashCode` delegate to the member
 - Members of type `object` or an interface receive a constructor and no operator, every member type is at least as accessible as the union (077), and a union has at least 2 members (067) and one union attribute (066)
-- `CreateX` factories replace the constructor for a member typed as a type parameter, an interface, `object`, or a duplicate of another member, and a hand-written operator for a type parameter member returns `CreateT(value)` so normalization still runs
-- At most one reference-type member keeps typed fields, 2 or more share one `object?` field with value types unboxed, `UseSingleBackingField` boxes everything into one field, and `SingleBackingFieldType` names a base or interface for that field and for `Value` (075, 079)
+- `CreateX` factories replace the constructor for a member typed as a type parameter, an interface, `object`, or a duplicate of another member, a type parameter member gets no operator because `T` equal to another member's type makes every conversion ambiguous (`CS0457`), an interface argument never applies it (`CS0029`), and an `object` argument boxes the union or routes into the more specific member, and a hand-written operator for a type parameter member returns `CreateT(value)` so normalization still runs
+- `TypeParamRef` past the parameter count is 071, on a non-generic union 072, an `allows ref struct` parameter 073, and a generic union that references no parameter 107
+- At most one reference-type member keeps typed fields, 2 or more share one `object?` field with value types unboxed, `UseSingleBackingField` boxes everything into one field, and `SingleBackingFieldType` names a base or interface (`TypeParamRef` allowed) for that field and for `Value` (075, 079)
 - Stateless members are `readonly record struct`s with `TxIsStateless = true`, the union stores only the discriminator, `AsX` returns `default(T)`, and `CreateX` is parameterless
 - `default` of a struct union has no member, 047 reports `default(TUnion)` and `new TUnion()`, `Value`, `Switch`, `Map`, `ToString`, and `GetHashCode` throw at runtime, and `DefaultValueHandling = MapToFirstMember` turns `default` into a stateless first member (081, 082)
 - Unions that add their own properties set `ConversionFromValue = None` and `ConstructorAccessModifier = Private`, and their hand-written constructors chain to the generated ones under `[SetsRequiredMembers]`
@@ -238,7 +239,7 @@ internal static class Transitions {
 ```
 
 - A case with a single-parameter constructor of a type unique among the cases gets an implicit conversion from that type to the base, and `ConversionFromValue = None` on `[Union]` removes those operators
-- Class cases carrying `[Union]` become nested unions with their own cases, records cannot nest a union, the outer `Switch` prefixes nested arm names with the parent (`failureNotFound`), `NestedUnionParameterNames = Simple` drops the prefix, and `[UnionSwitchMapOverload(StopAt = [typeof(Nested)])]` adds a non-exhaustive overload that delegates the nested union to its own `Switch`
+- Class cases carrying `[Union]` become nested unions with their own cases, records cannot nest a union, the outer `Switch` prefixes nested arm names with the parent (`failureNotFound`), `NestedUnionParameterNames = Simple` drops the prefix and collides when 2 nested unions declare a case with one name, and `[UnionSwitchMapOverload(StopAt = [typeof(Nested)])]` adds a non-exhaustive overload that delegates the nested union to its own `Switch`
 - Cases can be value objects or smart enums, the union names the kind and each case owns its value and rules, and an `Unknown` case is a `[ComplexValueObject(SkipFactoryMethods = true)]` with one `Instance` rather than `null`
 - Shared data sits on the base with a private constructor that the record cases pass it to, and a hand-written operator on the base can accept an external type
 
@@ -261,7 +262,7 @@ internal static class Matching {
 
 ## [06]-[OBJECT_FACTORIES]
 
-`[ObjectFactory<T>]` declares a conversion between a type and one other type `T` on a smart enum, a value object, a union, or a plain partial type, the generator adds `IObjectFactory<TSelf, T, ValidationError>` and demands one static method, and a `string` factory also adds `IParsable<TSelf>`:
+`[ObjectFactory<T>]` declares a conversion between a type and one other type `T` on a smart enum, a value object, a union, or a plain partial type, the generator adds `IObjectFactory<TSelf, T, ValidationError>` and demands one static method (061), and a `string` factory also adds `IParsable<TSelf>`:
 
 ```text
 static ValidationError? Validate(T? value, IFormatProvider? provider, out TSelf? item)
@@ -269,10 +270,10 @@ static ValidationError? Validate(T? value, IFormatProvider? provider, out TSelf?
 
 - The method returns `null` and sets `item` on success, returns the error and a `null` item on failure, and `null` input sets a `null` item and returns `null`, which no serializer or model binder passes and which makes `Parse` return `null` and an Entity Framework Core read throw
 - Factories on a keyed type or a complex value object delegate to the generated `Validate` of the key or the members, so normalization in the hook runs once for both paths, and a factory with `T` equal to the key type collides with the generated overload
-- Factories are one-way until `UseForSerialization` other than `None` or `UseWithEntityFramework = true` makes them two-way, adds `IConvertible<T>`, and demands an instance `T ToValue()`
+- Factories are one-way until `UseForSerialization` other than `None` or `UseWithEntityFramework = true` makes them two-way, adds `IConvertible<T>`, and demands an instance `T ToValue()` (062)
 - `UseForSerialization` is a flags enum (`SystemTextJson`, `NewtonsoftJson`, `Json` for both, `MessagePack`, `All`), `UseForModelBinding = true` binds from one route, query, header, or form value, and `HasCorrespondingConstructor = true` declares a one-`T` constructor that Entity Framework Core reads through without `Validate` (059, and 060 on a smart enum)
 - For a keyed smart enum or a simple value object a flag replaces the key-based conversion at that integration point, for a complex value object or a union it enables a conversion that does not exist otherwise, and the flags register nothing at the host
-- Each integration point belongs to at most one factory (068, 069, 070), a keyless smart enum serializes and binds through a factory alone, and `SkipFactoryMethods = true` on a value object removes its converters until a factory with `UseForSerialization` restores them
+- Each integration point belongs to at most one factory (068, 069, 070), and `SkipFactoryMethods = true` on a value object removes its converters until a factory with `UseForSerialization` restores them
 
 An ad hoc union carries no discriminator, so a `string` factory is its one wire format, where `Validate` assigns a member through the implicit conversion and `ToValue` renders the active case through `Switch`:
 
@@ -320,11 +321,11 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 |   [07]  | Entity Framework Core          | `EntityFrameworkCore10` | `optionsBuilder.UseThinktectureValueConverters()`                       |
 |   [08]  | Serilog                        | `Serilog`               | `Destructure.UsingThinktectureRuntimeExtensions()`                      |
 
-- The declaring project references `Json` and receives the `[JsonConverter]` attribute, and only a project that cannot do so registers the converter factory at the host, where MVC reads `AddControllers().AddJsonOptions` and minimal APIs read `ConfigureHttpJsonOptions`
-- Unknown keys and rejected values on read throw `JsonException` with the validation text, string keys read through a span-based converter that rejects a non-string token, and a regular union needs one `[JsonDerivedType]` on the base per case or a `[ObjectFactory<string>]` on the base
-- Minimal APIs bind through `IParsable<T>.TryParse` and answer a failed bind with a plain 400, MVC runs `Validate`, writes the error into `ModelState`, and `[ApiController]` answers 400 with the text, and the binder provider goes in front of the default providers with `skipBindingFromBody` at its default `true`
-- `AddThinktectureOpenApiFilters` renders a value object as its key or its members and a smart enum as its key with the allowed values, `SmartEnumSchemaFilter` selects `Default`, `OneOf`, `AnyOf`, `AllOf`, or `FromDependencyInjection`, and `SmartEnumSchemaExtension` adds `x-enum-varnames`
-- Entity Framework Core stores a keyed type in one column of the key type, `UseThinktectureValueConverters` applies to every context on the options, `AddThinktectureValueConverters` narrows to a model, entity, owned, or complex builder, `HasThinktectureValueConverter` to one property, `UseConstructorForRead` defaults to `true` so a row materializes without the hook, a complex value object maps as a complex property or an owned type, and a regular union maps as table-per-hierarchy through `HasDiscriminator<string>` with one `HasValue<TCase>` per case
+- The declaring project references `Json` and receives the `[JsonConverter]` attribute, and only a project that cannot do so registers the converter factory at the host, where MVC reads `AddControllers().AddJsonOptions`, minimal APIs read `ConfigureHttpJsonOptions`, and the factory constructor `(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` skips attributed types and opts single types out of span-based reads
+- Unknown keys and rejected values on read throw `JsonException` with the validation text, string keys read through a span-based converter that rejects a non-string token, and a regular union needs one `[JsonDerivedType]` on the base per case, Newtonsoft `TypeNameHandling` (a deserialization risk unless the binder restricts the types), or a `[ObjectFactory<string>]` on the base, and MessagePack has no integration for it
+- Minimal APIs bind through `IParsable<T>.TryParse` and answer a failed bind with a plain 400, so an application-side `MaybeBound<T, TKey, TValidationError>` wrapper with a `TryParse` that always succeeds and stores the value or the error text lets an endpoint filter answer with the text, MVC runs `Validate`, writes the error into `ModelState`, and `[ApiController]` answers 400 with the text, and the binder provider goes in front of the default providers with `skipBindingFromBody` at its default `true`
+- `AddThinktectureOpenApiFilters` renders a value object as its key or its members and a smart enum as its key with the allowed values, `SmartEnumSchemaFilter` selects `Default`, `OneOf`, `AnyOf`, `AllOf`, or `FromDependencyInjection`, `SmartEnumSchemaExtension` adds `x-enum-varnames`, and `RequiredMemberEvaluator` marks a member that implements `IDisallowDefaultValue` or a non-nullable reference member as required, with `All` and `None` as the overrides
+- Entity Framework Core stores a keyed type in one column of the key type, `UseThinktectureValueConverters` applies to every context on the options, `AddThinktectureValueConverters` narrows to a model, entity, owned, or complex builder, `HasThinktectureValueConverter` to one property, `UseConstructorForRead` defaults to `true` so a row materializes without the hook, a complex value object maps as a complex property or an owned type, and a regular union maps as table-per-hierarchy through `HasDiscriminator<string>` with one `HasValue<TCase>` per case or as table-per-type, where 2 cases with one property name share a column through `HasColumnName`
 - Serilog logs a keyed smart enum and a simple value object as the key and an ad hoc union as its `Value` once the policy is registered and the template uses `{@Property}`
 
 ## [09]-[ANTI_PATTERNS]

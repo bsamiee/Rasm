@@ -22,7 +22,7 @@ The manifest groups packages by domain, and the skills own concerns, so the surv
 |   [12]  | Messaging, Protocols     | NATS, Kafka, RabbitMQ, MQTT, CloudEvents, OPC UA                   | messaging, later                   |
 |   [13]  | Domain packs             | Geometry, geospatial, BIM, fabrication, energy, structural, ML, UI | One skill per pack, later          |
 
-Time is the largest overlooked vocabulary gap: NodaTime sits in the Core group and every skill snippet uses `DateTime` or `DateTimeOffset`. Quantities are the second: money and physical values appear as `decimal` and `double`. `LanguageExt.Parsec` is the one library companion with no home, and it needs a research file before a section exists.
+Time is the largest overlooked vocabulary gap: NodaTime sits in the Core group and every skill snippet uses `DateTime` or `DateTimeOffset`, and the library holds more than the replacement types: `IClock` with `SystemClock` and `FakeClock` for injection, the `Instant`, `LocalDateTime`, `ZonedDateTime`, and `OffsetDateTime` distinctions, `DateTimeZoneProviders.Tzdb`, `Duration` against `Period`, `Interval`, calendar systems, `NodaTime.Text` patterns for invariant parsing and formatting, and the serialization and store integrations already in the manifest (System.Text.Json, Protobuf, Npgsql, Marten). Quantities are the second: money and physical values appear as `decimal` and `double`. `LanguageExt.Parsec` is the one library companion with no home, and it needs a research file before a section exists.
 
 ## [02]-[LANGUAGE_GAPS]
 
@@ -41,48 +41,57 @@ Hardening risks in the 4 skills that the same work settles: every snippet is an 
 
 A category skill owns a concern of code (how time, text, bytes, numbers, or concurrency are handled) and treats the packages that serve it as vocabulary, with one reference per package family. A package skill exists only where the package is a language of its own with a generated API or a large surface an agent writes against directly (the 3 existing ones, the future domain packs). A package that serves a concern never gets its own skill, and minutiae never get a skill.
 
-| [INDEX] | [TIER] | [SKILL]                | [IMPLICIT]                                             |
-| :-----: | :----- | :--------------------- | :----------------------------------------------------- |
-|   [01]  | 1      | `dotnet-types`         | Thinktecture, LanguageExt traits                       |
-|   [02]  | 1      | `dotnet-concurrency`   | LanguageExt `IO`, `Fork`, STM, Threading analyzers     |
-|   [03]  | 1      | `dotnet-testing`       | CsCheck, NodaTime.Testing, TimeProvider.Testing        |
-|   [04]  | 1      | `dotnet-text`          | Parsec, Sep, NCalc, Markdig                            |
-|   [05]  | 1      | `dotnet-serialization` | Thinktecture, NodaTime, UnitsNet converters            |
-|   [06]  | 2      | `dotnet-io`            | RecyclableMemoryStream, `System.IO.Hashing`, Zstd, LZ4 |
-|   [07]  | 2      | `dotnet-performance`   | HighPerformance, DotNext, `System.Numerics.Tensors`    |
-|   [08]  | 2      | `dotnet-numerics`      | MathNet, UnitsNet, NodaMoney, PeterO, DoubleDouble     |
-|   [09]  | 2      | `dotnet-algorithms`    | QuikGraph, RBush, tries, BitFaster, SuperLinq, ZLinq   |
-|   [10]  | 2      | `dotnet-data`          | EF Core, linq2db, Marten, Npgsql, DuckDB               |
-|   [11]  | 2      | `dotnet-hosting`       | Extensions, Polly, FusionCache, Serilog, OpenTelemetry |
-|   [12]  | 3      | `dotnet-messaging`     | NATS, Kafka, RabbitMQ, MQTT, CloudEvents               |
-|   [13]  | 3      | Domain packs           | Each pack's packages                                   |
+| [INDEX] | [TIER] | [SKILL]                | [IMPLICIT]                                                                   |
+| :-----: | :----- | :--------------------- | :--------------------------------------------------------------------------- |
+|   [01]  | 1      | `dotnet-types`         | Thinktecture, LanguageExt traits                                             |
+|   [02]  | 1      | `dotnet-time`          | NodaTime, `TimeProvider`, Cronos                                             |
+|   [03]  | 1      | `dotnet-concurrency`   | LanguageExt `IO`, `Fork`, STM, Threading analyzers                           |
+|   [04]  | 1      | `dotnet-text`          | Parsec, Sep, NCalc, Markdig, MessageFormat                                   |
+|   [05]  | 1      | `dotnet-serialization` | Thinktecture, NodaTime, UnitsNet converters                                  |
+|   [06]  | 2      | `dotnet-io`            | RecyclableMemoryStream, `System.IO.Hashing`, Zstd, LZ4                       |
+|   [07]  | 2      | `dotnet-performance`   | HighPerformance, DotNext, `System.Numerics.Tensors`                          |
+|   [08]  | 2      | `dotnet-numerics`      | MathNet, UnitsNet, NodaMoney, PeterO, DoubleDouble                           |
+|   [09]  | 2      | `dotnet-algorithms`    | QuikGraph, RBush, tries, SuperLinq, ZLinq                                    |
+|   [10]  | 2      | `dotnet-caching`       | BitFaster, HybridCache, FusionCache, Redis                                   |
+|   [11]  | 2      | `dotnet-data`          | EF Core, linq2db, Marten, Npgsql, DuckDB                                     |
+|   [12]  | 2      | `dotnet-hosting`       | Extensions, Polly, Serilog, OpenTelemetry, OpenFeature                       |
+|   [13]  | 2      | `dotnet-security`      | Cryptography, IdentityModel, OpenIddict, KeyVault, KMS, VaultSharp, Sigstore |
+|   [14]  | 2      | `dotnet-interop`       | `LibraryImport`, `Rasm.Native.*`, vcpkg packaging, Silk.NET, Wasmtime        |
+|   [15]  | 3      | `dotnet-messaging`     | NATS, Kafka, RabbitMQ, MQTT, CloudEvents                                     |
+|   [16]  | 3      | `dotnet-roslyn`        | Analyzers and source generators of our own                                   |
+|   [17]  | 3      | Domain packs           | Each pack's packages, AI and MCP among them                                  |
 
 Each skill's scope:
-- `dotnet-types` holds the declaration decisions in [02] and the patterns reference
-- `dotnet-concurrency` holds time (NodaTime, `TimeProvider`), `Task` at the boundary, cancellation, channels, parallelism, synchronization, and scheduling
-- `dotnet-testing` holds tests of pure functions, `IO` with test runtimes, property tests, time and clock doubles, and xunit v3 on the testing platform
-- `dotnet-text` holds strings and spans of chars, regex generation, `SearchValues`, format and parse, encoding, CSV, parser combinators, and expression evaluation
+- `dotnet-types` holds the declaration decisions in [02], reflection confined to a boundary with source generation preferred, and the patterns reference
+- `dotnet-time` holds clocks as injected values, the instant, local, zoned, and offset distinctions, zones, durations and periods, intervals, text patterns, and scheduling
+- `dotnet-concurrency` holds `Task` at the boundary, cancellation, timeouts, channels and async streams with their conversion to a `Source`, parallelism, and synchronization
+- `dotnet-text` holds strings and spans of chars, regex generation, `SearchValues`, format and parse, encoding, globalization, CSV, parser combinators, and expression evaluation
 - `dotnet-serialization` holds contracts at the host, System.Text.Json contexts and converters for the vocabulary types, binary formats, and schema
-- `dotnet-io` holds files, streams, binary framing, compression, hashing, and paths
-- `dotnet-performance` holds spans and memory, buffers and pooling, SIMD and tensors, allocation, and measurement
+- `dotnet-io` holds files, streams, binary framing, compression, non-cryptographic hashing, and paths
+- `dotnet-performance` holds spans and memory, buffers and pooling, SIMD and tensors, allocation, and measurement with the runtime diagnostics packages
 - `dotnet-numerics` holds generic math, numeric type choice, tolerance, random with explicit seeds, quantities, and the linear algebra entry
-- `dotnet-algorithms` holds structure selection by problem shape (graphs, spatial, strings, probabilistic, caching) and the LINQ extensions
-- `dotnet-data` holds access at the boundary as `IO` and `OptionT`, projections, value objects in stores, transactions, and schema from types
-- `dotnet-hosting` holds the composition root: DI wiring of runtimes and functions, configuration, options, resilience, caching, logging and traces at the boundary, health, and the command line
+- `dotnet-algorithms` holds structure selection by problem shape (graphs, spatial, strings, probabilistic) and the LINQ extensions
+- `dotnet-caching` holds what to cache where (memoization of a pure function, a state-threaded cache in a workflow, a bounded in-process cache, an application cache with a backplane, a distributed store), keys, expiry and eviction, invalidation, and stampede protection
+- `dotnet-data` holds access at the boundary as `IO` and `OptionT`, projections, value objects in stores, transactions, schema from types, and the columnar formats as a reference
+- `dotnet-hosting` holds the composition root: DI wiring of runtimes and functions, configuration, options, feature flags, resilience, logging and traces at the boundary, health, and the command line, as general considerations that precede any application
+- `dotnet-security` holds cryptographic hashing and signing, secrets, tokens and identity, and key services
+- `dotnet-interop` holds native bindings, marshalling, memory ownership across the boundary, and the packaging of native assets under `eng/native/`
 - `dotnet-messaging` holds producers and consumers as sources and sinks, contracts, and delivery
-- Domain packs are one skill per pack in the survey's last row
+- `dotnet-roslyn` holds authoring analyzers and source generators when the workspace writes its own
+- Domain packs are one skill per pack in the survey's last row, with AI and model-context-protocol clients as one pack
 
 Placement decisions inside the tiers:
 - Resilience is split by layer: the domain composes `Schedule` and `Retry` around an `IO`, the host applies a resilience pipeline to an `HttpClient` or a connection, and never both on one call, stated once in `dotnet-hosting`
 - Solvers and optimization are a reference under `dotnet-numerics` until a modeling discipline of their own justifies a skill
 - Data formats (Arrow, Parquet, HDF5, Zarr) are a reference under `dotnet-data` until the columnar work grows
 - Streaming stays split as it is: `Source`, `Conduit`, and pipes in `dotnet-languageext`, `Channel<T>` and `IAsyncEnumerable<T>` as boundary forms in `dotnet-concurrency` with the conversion to a `Source`
-- Hashing sits in `dotnet-io` with encoding in `dotnet-text`, because a hash is a byte operation and a hex string is a text one
+- Hashing splits by purpose: a content hash is `dotnet-io`, a cryptographic hash or signature is `dotnet-security`, and a hex or base64 string is `dotnet-text`
+- Caching is one skill because expiry, eviction, invalidation, and stampede protection are one discipline across layers, and the memoization and state-threaded forms in `dotnet-languageext` and the `dotnet-coding` references stay where they are as the pure-side forms it points to
 - Analyzer diagnostics belong to the skill that owns the rule they enforce, named beside the rule as `dotnet-document` names its Roslynator rules
 
 ## [04]-[ORDER]
 
-Tier 1 first, in the listed order, because `dotnet-types` closes the language foundation, `dotnet-concurrency` fixes the time vocabulary that every later snippet uses, `dotnet-testing` is needed to check every later skill's snippets, and text and serialization are the boundary concerns every application meets. Before each skill: gather its research folder under `docs/research/dotnet/<skill>/` (extracted documentation, articles, or fresh research through the search skills), read it in full, then extend this plan with the disposition of its files and the fork sequence. After the tier: a fresh-agent review of the new skills against the 4 existing ones, and a vocabulary pass over the 4 existing skills for NodaTime and quantities.
+Tier 1 first, in the listed order, because `dotnet-types` closes the language foundation, `dotnet-time` fixes the vocabulary that every later snippet uses, and concurrency, text, and serialization are the boundary concerns every application meets. Testing is planned separately and is not part of these tiers. Before each skill: gather its research folder under `docs/research/dotnet/<skill>/` (extracted documentation, articles, or fresh research through the search skills), read it in full, then extend this plan with the disposition of its files and the fork sequence. Before the tier, once the review sequence of the 4 skills is committed, one fresh agent runs the NodaTime vocabulary pass over the 4 skills with each type verified against the package by a scratch compile. After the tier: a fresh-agent review of the new skills against the existing ones, and the quantities vocabulary pass once `dotnet-numerics` exists.
 
 ## [05]-[DECISIONS]
 
@@ -91,4 +100,3 @@ Tier 1 first, in the listed order, because `dotnet-types` closes the language fo
 - Parser combinators: `LanguageExt.Parsec` is the one parser combinator library because it composes with the result types, and Pidgin leaves the manifest unless a need Parsec cannot meet is recorded
 - Splitting declarations into `dotnet-types` rather than growing `dotnet-coding` past its size
 - Dependency injection: the container wires the runtime record and the specialized functions at the composition root and the domain never sees it, to be stated in `dotnet-hosting`, with the functions reference's "no container required" sentence aligned
-- Whether `dotnet-hosting` waits for the first application under `apps/` or enters tier 2 as planned

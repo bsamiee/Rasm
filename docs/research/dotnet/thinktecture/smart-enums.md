@@ -1,4 +1,4 @@
-<!-- [09] polymorphic discriminator example goes to references/factory-paths.md -->
+<!-- [09] polymorphic discriminator integrated into .claude/skills/dotnet-thinktecture/references/factory-paths.md -->
 # [SMART_ENUMS]
 
 Smart Enums are classes declaring a fixed set of items as `public static readonly` fields. The source generator supplies the constructor, the lookup, equality, conversion, and pattern matching. Each item is an object with its own data and behavior. Consumers call a method on the item instead of branching on it.
@@ -114,6 +114,7 @@ internal static class Matching {
 <!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 -->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [05]-[ITEM_SPECIFIC_BEHAVIOR]
 
 Methods with per-item inputs read them from fields the constructor filled. Methods with a per-item algorithm take a delegate through `[UseDelegateFromConstructor]`. The attributed method is `partial` (`TTRESG050`) and has no type parameters (`TTRESG051`). The generator adds a private delegate field, appends the delegate parameter after the members, and implements the method as a call through the field. `Round` produces a `Func<decimal, decimal> _round` field. `DelegateName = "DateParser"` on a method `GetDateTime` instead emits a private nested delegate type `DateParser` and a field `_dateParser`. Parameters a `Func` cannot carry (`ref`) also force a delegate type, named after the method.
@@ -271,6 +272,7 @@ Projects referencing `Thinktecture.Runtime.Extensions.Json`, in their manifest o
 Keyed Smart Enums serialize as the key. Unknown keys on read throw `JsonException` with the message of `UnknownSmartEnumIdentifierException`. String keys read through a span-based converter that rejects a non-string token with `JsonException`. `DisableSpanBasedJsonConversion = true` returns to the non-span converter.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md, the discriminator and the Entity Framework Core configuration into .claude/skills/dotnet-thinktecture/references/factory-paths.md, the Serilog paragraph into .claude/skills/dotnet-thinktecture/references/serilog.md
 Smart Enums also serve as the discriminator of a polymorphic converter. The item names the case in the payload and reads the case back through a delegate with a `ref Utf8JsonReader` parameter.
 
 ```csharp
@@ -315,6 +317,7 @@ Configuration fixedWidth = new() { SmartEnums = new SmartEnumConfiguration { Max
 Serilog renders a keyed Smart Enum as its key once `Destructure.UsingThinktectureRuntimeExtensions()` is registered and the template uses the `@` operator. `TypesToRenderAsString.SmartEnums` switches the rendering to `ToString()`. Keyless Smart Enums fall through to Serilog's default object destructuring.
 
 Smart Enums model a closed set of named items with one shape, cases with different shapes are a discriminated union. Items are `static readonly` fields, not constants. They cannot serve as an attribute argument or a `case` label.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [10]-[DESIGN_RULES]

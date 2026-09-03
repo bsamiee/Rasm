@@ -1,9 +1,11 @@
-<!-- [05] [06] [07] [09] go to references/factory-paths.md -->
+<!-- Intro, [05], [06], [07], and [09] integrated into .claude/skills/dotnet-thinktecture/references/factory-paths.md -->
 # [OBJECT_FACTORIES]
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/references/factory-paths.md
 `[ObjectFactory<T>]` declares a conversion between a type and one other type `T`. The attribute sits on a class, struct, or record. The target is a smart enum with or without a key, a simple or complex value object, or an ad hoc or regular union. Plain partial types with no other attribute are also targets. The source generator adds `IObjectFactory<TSelf, T, ValidationError>` and demands a static `Validate` method. `string` factories add `IParsable<TSelf>`. `ISpanParsable<TSelf>` joins `IParsable<TSelf>` when the key member is span parsable or a `ReadOnlySpan<char>` factory exists.
 
 One pair of methods serves System.Text.Json, Newtonsoft.Json, MessagePack, ASP.NET Core model binding, and Entity Framework Core. The generated `[JsonConverter]`, Newtonsoft.Json `[JsonConverter]`, and `[MessagePackFormatter]` attributes bind the factory value type at compile time. The registered converter factory, model binder provider, and value converter factory read the type's object factories at runtime.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [01]-[VALIDATE_CONTRACT]
@@ -93,6 +95,7 @@ internal static class ShippingMethods {
 ```
 -->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/references/factory-paths.md
 ## [05]-[ENTITY_FRAMEWORK_READ_PATH]
 
 `HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, and the generated metadata carries the expression `static TSelf (T value) => new TSelf(value)`. The value converter compiles it for reads when `UseConstructorForRead` is `true`, which is its default in the `Configuration` class. Reads through the constructor skip `Validate` and every normalization. The stored value is trusted as it is. `TTRESG059` reports a type missing the declared constructor, and `TTRESG060` reports a smart enum with the property set, because smart enum items are predefined. The constructor is used by Entity Framework Core alone. JSON, MessagePack, and model binding always go through `Validate`.
@@ -203,6 +206,7 @@ internal readonly partial struct Region {
 ```
 
 `Region` implements `ISpanParsable<Region>` because the `string` key is parsable, and `Region.Parse("eu".AsSpan(), provider: null)` reaches the span `Validate`. Plain classes with a span factory and no `string` factory implement neither `IParsable` nor `ISpanParsable`. JSON `null` raises a `JsonException` for `Region`, because a value object struct disallows its default value.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [08]-[UNIONS_AND_PLAIN_TYPES]
@@ -251,6 +255,7 @@ internal sealed partial class Slug {
 `Slug` round-trips `"Hello"` unchanged, and JSON `null` yields a `null` reference.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/references/factory-paths.md
 ## [09]-[RUNTIME_FACTORY_SELECTION]
 
 Each integration point filters the type's object factories and falls back to the key member when no factory matches. Types with no key member have no conversion at that point.
@@ -262,6 +267,7 @@ Each integration point filters the type's object factories and falls back to the
 |  [03]   | Entity Framework Core        | `UseWithEntityFramework = true`, `T` not `ReadOnlySpan<char>`              | Key member                          |
 |  [04]   | ASP.NET Core model binding   | `UseForModelBinding = true`, `T` not `ReadOnlySpan<char>`                  | Key member                          |
 |  [05]   | Serilog destructuring        | None                                                                       | Key member, union value, or nothing |
+-->
 
 <!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [10]-[DESIGN_RULES]

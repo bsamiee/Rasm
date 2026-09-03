@@ -1,4 +1,4 @@
-<!-- [15] recurring dates and currency amount stay for a use-case reference, its `FileUrn` goes to references/factory-paths.md -->
+<!-- [15] recurring dates and currency amount stay for a use-case reference, its `FileUrn` integrated into .claude/skills/dotnet-thinktecture/references/factory-paths.md -->
 # [VALUE_OBJECTS]
 
 Value objects are domain values defined by their content, not by identity. Two instances with the same content are equal and interchangeable. `Thinktecture.Runtime.Extensions` generates the factory methods, equality, comparison, parsing, formatting, and conversion members of a value object at compile time. The hand-written part is the validation hook and the domain behavior.
@@ -263,6 +263,7 @@ Recurring dates have a day and month and no year. `DateOnly` keys pinned to one 
 
 Behavior that belongs to a value lives on the value. A `CurrencyAmount` struct with `decimal Amount` and `CurrencyCode Currency` declares `operator +` by hand. The operator rejects two different currencies with `InvalidOperationException` and returns `Create(left.Amount + right.Amount, left.Currency)`. The `CurrencyCode` hook normalizes with `ToUpperInvariant()`. `CurrencyCode.Create("eur") == CurrencyCode.EUR` holds with an ordinal comparer.
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/references/factory-paths.md
 Complex value objects with a string representation carry `[ObjectFactory<string>]`. The attribute adds `IObjectFactory<FileUrn, string, ValidationError>`, which requires a static `Validate(string? value, IFormatProvider? provider, out FileUrn? item)`. `UseForSerialization = SerializationFrameworks.All` adds `IConvertible<string>`, which requires `ToValue()`, and makes every serializer read and write the string. `HasCorrespondingConstructor = true` requires a constructor with one `string` parameter, which `TTRESG059` enforces. Entity Framework Core builds the instance through that constructor only when the factory also sets `UseWithEntityFramework = true`. The constructor trusts the stored value. Rows without a separator fail materialization with an index error. Every other framework keeps calling `Validate`. The string factory also supplies `Parse` and `TryParse`. The type binds in a minimal API.
 
 ```csharp
@@ -295,8 +296,11 @@ internal sealed partial class FileUrn {
 ```
 
 `FileUrn.Create("blob", "a/b.pdf")` serializes to the JSON string `"blob:a/b.pdf"`, and `FileUrn.Parse("nocolon", null)` throws `FormatException` with the format message.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 Value objects also serve as the cases of a regular union. `[Union]` abstract class `Jurisdiction` holds nested cases: a `[ValueObject<string>(KeyMemberName = "IsoCode")] Country`, a `[ValueObject<int>(KeyMemberName = "Number")] FederalState`, and a `[ValueObject<string>(KeyMemberName = "Name")] District`. `[ComplexValueObject] Unknown` with no members and a static `Instance` is the last case. The string cases carry both comparer attributes. `Unknown` receives value equality from the complex form: two `Unknown` instances are equal, and `Switch` covers every case.
+-->
 
 <!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [16]-[FRAMEWORK_INTEGRATION]

@@ -1,6 +1,6 @@
 # [SETTINGS]
 
-Attribute settings of the three generated type families, with their defaults and effects.
+Attribute settings of value objects, smart enums, ad hoc unions, and regular unions with their defaults and effects, and the generator's MSBuild properties.
 
 ## [01]-[VALUE_OBJECTS]
 
@@ -14,7 +14,7 @@ Attribute settings of the three generated type families, with their defaults and
 |   [06]  | `AdditionOperators` and the 3 siblings     | `Default`     | Present when the key supports it, results go through `Create` |
 |   [07]  | `SkipToString` and the 4 `SkipI*` settings | `false`       | Remove the member, `SkipIParsable` also skips `ISpanParsable` |
 |   [08]  | `SkipEqualityComparison`                   | `false`       | Removes equality members and both operator settings           |
-|   [09]  | `SkipFactoryMethods`                       | `false`       | Removes factories, `TypeConverter`, conversions, parsing      |
+|   [09]  | `SkipFactoryMethods`                       | `false`       | Removes factories, `TypeConverter`, key conversion, parsing, converters, arithmetic |
 |   [10]  | `ConstructorAccessModifier`                | `Private`     | Constructor accessibility                                     |
 |   [11]  | `CreateFactoryMethodName`                  | `Create`      | Factory name, `CreateCore` follows the rename                 |
 |   [12]  | `TryCreateFactoryMethodName`               | `TryCreate`   | Factory name                                                  |
@@ -24,6 +24,7 @@ Attribute settings of the three generated type families, with their defaults and
 |   [16]  | `DefaultInstancePropertyName`              | `Empty`       | Name of that default instance                                 |
 |   [17]  | `KeyMember*` settings                      | Private field | `KeyMemberName`, `KeyMemberAccessModifier`, `KeyMemberKind`   |
 |   [18]  | `SkipKeyMember`                            | `false`       | Leaves the key member to the hand-written part                |
+|   [19]  | `SerializationFrameworks`                  | `All`         | Flags that select which converter attributes the generator emits |
 
 ## [02]-[SMART_ENUMS]
 
@@ -57,7 +58,16 @@ Attribute settings of the three generated type families, with their defaults and
 |   [12]  | `SwitchMethods`, `MapMethods` | `Default`              | `DefaultWithPartialOverloads` adds partial forms, `None` removes all  |
 |   [13]  | `SwitchMapStateParameterName` | `state`                | Name of the state parameter                                           |
 
-## [04]-[GENERATOR_PROPERTIES]
+## [04]-[REGULAR_UNIONS]
+
+| [INDEX] | [SETTING]                     | [DEFAULT]     | [EFFECT]                                                             |
+| :-----: | :---------------------------- | :------------ | :------------------------------------------------------------------- |
+|   [01]  | `ConversionFromValue`         | `Implicit`    | Operator from a unique single-constructor-parameter type to the base |
+|   [02]  | `NestedUnionParameterNames`   | Parent prefix | `NestedUnionParameterNameGeneration.Simple` drops the parent prefix  |
+|   [03]  | `SwitchMethods`, `MapMethods` | `Default`     | `DefaultWithPartialOverloads` adds partial forms, `None` removes all |
+|   [04]  | `SwitchMapStateParameterName` | `state`       | Name of the state parameter                                          |
+
+## [05]-[GENERATOR_PROPERTIES]
 
 Project-level MSBuild properties carry the prefix `ThinktectureRuntimeExtensions_SourceGenerator_`, reach the compiler as `build_property.<PropertyName>`, and apply to every generated type in the project:
 
