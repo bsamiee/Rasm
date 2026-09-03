@@ -252,6 +252,7 @@ Every attribute Mapperly reads, with its declaration target and whether it repea
 - `MapperIgnoreAttribute`, `MapperIgnoreSourceAttribute`, `MapperIgnoreTargetAttribute`, `MapperIgnoreSourceValueAttribute`, and `MapperIgnoreTargetValueAttribute` expose `Justification` as a `string?`
 -->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [08]-[MAPPER_OPTIONS]
 
 Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`:
@@ -283,7 +284,9 @@ Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`:
 - The null options do not apply to a required init property
 - `StackCloningStrategy` decides the element order whenever Mapperly builds a `Stack<T>` through `Stack<T>(IEnumerable<T>)`, in every new-instance mapping and never for an existing-target stack or a `Queue<T>`
 - `PreserveOrder` emits a `Reverse` call and `ReverseOrder` the bare constructor, which reverses the sequence
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [09]-[MEMBER_CONFIGURATION]
 
 Mapperly resolves a flattening (`Car.Make.Id` to `CarDto.MakeId`) from PascalCase names. It does not resolve unflattening, which needs `MapPropertyAttribute`. Mapperly ignores indexed members. `MapNestedPropertiesAttribute` brings every member below one path into scope, as if the source declared them. Immediate source members outrank nested ones, and automatic flattening outranks both. Two nested paths that reach the same target member have no defined order. Name that mapping with `MapPropertyAttribute`.
@@ -339,7 +342,9 @@ Settable properties past the constructor:
 - `MapPropertyFromSourceAttribute`: `StringFormat`, `FormatProvider`, `Use`
 - `MapValueAttribute`: `Use`
 - `FormatProviderAttribute`: `Default`
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [10]-[ENUM_CONFIGURATION]
 
 Attributes that configure one enum mapping:
@@ -368,7 +373,9 @@ internal static partial class StatusMapper {
 internal enum InternalStatus { Draft, InProgress, Done, Cancelled }
 internal enum ExternalStatus { Active, Completed, Cancelled, Draft }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [11]-[STRATEGY_TYPES]
 
 The options and attributes above name these strategy types. `RequiredMappingStrategy`, `IgnoreObsoleteMembersStrategy`, and `MemberVisibility` carry `[Flags]`: `|` adds a member and `& ~` removes one.
@@ -384,7 +391,9 @@ The options and attributes above name these strategy types. `RequiredMappingStra
 `ByValueCheckDefined` maps by value and checks that the value is defined in the enum. `ComponentModelDescriptionAttribute` reads `DescriptionAttribute.Description`, and `SerializationEnumMemberAttribute` reads `EnumMemberAttribute.Value`. Both fall back to the member name when the attribute is absent.
 
 `Source` and `Target` name the side each strategy acts on: `RequiredMappingStrategy` warns about unmapped members there, and `IgnoreObsoleteMembersStrategy` skips obsolete ones. `MapPropertyAttribute` maps an obsolete member whatever the strategy says.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [12]-[CONVERSIONS]
 
 `MappingConversionType` is the `[Flags]` set that `EnabledConversions` takes. `None = 0` disables every automatic conversion and `All = ~None` enables every one. `EnabledConversions` holds `Default = All & ~ExplicitCast` when unset, an explicit cast operator converts nothing until the mapper names `All` or adds the bit.
@@ -417,7 +426,9 @@ Priority 1 is direct assignment, which applies when the source type is assignabl
 `StaticConvertMethods` finds a static `ToTTarget` on the source type. On the target type it finds `Create`, `CreateFrom`, `CreateFromTSource`, and `FromTSource` in any casing. Array-typed sources add the `From<TElement>Array` and `CreateFrom<TElement>Array` spellings. The list matches the generated `Create(TKey)` of a Thinktecture value object, and the `Fin`-returning `From` adapter matches no listed name. It excludes the `DateTime` conversions. `Tuple` emits a tuple expression outside a queryable projection, and `ValueTuple` inside one. The `Enumerable` and `Dictionary` bits also cover arrays and every constructible collection target. `EnumUnderlyingType` holds no rank in the priority list.
 
 `MapDerivedTypeAttribute(Type sourceType, Type targetType)` and `MapDerivedTypeAttribute<TSource, TTarget>` register one pair for a base-type or interface mapping. Every source type must extend or implement the parameter type. Every target type must extend or implement the return type. Each source type appears once, and several source types can share one target type. Ordinary mappings emit a runtime switch and throw `ArgumentException` for an unregistered type. `IQueryable` and expression mappings emit `default(TTarget)` for the unmatched branch. Derived types work for a new-instance mapping and for an existing-target mapping.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [13]-[REFERENCE_HANDLING]
 
 `Riok.Mapperly.Abstractions.ReferenceHandling` supports source graphs with circular references. `UseReferenceHandling = true` turns it on. Reference handling uses the package's runtime assets, keep `runtime` out of `ExcludeAssets` on the package reference.
@@ -442,7 +453,9 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
 - `PreserveReferenceHandler` returns the same target instance for the same source instance
 
 To supply another handler, add a parameter of type `IReferenceHandler` marked `ReferenceHandlerAttribute`. Hand-written mapping methods take the same parameter to join the same handler. `ReferenceHandlerAttribute` sits in `Riok.Mapperly.Abstractions.ReferenceHandling`. Methods that take a handler need a second `using` directive.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-mapperly/SKILL.md
 ## [14]-[DESIGN_RULES]
 
 | [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                             |
@@ -455,3 +468,4 @@ To supply another handler, add a parameter of type `IReferenceHandler` marked `R
 |  [06]   | Validation or effects inside a query projection                     | Project, materialize, then validate and construct          |
 |  [07]   | Existing-target mapping over a value the caller published           | New-instance mapping, or a target that never escapes       |
 |  [08]   | Private `[UserMapping]` repeated in every mapper that needs it      | One `internal static class` behind `[UseStaticMapper<T>]`  |
+-->

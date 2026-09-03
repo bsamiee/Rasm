@@ -187,3 +187,140 @@ Every attribute Mapperly reads, with its declaration target and whether it repea
 |  [29]   | `MapperIgnoreTargetValueAttribute`         | method                  |       Yes        | Exclude a target enum value          |
 
 `Use` values and `IncludeMappingConfigurationAttribute` names accept a reference outside the mapper, and the five ignore attributes expose `Justification` as a `string?`.
+
+## [08]-[OPTIONS_AND_MEMBERS]
+
+Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`, where `RequiredEnumMappingStrategy` takes `RequiredMappingStrategy`, `EnabledConversions` takes `MappingConversionType`, `IncludedMembers` and `IncludedConstructors` take `MemberVisibility`, and every other option takes `bool` or the type its name spells:
+
+| [INDEX] | [PROPERTY]                           | [DEFAULT]       | [EFFECT]                       |
+| :-----: | :----------------------------------- | :-------------- | :----------------------------- |
+|  [01]   | `PropertyNameMappingStrategy`        | `CaseSensitive` | Member-name matching           |
+|  [02]   | `EnumMappingStrategy`                | `ByValue`       | Enum-member matching           |
+|  [03]   | `EnumNamingStrategy`                 | `MemberName`    | Enum-to-string naming          |
+|  [04]   | `EnumMappingIgnoreCase`              | `false`         | Enum-match casing              |
+|  [05]   | `ThrowOnMappingNullMismatch`         | `true`          | Null return, non-null result   |
+|  [06]   | `ThrowOnPropertyMappingNullMismatch` | `false`         | Null source, non-null member   |
+|  [07]   | `AllowNullPropertyAssignment`        | `true`          | Assign null to nullable member |
+|  [08]   | `UseDeepCloning`                     | `false`         | Copy instead of reuse          |
+|  [09]   | `StackCloningStrategy`               | `PreserveOrder` | Element order of a built stack |
+|  [10]   | `EnabledConversions`                 | `Default`       | Enabled conversions            |
+|  [11]   | `UseReferenceHandling`               | `false`         | Circular-reference support     |
+|  [12]   | `IgnoreObsoleteMembersStrategy`      | `None`          | Obsolete-member policy         |
+|  [13]   | `RequiredMappingStrategy`            | `Both`          | Unmapped-member diagnostics    |
+|  [14]   | `RequiredEnumMappingStrategy`        | `Both`          | Unmapped-value diagnostics     |
+|  [15]   | `IncludedMembers`                    | `AllAccessible` | Mapped member accessibility    |
+|  [16]   | `IncludedConstructors`               | `AllAccessible` | Constructor accessibility      |
+|  [17]   | `PreferParameterlessConstructors`    | `true`          | Constructor order              |
+|  [18]   | `AutoUserMappings`                   | `true`          | Discovery by signature         |
+
+- `AllowNullPropertyAssignment` at `false` turns an existing-target mapping into a merge, and the null options do not apply to a required init property
+- `StackCloningStrategy` decides the element order whenever Mapperly builds a `Stack<T>` through `Stack<T>(IEnumerable<T>)`, in every new-instance mapping and never for an existing-target stack or a `Queue<T>`, where `PreserveOrder` emits a `Reverse` call and `ReverseOrder` the bare constructor, which reverses the sequence
+
+Mapperly resolves a flattening (`Item.Owner.Id` to `ItemDto.OwnerId`) from PascalCase names, does not resolve unflattening, which needs `MapPropertyAttribute`, and ignores indexed members. `MapNestedPropertiesAttribute` brings every member under one path into scope as if the source declared them, immediate source members outrank nested ones, automatic flattening outranks both, and two nested paths that reach the same target member have no defined order, so `MapPropertyAttribute` names that mapping. `MapPropertyAttribute` resolves a name mismatch instead of renaming domain or DTO members, and `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` silence the unmapped-member diagnostic for a computed field or another deliberate omission:
+
+```csharp
+[Mapper]
+internal static partial class ProfileMapper {
+    [MapProperty(nameof(Profile.FullName), nameof(ProfileDto.Name))]
+    [MapperIgnoreSource(nameof(Profile.Secret), Justification = "Never leaves the domain")]
+    [MapperIgnoreTarget(nameof(ProfileDto.Badge), Justification = "Presentation computes it")]
+    public static partial ProfileDto ToDto(Profile profile);
+}
+```
+
+- Paired constructors take source before target, a `string` path splits on `.` into segments, the `string[]` overload takes the segments as written, `@` works in a path (`nameof(@Some.Namespace.Item.Owner.Id)` yields `Owner.Id`), `Source` and `Target` are `IReadOnlyCollection<string>`, and `SourceFullName` and `TargetFullName` rejoin the segments with `.`
+- `MapPropertyAttribute` takes source and target, `MapPropertyFromSourceAttribute` and `MapValueAttribute` take a target, `MapNestedPropertiesAttribute` takes a source, `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` take one `string`, `MapperRequiredMappingAttribute` takes a `RequiredMappingStrategy`, and `MapperIgnoreObsoleteMembersAttribute` takes an `IgnoreObsoleteMembersStrategy` that defaults to `Both`
+- `StringFormat` is the format string Mapperly passes to `ToString` on an `IFormattable` type, `FormatProvider` names a field or property marked `FormatProviderAttribute`, Mapperly falls back to the one member that sets `Default` to `true`, and a mapper sets it on one member only
+- `MapValueAttribute` assigns a constant of the target type, or with `Use` the result of a method returning that type, its parameters filled by name from the additional mapping parameters
+- Settable past the constructor are `StringFormat`, `FormatProvider`, `Use`, and `SuppressNullMismatchDiagnostic` on `MapPropertyAttribute`, `StringFormat`, `FormatProvider`, and `Use` on `MapPropertyFromSourceAttribute`, `Use` on `MapValueAttribute`, and `Default` on `FormatProviderAttribute`
+
+## [09]-[ENUMS_AND_STRATEGIES]
+
+Attributes that configure one enum mapping:
+
+| [INDEX] | [SYMBOL]                                              | [MEMBERS]                     |
+| :-----: | :---------------------------------------------------- | :---------------------------- |
+|  [01]   | `MapEnumAttribute(EnumMappingStrategy strategy)`      | `Strategy`                    |
+|  [02]   | `MapEnumValueAttribute(object source, object target)` | `Source` `Target` as `object` |
+|  [03]   | `MapperIgnoreSourceValueAttribute(object source)`     | `SourceValue` as `Enum?`      |
+|  [04]   | `MapperIgnoreTargetValueAttribute(object target)`     | `TargetValue` as `Enum?`      |
+
+`MapEnumAttribute` applies to a mapping method that takes an enum and also takes `IgnoreCase` (`bool`, default `false`), `FallbackValue` (`object?`, default `null`), and `NamingStrategy` (`EnumNamingStrategy`, default `MemberName`), where `FallbackValue` replaces the throw for an unmapped value under `ByName` and `ByValueCheckDefined` only, and neither `FallbackValue` nor `MapEnumValueAttribute` passes through the naming strategy. `MapEnumValueAttribute` applies to an enum-to-enum, enum-to-string, or string-to-enum mapping and pairs an enum member with another enum member or a string literal, and the two ignore-value attributes cast their argument to `Enum` and take an enum member only. Under the workspace `ByName` default, members that match by name need no configuration, and explicit pairs cover the rest:
+
+```csharp
+[Mapper]
+internal static partial class StateMapper {
+    [MapEnumValue(InternalState.InProgress, ExternalState.Active)]
+    [MapEnumValue(InternalState.Done, ExternalState.Completed)]
+    public static partial ExternalState ToExternal(InternalState state);
+}
+
+internal enum InternalState { Draft, InProgress, Done, Cancelled }
+internal enum ExternalState { Active, Completed, Cancelled, Draft }
+```
+
+The options and attributes name these strategy types, and `RequiredMappingStrategy`, `IgnoreObsoleteMembersStrategy`, and `MemberVisibility` carry `[Flags]`, where `|` adds a member and `& ~` removes one:
+- `StackCloningStrategy`: `PreserveOrder` `ReverseOrder`
+- `PropertyNameMappingStrategy`: `CaseSensitive` `CaseInsensitive` `SnakeCase` `UpperSnakeCase`
+- `RequiredMappingStrategy` and `IgnoreObsoleteMembersStrategy`: `None = 0` `Both = ~None` `Source = 1 << 0` `Target = 1 << 1`
+- `EnumMappingStrategy`: `ByValue` `ByName` `ByValueCheckDefined`, where the last maps by value and checks that the value is defined
+- `EnumNamingStrategy`: `MemberName` `CamelCase` `PascalCase` `SnakeCase` `UpperSnakeCase` `KebabCase` `UpperKebabCase` `ComponentModelDescriptionAttribute` `SerializationEnumMemberAttribute`, where the last two read `DescriptionAttribute.Description` and `EnumMemberAttribute.Value` and fall back to the member name
+- `MemberVisibility`: `AllAccessible = All | Accessible` `All = Public | Internal | Protected | Private` `Accessible = 1 << 0` `Public = 1 << 1` `Internal = 1 << 2` `Protected = 1 << 3` `Private = 1 << 4`
+
+`Source` and `Target` name the side each strategy acts on, `RequiredMappingStrategy` warns about unmapped members there, `IgnoreObsoleteMembersStrategy` skips obsolete ones, and `MapPropertyAttribute` maps an obsolete member whatever the strategy says.
+
+## [10]-[CONVERSIONS_AND_REFERENCES]
+
+`MappingConversionType` is the `[Flags]` set that `EnabledConversions` takes, `None = 0` disables every automatic conversion, `All = ~None` enables every one, and the unset value is `Default = All & ~ExplicitCast`, so an explicit cast operator converts nothing until the mapper names `All` or adds the bit. Priority 1 is direct assignment, applied when the source type is assignable to the target type and `UseDeepCloning` is `false`, and priority 20 creates a new target instance and maps its members:
+
+| [INDEX] | [MEMBER]               | [BIT]     | [PRIORITY] | [CONDITION]                                                  |
+| :-----: | :--------------------- | :-------- | :--------: | :----------------------------------------------------------- |
+|  [01]   | `Constructor`          | `1 << 0`  |     10     | Target has a constructor taking the source type              |
+|  [02]   | `ImplicitCast`         | `1 << 1`  |     8      | Implicit cast operator exists                                |
+|  [03]   | `ExplicitCast`         | `1 << 2`  |     14     | Explicit cast operator exists                                |
+|  [04]   | `ParseMethod`          | `1 << 3`  |     9      | Source is `string`, target has a static `Parse` overload     |
+|  [05]   | `ToStringMethod`       | `1 << 4`  |     15     | Target is `string`, calls `ToString` on the source           |
+|  [06]   | `StringToEnum`         | `1 << 5`  |     11     | Source is `string`, target is an enum                        |
+|  [07]   | `EnumToString`         | `1 << 6`  |     12     | Source is an enum, target is `string`                        |
+|  [08]   | `EnumToEnum`           | `1 << 7`  |     13     | Both are enums, follows `EnumMappingStrategy`                |
+|  [09]   | `DateTimeToDateOnly`   | `1 << 8`  |     17     | `DateTime` to `DateOnly` through `FromDateTime`              |
+|  [10]   | `DateTimeToTimeOnly`   | `1 << 9`  |     18     | `DateTime` to `TimeOnly` through `FromDateTime`              |
+|  [11]   | `Queryable`            | `1 << 10` |     2      | Both are `IQueryable<T>`, expression-tree element mapping    |
+|  [12]   | `Enumerable`           | `1 << 11` |     4      | Both are `IEnumerable<T>`, maps each element                 |
+|  [13]   | `Dictionary`           | `1 << 12` |     3      | Both are `IDictionary` or `IReadOnlyDictionary`              |
+|  [14]   | `Span`                 | `1 << 13` |     5      | Either is `Span<T>` or `ReadOnlySpan<T>`                     |
+|  [15]   | `Memory`               | `1 << 14` |     7      | Either is `Memory<T>` or `ReadOnlyMemory<T>`                 |
+|  [16]   | `Tuple`                | `1 << 15` |     6      | Target is a `ValueTuple` or a tuple expression               |
+|  [17]   | `EnumUnderlyingType`   | `1 << 16` |     -      | Maps an enum from or to its underlying type                  |
+|  [18]   | `ToTargetMethod`       | `1 << 17` |     16     | Source has an instance `TTarget ToTTarget()`, not `ToString` |
+|  [19]   | `StaticConvertMethods` | `1 << 18` |     19     | Static `ToTTarget`, `Create`, `CreateFrom`, `FromTSource`    |
+|  [20]   | `Expression`           | `1 << 19` |     -      | Declared only, the generator never reads it                  |
+
+`StaticConvertMethods` finds a static `ToTTarget` on the source type and `Create`, `CreateFrom`, `CreateFromTSource`, and `FromTSource` in any casing on the target type, an array-typed source adds the `From<TElement>Array` and `CreateFrom<TElement>Array` spellings, the list matches the generated `Create(TKey)` of a value object, the `Fin`-returning `From` adapter matches no listed name, and the `DateTime` conversions are excluded. `Tuple` emits a tuple expression outside a queryable projection and `ValueTuple` inside one, the `Enumerable` and `Dictionary` bits also cover arrays and every constructible collection target, and `EnumUnderlyingType` holds no rank in the priority list.
+
+`MapDerivedTypeAttribute(Type sourceType, Type targetType)` and `MapDerivedTypeAttribute<TSource, TTarget>` register one pair for a base-type or interface mapping: every source type extends or implements the parameter type, every target type extends or implements the return type, each source type appears once, several source types can share one target type, an ordinary mapping emits a runtime switch that throws `ArgumentException` for an unregistered type, an `IQueryable` or expression mapping emits `default(TTarget)` for the unmatched branch, and derived types work for new-instance and existing-target mappings.
+
+`Riok.Mapperly.Abstractions.ReferenceHandling` supports source graphs with circular references, `UseReferenceHandling = true` turns it on, and it uses the package's runtime assets, so `runtime` stays out of `ExcludeAssets` on the package reference. `IReferenceHandler` stores and resolves target objects, `PreserveReferenceHandler` is the default handler and returns the same target instance for the same source instance, and `ReferenceHandlerAttribute` marks the handler parameter:
+
+```csharp
+bool TryGetReference<TSource, TTarget>(TSource source, [NotNullWhen(true)] out TTarget? target)
+    where TSource : notnull where TTarget : notnull;
+
+void SetReference<TSource, TTarget>(TSource source, TTarget target)
+    where TSource : notnull where TTarget : notnull;
+```
+
+Mapperly calls `TryGetReference` before it creates a target, a `true` result sets `target` and Mapperly uses that instance, and a `false` result makes Mapperly create a new instance and record it through `SetReference`. To supply another handler, add a parameter of type `IReferenceHandler` marked `ReferenceHandlerAttribute`, and a hand-written mapping method takes the same parameter to join the same handler, with a second `using` directive for the namespace.
+
+## [11]-[ANTI_PATTERNS]
+
+| [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                             |
+| :-----: | :------------------------------------------------------------------ | :--------------------------------------------------------- |
+|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type   | The hand-written `From` adapter over `Validate`            |
+|  [02]   | `MapDerivedType`, `SwitchPartially`, or a `@default` arm on a union | The generated exhaustive `Switch`, one mapper call per arm |
+|  [03]   | `EnabledConversions` on a mapper naming the one added bit           | The whole allowlist, the value replaces and never merges   |
+|  [04]   | Mapper method that returns `Fin<T>` or unwraps one                  | Mapper over the success value, `Map` keeps the context     |
+|  [05]   | `ToString()` as the wire contract of a value object                 | The key member, or `ToValue` of an `[ObjectFactory<T>]`    |
+|  [06]   | Validation or effects inside a query projection                     | Project, materialize, then validate and construct          |
+|  [07]   | Existing-target mapping over a value the caller published           | New-instance mapping, or a target that never escapes       |
+|  [08]   | Private `[UserMapping]` repeated in every mapper that needs it      | One `internal static class` behind `[UseStaticMapper<T>]`  |
