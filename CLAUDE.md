@@ -17,6 +17,7 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS use `search-context7` skill when working with external dependencies, never use training data, never guess SDK/framework/API capabilities
 - ALWAYS use `github` MCP to explore, read, and search repositories on GitHub and to work their issues, pull requests, and runs
 - ALWAYS use `dotnet-roslyn-codelens` skill to read, navigate, diagnose, and refactor C# files and code
+- ALWAYS use `dotnet-coding` skill for any C# code, in a file or a fence, it routes to the LanguageExt, Thinktecture, and Mapperly skills
 - ALWAYS use `dotnet-msbuild-evaluation` skill for property, item, condition, and import placement across `.props`, `.targets`, and `.csproj` files
 - ALWAYS use `dotnet-msbuild-antipatterns` skill to review or audit a `.props`, `.targets`, or `.csproj` file before changing it
 - ALWAYS use `dotnet-msbuild-execution` skill for `<Target>` ordering, `DependsOn` chains, incremental `Inputs`/`Outputs`, and generated files
