@@ -304,8 +304,7 @@
             "language:typescript"
         ],
         "implicitDependencies": [
-            "@rasm/test-support",
-            "infra"
+            "@rasm/test-support"
         ],
         "targets": {
             "restore": {
@@ -324,11 +323,11 @@
             },
             "lint": {
                 "options": {
-                    "command": "biome check package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools"
+                    "command": "biome check package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
                 },
                 "configurations": {
                     "write": {
-                        "command": "biome check --write package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools"
+                        "command": "biome check --write package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
                     }
                 },
                 "inputs": [
@@ -342,16 +341,17 @@
                     "{workspaceRoot}/stryker.config.json",
                     "{workspaceRoot}/.mcp.json",
                     "{workspaceRoot}/.vscode/**/*",
-                    "{workspaceRoot}/tools/**/*"
+                    "{workspaceRoot}/tools/**/*",
+                    "{workspaceRoot}/infra/**/*"
                 ]
             },
             "format": {
                 "options": {
-                    "command": "biome format package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools"
+                    "command": "biome format package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
                 },
                 "configurations": {
                     "write": {
-                        "command": "biome format --write package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools"
+                        "command": "biome format --write package.json nx.json biome.json tsconfig.json tsconfig.base.json vite.config.ts vitest.config.ts stryker.config.json .mcp.json .vscode tools infra"
                     }
                 },
                 "inputs": [
@@ -365,7 +365,8 @@
                     "{workspaceRoot}/stryker.config.json",
                     "{workspaceRoot}/.mcp.json",
                     "{workspaceRoot}/.vscode/**/*",
-                    "{workspaceRoot}/tools/**/*"
+                    "{workspaceRoot}/tools/**/*",
+                    "{workspaceRoot}/infra/**/*"
                 ]
             },
             "typecheck": {
@@ -376,6 +377,7 @@
                     "{workspaceRoot}/package.json",
                     "{workspaceRoot}/pnpm-lock.yaml",
                     "{workspaceRoot}/tools/nx/**/*",
+                    "{workspaceRoot}/infra/**/*",
                     "^production",
                     {
                         "externalDependencies": [
@@ -385,6 +387,35 @@
                 ],
                 "outputs": [
                     "{workspaceRoot}/.cache/typescript/out"
+                ]
+            },
+            "preview": {
+                "command": "node infra/automation.ts preview",
+                "configurations": {
+                    "expect-no-changes": {
+                        "command": "node infra/automation.ts preview --refresh --expect-no-changes"
+                    }
+                },
+                "cache": false,
+                "parallelism": false,
+                "inputs": [
+                    "{workspaceRoot}/infra/**/*"
+                ]
+            },
+            "up": {
+                "command": "node infra/automation.ts up",
+                "cache": false,
+                "parallelism": false,
+                "inputs": [
+                    "{workspaceRoot}/infra/**/*"
+                ]
+            },
+            "refresh": {
+                "command": "node infra/automation.ts refresh",
+                "cache": false,
+                "parallelism": false,
+                "inputs": [
+                    "{workspaceRoot}/infra/**/*"
                 ]
             },
             "check": {

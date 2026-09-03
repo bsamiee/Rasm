@@ -7,7 +7,7 @@
         "types": ["node"],
         "allowImportingTsExtensions": true
     },
-    "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts"],
+    "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts", "infra/*.ts"],
     "references": [
         // One reference per workspace package tsconfig ({ "path": "./libs/typescript/{package}" })
         {

@@ -32,7 +32,7 @@ Each skill owns one kind of fact, and a fact appears in the skill that owns it:
 - `pulumi` owns the program mechanics: resources, adoption through import, state backends, previews, and destroys
 - `secrets` owns where a secret lives: 1Password for credentials a person uses, Doppler for runtime secrets, and how a token reaches a process
 
-`infra/` holds the repository's own estate alone: the repository settings and the Doppler project for the repository's runtime secrets. An application that provisions anything owns its Pulumi program and its Doppler project inside its own directory under `apps/`, with one stack per environment, and reads what it needs from `infra/` through stack references. Libraries own no program.
+`infra/` holds the repository's own resources alone: the repository settings and the Doppler project for the repository's runtime secrets. An application that provisions anything owns its Pulumi program and its Doppler project inside its own directory under `apps/`, with one stack per environment, and reads what it needs from `infra/` through stack references. Libraries own no program.
 
 The skill names no repository, product, or person. It states rules with the category and the criterion an agent applies to the next case, and it grows a corrections row whenever a repository change corrects a category of mistake.
 
@@ -54,7 +54,7 @@ The skill names no repository, product, or person. It states rules with the cate
 |  [03]   | .NET tools       | `.mcp.json`, `Directory.Build.props`, `Directory.Packages.props`, no tool manifest               | Done     |
 |  [04]   | Nx               | `tools/nx/workspace.ts`, `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `biome.json` | Done     |
 |  [05]   | Coverage         | `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `pyproject.toml`, `Directory.Build.targets`, `tests/README.md` | Done     |
-|  [06]   | Infrastructure   | `infra/` Pulumi program, Doppler adoption, CI token, `secrets` skill rule                 | Pending  |
+|  [06]   | Infrastructure   | `infra/resources.ts`, `infra/program.ts`, `infra/automation.ts`, `infra/README.md`        | Done     |
 |  [07]   | CI               | `.github/workflows/ci.yml`, `.github/workflows/release.yml`                               | Pending  |
 |  [08]   | Tools in use     | KTX2 CLI and `git lfs install` in provisioning, protobuf generation target                | Pending  |
 |  [09]   | Documentation    | Root, `tests/`, `apps/`, `libs/dotnet/` READMEs, `CLAUDE.md`, the Forge removal memory    | Pending  |
@@ -77,6 +77,10 @@ Decisions the steps recorded:
 - Vitest `--merge-reports` resolves each blob by project name and recomputes the file id from that project's root, and the root `vitest.config.ts` declares `projects`, drops the blob reporter, and owns the merged `lcovonly` and `json` paths
 - Every Vitest project run writes its blob to `.artifacts/typescript/test-results/.vitest-reports/<name>.json`, a path outside the inferred outputs, and the merge reads every blob in that directory
 - `mutmut` leaves `tests/README.md`, it is not installed and no `[tool.mutmut]` table exists, the Python `benchmark` configuration exits 5 while no benchmark test exists, and `@nx/vitest` infers no `bench` target, and TypeScript benchmarks stay on the benchmark include glob
+- The `infra/` program runs on the Automation API: `LocalWorkspace.createOrSelectStack` with an inline program, project settings and the `file://${XDG_STATE_HOME:-$HOME/.local/state}/rasm-infra` backend in code, the passphrase secrets provider, explicit `github.Provider` and `doppler.Provider` resources, and no `Pulumi.yaml`, stack file, `package.json`, or `tsconfig.json` under `infra/`, the root `tsconfig.json` includes the files and the root `lint`, `format`, and `typecheck` cover them
+- The `infra/` credentials resolve in `automation.ts`: `PULUMI_CONFIG_PASSPHRASE` from the ambient variable else `op read op://Tokens/PULUMI_RASM_INFRA/password`, `DOPPLER_TOKEN` from the ambient variable else `doppler configure get token --plain`, and `GITHUB_TOKEN` from ambient `GITHUB_TOKEN` or `GH_TOKEN` else `op read op://Tokens/GITHUB_TOKEN/token`, each passed as a provider input or the engine environment, with no write to a repository file
+- The `preview`, `up`, and `refresh` targets sit on the root project uncached with `parallelism: false`, `up` prints the plan and asks at the prompt with no auto-approval, and `preview:expect-no-changes` is the drift gate (`preview --refresh --expect-no-changes`)
+- Secret values are `doppler secrets set` writes against a declared config with no `doppler.Secret` row, the CI token reaches GitHub as a `github.ActionsSecret` row fed by the `doppler.ServiceToken` key, and `BUF_TOKEN` left 1Password once Doppler held the identical value
 
 ## [05]-[SKILL_SHAPE]
 
@@ -127,3 +131,4 @@ Each repository step corrects one category of mistake, and the skill's last sect
 |  [04]   |  [04]  | Checks run as raw commands and per-tool target variants, root files rehashed by a root project, a discovery declared twice | One target name per kind of work filled by tag from `targetDefaults` with `check` and `write` configurations, a root project with explicit inputs alone, one discovery per tool |
 |  [05]   |  [04]  | A configuration file created per directory while an existing owner holds the setting (a root `project.json`, a `project.json` beside a manifest, a per-project tool config) | The existing owner: plugin inference, the manifest's `nx` field, `tsconfig.base.json`, the root tool config, and a new file only for a directory no manifest describes |
 |  [06]   |  [05]  | Coverage thresholds as gates, per-project reports with no aggregate, raw tool commands in documentation | Information reports merged once per language by one root target, `test` configurations for collection, documentation naming targets and configurations |
+|  [07]   |  [06]  | A repository's settings and its secrets project held by hand or by another repository's program, IaC written as project files a CLI reads in place of a program that owns its stack | One `infra/` program per repository on the Automation API that declares its own resources as typed rows, imports the live ones, resolves its credentials in code, and runs from root targets with no project or stack file |

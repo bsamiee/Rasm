@@ -48,7 +48,7 @@ pulumi do <pkg:mod:type> list [flags]
 - `delete <id>` is irreversible, explicit operator confirmation of the specific resource precedes `--yes`
 - `list` enumerates existing instances where the resource type implements listing
 
-First invocation without saved credentials provisions an ephemeral agent account and prints a claim banner to stderr. Show the claim URL to the operator immediately and again in the final response, a session ending without it strands resources. On authentication failure, ask the operator to run `pulumi login`, never fall back to `pulumi login --local` or set `PULUMI_CONFIG_PASSPHRASE`. Provider credentials arrive separately through the provider's native environment variables (`AWS_PROFILE`, `CLOUDFLARE_API_TOKEN`), when absent, ask before any command that calls out to the cloud.
+First invocation without saved credentials provisions an ephemeral agent account and prints a claim banner to stderr. Show the claim URL to the operator immediately and again in the final response, a session ending without it strands resources. On authentication failure in `pulumi do` work, ask the operator to run `pulumi login`, and never fall back to `pulumi login --local` or set `PULUMI_CONFIG_PASSPHRASE` there, an Automation API program on a file backend sets both by design. Provider credentials arrive separately through the provider's native environment variables (`AWS_PROFILE`, `CLOUDFLARE_API_TOKEN`), when absent, ask before any command that calls out to the cloud.
 
 When a `Pulumi.yaml` project already manages a resource, changes go through the program, never `pulumi do`.
 

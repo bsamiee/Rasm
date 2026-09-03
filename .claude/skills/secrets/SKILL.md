@@ -4,15 +4,16 @@ description: >-
     Owns secret storage in 1Password and Doppler: op is the permanent local store and
     SSH-key holder, Doppler the runtime backend. Use when creating a secret, token, or env key
     or when one fails to resolve, creating and managing them, the op agent key, a tool or code logic
-    needs a scoped token, or a config file needs secret material. Issuing tokens and creating projects,
-    configs, or scopes is Pulumi topology in Parametric_Forge/services/topology.ts, the pulumi skill.
+    needs a scoped token, or a config file needs secret material. Issuing tokens and creating projects
+    or configs is a row in the owning repository's infra/ Pulumi program, and a directory scope is a row
+    in Parametric_Forge/services/topology.ts, the pulumi skill.
 ---
 
 # [SECRETS]
 
-`op` holds permanent local and session storage, and Doppler holds project configuration and explicit process delivery.
+Doppler owns the runtime secrets a process reads under a project and config, and 1Password keeps the credentials a person uses, the IaC tokens and the stack passphrase among them, which the repository's Automation API entry resolves when the ambient variable is absent.
 
-Topology (projects, environments, configs, service tokens, directory scopes) sits as IaC entries in `Parametric_Forge/services/topology.ts`, rendered by `repo.ts` and applied by `driver.ts` over the Pulumi Automation API. `doppler` reads and writes secret values against declared configs, `doppler run` and owner-specific downloads inject values at the consuming process, `~/.doppler` holds CLI scope and authentication state.
+A repository's own resources (its Doppler project, environments, configs, and service tokens, and its GitHub repository settings) are rows in that repository's `infra/` program on the Pulumi Automation API, and the machine's projects and directory scopes stay rows in `Parametric_Forge/services/topology.ts` applied by its `driver.ts`. `doppler` reads and writes secret values against declared configs, `doppler run` and owner-specific downloads inject values at the consuming process, `~/.doppler` holds CLI scope and authentication state, and no repository holds a `.env` or a `doppler.yaml`.
 
 [REFERENCES]:
 - [01]-[PATTERNS](references/patterns.md): Consumption patterns for secret material that is not process-env shaped, with the plan gates
@@ -84,10 +85,12 @@ Local storage is `op`: every service, IaC, and MCP token and the SSH key sit in 
 - Config-scoped service token: issued by topology entries, static Developer-plan tokens are revoked and reissued
 - IaC admin token and stack passphrase: brokered by `driver.ts`, an ambient `DOPPLER_TOKEN` or `PULUMI_CONFIG_PASSPHRASE` short-circuits the op read per run
 - MCP token: the launcher prelude resolves the ambient personal CLI token, its grants are the enforcement, `--read-only` filters the toolset to GET endpoints
+- Repository `infra/` programs resolve their own passphrase, Doppler token, and GitHub token, the route sits in the program's `README.md`
 
 ## [06]-[RULES]
 
 - One item, one official name: an item has the credential's real published name, a consumer needing a different env-var name renames the item at the source and repoints every reader, and naming mistakes are fixed by renaming in `op` and Doppler
-- New projects are added as project/config entries in `Parametric_Forge/services/topology.ts` and a directory scope entry, then `pulumi up`, retiring one deletes its entries
-- Repos hold no Doppler files, their agents resolve through scope and hook automatically
+- Doppler projects, environments, configs, and service tokens are rows in the owning repository's `infra/` program, retiring one deletes its row
+- Repositories hold no `.env` and no `doppler.yaml`, a process resolves through the directory scope or `doppler run --project <p> --config <c>`
+- A runtime secret is written once with `doppler secrets set <NAME> --project <p> --config <c>` from stdin
 - Rendered secret material is ephemeral: `--mount`/`--mount-template` over durable renders, plaintext binds only where the target owner requires it

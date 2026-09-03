@@ -26,6 +26,7 @@ Rasm/
 ├── eng/                      # Shared build and release infrastructure
 │   ├── native/               # Native packaging: version manifest directory and packaging projects per library
 │   └── scripts/              # Python automation that Nx targets and CI jobs invoke
+├── infra/                    # Pulumi program on the Automation API for the repository settings and its Doppler project
 ├── tools/                    # Custom tools for developing this project
 │   ├── biome/                # Biome GritQL plugin rules
 │   └── nx/                   # Nx plugin that infers the packaging projects, their stage and pack targets, and their edges
