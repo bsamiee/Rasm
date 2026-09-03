@@ -181,3 +181,5 @@ The build and review sequences of the 4 skills exposed patterns that every later
 |   [20]  | coding       | `Duration` ambiguous between LanguageExt and NodaTime         | Applied, `Directory.Build.targets` aliases it, compiled  |
 |   [21]  | mapperly     | `Interval` placeholder collides with `NodaTime.Interval`      | Applied, renamed to `Bounds` and compiled                |
 |   [22]  | coding       | `NotPast` derives today as `clock().InUtc().Date`             | Applied, `NotPast` takes the date a `ZonedClock` reads   |
+|   [23]  | thinktecture | `Interval` placeholder in [02] and `serilog.md`               | Rename in the polish pass                                |
+|   [24]  | time         | Transitive NodaTime references get no namespace or alias      | `dotnet-time` states the direct reference rule           |

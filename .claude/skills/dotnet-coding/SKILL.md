@@ -14,10 +14,10 @@ Covers writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, P
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Combinators, functions as data, specialization, delegate adapters, the composition root, end-to-end flows
-- [02]-[SEQUENCES](references/sequences.md): Deferral and materialization, named stages, `Fold` reductions, indexed replacement, adjacent pairs, a pipeline
+- [02]-[SEQUENCES](references/sequences.md): Deferral and materialization, named stages, `Fold` reductions, replacement, adjacent pairs, a pipeline
 - [03]-[RESULTS](references/results.md): Validator folds, fail-fast workflows, lifting into an effect, host translation, union folds, law tests
 - [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshots and transitions, shared mutation, `With`, cost, persistent structures
-- [05]-[EFFECTS](references/effects.md): I/O around a pure core, injection, `IO` and `Try`, `Reader`, resource scopes, failure policies, stacked effects
+- [05]-[EFFECTS](references/effects.md): I/O around a pure core, injection, `IO` and `Try`, `Reader`, resource scopes, policies, stacked effects
 - [06]-[STATE](references/state.md): The transition shape, a cache as `State` and `StateT`, seeded generators, tree numbering, the loop forms
 - [07]-[STREAMS](references/streams.md): The observable model, operators, per-item failure, backpressure, agents, entities
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Append-only storage, events as a union, transitions, reconstruction, command and query sides
