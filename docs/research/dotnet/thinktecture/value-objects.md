@@ -1,11 +1,15 @@
+<!-- [15] recurring dates and currency amount stay for a use-case reference, its `FileUrn` goes to references/factory-paths.md -->
 # [VALUE_OBJECTS]
 
 Value objects are domain values defined by their content, not by identity. Two instances with the same content are equal and interchangeable. `Thinktecture.Runtime.Extensions` generates the factory methods, equality, comparison, parsing, formatting, and conversion members of a value object at compile time. The hand-written part is the validation hook and the domain behavior.
 
+<!-- Decision held by dotnet-coding [01.1] honest signatures
 ## [01]-[PRIMITIVE_OBSESSION]
 
 `string`, `int`, or `decimal` in a signature carries no rule and no meaning. Two parameters of the same primitive type swap without a compiler error. Validation of the same value repeats at every construction site, and a rule change misses a copy. Normalization (trimming, rounding) is skipped where a construction site forgets it. The signals for a value object are duplicated validation, confusable parameters, magic strings or numbers, primitives that always travel together, and behavior tied to a raw value. Concepts with one value become simple value objects. Concepts with several values belonging together become complex value objects.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [02]-[SIMPLE_AND_COMPLEX]
 
 Simple value objects wrap one key member and carry `[ValueObject<TKey>]`. Complex value objects hold several read-only members and carry `[ComplexValueObject]`. Both are `partial` classes or structs. The generator adds `sealed` to a class and `readonly` to a struct, and writing those modifiers is allowed. Primary constructors draw `TTRESG043`, because the generator owns the private constructor. Every field is read-only (`TTRESG001`), every property has no setter (`TTRESG003`), and an `init` accessor is private (`TTRESG042`). The key member is non-nullable. String keys need an equality comparer, or `TTRESG048` warns, and a complex value object with string members needs `DefaultStringComparison`, or `TTRESG049` warns. The complex form accepts one member or none, and a complex value object with one member does not receive the members generated from a key member.
@@ -43,7 +47,9 @@ internal sealed partial class Boundary {
     }
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [03]-[GENERATED_API]
 
 `Create(value)` validates and returns the instance, or throws `System.ComponentModel.DataAnnotations.ValidationException` with the message `validationError.ToString()`. `TryCreate(value, out T? obj)` returns `false` on rejection, and `TryCreate(value, out T? obj, out ValidationError? validationError)` also hands back the error. `Validate(value, IFormatProvider? provider, out T? obj)` returns the error or `null` and never throws. Complex value objects take one argument per member in declaration order, and `Validate` has no provider parameter. `null` arguments for a non-nullable key return the error `The argument 'value' must not be null.`. `null` non-nullable members of a complex value object return `The member "PostalCode" of type "Address" must not be null.` before the hook runs.
@@ -51,11 +57,15 @@ internal sealed partial class Boundary {
 Equality, `GetHashCode`, `==`, and `!=` run through the configured comparer. `ToString()` of a simple value object returns the key's `ToString()`. `ToString()` of a complex value object formats the equality members as `{ Lower = 1.23, Upper = 2.57 }`. The simple form implements `IComparable<T>` and `IComparable` when the key is comparable, and `IFormattable` when the key is formattable. It implements `IParsable<T>` when the key is parsable or a `string`. It implements `ISpanParsable<T>` when the key is span-parsable. `Parse(string s, IFormatProvider? provider)` throws `FormatException` with the validation text, and `TryParse(s, provider, out obj)` returns `false`. `[TypeConverter(typeof(ThinktectureTypeConverter<T, TKey, TValidationError>))]` is emitted on every simple value object with factory methods.
 
 `ConversionToKeyMemberType` defaults to `Implicit` and converts the value object to `TKey`, with `null` in giving `null` out for a class. `ConversionFromKeyMemberType` defaults to `Explicit` and calls `Create`. `UnsafeConversionToKeyMemberType` defaults to `Explicit` and converts a class to a value-type key, throwing `NullReferenceException` on `null`. Each accepts `ConversionOperatorsGeneration.None`, `Implicit`, or `Explicit`. `SkipToString`, `SkipIComparable`, `SkipIFormattable`, `SkipIParsable`, `SkipISpanParsable`, and `SkipEqualityComparison` remove the matching member. `SkipEqualityComparison` removes `Equals`, `GetHashCode`, and `IEquatable<T>`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [04]-[VALIDATION_HOOK]
 
 `ValidateFactoryArguments` is a `static partial void` method. The first parameter is `ref ValidationError? validationError`, and each following parameter is the key or a member by `ref`. The hook rejects input by assigning `validationError` and normalizes input by assigning the `ref` parameter. The compiler erases a `void` partial method without an implementation. Types without rules pay nothing. Every entry point runs the hook: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, the JSON converters, the MessagePack formatter, and model binding. `ValidateConstructorArguments(ref TKey value)` exists, and it rejects input by throwing alone. The factory hook is the correct place for a rule over one value and reports the first violated rule, independent rules over several inputs accumulate at the input boundary.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [05]-[HOOK_PARAMETERS]
 
 The hook accepts trailing parameters after the key or members. Declare them by value and without a default, or `TTRESG076` reports the parameter. The generator reproduces each additional parameter on its own declaration, re-declares a reference type as nullable, and gives it the default `null` or `default`. With additional parameters present, the generator emits `private static TValidationError? ValidateCore(members, extras, out T? obj)` and `private static T CreateCore(members, extras)`. The public `Validate` delegates to `ValidateCore` and passes `default` for every additional parameter, a rule over a clock, state, or a setting runs in the transition that receives it as an argument. `Create`, `TryCreate`, serialization, and model binding keep their shape. `CreateCore` follows `CreateFactoryMethodName`: a factory renamed `FromRange` gets `FromRangeCore`. The `ValidateCore` name is fixed.
@@ -81,7 +91,9 @@ internal readonly partial struct Money : System.Numerics.IMultiplyOperators<Mone
 The generated default is `MidpointRounding.ToEven`. `Money.Create(19.999m)` yields `20.00`. `Money.Create(19.999m, MidpointRounding.ToNegativeInfinity)` yields `19.99`. Rounding happens once, inside the hook, whichever factory is called. Multiplication by `decimal` is disabled because the product needs a rounding decision, and multiplication by `int` is hand-written through `Create`.
 
 The hook has a second form with a return value. When the implementation is declared `private static partial string ValidateFactoryArguments(ref ValidationError? validationError, ref int value)`, the generator emits the same declaration. The generated `Validate` passes the returned value to `partial void FactoryPostInit(string factoryArgumentsValidationError)` on the constructed instance. `FactoryPostInit` runs only when validation succeeded. The instance already satisfies every rule. `[IgnoreMember]` exempts the receiving field from `TTRESG001`, and the field needs an initializer, because the generated constructor leaves it unset (`CS8618`). `readonly` structs cannot hold such a field. The pattern belongs to a class. Hand-written factories calling the hook drop the return value. Hand-written factories delegate to `CreateCore` and `ValidateCore`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [06]-[COMPARERS]
 
 `string` keys compare with `StringComparer.OrdinalIgnoreCase` by default, and every other key compares with its own `Equals`. `[KeyMemberEqualityComparer<TAccessor, TKey>]` selects the equality comparer of a simple value object. `[KeyMemberComparer<TAccessor, TKey>]` selects the ordering comparer for `IComparable<T>` and the comparison operators, and it exists for simple value objects alone. `TTRESG102` fires whenever a comparer stands without an equality comparer. `TTRESG103` fires only when the key type is comparable and `SkipIComparable` is not `true`. `SkipEqualityComparison = true` suppresses `TTRESG048`.
@@ -89,7 +101,9 @@ The hook has a second form with a return value. When the implementation is decla
 The accessors are `ComparerAccessors.StringOrdinal`, `StringOrdinalIgnoreCase`, `CurrentCulture`, `CurrentCultureIgnoreCase`, `InvariantCulture`, `InvariantCultureIgnoreCase`, and `Default<T>`. Custom accessors implement `IEqualityComparerAccessor<T>` with `static abstract IEqualityComparer<T> EqualityComparer`, or `IComparerAccessor<T>` with `static abstract IComparer<T> Comparer`.
 
 Complex value objects compare every assignable member. `DefaultStringComparison` sets the comparison of its string members and defaults to `OrdinalIgnoreCase`. `[MemberEqualityComparer<TAccessor, TMember>]` on one member changes the comparer of that member, and the set of members that take part in equality. Members without the attribute drop out of equality and hashing as soon as one member carries it. Put `[MemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]` on `Identifier` and nothing on `Name`. Then `Create("1", "Item 1") == Create("1", "Item 2")` is `true`, and `Create("a", "x") == Create("A", "x")` is `false`. `[IgnoreMember]` removes a member from equality, from the factory methods, and from every other generated member.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [07]-[CUSTOM_VALIDATION_ERROR]
 
 `ValidationError` is a sealed class with a `Message`. Custom error types implement `IValidationError<T>`, with the one member `static abstract T Create(string message)`. The generator calls `Create` for its own errors (the null-argument error). `ToString()` is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state. The custom type overrides it, and `Expected.ToString()` returns `Message`. `[ValidationError<T>]` on the value object switches the hook parameter, the second `TryCreate` overload, and `Validate` to the custom type.
@@ -113,7 +127,9 @@ internal sealed partial class Interval {
 ```
 
 `Interval.Create(2, 1)` throws with the message `Lower boundary must be less than upper boundary. (Lower=2|Upper=1)`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [08]-[FACTORY_SETTINGS]
 
 `ConstructorAccessModifier` defaults to `Private`. `CreateFactoryMethodName` and `TryCreateFactoryMethodName` rename `Create` and `TryCreate`. `SkipFactoryMethods = true` removes both factory methods, the `TypeConverter`, `IObjectFactory<T>`, the conversion from the key, `IParsable`, `ISpanParsable`, and the serialization converters, and sets the arithmetic operators to `None`. Types without factory methods still serialize when they carry `[ObjectFactory<T>(UseForSerialization = ...)]`, because the object factory supplies the conversion.
@@ -125,11 +141,15 @@ internal sealed partial class Interval {
 |  [03]   | `EqualityComparisonOperators = None`                      | `ComparisonOperators` becomes `None`                                  |
 |  [04]   | `ComparisonOperators` above `EqualityComparisonOperators` | `EqualityComparisonOperators` is raised to match                      |
 |  [05]   | `EmptyStringInFactoryMethodsYieldsNull = true`            | `NullInFactoryMethodsYieldsNull` becomes `true`                       |
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [09]-[NULL_AND_EMPTY_INPUT]
 
 `NullInFactoryMethodsYieldsNull = true` makes the factory methods of a class return `null` for a `null` argument instead of an error. `EmptyStringInFactoryMethodsYieldsNull = true` extends this to empty and whitespace strings. Structs cannot be `null`: both settings are ignored, and `EmptyStringInFactoryMethodsYieldsNull` on a struct warns with `TTRESG109`. With either setting, `TryCreate` returns `true` with a `null` object, and the generated `out` parameter loses `[NotNullWhen(true)]`. `Validate` returns a `null` error with a `null` object. `Parse` keeps its non-nullable contract. With `EmptyStringInFactoryMethodsYieldsNull`, `Parse` of an empty string throws `FormatException`, and the message states that empty or whitespace input yields `null`. Minimal APIs bind through `TryParse`. Empty input fails to bind for such a type.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [10]-[OPERATORS]
 
 `EqualityComparisonOperators` and `ComparisonOperators` accept `OperatorsGeneration.None`, `Default`, or `DefaultWithKeyTypeOverloads`. `Default` generates operators between two value objects. `DefaultWithKeyTypeOverloads` adds overloads with the key type in both operand positions. `amount > 42m` compiles without a conversion. The two settings must match, or `TTRESG105` warns. `AdditionOperators`, `SubtractionOperators`, `MultiplyOperators`, and `DivisionOperators` take the same values and default to `Default` when the key supports the operation. Every arithmetic result goes through `Create`. The invariant holds after every operation, and `Amount.Create(1m) - 5m` throws. The generator emits `operator checked +` and its siblings beside the unchecked forms when the key type declares the checked operator.
@@ -149,7 +169,9 @@ internal readonly partial struct Amount {
     }
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [11]-[STRUCT_DEFAULTS]
 
 Struct value objects reject `default(T)` and `new T()` by default. The generator adds `IDisallowDefaultValue` to the type, and `TTRESG047` turns every `default` expression or parameterless construction into an error. The JSON converters, the MessagePack formatter, and the model binder read the same interface at runtime.
@@ -161,7 +183,9 @@ Struct value objects reject `default(T)` and `new T()` by default. The generator
 - `IDisallowDefaultValue` on a class warns with `TTRESG110`, because a class defaults to `null`
 
 Choose a class when absence is a domain state and `null` expresses it. Choose a struct for a small value that is always valid. Allow the default when it has a domain meaning (zero, infinity).
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [12]-[CUSTOM_KEY_MEMBER]
 
 `KeyMemberName`, `KeyMemberAccessModifier`, and `KeyMemberKind` shape the generated key member, which defaults to `private readonly TKey _value`. `SkipKeyMember = true` leaves the key member to the hand-written part, and `KeyMemberName` names it. Missing members are `TTRESG044`, and type mismatches `TTRESG045`. `OpenEndDate` uses this to give `default` the meaning of an open end. `SkipToString = true` removes the `ToString()` override alone, and the generated `IFormattable` still formats the key. Types with a hand-written `ToString()` also set `SkipIFormattable = true`, or a provider-aware caller prints the key.
@@ -188,7 +212,9 @@ internal readonly partial struct OpenEndDate {
 ```
 
 The nullable backing field maps the CLR default to `DateOnly.MaxValue`. `default(OpenEndDate) == OpenEndDate.Infinite` and `OpenEndDate.Infinite == DateOnly.MaxValue` both hold. `Where(p => p.EndDate >= today)` needs one comparison and no `null` branch.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [13]-[COMPOSITION]
 
 Complex value objects compose simple value objects, smart enums, and other complex value objects. Each component keeps its own rule, and the composite adds the rule that spans components. The hook does not repeat the generated null check. Structs compose structs the same way. `Period` with `DateOnly From` and `OpenEndDate Until` rejects `from >= until` in its hook. The key-type overloads of `OpenEndDate` make that comparison compile.
@@ -218,7 +244,9 @@ internal sealed partial class Address {
     }
 }
 ```
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [14]-[GENERIC_KEY_TYPES]
 
 `[ValueObject<TypeParamRef1>]` through `TypeParamRef5` bind the key to the type parameter at that position. The parameter needs a `notnull`, `struct`, or `class` constraint, or `TTRESG074` reports it. `Create`, `TryCreate`, `Validate`, equality, and the conversion operators are always generated. The rest follows the constraints on the parameter: `where T : INumber<T>` yields parsing, comparison, formatting, and arithmetic together.
@@ -227,6 +255,7 @@ internal sealed partial class Address {
 [ValueObject<TypeParamRef1>]
 internal readonly partial struct Measure<T> where T : System.Numerics.INumber<T>;
 ```
+-->
 
 ## [15]-[USE_CASES]
 
@@ -269,6 +298,7 @@ internal sealed partial class FileUrn {
 
 Value objects also serve as the cases of a regular union. `[Union]` abstract class `Jurisdiction` holds nested cases: a `[ValueObject<string>(KeyMemberName = "IsoCode")] Country`, a `[ValueObject<int>(KeyMemberName = "Number")] FederalState`, and a `[ValueObject<string>(KeyMemberName = "Name")] District`. `[ComplexValueObject] Unknown` with no members and a static `Instance` is the last case. The string cases carry both comparer attributes. `Unknown` receives value equality from the complex form: two `Unknown` instances are equal, and `Switch` covers every case.
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [16]-[FRAMEWORK_INTEGRATION]
 
 Simple value objects cross every boundary as their key. Complex value objects cross JSON and MessagePack as objects with their members, and they cross a boundary carrying one value through an object factory alone.
@@ -306,7 +336,9 @@ Entity Framework Core stores a simple value object in one column of the key type
 Complex value objects map as a complex property or an owned type. `AddThinktectureValueConverters` on that builder converts the simple value objects nested inside it. Complex value objects with `[ObjectFactory<T>(UseWithEntityFramework = true)]` map to one column of `T` instead.
 
 Serilog destructuring logs a simple value object as its key and declines a complex value object. `TypesToRenderAsString.ValueObjects` switches the simple form to `ToString()`.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [17]-[DESIGN_RULES]
 
 `HasConversion` with a lambda that calls `Create` re-validates every row read from the database.
@@ -322,3 +354,4 @@ Serilog destructuring logs a simple value object as its key and declines a compl
 Do not register `ThinktectureJsonConverterFactory` at the host for a complex value object without an object factory. Reference `Thinktecture.Runtime.Extensions.Json` from the project that declares the type.
 
 At a boundary that takes user input, `Create` and `Parse` throw. Declare `[ValidationError<X>]` with a typed `Expected` record that implements `IValidationError<X>`, and a hand-written `From` that maps `Validate` to `Fin<T>`.
+-->

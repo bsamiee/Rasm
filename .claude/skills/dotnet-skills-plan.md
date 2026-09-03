@@ -103,7 +103,7 @@ The work runs as a sequence of forked agents, each with one slice, a commit betw
 | [INDEX] | [FORK]                    | [SOURCES]                              | [OUTPUT]                                               |
 | :-----: | :------------------------ | :------------------------------------- | :----------------------------------------------------- |
 |   [01]  | languageext skill         | 21 to 24, 08                           | `SKILL.md`, stubs only where a topic demands           |
-|   [02]  | thinktecture skill        | `thinktecture` folder                  | `SKILL.md`, Serilog and factory references             |
+|   [02]  | thinktecture skill        | `thinktecture` folder                  | `SKILL.md`, settings, factory-path, and Serilog references             |
 |   [03]  | mapperly skill            | `mapperly` folder                      | `SKILL.md`                                             |
 |   [04]  | results reference         | 10, 11, 12, 21 [04] to [07]            | `results.md`, skill adjustments                        |
 |   [05]  | functions reference       | 06, 07, 09                             | `functions.md`, skill adjustments                      |

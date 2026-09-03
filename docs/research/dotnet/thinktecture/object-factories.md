@@ -1,9 +1,11 @@
+<!-- [05] [06] [07] [09] go to references/factory-paths.md -->
 # [OBJECT_FACTORIES]
 
 `[ObjectFactory<T>]` declares a conversion between a type and one other type `T`. The attribute sits on a class, struct, or record. The target is a smart enum with or without a key, a simple or complex value object, or an ad hoc or regular union. Plain partial types with no other attribute are also targets. The source generator adds `IObjectFactory<TSelf, T, ValidationError>` and demands a static `Validate` method. `string` factories add `IParsable<TSelf>`. `ISpanParsable<TSelf>` joins `IParsable<TSelf>` when the key member is span parsable or a `ReadOnlySpan<char>` factory exists.
 
 One pair of methods serves System.Text.Json, Newtonsoft.Json, MessagePack, ASP.NET Core model binding, and Entity Framework Core. The generated `[JsonConverter]`, Newtonsoft.Json `[JsonConverter]`, and `[MessagePackFormatter]` attributes bind the factory value type at compile time. The registered converter factory, model binder provider, and value converter factory read the type's object factories at runtime.
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [01]-[VALIDATE_CONTRACT]
 
 The generator adds the interface with this exact shape, and a type that lacks the method fails to compile with `CS0535`.
@@ -20,11 +22,15 @@ static ValidationError? Validate(T? value, IFormatProvider? provider, out TSelf?
 - The model binder passes the culture of the value provider result, and every serializer converter and the value converter pass `null`
 
 Factories on a keyed type or a complex value object delegate to the generated `Validate` of the key member or of the members. Normalization in `ValidateFactoryArguments` then runs once for both construction paths. Factories where `T` equals the key type of a keyed type collide with the generated `Validate` overload and do not compile.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [02]-[CONVERSION_DIRECTIONS]
 
 Factories default to one-way: the type accepts `T` and never produces it. `UseForSerialization` other than `None`, or `UseWithEntityFramework = true`, makes the conversion two-way and adds `IConvertible<T>`. Types without an instance `T ToValue()` method then fail to compile with `CS0535`. The second factory implements `ToValue` as an explicit interface member, `char IConvertible<char>.ToValue()`, because two methods with the same name and no parameters cannot coexist.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [03]-[ATTRIBUTE_PROPERTIES]
 
 | [INDEX] | [PROPERTY]                    | [TYPE]                    | [DEFAULT]   | [EFFECT]                                                                             |
@@ -42,7 +48,9 @@ For a keyed smart enum or a simple value object, a flag replaces the key-based c
 Projects referencing `Thinktecture.Runtime.Extensions.Json` receive a generated `[JsonConverter]` attribute unless the type carries its own. When the project that declares the type does not reference the package, the project that configures the serializer adds `ThinktectureJsonConverterFactory` to `JsonSerializerOptions.Converters`. Model binding needs `ThinktectureModelBinderProvider` inserted at index zero of `ModelBinderProviders`, and its constructor parameter `skipBindingFromBody` defaults to `true`. Entity Framework Core needs `UseThinktectureValueConverters` on `DbContextOptionsBuilder`, or `AddThinktectureValueConverters` on `ModelBuilder`, `EntityTypeBuilder`, `OwnedNavigationBuilder`, or `ComplexPropertyBuilder`, or `HasThinktectureValueConverter` on one property builder.
 
 Serilog destructuring ignores factories. Keyed smart enums and simple value objects log the key, and an ad hoc union logs the value of the active case.
+-->
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [04]-[STRING_FACTORY_EXAMPLE]
 
 `ShippingMethod` has an `int` key and a `string` factory. Every serializer and the model binder read and write the slug, and no serializer writes the `int` key. The generator supplies the constructor `ShippingMethod(int key, string slug)` from the key and the get-only property.
@@ -83,6 +91,7 @@ internal static class ShippingMethods {
     public static ShippingMethod Parsed(string slug) => ShippingMethod.Parse(slug, provider: null);
 }
 ```
+-->
 
 ## [05]-[ENTITY_FRAMEWORK_READ_PATH]
 
@@ -195,6 +204,7 @@ internal readonly partial struct Region {
 
 `Region` implements `ISpanParsable<Region>` because the `string` key is parsable, and `Region.Parse("eu".AsSpan(), provider: null)` reaches the span `Validate`. Plain classes with a span factory and no `string` factory implement neither `IParsable` nor `ISpanParsable`. JSON `null` raises a `JsonException` for `Region`, because a value object struct disallows its default value.
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [08]-[UNIONS_AND_PLAIN_TYPES]
 
 Ad hoc unions carry no type discriminator. Factories alone serialize them as one value. `Validate` assigns a `T1` or `T2` value to `item` through the implicit conversion of the union, and `ToValue` renders the active case with `Switch`. Regular unions, abstract partial records with case records, accept the same attribute as an alternative to polymorphic JSON.
@@ -239,6 +249,7 @@ internal sealed partial class Slug {
 ```
 
 `Slug` round-trips `"Hello"` unchanged, and JSON `null` yields a `null` reference.
+-->
 
 ## [09]-[RUNTIME_FACTORY_SELECTION]
 
@@ -252,6 +263,7 @@ Each integration point filters the type's object factories and falls back to the
 |  [04]   | ASP.NET Core model binding   | `UseForModelBinding = true`, `T` not `ReadOnlySpan<char>`                  | Key member                          |
 |  [05]   | Serilog destructuring        | None                                                                       | Key member, union value, or nothing |
 
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 ## [10]-[DESIGN_RULES]
 
 - Reserve `Validate` returning no error and a `null` item for `null` input: it makes `Parse` return `null` and an Entity Framework Core read throw
@@ -261,3 +273,4 @@ Each integration point filters the type's object factories and falls back to the
 - Give each factory a distinct `T` and each integration point one owner
 - Serialize an ad hoc union through a `string` factory, never through a hand-written converter
 - `Fin<T>` or `Validation<Error, T>` adapters call `Validate`, never `Create`
+-->

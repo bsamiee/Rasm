@@ -1,3 +1,4 @@
+<!-- Goes to references/serilog.md -->
 # [SERILOG_DESTRUCTURING]
 
 The package `Thinktecture.Runtime.Extensions.Serilog` adds one destructuring policy to a Serilog logger. The policy unwraps a keyed Smart Enum and a simple Value Object to the key. It unwraps an ad hoc union to its current `Value`. Every other type falls through to Serilog's own destructuring.

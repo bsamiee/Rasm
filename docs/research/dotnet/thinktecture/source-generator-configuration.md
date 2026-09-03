@@ -1,3 +1,4 @@
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 # [SOURCE_GENERATOR_CONFIGURATION]
 
 The source generator reads project-level MSBuild properties. They control diagnostics logging, the generated JetBrains annotation, and a debugging counter, and they apply to every generated type in the project. The generator keeps a second file named `ThinktectureRuntimeExtensionsSourceGenerator.log` in the temp folder of the process that hosts the compiler. Setting `UseSharedCompilation` to `false` starts the compiler from the build, and the self-log follows the build's temp folder.
@@ -80,3 +81,4 @@ With the counter on, every file a code generator emits starts with the line `// 
 - Delete the log file before a measurement
 - Leave `GenerateJetBrainsAnnotations` unset
 - Use `Counter` only to detect regeneration, and turn it off before generated files are compared or committed, because every run changes the header
+-->

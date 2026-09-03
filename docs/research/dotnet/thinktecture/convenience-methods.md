@@ -1,3 +1,4 @@
+<!-- Integrated into .claude/skills/dotnet-thinktecture/SKILL.md
 # [CONVENIENCE_METHODS]
 
 `Thinktecture.Runtime.Extensions` provides a small set of plain static members beside its generators:
@@ -153,3 +154,4 @@ internal static class Comparers {
 |  [10]   | `StringKeyedObjectComparer<T>` as the comparer of a hash-based collection that holds a null | Keep nulls out, `GetHashCode` dereferences the item                       |
 
 On a type keyed with `StringOrdinalIgnoreCase`, do not pass `StringKeyedObjectComparer<T>.OrdinalIgnoreCase` to a collection. The type equality already ignores case, and `Ordinal` restores exact matches. The wrappers stay at the BCL boundary: domain code uses `Seq<A>()`, `Seq(x)`, `Set(x)`, and `toSeq` in place of `Empty.Collection<T>()`, `SingleItem.Set(x)`, and `ToReadOnlyCollection`. `TrimOrNullify` is not the absence marker of a domain value. `Option<string>` through `Optional` marks absence at the boundary, and `TrimOrNullify` stays inside a validation hook.
+-->
