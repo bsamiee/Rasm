@@ -1,3 +1,4 @@
+<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [TRAVERSABLES]
 
 ## [01]-[OPERATION]
@@ -207,3 +208,4 @@ Option<Seq<int>> parsed =
 ```
 
 The repeated member pattern answers C#'s handling of nested generic interfaces. It does not change traversal semantics. Operations defined for `K` (`Map`, `Apply`) stay available before that conversion. Domain types implement `Traverse` once and compose with the available foldable and applicative types, instead of one method per pairing.
+-->

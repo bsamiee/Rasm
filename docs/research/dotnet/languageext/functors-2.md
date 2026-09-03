@@ -1,3 +1,4 @@
+<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [FUNCTORS]
 
 ## [01]-[MAPPING_PROBLEM]
@@ -202,3 +203,4 @@ K<T, K<F, A>>
 ```
 
 Each type implements its traversable trait once. User-defined traversable and applicative types then compose with LanguageExt's types instead of requiring a new cross-product of specialized functions.
+-->

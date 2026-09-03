@@ -1,3 +1,4 @@
+<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [MONAD_FLAVOURS]
 
 ## [01]-[EFFECTS_AS_BEHAVIOR]
@@ -164,3 +165,4 @@ public static K<State<S>, B> Bind<A, B>(
 ## [08]-[COMPOSITION_LIMIT]
 
 These are single-feature monads. Monadic expressions work with one constructor at a time, `Option` and `IO` do not combine directly in one expression. Dedicated types for specific pairings do not scale: the handwritten combinations grow with every monad and every larger combination. Monad transformers compose existing monads into combined monads.
+-->

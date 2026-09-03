@@ -1,3 +1,4 @@
+<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [HIGHER_KINDS]
 
 ## [01]-[STATIC_INTERFACE_MEMBERS]
@@ -151,3 +152,4 @@ public interface K<F, A>;
 ```
 
 `K<F, A>` has no members. Its value is the uniform representation with a type-constructor parameter `F` and an element type `A`. On this encoding, LanguageExt builds higher-rank polymorphism and higher kinds in C#, and users define their own functors, applicatives, foldables, traversables, monads, and monad transformers that inherit the default behavior defined for the traits.
+-->

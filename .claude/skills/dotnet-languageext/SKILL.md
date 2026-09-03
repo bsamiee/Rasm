@@ -8,8 +8,9 @@ description: "ENTER LATER AFTER FINISHED, <20-25 WORDS MAX"
 Covers the LanguageExt types and their operations: the result and effect types with their conversions, the error model and recovery, `IO` construction, execution, resources, concurrency, recursion, schedules, and runtimes, the traits and transformers, the collections with their folds and pitfalls, lenses, shared state, and streams. Which type a function returns, where the boundary sits, and which operator joins two steps are decisions that `dotnet-coding` states, and this skill states how each type and operation behaves.
 
 [REFERENCES]:
-- [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Trait members by witness, law checks, transformer stacks, `Deriving` wrappers
-- [02]-[STREAMS](references/streams.md): `Source`, `Sink`, `Conduit`, buffers, pipes, and the reply pattern
+- [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Higher kinds, witnesses, foldables, applicatives, traversables, monads, law checks, transformers, readers, state and writer, domain monads
+- [02]-[STREAMS](references/streams.md): Sources and events, reduction, conduits and buffer policy, pipes
+- [03]-[API](references/api.md): Public types and members by scope
 
 Examples assume `using static LanguageExt.Prelude`, which binds the constructors and module functions as bare names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`), and the static import binds `List` to `Prelude.List`, so the module is named `LanguageExt.List.unfold` in full.
 

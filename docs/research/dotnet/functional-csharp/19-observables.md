@@ -184,7 +184,7 @@ This distinction prevents one malformed message from terminating a long-lived pr
 -->
 
 <!-- Integrated into .claude/skills/dotnet-coding/references/streams.md
-the `Drained` conduit example of [06.2] belongs to dotnet-languageext and its streams reference
+the `Drained` conduit example of [06.2] is in dotnet-languageext/references/streams.md
 ## [06]-[LOGIC_ACROSS_EVENTS]
 
 Reactive streams express logic in which processing a new event depends on earlier events or another event source.

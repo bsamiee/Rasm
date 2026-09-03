@@ -1,3 +1,4 @@
+<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [APPLICATIVES]
 
 Applicative functors extend a functor with contextual function application. They combine values in a context (`Maybe`, `Either`, `Option`, `Seq`, `IO`) without the sequential dependencies of monadic composition.
@@ -222,3 +223,4 @@ LanguageExt provides multi-argument `Map` and `Apply` overloads that curry deleg
 The production `IO` represents `IO<A>` as a DSL, avoids `async` where possible, unpacks underlying `Task` values, and coordinates them with `Task.WhenAll`. The applicative meaning stands: automatic concurrency for independent `IO` operands.
 
 Use applicatives where the independent structure provides a capability that sequential monadic composition does not, or where the fluent expression is clearer, otherwise the monadic form reads better in C#.
+-->

@@ -1,3 +1,4 @@
+<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [MONAD_TRANSFORMERS]
 
 ## [01]-[MOTIVATION]
@@ -228,3 +229,4 @@ The API lifts database actions through explicit read-only or read-write operatio
 ## [08]-[PERFORMANCE_AND_DESIGN]
 
 Nested transformers add lambdas, allocations, and CPU cost. Build from the compositional pieces, hide the stack, and prioritize correctness. When profiling shows the stack is a bottleneck, replace its private implementation with one bespoke monad behind the same domain surface, consumers do not change. Choose the stack from the capabilities the domain needs, wrap it, and make the domain API the public feature. Constructing stacks is occasional infrastructure work, application code consumes the focused API.
+-->

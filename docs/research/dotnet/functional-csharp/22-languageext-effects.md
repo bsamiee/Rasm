@@ -1,4 +1,4 @@
-<!-- [01] to [07] and the [08] prose integrated into dotnet-languageext, the [08] code remains for its streams reference -->
+<!-- Fully integrated into dotnet-languageext, [08] code in its streams reference -->
 # [LANGUAGEEXT_EFFECTS]
 
 `IO<A>` is the effect type. It describes a side effect with a failure channel and performs nothing until a host runs it. It is chosen at the input boundary and preserved through the domain. `RunSafe`, `Run`, `RunAsync`, and `Match` are host operations. Domain functions never run an effect.
@@ -209,6 +209,7 @@ internal static class Runtimes {
 `Conduit.make` takes a `Buffer` policy. `Unbounded` keeps every item, `Bounded(n)` and `Single` make `Post` wait, `Newest(n)` keeps the last n items, and `Latest(seed)` starts from a seed and keeps the last item. Conduits act as message queues when `Reduce` runs under `Fork()` while a client posts. `Source.Take(1).Last()` reads a reply from a second conduit. `ProducerT`, `PipeT`, and `ConsumerT` compose with `|` into an `EffectT`, and its `Run()` returns the underlying `K<IO, A>`.
 -->
 
+<!-- Integrated into .claude/skills/dotnet-languageext/references/streams.md
 ```csharp
 internal sealed class Replay<A>(Seq<A> items) : IObservable<A> {
     public IDisposable Subscribe(IObserver<A> observer) {
@@ -258,3 +259,4 @@ internal static class Streams {
         (Numbers | Doubled | Accumulate(total)).Run().As().Map(_ => total.Value);
 }
 ```
+-->

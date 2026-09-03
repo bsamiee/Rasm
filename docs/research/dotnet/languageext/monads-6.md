@@ -1,3 +1,4 @@
+<!-- Ideas integrated into .claude/skills/dotnet-languageext/references/traits-and-transformers.md on the real types, the toy Maybe, List, and MaybeT code enters no skill
 # [MONADS]
 
 ## [01]-[MOTIVATION]
@@ -217,3 +218,4 @@ When parsing returns `None`, no value exists for the next dependent step, and th
 ## [07]-[DECLARED_EFFECTS]
 
 The monad in a return type marks the whole expression with a behavior. `IO<A>` declares that the expression performs IO, `Option<A>` declares that it can produce no value. Visible contexts separate effectful from non-effectful code and preserve composition. Different monads implement very different sequencing behavior through the same `Bind` shape (IO, absence, state, configuration, logging, validation, collection iteration, stream processing, resource tracking). In every case `Bind` is function composition with the external result `M<A> -> M<B>`, the chosen `M` supplies the behavior between the steps.
+-->
