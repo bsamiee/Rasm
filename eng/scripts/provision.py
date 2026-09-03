@@ -383,8 +383,7 @@ async def stage_closure(built: list[Path], work: Path, rid: Rid, rename: Callabl
 
 @_app.default
 def main() -> None:
-    """Provision the .NET tool manifest, pinned build tools, EnergyPlus runtime, and DuckDB and sqlite-vec archives for the host."""
-    anyio.run(run, ["dotnet", "tool", "restore"], REPO_ROOT)
+    """Provision the pinned build tools, EnergyPlus runtime, and DuckDB and sqlite-vec archives for the host."""
     tools = anyio.run(native_build_tools)
     energyplus = anyio.run(_energyplus_exe)
     duckdb, extensions = anyio.run(duckdb_extension_archives, host_rid())

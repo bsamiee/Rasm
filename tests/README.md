@@ -108,6 +108,6 @@ Read the owning configuration before changing a test dependency, runner, output,
 |  [02]   | Each test `.csproj` + `Directory.Build.targets`  | MTP runner and package references, global xUnit and CsCheck usings                 |
 |  [03]   | `pyproject.toml`                                 | Python test dependencies, pytest and coverage policy                               |
 |  [04]   | `pnpm-workspace.yaml`                            | TypeScript test dependency versions, peer resolutions, and workspace package globs |
-|  [05]   | `mise.toml` + `.config/dotnet-tools.json`        | Runtimes on `PATH` and the .NET CLI tools the checks run                           |
+|  [05]   | `mise.toml` + `dotnet dnx`              | Runtimes on `PATH` and the .NET CLI tools the checks run                           |
 |  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json` | TypeScript runner defaults, generated outputs, mutation policy, and Nx targets     |
 |  [07]   | Root `package.json` `nx` field                   | The `coverage` merge target and the other root targets                             |

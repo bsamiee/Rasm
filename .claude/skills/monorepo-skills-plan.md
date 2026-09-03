@@ -51,7 +51,7 @@ The skill names no repository, product, or person. It states rules with the cate
 | :-----: | :--------------- | :---------------------------------------------------------------------------------------- | :------- |
 |  [01]   | Research folder  | `docs/research/monorepo/*.md`, this plan                                                  | Done     |
 |  [02]   | Toolchain        | `mise.toml`, `package.json`, `pnpm-workspace.yaml`, `pyproject.toml`, `.vscode/settings.json` | Done     |
-|  [03]   | .NET manifest    | `.config/dotnet-tools.json`, `.mcp.json`, `Directory.Build.props`, `Directory.Packages.props` | Done     |
+|  [03]   | .NET tools       | `.mcp.json`, `Directory.Build.props`, `Directory.Packages.props`, no tool manifest               | Done     |
 |  [04]   | Nx               | `tools/nx/workspace.ts`, `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `biome.json` | Done     |
 |  [05]   | Coverage         | `nx.json`, root `package.json` `nx` field, `vitest.config.ts`, `pyproject.toml`, `Directory.Build.targets`, `tests/README.md` | Done     |
 |  [06]   | Infrastructure   | `infra/` Pulumi program, Doppler adoption, CI token, `secrets` skill rule                 | Pending  |
@@ -62,7 +62,7 @@ The skill names no repository, product, or person. It states rules with the cate
 Decisions the steps recorded:
 - The root `Directory.Build.targets` stays one file, because its conditions select by host token and role and a split by role would add files without removing a condition
 - The dylib repair in `Directory.Build.targets` retargets a NuGet package's library at copy time and the repair in `eng/scripts/stage.py` relinks a closure the workspace builds, two inputs with two owners
-- `binlogtool` stays out of the manifest, because the two commands the binlog MCP lacks, `redact` and `stats`, serve a binlog that leaves the machine or exceeds the MCP threshold, and neither exists
+- No tool manifest exists: `dotnet dnx` runs Stryker, ReportGenerator, and the two MCP servers at the newest release, and `binlogtool` stays out because the two commands the binlog MCP lacks, `redact` and `stats`, serve a binlog that leaves the machine or exceeds the MCP threshold, and neither exists
 - The root project lives in the `nx` field of the root `package.json`, a `project.json` exists only for a directory no manifest describes (`eng/`, `tests/python/`), and `tools/nx` belongs to the root project, whose `lint` and `format` commands name `tools` and whose `tsc --build` reaches it through the `references`
 - The workspace plugin names no project it did not create alone: a `.csproj` or `package.json` node carries tags and shells and takes its name from the plugin that reads the manifest, a `package.json` counts only with a `tsconfig.json` beside it, and a `pyproject.toml` node is named by its root path with `-` for `/`
 - The dotnet `format` target discovers the one project file in its `cwd` and depends on `rasm-workspace:restore`, because `--no-restore` reads the assets restore wrote
@@ -123,7 +123,7 @@ Each repository step corrects one category of mistake, and the skill's last sect
 | :-----: | :----: | :---------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
 |  [01]   |  [01]  | Source material scattered across plan files and session scratch directories   | One research folder per skill area, one file per report, integration markers   |
 |  [02]   |  [02]  | Runtimes installed by a machine profile outside the repository, versions restated as ranges and guards | One installer file pinning exact runtimes, each manifest pinning its own packages, one statement per version |
-|  [03]   |  [03]  | Tools resolved at latest on each launch, a tool installed by the machine for one repository's checks | Every tool the repository's checks run pinned in the repository's manifest, servers included |
+|  [03]   |  [03]  | A tool installed by the machine for one repository's checks, a per-tool manifest pinning versions outside the central package managers | Tool packages run through `dotnet dnx` at the newest release from the target that needs them, versions stated only in the central package managers |
 |  [04]   |  [04]  | Checks run as raw commands and per-tool target variants, root files rehashed by a root project, a discovery declared twice | One target name per kind of work filled by tag from `targetDefaults` with `check` and `write` configurations, a root project with explicit inputs alone, one discovery per tool |
 |  [05]   |  [04]  | A configuration file created per directory while an existing owner holds the setting (a root `project.json`, a `project.json` beside a manifest, a per-project tool config) | The existing owner: plugin inference, the manifest's `nx` field, `tsconfig.base.json`, the root tool config, and a new file only for a directory no manifest describes |
 |  [06]   |  [05]  | Coverage thresholds as gates, per-project reports with no aggregate, raw tool commands in documentation | Information reports merged once per language by one root target, `test` configurations for collection, documentation naming targets and configurations |

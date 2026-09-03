@@ -46,7 +46,6 @@ Rasm/
 ├── stryker-config.json       # .NET mutation testing
 ├── Workspace.slnx            # .NET solution of the library, application, and test projects
 ├── global.json               # .NET SDK version and test runner config (MTP)
-├── .config/dotnet-tools.json # .NET local tool manifest, restored by the eng provision target
 ├── .editorconfig             # Analyzer severity, path-specific overrides, and BuildCheck settings
 ├── .gitattributes
 ├── .gitignore
