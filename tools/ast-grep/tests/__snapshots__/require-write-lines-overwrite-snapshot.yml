@@ -21,3 +21,10 @@ snapshots:
       style: primary
       start: 0
       end: 100
+  ? |
+    <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" WriteOnlyWhenDifferent="true" />
+  : labels:
+    - source: <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" WriteOnlyWhenDifferent="true" />
+      style: primary
+      start: 0
+      end: 113

@@ -6,6 +6,9 @@ valid:
     # A regex escape inside a property function is no path
     - |
       <PropertyGroup><_CentralPackageVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(CentralPackagesPath)')), '(?&lt;=Include="$(CentralPackageId)"\s+Version=")[^"]+').Value)</_CentralPackageVersion></PropertyGroup>
+    # A regex escape between two path characters inside a property function is no separator
+    - |
+      <PropertyGroup><Major>$([System.Text.RegularExpressions.Regex]::Replace('$(Version)', '(\d+)\.(\d+).*', '$1'))</Major></PropertyGroup>
     # An Exec command with forward slashes
     - |
       <Exec Command="cat data/file.txt" />

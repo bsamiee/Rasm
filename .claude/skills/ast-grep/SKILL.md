@@ -5,7 +5,7 @@ description: Use when reading, searching, or rewriting code by its syntax tree, 
 
 # [AST_GREP]
 
-Structural code work (map, find, prove, lint, or rewrite code by its syntax tree) runs on ast-grep. Read the section for the task in full and follow its steps before touching a source file. The MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_code_rule`) run every search and proof that answers with a match list or a tree, and the CLI runs what maps (`ast-grep outline`), scans project rules (`ast-grep scan`), tests (`ast-grep test`), writes (`-U`, `-i`), or needs an exit code, because a failed tool call reaches the agent as `Error executing tool` with no cause. Search rules stay inline, and durable rules are project rule files discovered through `sgconfig.yml`. Examples use the packages of the workspace as vocabulary (Effect modules, generated unions, result types), and a rule names the package it reads.
+Structural code work (map, find, prove, lint, or rewrite code by its syntax tree) runs on ast-grep. The MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_code_rule`) run every search and proof that answers with a match list or a tree, and the CLI runs what maps (`ast-grep outline`), scans project rules (`ast-grep scan`), tests (`ast-grep test`), writes (`-U`, `-i`), or needs an exit code, because a failed tool call reaches the agent as `Error executing tool` with no cause. Search rules stay inline, and durable rules are project rule files discovered through `sgconfig.yml`. Examples use the packages of the workspace as vocabulary (Effect modules, generated unions, result types), and a rule names the package it reads.
 
 [TEMPLATES]:
 - [01]-[SGCONFIG](assets/templates/sgconfig.template.yml): Project config with rule, util, and test discovery, parser overrides, and injections
@@ -33,17 +33,14 @@ Structural code work (map, find, prove, lint, or rewrite code by its syntax tree
 - [15]-[PYTHON](assets/examples/guard-clauses-to-conditional-expression.yml): Fold to expression, totality closure and parenthesized arms
 - [16]-[PYTHON](assets/examples/no-fourth-lambda-level.yml): Depth by role, a callback is a lambda under an argument list with a parameter
 
-[REFERENCES]: worked sequences with a judgment criterion at each step, each run by its agent:
-- [01]-[SKILL_IMPROVEMENT](references/skill-improvement.md): Rebuilding the skill against the documentation, schema, binary, and maintained rule sets
-- [02]-[RULE_BUILDING](references/rule-building.md): Finding weak code, fixing it under the reduction bar, and deriving the rule from the fix
-- [03]-[RULE_HARDENING](references/rule-hardening.md): Recognizing a one-shape rule, collapsing facets into one pattern, and the rules tree layout
-- [04]-[RULE_TESTING](references/rule-testing.md): What a case proves, what a green run hides, the snapshot as a record, and the disproving stance
+[REFERENCES]: the criteria and runner facts the workflows read:
+- [01]-[SKILL_IMPROVEMENT](references/skill-improvement.md): Source rank, comparison sequence, text smells, and opportunity checks for the skill
+- [02]-[RULE_BUILDING](references/rule-building.md): Sources, smell table, finding judgment, the fix bar with one pair, and the derivation criteria
+- [03]-[RULE_HARDENING](references/rule-hardening.md): Weakness table, widening proof, collapse, devices with failure checks, and the rules tree
+- [04]-[RULE_TESTING](references/rule-testing.md): Runner outcomes and flags, what a green run hides, case criteria, snapshots, disproving cases
 
-[AGENTS]: Each agent maintains one scope, decides from the sources, and proves its change by a run:
-- [01]-[RULE_BUILDER](../../agents/ast-grep-rule-builder.md): Weak code in a scope fixed under the reduction bar, each proven fix derived into a rule
-- [02]-[RULE_HARDENER](../../agents/ast-grep-rule-hardener.md): Rules of a scope widened to the higher-order pattern, tested, and proven by a scan
-- [03]-[SKILL_IMPROVER](../../agents/ast-grep-skill-improver.md): Skill, reference, or agent file checked against its sources, edited, and proven
-- [04]-[RULE_TESTER](../../agents/ast-grep-rule-tester.md): Rules of a scope disproved by a case per arm, the snapshot read, and the rule corrected
+[SCRIPTS]:
+- [01]-[RULE_CHECKS](scripts/rule-checks.sh): Proves a rules tree paired by id, covered per arm, re-parsed after each fix, and reported once per case
 
 ## [01]-[OUTLINE]
 
@@ -83,7 +80,13 @@ Each search runs in sequence:
 6. When a trusted rule fails the call, run `printf '<code>' | ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?` and read the exit code
 7. Run `find_code_by_rule` with absolute `project_folder`, bounded `max_results`, `output_format=json` when captures or ranges feed the next step
 
-The proof and the search fold three outcomes into one failure, and the exit code of step 6 separates them: `[]` with 0 is no match, 8 prints the parse error of a rule the binary rejects, and 1 with the JSON is an `error` diagnostic. The matching snippet run first proves the rule parses, and the failure on the non-matching one reads as no match. Both calls take severity omitted or under `error`, and the durable file sets `error`. The search tools run `--json=stream` over the path as given, a relative path resolves against the server working directory (the repository root), and `language` follows `languageGlobs` (`tsx` for every `.ts` file here, `typescript` finds nothing). A result past the harness cap lands in a file the result names, `jq -r .result <file>` reads it, and `max_results` bounds the context.
+The proof and the search fold three outcomes into one failure, and the exit code of the `--stdin` scan separates them:
+- `[]` with 0 is no match, 8 prints the parse error of a rule the binary rejects, and 1 with the JSON is an `error` diagnostic
+- The matching snippet run first proves the rule parses, and the failure on the non-matching one reads as no match
+- Both calls take severity omitted or under `error`, and the durable file sets `error`
+- The search tools run `--json=stream` over the path as given, and a relative path resolves against the server working directory, the repository root
+- `language` follows the `languageGlobs` entry of `sgconfig.yml`, a `.ts` file mapped to `tsx` matches under `tsx` and `typescript` finds nothing
+- A result past the harness cap lands in a file the result names, `jq -r .result <file>` reads it, and `max_results` bounds the context
 
 ```yaml
 id: <query-id>
@@ -118,7 +121,12 @@ constraints:
 
 ## [03]-[REWRITE]
 
-Rewrite extends a proven search rule with patching fields, each match replacing exactly one target node's text with the instantiated template. Templates are unparsed text: metavariables substitute anywhere, an undefined metavariable fails the rule parse under `scan` and substitutes empty under `run -r`, a declared but unmatched one substitutes empty, and `$VARName` lexes as `$VARN` followed by `ame` (appended text takes a `replace` transform). Multiline templates re-indent relative to the match's column. `run` covers the pattern-only path. The full field set (`fix`, `FixConfig`, a list of titled `FixConfig` alternatives, `transform`, `rewriters`) runs under `scan --inline-rules`.
+Rewrite extends a proven search rule with patching fields, each match replacing exactly one target node's text with the instantiated template, and templates are unparsed text:
+- Metavariables substitute anywhere, and an undefined one fails the rule parse under `scan` and substitutes empty under `run -r`
+- A declared but unmatched metavariable substitutes empty
+- `$VARName` lexes as `$VARN` followed by `ame`, and appended text takes a `replace` transform
+- Multiline templates re-indent relative to the match's column
+- `run -r` covers the pattern-only path, and `fix`, `FixConfig`, titled alternatives, `transform`, and `rewriters` run under `scan --inline-rules`
 
 Each rewrite runs in sequence:
 1. Prove the match set through search until the results are exactly the edit set, `--json` match and file counts bound the affected set
@@ -234,7 +242,7 @@ severity: error
 files: ['<scope-glob>']          # ignores: excludes exempt boundaries, both relative to sgconfig.yml without a ./ prefix
 utils:
   <util-id>: { <family-shape> }  # The shape every sibling shares, referenced through matches
-rule: { <[02] rule> }
+rule: { <search rule> }
 constraints: { <VAR>: { regex: '<grammar>' } }
 fix: <template>                  # When the replacement re-parses and compiles, under the rewrite rules
 message: <one line naming the violation, captures and transform variables interpolate>
@@ -270,7 +278,7 @@ Each rule is added in sequence:
 |  [06]   | Dispatch shape         | Dispatch kind `inside` a dispatch arm, catch-all arms beside sealed-hierarchy arms                     |
 |  [07]   | Naming grammar         | Name-position `regex`: word budget, banned generic suffixes, role-suffix bijection via `not: has`      |
 |  [08]   | Self-nesting           | Same-family calls nested as arguments, or a run call inside one, the outermost reported through `not: inside`  |
-|  [09]   | Repeated fact          | A pair bound on the first row, `not: {has: <row>, not: {has: <bound pair>}}` proves every row repeats it |
+|  [09]   | Repeated fact          | Pair bound on the first row, `not: {has: <row>, not: {has: <bound pair>}}` proves every row repeats it   |
 
 - Unparseable rules or duplicate ids abort the whole scan, an inline `---` bundle tolerates duplicate ids alone, drafts stay outside `ruleDirs`
 - `sgconfig.yml` accepts unknown keys silently, scoping uses per-rule `files:`/`ignores:` only
@@ -283,14 +291,8 @@ Each rule is added in sequence:
 - A wildcard glob takes an implied `**/` prefix, a plain file name matches the one file beside `sgconfig.yml`, and `**/<name>` every file so named
 - A `./` prefix or a `!` glob in `files:` matches nothing, exclusion is `ignores:`, and `scan -r` reads globs relative to the rule file
 - A dot-directory scope (`.github/`, `.claude/`) needs `--no-ignore hidden` on the gate command
-- Green can prove nothing: omitted `severity` defaults to `hint`, `--min-severity` drops rules, `test` passes zero cases
-- `test --skip-snapshot-tests` passes a changed fix, the snapshot run is the gate
-- `severity: off` rules skip the scan and the tests, `--error=<rule-id>` enables one per run and `test --include-off` runs its cases
-- Rules matching no `invalid:` fixture are dead, and a review pairs `rules/` and `tests/` by id
-- A test case holding `key: value` text parses as a YAML map and fails the run, every such case is a `- |` block scalar
-- Snapshot labels record the match and each relational clause's node, or the `labels:` captures alone, a changed label is a changed rule
-- A test naming no rule prints `Configuration not found!`, a rule without a test runs zero tests, and both exit 0
-- A case holds one violation, and every arm of the rule has the case that flips when the arm is deleted, `references/rule-testing.md` holds the depth
+- Green can prove nothing: omitted `severity` is `hint`, `--min-severity` drops rules, `test` passes zero cases, the snapshot run is the gate
+- A case holds one violation, and every arm of the rule has the case that flips when the arm is deleted
 - `metadata:` holds routing facts and appears under `--json --include-metadata`, `url:` shows in the editor and SARIF and never in `--json`
 
 ## [06]-[INTEGRATIONS]
@@ -319,12 +321,26 @@ Hosts consume the scan through its exit codes, its output formats, and the libra
 - `ast-grep-py` is `SgRoot(src, language)` alone, rules pass as keyword arguments (`find(pattern=<code>)`), and file discovery is the caller's
 - One directory argument beats a batched file list, the walk parses in parallel and `--globs '!<glob>'` excludes inside it
 
-## [07]-[UPKEEP]
+## [07]-[WORKFLOWS]
 
-A proven fix under the workspace standards triggers a rule and an improvement to the guidance that would have produced the fix sooner. Dispatch `ast-grep-skill-improver`, `ast-grep-rule-builder`, `ast-grep-rule-hardener`, and `ast-grep-rule-tester` as fresh agents over disjoint scopes, and `post-refactor-review` sequences the session, relays each finding to the agent with the scope it touches, and takes the finding no agent owns.
+Each workflow extends the skill with a reference and an agent that runs one scope per pass, and a main agent working alone reads the reference:
 
-- An improvement rebuilds the owning section, names the principle that replaces the old text, and records no fix or session
-- Report a gap in the skill, a reference, or an agent file to `main` as the principle or the poor guidance to correct, a log of the run is no finding
-- A gap is justified when a real run made a decision the principle changes: a sibling missed, a wrong device, a source the commands did not reach
-- One owner per fact: the skill holds the rule and criterion, the reference the sequence and one BEFORE and AFTER pair, the agent its commands
-- The rule's `message` and `note` hold the instance and its correction, and a rule device (a util, a guard, a stop rule) goes to `rule-hardening`
+| [INDEX] | [WORKFLOW]        | [REFERENCE]         | [AGENT]                   | [SCOPE]                                                       |
+| :-----: | :---------------- | :------------------ | :------------------------ | :------------------------------------------------------------ |
+|  [01]   | Rule building     | `rule-building`     | `ast-grep-rule-builder`   | Source directory or package, weak code fixed, rules derived   |
+|  [02]   | Rule hardening    | `rule-hardening`    | `ast-grep-rule-hardener`  | Rules directory, language, or family, widened and collapsed   |
+|  [03]   | Rule testing      | `rule-testing`      | `ast-grep-rule-tester`    | Rules directory, language, or family, disproved by cases      |
+|  [04]   | Skill improvement | `skill-improvement` | `ast-grep-skill-improver` | Section, reference, agent file, or the set, checked at source |
+
+The main agent orchestrates the agents and keeps its own understanding of their files current as they change:
+- Dispatch each agent fresh over a disjoint scope, with the scope, the direction, the standards, the proof, and the messaging rule in its brief
+- Edit no file inside a dispatched scope while its agent runs
+- Brief each agent to message `main` with a finding outside its scope, related or tangential, and a smell in any file
+- Brief each agent to message an active `ast-grep-*` agent directly with a change that agent adjusts to or integrates
+- Act on each finding as it arrives: relay it to the agent that holds the scope, or dispatch a focused general-purpose agent for it
+- An agent's list of peers holds the agents alive when it started, and a finding for an agent started later goes through `main`
+- Read each changed file as it lands, and judge agents converging on one approach against their scopes, the shared approach is a finding
+- Hold no work back for a later pass, and defer, store, or hedge nothing
+- After each agent returns, dispatch a fresh agent over the same scope that attacks every decision
+
+Implement each improvement to the skill, a reference, or an agent file that a run or an agent identifies in place: delete, reframe, or correct.

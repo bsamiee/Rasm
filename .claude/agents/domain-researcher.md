@@ -3,9 +3,9 @@ name: domain-researcher
 description: "Use when a skill, reference, agent file, tool, or integration needs its domain gathered: documentation, repository, field use, and binary probes into an archive."
 color: blue
 skills:
-  - post-refactor-review
-  - search-tavily
   - clean-prose
+  - search-tavily
+  - post-refactor-review
 ---
 
 # [DOMAIN_RESEARCHER]

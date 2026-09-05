@@ -301,10 +301,6 @@ catalog:
 
 catalogMode: strict
 
-fetchRetries: 3
-
-fetchRetryFactor: 2
-
 linkWorkspacePackages: deep
 
 overrides:

@@ -13,3 +13,6 @@ invalid:
     # Overwrite alone rewrites the file and moves its timestamp on every build
     - |
       <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" />
+    # WriteOnlyWhenDifferent alone appends, two lines after two builds
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" WriteOnlyWhenDifferent="true" />
