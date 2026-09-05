@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-attribute # An attribute with a name and a quoted value that pass the two rules, the value regex sees the surrounding double quotes
+language: xml
+arguments: [name, value]
+rule:
+    kind: Attribute
+    all:
+        - has: {kind: Name, matches: name}
+        - has: {kind: AttValue, matches: value}

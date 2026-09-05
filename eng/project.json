@@ -4,11 +4,11 @@
     "tags": ["language:python"],
     "targets": {
         "provision": {
-            "command": "uv run python -m eng.scripts.provision",
+            "command": "uv run --only-group eng python -m eng.scripts.provision",
             "cache": false,
             "parallelism": false
         },
-        "lint": {},
+        "lint": { "inputs": ["default", "python", "{workspaceRoot}/eng/native/**/*"] },
         "format": {},
         "typecheck": {},
         "check": {}

@@ -1,0 +1,32 @@
+{
+    "name": "energyplus",
+    "version-string": "25.2.0",
+    "$comment": "EnergyPlus release the catalog's NREL.OpenStudio 3.11.0 translates models for, the asset path names the executable inside the extracted archive",
+    "url": "https://github.com/NatLabRockies/EnergyPlus/releases/download/v{version}/{asset}",
+    "runtimes": {
+        "osx-arm64": {
+            "name": "EnergyPlus-25.2.0-cf7368216c-Darwin-macOS13-arm64.tar.gz",
+            "sha256": "e7976e82509d961bcf484963a1a7109db4cae318dfc318898f97183f4097deda",
+            "format": "tar",
+            "path": "EnergyPlus-25.2.0-cf7368216c-Darwin-macOS13-arm64/energyplus"
+        },
+        "linux-x64": {
+            "name": "EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu24.04-x86_64.tar.gz",
+            "sha256": "4641bc1cb4fd94267eb0e66d8b84a3a2ecc6735fa8d5007206df265508e15f85",
+            "format": "tar",
+            "path": "EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu24.04-x86_64/energyplus"
+        },
+        "linux-arm64": {
+            "name": "EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu24.04-arm64.tar.gz",
+            "sha256": "6efbc94b94584c55835f7f972752cf5e92717ae2fee36dcc17bdb533dd92c909",
+            "format": "tar",
+            "path": "EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu24.04-arm64/energyplus"
+        },
+        "win-x64": {
+            "name": "EnergyPlus-25.2.0-cf7368216c-Windows-x86_64.zip",
+            "sha256": "4136901f7e1708f6536d84278e26ad88b414c7efc905febf6d49c2539a36f3cd",
+            "format": "zip",
+            "path": "EnergyPlus-25.2.0-cf7368216c-Windows-x86_64/energyplus.exe"
+        }
+    }
+}

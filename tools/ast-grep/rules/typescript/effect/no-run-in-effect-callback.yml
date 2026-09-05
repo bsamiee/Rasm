@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-run-in-effect-callback
+language: tsx
+severity: error
+utils:
+    # A call that runs an effect: a runtime method, or Runtime.runPromise(runtime) applied to an effect
+    runtime-run:
+        kind: call_expression
+        any:
+            - all:
+                  - has:
+                        field: function
+                        kind: member_expression
+                        has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback|runMain)$'}
+                  # Runtime.runPromise(runtime) is the function of the run that follows, that run reports
+                  - not: {inside: {kind: call_expression, field: function}}
+            - has:
+                  field: function
+                  kind: call_expression
+                  has:
+                      field: function
+                      kind: member_expression
+                      has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
+    # A call whose callback belongs to the effect package: a module combinator or a run
+    effect-owner:
+        any:
+            - matches: effect-module-call
+            - matches: runtime-run
+rule:
+    matches: runtime-run
+    all:
+        - inside: {stopBy: end, matches: effect-owner}
+        # A call outside the package between the run and the combinator owns the callback, the run there is the boundary
+        - not:
+              inside:
+                  kind: call_expression
+                  not: {matches: effect-owner}
+                  stopBy: {matches: effect-owner}
+message: The effect runs inside a callback an effect combinator owns and the boundary is crossed twice
+note: >-
+    Return the effect from the callback and compose it with Effect.flatMap or yield*, the enclosing run executes it,
+    a callback a package outside effect owns takes the fiber's Runtime through Effect.runtime and runs there

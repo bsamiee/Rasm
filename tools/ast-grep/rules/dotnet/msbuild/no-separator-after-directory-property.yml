@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-separator-after-directory-property
+language: xml
+severity: error
+utils:
+    # Directory-valued properties end with a separator, by the suffix convention or by the SDK's own composition
+    doubled: {matches: msbuild-value, regex: '\$\(([A-Za-z_][A-Za-z0-9_]*(Dir|Directory|Root)|(Base|BaseIntermediate|Intermediate|PackageOutput)?OutputPath|MSBuildProjectExtensionsPath|NuGetPackageRoot)\)[\\/]'}
+rule:
+    matches: doubled
+    # MSBuildProjectDirectory and MSBuildStartupDirectory are the reserved directories without a trailing separator
+    not: {regex: '\$\((MSBuildProjectDirectory|MSBuildStartupDirectory|MSBuildProjectDirectoryNoRoot)\)[\\/]'}
+message: A separator follows a directory property that already ends with one and the path holds a doubled separator, concatenate the segment directly or compose the path with NormalizeDirectory

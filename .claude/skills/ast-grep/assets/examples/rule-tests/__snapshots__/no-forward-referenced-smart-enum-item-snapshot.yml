@@ -1,0 +1,72 @@
+id: no-forward-referenced-smart-enum-item
+snapshots:
+  ? |
+    [SmartEnum<string>]
+    public sealed partial class Route {
+        public static readonly Route Primary = new("<key-a>", Fallback);
+        public static readonly Route Fallback = new("<key-b>", Fallback);
+    }
+  : labels:
+    - source: Fallback
+      style: primary
+      start: 114
+      end: 122
+    - source: Fallback
+      style: secondary
+      start: 114
+      end: 122
+    - source: static
+      style: secondary
+      start: 67
+      end: 73
+    - source: Fallback
+      style: secondary
+      start: 158
+      end: 166
+    - source: Fallback = new("<key-b>", Fallback)
+      style: secondary
+      start: 158
+      end: 193
+    - source: public static readonly Route Fallback = new("<key-b>", Fallback);
+      style: secondary
+      start: 129
+      end: 194
+    - source: public static readonly Route Primary = new("<key-a>", Fallback);
+      style: secondary
+      start: 60
+      end: 124
+  ? |-
+    [SmartEnum<string>]
+    public sealed partial class Route {
+        public static readonly Route Primary = new(Kind.Primary, Fallback);
+        public static readonly Route Fallback = new(Kind.Fallback, static () => Fallback);
+    }
+  : labels:
+    - source: Fallback
+      style: primary
+      start: 117
+      end: 125
+    - source: Fallback
+      style: secondary
+      start: 117
+      end: 125
+    - source: static
+      style: secondary
+      start: 67
+      end: 73
+    - source: Fallback
+      style: secondary
+      start: 161
+      end: 169
+    - source: Fallback = new(Kind.Fallback, static () => Fallback)
+      style: secondary
+      start: 161
+      end: 213
+    - source: public static readonly Route Fallback = new(Kind.Fallback, static () => Fallback);
+      style: secondary
+      start: 132
+      end: 214
+    - source: public static readonly Route Primary = new(Kind.Primary, Fallback);
+      style: secondary
+      start: 60
+      end: 127

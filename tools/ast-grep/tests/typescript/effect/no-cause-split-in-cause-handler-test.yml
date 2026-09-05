@@ -1,0 +1,21 @@
+id: no-cause-split-in-cause-handler
+valid:
+    # Each case has its own combinator, the failure and the defect handled apart
+    - 'const reported = program.pipe(Effect.tapError((error) => Console.error(error.message)), Effect.tapDefect((cause) => Console.error(Cause.pretty(cause))));'
+    # The whole Cause handled as one value
+    - 'const logged = program.pipe(Effect.tapErrorCause((cause) => Console.error(Cause.pretty(cause))));'
+    # The Cause squashed, not split
+    - 'const squashed = Effect.catchAllCause(program, (cause) => Effect.fail(Cause.squash(cause)));'
+    # A Cause reader outside a cause handler
+    - 'const split = Option.match(Cause.failureOption(cause), { onNone: () => Effect.void, onSome: (error) => Console.error(error.message) });'
+invalid:
+    # The instance, a failure option read inside the cause handler
+    - 'const reported = program.pipe(Effect.tapErrorCause((cause) => Option.match(Cause.failureOption(cause), { onNone: () => Console.error(Cause.pretty(cause)), onSome: (error) => Console.error(error.message) })));'
+    # An Either split inside the recovery handler
+    - 'const recovered = program.pipe(Effect.catchAllCause((cause) => Either.match(Cause.failureOrCause(cause), { onLeft: (error) => fallback(error), onRight: (defect) => Effect.failCause(defect) })));'
+    # A predicate reader inside a block-bodied handler
+    - 'const guarded = Effect.onError(program, (cause) => { return Effect.when(report(cause), () => Cause.isFailure(cause)); });'
+    # Cause.match inside a matchCauseEffect arm
+    - 'const matched = Effect.matchCauseEffect(program, { onFailure: (cause) => Cause.match(cause, { onFail: report, onDie: crash, onInterrupt: () => Effect.void, onEmpty: Effect.void, onSequential: merge, onParallel: merge }), onSuccess: () => Effect.void });'
+    # The Stream sibling of the handler family
+    - 'const streamed = stream.pipe(Stream.catchAllCause((cause) => Stream.fromEffect(Effect.when(retry(), () => Cause.isDie(cause)))));'

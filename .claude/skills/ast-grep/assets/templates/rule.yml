@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: <rule-id> # Imperative grammar: no-<construct> / require-<shape>, defaults to the filename stem when omitted
+id: <rule-id> # Imperative grammar: no-<construct> / require-<shape>, defaults to the file stem when omitted, one rule per file
 language: <language>
-severity: error
-files: ['<scope-glob>'] # Relative to sgconfig.yml without a ./ prefix, string glob or {glob, caseInsensitive}
-ignores: ['<boundary-glob>'] # Tested before files and the one exclusion channel, a !-negated glob inside files: is inert
+severity: error # off parses unquoted, skips the scan and the tests, and --error=<rule-id> or test --include-off runs it
+files: ['<scope-glob>'] # Relative to sgconfig.yml, to the working directory under --inline-rules, no ./ prefix, {glob, caseInsensitive} too
+ignores: ['<boundary-glob>'] # Tested before files and the one exclusion channel, a !-negated glob inside files: matches nothing
 utils:
-    <util-id>:
+    <util-id>: # The shape every sibling shares, referenced through matches
         any:
             - {kind: <kind-a>}
             - {kind: <kind-b>}
@@ -18,18 +18,12 @@ rule:
 constraints:
     <VAR>: {regex: '<grammar>'} # Post-rule filter on a single-node capture
 transform:
-    <NEW>: <op>($VAR, <key>=<value>) # op: replace | substring | convert | rewrite
-fix: <template referencing $VAR and $NEW> # Only when the repair is mechanical
-message: <one line naming the violation>
-note: <the exact repair, the shape to produce>
+    <NEW>: <op>($VAR, <key>=<value>) # op: replace | substring | convert | rewrite, a call with no key keeps the comma, substring($VAR,)
+fix: <template referencing $VAR and $NEW> # When the replacement re-parses and compiles, list entries each carry title and -U takes the first
+message: <one line naming the violation, captures and transform variables interpolate>
+note: <the correction as the shape to produce, no capture interpolates>
+url: <documentation link the editor shows>
 labels:
-    <VAR>: {style: primary, message: '<span fact>'} # rule/constraints vars only, a rule carrying fix: renders the diff
+    <VAR>: {style: primary, message: '<span fact>'} # Rule or constraints vars, the message interpolates nothing, fix: renders the diff in their place
 metadata:
     <key>: <routing-fact> # Appears under --json --include-metadata
----
-id: <sibling-rule-id> # One topic file carries the rule family, rules split by ---
-language: <language>
-severity: error
-rule: <rule>
-message: <why>
-note: <repair>

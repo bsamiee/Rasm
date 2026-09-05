@@ -2,6 +2,9 @@
     <PropertyGroup>
         <VersionManifest>$(MSBuildThisFileDirectory)$(NativeLibraryName)/$([MSBuild]::ValueOrDefault('$(VersionManifestFileName)', 'vcpkg.json'))</VersionManifest>
         <CentralPackagesPath>$(RepositoryRoot)Directory.Packages.props</CentralPackagesPath>
+        <!-- The manifest owns the version, this file reads the project's VersionManifestFileName and imports before the SDK reads Version -->
+        <_ManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VersionManifest)')), '(?&lt;="version-string": ")[^"]+').Value)</_ManifestVersion>
+        <Version Condition="'$(_ManifestVersion)' != ''">$(_ManifestVersion)</Version>
     </PropertyGroup>
 
     <ItemGroup Condition="'$(IncludeBuildOutput)' == 'false'">
@@ -11,9 +14,15 @@
         <None Include="$(MSBuildThisFileDirectory)_._" Pack="true" PackagePath="lib/$(TargetFramework)/" />
     </ItemGroup>
 
+    <!-- Generated sources come from the staged tree, hand-written support sources sit beside the project file -->
     <ItemGroup Condition="'$(IncludeBuildOutput)' == 'true'">
-        <Compile Include="$(StageRoot)managed/*.cs" />
+        <_StagedSource Include="$(StageRoot)managed/*.cs" />
+        <Compile Include="@(_StagedSource);$(MSBuildProjectDirectory)/*.cs" />
     </ItemGroup>
+
+    <Target Name="EnsureManifestVersion" BeforeTargets="GenerateNuspec">
+        <Error Condition="'$(_ManifestVersion)' == ''" Text="No version-string in $(VersionManifest), the package version derives from it" />
+    </Target>
 
     <Target Name="EnsureStagedNativeLibraries" BeforeTargets="GenerateNuspec" Condition="'$(IncludeBuildOutput)' == 'false'">
         <Error Condition="!Exists('$(StageRoot)runtimes') and !Exists('$(StageRoot)contentFiles')"
@@ -21,15 +30,7 @@
     </Target>
 
     <Target Name="EnsureStagedManagedSources" BeforeTargets="CoreCompile" Condition="'$(IncludeBuildOutput)' == 'true'">
-        <Error Condition="'@(Compile)' == ''" Text="No sources staged under $(StageRoot)managed, run the stage target of the $(NativeLibraryName) packaging project first" />
-    </Target>
-
-    <Target Name="EnsureManifestVersionMatch" BeforeTargets="GenerateNuspec">
-        <PropertyGroup>
-            <_ManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VersionManifest)')), '(?&lt;="version-string": ")[^"]+').Value)</_ManifestVersion>
-        </PropertyGroup>
-        <Error Condition="'$(_ManifestVersion)' != '$(Version)'"
-               Text="Package version $(Version) does not match version-string '$(_ManifestVersion)' in $(VersionManifest)" />
+        <Error Condition="'@(_StagedSource)' == ''" Text="No sources staged under $(StageRoot)managed, run the stage target of the $(NativeLibraryName) packaging project first" />
     </Target>
 
     <!-- Packages locked to one entry in the root Directory.Packages.props declare that entry as CentralPackageId -->

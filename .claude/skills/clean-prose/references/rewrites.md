@@ -68,11 +68,25 @@ Identifier and file renames update every reference:
 - BEFORE: `| A composite audit per project over seven dimensions: complexity, naming, unused symbols |`
 - AFTER: `| Composite audit per project: complexity, naming, unused symbols |` (the count of a visible list goes with the article)
 
-## [06]-[SENTENCE_INTENT]
+## [06]-[ARTICLES]
+
+- BEFORE: `# NuGet sources and the package source mapping` (a tree comment)
+- AFTER: `# NuGet sources and package source mapping`
+
+- BEFORE: `` `libs/` and `tests/` hold the language-specific code ``
+- AFTER: `` `libs/` and `tests/` hold language-specific code ``
+
+- BEFORE: `# Root package with the development dependencies and the root Nx targets`
+- AFTER: `# Root package with development dependencies and root Nx targets`
+
+- KEEP: `the root project`, `the one restore of the solution`, `the daemon` (the context identifies one thing)
+- WRONG: `Root project holds restore` (the article went from a noun the context identifies)
+
+## [07]-[SENTENCE_INTENT]
 
 - BEFORE: `<tool> creates the <dir> directory at the root. This directory cannot be relocated. The gitignore excludes it. Reports still go to the configured artifact directory.`
 - AFTER: `<tool> creates <dir> at the root with no relocation option, .gitignore excludes it, and reports still go to the configured artifact directory` (one fact, the exception around the directory)
-- WRONG: `<tool> creates <dir>. It is fixed. Gitignore excludes it. Reports go to artifacts.` (fragments, dropped articles, dropped facts)
+- WRONG: `<tool> creates <dir>. It is fixed. Gitignore excludes it. Reports go to artifacts.` (fragments, dropped facts)
 - WRONG: `<tool> creates <dir>, it cannot be relocated, .gitignore excludes it, and reports go to the artifact directory` (joined, intent unstated)
 
 - BEFORE: `Language-specific idioms may differ, but the composition rules do not; define a result type when a language has no suitable one instead of introducing another error mechanism`
@@ -84,7 +98,7 @@ Identifier and file renames update every reference:
   - `Generic singular subjects become the plural or the instruction's verb`
   - `Runs of list items with one noun opener restructure around the verb or the category noun`
 
-## [07]-[OVERLAP_AND_NO_OP]
+## [08]-[OVERLAP_AND_NO_OP]
 
 - BEFORE: `Returns the result, which is the value the computation produced, as the return value of the call`
 - AFTER: `Returns the computed value`
@@ -95,14 +109,14 @@ Identifier and file renames update every reference:
 - BEFORE: `The build runs the target. The target is part of the build and runs during it. It copies the assets.`
 - AFTER: `The build runs the target, which copies the assets`
 
-## [08]-[NEAR_DUPLICATE_ACROSS_SECTIONS]
+## [09]-[NEAR_DUPLICATE_ACROSS_SECTIONS]
 
 - BEFORE (layout): `Root <manifest> owns resolution and the single lock file`
 - BEFORE (dependencies): `Every dependency resolves through the root <manifest>, and the lock file at the root is the only one`
 - AFTER (dependencies): `Every dependency resolves through the root <manifest>, and the root holds the one lock file`
 - AFTER (layout): (deleted)
 
-## [09]-[COMMENTS]
+## [10]-[COMMENTS]
 
 ```python
 # BEFORE
@@ -133,7 +147,7 @@ Identifier and file renames update every reference:
 /// <param name="requiredModules">Module names the caller depends on</param>
 ```
 
-## [10]-[MESSAGES]
+## [11]-[MESSAGES]
 
 - BEFORE: `"<library> native runtime failed to load; reference the <library> native runtime package for this RID and restart, the CLR caches the failed type initializer"`
 - AFTER: `"<library> native runtime failed to load. The CLR caches the failed type initializer. Reference the runtime package for this RID and restart"`
@@ -141,7 +155,7 @@ Identifier and file renames update every reference:
 - BEFORE: `Expected {0}; got {1}.`
 - AFTER: `Expected {0}, got {1}`
 
-## [11]-[TABLE_CELLS]
+## [12]-[TABLE_CELLS]
 
 - BEFORE: `` | Python `network`/`subprocess`; language-specific integration run. | ``
 - AFTER: `` | Python `network`/`subprocess` markers, per-language integration run | ``
@@ -149,7 +163,7 @@ Identifier and file renames update every reference:
 - BEFORE: `| Roslyn analyzers detecting common correctness and performance coding issues. |`
 - AFTER: `| Correctness and performance analyzers |`
 
-## [12]-[HEADINGS_AND_SELF_STATEMENT]
+## [13]-[HEADINGS_AND_SELF_STATEMENT]
 
 - BEFORE: `## [03]-[STANDING_LAW] (safety rules for irreversible acts)`
 - AFTER: `## [03]-[SAFETY_RULES]`
@@ -160,7 +174,7 @@ Identifier and file renames update every reference:
 - BEFORE: `This file documents the collection types and how shared state works`
 - AFTER: (deleted, the heading names the topic)
 
-## [13]-[FACT_PRESERVATION]
+## [14]-[FACT_PRESERVATION]
 
 - KEEP: `The request may have failed because the client version is outdated`
 - WRONG: `The request failed because the client version is outdated` (a suspicion became a fact)
@@ -169,7 +183,7 @@ Identifier and file renames update every reference:
 - BEFORE: `GPU acceleration for <model> inference` (comment on a CPU-only runtime package)
 - AFTER: `Default CPU inference runtime binaries for every platform` (longer, because the fact was wrong)
 
-## [14]-[NARRATION_TO_INSTRUCTION]
+## [15]-[NARRATION_TO_INSTRUCTION]
 
 - BEFORE: `Committed binaries, because the pipeline rebuilds every artifact from a pinned manifest` (an item in a list of what a directory excludes)
 - AFTER: `The pipeline rebuilds every binary from a pinned manifest` (the fact, under the pipeline's heading)
@@ -183,7 +197,7 @@ Identifier and file renames update every reference:
 - AFTER: `Set cache: false and parallelism: false on the target, because provisioning mutates shared directories`
 - KEEP: the reason, the reader needs it to decide the same for the next target that mutates a shared directory
 
-## [15]-[CONTEXT_SUPPLIED_SUBJECT]
+## [16]-[CONTEXT_SUPPLIED_SUBJECT]
 
 - BEFORE: `` `dotnet-roslyn-codelens` owns trust `` (a step in a procedure)
 - AFTER: `` Use `dotnet-roslyn-codelens` to trust the solution ``
@@ -200,13 +214,13 @@ Identifier and file renames update every reference:
 - BEFORE: `` Condition these properties in `Directory.Build.targets` `` (a rule under an entry that names the properties)
 - AFTER: `` Condition the properties in `Directory.Build.targets` ``
 
-## [16]-[PARAPHRASED_CODE]
+## [17]-[PARAPHRASED_CODE]
 
 - BEFORE: `` `<script>` reads `<manifest>`, downloads the pinned archive, checks its hash, and extracts it under `.cache/` `` (a README line)
 - AFTER: `` `<script>` places the pinned release archives under `.cache/` `` (the steps stay in the script)
 - WRONG: `` `<script>` downloads and extracts the pinned archives `` (the steps shortened, the purpose still unstated)
 
-## [17]-[NEGATIVE_FRAMING]
+## [18]-[NEGATIVE_FRAMING]
 
 - BEFORE: `` Read a `.binlog` only through the `binlog` MCP tools, never directly ``
 - AFTER: `` Read a `.binlog` through the `binlog` MCP tools `` (the direct read goes in the anti-pattern table)

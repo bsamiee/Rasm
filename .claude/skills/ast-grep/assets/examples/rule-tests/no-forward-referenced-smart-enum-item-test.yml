@@ -6,10 +6,28 @@ valid:
           public static readonly Route Primary = new("<key-a>", static () => Fallback);
           public static readonly Route Fallback = new("<key-b>", static () => Fallback);
       }
+    - | # Backward reference reads an initialized item
+      [SmartEnum<string>]
+      public sealed partial class Route {
+          public static readonly Route Fallback = new("<key-b>", static () => Fallback);
+          public static readonly Route Primary = new("<key-a>", Fallback);
+      }
+    - | # Member of another type that shares the item name
+      [SmartEnum<string>]
+      public sealed partial class Route {
+          public static readonly Route Primary = new("<key-a>", Other.Fallback);
+          public static readonly Route Fallback = new("<key-b>", static () => Fallback);
+      }
 invalid:
-    - |- # Eager forward reference captures null
+    - | # Eager forward reference captures null
       [SmartEnum<string>]
       public sealed partial class Route {
           public static readonly Route Primary = new("<key-a>", Fallback);
           public static readonly Route Fallback = new("<key-b>", Fallback);
+      }
+    - |- # Forward reference behind a leading argument
+      [SmartEnum<string>]
+      public sealed partial class Route {
+          public static readonly Route Primary = new(Kind.Primary, Fallback);
+          public static readonly Route Fallback = new(Kind.Fallback, static () => Fallback);
       }

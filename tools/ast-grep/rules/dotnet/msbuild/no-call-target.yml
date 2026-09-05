@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-call-target
+language: xml
+severity: error
+rule:
+    matches: {msbuild-element: {name: {regex: '^CallTarget$'}}}
+message: CallTarget runs the target in a new scope and its properties and items reach the caller only after the calling target finishes, name the dependency in DependsOnTargets

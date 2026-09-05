@@ -1,0 +1,52 @@
+id: enum-to-const-object-by-hand
+snapshots:
+  const enum Inline { X = 1 }:
+    labels:
+    - source: const enum Inline { X = 1 }
+      style: primary
+      start: 0
+      end: 27
+  declare enum Ambient { P = 1 }:
+    labels:
+    - source: enum Ambient { P = 1 }
+      style: primary
+      start: 8
+      end: 30
+    - source: declare enum Ambient { P = 1 }
+      style: secondary
+      start: 0
+      end: 30
+  declare namespace Item { enum Phase { P = 1 } }:
+    labels:
+    - source: enum Phase { P = 1 }
+      style: primary
+      start: 25
+      end: 45
+    - source: declare namespace Item { enum Phase { P = 1 } }
+      style: secondary
+      start: 0
+      end: 47
+  enum Bare { Draft, Sealed }:
+    labels:
+    - source: enum Bare { Draft, Sealed }
+      style: primary
+      start: 0
+      end: 27
+    - source: Draft
+      style: secondary
+      start: 12
+      end: 17
+    - source: Draft
+      style: secondary
+      start: 12
+      end: 17
+  export enum Pub { Draft = 0 }:
+    labels:
+    - source: enum Pub { Draft = 0 }
+      style: primary
+      start: 7
+      end: 29
+    - source: export enum Pub { Draft = 0 }
+      style: secondary
+      start: 0
+      end: 29

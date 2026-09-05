@@ -1,0 +1,23 @@
+id: no-unquoted-condition-operand
+snapshots:
+  ? |
+    <Compile Include="Extra.cs" Condition="'$(Configuration)' != Release" />
+  : labels:
+    - source: Condition="'$(Configuration)' != Release"
+      style: primary
+      start: 28
+      end: 69
+  ? |
+    <Optimize Condition="$(TargetFramework) == net10.0">true</Optimize>
+  : labels:
+    - source: Condition="$(TargetFramework) == net10.0"
+      style: primary
+      start: 10
+      end: 51
+  ? |
+    <PropertyGroup Condition="$(OutputType) == 'Exe'"><SelfContained>false</SelfContained></PropertyGroup>
+  : labels:
+    - source: Condition="$(OutputType) == 'Exe'"
+      style: primary
+      start: 15
+      end: 49

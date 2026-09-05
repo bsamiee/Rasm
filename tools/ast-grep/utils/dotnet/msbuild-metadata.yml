@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-metadata # An element holding a named value as an attribute or as a child element, the value regex sees the quotes in the attribute form
+language: xml
+arguments: [name, value]
+rule:
+    kind: element
+    any:
+        - has: {matches: msbuild-tag, has: {kind: Attribute, all: [{has: {kind: Name, matches: name}}, {has: {kind: AttValue, matches: value}}]}}
+        - has: {kind: content, has: {kind: element, all: [{has: {kind: STag, has: {kind: Name, matches: name}}}, {has: {kind: content, has: {kind: CharData, matches: value}}}]}}

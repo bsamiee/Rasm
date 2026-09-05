@@ -13,7 +13,7 @@ rule:
     all:
         - pattern:
             context: |
-                def _anchor():
+                def _owner():
                     $$$GUARDS
                     return $FINAL
             selector: block

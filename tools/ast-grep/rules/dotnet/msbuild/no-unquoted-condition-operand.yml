@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unquoted-condition-operand
+language: xml
+severity: error
+rule:
+    matches: {msbuild-attribute: {name: {regex: '^Condition$'}, value: {regex: "[^'\\s]\\s*(==|!=)|(==|!=)\\s*[^'\\s]"}}}
+message: A condition compares an unquoted operand, MSBuild tokenizes the literal before it expands the property, quote both sides as '$(Name)' == 'value'

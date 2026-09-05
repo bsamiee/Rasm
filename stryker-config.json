@@ -2,10 +2,7 @@
     "stryker-config": {
         "test-runner": "mtp",
         "solution": "Workspace.slnx",
-        "output": ".artifacts/dotnet/stryker",
-        "mutate": ["**/libs/dotnet/**/*.cs", "**/tools/**/*.cs", "!**/obj/**", "!**/bin/**", "!**/vendor/**"],
-        "concurrency": 4,
-        "additional-timeout": 5000,
+        "mutate": ["**/libs/dotnet/**/*.cs", "**/tools/**/*.cs"],
         "reporters": ["json", "html", "progress"]
     }
 }

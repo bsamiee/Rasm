@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-extra-package-source
+language: xml
+severity: error
+files: ['NuGet.config'] # The root NuGet.config alone, the one config of the workspace
+utils:
+    nuget-org-key: {kind: element, matches: {msbuild-metadata: {name: {regex: '^key$'}, value: {regex: '^"nuget\.org"$'}}}}
+    local-feed-key: {kind: element, matches: {msbuild-metadata: {name: {regex: '^key$'}, value: {regex: '^"local"$'}}}}
+rule:
+    any:
+        # A restore source outside the registry and the local feed
+        - matches: {msbuild-element: {name: {regex: '^add$'}}}
+          inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^packageSources$'}}}}}
+          not:
+              any:
+                  - all: [{matches: nuget-org-key}, {matches: {msbuild-metadata: {name: {regex: '^value$'}, value: {regex: '^"https://api\.nuget\.org/v3/index\.json"$'}}}}]
+                  - all: [{matches: local-feed-key}, {matches: {msbuild-metadata: {name: {regex: '^value$'}, value: {regex: '^"\.artifacts/nuget"$'}}}}]
+        # A mapping source outside the two restore sources
+        - matches: {msbuild-element: {name: {regex: '^packageSource$'}}}
+          not: {any: [{matches: nuget-org-key}, {matches: local-feed-key}]}
+        # A pattern under a known source outside the pair it owns, the wildcard for the registry and the workspace prefix for the local feed
+        - matches: {msbuild-element: {name: {regex: '^package$'}}}
+          inside: {kind: content, inside: {any: [{matches: nuget-org-key}, {matches: local-feed-key}]}}
+          not:
+              any:
+                  - all: [{inside: {kind: content, inside: {matches: nuget-org-key}}}, {matches: {msbuild-metadata: {name: {regex: '^pattern$'}, value: {regex: '^"\*"$'}}}}]
+                  - all: [{inside: {kind: content, inside: {matches: local-feed-key}}}, {matches: {msbuild-metadata: {name: {regex: '^pattern$'}, value: {regex: '^"Rasm\.\*"$'}}}}]
+message: NuGet.config restores from nuget.org at https://api.nuget.org/v3/index.json and the local feed at .artifacts/nuget, and maps * to nuget.org and Rasm.* to local, delete the source, mapping, or pattern outside the pairs

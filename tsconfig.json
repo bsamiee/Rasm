@@ -4,24 +4,5 @@
         "outDir": ".cache/typescript/out/root",
         "types": ["node"]
     },
-    "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts", "tools/nx/*.ts", "infra/*.ts"],
-    "watchOptions": {
-        "excludeDirectories": [
-            "**/node_modules",
-            "**/.git",
-            "**/.nx",
-            "**/dist",
-            "**/build",
-            "**/.next",
-            "**/.vite",
-            "**/.cache",
-            "**/.artifacts",
-            "**/.history",
-            "**/.venv",
-            "**/.vscode",
-            "**/.idea"
-        ],
-        "fallbackPolling": "dynamicPriority",
-        "synchronousWatchDirectory": true
-    }
+    "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts", "tools/nx/*.ts", "infra/*.ts"]
 }

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-private-false-on-host-reference
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Reference$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^HintPath$'}, value: {regex: '\S'}}}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Private$'}, value: {regex: '(?i)^"?\s*false\s*"?$'}}}}
+message: A Reference with a HintPath copies the host-supplied assembly into the output and the host loads that copy, add Private="false", and a package or project output takes PackageReference or ProjectReference instead

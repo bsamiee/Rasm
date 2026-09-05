@@ -3,21 +3,22 @@ id: no-forward-referenced-smart-enum-item
 language: csharp
 severity: error
 rule:
-    kind: field_declaration
+    kind: identifier # The reference is the match, every identifier is tried and a has: from the owner binds the first alone
     all:
-        - has: {kind: modifier, regex: '^static$'}
-        - has:
-            stopBy: end
-            kind: identifier
-            pattern: $ROW # Capture unifies with the later declarator to prove the forward edge, the first argument identifier alone binds
-            inside: {kind: argument, stopBy: end}
-            not: {inside: {kind: lambda_expression, stopBy: end}} # Deferred `static () => Item` values are the legal form
-        - precedes:
+        - pattern: $ROW
+        - inside: {kind: argument, stopBy: end}
+        - not: {inside: {kind: member_access_expression, field: name}} # Other.Item names another type's member
+        - not: {inside: {kind: lambda_expression, stopBy: end}} # Deferred `static () => Item` values are the legal form
+        - inside: # The ordering walk hangs off the enclosing declaration, an expression has no statement siblings
             stopBy: end
             kind: field_declaration
-            has:
+            has: {kind: modifier, regex: '^static$'}
+            precedes:
                 stopBy: end
-                kind: variable_declarator
-                has: {field: name, pattern: $ROW}
-message: Static initializer names an item declared later in the owner
+                kind: field_declaration
+                has:
+                    stopBy: end
+                    kind: variable_declarator
+                    has: {field: name, pattern: $ROW} # Bound above, the walk re-matches its text on every later item
+message: Static initializer reads `$ROW` before the owner declares it
 note: The eager field read captures null before the item is initialized, defer the reference behind `static () => <Item>`

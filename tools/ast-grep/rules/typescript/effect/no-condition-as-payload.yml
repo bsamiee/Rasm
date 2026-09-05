@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-condition-as-payload
+language: tsx
+severity: error
+utils:
+    # A predicate that returns its argument, so the lifted value is its own condition
+    identity-predicate:
+        any:
+            - pattern: identity
+            - pattern: Function.identity
+            - kind: arrow_function
+              all:
+                  - has: {field: parameters, has: {kind: required_parameter, has: {kind: identifier, pattern: $HELD}}}
+                  - has: {field: body, kind: identifier, pattern: $HELD}
+rule:
+    kind: call_expression
+    all:
+        - has:
+              field: function
+              kind: member_expression
+              all:
+                  - has: {field: object, regex: '^Option$'}
+                  - has: {field: property, regex: '^(liftPredicate|filter)$'}
+        - has: {field: arguments, has: {matches: identity-predicate}}
+message: The Option carries the condition as its payload, and the value the condition guards sits elsewhere
+note: >-
+    Lift the guarded value, `Option.liftPredicate(value, () => condition)` for one value and `Array.filter(values, () => condition)`
+    for elements, and a host object that owns an activation option (a plugin's `apply`) takes the condition there

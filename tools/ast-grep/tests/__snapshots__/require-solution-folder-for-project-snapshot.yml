@@ -1,0 +1,16 @@
+id: require-solution-folder-for-project
+snapshots:
+  ? |
+    <Solution><Folder Name="/libs/"><Project Path="libs/A/A.csproj" /></Folder><Project Path="tools/B/B.csproj" /></Solution>
+  : labels:
+    - source: <Project Path="tools/B/B.csproj" />
+      style: primary
+      start: 75
+      end: 110
+  ? |
+    <Solution><Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" /></Solution>
+  : labels:
+    - source: <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />
+      style: primary
+      start: 10
+      end: 82

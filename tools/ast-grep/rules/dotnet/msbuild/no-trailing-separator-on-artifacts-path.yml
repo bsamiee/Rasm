@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-trailing-separator-on-artifacts-path
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-property: {name: {regex: '^ArtifactsPath$'}}}
+        # A separator written at the end of the value, or a function that appends one
+        - matches: {msbuild-element-text: {text: {regex: '[\\/]\s*$|NormalizeDirectory|EnsureTrailingSlash'}}}
+message: ArtifactsPath ends with a separator and the SDK appends its own before bin, obj, publish, and package, every output path holds a doubled separator, compose the value with NormalizePath

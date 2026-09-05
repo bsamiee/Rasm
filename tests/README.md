@@ -1,29 +1,29 @@
 # [TESTS]
 
-Tests under `tests/` are the cross-language test policy, the reusable test support, and the suites that do not colocate with production source. Tests specify supported behavior and fail when it regresses. Delete a test only when the behavior is retired or its oracle is invalid, and repair tests that cannot run in a supported environment.
+Tests under `tests/` hold the cross-language test policy, reusable test support, and suites that do not colocate with production source. Tests specify supported behavior and fail when it regresses. Delete a test only when the behavior is retired or its oracle is invalid, and repair tests that cannot run in a supported environment.
 
 ## [01]-[LAYOUT]
 
 ```text
 tests/
 ├── dotnet/
-│   ├── support/        # Reusable .NET test support
-│   └── libs/           # Per-package suites mirroring libs/dotnet
+│   ├── Rasm.TestSupport/   # Reusable .NET test support, one project with the test of each module beside it
+│   └── libs/               # Suites mirroring libs/dotnet, one per package or release group
 ├── python/
 │   ├── support/        # Reusable Python test support
 │   └── libs/           # Per-package suites mirroring libs/python
 └── typescript/
     ├── support/        # Reusable TypeScript test support
-    └── libs/           # Per-package suites mirroring libs/typescript
+    └── libs/           # Suites that span more than one package
 ```
 
 [CASING]:
-- Language, grouping, and support directories are lowercase
-- PascalCase begins at a C# project directory and continues inside it, grouping directories above stay lowercase
+- Language and grouping directories are lowercase, and the Python and TypeScript support directories are `support/`
+- PascalCase begins at a C# project directory and continues inside it, and the grouping directories that contain it stay lowercase
 - Python test modules are `test_<module>.py`, TypeScript `<module>.spec.ts`, and C# `<Subject>.Tests.cs`
 
 [SHARED_TEST_CODE]:
-- Each language area centralizes reusable fixtures, generators, assertions, and test harness code in its `support/` directory
+- Each language area centralizes reusable fixtures, generators, assertions, and test harness code in one support project or directory
 - Each test support module with executable behavior has its test beside it
 - Production packages under `libs/` contain no shared test support
 
@@ -35,10 +35,10 @@ Classify each test independently by scope, technique, and execution mode, and ap
 | :-----: | :-------- | :------------- | :------------------------------------------ | :---------------------------------------------------------- |
 |  [01]   | Scope     | Unit           | Isolated behavior, controlled collaborators | Default `test` run per language                             |
 |  [02]   | Scope     | Integration    | Real components or an external boundary     | Python `network` and `subprocess` markers                   |
-|  [03]   | Technique | Property-based | Generated examples exercise an invariant    | `TestAssertions.Verify`, `@property_test`, `it.effect.prop` |
+|  [03]   | Technique | Property-based | Generated examples exercise an invariant    | `TestAssertions.ForAll`, `@property_test`, `it.effect.prop` |
 |  [04]   | Mode      | Benchmark      | Timing outside the functional test session  | `benchmark` configuration of `test`, Vitest bench glob      |
 
-Integration follows the subject under test, not process count: an in-process test over real components is integration, a test with controlled collaborators is unit.
+Scope follows the subject under test, an in-process test over real components is integration and a test with controlled collaborators is unit.
 
 ## [03]-[TEST_ORACLES]
 
@@ -46,60 +46,41 @@ Every test asserts observable behavior against an oracle independent of the impl
 
 Structural assertions on values the test constructs prove nothing, pair them with an independent behavioral assertion or delete them.
 
-Each reusable property must include a known counterexample, a property that accepts it is vacuous and fails at registration.
+Each property defined from a predicate includes a known counterexample, a predicate that accepts it is vacuous and fails at registration, and a law that compares two evaluations needs none.
 
 [TEST_REQUIREMENTS]:
 - Compilers, import checks, and type checkers verify symbols exist, runtime tests assert behavior
 - Expected values come from an independent oracle, duplicating the production algorithm or snapshotting the test's own value is self-fulfilling
-- Boundary tests supply invalid raw input through supported entry points, interior tests never bypass construction to build impossible states
+- Boundary tests supply invalid raw input through supported entry points, and tests inside the boundary build every state through construction
 - Parameterized and property-based tests cover input classes and invariants, a shallow test per function is not coverage
 
 Treat a failing test as evidence until triage identifies a production defect, an obsolete requirement, or an invalid oracle. Fix production defects in production code, change the test only when the supported behavior or oracle is wrong.
 
 ## [04]-[GENERATED_OUTPUTS]
 
-Tool configurations write reports under `.artifacts/` and relocatable temporary state under `.cache/<tool>/`. Stryker.NET creates the fixed `.stryker-tmp/` work directory, `.gitignore` excludes it and its reports still go to the configured artifact directory.
+Every test tool writes its reports under `.artifacts/<language>/` and its relocatable state under `.cache/<tool>/`, configured in the tool's own config file or in its target when the file has no setting, and wrapper scripts and `conftest.py` set none. Stryker.NET takes its report directory from `--output` on the command the `mutation` script runs, because `stryker-config.json` rejects every key outside its schema. StrykerJS keeps the root `tsconfig.json` out of its sandbox through `ignorePatterns`, because its core parses that file with the JavaScript compiler API the native `typescript` package lacks. After a tool runs, `git status --short` shows no new entry.
 
-| [INDEX] | [TOOL]            | [OUTPUT]                           | [CONFIGURATION]                                                              |
-| :-----: | :---------------- | :--------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | coverlet.MTP      | .NET coverage per test project     | `test` target, coverlet arguments from `Directory.Build.targets`             |
-|  [02]   | MTP results       | .NET results, dumps, xUnit reports | `test` target, MTP default beside the test app under `.artifacts/dotnet/bin` |
-|  [03]   | pytest-cov        | Python coverage data per run       | `test` target, `pyproject.toml` `[tool.coverage.*]` tables                   |
-|  [04]   | Hypothesis        | Example database and observability | `tests/python/support/runtime.py`                                            |
-|  [05]   | pytest-benchmark  | Python benchmark storage           | `test` target `benchmark` configuration, `pyproject.toml` addopts            |
-|  [06]   | Vitest            | TypeScript results and coverage    | `test` target, each `vitest.config.ts` from the root `createVitestConfig`    |
-|  [07]   | Coverage merge    | One coverage report per language   | Root `coverage` target, `.artifacts/<language>/coverage/`                    |
-|  [08]   | StrykerJS         | TypeScript mutation                | `stryker.config.json`                                                        |
-|  [09]   | Stryker.NET       | .NET mutation reports              | `stryker-config.json`                                                        |
-|  [10]   | Nx                | Target outputs and cache           | `test` from `@nx/dotnet`, `@nx/vitest`, or `nx.json` by `workspace.ts` tag   |
-
-Configure output paths through the tool's documented configuration, config file first and CLI option second, never through wrapper scripts or `conftest.py`. After the tool runs, `git status --short` and the repository-root listing must show no new generated entries.
+Use the `monorepo-build-infrastructure` skill for the target and output layout.
 
 ## [05]-[SUITE_PLACEMENT]
 
-Add each suite, reusable test capability, fixture, or test asset to the existing directory or module responsible for it. Extend that location when the responsibility is unchanged, refactor it when the structure no longer fits.
+Add each suite, reusable test capability, fixture, or test asset to the existing directory or module that holds its kind. Extend the location when the responsibility is unchanged, and refactor it when the structure no longer fits.
 
-| [INDEX] | [ADDITION]                   | [HOME]                                 |
-| :-----: | :--------------------------- | :------------------------------------- |
-|  [01]   | .NET reusable test support   | `tests/dotnet/support`                 |
-|  [02]   | .NET package suite           | `tests/dotnet/libs/<package>/`         |
-|  [03]   | Python reusable test support | `tests/python/support`                 |
-|  [04]   | Python package suite         | `tests/python/libs/<package>/`         |
-|  [05]   | TypeScript unit test         | Beside its source in `libs/typescript` |
-|  [06]   | TypeScript reusable support  | `tests/typescript/support`             |
-
-.NET and Python package suites mirror their production package beneath `tests/<language>/libs`. TypeScript unit tests colocate with source, `tests/typescript/` holds reusable support and suites that span more than one package.
+| [INDEX] | [ADDITION]                   | [HOME]                                  |
+| :-----: | :--------------------------- | :-------------------------------------- |
+|  [01]   | .NET reusable test support   | `tests/dotnet/Rasm.TestSupport`         |
+|  [02]   | .NET package suite           | `tests/dotnet/libs/<release group>/`    |
+|  [03]   | Python reusable test support | `tests/python/support`                  |
+|  [04]   | Python package suite         | `tests/python/libs/<package>/`          |
+|  [05]   | TypeScript unit test         | Beside its source in `libs/typescript`  |
+|  [06]   | TypeScript reusable support  | `tests/typescript/support`              |
 
 ## [06]-[MUTATION_AND_COVERAGE]
 
-Mutation and coverage runs report what the tests reach, and no score gates a merge:
-- Root `stryker.config.json` holds the TypeScript Stryker configuration, and root `stryker-config.json` holds the .NET one
-- .NET or TypeScript Stryker runs that discover zero mutants fail
-- Every `test` run collects coverage, and the root `coverage` target runs after them and merges the data into one report per language
-- Python coverage measures `eng/scripts`, `libs/python`, and `tests/python/support`, the `source` list in `pyproject.toml` a bare `--cov` reads
-- Vitest names each project after its package, writes results, blob, benchmark, and coverage under that name, and the merge reads the `@rasm` blobs
-- The merged reports sit under `.artifacts/<language>/coverage/`, lcov and xml for Python and lcov and json for TypeScript
-- The .NET Cobertura merge joins with the first .NET test project
+Mutation and coverage runs report what the tests reach:
+- The root `mutation` target runs one language's Stryker and fails when its report holds zero mutants
+- Every `test` run collects coverage, and the root `coverage` target merges one language's data afterwards
+- Python coverage measures the trees the `source` list of `pyproject.toml` names
 
 ## [07]-[CONFIGURATION_OWNERS]
 
@@ -111,6 +92,6 @@ Read the owning configuration before changing a test dependency, runner, output,
 |  [02]   | Each test `.csproj` with `Directory.Build.targets` | MTP runner and package references, global xUnit and CsCheck usings |
 |  [03]   | `pyproject.toml`                                   | Python test dependencies, pytest and coverage policy               |
 |  [04]   | `pnpm-workspace.yaml`                              | TypeScript test versions, peer resolutions, package globs          |
-|  [05]   | `mise.toml` with `dotnet dnx`                      | Runtimes on `PATH` and the .NET CLI tools the checks run           |
-|  [06]   | `vitest.config.ts` with `stryker*.json`            | TypeScript runner defaults, outputs, mutation configuration        |
-|  [07]   | `nx.json` and the root `package.json` `nx` field   | Targets by language tag, root targets, the `coverage` merge        |
+|  [05]   | `vitest.config.ts` with `stryker*.json`            | TypeScript runner defaults, outputs, mutation configuration        |
+
+Use the `monorepo-build-infrastructure` skill for the toolchain and the targets.

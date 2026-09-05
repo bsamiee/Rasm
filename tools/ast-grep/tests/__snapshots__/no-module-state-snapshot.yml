@@ -1,0 +1,46 @@
+id: no-module-state
+snapshots:
+  export let shared = [];:
+    labels:
+    - source: let shared = [];
+      style: primary
+      start: 7
+      end: 23
+    - source: export let shared = [];
+      style: secondary
+      start: 0
+      end: 23
+    - source: export let shared = [];
+      style: secondary
+      start: 0
+      end: 23
+  let nextSpanId = 0;:
+    labels:
+    - source: let nextSpanId = 0;
+      style: primary
+      start: 0
+      end: 19
+    - source: let nextSpanId = 0;
+      style: secondary
+      start: 0
+      end: 19
+  let pending;:
+    labels:
+    - source: let pending;
+      style: primary
+      start: 0
+      end: 12
+    - source: let pending;
+      style: secondary
+      start: 0
+      end: 12
+  var legacy;:
+    labels:
+    - source: var legacy;
+      style: primary
+      start: 0
+      end: 11
+    - source: var legacy;
+      style: secondary
+      start: 0
+      end: 11

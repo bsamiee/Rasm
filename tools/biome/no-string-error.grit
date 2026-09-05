@@ -1,0 +1,10 @@
+engine biome(1.0)
+language js(typescript, jsx)
+
+or {
+    `Effect.fail($error)` where { $error <: JsStringLiteralExpression() },
+    `Effect.fail($error as const)` where { $error <: JsStringLiteralExpression() },
+    `Effect.fail($error)` where { $error <: JsTemplateExpression() }
+} as $hit where {
+    register_diagnostic(span=$hit, message="String as an error value, fail with a tagged error, recovery pattern matches the tag", severity="error")
+}

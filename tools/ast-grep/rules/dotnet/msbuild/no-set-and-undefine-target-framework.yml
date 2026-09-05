@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-set-and-undefine-target-framework
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^ProjectReference$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^SetTargetFramework$'}, value: {regex: ''}}}
+        - matches: {msbuild-metadata: {name: {regex: '^UndefineProperties$'}, value: {regex: ''}}}
+message: A ProjectReference both sets and undefines the framework global property, an incompatible reference takes SkipGetTargetFrameworkProperties="true" with one of UndefineProperties="TargetFramework" or SetTargetFramework

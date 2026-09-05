@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-clear-before-nuget-entries
+language: xml
+severity: error
+files: ['NuGet.config'] # The root NuGet.config alone, the one config of the workspace
+rule:
+    matches: {msbuild-element: {name: {regex: '^(packageSources|disabledPackageSources|packageSourceMapping)$'}}}
+    not: {has: {kind: content, has: {matches: {msbuild-element: {name: {regex: '^clear$'}}}, nthChild: {position: 1, ofRule: {kind: element}}}}}
+message: A NuGet.config section opens with <clear /> so a user or machine config adds no source, disable, or mapping to the restore, put <clear /> before the first entry

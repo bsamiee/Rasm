@@ -94,9 +94,7 @@ class _DecimalRecord(pydantic.BaseModel):
     quantity: Decimal = pydantic.Field(max_digits=3)
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [MSGSPEC_STRATEGIES]
+# --- [MSGSPEC_STRATEGIES] ---------------------------------------------------------------
 
 
 @_BUDGET
@@ -138,13 +136,13 @@ def test_recursive_struct_resolves_boundedly(node: _Node) -> None:
     assert isinstance(node.children, tuple)
 
 
-# --- [TYPE_FORM_STRATEGIES]
+# --- [TYPE_FORM_STRATEGIES] -------------------------------------------------------------
 
 
 @_BUDGET
 @given(strategy_for(Annotated[int, msgspec.Meta(ge=10, le=12)]))
 def test_annotated_form_carries_its_constraints(value: int) -> None:
-    """Bare Annotated forms generate inside their Meta bounds, never the unconstrained base."""
+    """Standalone Annotated forms generate inside their Meta bounds, never the unconstrained base."""
     assert 10 <= value <= 12, f"Annotated Meta constraint ignored: {value}"
 
 
@@ -175,7 +173,7 @@ def test_literal_form_generates_only_declared_values(value: str) -> None:
     assert value in {"on", "off"}, f"literal was outside its declared values: {value!r}"
 
 
-# --- [TAGGED_UNION_AND_CUSTOM_TYPE_STRATEGIES]
+# --- [TAGGED_UNION_AND_CUSTOM_TYPE_STRATEGIES] ------------------------------------------
 
 
 @_BUDGET
@@ -218,7 +216,7 @@ def test_ext_leaf_generates_valid_msgpack_extensions(value: _ExtensionRecord) ->
     assert msgspec.msgpack.decode(msgspec.msgpack.encode(value), type=_ExtensionRecord) == value
 
 
-# --- [PYDANTIC_STRATEGIES]
+# --- [PYDANTIC_STRATEGIES] --------------------------------------------------------------
 
 
 @_BUDGET
@@ -240,7 +238,7 @@ def test_pydantic_any_schema_generates_non_none_values(model: _ValidatedRecord) 
 @_BUDGET
 @given(strategy_for(_DecimalRecord))
 def test_pydantic_decimal_strategy_satisfies_exclusivity_multiples_and_digit_limits(model: _DecimalRecord) -> None:
-    """Every decimal draw passes live pydantic validation: excluded bounds never appear, and multiples and digit limits hold."""
+    """Every decimal draw passes live pydantic validation, excluded bounds never appear and multiples and digit limits hold."""
     assert Decimal(0) < model.fraction <= Decimal(1) and model.fraction % Decimal("0.05") == 0, (
         f"fraction multiple constraint failed: {model.fraction}"
     )

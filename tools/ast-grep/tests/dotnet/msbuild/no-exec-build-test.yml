@@ -1,0 +1,24 @@
+id: no-exec-build
+valid:
+    # The reference form orders the build
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj" ReferenceOutputAssembly="false" />
+    # A dotnet query that builds nothing
+    - |
+      <Exec Command="dotnet --version" ConsoleToMSBuild="true" />
+    # A tool restore evaluates no project
+    - |
+      <Exec Command="dotnet tool restore" />
+invalid:
+    # A dotnet build of another project
+    - |
+      <Exec Command="dotnet build ../Tool/Tool.csproj -c $(Configuration)" />
+    # A pack from inside a target
+    - |
+      <Exec Command="dotnet pack $(MSBuildProjectFullPath) --no-build" />
+    # A run builds the project first
+    - |
+      <Exec Command="dotnet run --project ../Tool/Tool.csproj" />
+    # The msbuild executable
+    - |
+      <Exec Command="msbuild.exe Other.proj /t:Stage" />

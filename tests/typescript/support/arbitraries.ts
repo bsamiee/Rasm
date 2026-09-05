@@ -1,15 +1,18 @@
-import { Array, Equal, HashSet, Option, pipe, Schema, SchemaAST } from 'effect';
-import * as Arbitrary from 'effect/Arbitrary';
-import * as FastCheck from 'effect/FastCheck';
+import { Arbitrary, Array, Equal, FastCheck, HashSet, Match, Option, Predicate, Record, Schema, SchemaAST } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-declare namespace Arbitraries {
-    type Model<T> = { readonly [K in keyof T]: FastCheck.Arbitrary<T[K]> };
-    type Sampling = { readonly numRuns?: number; readonly seed?: number };
+type ArbitraryModel<T> = { readonly [K in keyof T]: FastCheck.Arbitrary<T[K]> };
+
+interface Sampling {
+    readonly numRuns?: number;
+    readonly seed?: number;
 }
 
-type _Key = { readonly name: string; readonly undefinable: boolean };
+interface OptionalKey {
+    readonly name: string;
+    readonly undefinable: boolean;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,97 +20,71 @@ const _SAMPLING = { numRuns: 256, seed: 0 } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _optionalKeys = (schema: Schema.Schema.Any): ReadonlyArray<_Key> =>
-    pipe(
-        SchemaAST.getPropertySignatures(Schema.encodedBoundSchema(schema).ast),
-        Array.filterMap((signature) =>
-            signature.isOptional && typeof signature.name === 'string'
-                ? Option.some<_Key>({
-                      name: signature.name,
-                      undefinable: SchemaAST.isUnion(signature.type)
-                          ? Array.some(signature.type.types, SchemaAST.isUndefinedKeyword)
-                          : SchemaAST.isUndefinedKeyword(signature.type),
-                  })
-                : Option.none(),
+const _undefinable = (type: SchemaAST.AST): boolean =>
+    Match.value(type).pipe(
+        Match.when(SchemaAST.isUnion, (union) => Array.some(union.types, SchemaAST.isUndefinedKeyword)),
+        Match.orElse(SchemaAST.isUndefinedKeyword),
+    );
+
+const _optionalKeys = (schema: Schema.Schema.Any): readonly OptionalKey[] =>
+    Array.filterMap(SchemaAST.getPropertySignatures(Schema.encodedBoundSchema(schema).ast), (signature) =>
+        Option.map(
+            Option.liftPredicate(signature.name, (name): name is string => signature.isOptional && Predicate.isString(name)),
+            (name) => ({ name, undefinable: _undefinable(signature.type) }),
         ),
     );
 
-const _withOptionalFields = <A>(value: A, dropped: ReadonlyArray<string>, unset: ReadonlyArray<string>): A => {
-    const draft: Record<string, unknown> = {
-        ...(value as Record<string, unknown>),
-    };
-    for (const key of unset) {
-        draft[key] = undefined;
-    }
-    for (const key of dropped) {
-        delete draft[key];
-    }
-    return draft as A;
-};
-
-const _varyOptionalFields = <A>(base: FastCheck.Arbitrary<A>, keys: ReadonlyArray<_Key>): FastCheck.Arbitrary<A> =>
+const _varyOptionalFields = <A>(base: FastCheck.Arbitrary<A>, keys: readonly OptionalKey[]): FastCheck.Arbitrary<A> =>
     base.chain((value) =>
         FastCheck.tuple(
             FastCheck.subarray(Array.map(keys, (key) => key.name)),
-            FastCheck.subarray(Array.filterMap(keys, (key) => (key.undefinable ? Option.some(key.name) : Option.none()))),
-        ).map(([dropped, unset]) => _withOptionalFields(value, dropped, unset)),
+            FastCheck.subarray(Array.filterMap(keys, (key) => Option.liftPredicate(key.name, () => key.undefinable))),
+        ).map(
+            ([dropped, unset]) =>
+                Record.filter(
+                    { ...(value as Record<string, unknown>), ...Record.fromIterableWith(unset, (key) => [key, undefined]) },
+                    (_, key) => !Array.contains(dropped, key),
+                ) as A,
+        ),
     );
 
 function optionalFields<S extends Schema.Schema.Any>(schema: S): FastCheck.Arbitrary<Schema.Schema.Encoded<S>>;
-function optionalFields<A>(arb: FastCheck.Arbitrary<A>, keys: ReadonlyArray<string>): FastCheck.Arbitrary<A>;
-function optionalFields<T>(model: Arbitraries.Model<T>, required?: ReadonlyArray<keyof T & string>): FastCheck.Arbitrary<Partial<T>>;
+function optionalFields<A>(arb: FastCheck.Arbitrary<A>, keys: readonly string[]): FastCheck.Arbitrary<A>;
+function optionalFields<T>(model: ArbitraryModel<T>, required?: readonly (keyof T & string)[]): FastCheck.Arbitrary<Partial<T>>;
 function optionalFields(
-    input: Schema.Schema.Any | FastCheck.Arbitrary<unknown> | Arbitraries.Model<Record<string, unknown>>,
-    keys?: ReadonlyArray<string>,
+    input: Schema.Schema.Any | FastCheck.Arbitrary<unknown> | ArbitraryModel<Record<string, unknown>>,
+    keys: readonly string[] = [],
 ): FastCheck.Arbitrary<unknown> {
-    return Schema.isSchema(input)
-        ? _varyOptionalFields(Arbitrary.make(Schema.encodedBoundSchema(input)), _optionalKeys(input))
-        : input instanceof FastCheck.Arbitrary
-          ? _varyOptionalFields(
-                input,
-                Array.map(keys ?? [], (name) => ({ name, undefinable: false })),
-            )
-          : FastCheck.record(input, { requiredKeys: [...(keys ?? [])] });
+    return Match.value(input).pipe(
+        Match.when(Schema.isSchema, (schema) => _varyOptionalFields(Arbitrary.make(Schema.encodedBoundSchema(schema)), _optionalKeys(schema))),
+        Match.when(Match.instanceOfUnsafe(FastCheck.Arbitrary), (arb) =>
+            _varyOptionalFields(
+                arb,
+                Array.map(keys, (name) => ({ name, undefinable: false })),
+            ),
+        ),
+        Match.orElse((model) => FastCheck.record(model, { requiredKeys: [...keys] })),
+    );
 }
 
 const distinctArray = <A>(
     base: FastCheck.Arbitrary<A>,
     count: number,
     equals: (self: A, that: A) => boolean = Equal.equals,
-): FastCheck.Arbitrary<ReadonlyArray<A>> =>
-    FastCheck.uniqueArray(base, {
-        minLength: count,
-        maxLength: count,
-        comparator: equals,
-    });
+): FastCheck.Arbitrary<readonly A[]> => FastCheck.uniqueArray(base, { minLength: count, maxLength: count, comparator: equals });
 
 const missingClassifications = <A, Label extends string>(
     arbitrary: FastCheck.Arbitrary<A>,
-    classify: (value: A) => Label | ReadonlyArray<Label>,
-    labels: ReadonlyArray<Label>,
-    sampling: Arbitraries.Sampling = _SAMPLING,
-): ReadonlyArray<Label> => {
+    classify: (value: A) => Label | readonly Label[],
+    labels: readonly Label[],
+    sampling: Sampling = _SAMPLING,
+): readonly Label[] => {
     const seen = HashSet.fromIterable(
-        Array.flatMap(
-            FastCheck.sample(arbitrary, {
-                numRuns: sampling.numRuns ?? _SAMPLING.numRuns,
-                seed: sampling.seed ?? _SAMPLING.seed,
-            }),
-            (value) => {
-                const hit = classify(value);
-                return typeof hit === 'string' ? [hit] : hit;
-            },
-        ),
+        Array.flatMap(FastCheck.sample(arbitrary, { ..._SAMPLING, ...sampling }), (value) => Array.ensure(classify(value))),
     );
     return Array.filter(labels, (label) => !HashSet.has(seen, label));
 };
 
-const Arbitraries = {
-    distinctArray,
-    missingClassifications,
-    optionalFields,
-} as const;
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Arbitraries };
+export { type ArbitraryModel, distinctArray, missingClassifications, optionalFields, type Sampling };

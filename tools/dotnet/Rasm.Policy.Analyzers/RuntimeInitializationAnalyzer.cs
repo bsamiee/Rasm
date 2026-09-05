@@ -6,8 +6,8 @@ namespace Rasm.Policy.Analyzers;
 
 /// <summary>Reports RASM0006 when an executable or plugin host references an interop facade but never invokes its initialization</summary>
 /// <remarks>
-/// Rasm.Interop.RuntimeInitialization.Initialize covers the Initialize entry point of every facade, and a host without any of those calls fails its libraries at first use.
-/// Method references count because the delegate reaches a startup hook the analyzer cannot trace, and libraries opt in as hosts through the RasmPluginHost build property
+/// Rasm.Interop.RuntimeInitialization.Initialize covers the Initialize entry point of every facade, and a host without any of those calls fails its libraries at first use
+/// Method references count because the delegate reaches a startup hook the analyzer cannot trace, and libraries opt in as hosts through the PluginHost build property
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {
@@ -42,7 +42,7 @@ public sealed class RuntimeInitializationAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
         context.EnableConcurrentExecution();
         context.RegisterCompilationStartAction(static startContext => {
-            bool pluginHost = startContext.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue("build_property.RasmPluginHost", out string? optIn)
+            bool pluginHost = startContext.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue("build_property.PluginHost", out string? optIn)
                 && string.Equals(optIn, "true", StringComparison.OrdinalIgnoreCase);
             if (startContext.Compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.WindowsApplication) && !pluginHost) return;
             INamedTypeSymbol? aggregate = startContext.Compilation.GetTypeByMetadataName(AggregateTypeName);

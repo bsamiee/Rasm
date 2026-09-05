@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-exact-package-version-row
+language: xml
+severity: error
+files: ['Directory.Packages.props'] # The root file alone, eng/native/Directory.Packages.props opts out of central package management
+rule:
+    matches: {msbuild-element: {name: {regex: '^(PackageVersion|GlobalPackageReference)$'}}}
+    any:
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {regex: '^"[^"]+"$'}}}}
+        # One version, plain or as the exact range in brackets, no wildcard and no open range
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Version$'}, value: {regex: '^"(\[[^"*,\[\]()]+\]|[^"*,\[\]()]+)"$'}}}}
+message: A catalog row is <PackageVersion Include="<Id>" Version="<exact>" />, the root file declares rows with Include and an exact version because dotnet-outdated moves the pin and a floating or open version reads the feed state at restore

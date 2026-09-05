@@ -1,5 +1,11 @@
-id: <rule-id> # Binds to the rule by id, never filename, a rule with no test file still passes ast-grep test
+id: <rule-id> # Binds to the rule by id, the file name binds nothing, a rule with no test and a test with no rule both pass ast-grep test
 valid:
-    - <conforming snippet> # Names the near-miss the fixture pins
+    - | # The correction the note states, code holding key: value text takes the block scalar or the run exits 8
+      <corrected snippet>
+    - | # A sibling shape the correction does not apply to, one case per guard
+      <near-miss snippet>
 invalid:
-    - <violating snippet> # Names the violation shape, snapshots write via ast-grep test -U
+    - | # The instance the rule was derived from, one violation per case because the snapshot records the first match alone
+      <violating snippet>
+    - | # A surface form the same correction applies to, one case per any: branch, ast-grep test -U writes the snapshots
+      <sibling snippet>

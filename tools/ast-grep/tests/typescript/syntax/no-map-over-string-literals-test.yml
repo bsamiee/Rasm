@@ -1,0 +1,17 @@
+id: no-map-over-string-literals
+valid:
+    # The produced strings written as one brace glob
+    - 'const inputs = ["{workspaceRoot}/eng/native/{Directory.Build.props,Directory.Build.targets}"];'
+    # A map over a variable list
+    - 'const inputs = Array.map(files, (file) => `{workspaceRoot}/${file}`);'
+    # A map over literals that builds no string
+    - 'const sizes = ["a", "bb"].map((name) => name.length);'
+    # A list holding a non-string literal
+    - 'const mixed = ["a", 1].map((item) => `${item}`);'
+invalid:
+    # The instance, a template built from each literal
+    - 'const inputs = ["Directory.Build.props", "Directory.Build.targets"].map((shared) => `{workspaceRoot}/eng/native/${shared}`);'
+    # The data-first Array.map spelling
+    - 'const inputs = Array.map(["Directory.Build.props", "Directory.Build.targets"], (shared) => `{workspaceRoot}/eng/native/${shared}`);'
+    # A concatenation in place of a template
+    - 'const inputs = Array.map(["props", "targets"], (suffix) => "Directory.Build." + suffix);'

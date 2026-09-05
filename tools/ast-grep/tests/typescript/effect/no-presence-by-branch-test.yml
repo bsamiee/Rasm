@@ -1,0 +1,38 @@
+id: no-presence-by-branch
+valid:
+    # An optional key lifted as an Option
+    - 'const targets = { pack, ...Record.getSomes({ stage: Option.liftPredicate(stage, () => !managed) }) };'
+    # Optional elements lifted as an Option
+    - 'const plugins = [...Array.flatMap(Option.toArray(Option.liftPredicate(config.react, identity)), reactPlugins)];'
+    # A spread of whole objects, an optional object spreads as is
+    - 'const merged = { ...defaults, ...overrides };'
+    # A two-arm match whose arms both hold a value
+    - 'const named = Boolean.match(managed, { onTrue: () => "managed", onFalse: () => "native" });'
+    # A two-step chain whose arms both hold a value, a union of shapes chosen by branch
+    - 'const options = { ...Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({ name: other }))) };'
+    # A dispatch over many arms with an empty default, absence is not the question
+    - 'const readings = Match.value(state).pipe(Match.when(isCounter, (counter) => [reading(counter)]), Match.when(isGauge, (gauge) => [reading(gauge)]), Match.orElse(() => []));'
+    # A two-arm match whose array arms both hold an element
+    - 'const listed = Option.match(found, { onNone: () => [fallback], onSome: (item) => [item] });'
+    # A nullish default spread, both sides hold a value
+    - 'const options = { ...(override ?? {}) };'
+invalid:
+    # An empty arm spread into an object
+    - 'const targets = { pack, ...Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) }) };'
+    # An empty arm spread into an array
+    - 'const plugins = [...Boolean.match(config.react, { onFalse: () => [], onTrue: reactPlugins })];'
+    # An empty arm bound to a local, the same choice away from the spread
+    - 'const inProduction = (plugins) => Boolean.match(production, { onFalse: () => [], onTrue: plugins });'
+    # An Option matched into an empty arm
+    - 'const options = { ...Option.match(release, { onNone: () => ({}), onSome: (group) => ({ release: group })}) };'
+    # An Option matched into an array
+    - 'const listed = Option.match(found, { onNone: () => [], onSome: (item) => [item] });'
+    # An Either matched into an empty arm
+    - 'const parsed = Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] });'
+    # A two-step chain with an empty closer inside a spread
+    - 'const options = { ...Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({}))) };'
+    # A two-step chain with an empty arm away from the spread
+    - 'const names = Match.value(language).pipe(Match.when("python", () => []), Match.orElse(() => [name]));'
+    # A conjunction spread
+    - 'const options = { ...(adopt && { import: id }) };'
+    - 'const plugins = [...(production && plugins)];'

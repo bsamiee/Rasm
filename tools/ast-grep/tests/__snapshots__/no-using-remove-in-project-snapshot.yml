@@ -1,0 +1,40 @@
+id: no-using-remove-in-project
+snapshots:
+  ? |
+    <ItemGroup Label="Kernel-Free Usings"><Using Remove="Rasm.Analysis" /></ItemGroup>
+  : labels:
+    - source: <Using Remove="Rasm.Analysis" />
+      style: primary
+      start: 38
+      end: 70
+    - source: Remove
+      style: secondary
+      start: 45
+      end: 51
+    - source: Remove="Rasm.Analysis"
+      style: secondary
+      start: 45
+      end: 67
+    - source: <Using Remove="Rasm.Analysis" />
+      style: secondary
+      start: 38
+      end: 70
+  ? |
+    <ItemGroup><Using Remove="Rasm.Domain"></Using></ItemGroup>
+  : labels:
+    - source: <Using Remove="Rasm.Domain"></Using>
+      style: primary
+      start: 11
+      end: 47
+    - source: Remove
+      style: secondary
+      start: 18
+      end: 24
+    - source: Remove="Rasm.Domain"
+      style: secondary
+      start: 18
+      end: 38
+    - source: <Using Remove="Rasm.Domain">
+      style: secondary
+      start: 11
+      end: 39

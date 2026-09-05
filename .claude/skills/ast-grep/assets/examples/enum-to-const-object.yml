@@ -2,14 +2,15 @@
 id: enum-to-const-object
 language: typescript
 severity: error
+ignores: ['*.d.ts'] # A declaration file is ambient without the keyword
 rule:
     kind: enum_declaration
     all:
         - has: {field: name, pattern: $NAME}
         - has: {field: body, pattern: $BODY}
-        - not: {has: {field: body, has: {kind: property_identifier}}} # Ordinal-less member: no synthesizable value, no fix
+        - not: {has: {field: body, has: {kind: property_identifier}}} # Valueless member has no value to fold, no fix
         - not: {inside: {kind: export_statement}} # Exported member, hand repair covers the API break
-        - not: {inside: {kind: ambient_declaration}} # declare enum: a const initializer is illegal in ambient context
+        - not: {inside: {kind: ambient_declaration, stopBy: end}} # declare enum, or an enum in a declare namespace, refuses an initializer
         - not: {regex: '^const'} # const enum has no emit, an object adds a runtime value the enum never had
 rewriters:
     - id: enum-row
@@ -17,7 +18,7 @@ rewriters:
         kind: enum_assignment
         all:
             - has: {field: name, pattern: $KEY}
-            - has: {field: value, pattern: $VALUE} # Field proven by CST, the published schema omits value
+            - has: {field: value, pattern: $VALUE} # typescript_rule.json omits the value field, the cst proves it and the editor warning is noise
       fix: '$KEY: $VALUE'
 transform:
     ROWS:

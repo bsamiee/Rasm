@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>4.15.2</Version>
         <Description>Gmsh .NET bindings generated from the api definition in the pinned gmsh source archive</Description>
         <PackageLicenseExpression>GPL-2.0-or-later</PackageLicenseExpression>
         <IncludeBuildOutput>true</IncludeBuildOutput>

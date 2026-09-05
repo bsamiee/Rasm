@@ -115,4 +115,4 @@ Then apply the fix the evidence selects:
 ## [11]-[RESTORE]
 
 Run `binlog_nuget` when restore contributes to the measured build and read its duration, sources, and package count, and the build-only capture separates restore from execution without reducing the combined duration.
-- Use `dotnet-msbuild-packaging` for `RestoreUseStaticGraphEvaluation`, lock files, and source configuration
+- Use `dotnet-msbuild-packaging` for `RestoreUseStaticGraphEvaluation` and source configuration

@@ -1,0 +1,50 @@
+id: guard-clauses-to-conditional-expression
+snapshots:
+  ? |
+    def gauged(ceiling, raw):
+        if raw == "":
+            return Error("<empty>")
+        if len(raw) > ceiling:
+            return Error("<over>")
+        return Ok(len(raw))
+  : fixed: |
+      def gauged(ceiling, raw):
+          return (Error("<empty>")) if raw == "" else (Error("<over>")) if len(raw) > ceiling else (Ok(len(raw)))
+    labels:
+    - source: |-
+        if raw == "":
+                return Error("<empty>")
+            if len(raw) > ceiling:
+                return Error("<over>")
+            return Ok(len(raw))
+      style: primary
+      start: 30
+      end: 157
+    - source: |-
+        if raw == "":
+                return Error("<empty>")
+      style: secondary
+      start: 30
+      end: 75
+  ? |-
+    def paired(n):
+        if n < 0:
+            return 1, 2
+        return 3, 4
+  : fixed: |-
+      def paired(n):
+          return (1, 2) if n < 0 else (3, 4)
+    labels:
+    - source: |-
+        if n < 0:
+                return 1, 2
+            return 3, 4
+      style: primary
+      start: 19
+      end: 64
+    - source: |-
+        if n < 0:
+                return 1, 2
+      style: secondary
+      start: 19
+      end: 48

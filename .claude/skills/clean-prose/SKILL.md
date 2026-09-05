@@ -43,6 +43,12 @@ Every word that fails a test takes the current term for the thing it names, and 
 |  [20]   | bare (name), edge (as a boundary), bespoke         | unqualified, boundary, custom                  |
 |  [21]   | weave, unlock, surfaces (verb)                     | insert, enable, throws                         |
 |  [22]   | topology (declared resources), estate (a program)  | resources, program                             |
+|  [23]   | payload (call arguments), intent (an input value)  | arguments, value                               |
+|  [24]   | blanket (a catch-all), peers on, floors (version)  | discard, declares a peer on, requires or later |
+|  [25]   | host-free, feature parity, publication-quality     | without a browser, covers the same cases       |
+|  [26]   | tolerate, repair (a missing asset), inert          | register, add, does nothing                    |
+|  [27]   | harmless (a repeated call), pluggable, wiring      | changes nothing, delete, composing             |
+|  [28]   | toolkit, suite, building blocks (after a package)  | delete, primitives                             |
 
 The repository, product, or organization name belongs in identifiers the ecosystem requires, in package descriptions, in CLI help text, and in prose as a contrast with another product.
 
@@ -58,15 +64,15 @@ Examples, snippets, and comments in guidance use placeholder names (`<tool>`, `<
 
 Delete the word and read the sentence again, and the remainder stands when it still states the fact. The clause that followed a connective continues after the comma with its verb, and "plus" or "+" between nouns becomes "with".
 
-| [INDEX] | [CATEGORY]                 | [DELETE]                                                                                           |
-| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | Connectives                | so (as a result), therefore, thus, hence, which is why, consequently, furthermore, moreover, also  |
-|  [02]   | Fillers                    | simply, just, actually, essentially, basically, really, very, quite, rather, somewhat, easily      |
-|  [03]   | Marketing                  | robust, powerful, comprehensive, seamless, elegant, clean (as praise), modern, lightweight, best   |
-|  [04]   | Meta phrases               | note that, it is worth noting, it is important to, in other words, as mentioned, in summary        |
-|  [05]   | Hedges with no uncertainty | possibly, typically, generally, usually, often, in some cases, in most cases, where appropriate    |
-|  [06]   | Enumeration devices        | one, two, three, first, second, several, a number of, various, multiple, counts before a list      |
-|  [07]   | Version markers            | since version, as of, in version, upgrade from, legacy, new and current (as a version), migrate    |
+| [INDEX] | [CATEGORY]                 | [DELETE]                                                                                          |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | Connectives                | so (as a result), therefore, thus, hence, which is why, consequently, furthermore, moreover, also |
+|  [02]   | Fillers                    | simply, just, actually, essentially, basically, really, very, quite, rather, somewhat, easily     |
+|  [03]   | Marketing                  | robust, powerful, comprehensive, seamless, elegant, clean (as praise), modern, lightweight, best  |
+|  [04]   | Meta phrases               | note that, it is worth noting, it is important to, in other words, as mentioned, in summary       |
+|  [05]   | Hedges with no uncertainty | possibly, typically, generally, usually, often, in some cases, in most cases, where appropriate   |
+|  [06]   | Enumeration devices        | one, two, three, first, second, several, a number of, various, multiple, counts before a list     |
+|  [07]   | Version markers            | since version, as of, in version, upgrade from, legacy, new and current (as a version), migrate   |
 
 | [INDEX] | [RESTRUCTURE] | [FORM]                                                                                          |
 | :-----: | :------------ | :---------------------------------------------------------------------------------------------- |
@@ -99,7 +105,7 @@ Each sentence states one instruction or one fact in active voice and simple pres
 - Warnings precede the step they guard and state the command or condition, then the risk
 - Verbs name actions, and nominalizations and phrasal verbs take the verb from the word map
 - Statements name the actor as their subject, and passive voice stays for an unknown actor
-- Articles and "that" stay inside the sentence, except before a noun followed by an identifier (`restart pod web-7f9b2`)
+- Articles stay before a noun the context identifies, and generic nouns, listing lines, tree comments, and a noun followed by an identifier (`restart pod web-7f9b2`) take none
 - One word names one concept for the whole file: "check" or "verify" for one operation
 - Contractions expand, and spelling is American
 
@@ -114,7 +120,7 @@ Modals are must, can, and will:
 
 ## [05]-[DOCUMENTS]
 
-Sections follow the order of work or dependency, each under a `## [NN]-[NOUN]` heading with no parenthetical, and each opens with the sentence a reader needs before its list or table:
+Sections follow the order of work or dependency under `## [NN]-[NOUN]` headings with no parenthetical, and open with the sentence a reader needs before their list or table:
 - Each fact appears once, in the file that owns its topic and the section with the heading that names it
 - The heading, the lead-in, and the previous sentence supply the subject, and sentences under them open with a part of it, its pronoun, or the verb
 - The subject noun repeats where the fact otherwise attaches to another subject
@@ -139,7 +145,7 @@ Tables hold values, and the sentence that explains them stays in the section tex
 - Cells open with a capital letter, except backticked identifiers and literal words
 - Rows over the entry width mean a cell narrates or the table has too many columns
 
-Bracket headers with an [INDEX] column are the house form:
+Bracket headers with an [INDEX] column are the house style:
 
 ```markdown
 | [INDEX] | [FLAG]    | [EFFECT]                            |
@@ -168,7 +174,7 @@ Rewrite of an existing file:
 2. List every fact once, mark duplicates and facts the context or the owning file supplies, and choose the file and section for each
 3. When the list holds no finding, report that the file complies and change nothing
 4. Rename coined identifiers and files, with every reference
-5. Edit section by section as targeted edits, terminology, then removals, then sentences, then document structure, and reread each touched section
+5. Rewrite the file in one pass, terminology, removals, sentences, then structure, and check the result against the fact list and `git log -p`
 6. Search the file for every entry in the removal, restructure, and word map tables and every scan pattern, and fix each hit
 7. Run the language checkers and tests to zero warnings
 8. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added or corrected, and facts kept in longer form

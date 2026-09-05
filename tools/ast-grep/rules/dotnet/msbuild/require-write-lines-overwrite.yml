@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-write-lines-overwrite
+language: xml
+severity: error
+rule:
+    matches: {msbuild-element: {name: {regex: '^WriteLinesToFile$'}}}
+    any:
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^"true"$'}}}}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^WriteOnlyWhenDifferent$'}, value: {regex: '(?i)^"true"$'}}}}
+message: WriteLinesToFile appends by default and rewrites the file on every build, set Overwrite="true" and WriteOnlyWhenDifferent="true" so the file holds one copy of Lines and keeps its timestamp for the incremental check

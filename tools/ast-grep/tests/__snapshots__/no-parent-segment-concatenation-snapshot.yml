@@ -1,0 +1,23 @@
+id: no-parent-segment-concatenation
+snapshots:
+  ? |
+    <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory)../../.artifacts/native/msbuild</ArtifactsPath></PropertyGroup>
+  : labels:
+    - source: $(MSBuildThisFileDirectory)../../.artifacts/native/msbuild
+      style: primary
+      start: 30
+      end: 88
+  ? |
+    <PropertyGroup><StageRoot>$(MSBuildThisFileDirectory)../../../.artifacts/native/lcms2/stage/</StageRoot></PropertyGroup>
+  : labels:
+    - source: $(MSBuildThisFileDirectory)../../../.artifacts/native/lcms2/stage/
+      style: primary
+      start: 26
+      end: 92
+  ? |
+    <PropertyGroup><VcpkgManifest>$(MSBuildProjectDirectory)/../duckdbextensions/extensions.json</VcpkgManifest></PropertyGroup>
+  : labels:
+    - source: $(MSBuildProjectDirectory)/../duckdbextensions/extensions.json
+      style: primary
+      start: 30
+      end: 92

@@ -1,13 +1,16 @@
 import { HttpRouter, HttpServerResponse } from '@effect/platform';
 import { expect, layer } from '@effect/vitest';
-import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
+import { uuid_ossp as uuidOssp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { Effect, Option, Schema } from 'effect';
 import { Loopback, LoopbackServers, ObjectStore, ObjectStoreDoubles, TestDatabase, TestDatabases, TestResourceError } from './resources.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _DDL = 'CREATE TABLE records (key TEXT PRIMARY KEY, priority INTEGER NOT NULL);';
-const _BYTES = Uint8Array.from([1, 2, 3, 4]);
+const _BYTES = new TextEncoder().encode('<object-a>');
+const _OK = 200;
+const _NOT_FOUND = 404;
+const _LOOPBACK_URL = /^http:\/\/.+:\d+$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,7 +18,7 @@ const _Record = Schema.Struct({ key: Schema.String, priority: Schema.Int });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
+layer(TestDatabases.pglite(_DDL))('PGlite queries', (it) => {
     it.effect('seeded DDL round-trips through schema-decoded queries', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
@@ -28,7 +31,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
         }),
     );
 
-    it.effect('invalid statements return a typed database error without throwing', () =>
+    it.effect('invalid statements return a typed database error', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
             const error = yield* Effect.flip(database.exec('SELECT FROM nowhere ('));
@@ -37,6 +40,17 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
         }),
     );
 
+    it.effect('unavailable extensions return a typed database error', () =>
+        Effect.gen(function* () {
+            const database = yield* TestDatabase;
+            const error = yield* Effect.flip(database.exec('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'));
+            expect(error).toBeInstanceOf(TestResourceError);
+            expect(error.resource).toBe('database');
+        }),
+    );
+});
+
+layer(TestDatabases.pglite(_DDL))('PGlite notifications', (it) => {
     it.effect('NOTIFY delivers one payload after the subscription scope opens', () =>
         Effect.scoped(
             Effect.gen(function* () {
@@ -60,18 +74,20 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
         ),
     );
 
-    it.effect('control notifications are not delivered as application payload', () =>
+    it.effect('control notifications are excluded from the mailbox', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const database = yield* TestDatabase;
                 const mailbox = yield* database.listen('events');
-                yield* database.rows('SELECT pg_notify($1, $2)', ['events', '<rasm-test-support-control:external>']);
+                yield* database.rows('SELECT pg_notify($1, $2)', ['events', '<test-support-control:external>']);
                 yield* database.rows('SELECT pg_notify($1, $2)', ['events', '<event-c>']);
                 expect(yield* mailbox.take).toBe('<event-c>');
             }),
         ),
     );
+});
 
+layer(TestDatabases.pglite(_DDL))('PGlite transactions', (it) => {
     it.effect('rollback-only transactions retain no database state across tests', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
@@ -97,31 +113,20 @@ layer(TestDatabases.pglite(_DDL))('PGlite test database', (it) => {
             expect(yield* database.rows("SELECT key FROM records WHERE key = '<key-rollback>'")).toHaveLength(0);
         }),
     );
-
-    it.effect('unavailable extensions return a typed database error', () =>
-        Effect.gen(function* () {
-            const database = yield* TestDatabase;
-            const error = yield* Effect.flip(database.exec('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'));
-            expect(error).toBeInstanceOf(TestResourceError);
-            expect(error.resource).toBe('database');
-        }),
-    );
 });
 
-layer(
-    TestDatabases.pglite({
-        extensions: { uuid_ossp },
-        seed: 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";',
-    }),
-)('PGlite extension configuration', (it) => {
-    it.effect('configured extensions expose their SQL function', () =>
-        Effect.gen(function* () {
-            const database = yield* TestDatabase;
-            const rows = yield* database.decoded(Schema.Struct({ id: Schema.UUID }))('SELECT uuid_generate_v4()::text AS id');
-            expect(rows).toHaveLength(1);
-        }),
-    );
-});
+layer(TestDatabases.pglite({ extensions: { uuidOssp }, seed: 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' }))(
+    'PGlite extension configuration',
+    (it) => {
+        it.effect('configured extensions expose their SQL function', () =>
+            Effect.gen(function* () {
+                const database = yield* TestDatabase;
+                const rows = yield* database.decoded(Schema.Struct({ id: Schema.UUID }))('SELECT uuid_generate_v4()::text AS id');
+                expect(rows).toHaveLength(1);
+            }),
+        );
+    },
+);
 
 layer(ObjectStoreDoubles.memory)('in-memory object store', (it) => {
     it.effect('put, get, list, and remove implement the object-store contract', () =>
@@ -145,7 +150,7 @@ layer(ObjectStoreDoubles.memory)('in-memory object store', (it) => {
         }),
     );
 
-    it.effect('listing orders by UTF-8 bytes past the BMP, where UTF-16 code units swap the pair', () =>
+    it.effect('listing orders by UTF-8 bytes past the BMP, UTF-16 code units swap the pair', () =>
         Effect.gen(function* () {
             const store = yield* ObjectStore;
             yield* store.put('astral/\u{10000}', _BYTES);
@@ -167,9 +172,9 @@ layer(LoopbackServers.serve(HttpRouter.empty.pipe(HttpRouter.get('/ping', HttpSe
     it.effect('the server exposes a live endpoint and configured client', () =>
         Effect.gen(function* () {
             const loop = yield* Loopback;
-            expect(loop.url).toMatch(/^http:\/\/.+:\d+$/);
+            expect(loop.url).toMatch(_LOOPBACK_URL);
             const reply = yield* Effect.scoped(loop.client.get('/ping'));
-            expect(reply.status).toBe(200);
+            expect(reply.status).toBe(_OK);
             expect(yield* reply.text).toBe('pong');
         }),
     );
@@ -178,7 +183,7 @@ layer(LoopbackServers.serve(HttpRouter.empty.pipe(HttpRouter.get('/ping', HttpSe
         Effect.gen(function* () {
             const loop = yield* Loopback;
             const reply = yield* Effect.scoped(loop.client.get('/absent'));
-            expect(reply.status).toBe(404);
+            expect(reply.status).toBe(_NOT_FOUND);
         }),
     );
 });

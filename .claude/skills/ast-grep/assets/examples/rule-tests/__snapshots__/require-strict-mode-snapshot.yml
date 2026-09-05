@@ -1,0 +1,42 @@
+id: require-strict-mode
+snapshots:
+  ? |
+    #!/usr/bin/env bash
+    echo "hello"
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        echo "hello"
+      style: primary
+      start: 0
+      end: 33
+  ? |-
+    #!/usr/bin/env bash
+    run() {
+      set -euo pipefail
+      echo "hello"
+    }
+    run
+  : labels:
+    - source: |-
+        #!/usr/bin/env bash
+        run() {
+          set -euo pipefail
+          echo "hello"
+        }
+        run
+      style: primary
+      start: 0
+      end: 68
+  ? |
+    #!/usr/bin/env bash
+    set -e
+    echo "hello"
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -e
+        echo "hello"
+      style: primary
+      start: 0
+      end: 40

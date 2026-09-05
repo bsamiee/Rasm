@@ -190,9 +190,7 @@ class _Pool(RuleBasedStateMachine):
         assert not (self.live & self.retired), f"slot in both partitions: {self.live & self.retired}"
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [ALGEBRAIC_PROPERTIES]
+# --- [ALGEBRAIC_PROPERTIES] -------------------------------------------------------------
 
 
 def _must_fail(label: str, failing_case: _Thunk) -> None:
@@ -215,8 +213,8 @@ def test_every_algebraic_assertion_accepts_valid_and_rejects_invalid_cases() -> 
         _must_fail(label, fails)
 
 
-def test_rejects_counterexample_requires_property_failure_and_preserves_other_exceptions() -> None:
-    """``rejects_counterexample`` requires an assertion failure and does not hide unrelated exceptions."""
+def test_rejects_counterexample_requires_property_failure_and_propagates_other_exceptions() -> None:
+    """``rejects_counterexample`` requires an assertion failure and propagates unrelated exceptions."""
     rejects_counterexample(-1, lambda counterexample: identity(counterexample, abs))
     with pytest.raises(AssertionError, match="accepts its counterexample"):
         rejects_counterexample(1, lambda counterexample: identity(counterexample, abs))
@@ -224,7 +222,7 @@ def test_rejects_counterexample_requires_property_failure_and_preserves_other_ex
         rejects_counterexample(object(), lambda counterexample: identity(counterexample, len))
 
 
-# --- [TABLE_DRIVEN_ASSERTIONS]
+# --- [TABLE_DRIVEN_ASSERTIONS] ----------------------------------------------------------
 
 
 def test_validity_matrix_accepts_structs_and_tuples_and_reports_the_failed_case() -> None:
@@ -238,12 +236,12 @@ def test_validity_matrix_accepts_structs_and_tuples_and_reports_the_failed_case(
 def test_projection_matrix_prefers_reference_function_and_reports_the_failed_case() -> None:
     """Reference functions compute expected results, other cases use fixed expected values."""
     cases = [
-        ProjectionCase(label="derived", intent=4, expected=None, reference=lambda n: n * 2),
-        ProjectionCase(label="static", intent=3, expected=6, reference=None),
+        ProjectionCase(label="derived", value=4, expected=None, reference=lambda n: n * 2),
+        ProjectionCase(label="static", value=3, expected=6, reference=None),
     ]
     projection_matrix(cases, project=lambda n: n * 2)
     with pytest.raises(AssertionError, match="static"):
-        projection_matrix([ProjectionCase(label="static", intent=3, expected=7, reference=None)], project=lambda n: n * 2)
+        projection_matrix([ProjectionCase(label="static", value=3, expected=7, reference=None)], project=lambda n: n * 2)
 
 
 def test_capability_matrix_checks_each_case() -> None:
@@ -260,7 +258,7 @@ def test_matrices_report_independent_subtests_and_stop_without_reporter(subtests
     assert recorder.labels == ["first", "broken", "last"], f"subtest reporting stopped before all cases ran: {recorder.labels}"
     assert recorder.failures == ["broken"], f"subtest reporter recorded the wrong failures: {recorder.failures}"
     capability_matrix(("hit", lambda: True, True), ("miss", lambda: True, False), subtests=recorder)
-    projection_matrix([ProjectionCase(label="off", intent=3, expected=7, reference=None)], project=lambda n: n * 2, subtests=recorder)
+    projection_matrix([ProjectionCase(label="off", value=3, expected=7, reference=None)], project=lambda n: n * 2, subtests=recorder)
     assert recorder.failures == ["broken", "miss", "off"], f"subtest reporter missed failures: {recorder.failures}"
 
     calls: list[int] = []
@@ -298,7 +296,7 @@ def test_metamorphic_assertion_enforces_every_relation() -> None:
         assert_metamorphic_relations(5, lambda n: n, scaling, MetamorphicRelation[int, int](name="broken", transform=lambda n: n * 2, relate=_breaks))
 
 
-# --- [TOLERANCE_ORACLES]
+# --- [TOLERANCE_ORACLES] ----------------------------------------------------------------
 
 
 class _Reading(msgspec.Struct, frozen=True):
@@ -363,7 +361,7 @@ def test_close_comparator_applies_to_algebraic_assertions_and_counterexamples() 
     rejects_counterexample(1.0, identity, lambda x: x + 0.5, eq=close())
 
 
-# --- [RESULT_ASSERTIONS]
+# --- [RESULT_ASSERTIONS] ----------------------------------------------------------------
 
 
 def test_result_assertions_unwrap_expected_cases_and_reject_mismatches() -> None:
@@ -385,8 +383,8 @@ def test_result_assertions_unwrap_expected_cases_and_reject_mismatches() -> None
         assert_none(Some(1))
 
 
-def test_assert_error_status_matches_by_identity_not_equality() -> None:
-    """The status check uses identity: an equal but distinct token fails, while the singleton passes."""
+def test_assert_error_status_matches_by_identity() -> None:
+    """The status check uses identity, an equal but distinct token fails and the singleton passes."""
     error = SimpleNamespace(status=_Status.DENIED, code=_Status.DENIED)
     assert assert_error_status(Error(error), _Status.DENIED) is error
     assert_error_status(Error(error), _Status.DENIED, attr="code")
@@ -404,7 +402,7 @@ def test_assert_roundtrip_proves_byte_identity_and_fails_on_lossy_decode() -> No
         assert_roundtrip((1, 2), list[int], encoder=MSGPACK_ENCODER)
 
 
-# --- [STATEFUL_TESTING]
+# --- [STATEFUL_TESTING] -----------------------------------------------------------------
 
 
 def test_run_state_machine_accepts_valid_and_rejects_invalid_machines() -> None:

@@ -1,0 +1,38 @@
+id: switch-expression-to-generated-switch
+snapshots:
+  ? |-
+    public static class S {
+        public static Fin<Outcome> Dispatch(Request request, Ledger ledger) =>
+            request switch {
+                Request.Open o => ledger.Open(o.Code),
+                Request.Amend a => ledger.Amend(a.Code, a.Delta),
+                Request.Close c => ledger.Close(c.Code),
+            };
+    }
+  : fixed: |-
+      public static class S {
+          public static Fin<Outcome> Dispatch(Request request, Ledger ledger) =>
+              request.Switch(open: static o => ledger.Open(o.Code), amend: static a => ledger.Amend(a.Code, a.Delta), close: static c => ledger.Close(c.Code));
+      }
+    labels:
+    - source: |-
+        request switch {
+                    Request.Open o => ledger.Open(o.Code),
+                    Request.Amend a => ledger.Amend(a.Code, a.Delta),
+                    Request.Close c => ledger.Close(c.Code),
+                }
+      style: primary
+      start: 107
+      end: 299
+    - source: Request.Open o
+      style: secondary
+      start: 136
+      end: 150
+    - source: Request.Open o => ledger.Open(o.Code)
+      style: secondary
+      start: 136
+      end: 173
+    - source: request
+      style: secondary
+      start: 107
+      end: 114

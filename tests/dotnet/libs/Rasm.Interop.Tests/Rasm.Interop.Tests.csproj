@@ -6,14 +6,19 @@
 
     <ItemGroup Label="Subjects">
         <ProjectReference Include="../../../../libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
-        <ProjectReference Include="../../support/Rasm.TestSupport.csproj" />
+        <ProjectReference Include="../../../../libs/dotnet/interop/Rasm.Interop.SqliteVec/Rasm.Interop.SqliteVec.csproj" />
+        <ProjectReference Include="../../Rasm.TestSupport/Rasm.TestSupport.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Test Dependencies">
         <PackageReference Include="coverlet.MTP" />
         <PackageReference Include="CsCheck" />
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="Microsoft.Extensions.DependencyModel" />
         <PackageReference Include="PureHDF" />
         <PackageReference Include="PureHDF.Filters.Blosc2" />
+        <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
+        <PackageReference Include="PureHDF.Filters.Lzf" />
         <PackageReference Include="Rasm.Native.Blosc2" />
         <PackageReference Include="xunit.v3.mtp-v2" />
     </ItemGroup>

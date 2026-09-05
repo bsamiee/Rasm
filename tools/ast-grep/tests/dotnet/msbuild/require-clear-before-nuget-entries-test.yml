@@ -1,0 +1,35 @@
+id: require-clear-before-nuget-entries
+valid:
+    # Sources open with the clear
+    - |
+      <packageSources>
+          <clear />
+          <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+      </packageSources>
+    # Disables open with the clear and hold nothing else
+    - |
+      <disabledPackageSources><clear /></disabledPackageSources>
+    # Mappings open with the clear
+    - |
+      <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
+    # A comment before the clear is no entry
+    - |
+      <packageSources><!-- restore sources --><clear /><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>
+    # The config section takes no clear
+    - |
+      <config><add key="globalPackagesFolder" value=".cache/nuget/packages" /></config>
+invalid:
+    # Sources without the clear inherit every user and machine source
+    - |
+      <packageSources>
+          <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+      </packageSources>
+    # A clear after the first source clears the source it follows
+    - |
+      <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear /></packageSources>
+    # Mappings without the clear
+    - |
+      <packageSourceMapping><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
+    # An empty section inherits every source
+    - |
+      <packageSources />

@@ -1,5 +1,5 @@
 {
-    "name": "rasm-native-gmsh",
+    "name": "native-gmsh",
     "version-string": "4.15.2",
     "builtin-baseline": "30ef65cad98f08e7197c9a1656fbd871bcb72f2d",
     "$comment": "Overlay port re-enables the mesh module and bundled Eigen, occ stays off because the built-in kernel models solids without opencascade",

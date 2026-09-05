@@ -1,0 +1,46 @@
+id: object-keys-to-record-keys
+snapshots:
+  ? |
+    const names = Object.keys(items)
+    const rows = Object.entries(items)
+  : fixed: |
+      import { Record } from "effect"
+      const names = Record.keys(items)
+      const rows = Record.toEntries(items)
+    labels:
+    - source: |
+        const names = Object.keys(items)
+        const rows = Object.entries(items)
+      style: primary
+      start: 0
+      end: 68
+    - source: Object.keys
+      style: secondary
+      start: 14
+      end: 25
+    - source: Object.keys(items)
+      style: secondary
+      start: 14
+      end: 32
+  ? |
+    import { Effect } from "effect"
+    const each = Effect.forEach(Object.values(items), load, { concurrency: 4 })
+  : fixed: |
+      import { Record } from "effect"
+      import { Effect } from "effect"
+      const each = Effect.forEach(Record.values(items), load, { concurrency: 4 })
+    labels:
+    - source: |
+        import { Effect } from "effect"
+        const each = Effect.forEach(Object.values(items), load, { concurrency: 4 })
+      style: primary
+      start: 0
+      end: 108
+    - source: Object.values
+      style: secondary
+      start: 60
+      end: 73
+    - source: Object.values(items)
+      style: secondary
+      start: 60
+      end: 80

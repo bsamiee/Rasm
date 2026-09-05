@@ -1,0 +1,23 @@
+id: no-nested-combinator-calls
+valid:
+    # The chain piped from the value
+    - 'const piped = Option.liftPredicate(loaded, isClass).pipe(Option.flatMap((module) => Option.liftPredicate(module.default, isClass)), Option.getOrElse(() => loaded));'
+    # Two levels, the bound of a readable nesting
+    - 'const two = Option.filter(Option.fromNullable(include), (target) => target !== source);'
+    # A data-last step as the second argument
+    - 'const dataLast = Effect.map(rows, Array.filterMap(({ include }) => Option.fromNullable(include)));'
+    # Schema constructors declare a schema
+    - 'const decoded = Schema.optionalWith(Schema.Array(Schema.Struct({ include: Schema.optional(Schema.String) })), { default: () => [] });'
+    # Two levels with a callback
+    - 'const flattened = Array.flatten(Array.map(rows, (row) => row.items));'
+    # Schema constructors nest as declarations and hoist instead of piping
+    - 'const kind = Schema.optionalWith(Schema.Union(Schema.Literal("a"), Schema.Number), { default: () => "a" });'
+invalid:
+    # The instance, three data-first Option steps
+    - 'const nested = Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded);'
+    # Three steps across Effect and Option
+    - 'const failed = Effect.mapError(Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling), () => new WorkspaceError({ message: "no native project" }));'
+    # Three Array steps
+    - 'const collected = Array.flatten(Array.map(Array.filter(rows, (row) => row.live), (row) => row.items));'
+    # Four steps, the outermost call reports once and the inner three-step chain is its first argument
+    - 'const deduped = Array.flatten(Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items));'

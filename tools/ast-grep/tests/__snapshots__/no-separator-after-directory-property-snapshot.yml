@@ -1,0 +1,37 @@
+id: no-separator-after-directory-property
+snapshots:
+  ? |
+    <Copy SourceFiles="@(Asset)" DestinationFolder="$(OutputPath)/assets/" />
+  : labels:
+    - source: '"$(OutputPath)/assets/"'
+      style: primary
+      start: 47
+      end: 70
+  ? |
+    <None Include="$(StageRoot)/runtimes/**" Pack="true" PackagePath="runtimes/" />
+  : labels:
+    - source: '"$(StageRoot)/runtimes/**"'
+      style: primary
+      start: 14
+      end: 40
+  ? |
+    <PropertyGroup><RhinoResourcesPath>$(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath></PropertyGroup>
+  : labels:
+    - source: $(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/
+      style: primary
+      start: 35
+      end: 115
+  ? |
+    <WriteLinesToFile File="$(IntermediateOutputPath)\version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  : labels:
+    - source: '"$(IntermediateOutputPath)\version.txt"'
+      style: primary
+      start: 23
+      end: 62
+  ? |
+    <_YakManifestFile Include="$(YakManifestDirectory)/*" />
+  : labels:
+    - source: '"$(YakManifestDirectory)/*"'
+      style: primary
+      start: 26
+      end: 53

@@ -1,27 +1,35 @@
-# Runtimes and standalone binaries at their newest release, the .NET SDK version comes from global.json
+# Runtimes and standalone binaries at latest, the .NET SDK version comes from global.json
+
+# --- [SETTINGS] -------------------------------------------------------------------------
+
+[settings]
+prereleases = true
+minimum_release_age = "0s"     # mise delays new releases 24h by default
+idiomatic_version_file_enable_tools = ["dotnet"]
+python.uv_venv_auto = "source" # .venv/bin joins PATH so the uv-locked checkers resolve by name
+
+# --- [ENV] ------------------------------------------------------------------------------
+
+[env]
+_.path = "./node_modules/.bin"
+DOTNET_NOLOGO = "1"
+DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
+PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"                   # No pyproject.toml table sets it
+NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data" # nx.json has cacheDirectory alone
+
+# --- [TOOLS] ----------------------------------------------------------------------------
 
 [tools]
+python = "3.15.0rc2" # Latest and the 3.15 prefix both resolve 3.15-dev under prereleases
 node = "latest"
 pnpm = "latest"
-python = "3.15.0rc2" # latest and the 3.15 prefix resolve the -dev branch build, the exact pin moves to latest with the stable 3.15 release
 uv = "latest"
 git-lfs = "latest"
 act = "latest"
 actionlint = "latest"
 doppler = "latest"
 pulumi = "latest"
-
-[settings]
-prereleases = true
-minimum_release_age = "0s"
-idiomatic_version_file_enable_tools = ["dotnet"]
-
-[env]
-DOTNET_NOLOGO = "1"
-DOTNET_CLI_TELEMETRY_OPTOUT = "1"
-NUGET_PACKAGES = "{{config_root}}/.cache/nuget/packages"
-UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
-VCPKG_DEFAULT_BINARY_CACHE = "{{config_root}}/.cache/vcpkg-archives"
-VCPKG_DOWNLOADS = "{{config_root}}/.cache/vcpkg-downloads"
-PULUMI_HOME = "{{config_root}}/.cache/pulumi"
-NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data"
+ast-grep = "latest"
+tree-sitter = "latest"
+buf = "latest"

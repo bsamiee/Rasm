@@ -1,0 +1,16 @@
+id: no-set-and-undefine-target-framework
+snapshots:
+  ? |
+    <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+  : labels:
+    - source: <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+      style: primary
+      start: 0
+      end: 172
+  ? |
+    <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework><UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+  : labels:
+    - source: <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework><UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+      style: primary
+      start: 0
+      end: 187

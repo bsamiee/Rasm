@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-cause-split-in-cause-handler
+language: tsx
+severity: error
+utils:
+    # A call that hands the whole Cause to a handler
+    cause-handler:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: object, regex: '^(Effect|Stream)$'}
+                - has: {field: property, regex: '^(tapErrorCause|catchAllCause|catchSomeCause|onError|matchCause|matchCauseEffect|mapErrorCause)$'}
+rule:
+    all:
+        - matches: cause-handler
+        - has:
+              field: arguments
+              has:
+                  stopBy: end
+                  kind: call_expression
+                  has:
+                      field: function
+                      kind: member_expression
+                      all:
+                          - has: {field: object, regex: '^Cause$'}
+                          - has: {field: property, pattern: $READER}
+constraints:
+    READER:
+        regex: "^(failureOption|failureOrCause|dieOption|interruptOption|failures|defects|keepDefects|stripFailures|\
+            isFailure|isDie|isInterrupted|isFailType|isDieType|isInterruptType|match|find|reduce)$"
+message: The cause handler splits the Cause into its failure and defect cases through Cause.$READER
+note: >-
+    Handle the failure with the error-typed combinator (Effect.tapError, Effect.catchAll, Effect.catchTag, Effect.match)
+    and the defect with its defect combinator (Effect.tapDefect, Effect.catchAllDefect), each handler receives its own case
+labels:
+    READER: {style: primary, message: The reader that splits the Cause}

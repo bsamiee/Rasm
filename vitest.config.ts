@@ -1,138 +1,122 @@
-/// <reference types="vitest/config" />
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { Schema } from 'effect';
-import { defineConfig, type ViteUserConfig } from 'vitest/config';
+// --- [IMPORTS] -------------------------------------------------------------------------
+
+import { FileSystem, Path } from '@effect/platform';
+import { NodeContext } from '@effect/platform-node';
+import { Array, Boolean, Config, Effect, Schema } from 'effect';
+import type { ViteUserConfig } from 'vitest/config';
+import { parse } from 'yaml';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const rootDirectory = import.meta.dirname;
-const isCI = process.env['CI'] === 'true';
-const artifacts = {
-    benchmarks: path.resolve(rootDirectory, '.artifacts/typescript/bench'),
-    blobs: path.resolve(rootDirectory, '.artifacts/typescript/test-results/.vitest-reports'),
-    coverage: path.resolve(rootDirectory, '.artifacts/typescript/coverage'),
-    results: path.resolve(rootDirectory, '.artifacts/typescript/test-results'),
-} as const;
-const defaults = {
-    cacheDir: path.resolve(rootDirectory, '.cache/vitest'),
-    fakeTimers: { toFake: ['setTimeout', 'setInterval', 'Date', 'performance'] as const },
-    optimizeDeps: ['@effect/vitest', 'effect'],
-    output: {
-        chaiConfig: { includeStack: true, truncateThreshold: 0 },
-        diff: { expand: true },
-    },
-    patterns: {
-        benchmarkExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
-        benchmarkInclude: ['**/*.bench.{ts,tsx}'],
-        coverageExclude: [
-            '**/*.config.*',
-            '**/*.d.ts',
-            '**/__mocks__/**',
-            '**/__tests__/**',
-            '**/dist/**',
-            '**/node_modules/**',
-            '**/gen/**',
-            '**/test/**',
-            '**/tests/**',
-        ],
-        coverageInclude: ['**/*.{ts,tsx,mts,cts}'],
-        testExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
-        testInclude: ['**/*.{test,spec}.{ts,tsx,mts,cts}'],
-    },
-    reporters: {
-        coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
-        test: isCI ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const) : (['tree', 'blob'] as const),
-    },
-    setupFiles: [path.resolve(rootDirectory, 'tests/typescript/support/setup.ts')],
-    timeouts: { slow: 5_000, test: 10_000 },
-    workers: { max: '50%' },
-} as const;
+const _ROOT = import.meta.dirname;
+const _ARTIFACTS = `${_ROOT}/.artifacts/typescript`;
+const _TIMEOUTS = { slow: 5000, test: 10_000 };
+const _RETRIES = { ci: 2, local: 0 };
+const _EXCLUDE = ['**/node_modules/**', '**/dist/**', '**/.cache/**'];
+const _COVERAGE_EXCLUDE = [
+    '**/*.config.*',
+    '**/*.d.ts',
+    '**/__mocks__/**',
+    '**/__tests__/**',
+    '**/dist/**',
+    '**/node_modules/**',
+    '**/gen/**',
+    '**/test/**',
+    '**/tests/**',
+];
+const _REPORTERS = { ci: ['dot', 'json', 'junit', 'github-actions', 'blob'], local: ['tree', 'blob'] } as const;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const _Manifest = Schema.parseJson(Schema.Struct({ name: Schema.String }));
+const _Workspace = Schema.Struct({ packages: Schema.Array(Schema.String) });
+
+// --- [CONFIGURATION] -------------------------------------------------------------------
+
+const _ci = Config.withDefault(Config.boolean('CI'), false);
+
+const _reporters = (ci: boolean): (typeof _REPORTERS)[keyof typeof _REPORTERS] =>
+    Boolean.match(ci, { onFalse: () => _REPORTERS.local, onTrue: () => _REPORTERS.ci });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _Manifest = Schema.parseJson(Schema.Struct({ name: Schema.String }));
+// Every vitest.config.ts is its own root and @nx/vitest infers one test target per file
+const _project = (directory: string): Effect.Effect<ViteUserConfig, never, FileSystem.FileSystem | Path.Path> =>
+    Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const { name } = yield* Schema.decode(_Manifest)(yield* fs.readFileString(path.join(directory, 'package.json')));
+        const ci = yield* _ci;
+        const results = `${_ARTIFACTS}/test-results/${name}`;
+        return {
+            cacheDir: `${_ROOT}/.cache/vitest/${name}`,
+            optimizeDeps: { include: ['@effect/vitest', 'effect'] },
+            test: {
+                benchmark: { exclude: _EXCLUDE, include: ['**/*.bench.{ts,tsx}'], outputJson: `${_ARTIFACTS}/bench/${name}.json` },
+                chaiConfig: { includeStack: true, truncateThreshold: 0 },
+                coverage: {
+                    enabled: true,
+                    exclude: _COVERAGE_EXCLUDE,
+                    include: ['**/*.{ts,tsx,mts,cts}'],
+                    reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
+                    reportOnFailure: true,
+                    reportsDirectory: `${_ARTIFACTS}/coverage/${name}`,
+                    skipFull: true,
+                },
+                diff: { expand: true },
+                exclude: _EXCLUDE,
+                fakeTimers: { toFake: ['setTimeout', 'setInterval', 'Date', 'performance'] },
+                hideSkippedTests: ci,
+                include: ['**/*.{test,spec}.{ts,tsx,mts,cts}'],
+                maxWorkers: '50%',
+                name,
+                onConsoleLog: (log) => !log.includes('Download the React DevTools'),
+                outputFile: {
+                    blob: `${_ARTIFACTS}/test-results/.vitest-reports/${name}.json`,
+                    json: `${results}/results.json`,
+                    junit: `${results}/junit.xml`,
+                },
+                pool: 'threads',
+                reporters: Array.fromIterable(_reporters(ci)),
+                restoreMocks: true,
+                retry: Boolean.match(ci, { onFalse: () => _RETRIES.local, onTrue: () => _RETRIES.ci }),
+                sequence: { shuffle: ci },
+                setupFiles: [`${_ROOT}/tests/typescript/support/setup.ts`],
+                silent: 'passed-only',
+                slowTestThreshold: _TIMEOUTS.slow,
+                testTimeout: _TIMEOUTS.test,
+                unstubEnvs: true,
+                unstubGlobals: true,
+            },
+        } satisfies ViteUserConfig;
+    }).pipe(Effect.orDie);
 
-// The package name beside the config names the Vitest project as it names the Nx project, and every artifact path takes it
-const _packageName = (directory: string): string =>
-    Schema.decodeUnknownSync(_Manifest)(readFileSync(path.join(directory, 'package.json'), 'utf8')).name;
-
-// Every vitest.config.ts is its own root, @nx/vitest infers one test target per file, and the artifacts split by package name
-const createVitestConfig = (directory: string): ViteUserConfig => {
-    const name = _packageName(directory);
-    const results = path.resolve(artifacts.results, name);
-    return defineConfig({
-        cacheDir: path.resolve(defaults.cacheDir, name),
-        optimizeDeps: { include: [...defaults.optimizeDeps] },
+// The root configuration lists every project, and the mutation runner and --merge-reports run from it
+const _root: Effect.Effect<ViteUserConfig, never, FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const ci = yield* _ci;
+    const project = yield* _project(_ROOT);
+    const workspace = yield* Schema.decodeUnknown(_Workspace)(parse(yield* fs.readFileString(`${_ROOT}/pnpm-workspace.yaml`)));
+    return {
+        ...project,
         test: {
-            benchmark: {
-                exclude: [...defaults.patterns.benchmarkExclude],
-                include: [...defaults.patterns.benchmarkInclude],
-                outputJson: path.resolve(artifacts.benchmarks, `${name}.json`),
-            },
-            chaiConfig: { ...defaults.output.chaiConfig },
-            coverage: {
-                enabled: true,
-                exclude: [...defaults.patterns.coverageExclude],
-                include: [...defaults.patterns.coverageInclude],
-                reporter: [...defaults.reporters.coverage],
-                reportOnFailure: true,
-                reportsDirectory: path.resolve(artifacts.coverage, name),
-                skipFull: true,
-            },
-            diff: { ...defaults.output.diff },
-            exclude: [...defaults.patterns.testExclude],
-            fakeTimers: { toFake: [...defaults.fakeTimers.toFake] },
-            forceRerunTriggers: ['**/package.json/**', '**/{vitest,vite}.config.*/**', '**/tsconfig*.json'],
-            hideSkippedTests: isCI,
-            include: [...defaults.patterns.testInclude],
-            maxWorkers: defaults.workers.max,
-            name,
-            onConsoleLog: (log) => !log.includes('Download the React DevTools'),
-            outputFile: {
-                blob: path.resolve(artifacts.blobs, `${name}.json`),
-                json: path.resolve(results, 'results.json'),
-                junit: path.resolve(results, 'junit.xml'),
-            },
-            pool: 'threads',
-            reporters: [...defaults.reporters.test],
-            restoreMocks: true,
-            retry: isCI ? 2 : 0,
-            sequence: { shuffle: isCI },
-            setupFiles: [...defaults.setupFiles],
-            silent: 'passed-only',
-            slowTestThreshold: defaults.timeouts.slow,
-            testTimeout: defaults.timeouts.test,
-            unstubEnvs: true,
-            unstubGlobals: true,
+            ...project.test,
+            // Per-project report directories sit under the merged report directory
+            coverage: { ...project.test?.coverage, clean: false, reporter: ['lcovonly', 'json'], reportsDirectory: `${_ARTIFACTS}/coverage` },
+            // Every glob in the pnpm workspace names a project through the vitest.config.ts beside its manifest
+            projects: Array.map(workspace.packages, (glob) => `${glob}/vitest.config.ts`),
+            reporters: Array.filter(_reporters(ci), (reporter) => reporter !== 'blob'),
         },
-    });
-};
+    };
+}).pipe(Effect.orDie);
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+const createVitestConfig = (directory: string): Promise<ViteUserConfig> => Effect.runPromise(Effect.provide(_project(directory), NodeContext.layer));
+
+const rootConfig: Promise<ViteUserConfig> = Effect.runPromise(Effect.provide(_root, NodeContext.layer));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-// The root configuration lists every project, the mutation runner and --merge-reports run from it, and the merge rejects a blob reporter
-const projectConfig: ViteUserConfig = createVitestConfig(rootDirectory);
-const rootConfig: ViteUserConfig = defineConfig({
-    ...projectConfig,
-    test: {
-        ...projectConfig.test,
-        coverage: {
-            ...projectConfig.test?.coverage,
-            clean: false, // The per-project report directories sit under the merged report directory
-            reporter: ['lcovonly', 'json'],
-            reportsDirectory: artifacts.coverage,
-        },
-        // The pnpm-workspace.yaml packages globs, each with its vitest.config.ts
-        projects: [
-            'libs/typescript/*/vitest.config.ts',
-            'libs/typescript/ui/*/vitest.config.ts',
-            'apps/*/*/vitest.config.ts',
-            'tests/typescript/*/vitest.config.ts',
-        ],
-        reporters: defaults.reporters.test.filter((reporter) => reporter !== 'blob'),
-    },
-});
-
-export default rootConfig;
 export { createVitestConfig };
+export default rootConfig;

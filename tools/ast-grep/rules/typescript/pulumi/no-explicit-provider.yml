@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-explicit-provider
+language: tsx
+severity: error
+rule:
+    any:
+        # A provider constructed by hand
+        - kind: new_expression
+          has: {field: constructor, regex: '(^|\.)[A-Za-z]*Provider$'}
+        # A resource handed a provider through its options, a pair or a shorthand key in the third constructor argument
+        - any:
+              - kind: pair
+                has: {field: key, regex: '^(provider|providers)$'}
+              - kind: shorthand_property_identifier
+                regex: '^(provider|providers)$'
+          inside: {kind: object, nthChild: 3, inside: {kind: arguments, inside: {kind: new_expression}}}
+message: The provider is configured by hand where the package configures its default provider from the environment
+note: >-
+    Delete the provider and its option and run the program under the environment variables the provider reads,
+    an explicit provider stays for a second account or region alone

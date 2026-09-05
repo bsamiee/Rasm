@@ -69,7 +69,6 @@ htmlcov/
 
 # --- [CACHES] -----------------------------------------------------------------
 
-.stryker-tmp/
 
 .cache/
 **/.artifacts/
@@ -92,9 +91,9 @@ diagnostics.sarif
 # Rhino lock and backup files beside opened .3dm files, not relocatable
 *.rhl
 *.3dmbak
-# Grasshopper2.dll extracts embedded resources into the `dotnet build` cwd, root pattern keeps `apps/grasshopper/` tracked
+# Grasshopper2.dll extracts embedded resources into the `dotnet build` working directory, the root pattern keeps `apps/grasshopper/` tracked
 /Grasshopper.*
-# EnergyPlus ExpandObjects output in the invocation cwd, not relocatable
+# EnergyPlus ExpandObjects output in the working directory, not relocatable
 expanded.idf
 
 # --- [ENVIRONMENT_VARIABLES] --------------------------------------------------
@@ -135,7 +134,7 @@ mise.local.toml
 .LSOverride
 Thumbs.db
 
-# --- [TRANSIENT_TREES] ---------------------------------------------------------
+# --- [SCRATCH_DIRECTORIES] -----------------------------------------------------
 
 .archive/
 _archive/

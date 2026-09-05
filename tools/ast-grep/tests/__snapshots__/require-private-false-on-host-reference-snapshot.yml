@@ -1,0 +1,30 @@
+id: require-private-false-on-host-reference
+snapshots:
+  ? |
+    <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>true</Private></Reference>
+  : labels:
+    - source: <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>true</Private></Reference>
+      style: primary
+      start: 0
+      end: 100
+  ? |
+    <Reference Include="Newtonsoft.Json" HintPath="../packages/Newtonsoft.Json.13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
+  : labels:
+    - source: <Reference Include="Newtonsoft.Json" HintPath="../packages/Newtonsoft.Json.13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
+      style: primary
+      start: 0
+      end: 124
+  ? |
+    <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
+  : labels:
+    - source: <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
+      style: primary
+      start: 0
+      end: 87
+  ? |
+    <Reference Include="RhinoCommon"><HintPath>$(RhinoCommonReferencePath)</HintPath><Private>$(HostReferencePrivate)</Private></Reference>
+  : labels:
+    - source: <Reference Include="RhinoCommon"><HintPath>$(RhinoCommonReferencePath)</HintPath><Private>$(HostReferencePrivate)</Private></Reference>
+      style: primary
+      start: 0
+      end: 135

@@ -1,0 +1,95 @@
+id: require-job-timeout
+snapshots:
+  ? |
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - run: make
+  : labels:
+    - source: |
+        build:
+            runs-on: ubuntu-latest
+            steps:
+              - run: make
+      style: primary
+      start: 8
+      end: 71
+    - source: jobs
+      style: secondary
+      start: 0
+      end: 4
+    - source: |
+        jobs:
+          build:
+            runs-on: ubuntu-latest
+            steps:
+              - run: make
+      style: secondary
+      start: 0
+      end: 71
+    - source: |
+        build:
+            runs-on: ubuntu-latest
+            steps:
+              - run: make
+      style: secondary
+      start: 8
+      end: 71
+    - source: |
+        build:
+            runs-on: ubuntu-latest
+            steps:
+              - run: make
+      style: secondary
+      start: 8
+      end: 71
+  ? |-
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - run: make
+            timeout-minutes: 5
+  : labels:
+    - source: |-
+        build:
+            runs-on: ubuntu-latest
+            steps:
+              - run: make
+                timeout-minutes: 5
+      style: primary
+      start: 8
+      end: 97
+    - source: jobs
+      style: secondary
+      start: 0
+      end: 4
+    - source: |-
+        jobs:
+          build:
+            runs-on: ubuntu-latest
+            steps:
+              - run: make
+                timeout-minutes: 5
+      style: secondary
+      start: 0
+      end: 97
+    - source: |-
+        build:
+            runs-on: ubuntu-latest
+            steps:
+              - run: make
+                timeout-minutes: 5
+      style: secondary
+      start: 8
+      end: 97
+    - source: |-
+        build:
+            runs-on: ubuntu-latest
+            steps:
+              - run: make
+                timeout-minutes: 5
+      style: secondary
+      start: 8
+      end: 97

@@ -1,0 +1,23 @@
+id: no-map-over-string-literals
+snapshots:
+  ? const inputs = Array.map(["Directory.Build.props", "Directory.Build.targets"], (shared) => `{workspaceRoot}/eng/native/${shared}`);
+  : labels:
+    - source: '["Directory.Build.props", "Directory.Build.targets"]'
+      message: The literal list
+      style: primary
+      start: 25
+      end: 77
+  const inputs = Array.map(["props", "targets"], (suffix) => "Directory.Build." + suffix);:
+    labels:
+    - source: '["props", "targets"]'
+      message: The literal list
+      style: primary
+      start: 25
+      end: 45
+  const inputs = ["Directory.Build.props", "Directory.Build.targets"].map((shared) => `{workspaceRoot}/eng/native/${shared}`);:
+    labels:
+    - source: '["Directory.Build.props", "Directory.Build.targets"]'
+      message: The literal list
+      style: primary
+      start: 15
+      end: 67

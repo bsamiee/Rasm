@@ -14,131 +14,52 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  graph:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    outputs:
-      base: ${{ steps.shas.outputs.base }}
-      head: ${{ steps.shas.outputs.head }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-      - uses: ./.github/actions/setup
-      - id: shas
-        uses: nrwl/nx-set-shas@v5
-      - run: pnpm exec nx graph --file=.artifacts/nx/graph.json
-      - uses: actions/upload-artifact@v7
-        with:
-          name: nx-graph
-          path: .artifacts/nx/graph.json
+  native:
+    uses: ./.github/workflows/native.yml
 
-  python:
-    needs: graph
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      NX_BASE: ${{ needs.graph.outputs.base }}
-      NX_HEAD: ${{ needs.graph.outputs.head }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-      - uses: ./.github/actions/setup
-      - run: pnpm exec nx affected -t lint format typecheck test --exclude='*,!tag:language:python'
-
-  typescript:
-    needs: graph
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      NX_BASE: ${{ needs.graph.outputs.base }}
-      NX_HEAD: ${{ needs.graph.outputs.head }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-      - uses: ./.github/actions/setup
-      - run: pnpm exec nx affected -t lint format typecheck test --exclude='*,!tag:language:typescript'
-
-  stage:
+  dotnet:
+    needs: native
     strategy:
       fail-fast: false
       matrix:
         include:
-          - rid: osx-arm64
-            runner: macos-26
+          - { rid: osx-arm64, runner: macos-26 }
+          - { rid: linux-x64, runner: ubuntu-24.04 }
+          - { rid: linux-arm64, runner: ubuntu-24.04-arm }
+          - { rid: win-x64, runner: windows-2025 }
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 300
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-      - uses: ./.github/actions/setup
-      - uses: ./.github/actions/native-cache
-        with:
-          rid: ${{ matrix.rid }}
-      - run: pnpm exec nx run-many -t stage
-      - run: tar -czf "$RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz" native/*/stage
-        working-directory: .artifacts
-      - uses: actions/upload-artifact@v7
-        with:
-          path: ${{ runner.temp }}/native-stage-${{ matrix.rid }}.tar.gz
-          archive: false
-
-  pack:
-    needs: stage
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: native-stage-*
-          merge-multiple: true
-          path: ${{ runner.temp }}/native-stage
-      - run: mkdir -p .artifacts && for archive in "$RUNNER_TEMP"/native-stage/*.tar.gz; do tar -xzf "$archive" -C .artifacts; done
-      - run: pnpm exec nx run-many -t pack --excludeTaskDependencies
-      - uses: actions/upload-artifact@v7
-        with:
-          name: nuget-local
-          path: .artifacts/nuget
-
-  dotnet:
-    needs: [graph, pack]
-    runs-on: macos-26
     timeout-minutes: 90
-    env:
-      NX_BASE: ${{ needs.graph.outputs.base }}
-      NX_HEAD: ${{ needs.graph.outputs.head }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           filter: tree:0
+      - uses: nrwl/nx-set-shas@v5
       - uses: ./.github/actions/setup
       - uses: actions/download-artifact@v8
         with:
           name: nuget-local
           path: .artifacts/nuget
-      - run: pnpm exec nx affected -t build test --exclude='*,!tag:language:dotnet' -- -bl:"$GITHUB_WORKSPACE/.artifacts/dotnet/binlog/build-{}.binlog"
+      - run: pnpm exec nx affected -t build test lint --exclude='*,!tag:language:dotnet' -- -bl:"$GITHUB_WORKSPACE/.artifacts/dotnet/binlog/build-{}.binlog"
       - run: pnpm exec nx affected -t format --exclude='*,!tag:language:dotnet'
+      - run: git diff --exit-code
+      - run: pnpm exec nx run rasm:coverage --excludeTaskDependencies --language dotnet
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dotnet-coverage-${{ matrix.rid }}
+          path: .artifacts/dotnet/coverage
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: dotnet-binlogs
+          name: dotnet-binlogs-${{ matrix.rid }}
           path: .artifacts/dotnet/binlog
 
-  coverage:
+  python:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -146,11 +67,32 @@ jobs:
         with:
           fetch-depth: 0
           filter: tree:0
+      - uses: nrwl/nx-set-shas@v5
       - uses: ./.github/actions/setup
-      - run: pnpm exec nx run rasm-workspace:coverage
+        with:
+          python: --all-groups
+      - run: pnpm exec nx affected -t lint format typecheck test --exclude='*,!tag:language:python'
+      - run: git diff --exit-code
+      - run: pnpm exec nx run rasm:coverage --excludeTaskDependencies --language python
       - uses: actions/upload-artifact@v7
         with:
-          name: coverage-reports
-          path: |
-            .artifacts/python/coverage
-            .artifacts/typescript/coverage
+          name: python-coverage
+          path: .artifacts/python/coverage
+
+  typescript:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: tree:0
+      - uses: nrwl/nx-set-shas@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm exec nx affected -t lint format typecheck test --exclude='*,!tag:language:typescript'
+      - run: git diff --exit-code
+      - run: pnpm exec nx run rasm:coverage --excludeTaskDependencies --language typescript
+      - uses: actions/upload-artifact@v7
+        with:
+          name: typescript-coverage
+          path: .artifacts/typescript/coverage

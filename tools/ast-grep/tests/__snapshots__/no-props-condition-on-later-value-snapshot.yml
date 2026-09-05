@@ -1,0 +1,163 @@
+id: no-props-condition-on-later-value
+snapshots:
+  ? |
+    <Choose><When Condition="'$(TargetFramework)' == 'net10.0'"><PropertyGroup><Modern>true</Modern></PropertyGroup></When></Choose>
+  : labels:
+    - source: Condition="'$(TargetFramework)' == 'net10.0'"
+      style: primary
+      start: 14
+      end: 59
+    - source: Condition
+      style: secondary
+      start: 14
+      end: 23
+    - source: '"''$(TargetFramework)'' == ''net10.0''"'
+      style: secondary
+      start: 24
+      end: 59
+    - source: <When Condition="'$(TargetFramework)' == 'net10.0'"><PropertyGroup><Modern>true</Modern></PropertyGroup></When>
+      style: secondary
+      start: 8
+      end: 119
+    - source: <When Condition="'$(TargetFramework)' == 'net10.0'">
+      style: secondary
+      start: 8
+      end: 60
+  ? |
+    <Import Project="host.props" Condition="'$(OutputType)' == 'Exe'" />
+  : labels:
+    - source: Condition="'$(OutputType)' == 'Exe'"
+      style: primary
+      start: 29
+      end: 65
+    - source: Condition
+      style: secondary
+      start: 29
+      end: 38
+    - source: '"''$(OutputType)'' == ''Exe''"'
+      style: secondary
+      start: 39
+      end: 65
+    - source: <Import Project="host.props" Condition="'$(OutputType)' == 'Exe'" />
+      style: secondary
+      start: 0
+      end: 68
+    - source: <Import Project="host.props" Condition="'$(OutputType)' == 'Exe'" />
+      style: secondary
+      start: 0
+      end: 68
+  ? |
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'"><Optimize>true</Optimize></PropertyGroup>
+  : labels:
+    - source: Condition="'$(Configuration)' == 'Release'"
+      style: primary
+      start: 15
+      end: 58
+    - source: Condition
+      style: secondary
+      start: 15
+      end: 24
+    - source: '"''$(Configuration)'' == ''Release''"'
+      style: secondary
+      start: 25
+      end: 58
+    - source: <PropertyGroup Condition="'$(Configuration)' == 'Release'"><Optimize>true</Optimize></PropertyGroup>
+      style: secondary
+      start: 0
+      end: 100
+    - source: <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+      style: secondary
+      start: 0
+      end: 59
+  ? |
+    <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'"><DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants></PropertyGroup>
+  : labels:
+    - source: Condition="'$(TargetFramework)' == 'net10.0'"
+      style: primary
+      start: 15
+      end: 60
+    - source: Condition
+      style: secondary
+      start: 15
+      end: 24
+    - source: '"''$(TargetFramework)'' == ''net10.0''"'
+      style: secondary
+      start: 25
+      end: 60
+    - source: <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'"><DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants></PropertyGroup>
+      style: secondary
+      start: 0
+      end: 141
+    - source: <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+      style: secondary
+      start: 0
+      end: 61
+  ? |
+    <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'"><RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath></PropertyGroup>
+  : labels:
+    - source: Condition="'$(HostCommon)' == 'true'"
+      style: primary
+      start: 41
+      end: 78
+    - source: Condition
+      style: secondary
+      start: 41
+      end: 50
+    - source: '"''$(HostCommon)'' == ''true''"'
+      style: secondary
+      start: 51
+      end: 78
+    - source: <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'"><RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath></PropertyGroup>
+      style: secondary
+      start: 0
+      end: 186
+    - source: <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'">
+      style: secondary
+      start: 0
+      end: 79
+  ? |
+    <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'"><IsTestProject>true</IsTestProject></PropertyGroup>
+  : labels:
+    - source: Condition="'$(IsTestingPlatformApplication)' == 'true'"
+      style: primary
+      start: 37
+      end: 92
+    - source: Condition
+      style: secondary
+      start: 37
+      end: 46
+    - source: '"''$(IsTestingPlatformApplication)'' == ''true''"'
+      style: secondary
+      start: 47
+      end: 92
+    - source: <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'"><IsTestProject>true</IsTestProject></PropertyGroup>
+      style: secondary
+      start: 0
+      end: 144
+    - source: <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'">
+      style: secondary
+      start: 0
+      end: 93
+  ? |
+    <PropertyGroup><SelfContained Condition="'$(OutputType)' == 'Exe'">false</SelfContained></PropertyGroup>
+  : labels:
+    - source: Condition="'$(OutputType)' == 'Exe'"
+      style: primary
+      start: 30
+      end: 66
+    - source: Condition
+      style: secondary
+      start: 30
+      end: 39
+    - source: '"''$(OutputType)'' == ''Exe''"'
+      style: secondary
+      start: 40
+      end: 66
+    - source: <SelfContained Condition="'$(OutputType)' == 'Exe'">false</SelfContained>
+      style: secondary
+      start: 15
+      end: 88
+    - source: <SelfContained Condition="'$(OutputType)' == 'Exe'">
+      style: secondary
+      start: 15
+      end: 67

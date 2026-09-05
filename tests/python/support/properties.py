@@ -23,6 +23,7 @@ lazy from tests.python.support.strategies import strategy_for
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _TEST_FILE_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
+_IMPORT_ROOTS: frozenset[Path] = frozenset({REPO_ROOT, REPO_ROOT / "libs" / "python"})  # The pythonpath rows of the root pyproject.toml
 
 _ABSENT: object = object()
 
@@ -237,19 +238,11 @@ def register_package(package: str, *, exempt: frozenset[str] = frozenset(), suit
     )
 
 
-def _importable(folder: Path, /) -> str:
-    """Return the import name installed by a source directory.
-
-    Workspace members install the shallowest ``__init__.py`` package beneath their module root, the member folder for a flat layout or ``src`` when present, and registering the directory path instead imports the package twice and duplicates class objects.
-    Manifest-less flat folders keep their repo-relative dotted path, which a ``sys.path``-prepended root resolves.
-    """
-    src = folder / "src"
-    base = src if src.is_dir() else (folder if (folder / "pyproject.toml").is_file() else None)
-    if base is not None:
-        installed = sorted((py.parent for py in base.rglob("__init__.py")), key=lambda root: len(root.parts))
-        if installed:
-            return ".".join(installed[0].relative_to(base).parts)
-    return ".".join(folder.relative_to(REPO_ROOT).parts) if folder.is_relative_to(REPO_ROOT) else folder.name
+def _importable(folder: Path) -> str:
+    """Return the import name of a package directory, its name under an import root and its repository-relative dotted path elsewhere."""
+    if folder.parent in _IMPORT_ROOTS or not folder.is_relative_to(REPO_ROOT):
+        return folder.name
+    return ".".join(folder.relative_to(REPO_ROOT).parts)
 
 
 def register_package_tree(source_root: Path, suite_root: Path) -> tuple[str, ...]:

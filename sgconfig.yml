@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/project.json
+# Structural rules per language under tools/ast-grep, the root lint target runs the rule tests and every project lint target scans its root
+ruleDirs:
+    - tools/ast-grep/rules
+utilDirs:
+    - tools/ast-grep/utils
+testConfigs:
+    - testDir: tools/ast-grep/tests
+languageGlobs:
+    tsx: ['*.ts', '*.mts', '*.cts'] # tsx grammar parses every TypeScript file, so one rule under language tsx covers .ts and .tsx sources
+    xml: ['NuGet.config'] # The one MSBuild and NuGet file the extension list cannot reach
+customLanguages:
+    xml:
+        libraryPath: .cache/ast-grep/xml.so # Written by the root grammar target, every ast-grep run aborts until it exists
+        extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
+        expandoChar: _ # XML names reject $, and _ is the one name character a metavariable in tag and attribute position parses as

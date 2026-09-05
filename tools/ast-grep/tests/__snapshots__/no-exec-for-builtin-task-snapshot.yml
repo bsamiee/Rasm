@@ -1,0 +1,37 @@
+id: no-exec-for-builtin-task
+snapshots:
+  ? |
+    <Exec Command="cp $(StageRoot)manifest.yml $(OutDir)" />
+  : labels:
+    - source: <Exec Command="cp $(StageRoot)manifest.yml $(OutDir)" />
+      style: primary
+      start: 0
+      end: 56
+  ? |
+    <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
+  : labels:
+    - source: <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
+      style: primary
+      start: 0
+      end: 76
+  ? |
+    <Exec Command="mkdir $(OutDir)logs" />
+  : labels:
+    - source: <Exec Command="mkdir $(OutDir)logs" />
+      style: primary
+      start: 0
+      end: 38
+  ? |
+    <Exec Command="rm -rf $(OutDir)stage" />
+  : labels:
+    - source: <Exec Command="rm -rf $(OutDir)stage" />
+      style: primary
+      start: 0
+      end: 40
+  ? |
+    <Exec><Command>mkdir $(OutDir)logs</Command></Exec>
+  : labels:
+    - source: <Exec><Command>mkdir $(OutDir)logs</Command></Exec>
+      style: primary
+      start: 0
+      end: 51

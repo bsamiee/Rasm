@@ -1,0 +1,30 @@
+id: no-trailing-separator-on-artifacts-path
+snapshots:
+  ? |
+    <PropertyGroup><ArtifactsPath>$(RepoRoot).artifacts/dotnet/</ArtifactsPath></PropertyGroup>
+  : labels:
+    - source: <ArtifactsPath>$(RepoRoot).artifacts/dotnet/</ArtifactsPath>
+      style: primary
+      start: 15
+      end: 75
+  ? |
+    <PropertyGroup><ArtifactsPath>$(RepoRoot)artifacts\</ArtifactsPath></PropertyGroup>
+  : labels:
+    - source: <ArtifactsPath>$(RepoRoot)artifacts\</ArtifactsPath>
+      style: primary
+      start: 15
+      end: 67
+  ? |
+    <PropertyGroup><ArtifactsPath>$([MSBuild]::EnsureTrailingSlash('$(ArtifactsRoot)'))</ArtifactsPath></PropertyGroup>
+  : labels:
+    - source: <ArtifactsPath>$([MSBuild]::EnsureTrailingSlash('$(ArtifactsRoot)'))</ArtifactsPath>
+      style: primary
+      start: 15
+      end: 99
+  ? |
+    <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
+  : labels:
+    - source: <ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
+      style: primary
+      start: 15
+      end: 117

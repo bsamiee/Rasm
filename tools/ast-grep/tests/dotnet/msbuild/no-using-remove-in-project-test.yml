@@ -1,0 +1,15 @@
+id: no-using-remove-in-project
+valid:
+    # A project adds a using it needs
+    - |
+      <ItemGroup><Using Include="Rhino.Geometry" /></ItemGroup>
+    # A central using keyed on the package that supplies the namespace
+    - |
+      <ItemGroup><Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" /></ItemGroup>
+invalid:
+    # The instance, three projects undid a central kernel-namespace injection
+    - |
+      <ItemGroup Label="Kernel-Free Usings"><Using Remove="Rasm.Analysis" /></ItemGroup>
+    # The start-tag form
+    - |
+      <ItemGroup><Using Remove="Rasm.Domain"></Using></ItemGroup>

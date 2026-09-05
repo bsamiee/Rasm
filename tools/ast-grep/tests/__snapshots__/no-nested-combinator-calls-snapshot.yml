@@ -1,0 +1,106 @@
+id: no-nested-combinator-calls
+snapshots:
+  const collected = Array.flatten(Array.map(Array.filter(rows, (row) => row.live), (row) => row.items));:
+    labels:
+    - source: Array.flatten(Array.map(Array.filter(rows, (row) => row.live), (row) => row.items))
+      style: primary
+      start: 18
+      end: 101
+    - source: Array.filter(rows, (row) => row.live)
+      style: secondary
+      start: 42
+      end: 79
+    - source: (row) => row.items
+      style: secondary
+      start: 81
+      end: 99
+    - source: (Array.filter(rows, (row) => row.live), (row) => row.items)
+      style: secondary
+      start: 41
+      end: 100
+    - source: Array.map(Array.filter(rows, (row) => row.live), (row) => row.items)
+      style: secondary
+      start: 32
+      end: 100
+    - source: Array.map(Array.filter(rows, (row) => row.live), (row) => row.items)
+      style: secondary
+      start: 32
+      end: 100
+  const deduped = Array.flatten(Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items));:
+    labels:
+    - source: Array.flatten(Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items))
+      style: primary
+      start: 16
+      end: 113
+    - source: Array.filter(Array.dedupe(rows), (row) => row.live)
+      style: secondary
+      start: 40
+      end: 91
+    - source: (row) => row.items
+      style: secondary
+      start: 93
+      end: 111
+    - source: (Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items)
+      style: secondary
+      start: 39
+      end: 112
+    - source: Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items)
+      style: secondary
+      start: 30
+      end: 112
+    - source: Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items)
+      style: secondary
+      start: 30
+      end: 112
+  ? 'const failed = Effect.mapError(Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling), () => new WorkspaceError({ message: "no native project" }));'
+  : labels:
+    - source: 'Effect.mapError(Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling), () => new WorkspaceError({ message: "no native project" }))'
+      style: primary
+      start: 15
+      end: 164
+    - source: Option.liftPredicate(name, () => !managed)
+      style: secondary
+      start: 45
+      end: 87
+    - source: () => sibling
+      style: secondary
+      start: 89
+      end: 102
+    - source: (Option.liftPredicate(name, () => !managed), () => sibling)
+      style: secondary
+      start: 44
+      end: 103
+    - source: Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling)
+      style: secondary
+      start: 31
+      end: 103
+    - source: Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling)
+      style: secondary
+      start: 31
+      end: 103
+  ? const nested = Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded);
+  : labels:
+    - source: Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded)
+      style: primary
+      start: 15
+      end: 159
+    - source: Option.liftPredicate(loaded, isClass)
+      style: secondary
+      start: 47
+      end: 84
+    - source: (module) => Option.liftPredicate(module.default, isClass)
+      style: secondary
+      start: 86
+      end: 143
+    - source: (Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass))
+      style: secondary
+      start: 46
+      end: 144
+    - source: Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass))
+      style: secondary
+      start: 32
+      end: 144
+    - source: Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass))
+      style: secondary
+      start: 32
+      end: 144

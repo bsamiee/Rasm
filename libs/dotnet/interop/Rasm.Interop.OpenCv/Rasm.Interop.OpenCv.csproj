@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <ReleaseGroup>Rasm.Interop</ReleaseGroup>
         <Description>OpenCV error policy and process-global configuration that executables run once at the composition root</Description>
     </PropertyGroup>
 

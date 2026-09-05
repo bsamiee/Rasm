@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-property # A property element, a child of a PropertyGroup, with a tag name that passes the name rule
+language: xml
+arguments: [name]
+rule:
+    kind: element
+    all:
+        - has: {matches: msbuild-tag, has: {kind: Name, matches: name}}
+        # A parameterized util names no other parameterized util, the PropertyGroup shape stays inline
+        - inside: {kind: content, inside: {kind: element, has: {matches: msbuild-tag, has: {kind: Name, regex: '^PropertyGroup$'}}}}

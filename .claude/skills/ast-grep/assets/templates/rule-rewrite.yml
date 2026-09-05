@@ -3,29 +3,21 @@ id: <rule-id>
 language: <language>
 severity: error
 rule:
-    pattern: <code capturing $$$ITEMS>
+    all:
+        - pattern: <code capturing $$$ITEMS>
+        - not: <unfixable variant> # Every variant the template cannot rewrite is a not: arm before the fix
 rewriters:
-    - id: <rewriter-id> # Ordered sequence: per node the first matching rewriter wins
-      rule: {pattern: $ITEM, kind: <kind>}
+    - id: <rewriter-id> # Ordered sequence: per node the first matching rewriter wins, an unmatched node keeps its text
+      rule: {pattern: $ITEM, kind: <kind>} # kind alone binds no metavariable, the pattern names the node the fix reads
       transform:
-        <LOCAL>: <op>($ITEM, <key>=<value>) # Vars, transform, and utils stay inside the rewriter
+        <LOCAL>: <op>($ITEM, <key>=<value>) # The rewriter's fix reads the outer captures, its own vars, transform, and utils stay inside it
       fix: <per-item template referencing $ITEM and $LOCAL>
 transform:
     <OUT>:
         rewrite:
-            source: $$$ITEMS # Rewriters apply to the capture's descendants, outer nodes first, without overlap
+            source: $$$ITEMS # Rewriters apply to the captured nodes and their descendants, outer nodes first, without overlap
             rewriters: [<rewriter-id>]
             joinBy: '<sep>' # Joins the rewritten items and drops unmatched members, absent it splices them back in place
 fix: <template referencing $OUT>
 message: <one line naming the violation>
-note: <the exact repair, the shape to produce>
----
-id: <deletion-rule-id>
-language: <language>
-severity: error
-rule: <rule>
-fix:
-    template: '' # Empty template deletes the matched node
-    expandEnd: {regex: '<separator>'} # Consumes exactly one following sibling matching the rule, expandStart the preceding one
-message: <why>
-note: <repair>
+note: <the correction as the shape to produce>

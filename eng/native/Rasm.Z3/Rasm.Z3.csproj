@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>5.0.0</Version>
         <Description>Z3 .NET bindings compiled AnyCPU from the pinned z3 source archive</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageId>Rasm.Z3</PackageId>

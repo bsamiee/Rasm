@@ -8,14 +8,14 @@
         <Project Path="libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
         <Project Path="libs/dotnet/interop/Rasm.Interop.OpenCv/Rasm.Interop.OpenCv.csproj" />
         <Project Path="libs/dotnet/interop/Rasm.Interop.Pdf/Rasm.Interop.Pdf.csproj" />
+        <Project Path="libs/dotnet/interop/Rasm.Interop.SqliteVec/Rasm.Interop.SqliteVec.csproj" />
     </Folder>
     <Folder Name="/tests/" />
-    <Folder Name="/tests/dotnet/" />
+    <Folder Name="/tests/dotnet/">
+        <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />
+    </Folder>
     <Folder Name="/tests/dotnet/libs/">
         <Project Path="tests/dotnet/libs/Rasm.Interop.Tests/Rasm.Interop.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/support/">
-        <Project Path="tests/dotnet/support/Rasm.TestSupport.csproj" />
     </Folder>
     <Folder Name="/tools/" />
     <Folder Name="/tools/dotnet/">

@@ -1,3 +1,6 @@
+import type { ViteUserConfig } from 'vitest/config';
 import { createVitestConfig } from '../../../vitest.config.ts';
 
-export default createVitestConfig(import.meta.dirname);
+const config: Promise<ViteUserConfig> = createVitestConfig(import.meta.dirname);
+
+export default config;

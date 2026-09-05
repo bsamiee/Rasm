@@ -15,10 +15,15 @@ valid:
           public static int Fallback(Request request) =>
               request switch { Request.Open o => 1, _ => 0 };
       }
-    - | # Compound subject rebinds under member access, the guard refuses it
+    - | # Awaited subject rebinds under member access, the primary-expression guard refuses it
       public static class S {
           public static Fin<Outcome> Waited(Task<Request> t, Ledger ledger) =>
               await t switch { Request.Open o => ledger.Open(o.Code), Request.Close c => ledger.Close(c.Code) };
+      }
+    - | # Cast subject rebinds the same way
+      public static class S {
+          public static int Cast(object raw) =>
+              (Request)raw switch { Request.Open o => 1, Request.Close c => 0 };
       }
 invalid:
     - |- # Bare qualified patterns on a language switch

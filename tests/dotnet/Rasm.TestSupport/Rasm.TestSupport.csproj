@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Reusable property tests, numeric oracles, test doubles, and temporary-directory support, with the test of each module beside it</Description>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup Label="Test Dependencies">
+        <PackageReference Include="coverlet.MTP" />
+        <PackageReference Include="CsCheck" />
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+        <PackageReference Include="xunit.v3.mtp-v2" />
+    </ItemGroup>
+</Project>

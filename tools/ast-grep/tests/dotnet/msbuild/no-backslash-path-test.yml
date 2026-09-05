@@ -1,0 +1,33 @@
+id: no-backslash-path
+valid:
+    # Forward slashes throughout
+    - |
+      <PropertyGroup><StageRoot>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'native'))</StageRoot></PropertyGroup>
+    # A regex escape inside a property function is no path
+    - |
+      <PropertyGroup><_CentralPackageVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(CentralPackagesPath)')), '(?&lt;=Include="$(CentralPackageId)"\s+Version=")[^"]+').Value)</_CentralPackageVersion></PropertyGroup>
+    # An Exec command with forward slashes
+    - |
+      <Exec Command="cat data/file.txt" />
+    # A message text holds no path
+    - |
+      <Message Text="built $(TargetPath)" />
+invalid:
+    # A backslash in an Exec command, sh reads datafile.txt
+    - |
+      <Exec Command="cat data\file.txt" />
+    # An import path with backslashes
+    - |
+      <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
+    # A property that composes a path with backslashes
+    - |
+      <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)tools\mytool\mytool.exe</ToolPath></PropertyGroup>
+    # An item glob with backslashes
+    - |
+      <Compile Include="Generated\**\*.cs" />
+    # The child-element form of a hint path
+    - |
+      <Reference Include="Tool"><HintPath>..\packages\tool\lib\tool.dll</HintPath><Private>false</Private></Reference>
+    # A solution project path written by a Windows tool
+    - |
+      <Project Path="libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj" />

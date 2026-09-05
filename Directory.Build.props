@@ -1,11 +1,18 @@
 <Project>
     <PropertyGroup Label="Workspace">
-        <RasmRepoRoot>$(MSBuildThisFileDirectory)</RasmRepoRoot>
-        <ArtifactsPath>$([MSBuild]::NormalizePath('$(RasmRepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
-        <RasmLibsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'libs'))</RasmLibsRoot>
-        <RasmToolsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'tools'))</RasmToolsRoot>
-        <RasmTestsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'tests'))</RasmTestsRoot>
-        <RasmAppsRoot>$([MSBuild]::NormalizeDirectory('$(RasmRepoRoot)', 'apps'))</RasmAppsRoot>
+        <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+        <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
+        <LibsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'libs'))</LibsRoot>
+        <ToolsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tools'))</ToolsRoot>
+        <TestsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tests'))</TestsRoot>
+        <AppsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'apps'))</AppsRoot>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Project Classification">
+        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(LibsRoot)'))">libs</ProjectRole>
+        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(ToolsRoot)'))">tools</ProjectRole>
+        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(TestsRoot)'))">tests</ProjectRole>
+        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(AppsRoot)'))">apps</ProjectRole>
     </PropertyGroup>
 
     <PropertyGroup Label="Package Metadata">
@@ -17,7 +24,7 @@
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <IsPackable>false</IsPackable>
+        <IsPackable Condition="'$(ProjectRole)' != 'libs'">false</IsPackable>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">
@@ -31,10 +38,12 @@
         <AnalysisLevel>latest-all</AnalysisLevel>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
-        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-        <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
-        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
         <NuGetAudit>false</NuGetAudit>
+    </PropertyGroup>
+
+    <!-- Every hosted runner exports CI=true -->
+    <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
+        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Analyzers">
@@ -45,19 +54,8 @@
         <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers"  PrivateAssets="all" />
     </ItemGroup>
 
-    <!-- The version comes from the nearest tag of the project's release group, no project file states a version -->
-    <ItemGroup Label="Release Version">
+    <!-- Tests and tools never publish, and every MinVer run costs one dotnet and three git processes per project -->
+    <ItemGroup Label="Release Version" Condition="'$(ProjectRole)' == 'libs' or '$(ProjectRole)' == 'apps'">
         <PackageReference Include="MinVer" PrivateAssets="all" />
     </ItemGroup>
-
-    <PropertyGroup Label="Rhino Host Bundle">
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and '$(RHINO_APP_PATH)' != ''">$(RHINO_APP_PATH)</RhinoAppPath>
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and Exists('/Applications/Rhino 9.app')">/Applications/Rhino 9.app</RhinoAppPath>
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and Exists('/Applications/RhinoBETA.app')">/Applications/RhinoBETA.app</RhinoAppPath>
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath>
-        <!-- Separate name for the trailing slash because project XML cannot rewrite a -p:RhinoAppPath global property -->
-        <_RhinoAppDir>$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</_RhinoAppDir>
-        <RhinoResourcesPath>$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
-        <Grasshopper2PluginPath>$(RhinoResourcesPath)ManagedPlugIns/Grasshopper2Plugin.rhp/</Grasshopper2PluginPath>
-    </PropertyGroup>
 </Project>

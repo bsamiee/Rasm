@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-package-version-comment
+language: xml
+severity: error
+files: ['Directory.Packages.props'] # The root file alone, eng/native/Directory.Packages.props opts out of central package management
+utils:
+    trailing-comment: # One comment on the row's own line, after nothing or after blanks, and no line break inside it
+        kind: element
+        any:
+            - precedes: {kind: Comment, regex: '^<!--[^\r\n]*-->$'}
+            - precedes: {kind: CharData, regex: '^[ \t]+$', precedes: {kind: Comment, regex: '^<!--[^\r\n]*-->$'}}
+rule:
+    matches: {msbuild-element: {name: {regex: '^(PackageVersion|GlobalPackageReference)$'}}}
+    not: {matches: trailing-comment}
+message: A catalog row holds one trailing one-line comment naming the package's capability, add <!-- capability --> after the row on its line

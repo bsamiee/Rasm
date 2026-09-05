@@ -1,0 +1,108 @@
+id: no-fourth-lambda-level
+snapshots:
+  ? |
+    rows = outer(lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a), items)
+  : labels:
+    - source: 'lambda d: d + c'
+      style: primary
+      start: 65
+      end: 80
+    - source: '(lambda c: last(key=lambda d: d + c), a)'
+      style: secondary
+      start: 45
+      end: 85
+    - source: c
+      style: secondary
+      start: 53
+      end: 54
+    - source: '(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a)'
+      style: secondary
+      start: 29
+      end: 89
+    - source: b
+      style: secondary
+      start: 37
+      end: 38
+    - source: '(lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a), items)'
+      style: secondary
+      start: 12
+      end: 97
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: 'lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a)'
+      style: secondary
+      start: 13
+      end: 89
+    - source: 'lambda b: inner(lambda c: last(key=lambda d: d + c), a)'
+      style: secondary
+      start: 30
+      end: 85
+    - source: 'lambda c: last(key=lambda d: d + c)'
+      style: secondary
+      start: 46
+      end: 81
+    - source: '(key=lambda d: d + c)'
+      style: secondary
+      start: 60
+      end: 81
+    - source: 'key=lambda d: d + c'
+      style: secondary
+      start: 61
+      end: 80
+    - source: d
+      style: secondary
+      start: 72
+      end: 73
+  ? |
+    rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)
+  : labels:
+    - source: 'lambda d: d + c'
+      style: primary
+      start: 61
+      end: 76
+    - source: '(lambda c: last(lambda d: d + c, a), a)'
+      style: secondary
+      start: 45
+      end: 84
+    - source: c
+      style: secondary
+      start: 53
+      end: 54
+    - source: '(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a)'
+      style: secondary
+      start: 29
+      end: 88
+    - source: b
+      style: secondary
+      start: 37
+      end: 38
+    - source: '(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)'
+      style: secondary
+      start: 12
+      end: 96
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: 'lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a)'
+      style: secondary
+      start: 13
+      end: 88
+    - source: 'lambda b: inner(lambda c: last(lambda d: d + c, a), a)'
+      style: secondary
+      start: 30
+      end: 84
+    - source: 'lambda c: last(lambda d: d + c, a)'
+      style: secondary
+      start: 46
+      end: 80
+    - source: '(lambda d: d + c, a)'
+      style: secondary
+      start: 60
+      end: 80
+    - source: d
+      style: secondary
+      start: 68
+      end: 69

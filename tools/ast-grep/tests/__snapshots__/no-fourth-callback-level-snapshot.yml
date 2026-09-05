@@ -1,0 +1,514 @@
+id: no-fourth-callback-level
+snapshots:
+  const asynchronous = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, async (w) => w))));:
+    labels:
+    - source: async (w) => w
+      style: primary
+      start: 98
+      end: 112
+    - source: (z, async (w) => w)
+      style: secondary
+      start: 94
+      end: 113
+    - source: w
+      style: secondary
+      start: 105
+      end: 106
+    - source: w
+      style: secondary
+      start: 105
+      end: 106
+    - source: (y, (z) => Effect.map(z, async (w) => w))
+      style: secondary
+      start: 73
+      end: 114
+    - source: z
+      style: secondary
+      start: 78
+      end: 79
+    - source: z
+      style: secondary
+      start: 78
+      end: 79
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, async (w) => w)))
+      style: secondary
+      start: 52
+      end: 115
+    - source: y
+      style: secondary
+      start: 57
+      end: 58
+    - source: y
+      style: secondary
+      start: 57
+      end: 58
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, async (w) => w))))
+      style: secondary
+      start: 31
+      end: 116
+    - source: x
+      style: secondary
+      start: 37
+      end: 38
+    - source: x
+      style: secondary
+      start: 37
+      end: 38
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, async (w) => w)))
+      style: secondary
+      start: 36
+      end: 115
+    - source: (y) => Option.map(y, (z) => Effect.map(z, async (w) => w))
+      style: secondary
+      start: 56
+      end: 114
+    - source: (z) => Effect.map(z, async (w) => w)
+      style: secondary
+      start: 77
+      end: 113
+  const bare = Effect.map(xs, x => Array.map(x, y => Option.map(y, z => Effect.map(z, w => w))));:
+    labels:
+    - source: w => w
+      style: primary
+      start: 84
+      end: 90
+    - source: (z, w => w)
+      style: secondary
+      start: 80
+      end: 91
+    - source: w
+      style: secondary
+      start: 84
+      end: 85
+    - source: (y, z => Effect.map(z, w => w))
+      style: secondary
+      start: 61
+      end: 92
+    - source: z
+      style: secondary
+      start: 65
+      end: 66
+    - source: (x, y => Option.map(y, z => Effect.map(z, w => w)))
+      style: secondary
+      start: 42
+      end: 93
+    - source: y
+      style: secondary
+      start: 46
+      end: 47
+    - source: (xs, x => Array.map(x, y => Option.map(y, z => Effect.map(z, w => w))))
+      style: secondary
+      start: 23
+      end: 94
+    - source: x
+      style: secondary
+      start: 28
+      end: 29
+    - source: x => Array.map(x, y => Option.map(y, z => Effect.map(z, w => w)))
+      style: secondary
+      start: 28
+      end: 93
+    - source: y => Option.map(y, z => Effect.map(z, w => w))
+      style: secondary
+      start: 46
+      end: 92
+    - source: z => Effect.map(z, w => w)
+      style: secondary
+      start: 65
+      end: 91
+  const destructured = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ({ w }) => w))));:
+    labels:
+    - source: ({ w }) => w
+      style: primary
+      start: 98
+      end: 110
+    - source: (z, ({ w }) => w)
+      style: secondary
+      start: 94
+      end: 111
+    - source: '{ w }'
+      style: secondary
+      start: 99
+      end: 104
+    - source: '{ w }'
+      style: secondary
+      start: 99
+      end: 104
+    - source: (y, (z) => Effect.map(z, ({ w }) => w))
+      style: secondary
+      start: 73
+      end: 112
+    - source: z
+      style: secondary
+      start: 78
+      end: 79
+    - source: z
+      style: secondary
+      start: 78
+      end: 79
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, ({ w }) => w)))
+      style: secondary
+      start: 52
+      end: 113
+    - source: y
+      style: secondary
+      start: 57
+      end: 58
+    - source: y
+      style: secondary
+      start: 57
+      end: 58
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ({ w }) => w))))
+      style: secondary
+      start: 31
+      end: 114
+    - source: x
+      style: secondary
+      start: 37
+      end: 38
+    - source: x
+      style: secondary
+      start: 37
+      end: 38
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ({ w }) => w)))
+      style: secondary
+      start: 36
+      end: 113
+    - source: (y) => Option.map(y, (z) => Effect.map(z, ({ w }) => w))
+      style: secondary
+      start: 56
+      end: 112
+    - source: (z) => Effect.map(z, ({ w }) => w)
+      style: secondary
+      start: 77
+      end: 111
+  const expression = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, function (w) { return w; }))));:
+    labels:
+    - source: function (w) { return w; }
+      style: primary
+      start: 96
+      end: 122
+    - source: (z, function (w) { return w; })
+      style: secondary
+      start: 92
+      end: 123
+    - source: w
+      style: secondary
+      start: 106
+      end: 107
+    - source: w
+      style: secondary
+      start: 106
+      end: 107
+    - source: (y, (z) => Effect.map(z, function (w) { return w; }))
+      style: secondary
+      start: 71
+      end: 124
+    - source: z
+      style: secondary
+      start: 76
+      end: 77
+    - source: z
+      style: secondary
+      start: 76
+      end: 77
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, function (w) { return w; })))
+      style: secondary
+      start: 50
+      end: 125
+    - source: y
+      style: secondary
+      start: 55
+      end: 56
+    - source: y
+      style: secondary
+      start: 55
+      end: 56
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, function (w) { return w; }))))
+      style: secondary
+      start: 29
+      end: 126
+    - source: x
+      style: secondary
+      start: 35
+      end: 36
+    - source: x
+      style: secondary
+      start: 35
+      end: 36
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, function (w) { return w; })))
+      style: secondary
+      start: 34
+      end: 125
+    - source: (y) => Option.map(y, (z) => Effect.map(z, function (w) { return w; }))
+      style: secondary
+      start: 54
+      end: 124
+    - source: (z) => Effect.map(z, function (w) { return w; })
+      style: secondary
+      start: 75
+      end: 123
+  const five = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w) => Effect.map(w, (v) => v)))));:
+    labels:
+    - source: (v) => v
+      style: primary
+      start: 111
+      end: 119
+    - source: (w, (v) => v)
+      style: secondary
+      start: 107
+      end: 120
+    - source: v
+      style: secondary
+      start: 112
+      end: 113
+    - source: v
+      style: secondary
+      start: 112
+      end: 113
+    - source: (z, (w) => Effect.map(w, (v) => v))
+      style: secondary
+      start: 86
+      end: 121
+    - source: w
+      style: secondary
+      start: 91
+      end: 92
+    - source: w
+      style: secondary
+      start: 91
+      end: 92
+    - source: (y, (z) => Effect.map(z, (w) => Effect.map(w, (v) => v)))
+      style: secondary
+      start: 65
+      end: 122
+    - source: z
+      style: secondary
+      start: 70
+      end: 71
+    - source: z
+      style: secondary
+      start: 70
+      end: 71
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, (w) => Effect.map(w, (v) => v))))
+      style: secondary
+      start: 44
+      end: 123
+    - source: y
+      style: secondary
+      start: 49
+      end: 50
+    - source: y
+      style: secondary
+      start: 49
+      end: 50
+    - source: (y) => Option.map(y, (z) => Effect.map(z, (w) => Effect.map(w, (v) => v)))
+      style: secondary
+      start: 48
+      end: 122
+    - source: (z) => Effect.map(z, (w) => Effect.map(w, (v) => v))
+      style: secondary
+      start: 69
+      end: 121
+    - source: (w) => Effect.map(w, (v) => v)
+      style: secondary
+      start: 90
+      end: 120
+  const four = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w) => w))));:
+    labels:
+    - source: (w) => w
+      style: primary
+      start: 90
+      end: 98
+    - source: (z, (w) => w)
+      style: secondary
+      start: 86
+      end: 99
+    - source: w
+      style: secondary
+      start: 91
+      end: 92
+    - source: w
+      style: secondary
+      start: 91
+      end: 92
+    - source: (y, (z) => Effect.map(z, (w) => w))
+      style: secondary
+      start: 65
+      end: 100
+    - source: z
+      style: secondary
+      start: 70
+      end: 71
+    - source: z
+      style: secondary
+      start: 70
+      end: 71
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, (w) => w)))
+      style: secondary
+      start: 44
+      end: 101
+    - source: y
+      style: secondary
+      start: 49
+      end: 50
+    - source: y
+      style: secondary
+      start: 49
+      end: 50
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w) => w))))
+      style: secondary
+      start: 23
+      end: 102
+    - source: x
+      style: secondary
+      start: 29
+      end: 30
+    - source: x
+      style: secondary
+      start: 29
+      end: 30
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w) => w)))
+      style: secondary
+      start: 28
+      end: 101
+    - source: (y) => Option.map(y, (z) => Effect.map(z, (w) => w))
+      style: secondary
+      start: 48
+      end: 100
+    - source: (z) => Effect.map(z, (w) => w)
+      style: secondary
+      start: 69
+      end: 99
+  const generator = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, function* (w) { yield w; }))));:
+    labels:
+    - source: function* (w) { yield w; }
+      style: primary
+      start: 95
+      end: 121
+    - source: (z, function* (w) { yield w; })
+      style: secondary
+      start: 91
+      end: 122
+    - source: w
+      style: secondary
+      start: 106
+      end: 107
+    - source: w
+      style: secondary
+      start: 106
+      end: 107
+    - source: (y, (z) => Effect.map(z, function* (w) { yield w; }))
+      style: secondary
+      start: 70
+      end: 123
+    - source: z
+      style: secondary
+      start: 75
+      end: 76
+    - source: z
+      style: secondary
+      start: 75
+      end: 76
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, function* (w) { yield w; })))
+      style: secondary
+      start: 49
+      end: 124
+    - source: y
+      style: secondary
+      start: 54
+      end: 55
+    - source: y
+      style: secondary
+      start: 54
+      end: 55
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, function* (w) { yield w; }))))
+      style: secondary
+      start: 28
+      end: 125
+    - source: x
+      style: secondary
+      start: 34
+      end: 35
+    - source: x
+      style: secondary
+      start: 34
+      end: 35
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, function* (w) { yield w; })))
+      style: secondary
+      start: 33
+      end: 124
+    - source: (y) => Option.map(y, (z) => Effect.map(z, function* (w) { yield w; }))
+      style: secondary
+      start: 53
+      end: 123
+    - source: (z) => Effect.map(z, function* (w) { yield w; })
+      style: secondary
+      start: 74
+      end: 122
+  ? const mixed = Effect.map(xs, (x) => Array.map(x, function (y) { return Option.map(y, function* (z) { yield Effect.map(z, (w) => w); }); }));
+  : labels:
+    - source: (w) => w
+      style: primary
+      start: 121
+      end: 129
+    - source: (z, (w) => w)
+      style: secondary
+      start: 117
+      end: 130
+    - source: w
+      style: secondary
+      start: 122
+      end: 123
+    - source: w
+      style: secondary
+      start: 122
+      end: 123
+    - source: (y, function* (z) { yield Effect.map(z, (w) => w); })
+      style: secondary
+      start: 81
+      end: 134
+    - source: z
+      style: secondary
+      start: 96
+      end: 97
+    - source: z
+      style: secondary
+      start: 96
+      end: 97
+    - source: (x, function (y) { return Option.map(y, function* (z) { yield Effect.map(z, (w) => w); }); })
+      style: secondary
+      start: 45
+      end: 138
+    - source: y
+      style: secondary
+      start: 59
+      end: 60
+    - source: y
+      style: secondary
+      start: 59
+      end: 60
+    - source: (xs, (x) => Array.map(x, function (y) { return Option.map(y, function* (z) { yield Effect.map(z, (w) => w); }); }))
+      style: secondary
+      start: 24
+      end: 139
+    - source: x
+      style: secondary
+      start: 30
+      end: 31
+    - source: x
+      style: secondary
+      start: 30
+      end: 31
+    - source: (x) => Array.map(x, function (y) { return Option.map(y, function* (z) { yield Effect.map(z, (w) => w); }); })
+      style: secondary
+      start: 29
+      end: 138
+    - source: function (y) { return Option.map(y, function* (z) { yield Effect.map(z, (w) => w); }); }
+      style: secondary
+      start: 49
+      end: 137
+    - source: function* (z) { yield Effect.map(z, (w) => w); }
+      style: secondary
+      start: 85
+      end: 133

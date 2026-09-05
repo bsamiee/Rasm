@@ -1,0 +1,23 @@
+id: no-chained-pipe
+snapshots:
+  const total = items.pipe(Array.map(price)).pipe(Array.filter(positive)).pipe(Array.sum);:
+    fixed: const total = items.pipe(Array.map(price)).pipe(Array.filter(positive), Array.sum);
+    labels:
+    - source: items.pipe(Array.map(price)).pipe(Array.filter(positive)).pipe(Array.sum)
+      style: primary
+      start: 14
+      end: 87
+  const total = items.pipe(Array.map(price)).pipe(Array.sum).length;:
+    fixed: const total = items.pipe(Array.map(price), Array.sum).length;
+    labels:
+    - source: items.pipe(Array.map(price)).pipe(Array.sum)
+      style: primary
+      start: 14
+      end: 58
+  const total = items.pipe(Array.map(price)).pipe(Array.sum);:
+    fixed: const total = items.pipe(Array.map(price), Array.sum);
+    labels:
+    - source: items.pipe(Array.map(price)).pipe(Array.sum)
+      style: primary
+      start: 14
+      end: 58

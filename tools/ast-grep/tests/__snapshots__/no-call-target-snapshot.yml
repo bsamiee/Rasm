@@ -1,0 +1,9 @@
+id: no-call-target
+snapshots:
+  ? |
+    <Target Name="Report"><CallTarget Targets="Compute" /><Message Text="$(Computed)" /></Target>
+  : labels:
+    - source: <CallTarget Targets="Compute" />
+      style: primary
+      start: 22
+      end: 54

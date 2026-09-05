@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <ReleaseGroup>Rasm.Interop</ReleaseGroup>
         <Description>PDFsharp font-resolver registration that executables run once at the composition root</Description>
     </PropertyGroup>
 

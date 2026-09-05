@@ -4,20 +4,21 @@ Deletion rows remove the word, replacement rows substitute the listed word, and 
 
 ## [01]-[DELETIONS]
 
-| [INDEX] | [CATEGORY]       | [WORDS]                                                                                                  |
-| :-----: | :--------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | Significance     | crucial, crucially, vital, pivotal, paramount, key (adjective), critical (outside a real severity)       |
-|  [02]   | Intensity        | dramatically, significantly, greatly, highly, extremely, incredibly, notably, importantly, arguably      |
-|  [03]   | Praise           | groundbreaking, cutting-edge, state-of-the-art, innovative, unprecedented, transformative, revolutionary |
-|  [04]   | Decoration       | tapestry, testament, synergy, interplay, intricate, vibrant, nuanced, multifaceted, holistic, meticulous |
-|  [05]   | Ease             | effortlessly, blazingly, performant, intuitively, conveniently                                           |
-|  [06]   | Time markers     | now, currently, at this point, at this time, going forward                                               |
-|  [07]   | Sequence markers | additionally, in addition, subsequently, lastly, finally (outside a numbered step)                       |
-|  [08]   | Chat phrases     | please, certainly, absolutely, great, oops, let us, feel free, I hope this helps, that being said        |
-|  [09]   | Scope padding    | in terms of, with regard to, as far as, when it comes to, from the perspective of, in the context of     |
-|  [10]   | Rhetoric         | not just X but Y, decorative triplets, studies show, ranging from X to Y without real limits             |
-|  [11]   | Purpose padding  | is designed to, aims to, is intended to (state what it does)                                             |
-|  [12]   | Stance adverbs   | genuinely, honestly, frankly, truly, admittedly, straightforward (as a hedge)                            |
+| [INDEX] | [CATEGORY]       | [WORDS]                                                                                                    |
+| :-----: | :--------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | Significance     | crucial, crucially, vital, pivotal, paramount, key (adjective), critical (outside a real severity)         |
+|  [02]   | Intensity        | dramatically, significantly, greatly, highly, extremely, incredibly, notably, importantly, arguably        |
+|  [03]   | Praise           | groundbreaking, cutting-edge, state-of-the-art, innovative, unprecedented, transformative, revolutionary   |
+|  [04]   | Decoration       | tapestry, testament, synergy, interplay, intricate, vibrant, nuanced, multifaceted, holistic, meticulous   |
+|  [05]   | Ease             | effortlessly, blazingly, performant, intuitively, conveniently                                             |
+|  [06]   | Time markers     | now, currently, at this point, at this time, going forward                                                 |
+|  [07]   | Sequence markers | additionally, in addition, subsequently, lastly, finally (outside a numbered step)                         |
+|  [08]   | Chat phrases     | please, certainly, absolutely, great, oops, let us, feel free, I hope this helps, that being said          |
+|  [09]   | Scope padding    | in terms of, with regard to, as far as, when it comes to, from the perspective of, in the context of       |
+|  [10]   | Rhetoric         | not just X but Y, decorative triplets, studies show, ranging from X to Y without real limits               |
+|  [11]   | Purpose padding  | is designed to, aims to, is intended to (state what it does)                                               |
+|  [12]   | Stance adverbs   | genuinely, honestly, frankly, truly, admittedly, straightforward (as a hedge)                              |
+|  [13]   | Quality praise   | compact, minimal, minimalist, rich, efficient, pure, unified, friendly, precise, true, normal (of a thing) |
 
 ## [02]-[REPLACEMENTS]
 

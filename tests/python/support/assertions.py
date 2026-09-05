@@ -39,8 +39,8 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Eq[T] = Callable[[T, T], bool] | None
-type _Cmp[T] = Callable[[T, T], int] | None
+type _Equality[T] = Callable[[T, T], bool] | None
+type _Comparison[T] = Callable[[T, T], int] | None
 
 
 class _Comparable(Protocol):
@@ -83,7 +83,7 @@ class ProjectionCase[I](msgspec.Struct, frozen=True, gc=False):
     """Projection input with a fixed or computed expected result."""
 
     label: str
-    intent: I
+    value: I
     expected: object
     reference: Callable[[I], object] | None
 
@@ -99,12 +99,12 @@ class MetamorphicRelation[T, R](msgspec.Struct, frozen=True, gc=False):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _assert_equal[T](left: T, right: T, equal: _Eq[T]) -> None:
+def _assert_equal[T](left: T, right: T, equal: _Equality[T]) -> None:
     """Assert structural or custom equality and report both values."""
     assert (equal if equal is not None else operator.eq)(left, right), f"property failed: {left!r} != {right!r}"
 
 
-# --- [TOLERANCE_ORACLES]
+# --- [TOLERANCE_ORACLES] ----------------------------------------------------------------
 
 
 def _num_close(a: _Numeric, b: _Numeric, rel_tol: float, abs_tol: float) -> bool:
@@ -177,7 +177,7 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
 
 
 def close(*, rel_tol: float = 1e-9, abs_tol: float = 0.0) -> Callable[[object, object], bool]:
-    """Return a recursive approximate-equality function over numbers, arrays, quantity values, structs, dataclasses, ``Result``/``Option`` values, ``Block`` collections, mappings, and sequences."""
+    """Return a recursive approximate-equality function over nested values."""
     return lambda a, b: _diverge(a, b, rel_tol, abs_tol, "$") is None
 
 
@@ -187,62 +187,62 @@ def assert_close(actual: object, expected: object, *, rel_tol: float = 1e-9, abs
     assert divergence is None, f"tolerance violation at {divergence}"
 
 
-# --- [ALGEBRAIC_PROPERTIES]
+# --- [ALGEBRAIC_PROPERTIES] -------------------------------------------------------------
 
 
-def roundtrip[T, U](x: T, forward: Callable[[T], U], back: Callable[[U], T], *, eq: _Eq[T] = None) -> None:
+def roundtrip[T, U](x: T, forward: Callable[[T], U], back: Callable[[U], T], *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(x, back(forward(x)))`` for encode/decode identity."""
     _assert_equal(x, back(forward(x)), eq)
 
 
-def identity[T](x: T, f: Callable[[T], T], *, eq: _Eq[T] = None) -> None:
+def identity[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(x, f(x))`` for a fixed point under ``f``."""
     _assert_equal(x, f(x), eq)
 
 
-def idempotent[T](x: T, f: Callable[[T], T], *, eq: _Eq[T] = None) -> None:
+def idempotent[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(f(x), f(f(x)))`` for idempotence."""
     _assert_equal(f(x), f(f(x)), eq)
 
 
-def involution[T](x: T, f: Callable[[T], T], *, eq: _Eq[T] = None) -> None:
+def involution[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(x, f(f(x)))`` for self-inverse functions."""
     _assert_equal(x, f(f(x)), eq)
 
 
-def inverse[T](x: T, f: Callable[[T], T], g: Callable[[T], T], *, eq: _Eq[T] = None) -> None:
+def inverse[T](x: T, f: Callable[[T], T], g: Callable[[T], T], *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(x, g(f(x)))`` for left-inverse pairs."""
     _assert_equal(x, g(f(x)), eq)
 
 
-def commutative[T](a: T, b: T, op: Callable[[T, T], T], *, eq: _Eq[T] = None) -> None:
+def commutative[T](a: T, b: T, op: Callable[[T, T], T], *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(op(a, b), op(b, a))``."""
     _assert_equal(op(a, b), op(b, a), eq)
 
 
-def associative[T](a: T, b: T, c: T, op: Callable[[T, T], T], *, eq: _Eq[T] = None) -> None:
+def associative[T](a: T, b: T, c: T, op: Callable[[T, T], T], *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(op(op(a, b), c), op(a, op(b, c)))``."""
     _assert_equal(op(op(a, b), c), op(a, op(b, c)), eq)
 
 
-def distributive[T](a: T, b: T, c: T, mul: Callable[[T, T], T], add: Callable[[T, T], T], *, eq: _Eq[T] = None) -> None:
+def distributive[T](a: T, b: T, c: T, mul: Callable[[T, T], T], add: Callable[[T, T], T], *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(mul(a, add(b, c)), add(mul(a, b), mul(a, c)))``."""
     _assert_equal(mul(a, add(b, c)), add(mul(a, b), mul(a, c)), eq)
 
 
-def absorbing[T](x: T, op: Callable[[T, T], T], zero: T, *, eq: _Eq[T] = None) -> None:
+def absorbing[T](x: T, op: Callable[[T, T], T], zero: T, *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(op(x, zero), zero)`` and ``eq(op(zero, x), zero)``."""
     _assert_equal(op(x, zero), zero, eq)
     _assert_equal(op(zero, x), zero, eq)
 
 
-def identity_element[T](x: T, op: Callable[[T, T], T], unit: T, *, eq: _Eq[T] = None) -> None:
+def identity_element[T](x: T, op: Callable[[T, T], T], unit: T, *, eq: _Equality[T] = None) -> None:
     """Assert ``eq(op(unit, x), x)`` and ``eq(op(x, unit), x)``."""
     _assert_equal(op(unit, x), x, eq)
     _assert_equal(op(x, unit), x, eq)
 
 
-def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K], *, compare: _Cmp[K] = None) -> None:
+def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K], *, compare: _Comparison[K] = None) -> None:
     """Assert ``compare(projection(lo), projection(hi)) <= 0``, ``compare`` defaults to the built-in ordering."""
     p_lo = projection(lo)
     p_hi = projection(hi)
@@ -250,12 +250,12 @@ def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K], *, c
     assert result <= 0, f"monotone violated: projection({lo!r})={p_lo!r} > projection({hi!r})={p_hi!r}"
 
 
-def permutation_invariant[T, R](original: T, shuffled: T, f: Callable[[T], R], *, eq: _Eq[R] = None) -> None:
+def permutation_invariant[T, R](original: T, shuffled: T, f: Callable[[T], R], *, eq: _Equality[R] = None) -> None:
     """Assert ``eq(f(original), f(shuffled))`` for caller-drawn permutations."""
     _assert_equal(f(original), f(shuffled), eq)
 
 
-def differential[T, R](value: T, implementation: Callable[[T], R], reference: Callable[[T], R], *, eq: _Eq[R] = None) -> None:
+def differential[T, R](value: T, implementation: Callable[[T], R], reference: Callable[[T], R], *, eq: _Equality[R] = None) -> None:
     """Compare an implementation with an independent reference over an input."""
     _assert_equal(implementation(value), reference(value), eq)
 
@@ -280,7 +280,7 @@ def rejects_counterexample[T](counterexample: T, property_assertion: Callable[..
     raise AssertionError(f"property accepts its counterexample: {counterexample!r}")
 
 
-# --- [TABLE_DRIVEN_ASSERTIONS]
+# --- [TABLE_DRIVEN_ASSERTIONS] ----------------------------------------------------------
 
 
 def _subtest_context(subtests: SubtestReporter | None, label: str) -> AbstractContextManager[object]:
@@ -325,13 +325,13 @@ def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[
     for case_ in cases:
         count += 1
         with _subtest_context(subtests, case_.label):
-            actual = project(case_.intent)
-            expected = case_.reference(case_.intent) if case_.reference is not None else case_.expected
-            assert actual == expected, f"projection_matrix[{case_.label!r}]: expected {expected!r}, got {actual!r} (intent={case_.intent!r})"
+            actual = project(case_.value)
+            expected = case_.reference(case_.value) if case_.reference is not None else case_.expected
+            assert actual == expected, f"projection_matrix[{case_.label!r}]: expected {expected!r}, got {actual!r} (value={case_.value!r})"
     assert count, "projection_matrix requires at least one case"
 
 
-# --- [RESULT_ASSERTIONS]
+# --- [RESULT_ASSERTIONS] ----------------------------------------------------------------
 
 _DEFAULT_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
 MSGPACK_ENCODER: msgspec.msgpack.Encoder = msgspec.msgpack.Encoder(order="deterministic")
@@ -435,7 +435,7 @@ def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder
     return decoded
 
 
-# --- [STATEFUL_TESTING]
+# --- [STATEFUL_TESTING] -----------------------------------------------------------------
 
 
 def run_state_machine[M: RuleBasedStateMachine](machine_cls: type[M], *, profile: str | None = None, settings: hyp_settings | None = None) -> None:

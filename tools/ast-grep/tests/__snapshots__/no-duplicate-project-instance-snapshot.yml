@@ -1,0 +1,16 @@
+id: no-duplicate-project-instance
+snapshots:
+  ? |
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
+  : labels:
+    - source: <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
+      style: primary
+      start: 0
+      end: 98
+  ? |
+    <MSBuild Targets="Publish"><Projects>$(MSBuildProjectFile)</Projects><Properties>_IsPublishing=true</Properties></MSBuild>
+  : labels:
+    - source: <MSBuild Targets="Publish"><Projects>$(MSBuildProjectFile)</Projects><Properties>_IsPublishing=true</Properties></MSBuild>
+      style: primary
+      start: 0
+      end: 122

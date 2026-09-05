@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-map-over-string-literals
+language: tsx
+severity: error
+utils:
+    # An array literal holding string literals alone, the named children are strings and the punctuation is skipped through $_
+    string-list:
+        kind: array
+        all:
+            - has: {kind: string}
+            - not: {has: {pattern: $_, not: {kind: string}}}
+    # A callback that builds a string from its item
+    string-builder:
+        kind: arrow_function
+        has: {field: body, any: [{kind: template_string}, {kind: binary_expression, has: {kind: string}}]}
+rule:
+    any:
+        - pattern: $LIST.map($BUILDER)
+          all:
+              - has: {field: function, has: {field: object, matches: string-list}}
+              - has: {field: arguments, has: {matches: string-builder}}
+        - pattern: Array.map($LIST, $BUILDER)
+          has:
+              field: arguments
+              all:
+                  - has: {nthChild: 1, matches: string-list}
+                  - has: {nthChild: 2, matches: string-builder}
+message: The strings the map produces are known when the list is written
+note: Write the produced strings as the list, or one brace glob `prefix/{a,b,c}` when the consumer expands globs
+labels:
+    LIST: {style: primary, message: The literal list}

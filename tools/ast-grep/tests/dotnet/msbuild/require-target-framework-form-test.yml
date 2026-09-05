@@ -1,0 +1,27 @@
+id: require-target-framework-form
+valid:
+    # One framework
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework></PropertyGroup></Project>
+    # A list
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    # A list held by a property, the count is unknown here
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>$(LibraryFrameworks)</TargetFrameworks></PropertyGroup></Project>
+    # The root default guards on both forms and sets the singular alone
+    - |
+      <Project><PropertyGroup><TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework></PropertyGroup></Project>
+    # The reference metadata that names the singular is no property
+    - |
+      <Project><ItemGroup><ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework></ProjectReference></ItemGroup></Project>
+invalid:
+    # Both forms in one file, the list loses silently
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    # A list in the singular, NETSDK1046
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
+    # One framework in the plural runs an outer build around one inner build
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0</TargetFrameworks></PropertyGroup></Project>

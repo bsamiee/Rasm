@@ -1,0 +1,37 @@
+id: no-keys-for-membership
+snapshots:
+  const known = Array.contains(Record.keys(packaging), target);:
+    labels:
+    - source: packaging
+      message: The record whose keys are listed
+      style: primary
+      start: 41
+      end: 50
+  const known = Object.keys(packaging).includes(target);:
+    labels:
+    - source: packaging
+      message: The record whose keys are listed
+      style: primary
+      start: 26
+      end: 35
+  const known = Record.keys(packaging).includes(target);:
+    labels:
+    - source: packaging
+      message: The record whose keys are listed
+      style: primary
+      start: 26
+      end: 35
+  const packagingNames = HashSet.fromIterable(Record.keys(Record.filter(projects, isPackaging)));:
+    labels:
+    - source: Record.filter(projects, isPackaging)
+      message: The record whose keys are listed
+      style: primary
+      start: 56
+      end: 92
+  const packagingNames = new Set(Object.keys(projects));:
+    labels:
+    - source: projects
+      message: The record whose keys are listed
+      style: primary
+      start: 43
+      end: 51

@@ -1,9 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>0.1.10-alpha.4</Version>
         <Description>sqlite-vec loadable vector search extension staged per runtime identifier</Description>
         <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
-        <!-- Upstream release loadables pinned in loadable.json replace a vcpkg port -->
-        <VersionManifestFileName>loadable.json</VersionManifestFileName>
+        <!-- Upstream release loadables pinned in release.json replace a vcpkg port -->
+        <VersionManifestFileName>release.json</VersionManifestFileName>
     </PropertyGroup>
 </Project>

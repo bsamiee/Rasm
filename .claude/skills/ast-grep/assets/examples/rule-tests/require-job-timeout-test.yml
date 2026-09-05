@@ -12,9 +12,16 @@ valid:
         reuse:
           uses: ./.github/workflows/other.yml
 invalid:
-    - |- # Untimed job
+    - | # Untimed job
       jobs:
         build:
           runs-on: ubuntu-latest
           steps:
             - run: make
+    - |- # Step-level timeout leaves the job untimed
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - run: make
+              timeout-minutes: 5

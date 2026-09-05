@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-using-remove-in-project
+language: xml
+severity: error
+files: ['**/*.csproj']
+rule:
+    matches: {msbuild-element: {name: {regex: '^Using$'}}}
+    has: {matches: msbuild-tag, has: {kind: Attribute, has: {kind: Name, regex: '^Remove$'}}}
+message: A project removes a global using the root files inject, the injection is the defect, key the central Using on the PackageReference that supplies the namespace or move it to the projects that consume it

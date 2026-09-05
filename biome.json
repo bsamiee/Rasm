@@ -8,89 +8,8 @@
     },
     "files": {
         "ignoreUnknown": true,
-        "includes": [
-            "**",
-            "!**/node_modules",
-            "!**/.cache",
-            "!**/.artifacts",
-            "!**/.mypy_cache",
-            "!**/.nx",
-            "!**/.parcel-cache",
-            "!**/.pytest_cache",
-            "!**/.ruff_cache",
-            "!**/.swc",
-            "!**/.venv",
-            "!**/.history",
-            "!**/bin",
-            "!**/obj",
-            "!**/dist",
-            "!**/build",
-            "!**/_tmp",
-            "!**/packages.lock.json",
-            "!**/pnpm-lock.yaml",
-            "!**/uv.lock",
-            "!**/.archive",
-            "!**/_archive",
-            "!**/scratch",
-            "!**/.scratch",
-            "!**/.tmp",
-            "!**/*.html"
-        ]
+        "includes": ["**", "!**/pnpm-lock.yaml", "!**/uv.lock", "!**/*.html"]
     },
-    "plugins": [
-        {
-            "path": "./tools/biome/no-suffix-variant.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-await-in-domain.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-barrel-reexport.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-blanket-catchall.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-domain-throw.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-fetch-in-domain.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-mutable-accumulation.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-nullable-return.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-process-env-in-domain.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-rename-wrapper.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-run-in-domain.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-standalone-brand.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        },
-        {
-            "path": "./tools/biome/no-stdlib-in-domain.grit",
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
-        }
-    ],
     "formatter": {
         "enabled": true,
         "indentStyle": "space",
@@ -100,24 +19,63 @@
     "linter": {
         "enabled": true,
         "domains": {
-            "project": "none",
-            "test": "recommended",
-            "types": "none"
+            "project": "all",
+            "react": "all",
+            "test": "all",
+            "types": "all"
         },
         "rules": {
-            "preset": "recommended",
-            "complexity": {
-                "useLiteralKeys": "off"
-            },
-            "performance": {
-                "noAccumulatingSpread": "error",
-                "noBarrelFile": "error",
-                "noDelete": "error",
-                "noReExportAll": "error"
-            },
-            "suspicious": {
-                "noExplicitAny": "error",
-                "noShadowRestrictedNames": "off"
+            "preset": "all",
+            "a11y": "error",
+            "complexity": "error",
+            "correctness": "error",
+            "performance": "error",
+            "security": "error",
+            "style": "error",
+            "suspicious": "error",
+            "nursery": {
+                "noBunModules": "error",
+                "noDuplicateSelectors": "error",
+                "noEmptyObjectKeys": "error",
+                "noExcessiveNestedCallbacks": "error",
+                "noExcessiveSelectorClasses": "error",
+                "noExtendNative": "error",
+                "noImpliedEval": "error",
+                "noInlineStyles": "error",
+                "noInvalidFileInputAccept": "error",
+                "noInvalidPropertyInitValue": "error",
+                "noLoopFunc": "error",
+                "noNegationInEqualityCheck": "error",
+                "noNonScalableViewport": "error",
+                "noRestrictedDependencies": "error",
+                "noThisOutsideOfClass": "error",
+                "noTopLevelLiterals": "error",
+                "noUnmodifiedLoopCondition": "error",
+                "noUnnecessaryTemplateExpression": "error",
+                "useArraySome": "error",
+                "useBaseline": "error",
+                "useControlLabel": "error",
+                "useDomNodeTextContent": "error",
+                "useDomQuerySelector": "error",
+                "useExplicitReturnType": "error",
+                "useFlatMathMinMax": "error",
+                "useIframeSandbox": "error",
+                "useImportsFirst": "error",
+                "useMathMinMax": "error",
+                "useModernMathApis": "error",
+                "useNamedCaptureGroup": "error",
+                "useNamedLayer": "error",
+                "useReduceTypeParameter": "error",
+                "useRegexpTest": "error",
+                "useSortedClasses": "error",
+                "useThisInClassMethods": {
+                    "level": "error",
+                    "options": {
+                        "ignoreOverrideMethods": true
+                    }
+                },
+                "useUnicodeRegex": "error",
+                "useVarsOnTop": "error"
             }
         }
     },
@@ -126,6 +84,9 @@
             "quoteStyle": "single",
             "semicolons": "always",
             "trailingCommas": "all"
+        },
+        "resolver": {
+            "experimentalPnpmCatalogs": true
         }
     },
     "json": {
@@ -135,7 +96,60 @@
     },
     "overrides": [
         {
+            "includes": ["infra/automation.ts"],
+            "linter": {
+                "domains": {
+                    "qwik": "none"
+                },
+                "rules": {
+                    "correctness": {
+                        "noProcessGlobal": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": ["**"],
+            "linter": {
+                "rules": {
+                    "complexity": {
+                        "useLiteralKeys": "off"
+                    },
+                    "suspicious": {
+                        "noShadowRestrictedNames": "off"
+                    },
+                    "style": {
+                        "noExcessiveClassesPerFile": "off",
+                        "noExcessiveLinesPerFile": "off"
+                    }
+                }
+            }
+        },
+        {
             "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
+            "plugins": [
+                "./tools/biome/no-suffix-variant.grit",
+                "./tools/biome/no-await-in-domain.grit",
+                "./tools/biome/no-barrel-reexport.grit",
+                "./tools/biome/no-catchall-discard.grit",
+                "./tools/biome/no-domain-throw.grit",
+                "./tools/biome/no-fetch-in-domain.grit",
+                "./tools/biome/no-mutable-accumulation.grit",
+                "./tools/biome/no-nullable-return.grit",
+                "./tools/biome/no-process-env-in-domain.grit",
+                "./tools/biome/no-rename-wrapper.grit",
+                "./tools/biome/no-run-in-domain.grit",
+                "./tools/biome/no-standalone-brand.grit",
+                "./tools/biome/no-stdlib-in-domain.grit",
+                "./tools/biome/no-promise-chain.grit",
+                "./tools/biome/no-single-yield-gen.grit",
+                "./tools/biome/no-double-assertion.grit",
+                "./tools/biome/no-unknown-exception.grit",
+                "./tools/biome/no-string-error.grit",
+                "./tools/biome/no-flatmap-succeed.grit",
+                "./tools/biome/no-json-parse.grit",
+                "./tools/biome/no-unknown-error-channel.grit"
+            ],
             "linter": {
                 "rules": {
                     "style": {
@@ -146,6 +160,63 @@
                     }
                 }
             }
+        },
+        {
+            "includes": ["vite.config.ts", "vitest.config.ts", "**/vitest.config.ts"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noDefaultExport": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": ["infra/program.ts"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useNamingConvention": {
+                            "level": "error",
+                            "options": {
+                                "conventions": [
+                                    {
+                                        "selector": {
+                                            "kind": "objectLiteralProperty"
+                                        },
+                                        "formats": ["camelCase", "snake_case", "CONSTANT_CASE"]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "includes": ["vite.config.ts", "**/vite.config.ts"],
+            "linter": {
+                "domains": {
+                    "types": "none"
+                },
+                "rules": {
+                    "style": {
+                        "useNamingConvention": {
+                            "level": "error",
+                            "options": {
+                                "conventions": [
+                                    {
+                                        "selector": {
+                                            "kind": "objectLiteralProperty"
+                                        },
+                                        "formats": ["camelCase", "snake_case"]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
         }
     ],
     "assist": {
@@ -153,7 +224,9 @@
         "actions": {
             "source": {
                 "organizeImports": "on",
-                "useSortedPackageJson": "on"
+                "useSortedAttributes": "on",
+                "useSortedPackageJson": "on",
+                "useSortedProperties": "on"
             }
         }
     }

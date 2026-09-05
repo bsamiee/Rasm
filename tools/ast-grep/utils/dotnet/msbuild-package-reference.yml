@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-package-reference # A PackageReference element with an Include value that passes the id rule, in the start-tag and the empty-tag form
+language: xml
+arguments: [id]
+rule:
+    kind: element
+    has:
+        matches: msbuild-tag
+        all:
+            - has: {kind: Name, regex: '^PackageReference$'}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Include$'}}, {has: {kind: AttValue, matches: id}}]}

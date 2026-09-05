@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-presence-by-branch
+language: tsx
+severity: error
+utils:
+    # An arm that yields an empty object or an empty array, the arm stands for absence
+    empty-arm:
+        kind: arrow_function
+        has:
+            field: body
+            any:
+                - {kind: array, not: {has: {pattern: $_}}}
+                - {kind: parenthesized_expression, has: {kind: object, not: {has: {pattern: $_}}}}
+    # A Match.value chain of two steps, one arm and one closer, the two-arm match spelled as a matcher
+    two-step-match-chain:
+        kind: call_expression
+        all:
+            - has:
+                  field: function
+                  kind: member_expression
+                  all:
+                      - has: {field: object, pattern: Match.value($_)}
+                      - has: {field: property, regex: '^pipe$'}
+            - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+rule:
+    any:
+        # One arm of the match is empty, in any position: a spread, an argument, a local, a return
+        - matches: effect-two-arm-branch
+          has: {field: arguments, has: {kind: object, has: {kind: pair, has: {field: value, matches: empty-arm}}}}
+        # One step of the two-step chain holds an empty arm, a chain of more steps is a dispatch
+        - matches: two-step-match-chain
+          has: {field: arguments, has: {kind: call_expression, has: {field: arguments, has: {matches: empty-arm}}}}
+        # A conjunction that yields the fragment or false, spread into a container
+        - kind: spread_element
+          has:
+              kind: parenthesized_expression
+              has: {kind: binary_expression, has: {field: operator, regex: '^&&$'}}
+message: Presence is chosen by a branch, one arm or one side stands for absence
+note: >-
+    Lift the present value as an Option (`Option.liftPredicate(value, () => condition)`, `Either.getRight`),
+    then spread `Record.getSomes({ key: option })` for an object key and `Option.toArray(option)` for array elements

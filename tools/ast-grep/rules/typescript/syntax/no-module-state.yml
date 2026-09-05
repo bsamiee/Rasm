@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-module-state
+language: tsx
+severity: error
+rule:
+    any:
+        - kind: lexical_declaration
+          regex: '^let\b'
+        - kind: variable_declaration
+    inside:
+        any:
+            - kind: program
+            - kind: export_statement
+              inside: {kind: program}
+message: A module-level binding is mutable and every function of the module reads and writes it as ambient state
+note: >-
+    Hold the changing value where one scope owns it, a local the producing function returns, a Ref inside the effect that needs it,
+    or an ordinal the caller passes in, and declare module bindings with `const`

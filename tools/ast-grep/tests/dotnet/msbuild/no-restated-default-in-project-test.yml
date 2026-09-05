@@ -1,0 +1,48 @@
+id: no-restated-default-in-project
+valid:
+    # A real override of the SDK default, tests need an entry point
+    - |
+      <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+    # A framework that differs from the root default
+    - |
+      <PropertyGroup><TargetFramework>netstandard2.0</TargetFramework></PropertyGroup>
+    # A packaging project switches the default items off
+    - |
+      <PropertyGroup><EnableDefaultItems>false</EnableDefaultItems></PropertyGroup>
+    # The same name and value outside a PropertyGroup is metadata, not a property
+    - |
+      <ItemGroup><PackageReference Include="EPPlus"><Authors>bsamiee</Authors></PackageReference></ItemGroup>
+    # A symbol format that differs from the root value
+    - |
+      <PropertyGroup><SymbolPackageFormat>symbols.nupkg</SymbolPackageFormat></PropertyGroup>
+invalid:
+    # The restated framework of the root file
+    - |
+      <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+    # The restated author of the root and the packaging props
+    - |
+      <PropertyGroup><Authors>bsamiee</Authors></PropertyGroup>
+    # The restated company
+    - |
+      <PropertyGroup><Company>bsamiee</Company></PropertyGroup>
+    # The SDK default output type
+    - |
+      <PropertyGroup><OutputType>Library</OutputType></PropertyGroup>
+    # The SDK default determinism, mixed case
+    - |
+      <PropertyGroup><Deterministic>True</Deterministic></PropertyGroup>
+    # A root value restated with padding
+    - |
+      <PropertyGroup><Nullable> enable </Nullable></PropertyGroup>
+    # The SDK default debug type
+    - |
+      <PropertyGroup><DebugType>portable</DebugType></PropertyGroup>
+    # The root satellite language
+    - |
+      <PropertyGroup><SatelliteResourceLanguages>en</SatelliteResourceLanguages></PropertyGroup>
+    # The root repository type
+    - |
+      <PropertyGroup><RepositoryType>git</RepositoryType></PropertyGroup>
+    # The root symbol format
+    - |
+      <PropertyGroup><SymbolPackageFormat>snupkg</SymbolPackageFormat></PropertyGroup>

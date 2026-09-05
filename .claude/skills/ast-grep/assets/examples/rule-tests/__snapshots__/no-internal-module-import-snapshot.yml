@@ -1,0 +1,34 @@
+id: no-internal-module-import
+snapshots:
+  import * as Internal from "item/internal/list";:
+    fixed: import * as Internal from "item";
+    labels:
+    - source: item/internal/list
+      message: The internal path
+      style: primary
+      start: 27
+      end: 45
+  import Item from "item/internal";:
+    fixed: import Item from "item";
+    labels:
+    - source: item/internal
+      message: The internal path
+      style: primary
+      start: 18
+      end: 31
+  import type { Row } from 'item/internal/row';:
+    fixed: import type { Row } from 'item';
+    labels:
+    - source: item/internal/row
+      message: The internal path
+      style: primary
+      start: 26
+      end: 43
+  import { List } from "item/internal/list";:
+    fixed: import { List } from "item";
+    labels:
+    - source: item/internal/list
+      message: The internal path
+      style: primary
+      start: 22
+      end: 40

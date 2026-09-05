@@ -1,0 +1,26 @@
+id: require-package-version-comment
+valid:
+    # The row form of Directory.Packages.props, the comment after the blanks on the row's line
+    - |
+      <ItemGroup Label="Testing"><PackageVersion Include="CsCheck" Version="4.8.0" />                 <!-- Property-based testing with shrinking, concurrency, and performance checks --></ItemGroup>
+    # A comment directly after the row
+    - |
+      <ItemGroup Label="Analyzers"><PackageVersion Include="MinVer" Version="7.0.0" /><!-- Assembly and package version from the nearest git tag --></ItemGroup>
+    # A global package reference holds the same trailing comment
+    - |
+      <ItemGroup Label="Analyzers"><GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" /> <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules --></ItemGroup>
+invalid:
+    # A row with no comment
+    - |
+      <ItemGroup Label="Mathematics"><PackageVersion Include="HyperJet" Version="0.3.0" /></ItemGroup>
+    # A comment on the next line belongs to the next row, the row itself has none
+    - |
+      <ItemGroup Label="Mathematics"><PackageVersion Include="MatFlat" Version="0.8.3" />
+          <!-- Automatic differentiation computing gradients and Hessians with SIMD acceleration --></ItemGroup>
+    # A comment spanning lines is not the one-line form
+    - |
+      <ItemGroup Label="Mathematics"><PackageVersion Include="CSparse" Version="4.4.1" /> <!-- Sparse LU,
+          Cholesky, and QR factorization --></ItemGroup>
+    # A global package reference with no comment
+    - |
+      <ItemGroup Label="Analyzers"><GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" /></ItemGroup>

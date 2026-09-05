@@ -1,0 +1,32 @@
+{
+    "name": "ktx",
+    "version-string": "4.4.2",
+    "$comment": "KTX-Software release whose ktx CLI creates, transcodes, and validates KTX2 textures, the Windows asset is an NSIS installer a Windows host runs silently into the cache",
+    "url": "https://github.com/KhronosGroup/KTX-Software/releases/download/v{version}/{asset}",
+    "runtimes": {
+        "osx-arm64": {
+            "name": "KTX-Software-4.4.2-Darwin-arm64.pkg",
+            "sha256": "500bd8f9d63358c3f3a0d83b724c8574436a72c37dc0e4bad90ec1ca38032c3c",
+            "format": "pkg",
+            "path": "bin/ktx"
+        },
+        "linux-x64": {
+            "name": "KTX-Software-4.4.2-Linux-x86_64.tar.bz2",
+            "sha256": "a8781bad05f9624edbf910b7f258cd0a4ba7d3e63b49ecc0a0ab440bf6a0a245",
+            "format": "tar",
+            "path": "KTX-Software-4.4.2-Linux-x86_64/bin/ktx"
+        },
+        "linux-arm64": {
+            "name": "KTX-Software-4.4.2-Linux-arm64.tar.bz2",
+            "sha256": "60382e7b842177b8048bd58ccdc770383f8ef65b94452a25d3afdb55f2405c5a",
+            "format": "tar",
+            "path": "KTX-Software-4.4.2-Linux-arm64/bin/ktx"
+        },
+        "win-x64": {
+            "name": "KTX-Software-4.4.2-Windows-x64.exe",
+            "sha256": "1f323b0fec19794f5e6c0425a61d4b1da396872a10be862d105f4f4b2d2957fe",
+            "format": "nsis",
+            "path": "bin/ktx.exe"
+        }
+    }
+}

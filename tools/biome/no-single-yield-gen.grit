@@ -1,0 +1,5 @@
+language js(typescript, jsx)
+
+`Effect.gen(function* () { return yield* $effect })` as $hit where {
+    register_diagnostic(span=$hit, message="Generator with one yield returns the effect it yields, use the effect itself or Effect.flatMap, a generator needs two or more dependent yields", severity="error")
+}

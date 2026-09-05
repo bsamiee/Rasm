@@ -1,0 +1,33 @@
+id: require-exact-package-version-row
+valid:
+    # An exact version
+    - |
+      <PackageVersion Include="CsCheck" Version="4.8.0" />
+    # A prerelease is exact
+    - |
+      <PackageVersion Include="LanguageExt.Core" Version="5.0.0-beta-77" />
+    # An exact range in brackets pins one version
+    - |
+      <PackageVersion Include="TextureCompressor" Version="[0.1.0]" />
+    # A global package reference with an exact version
+    - |
+      <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" />
+invalid:
+    # A floating version reads the feed state at restore
+    - |
+      <PackageVersion Include="CsCheck" Version="4.*" />
+    # An open range takes the newest version the feed holds
+    - |
+      <PackageVersion Include="CsCheck" Version="[4.0,5.0)" />
+    # A row without a version
+    - |
+      <PackageVersion Include="CsCheck" />
+    # A nested-file update row in the root file, which declares with Include
+    - |
+      <PackageVersion Update="CsCheck" Version="4.8.0" />
+    # An empty version
+    - |
+      <PackageVersion Include="CsCheck" Version="" />
+    # A floating global package reference
+    - |
+      <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.*" />

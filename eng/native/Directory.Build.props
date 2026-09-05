@@ -4,12 +4,16 @@
         <RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..'))</RepositoryRoot>
         <NativeArtifactsRoot>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'native'))</NativeArtifactsRoot>
         <ArtifactsPath>$(NativeArtifactsRoot)msbuild</ArtifactsPath>
+        <!-- The local feed NuGet.config maps Rasm.* ids to -->
+        <PackageOutputPath>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'nuget'))</PackageOutputPath>
         <NativeLibraryName>$(MSBuildProjectName.Replace('Rasm.Native.', '').Replace('Rasm.', '').ToLowerInvariant())</NativeLibraryName>
         <StageRoot>$([MSBuild]::NormalizeDirectory('$(NativeArtifactsRoot)', '$(NativeLibraryName)', 'stage'))</StageRoot>
         <TargetFramework>netstandard2.0</TargetFramework>
         <Authors>bsamiee</Authors>
-        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <IncludeBuildOutput Condition="'$(IncludeBuildOutput)' == ''">false</IncludeBuildOutput>
         <EnableDefaultItems>false</EnableDefaultItems>
+        <!-- The isolated chain skips the root props, and the workspace runs no package audit -->
+        <NuGetAudit>false</NuGetAudit>
         <!-- Pinning the zip entry timestamp makes the nupkg a pure function of content and version -->
         <DeterministicTimestamp>1735689600</DeterministicTimestamp>
     </PropertyGroup>

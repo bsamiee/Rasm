@@ -1,0 +1,126 @@
+id: no-condition-as-payload
+snapshots:
+  ? |
+    Option.filter(option, (held) => held)
+  : labels:
+    - source: Option.filter(option, (held) => held)
+      style: primary
+      start: 0
+      end: 37
+    - source: Option
+      style: secondary
+      start: 0
+      end: 6
+    - source: filter
+      style: secondary
+      start: 7
+      end: 13
+    - source: Option.filter
+      style: secondary
+      start: 0
+      end: 13
+    - source: held
+      style: secondary
+      start: 23
+      end: 27
+    - source: held
+      style: secondary
+      start: 23
+      end: 27
+    - source: held
+      style: secondary
+      start: 23
+      end: 27
+    - source: held
+      style: secondary
+      start: 32
+      end: 36
+    - source: (held) => held
+      style: secondary
+      start: 22
+      end: 36
+    - source: (held) => held
+      style: secondary
+      start: 22
+      end: 36
+  ? |
+    Option.liftPredicate(config.react, Function.identity)
+  : labels:
+    - source: Option.liftPredicate(config.react, Function.identity)
+      style: primary
+      start: 0
+      end: 53
+    - source: Option
+      style: secondary
+      start: 0
+      end: 6
+    - source: liftPredicate
+      style: secondary
+      start: 7
+      end: 20
+    - source: Option.liftPredicate
+      style: secondary
+      start: 0
+      end: 20
+    - source: Function.identity
+      style: secondary
+      start: 35
+      end: 52
+    - source: Function.identity
+      style: secondary
+      start: 35
+      end: 52
+  ? |
+    Option.liftPredicate(production, identity)
+  : labels:
+    - source: Option.liftPredicate(production, identity)
+      style: primary
+      start: 0
+      end: 42
+    - source: Option
+      style: secondary
+      start: 0
+      end: 6
+    - source: liftPredicate
+      style: secondary
+      start: 7
+      end: 20
+    - source: Option.liftPredicate
+      style: secondary
+      start: 0
+      end: 20
+    - source: identity
+      style: secondary
+      start: 33
+      end: 41
+    - source: identity
+      style: secondary
+      start: 33
+      end: 41
+  ? |
+    Option.some(flag).pipe(Option.filter(identity))
+  : labels:
+    - source: Option.filter(identity)
+      style: primary
+      start: 23
+      end: 46
+    - source: Option
+      style: secondary
+      start: 23
+      end: 29
+    - source: filter
+      style: secondary
+      start: 30
+      end: 36
+    - source: Option.filter
+      style: secondary
+      start: 23
+      end: 36
+    - source: identity
+      style: secondary
+      start: 37
+      end: 45
+    - source: identity
+      style: secondary
+      start: 37
+      end: 45

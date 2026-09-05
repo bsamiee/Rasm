@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-restated-default-in-project
+language: xml
+severity: error
+files: ['**/*.csproj']
+rule:
+    # One arm per value, the names in each arm hold that value as the SDK default or the Directory.Build.props value
+    any:
+        - all: [{matches: {msbuild-property: {name: {regex: '^OutputType$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*Library\s*$'}}}}]
+        - all: [{matches: {msbuild-property: {name: {regex: '^(EnableDefaultItems|EnableDefaultCompileItems|GenerateAssemblyInfo|Deterministic|CheckForOverflowUnderflow|GenerateDocumentationFile|PublishRepositoryUrl|IncludeSymbols)$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*true\s*$'}}}}]
+        - all: [{matches: {msbuild-property: {name: {regex: '^(Nullable|ImplicitUsings)$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*enable\s*$'}}}}]
+        - all: [{matches: {msbuild-property: {name: {regex: '^DebugType$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*portable\s*$'}}}}]
+        - all: [{matches: {msbuild-property: {name: {regex: '^TargetFramework$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*net10\.0\s*$'}}}}]
+        - all: [{matches: {msbuild-property: {name: {regex: '^SatelliteResourceLanguages$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*en\s*$'}}}}]
+        - all: [{matches: {msbuild-property: {name: {regex: '^(Authors|Company)$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*bsamiee\s*$'}}}}]
+        - all: [{matches: {msbuild-property: {name: {regex: '^RepositoryType$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*git\s*$'}}}}]
+        - all: [{matches: {msbuild-property: {name: {regex: '^SymbolPackageFormat$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*snupkg\s*$'}}}}]
+message: A project file restates an SDK default or a Directory.Build.props value, delete the element so the root file stays the one owner and a root change reaches the project

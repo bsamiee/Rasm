@@ -1,0 +1,9 @@
+language js(typescript, jsx)
+
+or {
+    `Effect.try($fn)`,
+    `Effect.tryPromise($fn)`
+} as $hit where {
+    $fn <: arrow_function(),
+    register_diagnostic(span=$hit, message="Effect.try or Effect.tryPromise without a catch mapping fails with UnknownException, pass { try, catch } and map the cause to a tagged error consumers match", severity="error")
+}

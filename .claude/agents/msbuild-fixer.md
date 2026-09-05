@@ -46,22 +46,22 @@ Paths outside the repo, or scopes with no MSBuild file, return `result: not star
 2. Read the console. Each `BC0101`, `BC0102`, and `BC0106` line is a finding with its `file:line`.
 3. Run one `rg` probe per catalog entry over `--glob '*.{props,targets,csproj}'`, unless the row has its own glob
 
-| [INDEX] | [ENTRY]                    | [PROBE]                                                                                   |
-| :-----: | :------------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | Unquoted condition operand | `rg -n -e 'Condition="\$\(' -e 'Condition="[^"]*[=!]= *[^\x27 "]'`                        |
-|  [02]   | Props condition, late value | `rg -n 'Condition="[^"]*\$\(TargetFramework\)' --glob '*.props'`                         |
-|  [03]   | Artifacts path in project  | `rg -n '<(ArtifactsPath|UseArtifactsOutput|BaseIntermediateOutputPath)>' --glob '*.csproj'` |
-|  [04]   | Update before the include  | `rg -n ' Update="' --glob '*.props'`                                                      |
-|  [05]   | File read in a property    | `rg -n -e '\[System\.IO\.File\]::' -e '\[System\.IO\.Directory\]::'`                      |
-|  [06]   | Reference with HintPath    | `rg -n 'HintPath'`                                                                        |
-|  [07]   | Import without Exists      | `rg -nUP '<Import (?![^>]*Condition=)'`                                                   |
-|  [08]   | Backslash in Exec          | `rg -n '<Exec Command="[^"]*\\'`                                                          |
-|  [09]   | Target without Inputs      | `rg -nUP '<Target (?![^>]*Inputs=)[^>]*>'`                                                |
-|  [10]   | Exec for a task            | `rg -n '<Exec '`                                                                          |
-|  [11]   | Exec without OS condition  | `rg -n -e '<Exec Command="chmod' -e '<Exec Command="cmd ' -e '<Exec Command="powershell'` |
-|  [12]   | Duplicate project instance | `rg -n -e '_IsPublishing' -e '<MSBuild .*Properties='`                                    |
-|  [13]   | SetTargetFramework         | `rg -n 'SetTargetFramework='`                                                             |
-|  [14]   | `NU1008`                   | `rg -n '<PackageReference [^>]*Version="'`                                                |
+| [INDEX] | [ENTRY]                     | [PROBE]                                                                                       |
+| :-----: | :-------------------------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | Unquoted condition operand  | `rg -n -e 'Condition="\$\(' -e 'Condition="[^"]*[=!]= *[^\x27 "]'`                            |
+|  [02]   | Props condition, late value | `rg -n 'Condition="[^"]*\$\(TargetFramework\)' --glob '*.props'`                              |
+|  [03]   | Artifacts path in project   | `rg -n '<(ArtifactsPath\|UseArtifactsOutput\|BaseIntermediateOutputPath)>' --glob '*.csproj'` |
+|  [04]   | Update before the include   | `rg -n ' Update="' --glob '*.props'`                                                          |
+|  [05]   | File read in a property     | `rg -n -e '\[System\.IO\.File\]::' -e '\[System\.IO\.Directory\]::'`                          |
+|  [06]   | Reference with HintPath     | `rg -n 'HintPath'`                                                                            |
+|  [07]   | Import without Exists       | `rg -nUP '<Import (?![^>]*Condition=)'`                                                       |
+|  [08]   | Backslash in Exec           | `rg -n '<Exec Command="[^"]*\\'`                                                              |
+|  [09]   | Target without Inputs       | `rg -nUP '<Target (?![^>]*Inputs=)[^>]*>'`                                                    |
+|  [10]   | Exec for a task             | `rg -n '<Exec '`                                                                              |
+|  [11]   | Exec without OS condition   | `rg -n -e '<Exec Command="chmod' -e '<Exec Command="cmd ' -e '<Exec Command="powershell'`     |
+|  [12]   | Duplicate project instance  | `rg -n -e '_IsPublishing' -e '<MSBuild .*Properties='`                                        |
+|  [13]   | SetTargetFramework          | `rg -n 'SetTargetFramework='`                                                                 |
+|  [14]   | `NU1008`                    | `rg -n '<PackageReference [^>]*Version="'`                                                    |
 
 4. Answer every placement or override question with the troubleshooting section of `dotnet-msbuild-evaluation`. One call accepts many `-getProperty` and `-getItem` switches.
 5. Run `get_nuget_dependencies` on the project before a `PackageVersion` row is added

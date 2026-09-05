@@ -1,0 +1,31 @@
+{
+    "name": "sqlitevec",
+    "version-string": "0.1.10-alpha.4",
+    "url": "https://github.com/asg017/sqlite-vec/releases/download/v{version}/{asset}",
+    "runtimes": {
+        "osx-arm64": {
+            "name": "sqlite-vec-0.1.10-alpha.4-loadable-macos-aarch64.tar.gz",
+            "sha256": "9c4c3c9fee1cd68d07028f90c9e31b67f13ca1a1737435ae569e8fe7a17b5a91",
+            "format": "tar",
+            "path": "vec0.dylib"
+        },
+        "linux-x64": {
+            "name": "sqlite-vec-0.1.10-alpha.4-loadable-linux-x86_64.tar.gz",
+            "sha256": "0349d1cffea2da145eb195ee0fa0e7803544a9491a458c58aeacfb434517abf1",
+            "format": "tar",
+            "path": "vec0.so"
+        },
+        "linux-arm64": {
+            "name": "sqlite-vec-0.1.10-alpha.4-loadable-linux-aarch64.tar.gz",
+            "sha256": "32b2333e0b14d318036320c729cab35655b32e8ac3edeed1d048369e6b0b6095",
+            "format": "tar",
+            "path": "vec0.so"
+        },
+        "win-x64": {
+            "name": "sqlite-vec-0.1.10-alpha.4-loadable-windows-x86_64.tar.gz",
+            "sha256": "39d29bd26252b61daf7e1d3d0b538336e5364e1022c61084bba91f6570941017",
+            "format": "tar",
+            "path": "vec0.dll"
+        }
+    }
+}

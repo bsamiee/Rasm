@@ -1,19 +1,44 @@
 name: Native cache
-description: Restores the vcpkg binary cache and the emgucv build output for one runtime identifier, keyed on the manifests that pin them
+description: Restores the vcpkg binary cache, the vcpkg downloads, the pinned release downloads, and the emgucv build output for one runtime identifier
 
 inputs:
   rid:
     description: Runtime identifier the job stages
     required: true
 
+outputs:
+  vcpkg-key:
+    description: Cache key of the vcpkg entry, the workflow saves it after the stage step under any outcome
+    value: ${{ steps.vcpkg.outputs.cache-primary-key }}
+  releases-key:
+    description: Cache key of the release downloads entry, the workflow saves it after the stage step under any outcome
+    value: ${{ steps.releases.outputs.cache-primary-key }}
+  emgucv-key:
+    description: Cache key of the emgucv entry, the workflow saves it after the stage step under any outcome
+    value: ${{ steps.emgucv.outputs.cache-primary-key }}
+
 runs:
   using: composite
   steps:
-    - uses: actions/cache@v6
+    - id: vcpkg
+      uses: actions/cache/restore@v6
       with:
-        path: .cache/vcpkg-archives
-        key: vcpkg-archives-${{ inputs.rid }}-${{ hashFiles('eng/native/*/vcpkg.json') }}
-    - uses: actions/cache@v6
+        path: |
+          .cache/vcpkg-archives
+          .cache/vcpkg-downloads
+        key: vcpkg-${{ inputs.rid }}-${{ hashFiles('eng/native/*/vcpkg.json') }}
+    - id: releases
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          .cache/energyplus
+          .cache/ktx
+          .cache/sqlitevec
+          .cache/duckdbextensions
+          .cache/tools
+        key: releases-${{ inputs.rid }}-${{ hashFiles('eng/native/*/release.json', 'eng/native/*/extensions.json') }}
+    - id: emgucv
+      uses: actions/cache/restore@v6
       with:
         path: .cache/emgucv/artifacts
-        key: emgucv-artifacts-${{ inputs.rid }}-${{ hashFiles('eng/native/emgucv/source.json') }}
+        key: emgucv-${{ inputs.rid }}-${{ hashFiles('eng/native/emgucv/source.json') }}

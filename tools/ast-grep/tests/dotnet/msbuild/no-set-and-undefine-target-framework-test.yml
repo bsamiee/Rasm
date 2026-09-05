@@ -1,0 +1,15 @@
+id: no-set-and-undefine-target-framework
+valid:
+    # A single-targeting reference
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj" />
+    # The incompatible-framework form with the undefine alone
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" ReferenceOutputAssembly="false" />
+invalid:
+    # Both controls on one reference
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+    # Both controls in the metadata child form
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework><UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>

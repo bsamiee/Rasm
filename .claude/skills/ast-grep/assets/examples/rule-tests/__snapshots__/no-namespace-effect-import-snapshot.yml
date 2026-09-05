@@ -1,0 +1,14 @@
+id: no-namespace-effect-import
+snapshots:
+  import * as E from "effect";:
+    labels:
+    - source: import * as E from "effect";
+      style: primary
+      start: 0
+      end: 28
+  import * as Effect from "effect";:
+    labels:
+    - source: import * as Effect from "effect";
+      style: primary
+      start: 0
+      end: 33

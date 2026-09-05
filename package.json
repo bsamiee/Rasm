@@ -1,22 +1,18 @@
 {
-    "name": "rasm-workspace",
+    "name": "rasm",
     "private": true,
     "type": "module",
     "browserslist": [
         "baseline widely available"
     ],
     "devDependencies": {
-        "@ast-grep/cli": "catalog:",
         "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/lib-storage": "catalog:",
         "@aws-sdk/s3-request-presigner": "catalog:",
         "@biomejs/biome": "catalog:",
-        "@bufbuild/buf": "catalog:",
         "@bufbuild/protobuf": "catalog:",
         "@bufbuild/protoc-gen-es": "catalog:",
         "@bufbuild/protovalidate": "catalog:",
-        "@confluentinc/kafka-javascript": "catalog:",
-        "@confluentinc/schemaregistry": "catalog:",
         "@connectrpc/connect": "catalog:",
         "@connectrpc/connect-node": "catalog:",
         "@connectrpc/connect-web": "catalog:",
@@ -79,7 +75,6 @@
         "@loaders.gl/core": "catalog:",
         "@loaders.gl/las": "catalog:",
         "@lume/kiwi": "catalog:",
-        "@mermaid-js/mermaid-cli": "catalog:",
         "@modelcontextprotocol/sdk": "catalog:",
         "@msgpack/msgpack": "catalog:",
         "@nats-io/jetstream": "catalog:",
@@ -176,6 +171,7 @@
         "@tanstack/react-table": "catalog:",
         "@tanstack/react-virtual": "catalog:",
         "@tanstack/store": "catalog:",
+        "@tree-sitter-grammars/tree-sitter-xml": "catalog:",
         "@turf/turf": "catalog:",
         "@tus/s3-store": "catalog:",
         "@tus/server": "catalog:",
@@ -284,7 +280,8 @@
         "web-vitals": "catalog:",
         "webdav": "catalog:",
         "workbox-build": "catalog:",
-        "workbox-window": "catalog:"
+        "workbox-window": "catalog:",
+        "yaml": "catalog:"
     },
     "nx": {
         "tags": [
@@ -293,30 +290,59 @@
         "targets": {
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
-                "cache": false
+                "cache": true,
+                "inputs": [
+                    "{workspaceRoot}/Workspace.slnx",
+                    "{workspaceRoot}/{libs,tests,tools}/**/*.csproj",
+                    "{workspaceRoot}/Directory.Build.props",
+                    "{workspaceRoot}/Directory.Build.targets",
+                    "{workspaceRoot}/Directory.Packages.props",
+                    "{workspaceRoot}/NuGet.config",
+                    "{workspaceRoot}/global.json"
+                ],
+                "outputs": [
+                    "{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json",
+                    "{workspaceRoot}/.artifacts/dotnet/obj/*/project.nuget.cache",
+                    "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"
+                ]
+            },
+            "grammar": {
+                "command": "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",
+                "cache": true,
+                "inputs": [
+                    "{workspaceRoot}/node_modules/@tree-sitter-grammars/tree-sitter-xml/xml/src/**/*",
+                    {
+                        "runtime": "tree-sitter --version"
+                    }
+                ],
+                "outputs": [
+                    "{workspaceRoot}/.cache/ast-grep/xml.so"
+                ]
             },
             "lint": {
+                "executor": "nx:run-commands",
+                "cache": true,
+                "dependsOn": [
+                    "grammar"
+                ],
                 "options": {
                     "commands": [
-                        "biome check {args}",
+                        "biome check --write --error-on-warnings {args}",
                         {
                             "command": "actionlint",
+                            "forwardAllArgs": false
+                        },
+                        {
+                            "command": "ast-grep test",
+                            "forwardAllArgs": false
+                        },
+                        {
+                            "command": "ast-grep scan *.ts *.props *.targets *.slnx NuGet.config infra tools",
                             "forwardAllArgs": false
                         }
                     ],
                     "args": "*.json *.ts .mcp.json .vscode infra tools",
                     "parallel": false
-                },
-                "configurations": {
-                    "write": {
-                        "commands": [
-                            "biome check --write {args}",
-                            {
-                                "command": "actionlint",
-                                "forwardAllArgs": false
-                            }
-                        ]
-                    }
                 },
                 "inputs": [
                     "{workspaceRoot}/*",
@@ -327,15 +353,8 @@
                 ]
             },
             "format": {
-                "options": {
-                    "command": "biome format {args}",
-                    "args": "*.json *.ts .mcp.json .vscode infra tools"
-                },
-                "configurations": {
-                    "write": {
-                        "command": "biome format --write {args}"
-                    }
-                },
+                "command": "biome format --write *.json *.ts .mcp.json .vscode infra tools",
+                "cache": true,
                 "inputs": [
                     "{workspaceRoot}/*",
                     "{workspaceRoot}/.vscode/**/*",
@@ -343,6 +362,7 @@
                     "{workspaceRoot}/tools/**/*"
                 ]
             },
+            "check": {},
             "typecheck": {
                 "inputs": [
                     "{workspaceRoot}/*.config.ts",
@@ -363,75 +383,41 @@
                     "{workspaceRoot}/.cache/typescript/out/root"
                 ]
             },
-            "preview": {
-                "command": "node infra/automation.ts preview",
-                "configurations": {
-                    "expect-no-changes": {
-                        "command": "node infra/automation.ts preview --refresh --expect-no-changes"
-                    }
-                },
-                "cache": false,
-                "parallelism": false
-            },
             "up": {
-                "command": "node infra/automation.ts up",
+                "command": "doppler run --project rasm --config dev_repo -- node infra/automation.ts up",
                 "cache": false,
                 "parallelism": false
             },
             "refresh": {
-                "command": "node infra/automation.ts refresh",
+                "command": "doppler run --project rasm --config dev_repo -- node infra/automation.ts refresh",
                 "cache": false,
                 "parallelism": false
             },
-            "check": {
-                "executor": "nx:noop",
-                "dependsOn": [
-                    "lint",
-                    "format",
-                    "typecheck",
-                    {
-                        "projects": [
-                            "*",
-                            "!rasm-workspace"
-                        ],
-                        "target": "check"
-                    }
-                ]
-            },
             "coverage": {
-                "executor": "nx:run-commands",
-                "cache": false,
-                "dependsOn": [
-                    {
-                        "projects": [
-                            "*",
-                            "!rasm-workspace"
-                        ],
-                        "target": "test"
-                    }
-                ],
-                "options": {
-                    "commands": [
-                        "uv run coverage combine && uv run coverage lcov && uv run coverage xml",
-                        "vitest run --merge-reports .artifacts/typescript/test-results/.vitest-reports/@rasm"
-                    ],
-                    "parallel": false
-                }
+                "command": "uv run --only-group eng python -m eng.scripts.coverage",
+                "cache": false
             },
             "mutation": {
+                "command": "uv run --only-group eng python -m eng.scripts.mutation",
+                "cache": false
+            },
+            "upgrade": {
                 "executor": "nx:run-commands",
                 "cache": false,
+                "parallelism": false,
                 "options": {
                     "commands": [
-                        "dotnet dnx dotnet-stryker --yes --allow-roll-forward",
-                        "pnpm exec stryker run"
+                        "uv lock --upgrade",
+                        "pnpm update --latest --recursive",
+                        "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore Workspace.slnx"
                     ],
                     "parallel": false
                 }
             },
-            "release": {
-                "command": "gh release create \"$GITHUB_REF_NAME\" --generate-notes",
-                "cache": false
+            "workflow": {
+                "command": "act push --container-daemon-socket unix:///var/run/docker.sock -P ubuntu-24.04=ghcr.io/catthehacker/ubuntu:full-24.04 -P ubuntu-24.04-arm=ghcr.io/catthehacker/ubuntu:full-24.04 --action-cache-path .cache/act/actions --cache-server-path .cache/act/cache --artifact-server-path .cache/act/artifacts",
+                "cache": false,
+                "parallelism": false
             }
         }
     }

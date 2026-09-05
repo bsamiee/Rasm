@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-copy-task-into-output
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Copy$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir)\)'}}}
+message: A Copy task into the output directory reaches this project's bin alone, a referencing project and dotnet publish never receive the file, declare it as a None or Content item with CopyToOutputDirectory

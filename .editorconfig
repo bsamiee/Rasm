@@ -8,11 +8,6 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-# BuildCheck (`dotnet build -check`): both keys allow uninitialized property reads in conditions shared by .props and .targets files
-[*.csproj]
-build_check.BC0201.AllowUninitializedPropertiesInConditions = true
-build_check.BC0202.AllowUninitializedPropertiesInConditions = true
-
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
 csharp_style_namespace_declarations = file_scoped:error                       # File-scoped namespaces
@@ -52,7 +47,7 @@ dotnet_style_prefer_simplified_boolean_expressions = true:error               # 
 dotnet_style_prefer_simplified_interpolation = true:error                     # Simplified string interpolation
 csharp_style_inlined_variable_declaration = true:error                        # Inline out variable declarations
 
-# --- [MODERN_SYNTAX_AND_CONCISION] ------------------------------------------
+# --- [SYNTAX_AND_CONCISION] -------------------------------------------------
 csharp_style_prefer_primary_constructors = true:error                         # Primary constructors
 dotnet_style_prefer_collection_expression = when_types_exactly_match:error    # Collection expressions when types match exactly
 csharp_style_implicit_object_creation_when_type_is_apparent = true:error      # Target-typed new when the type is apparent
@@ -69,7 +64,7 @@ csharp_prefer_simple_using_statement = true:error                             # 
 csharp_prefer_static_local_function = true:error                              # static local functions when nothing is captured
 csharp_prefer_static_anonymous_function = true:error                          # static lambdas when nothing is captured
 csharp_style_prefer_method_group_conversion = true:error                      # Method groups over equivalent lambdas
-csharp_style_prefer_local_over_anonymous_function = false:error               # Local functions are not required over lambdas
+csharp_style_prefer_local_over_anonymous_function = false:error               # Lambdas allowed over local functions
 csharp_style_prefer_top_level_statements = false:error                        # No top-level statements
 csharp_style_prefer_utf8_string_literals = true:error                         # UTF-8 string literals
 csharp_prefer_simple_default_expression = true:error                          # default literal over default(T)
@@ -120,7 +115,7 @@ csharp_indent_case_contents = true                                            # 
 csharp_indent_case_contents_when_block = true                                 # Indent case block contents
 csharp_indent_switch_labels = true                                            # Indent switch labels
 csharp_indent_labels = one_less_than_current                                  # Labels indented one level less than the current block
-csharp_indent_braces = false                                                  # Do not indent braces
+csharp_indent_braces = false                                                  # No brace indentation
 csharp_space_after_keywords_in_control_flow_statements = true                 # Space after control-flow keywords
 csharp_space_after_cast = false                                               # No space after a cast
 csharp_space_after_comma = true                                               # Space after commas
@@ -144,11 +139,11 @@ csharp_space_between_square_brackets = false                                  # 
 dotnet_diagnostic.IDE0055.severity = error                                    # Formatting violations fail the build
 
 # --- [QUALITY_ANALYZERS] -----------------------------------------------------
-# AnalysisLevel latest-all with TreatWarningsAsErrors makes every CA rule an error, leaving only exemptions and rules latest-all omits here
+# Every CA rule is an error under AnalysisLevel latest-all with TreatWarningsAsErrors, the entries are exemptions and rules latest-all omits
 dotnet_diagnostic.CA1034.severity = none                                      # Nested types are part of Thinktecture union declarations
 dotnet_diagnostic.CA1720.severity = none                                      # Grasshopper parameter SmartEnum items are named after the CLR type (Integer, Boolean)
 dotnet_diagnostic.MA0008.severity = none                                      # Structs already default to StructLayout Sequential
-dotnet_diagnostic.MA0048.severity = none                                      # Multiple types per file allowed
+dotnet_diagnostic.MA0048.severity = none                                      # More than one type per file allowed
 dotnet_diagnostic.MA0051.severity = none                                      # No method length limit
 dotnet_diagnostic.CS0169.severity = error                                     # Unused private fields
 dotnet_diagnostic.CA1021.severity = error                                     # Off under latest-all: no out parameters
@@ -176,7 +171,7 @@ dotnet_diagnostic.MA0042.severity = error                                     # 
 dotnet_diagnostic.MA0001.severity = error                                     # Info by default: explicit StringComparison except expression trees
 dotnet_diagnostic.MA0043.severity = none                                      # Covered by RCS1015
 dotnet_diagnostic.MA0075.severity = error                                     # Info by default: implicit culture-sensitive ToString
-dotnet_diagnostic.MA0121.severity = error                                     # Off by default: do not reassign parameters
+dotnet_diagnostic.MA0121.severity = error                                     # Off by default: no parameter reassignment
 dotnet_diagnostic.MA0141.severity = error                                     # Off by default: is null over == null
 dotnet_diagnostic.MA0142.severity = error                                     # Off by default: is not null over != null
 dotnet_diagnostic.MA0170.severity = error                                     # Off by default: type check that can never succeed
@@ -201,8 +196,8 @@ dotnet_diagnostic.MA0133.severity = error                                     # 
 dotnet_diagnostic.MA0136.severity = error                                     # Info by default: raw string literal with an implicit newline
 dotnet_diagnostic.MA0152.severity = error                                     # Info by default: Unwrap over a double await
 dotnet_diagnostic.MA0154.severity = error                                     # Info by default: langword in XML doc comments
-dotnet_diagnostic.MA0161.severity = error                                     # Off by default: explicit UseShellExecute since the implicit value varies by host
-dotnet_diagnostic.MA0162.severity = error                                     # Off by default: Process.Start with ProcessStartInfo since the string overloads cannot set it
+dotnet_diagnostic.MA0161.severity = error                                     # Off by default: explicit UseShellExecute, the implicit value varies by host
+dotnet_diagnostic.MA0162.severity = error                                     # Off by default: Process.Start with ProcessStartInfo, the string overloads cannot set it
 dotnet_diagnostic.MA0173.severity = error                                     # Info by default: LazyInitializer.EnsureInitialized over a manual check
 dotnet_diagnostic.MA0180.severity = error                                     # Off by default: ILogger<T> type argument matches the containing type
 dotnet_diagnostic.MA0184.severity = error                                     # Info by default: interpolated string without holes
@@ -254,7 +249,7 @@ MA0032.allowOverloadsWithOptionalParameters = false                           # 
 dotnet_code_quality_unused_parameters = all                                   # Unused-parameter analysis on all visibilities
 
 # --- [ROSLYNATOR_ANALYZERS] --------------------------------------------------
-# Entries promote Info and Hidden rules, enable disabled rules, and disable duplicates since Warning-default rules already error
+# Entries promote Info and Hidden rules, enable disabled rules, and disable duplicates, Warning-default rules already error
 dotnet_diagnostic.RCS1002.severity = error                                    # Off by default: no braces on a single-statement block
 dotnet_diagnostic.RCS1004.severity = error                                    # Off by default: no braces on a single-statement if/else
 dotnet_diagnostic.RCS1006.severity = error                                    # Hidden by default: merge else with a nested if
@@ -334,7 +329,7 @@ dotnet_diagnostic.RCS1224.severity = error                                    # 
 dotnet_diagnostic.RCS1226.severity = error                                    # <para> for multi-paragraph doc summaries
 dotnet_diagnostic.RCS1228.severity = error                                    # Hidden by default: remove empty doc element
 dotnet_diagnostic.RCS1230.severity = error                                    # foreach over an explicit enumerator loop
-dotnet_diagnostic.RCS1231.severity = none                                     # in on every readonly struct hurts small ones (MA0168 covers the reverse)
+dotnet_diagnostic.RCS1231.severity = none                                     # in on a small readonly struct costs more than the copy (MA0168 covers the reverse)
 dotnet_diagnostic.RCS1232.severity = error                                    # Doc elements follow parameter order
 dotnet_diagnostic.RCS1233.severity = error                                    # No & and | on booleans
 dotnet_diagnostic.RCS1234.severity = error                                    # Duplicate enum value
@@ -416,7 +411,7 @@ dotnet_diagnostic.RCS1225.severity = none                                     # 
 dotnet_diagnostic.RCS1227.severity = none                                     # Covered by MA0050
 dotnet_diagnostic.RCS1229.severity = none                                     # Covered by MA0100
 dotnet_diagnostic.RCS1238.severity = none                                     # Nested ?: allowed
-dotnet_diagnostic.RCS1241.severity = none                                     # Non-generic comparer interfaces are legacy
+dotnet_diagnostic.RCS1241.severity = none                                     # Generic comparer interfaces replace the non-generic ones
 dotnet_diagnostic.RCS1242.severity = none                                     # Covered by MA0168
 dotnet_diagnostic.RCS1244.severity = none                                     # Covered by IDE0034
 dotnet_diagnostic.RCS1246.severity = none                                     # Covered by MA0098
@@ -430,7 +425,7 @@ roslynator_doc_comment_summary_style = single_line                            # 
 roslynator_object_creation_parentheses_style = omit                           # RCS1050: new T { } without parentheses
 
 # --- [IDE_QUALITY_RULES] ----------------------------------------------------
-# IDE rules without a style option key, mostly silent by default and invisible to `dotnet format --severity warn`
+# IDE rules without a style option key, their default severity can hide them from `dotnet format --severity warn`
 dotnet_diagnostic.IDE0004.severity = error                                    # Remove unnecessary casts
 dotnet_diagnostic.IDE0005.severity = error                                    # Remove unnecessary using directives
 dotnet_diagnostic.IDE0035.severity = error                                    # Remove unreachable code
@@ -440,7 +435,7 @@ dotnet_diagnostic.IDE0060.severity = error                                    # 
 dotnet_diagnostic.IDE0064.severity = error                                    # Make struct fields writable when they are reassigned
 dotnet_diagnostic.IDE0070.severity = error                                    # HashCode.Combine for composite hash codes
 dotnet_diagnostic.IDE0076.severity = error                                    # Remove invalid SuppressMessage targets
-dotnet_diagnostic.IDE0077.severity = error                                    # No legacy SuppressMessage target format
+dotnet_diagnostic.IDE0077.severity = error                                    # SuppressMessage targets in the Roslyn format
 dotnet_diagnostic.IDE0079.severity = error                                    # Remove stale suppressions
 dotnet_diagnostic.IDE0080.severity = error                                    # Remove unnecessary null-forgiving (!) operator
 dotnet_diagnostic.IDE0082.severity = error                                    # nameof over typeof(T).Name
@@ -459,7 +454,7 @@ dotnet_diagnostic.IDE0380.severity = error                                    # 
 dotnet_diagnostic.IDE1005.severity = error                                    # ?.Invoke for delegate invocation
 
 # --- [MAPPERLY_ANALYZERS] ----------------------------------------------------
-# Only Info and Hidden RMG rules are listed since Warning-default already error
+# Info and Hidden RMG rules, Warning-default rules already error
 dotnet_diagnostic.RMG009.severity = error                                     # Report read-only member targets instead of silent skips
 dotnet_diagnostic.RMG010.severity = error                                     # Cannot map from a write-only member
 dotnet_diagnostic.RMG011.severity = error                                     # Cannot map to a write-only member path
@@ -472,16 +467,15 @@ dotnet_diagnostic.RMG090.severity = error                                     # 
 dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: ignored member without a Justification
 
 # --- [MESSAGEPACK_ANALYZERS] -------------------------------------------------
-# Every MsgPack rule defaults to Error or Warning except these
-dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: explicit serializer options since the default reads a static mutable field
-dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: serializer options from a constant, never a mutable static field
+# MsgPack rules with a Disabled default, the rest default to Error or Warning
+dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: explicit serializer options, the default reads a static mutable field
+dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: serializer options from a constant in place of a mutable static field
 
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
-# All TTRESG rules but TTRESG1001 default to Error or Warning
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Info by default: static lambdas in Switch/Map arms with state through the state parameter
 
 # --- [ERRORPRONE_ANALYZERS] --------------------------------------------------
-# Only Info-default and disabled rules are listed since Warning-default already error
+# Info-default and disabled rules, Warning-default rules already error
 dotnet_diagnostic.EPC15.severity = error                                      # ConfigureAwait(false) in assemblies marked UseConfigureAwaitFalse
 dotnet_diagnostic.EPC19.severity = error                                      # Unobserved CancellationTokenRegistration pins the callback until disposed
 dotnet_diagnostic.EPC27.severity = error                                      # No async void method (EPC17 covers delegates)
@@ -498,13 +492,13 @@ dotnet_diagnostic.EPC39.severity = error                                      # 
 dotnet_diagnostic.EPC40.severity = error                                      # Off by default: IEnumerable<T> parameter enumerated more than once
 
 # --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------
-# RASM0002 rejects NoWarn and WarningsNotAsErrors in project files, keeping severity here
+# RASM0002 rejects NoWarn and WarningsNotAsErrors in project files, and .editorconfig holds every severity
 dotnet_diagnostic.CS1591.severity = none                                      # XML docs are generated for tooling with optional member docs
 dotnet_diagnostic.CA2225.severity = none                                      # Operator overloads from LanguageExt and Thinktecture need no named alternatives
 
 # Template for a project that references the Rhino host assemblies:
 # [libs/dotnet/{rhino-host-project}/**.cs]
-# dotnet_diagnostic.CA1416.severity = none                                    # CA1416 reads the reference assembly, not Rhino's System.Drawing.Common implementing Windows-only members on macOS
+# dotnet_diagnostic.CA1416.severity = none                                    # CA1416 reads the reference assembly, and Rhino's System.Drawing.Common implements the Windows-only members on macOS
 # dotnet_diagnostic.CA1724.severity = none                                    # Microsoft.macOS Phase namespace collides with same-named application types
 
 # Template for a project that opts into Microsoft.Extensions experimental APIs:
@@ -521,7 +515,7 @@ dotnet_diagnostic.CA1515.severity = none                                      # 
 dotnet_diagnostic.MA0191.severity = none                                      # Tests pass null into non-nullable parameters with the null-forgiving operator
 
 # --- [XUNIT_ANALYZERS] -------------------------------------------------------
-# xunit.v3.core bundles xunit.analyzers with only Info and Hidden rules listed since the rest already error
+# xunit.analyzers from xunit.v3.core, Info and Hidden rules, the rest already error
 dotnet_diagnostic.xUnit1004.severity = error                                  # No skipped tests
 dotnet_diagnostic.xUnit1033.severity = error                                  # Fixture declared on the class but not accepted by its constructor
 dotnet_diagnostic.xUnit1042.severity = error                                  # TheoryData<T> over untyped MemberData
@@ -536,10 +530,10 @@ dotnet_diagnostic.xUnit2023.severity = error                                  # 
 dotnet_diagnostic.xUnit2024.severity = error                                  # Boolean assertion testing equality against a null, numeric, string, or enum literal
 dotnet_diagnostic.xUnit2025.severity = error                                  # Boolean assertion carrying a boolean literal in an equality test
 dotnet_diagnostic.xUnit2032.severity = error                                  # IsAssignableFrom over IsType with exactMatch set to false
-dotnet_diagnostic.xUnit2033.severity = error                                  # Info by default: use the assertion return value instead of re-deriving it
+dotnet_diagnostic.xUnit2033.severity = error                                  # Info by default: assertion return value over re-derivation
 
 # --- [VERIFY_SNAPSHOTS] ------------------------------------------------------
-# VerifyChecks matches this section header verbatim
+# VerifyChecks matches the section header verbatim
 [*.{received,verified}.{txt}]
 charset = utf-8-bom
 end_of_line = lf

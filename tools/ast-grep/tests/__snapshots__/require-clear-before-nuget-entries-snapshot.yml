@@ -1,0 +1,35 @@
+id: require-clear-before-nuget-entries
+snapshots:
+  ? |
+    <packageSourceMapping><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
+  : labels:
+    - source: <packageSourceMapping><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
+      style: primary
+      start: 0
+      end: 115
+  ? |
+    <packageSources />
+  : labels:
+    - source: <packageSources />
+      style: primary
+      start: 0
+      end: 18
+  ? |
+    <packageSources>
+        <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+    </packageSources>
+  : labels:
+    - source: |-
+        <packageSources>
+            <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+        </packageSources>
+      style: primary
+      start: 0
+      end: 106
+  ? |
+    <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear /></packageSources>
+  : labels:
+    - source: <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear /></packageSources>
+      style: primary
+      start: 0
+      end: 109

@@ -1,0 +1,77 @@
+id: require-list-property-append
+snapshots:
+  ? |
+    <PropertyGroup><DefaultItemExcludes>Generated/**</DefaultItemExcludes></PropertyGroup>
+  : labels:
+    - source: <DefaultItemExcludes>Generated/**</DefaultItemExcludes>
+      style: primary
+      start: 15
+      end: 70
+    - source: Generated/**
+      style: secondary
+      start: 36
+      end: 48
+    - source: Generated/**
+      style: secondary
+      start: 36
+      end: 48
+  ? |
+    <PropertyGroup><DefineConstants>MY_FEATURE</DefineConstants></PropertyGroup>
+  : labels:
+    - source: <DefineConstants>MY_FEATURE</DefineConstants>
+      style: primary
+      start: 15
+      end: 60
+    - source: MY_FEATURE
+      style: secondary
+      start: 32
+      end: 42
+    - source: MY_FEATURE
+      style: secondary
+      start: 32
+      end: 42
+  ? |
+    <PropertyGroup><InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
+  : labels:
+    - source: <InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces>
+      style: primary
+      start: 15
+      end: 78
+    - source: Rasm.Generated
+      style: secondary
+      start: 39
+      end: 53
+    - source: Rasm.Generated
+      style: secondary
+      start: 39
+      end: 53
+  ? |
+    <PropertyGroup><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
+  : labels:
+    - source: <MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
+      style: primary
+      start: 15
+      end: 98
+    - source: IKVM0100;IKVM0101;IKVM0109
+      style: secondary
+      start: 43
+      end: 69
+    - source: IKVM0100;IKVM0101;IKVM0109
+      style: secondary
+      start: 43
+      end: 69
+  ? |
+    <PropertyGroup><NoWarn>CS1591</NoWarn></PropertyGroup>
+  : labels:
+    - source: <NoWarn>CS1591</NoWarn>
+      style: primary
+      start: 15
+      end: 38
+    - source: CS1591
+      style: secondary
+      start: 23
+      end: 29
+    - source: CS1591
+      style: secondary
+      start: 23
+      end: 29

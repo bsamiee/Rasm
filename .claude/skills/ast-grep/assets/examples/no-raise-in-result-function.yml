@@ -9,9 +9,11 @@ rule:
         - inside:
             kind: function_definition
             stopBy:
-                kind: function_definition # Nearest enclosing def, a sanctioned raise inside a nested closure never fires
+                kind: function_definition # Nearest enclosing def, a raise inside a nested closure belongs to the closure
             has:
                 field: return_type
                 regex: '^"?(Result|Option)\[' # The quote arm reaches stringized annotations
 message: Result-returning function raises in its own body
-note: Return `Error(<fault>)` in the declared result type, or move the raise into the closure a boundary converter wraps, or waive a true boundary with `ast-grep-ignore`
+note: >-
+    Return `Error(<fault>)` in the declared result type, or move the raise into the closure a boundary converter wraps,
+    or waive a true boundary with `ast-grep-ignore`

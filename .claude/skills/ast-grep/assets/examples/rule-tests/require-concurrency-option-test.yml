@@ -1,8 +1,14 @@
 id: require-concurrency-option
 valid:
-    - 'const declared = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => probe(key), { concurrency: "inherit" });'
-    - 'const shorthand = (keys: ReadonlyArray<string>, concurrency: number) => Effect.forEach(keys, (key) => probe(key), { concurrency, discard: true });'
+    - | # Degree declared as a pair
+      const declared = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => load(key), { concurrency: "inherit" });
+    - | # Degree declared as a shorthand property
+      const shorthand = (keys: ReadonlyArray<string>, concurrency: number) =>
+          Effect.forEach(keys, (key) => load(key), { concurrency, discard: true });
 invalid:
-    - 'const swept = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => probe(key));'
-    - 'const gated = (raw: Raw) => Effect.all({ floor: admit(raw.floor) }, { mode: "validate" });'
-    - 'const nested = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => Effect.forEach(key.split(","), probe, { concurrency: 4 }));'
+    - 'const swept = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => load(key));' # Options omitted
+    - 'const gated = (item: Item) => Effect.all({ count: validate(item.count) }, { mode: "validate" });' # Options without a degree
+    - 'const piped = stream.pipe(Stream.mapEffect((item) => load(item)));' # Sibling module function, data-last
+    - | # Degree inside a nested callback belongs to the inner call
+      const nested = (keys: ReadonlyArray<string>) =>
+          Effect.forEach(keys, (key) => Effect.forEach(key.split(","), load, { concurrency: 4 }));

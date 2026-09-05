@@ -1,0 +1,60 @@
+id: no-raise-in-result-function
+snapshots:
+  ? |
+    def accepted(raw: object, /) -> Result[Shape, Fault]:
+        if not raw:
+            raise ValueError("<empty>")
+        return Ok(Shape(raw))
+  : labels:
+    - source: raise ValueError("<empty>")
+      style: primary
+      start: 78
+      end: 105
+    - source: Result[Shape, Fault]
+      style: secondary
+      start: 32
+      end: 52
+    - source: |-
+        def accepted(raw: object, /) -> Result[Shape, Fault]:
+            if not raw:
+                raise ValueError("<empty>")
+            return Ok(Shape(raw))
+      style: secondary
+      start: 0
+      end: 131
+  ? |
+    def located(raw: object, /) -> Option[Shape]:
+        raise ValueError("<empty>")
+  : labels:
+    - source: raise ValueError("<empty>")
+      style: primary
+      start: 50
+      end: 77
+    - source: Option[Shape]
+      style: secondary
+      start: 31
+      end: 44
+    - source: |-
+        def located(raw: object, /) -> Option[Shape]:
+            raise ValueError("<empty>")
+      style: secondary
+      start: 0
+      end: 77
+  ? |-
+    def quoted(raw: object, /) -> "Result[Shape, Fault]":
+        raise ValueError("<empty>")
+  : labels:
+    - source: raise ValueError("<empty>")
+      style: primary
+      start: 58
+      end: 85
+    - source: '"Result[Shape, Fault]"'
+      style: secondary
+      start: 30
+      end: 52
+    - source: |-
+        def quoted(raw: object, /) -> "Result[Shape, Fault]":
+            raise ValueError("<empty>")
+      style: secondary
+      start: 0
+      end: 85

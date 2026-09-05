@@ -1,0 +1,37 @@
+id: no-cause-split-in-cause-handler
+snapshots:
+  const guarded = Effect.onError(program, (cause) => { return Effect.when(report(cause), () => Cause.isFailure(cause)); });:
+    labels:
+    - source: isFailure
+      message: The reader that splits the Cause
+      style: primary
+      start: 99
+      end: 108
+  ? 'const matched = Effect.matchCauseEffect(program, { onFailure: (cause) => Cause.match(cause, { onFail: report, onDie: crash, onInterrupt: () => Effect.void, onEmpty: Effect.void, onSequential: merge, onParallel: merge }), onSuccess: () => Effect.void });'
+  : labels:
+    - source: match
+      message: The reader that splits the Cause
+      style: primary
+      start: 79
+      end: 84
+  ? 'const recovered = program.pipe(Effect.catchAllCause((cause) => Either.match(Cause.failureOrCause(cause), { onLeft: (error) => fallback(error), onRight: (defect) => Effect.failCause(defect) })));'
+  : labels:
+    - source: failureOrCause
+      message: The reader that splits the Cause
+      style: primary
+      start: 82
+      end: 96
+  ? 'const reported = program.pipe(Effect.tapErrorCause((cause) => Option.match(Cause.failureOption(cause), { onNone: () => Console.error(Cause.pretty(cause)), onSome: (error) => Console.error(error.message) })));'
+  : labels:
+    - source: failureOption
+      message: The reader that splits the Cause
+      style: primary
+      start: 81
+      end: 94
+  ? const streamed = stream.pipe(Stream.catchAllCause((cause) => Stream.fromEffect(Effect.when(retry(), () => Cause.isDie(cause)))));
+  : labels:
+    - source: isDie
+      message: The reader that splits the Cause
+      style: primary
+      start: 112
+      end: 117

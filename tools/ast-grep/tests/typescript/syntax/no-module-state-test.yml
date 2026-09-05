@@ -1,0 +1,22 @@
+id: no-module-state
+valid:
+    # An immutable module binding
+    - const fixed = 1;
+    # A mutable local inside the scope that owns it
+    - |
+      const next = () => {
+          let local = 0;
+          local += 1;
+          return local;
+      };
+    # An exported immutable binding
+    - export const held = 2;
+invalid:
+    # The instance, a counter every constructor increments
+    - let nextSpanId = 0;
+    # A binding declared for later assignment
+    - let pending;
+    # The legacy declaration
+    - var legacy;
+    # A mutable binding the module exports
+    - export let shared = [];

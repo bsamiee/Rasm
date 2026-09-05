@@ -1,0 +1,30 @@
+id: require-private-normalized-property
+snapshots:
+  ? |
+    <PropertyGroup><RepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</RepoRoot></PropertyGroup>
+  : labels:
+    - source: <RepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</RepoRoot>
+      style: primary
+      start: 15
+      end: 99
+  ? |
+    <PropertyGroup><RhinoAppPath>$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</RhinoAppPath></PropertyGroup>
+  : labels:
+    - source: <RhinoAppPath>$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</RhinoAppPath>
+      style: primary
+      start: 15
+      end: 95
+  ? |
+    <PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup>
+  : labels:
+    - source: <ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot>
+      style: primary
+      start: 15
+      end: 83
+  ? |
+    <PropertyGroup><ToolRoot>$([System.IO.Path]::GetFullPath('$(ToolRoot)'))</ToolRoot></PropertyGroup>
+  : labels:
+    - source: <ToolRoot>$([System.IO.Path]::GetFullPath('$(ToolRoot)'))</ToolRoot>
+      style: primary
+      start: 15
+      end: 83

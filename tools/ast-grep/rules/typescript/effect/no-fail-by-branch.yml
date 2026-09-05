@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fail-by-branch
+language: tsx
+severity: error
+utils:
+    # An arm that fails the effect, as an arrow or as the constructor passed point-free
+    fail-arm:
+        any:
+            - kind: arrow_function
+              has: {field: body, any: [{pattern: Effect.fail($_)}, {pattern: Effect.failCause($_)}]}
+            - pattern: Effect.fail
+            - pattern: Effect.failCause
+    # An arm that passes a value through, or nothing
+    pass-arm:
+        any:
+            - kind: arrow_function
+              has: {field: body, any: [{pattern: Effect.void}, {pattern: Effect.succeed($_)}]}
+            - pattern: Effect.succeed
+rule:
+    matches: effect-two-arm-branch
+    has:
+        field: arguments
+        has:
+            kind: object
+            all:
+                - has: {kind: pair, has: {field: value, matches: fail-arm}}
+                - has: {kind: pair, has: {field: value, matches: pass-arm}}
+message: The branch fails on one side of the carrier and passes the value through on the other
+note: >-
+    Guard a boolean with `Effect.filterOrFail(effect, predicate, () => error)`, `Effect.succeed(value)` when the inspected
+    value is a local, an Option, Either, or Exit is an Effect already and `Effect.mapError(carrier, () => error)` renames its failure

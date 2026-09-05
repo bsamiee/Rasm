@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parent-segment-concatenation
+language: xml
+severity: error
+rule:
+    matches: msbuild-value
+    regex: '\$\([^)]+\)[\\/]?\.\.[\\/]'
+    # The file-above functions normalize their own result
+    not: {regex: 'FileAbove'}
+message: A parent segment is appended to a directory property as text and the path keeps the .. and the hand-written separator, compose it with $([MSBuild]::NormalizeDirectory('$(Base)', '..', 'segment')) or NormalizePath

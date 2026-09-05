@@ -1,0 +1,22 @@
+id: no-explicit-provider
+valid:
+    # Options built by a call, no provider key
+    - 'const project = new Project(name, { name, description }, adoption(name));'
+    # Options spread from a call
+    - 'const repository = new Repository(name, args, { protect: true, ...adoption(name) });'
+    # A provider key in a plain object, no resource options
+    - 'const settings = { provider: "doppler" };'
+    # A provider key in the resource arguments, the second constructor argument
+    - 'const record = new Record(name, { provider: "route53", zone }, { protect: true });'
+invalid:
+    # The instance, a provider constructed by hand
+    - 'const doppler = new DopplerProvider({ dopplerToken });'
+    # A namespaced provider constructor
+    - 'const gh = new github.Provider("github", { owner, token });'
+    # A provider handed through the options
+    - 'const project = new Project(name, { name, description }, { provider: doppler });'
+    # A providers list in the options
+    - 'const repository = new Repository(name, args, { protect: true, providers: [gh] });'
+    # A shorthand provider key
+    - 'const project = new Project(name, args, { provider });'
+    - 'const repository = new Repository(name, args, { providers });'

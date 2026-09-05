@@ -1,104 +1,92 @@
-// Inline Pulumi program that registers the declared Doppler and GitHub resources and imports the live ones under --import
+// Inline Pulumi program that declares the Doppler project and the GitHub repository settings, registers them, and adopts the live ones under --import
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import * as github from '@pulumi/github';
+import { ActionsSecret, Repository, type RepositoryArgs } from '@pulumi/github';
 import type { CustomResourceOptions } from '@pulumi/pulumi';
-import { secret } from '@pulumi/pulumi';
-import type { PulumiFn } from '@pulumi/pulumi/automation/index.js';
-import * as doppler from '@pulumiverse/doppler';
-import { Redacted } from 'effect';
-import { Resources } from './resources.ts';
+import { BranchConfig, Environment, Project, type ProjectArgs, ServiceToken } from '@pulumiverse/doppler';
+import { Effect, Option, Record } from 'effect';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [DOPPLER] -------------------------------------------------------------------------
 
-declare namespace program {
-    type Flags = { readonly import: boolean };
-    type Credentials = { readonly dopplerToken: Redacted.Redacted<string>; readonly githubToken: Redacted.Redacted<string> };
-}
+const _PROJECT = { name: 'rasm', description: 'Repository and service secrets' } as const satisfies ProjectArgs;
+
+const _ENVIRONMENTS = { dev: 'Development', prd: 'Production' } as const;
+
+// Doppler names a branch config <environment>_<suffix>
+const _BRANCH_CONFIGS = { dev_repo: 'dev' } as const satisfies Record<`${keyof typeof _ENVIRONMENTS}_${string}`, keyof typeof _ENVIRONMENTS>;
+
+const _SERVICE_TOKENS = { 'rasm-ci-readonly': { config: 'dev_repo', access: 'read' } } as const satisfies Record<
+    string,
+    { readonly config: keyof typeof _ENVIRONMENTS | keyof typeof _BRANCH_CONFIGS; readonly access: 'read' | 'read/write' }
+>;
+
+// --- [GITHUB] --------------------------------------------------------------------------
+
+const _REPOSITORY = {
+    name: 'Rasm',
+    description: 'AEC/design-geometry workspace',
+    archived: false,
+    archiveOnDestroy: true,
+    allowAutoMerge: true,
+    allowMergeCommit: false,
+    allowRebaseMerge: true,
+    allowSquashMerge: true,
+    allowUpdateBranch: true,
+    deleteBranchOnMerge: true,
+    mergeCommitTitle: 'MERGE_MESSAGE',
+    mergeCommitMessage: 'PR_TITLE',
+    squashMergeCommitTitle: 'PR_TITLE',
+    squashMergeCommitMessage: 'PR_BODY',
+    hasIssues: true,
+    hasProjects: false,
+    hasWiki: false,
+    hasDiscussions: false,
+    webCommitSignoffRequired: false,
+} as const satisfies RepositoryArgs;
+
+const _ACTIONS_SECRETS = { DOPPLER_TOKEN: 'rasm-ci-readonly' } as const satisfies Record<string, keyof typeof _SERVICE_TOKENS>;
 
 // --- [PROGRAM] -------------------------------------------------------------------------
 
-const program =
-    (flags: program.Flags, credentials: program.Credentials): PulumiFn =>
-    // BOUNDARY: the Pulumi engine registers each resource through its constructor inside the program context
-    async () => {
-        // The import option binds under the --import flag on imported rows alone, and a later up against imported state plans no change
-        const importOption = (imported: boolean, importId: string): CustomResourceOptions => (flags.import && imported ? { import: importId } : {});
-        const dopplerProvider = new doppler.Provider('doppler', { dopplerToken: secret(Redacted.value(credentials.dopplerToken)) });
-        const githubProvider = new github.Provider('github', { owner: Resources.owner, token: secret(Redacted.value(credentials.githubToken)) });
-
-        const project = new doppler.Project(
-            Resources.project.name,
-            { name: Resources.project.name, description: Resources.project.description },
-            { provider: dopplerProvider, ...importOption(Resources.project.imported, Resources.project.name) },
+// The default providers read DOPPLER_TOKEN and GITHUB_TOKEN from the environment, and the GitHub provider detects the owner from its token
+const program = (adopt: boolean): Effect.Effect<Record<string, unknown>> =>
+    Effect.sync(() => {
+        // Every row with a live counterpart adopts it under --import in place of creating one, tokens and secrets are created
+        const adoption = (id: string): CustomResourceOptions => Record.getSomes({ import: Option.liftPredicate(id, () => adopt) });
+        const project = new Project(_PROJECT.name, _PROJECT, adoption(_PROJECT.name));
+        const environments = Record.map(
+            _ENVIRONMENTS,
+            (name, slug) => new Environment(slug, { project: project.name, slug, name }, adoption(`${_PROJECT.name}.${slug}`)),
         );
-
-        // Each environment registers the branch configs declared under it, and every config passes its name on as an output that holds the dependency
-        const configs = Resources.environments.flatMap((row) => {
-            const environment = new doppler.Environment(
-                row.slug,
-                { project: project.name, slug: row.slug, name: row.name },
-                { provider: dopplerProvider, ...importOption(row.imported, `${Resources.project.name}.${row.slug}`) },
-            );
-            return [
-                { name: row.slug, output: environment.slug },
-                ...Resources.branchConfigs
-                    .filter((branch) => branch.environment === row.slug)
-                    .map((branch) => ({
-                        name: branch.name,
-                        output: new doppler.BranchConfig(
-                            branch.name,
-                            { project: project.name, environment: environment.slug, name: branch.name },
-                            {
-                                provider: dopplerProvider,
-                                ...importOption(branch.imported, `${Resources.project.name}.${branch.environment}.${branch.name}`),
-                            },
-                        ).name,
-                    })),
-            ];
-        });
-
-        const serviceTokens = configs.flatMap((config) =>
-            Resources.serviceTokens
-                .filter((row) => row.config === config.name)
-                .map((row) => ({
-                    row,
-                    resource: new doppler.ServiceToken(
-                        `${row.config}-${row.name}`,
-                        { project: project.name, config: config.output, name: row.name, access: row.access },
-                        { provider: dopplerProvider },
-                    ),
-                })),
-        );
-
-        // protect fails a row edit that would delete the repository, and archiveOnDestroy archives it on a destroy
-        const repository = new github.Repository(
-            Resources.repository.name,
-            { name: Resources.repository.name, ...Resources.repository.settings },
-            { provider: githubProvider, protect: true, ...importOption(Resources.repository.imported, Resources.repository.name) },
-        );
-
-        const actionsSecrets = serviceTokens.flatMap(({ row, resource }) =>
-            Resources.actionsSecrets
-                .filter((entry) => entry.serviceToken === row.name)
-                .map(
-                    (entry) =>
-                        new github.ActionsSecret(
-                            `${Resources.repository.name}-${entry.secretName}`,
-                            { repository: repository.name, secretName: entry.secretName, value: resource.key },
-                            { provider: githubProvider },
-                        ),
+        const branchConfigs = Record.map(
+            _BRANCH_CONFIGS,
+            (environment, name) =>
+                new BranchConfig(
+                    name,
+                    { project: project.name, environment: environments[environment].slug, name },
+                    adoption(`${_PROJECT.name}.${environment}.${name}`),
                 ),
         );
-
+        const configs = { ...Record.map(environments, (environment) => environment.slug), ...Record.map(branchConfigs, (config) => config.name) };
+        const serviceTokens = Record.map(
+            _SERVICE_TOKENS,
+            (row, name) =>
+                new ServiceToken(`${row.config}-${name}`, { project: project.name, config: configs[row.config], name, access: row.access }),
+        );
+        const repository = new Repository(_REPOSITORY.name, _REPOSITORY, { protect: true, ...adoption(_REPOSITORY.name) });
+        const actionsSecrets = Record.map(
+            _ACTIONS_SECRETS,
+            (token, secretName) =>
+                new ActionsSecret(`${_REPOSITORY.name}-${secretName}`, { repository: repository.name, secretName, value: serviceTokens[token].key }),
+        );
         return {
             repository: repository.fullName,
-            configs: configs.map((config) => config.name),
-            serviceTokens: serviceTokens.map(({ row }) => row.name),
-            actionsSecrets: actionsSecrets.map((actionsSecret) => actionsSecret.secretName),
+            configs: Record.keys(configs),
+            serviceTokens: Record.keys(serviceTokens),
+            actionsSecrets: Record.keys(actionsSecrets),
         };
-    };
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

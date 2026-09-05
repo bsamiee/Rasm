@@ -1,0 +1,27 @@
+id: no-trailing-separator-on-artifacts-path
+valid:
+    # The root form, NormalizePath yields no trailing separator
+    - |
+      <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
+    # The packaging form, a segment appended to a directory property
+    - |
+      <PropertyGroup><ArtifactsPath>$(NativeArtifactsRoot)msbuild</ArtifactsPath></PropertyGroup>
+    # A directory property takes NormalizeDirectory, the SDK appends nothing to it
+    - |
+      <PropertyGroup><LibsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'libs'))</LibsRoot></PropertyGroup>
+    # A directory property ends with its separator
+    - |
+      <PropertyGroup><PackageOutputPath>$(ArtifactsPath)/package/</PackageOutputPath></PropertyGroup>
+invalid:
+    # The root value before the normalized form, the SDK composed .artifacts/dotnet//bin/
+    - |
+      <PropertyGroup><ArtifactsPath>$(RepoRoot).artifacts/dotnet/</ArtifactsPath></PropertyGroup>
+    # NormalizeDirectory appends the separator the SDK appends again
+    - |
+      <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
+    # EnsureTrailingSlash appends the same separator
+    - |
+      <PropertyGroup><ArtifactsPath>$([MSBuild]::EnsureTrailingSlash('$(ArtifactsRoot)'))</ArtifactsPath></PropertyGroup>
+    # A backslash at the end of the value
+    - |
+      <PropertyGroup><ArtifactsPath>$(RepoRoot)artifacts\</ArtifactsPath></PropertyGroup>

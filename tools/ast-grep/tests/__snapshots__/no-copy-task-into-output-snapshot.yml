@@ -1,0 +1,23 @@
+id: no-copy-task-into-output
+snapshots:
+  ? |
+    <Copy SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(TargetDir)assets/%(Filename)%(Extension)')" />
+  : labels:
+    - source: <Copy SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(TargetDir)assets/%(Filename)%(Extension)')" />
+      style: primary
+      start: 0
+      end: 105
+  ? |
+    <Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" />
+  : labels:
+    - source: <Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" />
+      style: primary
+      start: 0
+      end: 65
+  ? |
+    <Copy SourceFiles="settings.ini"><DestinationFolder>$(OutputPath)</DestinationFolder></Copy>
+  : labels:
+    - source: <Copy SourceFiles="settings.ini"><DestinationFolder>$(OutputPath)</DestinationFolder></Copy>
+      style: primary
+      start: 0
+      end: 92

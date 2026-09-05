@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-target-framework-form
+language: xml
+severity: error
+rule:
+    any:
+        # Both properties in one file, the SDK takes the singular and BuildCheck reports BC0107
+        - kind: document
+          all:
+              - has: {matches: {msbuild-property: {name: {regex: '^TargetFramework$'}}}, stopBy: end}
+              - has: {matches: {msbuild-property: {name: {regex: '^TargetFrameworks$'}}}, stopBy: end}
+        # A list in the singular fails with NETSDK1046
+        - all: [{matches: {msbuild-property: {name: {regex: '^TargetFramework$'}}}}, {matches: {msbuild-element-text: {text: {regex: ';'}}}}]
+        # One literal framework in the plural runs an outer build around one inner build
+        - all: [{matches: {msbuild-property: {name: {regex: '^TargetFrameworks$'}}}}, {matches: {msbuild-element-text: {text: {regex: '^\s*[A-Za-z][A-Za-z0-9.-]*\s*$'}}}}]
+message: TargetFramework holds one framework and TargetFrameworks holds a semicolon list, a file sets one of them, both together take the singular with BC0107, a list in the singular fails with NETSDK1046, and one framework in the plural adds an outer build

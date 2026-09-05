@@ -13,7 +13,7 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 
 [TOOL_ROUTING]:
 - ALWAYS use `exa` MCP to start open-web search with neural discovery
-- ALWAYS use `search-tavily` skill on known targets, extract or crawl a site, or run a multi-source report, REPLACES `WebFetch` entirely
+- ALWAYS use `search-tavily` skill on known sites, extract or crawl a site, or run a multi-source report, REPLACES `WebFetch` entirely
 - ALWAYS use `search-context7` skill when working with external dependencies, never use training data, never guess SDK/framework/API capabilities
 - ALWAYS use `github` MCP to explore, read, and search repositories on GitHub and to work their issues, pull requests, and runs
 - ALWAYS use `dotnet-roslyn-codelens` skill to read, navigate, diagnose, and refactor C# files and code
@@ -22,9 +22,8 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS use `dotnet-msbuild-antipatterns` skill to review or audit a `.props`, `.targets`, or `.csproj` file before changing it
 - ALWAYS use `dotnet-msbuild-execution` skill for `<Target>` ordering, `DependsOn` chains, incremental `Inputs`/`Outputs`, and generated files
 - ALWAYS use `dotnet-msbuild-diagnostics` skill for `.binlog` work, build failures, shared output paths, and timing, NEVER read a `.binlog` directly
-- ALWAYS use `dotnet-msbuild-packaging` skill for package references, versions, sources, lock files, package projects, `.slnx`, and CI properties
+- ALWAYS use `dotnet-msbuild-packaging` skill for package references, versions, sources, package projects, `.slnx`, and CI properties
 - ALWAYS use `monorepo-build-infrastructure` skill for Nx targets, the toolchain, configuration ownership, `eng/`, `infra/`, CI, and release
-- ALWAYS use `pulumi` skill for `infra/` and any other Pulumi program: resources, imports, previews, state, and destroys
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex usage, config, harness work, and understanding
 
@@ -32,7 +31,7 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 
 | [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                  |
 | :-----: | :-------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `tree`    | `tree <dir>` lists all directory and files, `-D` for dirs only                                              |
+|  [01]   | `tree`    | `tree <dir>` lists all directories and files, `-D` for dirs only                                            |
 |  [02]   | `loc`     | `loc <dir>` for true LOC count with complexity score, folder total + per file                               |
 |  [03]   | `fd`      | Use for ALL normal filesystem queries/actions, superseded by specialized skills/mcp depending on context    |
 |  [04]   | `rg`      | REPLACES `grep`, NEVER use for code search, superseded by language skills/mcp depending on context          |
@@ -44,7 +43,7 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 [TOTALITY]: Function signatures name parameter and return types directly, function bodies construct every return case explicitly
 - ALWAYS define error variants that consumers pattern match, recovery reads a variant instead of a rendered message or substring
 - ALWAYS define error types in the package that raises them, consumers map them at the package boundary instead of extending a global error list
-- ALWAYS map every input to a value in the return type, a function that cannot answer returns the reason it cannot
+- ALWAYS map every input to a value in the return type, a function that cannot produce a value returns the reason it cannot
 - ALWAYS represent absence with an option type the consumer unwraps, reject nulls, sentinels, and magic defaults at the input boundary
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
 - ALWAYS reserve exceptions for unexpected defects the process cannot continue past, expected errors use the result type
@@ -53,30 +52,30 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS bind an operation that consumes the previous operation's value, the error case skips the remaining operations
 - ALWAYS implement recovery as a function from an error to the same result type, the declaring package owns classification and the consumer with the alternative owns recovery
 - ALWAYS choose the result type at the input boundary, preserve it through domain logic, and translate it only at the host boundary
-- ALWAYS select control flow by pattern matching the result cases, status flags, out parameters, and nullable companion fields do not select the path
+- ALWAYS select control flow by pattern matching the result cases, status flags, out parameters, and nullable fields paired with a flag do not select the path
 - ALWAYS use one result type per expression, adapt a call returning a different result type at the call site
 - ALWAYS compose asynchrony with the result type, the same bind chains asynchronous and synchronous operations
 
 [INDEPENDENCE]: Results that do not consume each other combine in one step that collects every error
 - ALWAYS define a non-empty error type with associative combination, independent errors accumulate deterministically
-- ALWAYS combine independent results applicatively, the result carries every error instead of only the first one encountered
+- ALWAYS combine independent results applicatively, the result holds every error instead of only the first one encountered
 - ALWAYS traverse a collection with one result-returning function and accumulate errors when the elements are independent
-- ALWAYS derive concurrency from independence: operands that do not consume each other may evaluate concurrently while result ordering remains deterministic
+- ALWAYS derive concurrency from independence: operands that do not consume each other can evaluate concurrently while result ordering remains deterministic
 
 [PURITY]: Domain functions read only their arguments and write only their return value
 - ALWAYS pass the clock, randomness, environment, and configuration as arguments, domain code reads no ambient source
 - ALWAYS pair acquisition and release in one resource scope, release also runs on the error path
-- ALWAYS carry changing context forward as a returned value, shared mutable state does not coordinate operations
+- ALWAYS pass changing context to the next operation as a returned value, shared mutable state does not coordinate operations
 - ALWAYS confine mutation to a scope that owns it and publishes an immutable value, a buffer that never escapes stays pure
 
 [BOUNDARY]: Boundaries own every conversion between external values and domain values
-- ALWAYS emit logs, traces, and metrics when translating the result at the boundary, domain expressions stay pure and silent
+- ALWAYS emit logs, traces, and metrics when translating the result at the boundary, domain expressions stay pure and emit none
 - ALWAYS return the language's one result type from every package/project API, consumers compose without unwrapping
 - ALWAYS validate host, protocol, and file input once at the boundary into domain values, domain logic receives no raw input
 - ALWAYS map external names to canonical domain names at the validating boundary, that module owns both directions
-- ALWAYS translate the result at the boundary into the host's vocabulary: exit code, status, host exception, or UI state
+- ALWAYS translate the result at the boundary into the host's representation: exit code, status, host exception, or UI state
 
-[DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API carries a fact the API lacks
+[DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
 - ALWAYS call the owning type or package directly, a wrapper exists only to add a domain type, a boundary conversion, or a composed policy
 - ALWAYS name the real type, a type alias exists only to resolve a name collision between two referenced namespaces
 - ALWAYS define a custom operator, implicit conversion, or extension method for a domain meaning, never to shorten a call the direct form states
@@ -85,11 +84,13 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 ## [03]-[DEPENDENCY_POLICY]
 
 [DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
-- ALWAYS keep .NET MSBuild and NuGet manifests grouped by responsibility, order entries consistently within each group, and limit maintenance notes to one precise line
+- ALWAYS keep .NET MSBuild and NuGet manifests grouped by responsibility, order entries consistently within each group, and limit maintenance notes to one line
 - ALWAYS record each package in both the central package manager and the owning language or package `README.md` dependency list
 - ALWAYS add a missing dependency record to its owning manifest or `README.md` dependency list instead of deleting the corresponding record
-- ALWAYS assume the newest stable release
-- ALWAYS reference a package directly in every project that names its types, a transitive reference carries no global using, alias, or analyzer
-- ALWAYS spell ALL Python dependency rows as bare unpinned names, `uv.lock` alone fixes versions
+- ALWAYS assume the newest release, prereleases included, and pin nothing outside `uv.lock`, `pnpm-lock.yaml`, and `Directory.Packages.props`
+- ALWAYS pin a runtime or standalone binary in `mise.toml` at `latest`
+- ALWAYS let a manifest, a lock, or a check state a fact once, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
+- ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
+- ALWAYS spell ALL Python dependency rows as unpinned names, `uv.lock` alone pins versions
 - ALWAYS use `pnpm-workspace.yaml` for TypeScript dependency versions and align each `package.json` entry with its catalog entry
 - ALWAYS map every package id to one source in `NuGet.config`, `Rasm.*` to the local `.artifacts/nuget` feed and every other id to nuget.org

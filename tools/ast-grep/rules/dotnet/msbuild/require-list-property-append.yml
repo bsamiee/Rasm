@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-list-property-append
+language: xml
+severity: error
+rule:
+    # The name and the text regex hold one list of the semicolon-valued properties, an XML name binds no metavariable
+    matches: {msbuild-property: {name: {regex: '^(NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)$'}}}
+    has:
+        kind: content
+        has: {kind: CharData, regex: '\S', not: {regex: '^\s*\$\((NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)[).]'}}
+message: A list-valued property is assigned without its own value first, the assignment drops every entry the SDK and earlier files added, start the value with $(Name);

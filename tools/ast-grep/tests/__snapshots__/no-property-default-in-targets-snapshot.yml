@@ -1,0 +1,23 @@
+id: no-property-default-in-targets
+snapshots:
+  ? |
+    <PropertyGroup Label="Framework Default"><TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework></PropertyGroup>
+  : labels:
+    - source: <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
+      style: primary
+      start: 41
+      end: 154
+  ? |
+    <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory).artifacts</ArtifactsPath></PropertyGroup>
+  : labels:
+    - source: <ArtifactsPath>$(MSBuildThisFileDirectory).artifacts</ArtifactsPath>
+      style: primary
+      start: 15
+      end: 83
+  ? |
+    <PropertyGroup><RuntimeIdentifier Condition="'$(HostPlatform)' == 'true'">osx-arm64</RuntimeIdentifier></PropertyGroup>
+  : labels:
+    - source: <RuntimeIdentifier Condition="'$(HostPlatform)' == 'true'">osx-arm64</RuntimeIdentifier>
+      style: primary
+      start: 15
+      end: 103

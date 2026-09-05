@@ -1,0 +1,51 @@
+id: no-constant-column
+snapshots:
+  'const rows = [{ imported: true, name: "dev" }, { name: "prd", imported: true, slug: "p" }];':
+    labels:
+    - source: imported
+      message: The column that holds one value on every row
+      style: primary
+      start: 16
+      end: 24
+  'const rows = [{ name: "dev", imported: false }, { name: "prd", imported: false }];':
+    labels:
+    - source: imported
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 37
+  'const rows = [{ name: "dev", imported: true }, { name: "prd", imported: true }];':
+    labels:
+    - source: imported
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 37
+  'const rows = [{ name: "dev", kind: "environment" }, { name: "prd", kind: "environment" }];':
+    labels:
+    - source: kind
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 33
+  'const rows = [{ name: "dev", owner: null }, { name: "prd", owner: null }];':
+    labels:
+    - source: owner
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 34
+  'const rows = [{ name: "dev", retries: 3 }, { name: "prd", retries: 3 }];':
+    labels:
+    - source: retries
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 36
+  'const targets = { lint: { cache: true, command: "lint" }, format: { cache: true, command: "format" } };':
+    labels:
+    - source: cache
+      message: The column that holds one value on every row
+      style: primary
+      start: 26
+      end: 31

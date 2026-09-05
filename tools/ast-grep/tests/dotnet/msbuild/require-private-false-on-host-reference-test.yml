@@ -1,0 +1,27 @@
+id: require-private-false-on-host-reference
+valid:
+    # The host assembly form of Directory.Build.targets
+    - |
+      <Reference Include="@(_RhinoHostAssembly)" HintPath="$(RhinoAssemblyDirectory)%(Identity).dll" Private="false" />
+    # The child-element form
+    - |
+      <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>false</Private></Reference>
+    # The path as an attribute and the copy flag as a child
+    - |
+      <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Private>false</Private></Reference>
+    # A framework reference without a path copies nothing
+    - |
+      <Reference Include="System.Windows.Forms" />
+invalid:
+    # A hint path into a packages folder nothing restores
+    - |
+      <Reference Include="Newtonsoft.Json" HintPath="../packages/Newtonsoft.Json.13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
+    # A host assembly copied into the output, the host then loads the copy
+    - |
+      <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
+    # The child-element form with Private true
+    - |
+      <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>true</Private></Reference>
+    # The copy flag read from a property, the form the host references held before the literal
+    - |
+      <Reference Include="RhinoCommon"><HintPath>$(RhinoCommonReferencePath)</HintPath><Private>$(HostReferencePrivate)</Private></Reference>

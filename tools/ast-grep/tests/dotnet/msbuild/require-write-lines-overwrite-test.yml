@@ -1,0 +1,15 @@
+id: require-write-lines-overwrite
+valid:
+    # The overwrite form that keeps the timestamp for the incremental check
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+invalid:
+    # No Overwrite, two lines after two builds
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" />
+    # Overwrite set to false appends as well
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="false" />
+    # Overwrite alone rewrites the file and moves its timestamp on every build
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" />

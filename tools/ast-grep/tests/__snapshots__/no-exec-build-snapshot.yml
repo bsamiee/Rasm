@@ -1,0 +1,30 @@
+id: no-exec-build
+snapshots:
+  ? |
+    <Exec Command="dotnet build ../Tool/Tool.csproj -c $(Configuration)" />
+  : labels:
+    - source: <Exec Command="dotnet build ../Tool/Tool.csproj -c $(Configuration)" />
+      style: primary
+      start: 0
+      end: 71
+  ? |
+    <Exec Command="dotnet pack $(MSBuildProjectFullPath) --no-build" />
+  : labels:
+    - source: <Exec Command="dotnet pack $(MSBuildProjectFullPath) --no-build" />
+      style: primary
+      start: 0
+      end: 67
+  ? |
+    <Exec Command="dotnet run --project ../Tool/Tool.csproj" />
+  : labels:
+    - source: <Exec Command="dotnet run --project ../Tool/Tool.csproj" />
+      style: primary
+      start: 0
+      end: 59
+  ? |
+    <Exec Command="msbuild.exe Other.proj /t:Stage" />
+  : labels:
+    - source: <Exec Command="msbuild.exe Other.proj /t:Stage" />
+      style: primary
+      start: 0
+      end: 50

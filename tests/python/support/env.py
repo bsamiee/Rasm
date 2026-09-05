@@ -35,7 +35,7 @@ type EnvironmentSpec = SshHost | RemoteFS | ObjectStore
 
 
 def _echo(command: str) -> tuple[str, int]:
-    """Default ``SshHost`` exec reply: a ``remote-ok:`` stdout line at exit 0."""
+    """Return the default ``SshHost`` exec reply, a ``remote-ok:`` stdout line at exit 0."""
     return (f"remote-ok:{command}\n", 0)
 
 
@@ -103,13 +103,13 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
         server_sock, client_sock = socket.socketpair()
         async with anyio.create_task_group() as task_group:
             _ = task_group.start_soon(_serve, server_sock)
-            client = await asyncssh.connect("127.0.0.1", 22, sock=client_sock, username=spec.user, known_hosts=None)
-        return client
+            return await asyncssh.connect("127.0.0.1", 22, sock=client_sock, username=spec.user, known_hosts=None)
+        pytest.fail("the SSH task group exited without a connection")  # The checkers read the task group exit as able to suppress the error
 
     return Provisioned(url=f"ssh://{spec.user}@127.0.0.1:0", client_factory=_connect, teardown=lambda: None)
 
 
-def _provision_fs(spec: RemoteFS) -> Provisioned[AbstractFileSystem]:
+def _provision_filesystem(spec: RemoteFS) -> Provisioned[AbstractFileSystem]:
     """Scope an in-memory filesystem double to an isolated root."""
     scoped = spec.root or f"/env-fs/{uuid.uuid4().hex}"
     memory = MemoryFileSystem()
@@ -121,7 +121,7 @@ def _provision_fs(spec: RemoteFS) -> Provisioned[AbstractFileSystem]:
     return Provisioned(url=f"memory://{scoped}", client_factory=lambda: DirFileSystem(path=scoped, fs=MemoryFileSystem()), teardown=_teardown)
 
 
-def _provision_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
+def _provision_object_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
     """Serve a moto endpoint through ``s3fs`` with object metadata and presigned URLs."""
     server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False)
     server.start()
@@ -169,9 +169,9 @@ def provision(
         case SshHost():
             return _provision_ssh(spec)
         case RemoteFS():
-            return _provision_fs(spec)
+            return _provision_filesystem(spec)
         case ObjectStore():
-            return _provision_store(spec)
+            return _provision_object_store(spec)
         case never:
             assert_never(never)
 

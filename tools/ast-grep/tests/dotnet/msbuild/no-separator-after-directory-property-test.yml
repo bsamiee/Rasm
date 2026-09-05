@@ -1,0 +1,33 @@
+id: no-separator-after-directory-property
+valid:
+    # Direct concatenation after a directory property
+    - |
+      <PropertyGroup><RhinoResourcesPath>$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath></PropertyGroup>
+    # The project directory has no trailing separator
+    - |
+      <Compile Include="@(_StagedSource);$(MSBuildProjectDirectory)/*.cs" />
+    # An output glob
+    - |
+      <_TorchCpuDylib Include="$(OutDir)runtimes/*/native/libtorch_cpu.dylib" />
+    # The artifacts root ends without a separator, the SDK appends its own segment
+    - |
+      <PropertyGroup><PackageOutputPath>$(ArtifactsPath)/package/</PackageOutputPath></PropertyGroup>
+    # An application bundle path ends without a separator
+    - |
+      <PropertyGroup><RhinoResourcesPath>$(RhinoAppPath)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath></PropertyGroup>
+invalid:
+    # The instance under its corrected name, the app directory already ends with a separator
+    - |
+      <PropertyGroup><RhinoResourcesPath>$(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath></PropertyGroup>
+    # A manifest glob after a directory property
+    - |
+      <_YakManifestFile Include="$(YakManifestDirectory)/*" />
+    # The staging root in an attribute
+    - |
+      <None Include="$(StageRoot)/runtimes/**" Pack="true" PackagePath="runtimes/" />
+    # The SDK output path ends with a separator
+    - |
+      <Copy SourceFiles="@(Asset)" DestinationFolder="$(OutputPath)/assets/" />
+    # The intermediate path ends with a separator
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)\version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />

@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-value # An attribute value or the text of an element, the positions that hold a property, item, or task parameter value
+language: xml
+rule:
+    any: [{kind: AttValue}, {kind: CharData}]

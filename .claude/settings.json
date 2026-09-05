@@ -14,6 +14,32 @@
                     }
                 ]
             }
+        ],
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/mise-env.py",
+                        "args": [],
+                        "timeout": 30,
+                        "statusMessage": "mise-env"
+                    }
+                ]
+            }
+        ],
+        "CwdChanged": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/mise-env.py",
+                        "args": [],
+                        "timeout": 30,
+                        "statusMessage": "mise-env"
+                    }
+                ]
+            }
         ]
     },
     "effortLevel": "high",
@@ -41,8 +67,8 @@
             "Bash(mkdir *)",
             "Bash(mv *)"
         ],
-        "deny": [],
-        "defaultMode": "bypassPermissions"
+        "deny": ["Bash(mise x *)", "Bash(mise exec *)", "Bash(* mise x *)", "Bash(* mise exec *)", "Bash(*--dry-run*)", "Bash(*--dryRun*)"],
+        "defaultMode": "auto"
     },
     "outputStyle": "clean-prose",
     "skipDangerousModePermissionPrompt": true,

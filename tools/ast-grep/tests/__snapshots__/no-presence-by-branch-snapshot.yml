@@ -1,0 +1,298 @@
+id: no-presence-by-branch
+snapshots:
+  'const inProduction = (plugins) => Boolean.match(production, { onFalse: () => [], onTrue: plugins });':
+    labels:
+    - source: 'Boolean.match(production, { onFalse: () => [], onTrue: plugins })'
+      style: primary
+      start: 34
+      end: 99
+    - source: '[]'
+      style: secondary
+      start: 77
+      end: 79
+    - source: () => []
+      style: secondary
+      start: 71
+      end: 79
+    - source: 'onFalse: () => []'
+      style: secondary
+      start: 62
+      end: 79
+    - source: '{ onFalse: () => [], onTrue: plugins }'
+      style: secondary
+      start: 60
+      end: 98
+    - source: '{ onFalse: () => [], onTrue: plugins }'
+      style: secondary
+      start: 60
+      end: 98
+  'const listed = Option.match(found, { onNone: () => [], onSome: (item) => [item] });':
+    labels:
+    - source: 'Option.match(found, { onNone: () => [], onSome: (item) => [item] })'
+      style: primary
+      start: 15
+      end: 82
+    - source: '[]'
+      style: secondary
+      start: 51
+      end: 53
+    - source: () => []
+      style: secondary
+      start: 45
+      end: 53
+    - source: 'onNone: () => []'
+      style: secondary
+      start: 37
+      end: 53
+    - source: '{ onNone: () => [], onSome: (item) => [item] }'
+      style: secondary
+      start: 35
+      end: 81
+    - source: '{ onNone: () => [], onSome: (item) => [item] }'
+      style: secondary
+      start: 35
+      end: 81
+  const names = Match.value(language).pipe(Match.when("python", () => []), Match.orElse(() => [name]));:
+    labels:
+    - source: Match.value(language).pipe(Match.when("python", () => []), Match.orElse(() => [name]))
+      style: primary
+      start: 14
+      end: 100
+    - source: Match.value(language)
+      style: secondary
+      start: 14
+      end: 35
+    - source: pipe
+      style: secondary
+      start: 36
+      end: 40
+    - source: Match.value(language).pipe
+      style: secondary
+      start: 14
+      end: 40
+    - source: Match.orElse(() => [name])
+      style: secondary
+      start: 73
+      end: 99
+    - source: (Match.when("python", () => []), Match.orElse(() => [name]))
+      style: secondary
+      start: 40
+      end: 100
+    - source: '[]'
+      style: secondary
+      start: 68
+      end: 70
+    - source: () => []
+      style: secondary
+      start: 62
+      end: 70
+    - source: () => []
+      style: secondary
+      start: 62
+      end: 70
+    - source: Match.when("python", () => [])
+      style: secondary
+      start: 41
+      end: 71
+    - source: Match.when("python", () => [])
+      style: secondary
+      start: 41
+      end: 71
+  'const options = { ...(adopt && { import: id }) };':
+    labels:
+    - source: '...(adopt && { import: id })'
+      style: primary
+      start: 18
+      end: 46
+    - source: '&&'
+      style: secondary
+      start: 28
+      end: 30
+    - source: 'adopt && { import: id }'
+      style: secondary
+      start: 22
+      end: 45
+    - source: '(adopt && { import: id })'
+      style: secondary
+      start: 21
+      end: 46
+  const options = { ...Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({}))) };:
+    labels:
+    - source: Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({})))
+      style: primary
+      start: 21
+      end: 113
+    - source: Match.value(language)
+      style: secondary
+      start: 21
+      end: 42
+    - source: pipe
+      style: secondary
+      start: 43
+      end: 47
+    - source: Match.value(language).pipe
+      style: secondary
+      start: 21
+      end: 47
+    - source: Match.orElse(() => ({}))
+      style: secondary
+      start: 88
+      end: 112
+    - source: (Match.when("python", () => ({ name })), Match.orElse(() => ({})))
+      style: secondary
+      start: 47
+      end: 113
+    - source: '{}'
+      style: secondary
+      start: 108
+      end: 110
+    - source: ({})
+      style: secondary
+      start: 107
+      end: 111
+    - source: () => ({})
+      style: secondary
+      start: 101
+      end: 111
+    - source: () => ({})
+      style: secondary
+      start: 101
+      end: 111
+    - source: Match.orElse(() => ({}))
+      style: secondary
+      start: 88
+      end: 112
+    - source: Match.orElse(() => ({}))
+      style: secondary
+      start: 88
+      end: 112
+  'const options = { ...Option.match(release, { onNone: () => ({}), onSome: (group) => ({ release: group })}) };':
+    labels:
+    - source: 'Option.match(release, { onNone: () => ({}), onSome: (group) => ({ release: group })})'
+      style: primary
+      start: 21
+      end: 106
+    - source: '{}'
+      style: secondary
+      start: 60
+      end: 62
+    - source: ({})
+      style: secondary
+      start: 59
+      end: 63
+    - source: () => ({})
+      style: secondary
+      start: 53
+      end: 63
+    - source: 'onNone: () => ({})'
+      style: secondary
+      start: 45
+      end: 63
+    - source: '{ onNone: () => ({}), onSome: (group) => ({ release: group })}'
+      style: secondary
+      start: 43
+      end: 105
+    - source: '{ onNone: () => ({}), onSome: (group) => ({ release: group })}'
+      style: secondary
+      start: 43
+      end: 105
+  'const parsed = Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] });':
+    labels:
+    - source: 'Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] })'
+      style: primary
+      start: 15
+      end: 83
+    - source: '[]'
+      style: secondary
+      start: 53
+      end: 55
+    - source: () => []
+      style: secondary
+      start: 47
+      end: 55
+    - source: 'onLeft: () => []'
+      style: secondary
+      start: 39
+      end: 55
+    - source: '{ onLeft: () => [], onRight: (row) => [row] }'
+      style: secondary
+      start: 37
+      end: 82
+    - source: '{ onLeft: () => [], onRight: (row) => [row] }'
+      style: secondary
+      start: 37
+      end: 82
+  const plugins = [...(production && plugins)];:
+    labels:
+    - source: '...(production && plugins)'
+      style: primary
+      start: 17
+      end: 43
+    - source: '&&'
+      style: secondary
+      start: 32
+      end: 34
+    - source: production && plugins
+      style: secondary
+      start: 21
+      end: 42
+    - source: (production && plugins)
+      style: secondary
+      start: 20
+      end: 43
+  'const plugins = [...Boolean.match(config.react, { onFalse: () => [], onTrue: reactPlugins })];':
+    labels:
+    - source: 'Boolean.match(config.react, { onFalse: () => [], onTrue: reactPlugins })'
+      style: primary
+      start: 20
+      end: 92
+    - source: '[]'
+      style: secondary
+      start: 65
+      end: 67
+    - source: () => []
+      style: secondary
+      start: 59
+      end: 67
+    - source: 'onFalse: () => []'
+      style: secondary
+      start: 50
+      end: 67
+    - source: '{ onFalse: () => [], onTrue: reactPlugins }'
+      style: secondary
+      start: 48
+      end: 91
+    - source: '{ onFalse: () => [], onTrue: reactPlugins }'
+      style: secondary
+      start: 48
+      end: 91
+  'const targets = { pack, ...Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) }) };':
+    labels:
+    - source: 'Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) })'
+      style: primary
+      start: 27
+      end: 101
+    - source: '{}'
+      style: secondary
+      start: 95
+      end: 97
+    - source: ({})
+      style: secondary
+      start: 94
+      end: 98
+    - source: () => ({})
+      style: secondary
+      start: 88
+      end: 98
+    - source: 'onTrue: () => ({})'
+      style: secondary
+      start: 80
+      end: 98
+    - source: '{ onFalse: () => ({ stage }), onTrue: () => ({}) }'
+      style: secondary
+      start: 50
+      end: 100
+    - source: '{ onFalse: () => ({ stage }), onTrue: () => ({}) }'
+      style: secondary
+      start: 50
+      end: 100

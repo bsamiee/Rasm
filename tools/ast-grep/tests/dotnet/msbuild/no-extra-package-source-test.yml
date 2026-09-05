@@ -1,0 +1,33 @@
+id: no-extra-package-source
+valid:
+    # The two restore sources
+    - |
+      <packageSources><clear /><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><add key="local" value=".artifacts/nuget" /></packageSources>
+    # A config entry is no source
+    - |
+      <config><add key="globalPackagesFolder" value=".cache/nuget/packages" /></config>
+    # The mapping the config holds
+    - |
+      <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="*" /></packageSource><packageSource key="local"><package pattern="Rasm.*" /></packageSource></packageSourceMapping>
+invalid:
+    # The local feed at the path it held before the artifacts layout
+    - |
+      <packageSources><clear /><add key="local" value="eng/nuget" /></packageSources>
+    # A third source
+    - |
+      <packageSources><clear /><add key="github" value="https://nuget.pkg.github.com/rasm/index.json" /></packageSources>
+    # The registry under another key
+    - |
+      <packageSources><clear /><add key="NuGet" value="https://api.nuget.org/v3/index.json" /></packageSources>
+    # A mapping source outside the two restore sources
+    - |
+      <packageSourceMapping><clear /><packageSource key="github"><package pattern="Contoso.*" /></packageSource></packageSourceMapping>
+    # A second prefix pinned to the local feed
+    - |
+      <packageSourceMapping><clear /><packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource></packageSourceMapping>
+    # The workspace prefix mapped to the registry
+    - |
+      <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="Rasm.*" /></packageSource></packageSourceMapping>
+    # The wildcard mapped to the local feed
+    - |
+      <packageSourceMapping><clear /><packageSource key="local"><package pattern="*" /></packageSource></packageSourceMapping>

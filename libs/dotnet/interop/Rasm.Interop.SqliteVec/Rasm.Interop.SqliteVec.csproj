@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <ReleaseGroup>Rasm.Interop</ReleaseGroup>
+        <Description>sqlite-vec extension load that callers run on every open SqliteConnection before its first vector query</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Databases">
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="Rasm.Native.SqliteVec" />
+    </ItemGroup>
+</Project>

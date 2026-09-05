@@ -1,4 +1,79 @@
 {
+    "name": "emgucv",
     "version-string": "4.13.0.5924",
-    "commit": "800019a40abd4db90604f70aa60622dbaff088ae"
+    "$comment": "Flags take {source} for the checkout root, {install} for the install prefix, and {sdk} for the macOS SDK path, a rid absent from runtimes stages nothing",
+    "url": "https://github.com/emgucv/emgucv",
+    "commit": "800019a40abd4db90604f70aa60622dbaff088ae",
+    "submodules": [
+        "opencv",
+        "opencv_contrib",
+        "eigen",
+        "hdf5",
+        "Emgu.CV.Extern/tesseract/libtesseract/tesseract-ocr.git",
+        "Emgu.CV.Extern/tesseract/libtesseract/leptonica/leptonica.git"
+    ],
+    "runtimes": {
+        "osx-arm64": {
+            "install": "platforms/macos/build_arm64/install",
+            "library": "libs/runtimes/osx/native/libcvextern.dylib",
+            "flags": [
+                "-DCMAKE_BUILD_TYPE:STRING=Release",
+                "-DCMAKE_OSX_ARCHITECTURES=arm64",
+                "-DCMAKE_OSX_SYSROOT:STRING={sdk}",
+                "-DCMAKE_INSTALL_PREFIX:STRING={install}"
+            ],
+            "steps": [
+                { "source": "eigen", "build": "eigen/build_arm64", "target": "install" },
+                {
+                    "source": "hdf5",
+                    "build": "hdf5/build_arm64",
+                    "target": "install",
+                    "flags": [
+                        "-DCMAKE_FIND_ROOT_PATH:STRING={install}",
+                        "-DBUILD_SHARED_LIBS:BOOL=OFF",
+                        "-DBUILD_TESTING:BOOL=FALSE",
+                        "-DHDF5_BUILD_EXAMPLES:BOOL=FALSE",
+                        "-DHDF5_BUILD_TOOLS:BOOL=FALSE",
+                        "-DHDF5_BUILD_UTILS:BOOL=FALSE"
+                    ]
+                },
+                {
+                    "source": ".",
+                    "build": "platforms/macos/build_arm64",
+                    "target": "cvextern",
+                    "flags": [
+                        "-DCMAKE_FIND_ROOT_PATH:STRING={install}",
+                        "-DOPENCV_FORCE_3RDPARTY_BUILD:BOOL=TRUE",
+                        "-DBUILD_PERF_TESTS=FALSE",
+                        "-DBUILD_TESTS:BOOL=FALSE",
+                        "-DBUILD_DOCS:BOOL=FALSE",
+                        "-DBUILD_JPEG:BOOL=TRUE",
+                        "-DBUILD_ZLIB:BOOL=TRUE",
+                        "-DBUILD_OPENEXR:BOOL=TRUE",
+                        "-DBUILD_PNG:BOOL=TRUE",
+                        "-DBUILD_TIFF:BOOL=TRUE",
+                        "-DWITH_OPENVINO:BOOL=FALSE",
+                        "-DWITH_WEBP:BOOL=OFF",
+                        "-DWITH_IPP:BOOL=OFF",
+                        "-DWITH_CUDA:BOOL=OFF",
+                        "-DWITH_OBSENSOR:BOOL=OFF",
+                        "-DWITH_TESSERACT:BOOL=OFF",
+                        "-DWITH_LAPACK:BOOL=OFF",
+                        "-DBUILD_opencv_ts:BOOL=OFF",
+                        "-DBUILD_opencv_java:BOOL=OFF",
+                        "-DBUILD_opencv_python2:BOOL=OFF",
+                        "-DBUILD_opencv_python3:BOOL=OFF",
+                        "-DBUILD_opencv_apps:BOOL=OFF",
+                        "-DBUILD_opencv_freetype:BOOL=FALSE",
+                        "-DBUILD_SHARED_LIBS:BOOL=OFF",
+                        "-DEMGU_CV_WITH_TESSERACT:BOOL=TRUE",
+                        "-DEMGU_CV_WITH_FREETYPE:BOOL=FALSE",
+                        "-DCMAKE_IGNORE_PREFIX_PATH:STRING=/usr/local;/opt/homebrew",
+                        "-DOPENCV_EXTRA_MODULES_PATH={source}/opencv_contrib/modules",
+                        "-DEigen3_DIR:STRING={install}/share/eigen3/cmake"
+                    ]
+                }
+            ]
+        }
+    }
 }

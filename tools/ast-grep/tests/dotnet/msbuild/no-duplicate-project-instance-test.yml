@@ -1,0 +1,18 @@
+id: no-duplicate-project-instance
+valid:
+    # The DependsOnTargets form, one instance
+    - |
+      <Target Name="PublishOnBuild" AfterTargets="Build" DependsOnTargets="Publish" Condition="'$(_IsPublishing)' != 'true'" />
+    # A query of the referenced projects without global properties
+    - |
+      <MSBuild Projects="@(ProjectReference)" Targets="GetSchemaFiles" BuildInParallel="$(BuildInParallel)" SkipNonexistentTargets="true" />
+    # A call of the project itself without global properties shares the instance
+    - |
+      <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" />
+invalid:
+    # A call of the project itself with a Properties value, another instance shares bin and obj
+    - |
+      <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
+    # The parameters in the child-element form
+    - |
+      <MSBuild Targets="Publish"><Projects>$(MSBuildProjectFile)</Projects><Properties>_IsPublishing=true</Properties></MSBuild>

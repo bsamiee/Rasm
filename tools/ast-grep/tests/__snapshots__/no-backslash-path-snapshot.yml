@@ -1,0 +1,76 @@
+id: no-backslash-path
+snapshots:
+  ? |
+    <Compile Include="Generated\**\*.cs" />
+  : labels:
+    - source: '"Generated\**\*.cs"'
+      style: primary
+      start: 17
+      end: 36
+    - source: Include
+      style: secondary
+      start: 9
+      end: 16
+    - source: Include="Generated\**\*.cs"
+      style: secondary
+      start: 9
+      end: 36
+  ? |
+    <Exec Command="cat data\file.txt" />
+  : labels:
+    - source: '"cat data\file.txt"'
+      style: primary
+      start: 14
+      end: 33
+    - source: Command
+      style: secondary
+      start: 6
+      end: 13
+    - source: Command="cat data\file.txt"
+      style: secondary
+      start: 6
+      end: 33
+  ? |
+    <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
+  : labels:
+    - source: '"$(MSBuildThisFileDirectory)..\..\build\common.props"'
+      style: primary
+      start: 16
+      end: 69
+    - source: Project
+      style: secondary
+      start: 8
+      end: 15
+    - source: Project="$(MSBuildThisFileDirectory)..\..\build\common.props"
+      style: secondary
+      start: 8
+      end: 69
+  ? |
+    <Project Path="libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj" />
+  : labels:
+    - source: '"libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj"'
+      style: primary
+      start: 14
+      end: 68
+    - source: Path
+      style: secondary
+      start: 9
+      end: 13
+    - source: Path="libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj"
+      style: secondary
+      start: 9
+      end: 68
+  ? |
+    <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)tools\mytool\mytool.exe</ToolPath></PropertyGroup>
+  : labels:
+    - source: $(MSBuildThisFileDirectory)tools\mytool\mytool.exe
+      style: primary
+      start: 25
+      end: 75
+  ? |
+    <Reference Include="Tool"><HintPath>..\packages\tool\lib\tool.dll</HintPath><Private>false</Private></Reference>
+  : labels:
+    - source: ..\packages\tool\lib\tool.dll
+      style: primary
+      start: 36
+      end: 65

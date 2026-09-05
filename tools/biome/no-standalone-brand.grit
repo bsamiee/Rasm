@@ -9,5 +9,5 @@ language js(typescript, jsx)
         $init <: contains `Brand.refined($_)`,
         $init <: contains `Brand.refined<$_>($_)`
     },
-    register_diagnostic(span=$name, message="Standalone brand declaration, declare the brand as a field refinement inside its owning Schema class and expose it through that class, not as a module-level constant", severity="error")
+    register_diagnostic(span=$name, message="Standalone brand declaration, declare the brand as a field refinement inside its owning Schema class and expose it through that class", severity="error")
 }

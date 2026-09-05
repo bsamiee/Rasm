@@ -1,0 +1,5 @@
+language js(typescript, jsx)
+
+`$value as unknown as $type` as $hit where {
+    register_diagnostic(span=$hit, message="Double assertion through unknown hides a type mismatch, adapt the value at the boundary with a Schema decode or a typed constructor so the compiler proves the shape", severity="error")
+}

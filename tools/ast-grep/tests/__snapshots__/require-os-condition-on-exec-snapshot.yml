@@ -1,0 +1,37 @@
+id: require-os-condition-on-exec
+snapshots:
+  ? |
+    <Target Name="Deps" BeforeTargets="Build"><Exec Command="brew install libomp" /></Target>
+  : labels:
+    - source: <Exec Command="brew install libomp" />
+      style: primary
+      start: 42
+      end: 80
+  ? |
+    <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" /></Target>
+  : labels:
+    - source: <Exec Command="chmod +x $(OutDir)mytool" />
+      style: primary
+      start: 51
+      end: 94
+  ? |
+    <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
+  : labels:
+    - source: <Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" />
+      style: primary
+      start: 41
+      end: 108
+  ? |
+    <Target Name="Stamp" AfterTargets="Build"><Exec Command="cmd /c echo stamped" /></Target>
+  : labels:
+    - source: <Exec Command="cmd /c echo stamped" />
+      style: primary
+      start: 42
+      end: 80
+  ? |
+    <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac" WorkingDirectory="$(YakPackageDirectory)" /></Target>
+  : labels:
+    - source: <Exec Command="yak build --platform mac" WorkingDirectory="$(YakPackageDirectory)" />
+      style: primary
+      start: 90
+      end: 175

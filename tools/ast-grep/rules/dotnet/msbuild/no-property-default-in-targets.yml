@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-property-default-in-targets
+language: xml
+severity: error
+files: ['**/*.targets']
+rule:
+    matches: {msbuild-property: {name: {regex: '^(TargetFramework|TargetFrameworks|RuntimeIdentifier|RuntimeIdentifiers|ArtifactsPath|UseArtifactsOutput|ArtifactsProjectName|BaseIntermediateOutputPath|MSBuildProjectExtensionsPath|RestorePackagesPath|ManagePackageVersionsCentrally|ImportDirectoryBuildProps)$'}}}
+    not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
+message: A .targets file assigns a property the SDK reads before Directory.Build.targets imports, the framework, runtime identifier, artifacts, and restore paths take their default in Directory.Build.props

@@ -1,0 +1,5 @@
+language js(typescript, jsx)
+
+`JSON.parse($args)` as $hit where {
+    register_diagnostic(span=$hit, message="JSON.parse returns an unvalidated value, decode the text with Schema.parseJson(schema) so the boundary yields a typed value or a ParseError", severity="error")
+}

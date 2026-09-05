@@ -81,7 +81,7 @@ def _collect_session_items(pytestconfig: pytest.Config) -> list[pytest.Function]
     return [item for item in (raw if isinstance(raw, list) else []) if isinstance(item, pytest.Function)]
 
 
-# --- [PROPERTY_TEST_COVERAGE]
+# --- [PROPERTY_TEST_COVERAGE] -----------------------------------------------------------
 
 
 def test_property_test_coverage() -> None:
@@ -96,7 +96,7 @@ def test_property_test_coverage() -> None:
 
 
 def test_property_coverage_is_scoped_by_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
-    """Property tests for a package do not cover another package's same-named symbol."""
+    """Property tests cover same-named symbols in their own package only."""
     names = ("propertypkg_alpha", "propertypkg_beta")
     for name in names:
         pkg = tmp_path / name
@@ -145,20 +145,23 @@ def test_property_coverage_detects_partial_collection(tmp_path: Path, monkeypatc
 
 
 def test_register_package_tree_registers_only_python_packages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Package discovery follows Python source layouts and ignores directories without Python modules."""
+    """Package discovery registers each directory holding Python modules under an import root and ignores the rest."""
     source = tmp_path / "src"
     (source / "alpha").mkdir(parents=True)
     (source / "alpha" / "__init__.py").write_text("", encoding="utf-8")
     (source / "planning_only").mkdir()
     (source / "unregistered.py").write_text("", encoding="utf-8")
-    (source / "packaged" / "src" / "ns" / "pkg").mkdir(parents=True)
-    (source / "packaged" / "src" / "ns" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (source / "nested" / "inner").mkdir(parents=True)
+    (source / "nested" / "inner" / "__init__.py").write_text("", encoding="utf-8")
     suites = tmp_path / "suites"
     monkeypatch.setattr(properties_module, "PACKAGES_UNDER_TEST", {})
+    monkeypatch.setattr(properties_module, "_IMPORT_ROOTS", frozenset({source}))
 
-    assert register_package_tree(source, suites) == ("alpha", "ns.pkg"), "package registration did not match the source layout"
+    assert register_package_tree(source, suites) == ("alpha", "nested"), "package registration did not match the source layout"
     assert properties_module.PACKAGES_UNDER_TEST["alpha"].suite == suites / "alpha", "test-directory derivation failed"
-    assert properties_module.PACKAGES_UNDER_TEST["ns.pkg"].suite == suites / "packaged", "src layout registered the wrong package test directory"
+    assert properties_module._importable(REPO_ROOT / "tests" / "python" / "support") == "tests.python.support", (
+        "a directory outside an import root must keep its repository-relative dotted path"
+    )
     assert register_package_tree(tmp_path / "absent", suites) == (), "a missing source root must register nothing"
 
 
@@ -185,10 +188,8 @@ def test_test_module_names_match_live_session_imports(pytestconfig: pytest.Confi
     assert not unloaded_modules, f"derived test module names absent from sys.modules, naming differs from pytest importlib mode: {unloaded_modules}"
 
 
-def test_undefined_export_fails_coverage_inspection_not_silently_exempt(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
-) -> None:
-    """Undefined ``__all__`` entries are public-API inspection failures, never automatic exemptions."""
+def test_undefined_export_fails_coverage_inspection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    """Undefined ``__all__`` entries fail public-API inspection."""
     pkg = tmp_path / "propertypkg_undefined"
     pkg.mkdir()
     (pkg / "__init__.py").write_text('__all__ = ["missing"]\n', encoding="utf-8")
@@ -200,7 +201,7 @@ def test_undefined_export_fails_coverage_inspection_not_silently_exempt(
         assert_property_coverage()
 
 
-# --- [PROPERTY_TEST_SETTINGS]
+# --- [PROPERTY_TEST_SETTINGS] -----------------------------------------------------------
 
 
 def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -223,7 +224,7 @@ def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytes
         def follows(n: int) -> None:
             runs.append(n)
 
-        @property_test(int, profile="rasm-parity", property_name="pinned-profile")
+        @property_test(int, profile="parity", property_name="pinned-profile")
         def pinned(n: int) -> None:
             pinned_runs.append(n)
 
@@ -233,7 +234,7 @@ def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytes
         hyp_settings.load_profile(prior)
     assert len(runs) == 3, f"property test ignored the active profile: {len(runs)} examples"
     assert tagged == runs, f"events tagger missed drawn examples: tagged {tagged}, ran {runs}"
-    assert len(pinned_runs) == hyp_settings.get_profile("rasm-parity").max_examples, f"named profile used the wrong example count: {len(pinned_runs)}"
+    assert len(pinned_runs) == hyp_settings.get_profile("parity").max_examples, f"named profile used the wrong example count: {len(pinned_runs)}"
 
     @property_test(int, given=False, timeout=2.5, property_name="bounded-deadline")
     def bounded() -> None: ...
@@ -259,17 +260,17 @@ def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytes
 
 def test_hypothesis_profiles_preserve_required_settings() -> None:
     """Each registered profile retains the settings required by its use case."""
-    profile_names = (PROFILE_DEFAULT, "rasm-ci", "rasm-stress", "rasm-debug", PROFILE_STATEFUL, "rasm-parity", "rasm-adversarial")
+    profile_names = (PROFILE_DEFAULT, "ci", "stress", "debug", PROFILE_STATEFUL, "parity", "adversarial")
     profiles = {name: hyp_settings.get_profile(name) for name in profile_names}
     capability_matrix(
-        ("parity-byte-stable", lambda: profiles["rasm-parity"].derandomize and profiles["rasm-parity"].database is None, True),
-        ("stress-hill-climbs", lambda: Phase.target in profiles["rasm-stress"].phases, True),
-        ("adversarial-outbudgets-ci", lambda: profiles["rasm-adversarial"].max_examples > profiles["rasm-ci"].max_examples, True),
+        ("parity-byte-stable", lambda: profiles["parity"].derandomize and profiles["parity"].database is None, True),
+        ("stress-hill-climbs", lambda: Phase.target in profiles["stress"].phases, True),
+        ("adversarial-outbudgets-ci", lambda: profiles["adversarial"].max_examples > profiles["ci"].max_examples, True),
         ("default-replays-examples", lambda: profiles[PROFILE_DEFAULT].database is not None, True),
     )
 
 
-# --- [COVERS_AND_AUTO_EXEMPTION]
+# --- [COVERS_AND_AUTO_EXEMPTION] --------------------------------------------------------
 
 
 class _Role(enum.StrEnum):
@@ -335,7 +336,7 @@ def test_record_coverage_declarations_is_idempotent_and_rejects_values(monkeypat
     """COVERS consumption is idempotent per module and rejects value-only entries."""
     monkeypatch.setattr(properties_module, "PROPERTY_TESTS", [])
     monkeypatch.setattr(properties_module, "_RECORDED", set())
-    module = SimpleNamespace(__name__="covers_probe", COVERS=(_FrozenOwner, record_coverage_declarations))
+    module = SimpleNamespace(__name__="covers_module", COVERS=(_FrozenOwner, record_coverage_declarations))
     record_coverage_declarations(module)
     record_coverage_declarations(module)
     assert [(record.subject, record.property_name) for record in properties_module.PROPERTY_TESTS] == [
@@ -348,7 +349,7 @@ def test_record_coverage_declarations_is_idempotent_and_rejects_values(monkeypat
         record_coverage_declarations(SimpleNamespace(__name__="covers_bad", COVERS=(42,)))
 
 
-# --- [PROPERTY_RECORDS]
+# --- [PROPERTY_RECORDS] -----------------------------------------------------------------
 
 
 def test_property_records_have_named_subjects_and_modules() -> None:
@@ -360,7 +361,7 @@ def test_property_records_have_named_subjects_and_modules() -> None:
         assert "<lambda>" not in record.subject, f"anonymous property-test subject: {record!r}"
 
 
-# --- [MARKER_POLICY]
+# --- [MARKER_POLICY] --------------------------------------------------------------------
 
 
 def test_declared_markers_cover_policy_set() -> None:
@@ -374,7 +375,7 @@ def test_network_marker_auto_applied_to_socket_fixture_items(pytestconfig: pytes
     socket_items = [item for item in _collect_session_items(pytestconfig) if "socket_enabled" in getattr(item, "fixturenames", ())]
     for item in socket_items:
         assert item.get_closest_marker("network") is not None, (
-            f"{item.nodeid!r} requests socket_enabled but lacks the 'network' marker, pytest_collection_modifyitems hook is not applying it"
+            f"{item.nodeid!r} requests socket_enabled without the 'network' marker, pytest_collection_modifyitems skipped it"
         )
 
 
@@ -383,11 +384,11 @@ def test_property_marker_auto_applied_to_hypothesis_items(pytestconfig: pytest.C
     hypothesis_items = [item for item in _collect_session_items(pytestconfig) if item.function is not None and is_hypothesis_test(item.function)]
     for item in hypothesis_items:
         assert item.get_closest_marker("property") is not None, (
-            f"{item.nodeid!r} is a hypothesis test but lacks the 'property' marker, pytest_collection_modifyitems hook is not applying it"
+            f"{item.nodeid!r} is a hypothesis test without the 'property' marker, pytest_collection_modifyitems skipped it"
         )
 
 
-# --- [BENCHMARK_HOOK_POLICY]
+# --- [BENCHMARK_HOOK_POLICY] ------------------------------------------------------------
 
 
 def test_benchmark_regression_hook_is_registered(pytestconfig: pytest.Config) -> None:
@@ -443,7 +444,7 @@ def test_sustained_regression_check_fails_on_step_change_and_accepts_flat_histor
     pytest_benchmark_update_json(flat, None, msgspec.json.decode(doc(1.0)))
 
 
-# --- [OBSERVABILITY_OUTPUT]
+# --- [OBSERVABILITY_OUTPUT] -------------------------------------------------------------
 
 
 @pytest.mark.subprocess
@@ -467,15 +468,15 @@ def test_observability_flag_writes_hypothesis_observations_to_artifacts() -> Non
     assert isinstance(decoded, dict) and decoded, f"artifact row is not a JSON object: {decoded!r}"
 
 
-# --- [GENERATED_STORAGE]
+# --- [GENERATED_STORAGE] ----------------------------------------------------------------
 
 
 def test_package_manager_and_type_checker_caches_route_under_owned_roots() -> None:
     """Root package-manager and type-checker configuration routes generated data to configured cache directories."""
     workspace = (REPO_ROOT / "pnpm-workspace.yaml").read_text(encoding="utf-8")
     mypy = _nav(_pyproject_data(), "tool", "mypy")
-    assert isinstance(mypy, dict), "[tool.mypy] must define native mypy cache routing"
-    assert mypy.get("cache_dir") == ".cache/mypy", "native mypy must never write .mypy_cache at repo root"
-    assert "\nstoreDir: .cache/pnpm/store\n" in workspace, "native pnpm must never write .pnpm-store at repo root"
-    assert "\ncacheDir: .cache/pnpm/cache\n" in workspace, "pnpm metadata cache must stay under .cache"
-    assert "\nstateDir:" not in workspace, "pnpm stateDir is retired, pnpm has no supported state-directory setting"
+    assert isinstance(mypy, dict), "pyproject.toml lacks a [tool.mypy] table"
+    assert mypy.get("cache_dir") == ".cache/mypy", "[tool.mypy] cache_dir is not .cache/mypy"
+    assert "\nstoreDir: .cache/pnpm/store\n" in workspace, "pnpm-workspace.yaml storeDir is not .cache/pnpm/store"
+    assert "\ncacheDir: .cache/pnpm/cache\n" in workspace, "pnpm-workspace.yaml cacheDir is not .cache/pnpm/cache"
+    assert "\nstateDir:" not in workspace, "pnpm-workspace.yaml declares stateDir, pnpm has no such setting"

@@ -1,0 +1,126 @@
+id: no-run-in-effect-callback
+snapshots:
+  ? NodeRuntime.runMain(Effect.gen(function* () { const fiberRuntime = yield* Effect.runtime(); yield* Effect.promise(() => Runtime.runPromise(fiberRuntime)(job)); }));
+  : labels:
+    - source: Runtime.runPromise(fiberRuntime)(job)
+      style: primary
+      start: 120
+      end: 157
+    - source: Effect.promise(() => Runtime.runPromise(fiberRuntime)(job))
+      style: secondary
+      start: 99
+      end: 158
+    - source: runPromise
+      style: secondary
+      start: 128
+      end: 138
+    - source: Runtime.runPromise
+      style: secondary
+      start: 120
+      end: 138
+    - source: Runtime.runPromise(fiberRuntime)
+      style: secondary
+      start: 120
+      end: 152
+  const decoded = Effect.runSync(Effect.map(load(), (config) => Effect.runSync(decode(config))));:
+    labels:
+    - source: Effect.runSync(decode(config))
+      style: primary
+      start: 62
+      end: 92
+    - source: Effect.map(load(), (config) => Effect.runSync(decode(config)))
+      style: secondary
+      start: 31
+      end: 93
+    - source: runSync
+      style: secondary
+      start: 69
+      end: 76
+    - source: Effect.runSync
+      style: secondary
+      start: 62
+      end: 76
+  const job = Effect.promise(() => Runtime.runPromise(fiberRuntime)(job));:
+    labels:
+    - source: Runtime.runPromise(fiberRuntime)(job)
+      style: primary
+      start: 33
+      end: 70
+    - source: Effect.promise(() => Runtime.runPromise(fiberRuntime)(job))
+      style: secondary
+      start: 12
+      end: 71
+    - source: runPromise
+      style: secondary
+      start: 41
+      end: 51
+    - source: Runtime.runPromise
+      style: secondary
+      start: 33
+      end: 51
+    - source: Runtime.runPromise(fiberRuntime)
+      style: secondary
+      start: 33
+      end: 65
+  const rows = Array.map(files, (file) => runtime.runSync(read(file)));:
+    labels:
+    - source: runtime.runSync(read(file))
+      style: primary
+      start: 40
+      end: 67
+    - source: Array.map(files, (file) => runtime.runSync(read(file)))
+      style: secondary
+      start: 13
+      end: 68
+    - source: runSync
+      style: secondary
+      start: 48
+      end: 55
+    - source: runtime.runSync
+      style: secondary
+      start: 40
+      end: 55
+  const value = Effect.runSync(Effect.succeed(Effect.runSync(inner)));:
+    labels:
+    - source: Effect.runSync(inner)
+      style: primary
+      start: 44
+      end: 65
+    - source: Effect.succeed(Effect.runSync(inner))
+      style: secondary
+      start: 29
+      end: 66
+    - source: runSync
+      style: secondary
+      start: 51
+      end: 58
+    - source: Effect.runSync
+      style: secondary
+      start: 44
+      end: 58
+  'runtime.runCallback(program, { onExit: (exit) => runtime.runSync(report(exit)) });':
+    labels:
+    - source: runtime.runSync(report(exit))
+      style: primary
+      start: 49
+      end: 78
+    - source: runCallback
+      style: secondary
+      start: 8
+      end: 19
+    - source: runtime.runCallback
+      style: secondary
+      start: 0
+      end: 19
+    - source: 'runtime.runCallback(program, { onExit: (exit) => runtime.runSync(report(exit)) })'
+      style: secondary
+      start: 0
+      end: 81
+    - source: runSync
+      style: secondary
+      start: 57
+      end: 64
+    - source: runtime.runSync
+      style: secondary
+      start: 49
+      end: 64

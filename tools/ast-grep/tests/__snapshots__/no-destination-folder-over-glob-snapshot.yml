@@ -1,0 +1,16 @@
+id: no-destination-folder-over-glob
+snapshots:
+  ? |
+    <Copy SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
+  : labels:
+    - source: <Copy SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
+      style: primary
+      start: 0
+      end: 107
+  ? |
+    <Copy><SourceFiles>$(StageRoot)runtimes/**/*.dylib</SourceFiles><DestinationFolder>$(IntermediateOutputPath)native/</DestinationFolder></Copy>
+  : labels:
+    - source: <Copy><SourceFiles>$(StageRoot)runtimes/**/*.dylib</SourceFiles><DestinationFolder>$(IntermediateOutputPath)native/</DestinationFolder></Copy>
+      style: primary
+      start: 0
+      end: 142

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-combinator-calls
+language: tsx
+severity: error
+utils:
+    # A module call that is a step over its first argument, Schema calls construct a schema and hoist instead of piping
+    step:
+        matches: effect-module-call
+        not: {has: {field: function, has: {field: object, regex: '^Schema$'}}}
+    # A data-first step, the first argument is a step and at least one more argument follows it
+    data-first-step:
+        matches: step
+        has:
+            field: arguments
+            all:
+                - has: {nthChild: 1, matches: step}
+                - has: {nthChild: 2}
+rule:
+    all:
+        - matches: step
+        - has:
+              field: arguments
+              has:
+                  nthChild: 1
+                  matches: data-first-step
+        # The outermost call of a chain reports once, an inner call sits as the first argument of another step
+        - not:
+              all:
+                  - nthChild: 1
+                  - inside: {kind: arguments, inside: {matches: step}}
+message: Module calls nest three deep as data-first arguments and read from the inside out
+note: >-
+    Start the chain from the value and pipe each step in order, `value.pipe(Module.step(rest), Module.next(rest))`
+    or `pipe(value, Module.step(rest), Module.next(rest))`

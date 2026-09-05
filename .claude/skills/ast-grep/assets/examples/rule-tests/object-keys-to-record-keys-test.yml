@@ -1,0 +1,17 @@
+id: object-keys-to-record-keys
+valid:
+    - | # The target form
+      import { Record } from "effect"
+      const names = Record.keys(items)
+    - | # Record is bound, a header duplicates it and object-keys-to-record-keys-imported rewrites the call alone
+      import { Effect, Record } from "effect"
+      const names = Object.keys(items)
+    - | # Another platform read the Record module does not own
+      const names = Reflect.ownKeys(items)
+invalid:
+    - | # Two sibling calls in a file with no import, the header lands above the first line
+      const names = Object.keys(items)
+      const rows = Object.entries(items)
+    - | # An effect import without Record, the header adds a second import statement from the package
+      import { Effect } from "effect"
+      const each = Effect.forEach(Object.values(items), load, { concurrency: 4 })

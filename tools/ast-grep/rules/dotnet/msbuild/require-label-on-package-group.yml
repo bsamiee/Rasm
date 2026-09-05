@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-label-on-package-group
+language: xml
+severity: error
+files: ['Directory.Packages.props'] # The root file alone, eng/native/Directory.Packages.props opts out of central package management
+rule:
+    matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}
+    not: {matches: {msbuild-metadata: {name: {regex: '^Label$'}, value: {regex: '^"\S[^"]*"$'}}}}
+message: A catalog group names its responsibility, add Label="<Group>" to the ItemGroup so the rows sit under the group that owns them

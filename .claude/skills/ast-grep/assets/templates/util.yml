@@ -1,11 +1,16 @@
-id: <util-id> # Global utility rule under utilDirs, any rule references it via matches
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: <package>-<shape> # Global util under utilDirs, the shape two rules share, a rule calls it through matches
 language: <language>
-arguments: [<param-id>] # Parameterized util, utilDirs files only, every argument mandatory at the call site
-rule: # matches: <param> stops kind pruning, carry an explicit kind guard beside it
-    kind: <kind>
-    has: {matches: <param-id>}
+arguments: [<slot>] # A utilDirs file alone declares arguments, every one is mandatory at the call, and a bare matches: <id> exits 8
+rule:
+    kind: <kind> # The kind guard, matches: <slot> infers no kind and the caller prunes nothing without it
+    all:
+        - has: {field: <role>, pattern: $OWN} # The util's own capture, constraints reads it and no caller does
+        - has: {field: <slot-role>, any: [{matches: <slot>}, {matches: <refinement>}]} # The slot direct, or through the refinement
 constraints:
-    <VAR>: {regex: '<grammar>'} # <VAR> must bind in the util's own rule, an unbound name aborts the whole scan
+    OWN: {regex: '<grammar>'} # OWN binds in the util's own rule, an unbound name aborts the load
 utils:
-    <local-util-id>: <rule> # Local to the file, a rule-file utils: entry shadows a same-named global
-    # call: rule: { matches: { <util-id>: { <param-id>: <rule> } } }
+    <refinement>: # Local to the file, the slot inside a wrapper form of the shape, shadows a global of the same id
+        kind: <wrapper-kind>
+        has: {matches: <slot>} # A local util inside the file reads the file's arguments
+# Call: matches: {<package>-<shape>: {<slot>: {pattern: $VAR, regex: '<grammar>'}}}, $VAR reaches the caller's fix, message, and labels

@@ -39,7 +39,7 @@ def _assert_filesystem_operations(fs: AbstractFileSystem, root: str) -> None:
     assert not fs.exists(f"{root}nest/deep/blob.bin"), "recursive rm left content behind"
 
 
-# --- [DISPATCH]
+# --- [DISPATCH] -------------------------------------------------------------------------
 
 
 def test_provision_supports_every_environment_specification(socket_enabled: None) -> None:
@@ -55,7 +55,7 @@ def test_provision_supports_every_environment_specification(socket_enabled: None
         provisioned.teardown()
 
 
-# --- [SSH_HOST]
+# --- [SSH_HOST] -------------------------------------------------------------------------
 
 
 @pytest.mark.anyio
@@ -135,7 +135,7 @@ async def test_ssh_sftp_chroot_serves_and_confines(tmp_path: Path) -> None:
         await conn.wait_closed()
 
 
-# --- [REMOTE_FS]
+# --- [REMOTE_FS] ------------------------------------------------------------------------
 
 
 def test_remote_fs_isolates_per_test_roots() -> None:
@@ -154,7 +154,7 @@ def test_remote_fs_isolates_per_test_roots() -> None:
 
 
 def test_remote_fs_supports_common_operations_without_presigning() -> None:
-    """RemoteFS supports common filesystem operations but not object-store presigning."""
+    """RemoteFS supports common filesystem operations and raises ``NotImplementedError`` for presigning."""
     provisioned = provision(RemoteFS())
     try:
         fs = provisioned.client_factory()
@@ -170,7 +170,7 @@ def test_remote_fs_supports_common_operations_without_presigning() -> None:
         provisioned.teardown()
 
 
-# --- [OBJECT_STORE]
+# --- [OBJECT_STORE] ---------------------------------------------------------------------
 
 
 def test_object_store_supports_common_filesystem_operations(socket_enabled: None) -> None:

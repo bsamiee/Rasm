@@ -1,0 +1,372 @@
+id: no-fail-by-branch
+snapshots:
+  ? |
+    Boolean.match(flag, { onFalse: () => Effect.succeed(value), onTrue: () => Effect.fail(error) })
+  : labels:
+    - source: 'Boolean.match(flag, { onFalse: () => Effect.succeed(value), onTrue: () => Effect.fail(error) })'
+      style: primary
+      start: 0
+      end: 95
+    - source: Effect.fail(error)
+      style: secondary
+      start: 74
+      end: 92
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 68
+      end: 92
+    - source: 'onTrue: () => Effect.fail(error)'
+      style: secondary
+      start: 60
+      end: 92
+    - source: Effect.succeed(value)
+      style: secondary
+      start: 37
+      end: 58
+    - source: () => Effect.succeed(value)
+      style: secondary
+      start: 31
+      end: 58
+    - source: 'onFalse: () => Effect.succeed(value)'
+      style: secondary
+      start: 22
+      end: 58
+    - source: '{ onFalse: () => Effect.succeed(value), onTrue: () => Effect.fail(error) }'
+      style: secondary
+      start: 20
+      end: 94
+    - source: '{ onFalse: () => Effect.succeed(value), onTrue: () => Effect.fail(error) }'
+      style: secondary
+      start: 20
+      end: 94
+  ? |
+    Effect.flatMap(work, (holds) => Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => Effect.void }))
+  : labels:
+    - source: 'Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => Effect.void })'
+      style: primary
+      start: 32
+      end: 114
+    - source: Effect.fail(error)
+      style: secondary
+      start: 65
+      end: 83
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 59
+      end: 83
+    - source: 'onTrue: () => Effect.fail(error)'
+      style: secondary
+      start: 51
+      end: 83
+    - source: Effect.void
+      style: secondary
+      start: 100
+      end: 111
+    - source: () => Effect.void
+      style: secondary
+      start: 94
+      end: 111
+    - source: 'onFalse: () => Effect.void'
+      style: secondary
+      start: 85
+      end: 111
+    - source: '{ onTrue: () => Effect.fail(error), onFalse: () => Effect.void }'
+      style: secondary
+      start: 49
+      end: 113
+    - source: '{ onTrue: () => Effect.fail(error), onFalse: () => Effect.void }'
+      style: secondary
+      start: 49
+      end: 113
+  ? |
+    Effect.if(holds, { onTrue: () => Effect.fail(new PolicyError({ reason: 'counterexample' })), onFalse: () => Effect.void })
+  : labels:
+    - source: 'Effect.if(holds, { onTrue: () => Effect.fail(new PolicyError({ reason: ''counterexample'' })), onFalse: () => Effect.void })'
+      style: primary
+      start: 0
+      end: 122
+    - source: 'Effect.fail(new PolicyError({ reason: ''counterexample'' }))'
+      style: secondary
+      start: 33
+      end: 91
+    - source: '() => Effect.fail(new PolicyError({ reason: ''counterexample'' }))'
+      style: secondary
+      start: 27
+      end: 91
+    - source: 'onTrue: () => Effect.fail(new PolicyError({ reason: ''counterexample'' }))'
+      style: secondary
+      start: 19
+      end: 91
+    - source: Effect.void
+      style: secondary
+      start: 108
+      end: 119
+    - source: () => Effect.void
+      style: secondary
+      start: 102
+      end: 119
+    - source: 'onFalse: () => Effect.void'
+      style: secondary
+      start: 93
+      end: 119
+    - source: '{ onTrue: () => Effect.fail(new PolicyError({ reason: ''counterexample'' })), onFalse: () => Effect.void }'
+      style: secondary
+      start: 17
+      end: 121
+    - source: '{ onTrue: () => Effect.fail(new PolicyError({ reason: ''counterexample'' })), onFalse: () => Effect.void }'
+      style: secondary
+      start: 17
+      end: 121
+  ? |
+    Effect.if(report.verdict === 'regression', { onTrue: () => Effect.fail(error), onFalse: () => Effect.succeed(report) })
+  : labels:
+    - source: 'Effect.if(report.verdict === ''regression'', { onTrue: () => Effect.fail(error), onFalse: () => Effect.succeed(report) })'
+      style: primary
+      start: 0
+      end: 119
+    - source: Effect.fail(error)
+      style: secondary
+      start: 59
+      end: 77
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 53
+      end: 77
+    - source: 'onTrue: () => Effect.fail(error)'
+      style: secondary
+      start: 45
+      end: 77
+    - source: Effect.succeed(report)
+      style: secondary
+      start: 94
+      end: 116
+    - source: () => Effect.succeed(report)
+      style: secondary
+      start: 88
+      end: 116
+    - source: 'onFalse: () => Effect.succeed(report)'
+      style: secondary
+      start: 79
+      end: 116
+    - source: '{ onTrue: () => Effect.fail(error), onFalse: () => Effect.succeed(report) }'
+      style: secondary
+      start: 43
+      end: 118
+    - source: '{ onTrue: () => Effect.fail(error), onFalse: () => Effect.succeed(report) }'
+      style: secondary
+      start: 43
+      end: 118
+  ? |
+    Effect.if(valid, { onTrue: () => Effect.succeed(value), onFalse: () => Effect.fail(error) })
+  : labels:
+    - source: 'Effect.if(valid, { onTrue: () => Effect.succeed(value), onFalse: () => Effect.fail(error) })'
+      style: primary
+      start: 0
+      end: 92
+    - source: Effect.fail(error)
+      style: secondary
+      start: 71
+      end: 89
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 65
+      end: 89
+    - source: 'onFalse: () => Effect.fail(error)'
+      style: secondary
+      start: 56
+      end: 89
+    - source: Effect.succeed(value)
+      style: secondary
+      start: 33
+      end: 54
+    - source: () => Effect.succeed(value)
+      style: secondary
+      start: 27
+      end: 54
+    - source: 'onTrue: () => Effect.succeed(value)'
+      style: secondary
+      start: 19
+      end: 54
+    - source: '{ onTrue: () => Effect.succeed(value), onFalse: () => Effect.fail(error) }'
+      style: secondary
+      start: 17
+      end: 91
+    - source: '{ onTrue: () => Effect.succeed(value), onFalse: () => Effect.fail(error) }'
+      style: secondary
+      start: 17
+      end: 91
+  ? |
+    Either.match(decoded, { onLeft: Effect.fail, onRight: Effect.succeed })
+  : labels:
+    - source: 'Either.match(decoded, { onLeft: Effect.fail, onRight: Effect.succeed })'
+      style: primary
+      start: 0
+      end: 71
+    - source: Effect.fail
+      style: secondary
+      start: 32
+      end: 43
+    - source: 'onLeft: Effect.fail'
+      style: secondary
+      start: 24
+      end: 43
+    - source: Effect.succeed
+      style: secondary
+      start: 54
+      end: 68
+    - source: 'onRight: Effect.succeed'
+      style: secondary
+      start: 45
+      end: 68
+    - source: '{ onLeft: Effect.fail, onRight: Effect.succeed }'
+      style: secondary
+      start: 22
+      end: 70
+    - source: '{ onLeft: Effect.fail, onRight: Effect.succeed }'
+      style: secondary
+      start: 22
+      end: 70
+  ? |
+    Exit.match(exit, { onFailure: (cause) => Effect.failCause(cause), onSuccess: Effect.succeed })
+  : labels:
+    - source: 'Exit.match(exit, { onFailure: (cause) => Effect.failCause(cause), onSuccess: Effect.succeed })'
+      style: primary
+      start: 0
+      end: 94
+    - source: Effect.failCause(cause)
+      style: secondary
+      start: 41
+      end: 64
+    - source: (cause) => Effect.failCause(cause)
+      style: secondary
+      start: 30
+      end: 64
+    - source: 'onFailure: (cause) => Effect.failCause(cause)'
+      style: secondary
+      start: 19
+      end: 64
+    - source: Effect.succeed
+      style: secondary
+      start: 77
+      end: 91
+    - source: 'onSuccess: Effect.succeed'
+      style: secondary
+      start: 66
+      end: 91
+    - source: '{ onFailure: (cause) => Effect.failCause(cause), onSuccess: Effect.succeed }'
+      style: secondary
+      start: 17
+      end: 93
+    - source: '{ onFailure: (cause) => Effect.failCause(cause), onSuccess: Effect.succeed }'
+      style: secondary
+      start: 17
+      end: 93
+  ? |
+    Exit.match(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
+  : labels:
+    - source: 'Exit.match(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })'
+      style: primary
+      start: 0
+      end: 76
+    - source: Effect.failCause
+      style: secondary
+      start: 30
+      end: 46
+    - source: 'onFailure: Effect.failCause'
+      style: secondary
+      start: 19
+      end: 46
+    - source: Effect.succeed
+      style: secondary
+      start: 59
+      end: 73
+    - source: 'onSuccess: Effect.succeed'
+      style: secondary
+      start: 48
+      end: 73
+    - source: '{ onFailure: Effect.failCause, onSuccess: Effect.succeed }'
+      style: secondary
+      start: 17
+      end: 75
+    - source: '{ onFailure: Effect.failCause, onSuccess: Effect.succeed }'
+      style: secondary
+      start: 17
+      end: 75
+  ? |
+    Option.match(found, { onNone: () => Effect.fail(error), onSome: () => Effect.void })
+  : labels:
+    - source: 'Option.match(found, { onNone: () => Effect.fail(error), onSome: () => Effect.void })'
+      style: primary
+      start: 0
+      end: 84
+    - source: Effect.fail(error)
+      style: secondary
+      start: 36
+      end: 54
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 30
+      end: 54
+    - source: 'onNone: () => Effect.fail(error)'
+      style: secondary
+      start: 22
+      end: 54
+    - source: Effect.void
+      style: secondary
+      start: 70
+      end: 81
+    - source: () => Effect.void
+      style: secondary
+      start: 64
+      end: 81
+    - source: 'onSome: () => Effect.void'
+      style: secondary
+      start: 56
+      end: 81
+    - source: '{ onNone: () => Effect.fail(error), onSome: () => Effect.void }'
+      style: secondary
+      start: 20
+      end: 83
+    - source: '{ onNone: () => Effect.fail(error), onSome: () => Effect.void }'
+      style: secondary
+      start: 20
+      end: 83
+  ? |
+    Option.match(found, { onNone: () => Effect.fail(new MissingError({ name })), onSome: (item) => Effect.succeed(item) })
+  : labels:
+    - source: 'Option.match(found, { onNone: () => Effect.fail(new MissingError({ name })), onSome: (item) => Effect.succeed(item) })'
+      style: primary
+      start: 0
+      end: 118
+    - source: Effect.fail(new MissingError({ name }))
+      style: secondary
+      start: 36
+      end: 75
+    - source: () => Effect.fail(new MissingError({ name }))
+      style: secondary
+      start: 30
+      end: 75
+    - source: 'onNone: () => Effect.fail(new MissingError({ name }))'
+      style: secondary
+      start: 22
+      end: 75
+    - source: Effect.succeed(item)
+      style: secondary
+      start: 95
+      end: 115
+    - source: (item) => Effect.succeed(item)
+      style: secondary
+      start: 85
+      end: 115
+    - source: 'onSome: (item) => Effect.succeed(item)'
+      style: secondary
+      start: 77
+      end: 115
+    - source: '{ onNone: () => Effect.fail(new MissingError({ name })), onSome: (item) => Effect.succeed(item) }'
+      style: secondary
+      start: 20
+      end: 117
+    - source: '{ onNone: () => Effect.fail(new MissingError({ name })), onSome: (item) => Effect.succeed(item) }'
+      style: secondary
+      start: 20
+      end: 117

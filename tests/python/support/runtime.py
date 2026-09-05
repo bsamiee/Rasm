@@ -51,8 +51,8 @@ if TYPE_CHECKING:
 HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large, HealthCheck.filter_too_much)
 
-PROFILE_DEFAULT = "rasm"
-PROFILE_STATEFUL = "rasm-stateful"
+PROFILE_DEFAULT = "default"
+PROFILE_STATEFUL = "stateful"
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -72,7 +72,7 @@ def isolate[T](var: ContextVar[T], value: T) -> Generator[None]:
 
 
 def _run_profiler(artifact_dir: Path, secs: str) -> None:
-    """Attach the stdlib sampling profiler to this PID from a child process, off the pytest main thread."""
+    """Attach the stdlib sampling profiler to the session PID from a child process, off the pytest main thread."""
     artifact_dir.mkdir(parents=True, exist_ok=True)
     artifact = artifact_dir / f"session-{datetime.now(tz=UTC).strftime('%Y%m%dT%H%M%S')}.jsonl"
     argv = [sys.executable, "-m", "profiling.sampling", "attach", str(os.getpid()), "--jsonl", "-o", str(artifact), "-d", secs]
@@ -87,8 +87,8 @@ def _run_profiler(artifact_dir: Path, secs: str) -> None:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES))
-_gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # ruff:ignore[banned-api]
-match _gh_replay.split("/", 1) if _gh_replay else []:
+_github_replay = os.environ.get("HYPOTHESIS_GH_REPLAY")  # ruff:ignore[banned-api]
+match _github_replay.split("/", 1) if _github_replay else []:
     case [owner, repo]:
         _EXAMPLE_DB: ExampleDatabase = MultiplexedDatabase(_local_db, ReadOnlyDatabase(GitHubArtifactDatabase(owner, repo)))
     case _:
@@ -96,9 +96,9 @@ match _gh_replay.split("/", 1) if _gh_replay else []:
 
 set_hypothesis_home_dir(HYPOTHESIS_HOME)
 hyp_settings.register_profile(PROFILE_DEFAULT, database=_EXAMPLE_DB, deadline=None, suppress_health_check=_SUPPRESSIONS)
-hyp_settings.register_profile("rasm-ci", database=_EXAMPLE_DB, deadline=None, max_examples=200, suppress_health_check=_SUPPRESSIONS)
+hyp_settings.register_profile("ci", database=_EXAMPLE_DB, deadline=None, max_examples=200, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile(
-    "rasm-stress",
+    "stress",
     database=_EXAMPLE_DB,
     deadline=None,
     max_examples=1000,
@@ -106,27 +106,27 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
-    "rasm-debug",
+    "debug",
     database=_EXAMPLE_DB,
     deadline=None,
     max_examples=25,
     phases=(Phase.explicit, Phase.reuse, Phase.generate, Phase.explain),
     suppress_health_check=_SUPPRESSIONS,
 )
-hyp_settings.register_profile("rasm-adversarial", database=_EXAMPLE_DB, deadline=None, max_examples=2000, suppress_health_check=_SUPPRESSIONS)
+hyp_settings.register_profile("adversarial", database=_EXAMPLE_DB, deadline=None, max_examples=2000, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile(PROFILE_STATEFUL, database=_EXAMPLE_DB, deadline=None, stateful_step_count=200, suppress_health_check=_SUPPRESSIONS)
-hyp_settings.register_profile("rasm-parity", database=None, deadline=None, derandomize=True, suppress_health_check=_SUPPRESSIONS)
+hyp_settings.register_profile("parity", database=None, deadline=None, derandomize=True, suppress_health_check=_SUPPRESSIONS)
 if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
-    _OBS_DIR = REPO_ROOT / ".artifacts" / "python" / "hypothesis"
+    _OBSERVATIONS = REPO_ROOT / ".artifacts" / "python" / "hypothesis"
 
-    def _deliver_to_artifacts(observation: object, _thread_id: int) -> None:
+    def _write_observation(observation: object, _thread_id: int) -> None:
         kind = "testcases" if getattr(observation, "type", None) == "test_case" else "info"
-        _OBS_DIR.mkdir(parents=True, exist_ok=True)
-        artifact = _OBS_DIR / f"{datetime.now(tz=UTC).date().isoformat()}_{kind}.jsonl"
+        _OBSERVATIONS.mkdir(parents=True, exist_ok=True)
+        artifact = _OBSERVATIONS / f"{datetime.now(tz=UTC).date().isoformat()}_{kind}.jsonl"
         with artifact.open(mode="a") as fh:
             fh.write(msgspec.json.encode(to_jsonable(observation, avoid_realization=False)).decode() + "\n")
 
-    add_observability_callback(_deliver_to_artifacts, all_threads=True)
+    add_observability_callback(_write_observation, all_threads=True)
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -188,6 +188,18 @@ def otel_spans(_otel_provider: InMemorySpanExporter) -> InMemorySpanExporter:
     """Clear and return the session exporter for a test."""
     _otel_provider.clear()
     return _otel_provider
+
+
+@pytest.fixture(scope="session")
+def energyplus() -> Path:
+    """Point honeybee-energy at the EnergyPlus installation provision links under the tools directory and return that folder."""
+    folder = REPO_ROOT / ".cache" / "tools" / "energyplus"
+    if not folder.is_dir():
+        pytest.skip("EnergyPlus is not provisioned, run nx run eng:provision")
+    from honeybee_energy.config import folders  # ruff:ignore[import-outside-top-level] -- honeybee-energy imports slowly, tests that need it pay for it
+
+    folders.energyplus_path = str(folder)
+    return folder
 
 
 @pytest.fixture

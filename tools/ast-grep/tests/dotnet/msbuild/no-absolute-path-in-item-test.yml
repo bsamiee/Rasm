@@ -1,0 +1,36 @@
+id: no-absolute-path-in-item
+valid:
+    # A path composed from the file directory
+    - |
+      <Import Project="$(MSBuildThisFileDirectory)eng/custom.props" Condition="Exists('$(MSBuildThisFileDirectory)eng/custom.props')" />
+    # A host assembly resolved through an overridable property
+    - |
+      <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" Private="false" />
+    # A relative project reference
+    - |
+      <ProjectReference Include="../Rasm.Interop.Excel/Rasm.Interop.Excel.csproj" />
+    # A solution folder name opens with a slash and is no path
+    - |
+      <Folder Name="/libs/dotnet/" />
+    # A package path is relative to the package root
+    - |
+      <None Include="$(StageRoot)runtimes/**" Pack="true" PackagePath="runtimes/" />
+invalid:
+    # A hint path with a drive letter
+    - |
+      <Reference Include="Tool" HintPath="C:\tools\mytool\mytool.dll" Private="false" />
+    # A Unix prefix in an item
+    - |
+      <None Include="/usr/local/share/data.bin" CopyToOutputDirectory="PreserveNewest" />
+    # An import from one machine
+    - |
+      <Import Project="/Users/someone/build/common.props" />
+    # A reference into the user's package cache
+    - |
+      <Reference Include="Newtonsoft.Json" HintPath="~/.nuget/packages/newtonsoft.json/13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
+    # A solution project path from one checkout
+    - |
+      <Project Path="/Volumes/Work/Rasm/libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj" />
+    # A root outside the fixed Unix list
+    - |
+      <Compile Include="/srv/generated/Bindings.cs" />

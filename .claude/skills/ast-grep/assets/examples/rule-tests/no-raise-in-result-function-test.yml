@@ -14,18 +14,21 @@ valid:
               raise ValueError("<empty>")
           return Shape(raw)
     - | # Raise inside a nested closure belongs to the closure
-      def admit(rows: Roster) -> Result[Roster, Fault]:
-          def claimed() -> Roster:
+      def validated(rows: Rows) -> Result[Rows, Fault]:
+          def claimed() -> Rows:
               if rows.empty:
                   raise ValueError("<empty>")
               return rows
-          return boundary("admit", claimed)
+          return boundary("validated", claimed)
 invalid:
     - | # Result-typed head raises in its own body
-      def admitted(raw: object, /) -> Result[Shape, Fault]:
+      def accepted(raw: object, /) -> Result[Shape, Fault]:
           if not raw:
               raise ValueError("<empty>")
           return Ok(Shape(raw))
+    - | # Option-typed head is the sibling return type
+      def located(raw: object, /) -> Option[Shape]:
+          raise ValueError("<empty>")
     - |- # Stringized annotation is still a result type
-      def stringy(raw: object, /) -> "Result[Shape, Fault]":
+      def quoted(raw: object, /) -> "Result[Shape, Fault]":
           raise ValueError("<empty>")

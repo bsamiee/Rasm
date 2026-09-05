@@ -1,55 +1,54 @@
-# [RASM_WORKSPACE]
+# [RASM]
 
-Rasm is a polyglot monorepo. Development targets macOS first, all code and tooling stay portable to Linux and Windows. Only dependencies, tools, and hosts that run on macOS are accepted.
-
-- Language-specific code is organized beneath `libs/` and `tests/`
-- Applications live in `apps/`, one directory per product, and consume internal libraries through package dependencies
-- Shared build and release automation lives in `eng/`
-
-Dependency versions centralize in root manifests: `Directory.Packages.props` for .NET, `pyproject.toml` and `uv.lock` for Python, `pnpm-workspace.yaml` for TypeScript, `mise.toml` for runtimes and standalone binaries, and `global.json` for the .NET SDK.
+Rasm is a polyglot monorepo. Development targets macOS first, and all code and tooling stay portable to Linux and Windows. Dependencies, tools, and hosts must run on macOS. The root manifests hold every dependency version.
 
 ## [01]-[LAYOUT]
 
 ```text
 Rasm/
-├── apps/                     # One directory per application, covering plugins, services, desktop and web clients
+├── apps/                     # One directory per application
 ├── docs/                     # Durable documentation
 ├── libs/
 │   ├── contracts/
 │   ├── dotnet/
 │   ├── python/
 │   └── typescript/
-├── tests/                    # Cross-language test policy, reusable test support, and non-colocated suites
+├── tests/                    # Test policy, shared test support, and suites outside libs/
 │   ├── dotnet/
 │   ├── python/
 │   └── typescript/
-├── eng/                      # Shared build and release infrastructure
-│   ├── native/               # Native packaging: version manifest directory and packaging projects per library
+├── eng/                      # Shared automation and native packaging
+│   ├── native/               # Version manifests and packaging projects per native library
 │   └── scripts/              # Python automation that Nx targets invoke
-├── infra/                    # Pulumi program on the Automation API for the repository settings and its Doppler project
-├── tools/                    # Custom tools for developing this project
+├── infra/                    # Pulumi program for repository settings and the Doppler project
+├── tools/                    # Tools the repository builds for its checks
+│   ├── ast-grep/             # Structural rules, utilities, and rule tests per language
 │   ├── biome/                # Biome GritQL plugin rules
-│   └── nx/                   # Nx plugin that tags every language manifest with its check targets and infers the packaging projects
-├── mise.toml                 # Pinned runtimes and standalone binaries, and the environment every task runs under
+│   ├── dotnet/               # Roslyn analyzers executables and plugin hosts reference
+│   └── nx/                   # Nx plugin for language tags and packaging projects
+├── mise.toml                 # Toolchain, its resolution settings, and the process environment
 ├── nx.json                   # Task graph, caching, and change detection across the workspace
-├── NuGet.config              # NuGet sources nuget.org and the local .artifacts/nuget feed, Rasm.* ids mapped to the local feed
-├── Directory.Build.props     # .NET build defaults, artifacts path, restore, analysis, analyzers, Rhino bundle paths
-├── Directory.Build.targets   # .NET derived items, host references, and project policy checks
+├── NuGet.config              # NuGet sources and package source mapping
+├── Directory.Build.props     # .NET build defaults every project imports
+├── Directory.Build.targets   # .NET items and policy checks every project imports
 ├── Directory.Packages.props  # .NET central package versions
 ├── pyproject.toml            # Python dependency groups and tool configuration
 ├── pnpm-workspace.yaml       # TypeScript workspace and dependency catalog
-├── package.json              # Root TypeScript package metadata and development dependencies
+├── package.json              # Root package with development dependencies and root Nx targets
 ├── tsconfig.base.json        # Base TypeScript compiler options for workspace projects
 ├── tsconfig.json             # Root TypeScript project over the config files, tools/nx, and infra
-├── biome.json                # TypeScript lint and formatting rules
-├── vite.config.ts            # Shared TypeScript Vite build configuration imported by app and package configs
-├── vitest.config.ts          # TypeScript Vitest projects, coverage, and benchmark configuration
+├── biome.json                # TypeScript and JSON lint and formatting rules
+├── sgconfig.yml              # ast-grep rule, utility, and test directories
+├── vite.config.ts            # Vite configuration that app and library configs import
+├── vitest.config.ts          # Vitest configuration each project config imports
 ├── stryker.config.json       # TypeScript mutation testing
 ├── stryker-config.json       # .NET mutation testing
-├── Workspace.slnx            # .NET solution of the library, application, and test projects
-├── global.json               # .NET SDK version with rollForward disabled, Microsoft.Testing.Platform as the test runner
-├── .github/                  # CI and release workflows with the composite actions they share
-├── .editorconfig             # Analyzer severity, path-specific overrides, and BuildCheck settings
+├── Workspace.slnx            # .NET solution of library, application, and test projects
+├── global.json               # .NET SDK version and test runner
+├── .github/                  # Workflows with their shared composite actions
+├── .vscode/                  # Editor settings
+├── .mcp.json                 # MCP servers for the agent harness
+├── .editorconfig             # Editor and analyzer settings per path
 ├── .gitattributes
 ├── .gitignore
 ├── CLAUDE.md                 # Agent standards
@@ -60,54 +59,45 @@ Rasm/
 
 ## [02]-[TASKS]
 
-[REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`, tool work directories that cannot be relocated are ignored and hold no durable output.
+[REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`. Work directories a tool cannot relocate are ignored and hold no durable output.
 
-Nx is the one runner, and everything a developer runs is one of the targets `lint`, `format`, `typecheck`, `test`, `build`, `check`, `restore`, `provision`, `stage`, `pack`, `coverage`, `mutation`, `preview`, `up`, `refresh`, and `release`, and the .NET plugin infers `build:release` and `watch` beside `build`. Checkout, the setup action, caches, artifact transport between jobs, and Nx's own commands (`nx graph`, `nx affected`) are workflow steps.
+Nx is the task runner, `nx.json` and the root `package.json` `nx` field are the one entry point, and every developer command is a target:
+- `nx run-many -t <target> -p tag:language:<language>` runs one target across one language, and `nx run <project>:<target>` runs one project
+- `check` depends on `lint`, `format`, `typecheck`, and `test`, and the rewriting targets fix what their tool can fix and fail on the rest
+- Root targets hold the operations with no owning project, and plugins infer every other target from the language manifests and the packaging projects
+- Repository settings and secrets are infrastructure code under `infra/`, applied through a root target and read from the secret store at run time
+- `mise.toml` owns the machine setup, every tool at its newest release, and the language lock files are the only pins
 
-- Targets resolve from plugin inference, `targetDefaults` in `nx.json`, then the project's own configuration, each overriding the one before
-- `tools/nx/workspace.ts` tags each language manifest and adds the `lint`, `format`, `typecheck`, and `check` targets `targetDefaults` fill by tag
-- The same plugin infers one project per `eng/native/*/*.csproj` with a `stage` target and a cached `pack` target
-- `stage` depends on `eng:provision` and writes the staged tree, and `pack` writes the package to the `local` source in `NuGet.config`
-- Binding projects with `IncludeBuildOutput` true get `pack` alone, which depends on the `stage` target of the native project of the same library
-- `eng/project.json` and `tests/python/project.json` are the projects of the directories no manifest covers
-- The root project, the `nx` field of the root `package.json`, holds `restore`, `coverage`, `mutation`, `preview`, `up`, `refresh`, and `release`
-- `lint` and `format` run a `check` configuration by default and a `write` configuration that rewrites the files
-- `check` on a project depends on its `lint`, `format`, `typecheck`, and `test`, and `nx run rasm-workspace:check` runs every check in the workspace
-- `test` collects coverage on every run, and the root `coverage` target merges the data once per language after every `test`
-- Inferred `build` targets pass `--no-restore` and depend on `rasm-workspace:restore`, the one restore of `Workspace.slnx`
-- Steps with control flow are Python scripts under `eng/scripts/` that a target invokes under `uv run` with the root `pyproject.toml` groups
-- `nx run eng:provision` places vcpkg, its binary cache, and every pinned release archive under `.cache/` and installs the Git LFS filters
-- `nx graph --file=.artifacts/nx/graph.json` writes the project graph
-- `ProjectReference` edges and `PackageReference` edges to packaging projects drive `nx affected`
+Use the `monorepo-build-infrastructure` skill for the targets, the toolchain, `eng/`, `infra/`, CI, and release.
 
 ## [03]-[QUALITY]
 
-Checker configuration is centralized, and each language area must pass its configured checks before code is merged.
+Checker configuration is centralized, and each language area must pass its configured checks before a merge.
 
-- .NET: Roslyn analyzers at `latest-all`, warnings-as-errors, code-style rules enforced during build, `.editorconfig` holds rule severity and configuration
+- .NET: Roslyn analyzers at `latest-all` with warnings as errors and code-style rules enforced during build
+- `.editorconfig` holds .NET rule severity and configuration
 - `Thinktecture.Runtime.Extensions.Analyzers` validates generated-type declarations and generated `Switch`/`Map` usage across every .NET project
-- Python: Passes with no warnings/errors from `ruff`, `ty`, and `mypy`
-- TypeScript: Passes `biome check` and compiles with `tsc --build` under strict settings
+- Python: `ruff`, `ty`, and `mypy` pass with zero warnings
+- TypeScript: `biome check` passes and `tsc --build` compiles under strict settings
 - Formatting: `dotnet format`, `ruff format`, and `biome format`
-- Coverage and mutation score are information, and no threshold gates a merge
-- Do not relax checker settings, repair the code or correct a demonstrably invalid rule
+- Coverage and mutation score are reported, and no threshold gates a merge
+- Fix a failing check in code, or in the rule when the rule is demonstrably invalid, and leave checker severity as configured
 
 ## [04]-[LIBRARIES]
 
 Every `libs/` package is independently consumable and publishes a stable API.
 
 - Packages reference sibling packages through declared package dependencies
-- Every dependency edge points toward a lower-level package, the graph stays acyclic
-- Packages expose capabilities: Python and TypeScript files declare explicit exports at the end
-- Workflow assembly, configuration loading, and dependency wiring belong to the application
-- Sibling packages align on naming, the result type, and boundary types to compose predictably
+- Every dependency points to a lower-level package, and the dependency graph stays acyclic
+- Python and TypeScript files declare their exports at the end
+- Workflow assembly, configuration loading, and dependency composition belong to the application
+- Sibling packages share naming, result type, and boundary types
 
 ## [05]-[LANGUAGE_AREAS]
 
-Each language area follows its own ecosystem and releases independently.
+Each language area follows its ecosystem's conventions and releases independently.
 
 - Language areas share one design approach to boundaries, errors, and immutability
-- Each area follows the idioms and standards of its language
 - Each area derives module layout, naming, and API design from its language
 - Each area builds and runs without another language area present
 
@@ -116,14 +106,17 @@ Each language area follows its own ecosystem and releases independently.
 Each `apps/<name>/` is one product with its own host, lifecycle, and release.
 
 - Each application depends on `libs/` and third-party packages
-- One application spans as many languages and projects as its host demands
-- Applications own the composition root, where configuration, dependency wiring, effect execution, and telemetry are implemented
-- Host APIs stay inside the package named for that host or inside the application itself
+- One application spans as many languages and projects as its host requires
+- Applications hold the composition root for configuration, dependencies, effect execution, and telemetry
+- Host APIs stay inside the package named for that host or inside the application
 
 ## [07]-[CHANGE]
 
-The workspace has one current structure, and every change replaces the previous one in place. Data schemas derive from their owning types, and a schema management library computes the delta between the model and the live database and applies it at startup or from a command, with no migration file or history table. Releases are `v` tags, MinVer derives every assembly and package version from the nearest tag, `release.yml` runs the root `release` target that creates the GitHub release, and no file states a version.
+Changes replace structure in place, and releases run per project from git tags through one dispatch workflow.
 
+- Schema libraries apply the delta from the owning types to the live database at startup or from a command, with no migration file or history table
+- Each project or fixed group gets a `<name>@<version>` tag, build tools read the version from the tag, and registries take trusted publishing
+- No file states a version
 - No package, namespace, route, contract, or directory has a version suffix or `v1` folder, and a changed structure keeps the name of the one it replaces
 - No compatibility shim, fallback reader, or deprecation period keeps a replaced structure alive, and one commit holds the change and the removal
 - No `src/` directory exists at any depth, a project's files sit at its root, and no directory exists only to add a level of nesting

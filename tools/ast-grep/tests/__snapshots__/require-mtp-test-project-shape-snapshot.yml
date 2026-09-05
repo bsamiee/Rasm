@@ -1,0 +1,38 @@
+id: require-mtp-test-project-shape
+snapshots:
+  ? |
+    <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+  : labels:
+    - source: |
+        <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+      style: primary
+      start: 0
+      end: 156
+    - source: <PackageReference Include="xunit.v3.mtp-v2" />
+      style: secondary
+      start: 87
+      end: 133
+  ? |
+    <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+  : labels:
+    - source: |
+        <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+      style: primary
+      start: 0
+      end: 172
+    - source: <PackageReference Include="xunit.v3.mtp-v2" />
+      style: secondary
+      start: 103
+      end: 149
+  ? |
+    <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Library</OutputType></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+  : labels:
+    - source: |
+        <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Library</OutputType></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+      style: primary
+      start: 0
+      end: 219
+    - source: <PackageReference Include="xunit.v3.mtp-v2" />
+      style: secondary
+      start: 150
+      end: 196

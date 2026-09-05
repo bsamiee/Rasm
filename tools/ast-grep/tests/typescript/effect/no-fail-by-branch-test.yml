@@ -1,0 +1,57 @@
+id: no-fail-by-branch
+valid:
+    # The guard names the predicate and the error beside each other
+    - |
+      Effect.filterOrFail(work, (held) => held.ok, () => new PolicyError({ reason: 'rejected' }))
+    # A local inspected through the guard, the value enters as a succeeded effect
+    - |
+      Effect.filterOrFail(Effect.succeed(report), (held) => held.verdict !== 'regression', () => error)
+    # An Option is an Effect, the failure is renamed in place
+    - |
+      Effect.mapError(found, () => new MissingError({ name }))
+    # Both arms run effects, the branch selects between two operations
+    - |
+      Effect.if(ready, { onTrue: () => run, onFalse: () => wait })
+    # One arm fails and the other runs an operation, the branch is a dispatch and not a guard
+    - |
+      Effect.if(ready, { onTrue: () => run, onFalse: () => Effect.fail(error) })
+    # Both arms pass values through, the branch selects a value
+    - |
+      Effect.if(seen, { onTrue: () => Effect.succeed([]), onFalse: () => Effect.succeed(rows) })
+    # An Option matched into an operation and a failure, a dispatch
+    - |
+      Option.match(found, { onNone: () => Effect.fail(error), onSome: (item) => write(item) })
+    # An Exit whose failure arm reports, the success arm point-free
+    - |
+      Exit.match(exit, { onFailure: report, onSuccess: Effect.succeed })
+invalid:
+    # The instance, a boolean result inspected to fail
+    - |
+      Effect.if(holds, { onTrue: () => Effect.fail(new PolicyError({ reason: 'counterexample' })), onFalse: () => Effect.void })
+    # The value passes through the other arm
+    - |
+      Effect.if(report.verdict === 'regression', { onTrue: () => Effect.fail(error), onFalse: () => Effect.succeed(report) })
+    # The mirrored arms
+    - |
+      Effect.if(valid, { onTrue: () => Effect.succeed(value), onFalse: () => Effect.fail(error) })
+    # The same branch spelled as Boolean.match
+    - |
+      Boolean.match(flag, { onFalse: () => Effect.succeed(value), onTrue: () => Effect.fail(error) })
+    # The branch inside a flatMap over the inspected value
+    - |
+      Effect.flatMap(work, (holds) => Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => Effect.void }))
+    # An Option re-lifted into the Effect it already is
+    - |
+      Option.match(found, { onNone: () => Effect.fail(new MissingError({ name })), onSome: (item) => Effect.succeed(item) })
+    # An Either re-lifted through point-free constructors
+    - |
+      Either.match(decoded, { onLeft: Effect.fail, onRight: Effect.succeed })
+    # An Exit re-lifted with its cause
+    - |
+      Exit.match(exit, { onFailure: (cause) => Effect.failCause(cause), onSuccess: Effect.succeed })
+    # An Exit re-lifted through point-free constructors, the cause arm as the constructor itself
+    - |
+      Exit.match(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
+    # An Option whose presence arm yields nothing
+    - |
+      Option.match(found, { onNone: () => Effect.fail(error), onSome: () => Effect.void })

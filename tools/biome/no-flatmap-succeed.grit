@@ -1,0 +1,10 @@
+language js(typescript, jsx)
+
+or {
+    `Effect.flatMap($self, ($value) => Effect.succeed($body))`,
+    `Effect.flatMap(($value) => Effect.succeed($body))`,
+    `Effect.andThen($self, ($value) => Effect.succeed($body))`,
+    `Effect.andThen(($value) => Effect.succeed($body))`
+} as $hit where {
+    register_diagnostic(span=$hit, message="flatMap into Effect.succeed lifts a pure function, use Effect.map with the function itself", severity="error")
+}

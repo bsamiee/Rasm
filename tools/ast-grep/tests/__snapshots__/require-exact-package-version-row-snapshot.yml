@@ -1,0 +1,44 @@
+id: require-exact-package-version-row
+snapshots:
+  ? |
+    <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.*" />
+  : labels:
+    - source: <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.*" />
+      style: primary
+      start: 0
+      end: 69
+  ? |
+    <PackageVersion Include="CsCheck" />
+  : labels:
+    - source: <PackageVersion Include="CsCheck" />
+      style: primary
+      start: 0
+      end: 36
+  ? |
+    <PackageVersion Include="CsCheck" Version="" />
+  : labels:
+    - source: <PackageVersion Include="CsCheck" Version="" />
+      style: primary
+      start: 0
+      end: 47
+  ? |
+    <PackageVersion Include="CsCheck" Version="4.*" />
+  : labels:
+    - source: <PackageVersion Include="CsCheck" Version="4.*" />
+      style: primary
+      start: 0
+      end: 50
+  ? |
+    <PackageVersion Include="CsCheck" Version="[4.0,5.0)" />
+  : labels:
+    - source: <PackageVersion Include="CsCheck" Version="[4.0,5.0)" />
+      style: primary
+      start: 0
+      end: 56
+  ? |
+    <PackageVersion Update="CsCheck" Version="4.8.0" />
+  : labels:
+    - source: <PackageVersion Update="CsCheck" Version="4.8.0" />
+      style: primary
+      start: 0
+      end: 51

@@ -10,7 +10,7 @@ Covers the review catalog for project and build files. Each entry names the smel
 - Use `dotnet-msbuild-evaluation` for import order, conditions, properties, items, and file placement
 - Use `dotnet-msbuild-execution` for targets, `DependsOnTargets`, `Inputs` and `Outputs`, `FileWrites`, and copy modes
 - Use `dotnet-msbuild-diagnostics` for binlog capture and query, the `-check` workflow, and shared output paths
-- Use `dotnet-msbuild-packaging` for NuGet package authoring, central package management, lock files, solution files, and CI properties
+- Use `dotnet-msbuild-packaging` for NuGet package authoring, central package management, solution files, and CI properties
 - Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 
 [REFERENCES]:
@@ -18,7 +18,7 @@ Covers the review catalog for project and build files. Each entry names the smel
 
 Delete the output directories and run `dotnet build <solution> -check` before reading the files. `BC0101`, `BC0102`, `BC0107`, and `BC0302` report shared output paths, double writes, both framework properties, and `Exec` builds. No check reports a property override or a misplaced property, read the files for both.
 
-[AGENT]: Use `msbuild-fixer` when the scope exceeds the context window, it reviews one scope and returns fixes with proof.
+[AGENTS]: Use `msbuild-fixer` when the scope exceeds the context window, it reviews one scope and returns fixes with proof.
 
 ## [01]-[EVALUATION]
 
@@ -488,5 +488,5 @@ Use `dotnet-msbuild-packaging` for the rule and the fix of the packaging smells:
 - `Version` or `PackageVersion` set per project
 - `PackageReference` with `Version` under central package management
 - Nested `Directory.Packages.props` without the root import
-- Lock file and `RestoreLockedMode` settings outside the root file
+- NuGet lock file or lock-file restore setting in any file
 - `ContinuousIntegrationBuild` and other CI properties per project

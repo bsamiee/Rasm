@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# A call on a module the effect package exports, the family every combinator-shape rule matches on
+id: effect-module-call
+language: tsx
+rule:
+    kind: call_expression
+    has:
+        field: function
+        kind: member_expression
+        has:
+            field: object
+            regex: "^(Array|Boolean|Cause|Chunk|Config|DateTime|Duration|Effect|Either|Exit|HashMap|HashSet|Iterable|Layer|List|\
+                Match|Number|Option|Order|Predicate|Record|Schedule|Schema|Sink|Stream|String|Struct|Tuple)$"

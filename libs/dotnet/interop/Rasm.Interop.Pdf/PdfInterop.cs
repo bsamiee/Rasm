@@ -3,6 +3,7 @@ using PdfSharp.Snippets.Font;
 
 namespace Rasm.Interop.Pdf;
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
 /// <summary>Provides the PDFsharp font-resolver registration that executables run once at the composition root</summary>
 /// <remarks>
 /// <para><see cref="PdfSharp.Drawing.XFont"/> construction throws while <see cref="GlobalFontSettings.FontResolver"/> holds no resolver, and <see cref="FailsafeFontResolver"/> maps every request to a bundled SegoeWP face</para>

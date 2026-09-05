@@ -1,25 +1,25 @@
-# Normalize text to LF, binaries auto-detect, Verify snapshots require exact LF bytes
+# Text normalizes to LF and binaries auto-detect, Verify snapshots need exact LF bytes
 * text=auto eol=lf
 
-# Git LFS: binary design assets commit as pointers
+# Binary design assets commit as Git LFS pointers
 
-# Rhino Files
+# --- [RHINO] ------------------------------------------------------------------
 *.3dm filter=lfs diff=lfs merge=lfs -text
 *.3dmbak filter=lfs diff=lfs merge=lfs -text
 
-# Grasshopper Files
+# --- [GRASSHOPPER] ------------------------------------------------------------
 *.gh filter=lfs diff=lfs merge=lfs -text
 *.ghx filter=lfs diff=lfs merge=lfs -text
 *.ghdata filter=lfs diff=lfs merge=lfs -text
 
-# CAD Files
+# --- [CAD] --------------------------------------------------------------------
 *.dwg filter=lfs diff=lfs merge=lfs -text
 *.dxf filter=lfs diff=lfs merge=lfs -text
 *.rvt filter=lfs diff=lfs merge=lfs -text
 *.rfa filter=lfs diff=lfs merge=lfs -text
 *.skp filter=lfs diff=lfs merge=lfs -text
 
-# 3D Model Files
+# --- [MESH] -------------------------------------------------------------------
 *.obj filter=lfs diff=lfs merge=lfs -text
 *.fbx filter=lfs diff=lfs merge=lfs -text
 *.dae filter=lfs diff=lfs merge=lfs -text
@@ -27,7 +27,7 @@
 *.stl filter=lfs diff=lfs merge=lfs -text
 *.ply filter=lfs diff=lfs merge=lfs -text
 
-# Image Files (Large renders, textures)
+# --- [IMAGE] ------------------------------------------------------------------
 *.psd filter=lfs diff=lfs merge=lfs -text
 *.psb filter=lfs diff=lfs merge=lfs -text
 *.ai filter=lfs diff=lfs merge=lfs -text

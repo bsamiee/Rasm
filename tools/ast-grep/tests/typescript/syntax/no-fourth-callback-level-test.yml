@@ -1,0 +1,36 @@
+id: no-fourth-callback-level
+valid:
+    # Three callback levels, the fourth arrow is a zero-parameter thunk under Effect.sync
+    - 'const three = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.sync(() => z))));'
+    # Pair values of an Effect.if branch sit under a pair and add no level
+    - 'const branch = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.if(z, { onTrue: () => x, onFalse: () => y }))));'
+    # A lazy default and a liftPredicate condition are zero-parameter thunks
+    - 'const lazy = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Option.getOrElse(z, () => Option.liftPredicate(y, () => x)))));'
+    # A curried return chain sits under a body and adds no level
+    - 'const curried = (a) => (b) => (c) => (d) => a;'
+    # A variable initializer sits under a declarator, the pipeline holds data-last steps
+    - 'const step = (x) => x.pipe(Array.map((y) => y), Option.map((z) => z), Effect.map((w) => w));'
+    # Dependent steps as one yield* each inside Effect.gen
+    - |
+      const dependent = Effect.gen(function* () {
+          const first = yield* Effect.map(xs, (x) => x);
+          const second = yield* Effect.map(first, (y) => y);
+          return second;
+      });
+invalid:
+    # The instance, a parenthesized arrow at the fourth level
+    - 'const four = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w) => w))));'
+    # A bare-parameter arrow at every level
+    - 'const bare = Effect.map(xs, x => Array.map(x, y => Option.map(y, z => Effect.map(z, w => w))));'
+    # An async arrow at the fourth level
+    - 'const asynchronous = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, async (w) => w))));'
+    # A function expression at the fourth level
+    - 'const expression = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, function (w) { return w; }))));'
+    # A generator body at the fourth level
+    - 'const generator = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, function* (w) { yield w; }))));'
+    # A destructured parameter counts as a declared parameter
+    - 'const destructured = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ({ w }) => w))));'
+    # A function expression and a generator in the middle of the chain
+    - 'const mixed = Effect.map(xs, (x) => Array.map(x, function (y) { return Option.map(y, function* (z) { yield Effect.map(z, (w) => w); }); }));'
+    # A fifth level reports once at the innermost callback
+    - 'const five = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w) => Effect.map(w, (v) => v)))));'

@@ -1,0 +1,102 @@
+id: no-explicit-provider
+snapshots:
+  const doppler = new DopplerProvider({ dopplerToken });:
+    labels:
+    - source: new DopplerProvider({ dopplerToken })
+      style: primary
+      start: 16
+      end: 53
+    - source: DopplerProvider
+      style: secondary
+      start: 20
+      end: 35
+  const gh = new github.Provider("github", { owner, token });:
+    labels:
+    - source: new github.Provider("github", { owner, token })
+      style: primary
+      start: 11
+      end: 58
+    - source: github.Provider
+      style: secondary
+      start: 15
+      end: 30
+  const project = new Project(name, args, { provider });:
+    labels:
+    - source: provider
+      style: primary
+      start: 42
+      end: 50
+    - source: new Project(name, args, { provider })
+      style: secondary
+      start: 16
+      end: 53
+    - source: (name, args, { provider })
+      style: secondary
+      start: 27
+      end: 53
+    - source: '{ provider }'
+      style: secondary
+      start: 40
+      end: 52
+  'const project = new Project(name, { name, description }, { provider: doppler });':
+    labels:
+    - source: 'provider: doppler'
+      style: primary
+      start: 59
+      end: 76
+    - source: provider
+      style: secondary
+      start: 59
+      end: 67
+    - source: 'new Project(name, { name, description }, { provider: doppler })'
+      style: secondary
+      start: 16
+      end: 79
+    - source: '(name, { name, description }, { provider: doppler })'
+      style: secondary
+      start: 27
+      end: 79
+    - source: '{ provider: doppler }'
+      style: secondary
+      start: 57
+      end: 78
+  'const repository = new Repository(name, args, { protect: true, providers: [gh] });':
+    labels:
+    - source: 'providers: [gh]'
+      style: primary
+      start: 63
+      end: 78
+    - source: providers
+      style: secondary
+      start: 63
+      end: 72
+    - source: 'new Repository(name, args, { protect: true, providers: [gh] })'
+      style: secondary
+      start: 19
+      end: 81
+    - source: '(name, args, { protect: true, providers: [gh] })'
+      style: secondary
+      start: 33
+      end: 81
+    - source: '{ protect: true, providers: [gh] }'
+      style: secondary
+      start: 46
+      end: 80
+  const repository = new Repository(name, args, { providers });:
+    labels:
+    - source: providers
+      style: primary
+      start: 48
+      end: 57
+    - source: new Repository(name, args, { providers })
+      style: secondary
+      start: 19
+      end: 60
+    - source: (name, args, { providers })
+      style: secondary
+      start: 33
+      end: 60
+    - source: '{ providers }'
+      style: secondary
+      start: 46
+      end: 59

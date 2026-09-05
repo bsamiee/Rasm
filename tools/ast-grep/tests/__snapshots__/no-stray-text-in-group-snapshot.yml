@@ -1,0 +1,92 @@
+id: no-stray-text-in-group
+snapshots:
+  ? |
+    <ItemGroup>
+        <_RuntimeInitBinding Include="itext" Companion="itext.bouncy-castle-adapter" />. <!-- iText crypto paths need the adapter -->
+    </ItemGroup>
+  : labels:
+    - source: '. '
+      style: primary
+      start: 95
+      end: 97
+    - source: |-
+        <ItemGroup>
+            <_RuntimeInitBinding Include="itext" Companion="itext.bouncy-castle-adapter" />. <!-- iText crypto paths need the adapter -->
+        </ItemGroup>
+      style: secondary
+      start: 0
+      end: 154
+    - source: |2
+
+            <_RuntimeInitBinding Include="itext" Companion="itext.bouncy-castle-adapter" />. <!-- iText crypto paths need the adapter -->
+      style: secondary
+      start: 11
+      end: 142
+  ? |
+    <ItemGroup><PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
+  : labels:
+    - source: stale
+      style: primary
+      start: 47
+      end: 52
+    - source: <ItemGroup><PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
+      style: secondary
+      start: 0
+      end: 117
+    - source: <PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference>
+      style: secondary
+      start: 11
+      end: 105
+    - source: <PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference>
+      style: secondary
+      start: 11
+      end: 105
+    - source: stale<PrivateAssets>all</PrivateAssets>
+      style: secondary
+      start: 47
+      end: 86
+  ? |
+    <PropertyGroup>stale<Nullable>enable</Nullable></PropertyGroup>
+  : labels:
+    - source: stale
+      style: primary
+      start: 15
+      end: 20
+    - source: <PropertyGroup>stale<Nullable>enable</Nullable></PropertyGroup>
+      style: secondary
+      start: 0
+      end: 63
+    - source: stale<Nullable>enable</Nullable>
+      style: secondary
+      start: 15
+      end: 47
+  ? |
+    <Solution><Folder Name="/libs/">stale<Project Path="libs/A/A.csproj" /></Folder></Solution>
+  : labels:
+    - source: stale
+      style: primary
+      start: 32
+      end: 37
+    - source: <Folder Name="/libs/">stale<Project Path="libs/A/A.csproj" /></Folder>
+      style: secondary
+      start: 10
+      end: 80
+    - source: stale<Project Path="libs/A/A.csproj" />
+      style: secondary
+      start: 32
+      end: 71
+  ? |
+    <packageSources><clear />stale<add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>
+  : labels:
+    - source: stale
+      style: primary
+      start: 25
+      end: 30
+    - source: <packageSources><clear />stale<add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>
+      style: secondary
+      start: 0
+      end: 114
+    - source: <clear />stale<add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+      style: secondary
+      start: 16
+      end: 97

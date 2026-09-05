@@ -2,9 +2,10 @@ using MaxRev.Gdal.Core;
 
 namespace Rasm.Interop.Gdal;
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
 /// <summary>Provides the GDAL driver and PROJ registration that executables run once at the composition root</summary>
 /// <remarks>
-/// <para>Every dataset open fails until <see cref="GdalBase.ConfigureAll"/> runs, repeated and concurrent calls return at once, and a later call retries a failed attempt</para>
+/// <para>Every dataset open fails until <see cref="GdalBase.ConfigureAll"/> runs. Repeated and concurrent calls return at once, and a later call retries a failed attempt</para>
 /// <para>The native libraries sit in the MaxRev.Gdal runtime packages that each executable references for the RIDs it publishes</para>
 /// </remarks>
 public static class GdalInterop {

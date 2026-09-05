@@ -28,6 +28,7 @@ catalog:
   '@msgpack/msgpack': 3.1.3
   rfc6902: 5.3.0
   fast-xml-parser: 5.11.1
+  yaml: 2.9.0
   avsc: 5.7.9
   cloudevents: 10.0.0
   mqtt: 5.15.2
@@ -87,8 +88,6 @@ catalog:
   '@nats-io/jetstream': 3.4.0
   '@nats-io/kv': 3.4.0
   '@nats-io/obj': 3.4.0
-  '@confluentinc/kafka-javascript': 1.10.0
-  '@confluentinc/schemaregistry': 1.10.0
   '@connectrpc/connect-node': 2.1.2
   chevrotain: 13.2.0
   nodemailer: 9.1.1
@@ -184,7 +183,7 @@ catalog:
   tus-js-client: 4.3.1
   react-resizable-panels: 4.12.3
   '@xyflow/react': 12.11.6
-  elkjs: 0.12.0 # EPL-2.0, import only elkjs/lib/elk-api and workerFactory, the bare entry adds 1.5MB of CJS to the main chunk
+  elkjs: 0.12.0 # EPL-2.0, import elkjs/lib/elk-api and workerFactory, the package entry adds 1.5MB of CJS to the main chunk
   prosemirror-model: 1.25.11
   prosemirror-state: 1.4.4
   prosemirror-view: 1.42.3
@@ -257,13 +256,12 @@ catalog:
   '@pulumi/esc-sdk': 0.14.0
   '@pulumi/pulumiservice': 1.3.0
   '@pulumiverse/acme': 0.16.3
-  # Dev
+  # Testing
   vitest: 4.1.11
   '@effect/vitest': 0.30.0
   '@vitest/coverage-v8': 4.1.11
   '@stryker-mutator/core': 10.0.0
   '@stryker-mutator/vitest-runner': 10.0.0
-  '@mermaid-js/mermaid-cli': 11.16.0
   # Tooling
   typescript: 7.0.2
   '@effect/language-service': 0.87.2
@@ -276,8 +274,8 @@ catalog:
   '@nx/vite': 23.2.0
   '@nx/vitest': 23.2.0
   '@biomejs/biome': 2.5.12
-  '@ast-grep/cli': 0.45.3
-  '@bufbuild/buf': 1.72.0
+  # Grammar sources the ast-grep grammar target compiles into a parser library
+  '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
   '@bufbuild/protoc-gen-es': 2.14.1
   '@swc/core': 1.16.1
   '@swc-node/register': 1.12.1
@@ -307,18 +305,16 @@ fetchRetries: 3
 
 fetchRetryFactor: 2
 
-fetchRetryMaxtimeout: 60000
-
-fetchRetryMintimeout: 10000
-
 linkWorkspacePackages: deep
 
 overrides:
   axios: 1.20.0
   # cloudevents declares the deprecated uuid@^8, the v4 API is unchanged in 11
   cloudevents>uuid: 11.1.1
-  # @nx/vitest peers on @nx/eslint for its generators only, the peer pulls Jest and glob@7
+  # @nx/vitest declares a peer on @nx/eslint for its generators, and the peer pulls Jest and glob@7
   '@nx/vitest>@nx/eslint': '-'
+  # The grammar package misspells the optional marker of its tree-sitter peer, and the grammar target reads its C sources alone
+  '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
   jiti: 2.7.0
   minimatch: 10.2.6
   rollup: 4.63.1
@@ -338,10 +334,7 @@ peerDependencyRules:
     vitest: 4.1.11
 
 allowBuilds:
-  '@ast-grep/cli': true
   '@biomejs/biome': true
-  '@bufbuild/buf': true
-  '@confluentinc/kafka-javascript': true
   '@datadog/pprof': true
   '@node-rs/argon2': true
   '@parcel/watcher': true
@@ -350,6 +343,7 @@ allowBuilds:
   '@pulumi/docker-build': true
   '@pulumi/kubernetes': true
   '@swc/core': true
+  '@tree-sitter-grammars/tree-sitter-xml': false
   better-sqlite3: true
   core-js: true
   cpu-features: true
@@ -357,13 +351,8 @@ allowBuilds:
   msgpackr-extract: true
   nx: true
   protobufjs: true
-  puppeteer: false
   sharp: true
   ssh2: true
   unrs-resolver: true
 
-preferWorkspacePackages: true
-
 saveExact: true
-
-strictSsl: true

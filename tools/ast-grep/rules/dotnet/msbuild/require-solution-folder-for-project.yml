@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-solution-folder-for-project
+language: xml
+severity: error
+files: ['*.slnx']
+rule:
+    matches: {msbuild-element: {name: {regex: '^Project$'}}}
+    not: {inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^Folder$'}}}}}}
+message: A solution project sits under the Folder named for its directory chain, move the Project into <Folder Name="/<area>/<language>/<group>/"> so the solution tree matches the repository layout

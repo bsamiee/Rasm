@@ -1,0 +1,33 @@
+id: no-constant-column
+valid:
+    # The column varies across rows
+    - 'const rows = [{ name: "dev", imported: true }, { name: "prd", imported: false }];'
+    # One row holds no column
+    - 'const single = [{ name: "dev", imported: true }];'
+    # A later row lacks the pair
+    - 'const rows = [{ name: "dev", kind: "environment" }, { name: "prd" }];'
+    # The repeated value is a reference, not a literal
+    - 'const rows = [{ name: "dev", slug: slug }, { name: "prd", slug: slug }];'
+    # A row that is not an object
+    - 'const mixed = [{ name: "dev", imported: true }, "prd"];'
+    # A third element that is no object after two rows that repeat the pair
+    - 'const mixed = [{ name: "dev", imported: true }, { name: "prd", imported: true }, "raw"];'
+    # A scalar pair beside the object rows, the container is a record and not a table
+    - 'const targets = { lint: { cache: true, command: "lint" }, format: { cache: true, command: "format" }, name: "tools" };'
+    # A later object row lacks the pair
+    - 'const targets = { lint: { cache: true, command: "lint" }, format: { command: "format" } };'
+invalid:
+    # The instance, one literal pair on every array row
+    - 'const rows = [{ name: "dev", imported: true }, { name: "prd", imported: true }];'
+    # The pair in a different position per row, with extra keys
+    - 'const rows = [{ imported: true, name: "dev" }, { name: "prd", imported: true, slug: "p" }];'
+    # A string column
+    - 'const rows = [{ name: "dev", kind: "environment" }, { name: "prd", kind: "environment" }];'
+    # A number column
+    - 'const rows = [{ name: "dev", retries: 3 }, { name: "prd", retries: 3 }];'
+    # A false column
+    - 'const rows = [{ name: "dev", imported: false }, { name: "prd", imported: false }];'
+    # A null column
+    - 'const rows = [{ name: "dev", owner: null }, { name: "prd", owner: null }];'
+    # The object-of-objects container
+    - 'const targets = { lint: { cache: true, command: "lint" }, format: { cache: true, command: "format" } };'

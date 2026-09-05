@@ -1,0 +1,30 @@
+id: no-exec-for-builtin-task
+valid:
+    # The task form
+    - |
+      <MakeDir Directories="$(OutDir)logs" />
+    # An external program with no built-in task
+    - |
+      <Exec Command="install_name_tool -change $(_TorchLibompInstallName) @loader_path/libomp.dylib '%(_TorchCpuDylib.FullPath)'" />
+    # An echo that only logs holds no redirect
+    - |
+      <Exec Command="echo $(Version)" />
+    # A program name that opens with a listed word
+    - |
+      <Exec Command="cpio -o &lt; list.txt" />
+invalid:
+    # A directory created through the shell
+    - |
+      <Exec Command="mkdir $(OutDir)logs" />
+    # A copy through the shell
+    - |
+      <Exec Command="cp $(StageRoot)manifest.yml $(OutDir)" />
+    # A file written through a redirect
+    - |
+      <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
+    # A shell delete
+    - |
+      <Exec Command="rm -rf $(OutDir)stage" />
+    # The command in the child-element form
+    - |
+      <Exec><Command>mkdir $(OutDir)logs</Command></Exec>

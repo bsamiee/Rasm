@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-duplicate-project-instance
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^MSBuild$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Projects$'}, value: {regex: '\$\((MSBuildProjectFullPath|MSBuildProjectFile|MSBuildThisFileFullPath)\)'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Properties$'}, value: {regex: '\S'}}}
+message: The MSBuild task calls the project itself with a Properties value and creates a second instance that runs every target against the same bin and obj, run the target in this instance through DependsOnTargets

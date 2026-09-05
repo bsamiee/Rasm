@@ -1,0 +1,8 @@
+language js(typescript, jsx)
+
+or {
+    `Effect.Effect<$a, unknown>`,
+    `Effect.Effect<$a, unknown, $r>`
+} as $hit where {
+    register_diagnostic(span=$hit, message="Effect typed with unknown in its error channel hides every failure variant, name the tagged errors the effect can fail with", severity="error")
+}

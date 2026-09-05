@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-element # An element with a tag name that passes the name rule, in the start-tag and the empty-tag form
+language: xml
+arguments: [name]
+rule:
+    kind: element
+    has: {matches: msbuild-tag, has: {kind: Name, matches: name}}

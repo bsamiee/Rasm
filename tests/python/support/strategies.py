@@ -15,7 +15,7 @@ from typing import get_args, get_type_hints, TYPE_CHECKING, TypeAliasType, Typed
 
 from hypothesis import strategies as st
 import msgspec
-import msgspec.inspect as _mi
+import msgspec.inspect
 import msgspec.msgpack
 import pydantic
 
@@ -44,9 +44,7 @@ _JSON_SCALAR: st.SearchStrategy[object] = st.one_of(
     st.none(), st.booleans(), st.integers(min_value=-1_000, max_value=1_000), st.text(min_size=0, max_size=16)
 )
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [JSON_VALUES]
+# --- [JSON_VALUES] ----------------------------------------------------------------------
 
 
 def _json_value(depth: int = 0) -> st.SearchStrategy[object]:
@@ -63,7 +61,7 @@ def _json_value(depth: int = 0) -> st.SearchStrategy[object]:
 
 _RAW_VALUES: st.SearchStrategy[msgspec.Raw] = _json_value().map(lambda value: msgspec.Raw(msgspec.json.encode(value)))
 
-# --- [CONSTRAINTS]
+# --- [CONSTRAINTS] ----------------------------------------------------------------------
 
 
 def _size(node: object, cap: int) -> _Size:
@@ -110,22 +108,22 @@ def _decimal_max(md: object, dp: object) -> Decimal | None:
     return Decimal(10) ** (md - dp) - Decimal(10) ** (-dp) if isinstance(md, int) and isinstance(dp, int) else None
 
 
-# --- [MSGSPEC_SCHEMAS]
+# --- [MSGSPEC_SCHEMAS] ------------------------------------------------------------------
 
 
-def _msgspec_strategy(schema: _mi.Type) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]
+def _msgspec_strategy(schema: msgspec.inspect.Type) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]
     """Return a bounded strategy for a ``msgspec.inspect`` schema.
 
     Raises:
         AssertionError: The schema kind is unsupported.
     """
     match schema:
-        case _mi.IntType(ge=ge, gt=gt, le=le, lt=lt):
+        case msgspec.inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
             lo = ge if ge is not None else (gt + 1 if gt is not None else -_NUM_CEILING)
             hi = le if le is not None else (lt - 1 if lt is not None else _NUM_CEILING)
             step = schema.multiple_of
             return _multiples(lo, hi, step, int) if isinstance(step, int) else st.integers(min_value=lo, max_value=hi)
-        case _mi.FloatType(ge=ge, gt=gt, le=le, lt=lt):
+        case msgspec.inspect.FloatType(ge=ge, gt=gt, le=le, lt=lt):
             lo_f = ge if ge is not None else (gt if gt is not None else -float(_NUM_CEILING))
             hi_f = le if le is not None else (lt if lt is not None else float(_NUM_CEILING))
             open_lo, open_hi = ge is None and gt is not None, le is None and lt is not None
@@ -135,64 +133,69 @@ def _msgspec_strategy(schema: _mi.Type) -> st.SearchStrategy[object]:  # ruff:ig
                 if isinstance(step_f, int | float)
                 else st.floats(min_value=lo_f, max_value=hi_f, exclude_min=open_lo, exclude_max=open_hi, allow_nan=False, allow_infinity=False)
             )
-        case _mi.StrType(min_length=mn, max_length=mx, pattern=pat):
+        case msgspec.inspect.StrType(min_length=mn, max_length=mx, pattern=pat):
             return _text(mn, mx, pat)
-        case _mi.BoolType():
+        case msgspec.inspect.BoolType():
             return st.booleans()
-        case _mi.BytesType() | _mi.ByteArrayType() | _mi.MemoryViewType():
+        case msgspec.inspect.BytesType() | msgspec.inspect.ByteArrayType() | msgspec.inspect.MemoryViewType():
             binary = st.binary(**_size(schema, 256))
             return (
                 binary.map(bytearray)
-                if isinstance(schema, _mi.ByteArrayType)
+                if isinstance(schema, msgspec.inspect.ByteArrayType)
                 else binary.map(memoryview)
-                if isinstance(schema, _mi.MemoryViewType)
+                if isinstance(schema, msgspec.inspect.MemoryViewType)
                 else binary
             )
-        case _mi.EnumType(cls=cls):
+        case msgspec.inspect.EnumType(cls=cls):
             return st.sampled_from(list(cls))
-        case _mi.LiteralType(values=values):
+        case msgspec.inspect.LiteralType(values=values):
             return st.sampled_from(list(values))
-        case _mi.DateTimeType(tz=tz):
+        case msgspec.inspect.DateTimeType(tz=tz):
             return st.datetimes(timezones=_tz_arg(tz))
-        case _mi.TimeType(tz=tz):
+        case msgspec.inspect.TimeType(tz=tz):
             return st.times(timezones=_tz_arg(tz))
-        case _mi.DateType():
+        case msgspec.inspect.DateType():
             return st.dates()
-        case _mi.TimeDeltaType():
+        case msgspec.inspect.TimeDeltaType():
             return st.timedeltas()
-        case _mi.DecimalType():
+        case msgspec.inspect.DecimalType():
             return st.decimals(allow_nan=False, allow_infinity=False)
-        case _mi.UUIDType():
+        case msgspec.inspect.UUIDType():
             return st.uuids()
-        case _mi.NoneType():
+        case msgspec.inspect.NoneType():
             return st.none()
-        case _mi.UnionType(types=types):
+        case msgspec.inspect.UnionType(types=types):
             return st.one_of(*(_msgspec_strategy(member) for member in types))
-        case _mi.VarTupleType(item_type=item):
+        case msgspec.inspect.VarTupleType(item_type=item):
             return st.lists(_msgspec_strategy(item), **_size(schema, 3)).map(tuple)
-        case _mi.TupleType(item_types=items):
+        case msgspec.inspect.TupleType(item_types=items):
             return st.tuples(*(_msgspec_strategy(item) for item in items))
-        case _mi.ListType(item_type=item) | _mi.CollectionType(item_type=item):
+        case msgspec.inspect.ListType(item_type=item) | msgspec.inspect.CollectionType(item_type=item):
             return st.lists(_msgspec_strategy(item), **_size(schema, 3))
-        case _mi.SetType(item_type=item) | _mi.FrozenSetType(item_type=item):
+        case msgspec.inspect.SetType(item_type=item) | msgspec.inspect.FrozenSetType(item_type=item):
             return st.frozensets(_msgspec_strategy(item), **_size(schema, 3))
-        case _mi.DictType(key_type=key, value_type=val):
+        case msgspec.inspect.DictType(key_type=key, value_type=val):
             return st.dictionaries(_msgspec_strategy(key), _msgspec_strategy(val), **_size(schema, 3))
-        case _mi.StructType(cls=cls) | _mi.DataclassType(cls=cls) | _mi.TypedDictType(cls=cls) | _mi.NamedTupleType(cls=cls):
+        case (
+            msgspec.inspect.StructType(cls=cls)
+            | msgspec.inspect.DataclassType(cls=cls)
+            | msgspec.inspect.TypedDictType(cls=cls)
+            | msgspec.inspect.NamedTupleType(cls=cls)
+        ):
             return strategy_for(cls)
-        case _mi.RawType():
+        case msgspec.inspect.RawType():
             return _RAW_VALUES
-        case _mi.AnyType():
+        case msgspec.inspect.AnyType():
             return _json_value()
-        case _mi.CustomType(cls=cls):
+        case msgspec.inspect.CustomType(cls=cls):
             return st.from_type(cls)
-        case _mi.ExtType():
+        case msgspec.inspect.ExtType():
             return st.tuples(st.integers(min_value=0, max_value=127), st.binary(max_size=16)).map(lambda cd: msgspec.msgpack.Ext(*cd))
         case _:  # pragma: no cover
             raise AssertionError(f"unsupported msgspec schema {type(schema).__name__}")
 
 
-# --- [PYDANTIC_CORE_SCHEMAS]
+# --- [PYDANTIC_CORE_SCHEMAS] ------------------------------------------------------------
 
 
 def _is_schema(v: object) -> TypeIs[_Schema]:
@@ -403,7 +406,7 @@ def _deferred_reference(reference: str, definitions: dict[str, _Schema]) -> Call
 def _tagged_cases(subject: type) -> dict[str, TypeForm[object]] | None:
     """Return the case fields of an ``expression`` ``@tagged_union`` class mapped to type hints, or ``None`` for any other subject.
 
-    The decorator leaves every dataclass field ``init=False`` and ``kw_only`` behind a leading ``tag`` discriminator and replaces ``__init__`` with an exactly-one-case constructor, field-wise sampling builds invalid unions, and detection keys on that structural signature.
+    The decorator leaves every dataclass field ``init=False`` and ``kw_only`` behind a leading ``tag`` discriminator and replaces ``__init__`` with an exactly-one-case constructor, field-wise sampling builds invalid unions, and detection keys on the structural signature.
     """
     if not (dataclasses.is_dataclass(subject) and isinstance(subject, type)):
         return None
@@ -426,7 +429,7 @@ def strategy_for[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
         for member in get_args(subject):
             strategy_for(member) if isinstance(member, type | TypeAliasType) else None
         try:
-            node = _mi.type_info(subject)
+            node = msgspec.inspect.type_info(subject)
         except TypeError:
             return st.from_type(subject)  # ty: ignore[invalid-argument-type]
         return _msgspec_strategy(node)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
@@ -445,14 +448,18 @@ def strategy_for[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
         elif issubclass(subject, pydantic.BaseModel):
             model = subject
 
-            def _pyd_build() -> st.SearchStrategy[object]:
+            def _pydantic_build() -> st.SearchStrategy[object]:
                 schema = model.__pydantic_core_schema__
                 return _pydantic_strategy(schema, {}) if _is_schema(schema) else st.builds(model)
 
-            st.register_type_strategy(subject, st.deferred(_pyd_build))
+            st.register_type_strategy(subject, st.deferred(_pydantic_build))
         else:
-            match _mi.type_info(subject):
-                case _mi.StructType(fields=fields) | _mi.DataclassType(fields=fields) | _mi.NamedTupleType(fields=fields):
+            match msgspec.inspect.type_info(subject):
+                case (
+                    msgspec.inspect.StructType(fields=fields)
+                    | msgspec.inspect.DataclassType(fields=fields)
+                    | msgspec.inspect.NamedTupleType(fields=fields)
+                ):
                     struct = subject
 
                     def _struct_build() -> st.SearchStrategy[object]:
@@ -461,15 +468,15 @@ def strategy_for[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
                         return st.fixed_dictionaries(required, optional=optional).map(lambda arguments: struct(**arguments))
 
                     st.register_type_strategy(subject, st.deferred(_struct_build))
-                case _mi.TypedDictType(fields=fields):
+                case msgspec.inspect.TypedDictType(fields=fields):
 
-                    def _td_build() -> st.SearchStrategy[object]:
+                    def _typed_dict_build() -> st.SearchStrategy[object]:
                         return st.fixed_dictionaries(
                             {field.name: _msgspec_strategy(field.type) for field in fields if field.required},
                             optional={field.name: _msgspec_strategy(field.type) for field in fields if not field.required},
                         )
 
-                    st.register_type_strategy(subject, st.deferred(_td_build))
+                    st.register_type_strategy(subject, st.deferred(_typed_dict_build))
                 case _:
                     pass
 

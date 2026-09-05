@@ -32,15 +32,14 @@ Root configuration files reach every app directory, an app adds no configuration
 
 [MSBUILD]:
 - Root `Directory.Build.props` and `Directory.Build.targets` classify and configure every project by tree position
-- Nested `Directory.Build.*` files under an app directory first import the parent file through `GetPathOfFileAbove`
-- Without that import the root configuration is lost and the build still passes
+- Nested `Directory.Build.*` files under an app directory import the parent file first, because MSBuild stops at the nearest one
 
 [PYTHON]:
 - Root `pyproject.toml` owns resolution, dependency groups, and `uv.lock`, and an app project's manifest holds bare-name dependencies
 
 [TYPESCRIPT]:
 - `pnpm-workspace.yaml` lists app packages through the `apps/*/*` glob and its catalog holds every version
-- Project `tsconfig.json` extends `tsconfig.base.json` and holds its `outDir` under `.cache/typescript/out/<project path>` and its `types`
+- Project `tsconfig.json` extends `tsconfig.base.json` and holds its `outDir` under `.cache/` and its `types`
 - `references` lists the projects a project depends on, `typecheck` builds it from its own `tsconfig.json`, and `^typecheck` runs them first
 
 ## [04]-[PROJECT_CREATION]

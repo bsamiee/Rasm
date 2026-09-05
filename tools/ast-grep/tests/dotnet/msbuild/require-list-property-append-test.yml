@@ -1,0 +1,36 @@
+id: require-list-property-append
+valid:
+    # The append form the correction produced
+    - |
+      <PropertyGroup><MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
+    # A restore code appended to NoWarn
+    - |
+      <PropertyGroup><NoWarn>$(NoWarn);NU1603</NoWarn></PropertyGroup>
+    # A define appended
+    - |
+      <PropertyGroup><DefineConstants>$(DefineConstants);HOST_MACOS</DefineConstants></PropertyGroup>
+    # A scalar property holds no list
+    - |
+      <PropertyGroup><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+    # A property function over the list keeps the inherited entries
+    - |
+      <PropertyGroup><NoWarn>$(NoWarn.Replace('CS1591', ''))</NoWarn></PropertyGroup>
+    # A restore code on one reference is metadata, not the list property
+    - |
+      <ItemGroup><PackageReference Include="EPPlus"><NoWarn>NU1603</NoWarn></PackageReference></ItemGroup>
+invalid:
+    # The instance, the inherited list was discarded
+    - |
+      <PropertyGroup><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
+    # A NoWarn assignment, the SDK default 1701;1702 is lost
+    - |
+      <PropertyGroup><NoWarn>CS1591</NoWarn></PropertyGroup>
+    # A define list that drops the SDK's TRACE and DEBUG
+    - |
+      <PropertyGroup><DefineConstants>MY_FEATURE</DefineConstants></PropertyGroup>
+    # Excludes that drop bin and obj
+    - |
+      <PropertyGroup><DefaultItemExcludes>Generated/**</DefaultItemExcludes></PropertyGroup>
+    # The interceptor namespaces the generator packages added
+    - |
+      <PropertyGroup><InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces></PropertyGroup>

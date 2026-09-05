@@ -1,0 +1,18 @@
+id: object-keys-to-record-keys-imported
+valid:
+    - | # The target form
+      import { Record } from "effect"
+      const names = Record.keys(items)
+    - | # No import binds Record, the header rewrite of object-keys-to-record-keys owns the file
+      const names = Object.keys(items)
+    - | # Another platform read the Record module does not own
+      import { Record } from "effect"
+      const names = Reflect.ownKeys(items)
+invalid:
+    - | # The instance, Record bound beside another module
+      import { Effect, Record } from "effect"
+      const names = Object.keys(items)
+    - | # Two sibling calls report as two findings, entries takes its renamed member
+      import { Record } from "effect"
+      const rows = Object.entries(items)
+      const all = Object.values(items)

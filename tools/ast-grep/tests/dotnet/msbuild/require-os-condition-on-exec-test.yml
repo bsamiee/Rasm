@@ -1,0 +1,30 @@
+id: require-os-condition-on-exec
+valid:
+    # The retarget targets of Directory.Build.targets, the condition sits on the target
+    - |
+      <Target Name="RetargetTorchLibompInstallName" AfterTargets="CopyFilesToOutputDirectory" Condition="$([MSBuild]::IsOSPlatform('OSX'))"><Exec Command="install_name_tool -change $(_TorchLibompInstallName) @loader_path/libomp.dylib '%(_TorchCpuDylib.FullPath)' &amp;&amp; codesign --force --sign - '%(_TorchCpuDylib.FullPath)'" /></Target>
+    # The condition on the task itself
+    - |
+      <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" /></Target>
+    # A portable program
+    - |
+      <Target Name="Version" AfterTargets="Build"><Exec Command="dotnet --version" /></Target>
+    # A condition on the reserved OS property
+    - |
+      <Target Name="Stamp" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'"><Exec Command="cmd /c echo stamped" /></Target>
+invalid:
+    # chmod with no condition, fails on Windows
+    - |
+      <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" /></Target>
+    # The macOS package tool that once ran with no platform guard
+    - |
+      <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac" WorkingDirectory="$(YakPackageDirectory)" /></Target>
+    # A Windows shell, fails on macOS and Linux
+    - |
+      <Target Name="Stamp" AfterTargets="Build"><Exec Command="cmd /c echo stamped" /></Target>
+    # A macOS package manager
+    - |
+      <Target Name="Deps" BeforeTargets="Build"><Exec Command="brew install libomp" /></Target>
+    # A program at an absolute path
+    - |
+      <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>

@@ -31,9 +31,7 @@ class _AsyncServer(Protocol):
     async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> object: ...
 
 
-# --- [MODELS] ---------------------------------------------------------------------------
-
-# --- [RECORDING_PATCH]
+# --- [CALL_RECORDING] -------------------------------------------------------------------
 
 
 def _no_projection[A](_args: tuple[object, ...]) -> tuple[A, ...]:
@@ -135,7 +133,7 @@ class CallSpy[A](msgspec.Struct, frozen=True, gc=False):
         return [item for call in self.calls for item in pick(call)]
 
 
-# --- [NETWORK_LOOPBACK]
+# --- [NETWORK_LOOPBACK] -----------------------------------------------------------------
 
 
 class Loopback(msgspec.Struct, frozen=True, gc=False):
@@ -157,18 +155,18 @@ async def loopback_server[S: _AsyncServer](
         yield Loopback(host=host, port=port_of(server))
 
 
-# --- [VIRTUAL_TIME]
+# --- [VIRTUAL_TIME] ---------------------------------------------------------------------
 
 
 def autojump_backend(threshold: float = 0.0) -> tuple[str, dict[str, object]]:
     """Return an ``anyio_backend`` parameter using Trio's autojumping virtual clock.
 
-    Every ``anyio.sleep`` and deadline advances instantly once the loop idles past ``threshold``, retry, drain, and timeout tests complete without real-time sleeps, and the asyncssh double skips itself under this backend.
+    Every ``anyio.sleep`` and deadline advances instantly once the loop idles past ``threshold``, retry, drain, and timeout tests complete without real-time sleeps, and the asyncssh double skips itself under the Trio backend.
     """
     return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=threshold)})
 
 
-# --- [FIXTURE_WRITERS]
+# --- [FIXTURE_WRITERS] ------------------------------------------------------------------
 
 
 class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
@@ -196,7 +194,7 @@ class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
         return target
 
 
-# --- [DECODE_ORACLES]
+# --- [DECODE_ORACLES] -------------------------------------------------------------------
 
 
 class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):

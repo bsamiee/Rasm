@@ -1,0 +1,15 @@
+id: require-label-on-package-group
+valid:
+    # A labeled group
+    - |
+      <Project><ItemGroup Label="Testing"><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
+    # A property group needs no label, the rule reads item groups alone
+    - |
+      <Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup></Project>
+invalid:
+    # An ItemGroup without a Label
+    - |
+      <Project><ItemGroup><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
+    # An empty label names nothing
+    - |
+      <Project><ItemGroup Label=""><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>

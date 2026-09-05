@@ -1,0 +1,18 @@
+id: no-destination-folder-over-glob
+valid:
+    # The tree kept through a DestinationFiles transform
+    - |
+      <Copy SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(IntermediateOutputPath)assets/%(RecursiveDir)%(Filename)%(Extension)')" />
+    # A flat file list into one folder
+    - |
+      <Copy SourceFiles="$(StageRoot)manifest.yml" DestinationFolder="$(IntermediateOutputPath)stage/" />
+    # A one-level glob keeps no tree
+    - |
+      <Copy SourceFiles="$(StageRoot)*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
+invalid:
+    # A recursive glob flattened into one folder
+    - |
+      <Copy SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
+    # The parameters in the child-element form
+    - |
+      <Copy><SourceFiles>$(StageRoot)runtimes/**/*.dylib</SourceFiles><DestinationFolder>$(IntermediateOutputPath)native/</DestinationFolder></Copy>

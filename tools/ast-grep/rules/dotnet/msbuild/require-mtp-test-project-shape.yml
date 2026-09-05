@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-mtp-test-project-shape
+language: xml
+severity: error
+files: ['**/*.csproj']
+rule:
+    kind: document
+    has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^"xunit\.v3\.mtp-v2"$'}}}, stopBy: end}
+    any:
+        - not: {has: {all: [{matches: {msbuild-property: {name: {regex: '^OutputType$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*Exe\s*$'}}}}], stopBy: end}}
+        - not: {has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^"coverlet\.MTP"$'}}}, stopBy: end}}
+message: A test project referencing xunit.v3.mtp-v2 declares <OutputType>Exe</OutputType> and references coverlet.MTP, the Microsoft Testing Platform host is an executable and every test run collects coverage

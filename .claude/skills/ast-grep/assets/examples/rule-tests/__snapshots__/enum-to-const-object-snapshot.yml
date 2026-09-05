@@ -1,0 +1,36 @@
+id: enum-to-const-object
+snapshots:
+  enum Mode { Read = "read", Write = "write" }:
+    fixed: |-
+      const Mode = { Read: "read", Write: "write" } as const;
+      type Mode = (typeof Mode)[keyof typeof Mode];
+    labels:
+    - source: enum Mode { Read = "read", Write = "write" }
+      style: primary
+      start: 0
+      end: 44
+    - source: Mode
+      style: secondary
+      start: 5
+      end: 9
+    - source: '{ Read = "read", Write = "write" }'
+      style: secondary
+      start: 10
+      end: 44
+  enum Phase { Draft = 0, Sealed = 1, Retired = 2 }:
+    fixed: |-
+      const Phase = { Draft: 0, Sealed: 1, Retired: 2 } as const;
+      type Phase = (typeof Phase)[keyof typeof Phase];
+    labels:
+    - source: enum Phase { Draft = 0, Sealed = 1, Retired = 2 }
+      style: primary
+      start: 0
+      end: 49
+    - source: Phase
+      style: secondary
+      start: 5
+      end: 10
+    - source: '{ Draft = 0, Sealed = 1, Retired = 2 }'
+      style: secondary
+      start: 11
+      end: 49

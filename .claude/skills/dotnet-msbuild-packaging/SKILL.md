@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-packaging
-description: "Use when a .csproj, Directory.Packages.props, NuGet.config, packages.lock.json, or .slnx file changes: project set, central package management, restore, package authoring, CI build properties, NU codes."
+description: "Use when a .csproj, Directory.Packages.props, NuGet.config, or .slnx file changes: project set, central package management, restore, package authoring, CI build properties, NU codes."
 ---
 
 # [DOTNET_MSBUILD_PACKAGING]
@@ -122,12 +122,14 @@ Transitive pinning is right when a lower transitive version is a defect `Directo
 |  [03]   | `dotnet package list --project <csproj> --include-transitive` | Requested and resolved versions, `--outdated` compares with the feeds |
 |  [04]   | `dotnet package remove <id> --project <csproj>`               | Removes the reference, the `PackageVersion` item stays                |
 |  [05]   | `dotnet package search <term> --source <path or url>`         | Feed search, a folder source takes an absolute path only              |
-|  [06]   | `dotnet package update`                                       | Updates references in a project or solution                           |
+|  [06]   | `dotnet package update`                                       | Updates references in a project or solution, stable versions only     |
 |  [07]   | `dotnet add package`                                          | Accepted alias, `dotnet package add` is the current form              |
+
+`dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore <solution>` rewrites each `PackageVersion` item a solution project references to its newest release in place, prereleases included, and without `--no-restore` the tool runs `dotnet add package`, which reformats the whole file.
 
 ## [03]-[RESTORE]
 
-`RestorePackagesWithLockFile` writes `packages.lock.json` beside the project file, `NuGetLockFilePath` names another location, and the lock file is committed. `RestoreLockedMode` fails restore when the resolved graph differs from the lock file and `RestoreForceEvaluate` rewrites the file, CI turns locked mode on, and a version bump runs `dotnet restore --force-evaluate` once. Lock files work under CPM unchanged.
+Restore resolves every direct reference to its exact `PackageVersion` and every transitive package to the lowest version the graph accepts, or to its `PackageVersion` under transitive pinning. The resolved graph is a function of `Directory.Packages.props`, the project files, and the sources, and no NuGet lock file or lock-file restore setting exists.
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -155,17 +157,16 @@ Transitive pinning is right when a lower transitive version is a defect `Directo
 - `globalPackagesFolder` applies to `PackageReference`, `repositoryPath` applies to `packages.config` only, and `NUGET_PACKAGES` overrides both
 - `RestoreSources` replaces the configured sources for one restore, `RestoreAdditionalProjectSources` adds to them, and `RestoreIgnoreFailedSources` turns an unreachable source into a warning
 - `RestoreUseStaticGraphEvaluation` in `Directory.Build.props` applies to a project restore only, and a solution restore reads it from `-p:` or from `Directory.Solution.props`
+- `NuGetAudit=false` skips the vulnerability fetch, because restore contacts the audit sources only while auditing is enabled
+- `RestoreEnablePackagePruning` is on for `net10.0`, and restore then drops the packages the framework supplies from the graph
 
 | [INDEX] | [COMMAND]                                | [EFFECT]                                                                      |
 | :-----: | :--------------------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `dotnet restore --locked-mode`           | Sets `RestoreLockedMode` for one restore                                      |
-|  [02]   | `dotnet restore --force-evaluate`        | Sets `RestoreForceEvaluate` for one restore                                   |
-|  [03]   | `dotnet restore --use-lock-file`         | Writes a lock file for a project without the property                         |
-|  [04]   | `dotnet restore --force`                 | Resolves again as if `project.assets.json` were deleted, keeps the HTTP cache |
-|  [05]   | `dotnet restore --runtime <rid>`         | Restores the runtime-specific assets a publish for that RID needs             |
-|  [06]   | `dotnet restore -p:Name=Value`           | Global property for the restore evaluation                                    |
-|  [07]   | `dotnet nuget locals all --list`         | Paths of `global-packages`, `http-cache`, `temp`, and `plugins-cache`         |
-|  [08]   | `dotnet nuget locals http-cache --clear` | Drops the 30 minute feed cache after a package republish                      |
+|  [01]   | `dotnet restore --force`                 | Resolves again as if `project.assets.json` were deleted, keeps the HTTP cache |
+|  [02]   | `dotnet restore --runtime <rid>`         | Restores the runtime-specific assets a publish for that RID needs             |
+|  [03]   | `dotnet restore -p:Name=Value`           | Global property for the restore evaluation                                    |
+|  [04]   | `dotnet nuget locals all --list`         | Paths of `global-packages`, `http-cache`, `temp`, and `plugins-cache`         |
+|  [05]   | `dotnet nuget locals http-cache --clear` | Drops the 30 minute feed cache after a package republish                      |
 
 ## [04]-[PACKAGE_AUTHORING]
 
@@ -284,7 +285,6 @@ Every CI property sits in one `PropertyGroup` in the root `Directory.Build.props
 <!-- Directory.Build.props -->
 <PropertyGroup Label="Continuous integration" Condition="'$(CI)' == 'true'">
   <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-  <RestoreLockedMode>true</RestoreLockedMode>
   <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
 </PropertyGroup>
@@ -294,7 +294,7 @@ Every CI property sits in one `PropertyGroup` in the root `Directory.Build.props
 - `TreatWarningsAsErrors` covers compiler and NuGet warnings, `MSBuildTreatWarningsAsErrors` covers warnings MSBuild tasks log, and `-warnaserror` on the command line covers both with `-warnnotaserror:<code>` as the exception
 - `SatelliteResourceLanguages=en` keeps only the named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and turns on `CS1591`, and both belong to the unconditioned group
 - `EnableWindowsTargeting` stays unset on a non-Windows runner, and a Windows target framework then fails with `NETSDK1100` instead of downloading packs
-- `global.json` `rollForward: disable` pins the SDK on the runner and keeps the lock file in step with the SDK, and `DOTNET_ROLL_FORWARD` governs the runtime an application host selects and not the SDK
+- `global.json` `rollForward: disable` pins the SDK on the runner, and `DOTNET_ROLL_FORWARD` governs the runtime an application host selects and not the SDK
 - `-check` runs BuildCheck on the pipeline build, use `dotnet-msbuild-diagnostics` for the checks
 
 ```bash
@@ -310,8 +310,8 @@ dotnet test --solution Product.slnx --no-build --report-trx --results-directory 
 |  [03]   | `-nologo`                       | Passed by `dotnet build`, needed on `dotnet msbuild`                                   |
 |  [04]   | `-clp:Summary;ErrorsOnly`       | Console logger parameters, `-v:m` sets the verbosity                                   |
 |  [05]   | `-m`, `-maxCpuCount`            | One node per processor, `dotnet build` passes it                                       |
-|  [06]   | `-nodeReuse:false`              | Worker nodes exit with the build, a runner then holds no process and no file lock      |
-|  [07]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise outlives the build to its keep-alive  |
+|  [06]   | `-nodeReuse:false`              | Worker nodes exit with the build, an idle node otherwise lives 15 minutes              |
+|  [07]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise lives 10 minutes after the last build |
 |  [08]   | `-bl:<dir>/build-{}`            | Binary log per invocation, kept as a failure artifact                                  |
 
 | [INDEX] | [VARIABLE]                             | [EFFECT]                                                                  |
@@ -326,6 +326,14 @@ dotnet test --solution Product.slnx --no-build --report-trx --results-directory 
 
 `global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project, `--report-trx` needs the `Microsoft.Testing.Extensions.TrxReport` package in each test project, `--project` and `--solution` exclude each other, and the exit code is `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, and `5` for an invalid command line.
 
+- `dotnet test --no-build` runs `ComputeRunArguments` per test project and starts the app host
+- `TestingPlatformCommandLineArguments` reaches the test run through `RunArguments`
+- `TestingPlatformDotnetTestSupport` belongs to the VSTest mode, and the .NET 10 runner fails when a project sets it
+- Extension options (`--report-trx`, `--coverage`, `--crashdump`) fail with exit code `5` in a project without the package that provides them
+- coverlet.MTP names each report by a timestamp under `--results-directory`, and a target before `ComputeRunArguments` empties it
+- MinVer runs one `dotnet` and three `git` processes per project per build and skips restore and design-time builds
+- A role condition on the MinVer `PackageReference` spares the projects that never publish
+
 ## [07]-[ANTIPATTERNS]
 
 Packaging smells and the form that replaces each:
@@ -337,10 +345,9 @@ Packaging smells and the form that replaces each:
 |  [03]   | `VersionOverride` in more than one project                  | One `PackageVersion` item, or a nested file with `PackageVersion Update`  |
 |  [04]   | `PackageReference` with `Version` under CPM                 | `PackageVersion` in `Directory.Packages.props`                            |
 |  [05]   | `NuGet.config` without `<clear />`                          | `<clear />` first, then the named sources and their mappings              |
-|  [06]   | `RestoreLockedMode` unconditioned in the root props         | Under `'$(CI)' == 'true'`, a local version bump regenerates the lock file |
+|  [06]   | NuGet lock file or lock-file restore setting               | Deleted, exact central versions make restore repeat without a lock file   |
 |  [07]   | `GeneratePackageOnBuild` in a library                       | `dotnet pack` from the pipeline, a build then writes no package           |
 |  [08]   | Packed `build/` props setting a property unconditionally    | `Condition="'$(Name)' == ''"`, the consumer keeps its own value           |
 |  [09]   | Native libraries under `contentFiles`                       | `runtimes/<rid>/native/`, the only layout with RID selection              |
-|  [10]   | `packages.lock.json` in `.gitignore`                        | Committed lock files, locked mode in CI has nothing to compare otherwise  |
-|  [11]   | `PackageReference` to a framework-provided package          | Removed, the framework supplies the package                               |
-|  [12]   | `SuppressDependenciesWhenPacking` with a `lib/<tfm>/` entry | The dependency group stays                                                |
+|  [10]   | `PackageReference` to a framework-provided package          | Removed, the framework supplies the package                               |
+|  [11]   | `SuppressDependenciesWhenPacking` with a `lib/<tfm>/` entry | The dependency group stays                                                |

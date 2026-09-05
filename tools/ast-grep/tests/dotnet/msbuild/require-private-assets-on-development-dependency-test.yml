@@ -1,0 +1,33 @@
+id: require-private-assets-on-development-dependency
+valid:
+    # The analyzer rows of Directory.Build.props
+    - |
+      <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers" PrivateAssets="all" />
+    # A generator kept private
+    - |
+      <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+    # The private assets in the metadata child form
+    - |
+      <PackageReference Include="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference>
+    # The runtime half of a generator pair holds the attributes consumers name
+    - |
+      <PackageReference Include="Generator.Equals.Runtime" />
+    # A runtime library
+    - |
+      <PackageReference Include="LanguageExt.Core" />
+invalid:
+    # The instance, four projects added the generator without the private assets
+    - |
+      <PackageReference Include="Riok.Mapperly" />
+    # A generator id ending in the generator suffix
+    - |
+      <PackageReference Include="PureHDF.SourceGenerator" />
+    # An analyzer in mixed case
+    - |
+      <PackageReference Include="xunit.analyzers" />
+    # The version tool
+    - |
+      <PackageReference Include="MinVer" />
+    # Private assets narrowed to one class flow the compile asset on
+    - |
+      <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets></PackageReference>

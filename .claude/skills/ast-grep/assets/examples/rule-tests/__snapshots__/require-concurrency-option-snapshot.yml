@@ -1,0 +1,28 @@
+id: require-concurrency-option
+snapshots:
+  'const gated = (item: Item) => Effect.all({ count: validate(item.count) }, { mode: "validate" });':
+    labels:
+    - source: 'Effect.all({ count: validate(item.count) }, { mode: "validate" })'
+      style: primary
+      start: 30
+      end: 95
+  ? |
+    const nested = (keys: ReadonlyArray<string>) =>
+        Effect.forEach(keys, (key) => Effect.forEach(key.split(","), load, { concurrency: 4 }));
+  : labels:
+    - source: 'Effect.forEach(keys, (key) => Effect.forEach(key.split(","), load, { concurrency: 4 }))'
+      style: primary
+      start: 52
+      end: 139
+  const piped = stream.pipe(Stream.mapEffect((item) => load(item)));:
+    labels:
+    - source: Stream.mapEffect((item) => load(item))
+      style: primary
+      start: 26
+      end: 64
+  'const swept = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => load(key));':
+    labels:
+    - source: Effect.forEach(keys, (key) => load(key))
+      style: primary
+      start: 47
+      end: 87

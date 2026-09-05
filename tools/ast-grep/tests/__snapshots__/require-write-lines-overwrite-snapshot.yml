@@ -1,0 +1,23 @@
+id: require-write-lines-overwrite
+snapshots:
+  ? |
+    <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" />
+  : labels:
+    - source: <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" />
+      style: primary
+      start: 0
+      end: 83
+  ? |
+    <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="false" />
+  : labels:
+    - source: <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="false" />
+      style: primary
+      start: 0
+      end: 101
+  ? |
+    <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" />
+  : labels:
+    - source: <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" />
+      style: primary
+      start: 0
+      end: 100

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stray-text-in-group
+language: xml
+severity: error
+rule:
+    kind: CharData
+    regex: '\S'
+    any:
+        # Containers of MSBuild, solution, and NuGet configuration files hold elements alone
+        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^(Project|PropertyGroup|ItemGroup|ItemDefinitionGroup|Target|Choose|When|Otherwise|Solution|Folder|configuration|packageSources|disabledPackageSources|packageSourceMapping|packageSource|config)$'}}}}}
+        # An item holds metadata elements and no text
+        - inside: {kind: content, inside: {kind: element, inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}}}}
+message: Text sits between the elements of a group, MSBuild rejects it with MSB4025 or reads it as a value, delete the stray characters

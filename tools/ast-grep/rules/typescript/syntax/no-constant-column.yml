@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-constant-column
+language: tsx
+severity: error
+utils:
+    # The pair the first row holds, $KEY and $VALUE bind there and every later row must hold the same text
+    same-pair:
+        kind: pair
+        all:
+            - has: {field: key, pattern: $KEY}
+            - has: {field: value, pattern: $VALUE}
+    # An array of at least two object rows that each hold the pair, the punctuation is skipped through $_
+    array-rows:
+        kind: array
+        all:
+            - has: {nthChild: 2, kind: object}
+            - not: {has: {pattern: $_, not: {kind: object}}}
+            - not: {has: {kind: object, not: {has: {matches: same-pair}}}}
+    # An object of at least two object-valued rows that each hold the pair
+    object-rows:
+        kind: object
+        all:
+            - has: {nthChild: 2, kind: pair}
+            - not: {has: {pattern: $_, not: {kind: pair, has: {field: value, kind: object}}}}
+            - not: {has: {kind: pair, has: {field: value, kind: object, not: {has: {matches: same-pair}}}}}
+rule:
+    kind: pair
+    all:
+        - has: {field: key, pattern: $KEY}
+        - has: {field: value, pattern: $VALUE}
+        # The pair sits on the first row of a container whose every row holds it
+        - inside:
+              kind: object
+              any:
+                  - all: [{nthChild: 1}, {inside: {matches: array-rows}}]
+                  - inside: {kind: pair, nthChild: 1, field: value, inside: {matches: object-rows}}
+constraints:
+    VALUE:
+        any:
+            - kind: string
+            - kind: number
+            - kind: 'true'
+            - kind: 'false'
+            - kind: 'null'
+message: Every row holds $KEY as $VALUE and the column states one fact per row
+note: >-
+    Delete the column and apply the value once where the rows are consumed,
+    a fact that holds for every row belongs to the collection or to its consumer
+labels:
+    KEY: {style: primary, message: The column that holds one value on every row}

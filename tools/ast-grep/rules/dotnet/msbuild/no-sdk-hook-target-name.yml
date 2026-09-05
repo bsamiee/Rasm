@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-sdk-hook-target-name
+language: xml
+severity: error
+# A project body and every .props file import before the SDK targets that define the hooks
+files: ['**/*.csproj', '**/*.props']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Target$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Name$'}, value: {regex: '^"(Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)"$'}}}
+message: A target named after an SDK hook is redefined by the SDK import that follows the project body and the .props files and never runs, give the target its own name and attach it with AfterTargets or BeforeTargets

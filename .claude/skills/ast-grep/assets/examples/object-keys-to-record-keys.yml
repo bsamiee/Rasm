@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: object-keys-to-record-keys
+language: typescript
+severity: error
+rule:
+    kind: program # The file is the match, a header rewrite edits the program and blocks every other fix in the file
+    all:
+        - pattern: $P
+        - has: {stopBy: end, kind: call_expression, has: {field: function, regex: '^Object\.(keys|values|entries)$'}}
+        - not: # A file that binds Record already takes the rewriter without the header
+            has: {kind: import_statement, has: {stopBy: end, kind: identifier, regex: '^Record$'}}
+rewriters:
+    - id: record-call
+      rule: {pattern: Object.$M($R)}
+      constraints: {M: {regex: '^(keys|values|entries)$'}}
+      transform:
+        NEW_M: replace($M, replace='^entries$', by='toEntries') # A miss leaves the text unchanged, keys and values keep their names
+      fix: Record.$NEW_M($R)
+transform:
+    NEW_P: rewrite($P, rewriters=[record-call]) # No joinBy, the rewritten calls splice back into the program text
+fix: |-
+    import { Record } from "effect"
+    $NEW_P
+message: Record members are read through the global Object and the effect Record module owns the typed form
+note: Read a record through `Record.keys`, `Record.values`, and `Record.toEntries` from the effect package

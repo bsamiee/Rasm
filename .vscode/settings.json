@@ -6,19 +6,9 @@
         "**/__pycache__": true,
         "**/.artifacts": true,
         "**/.cache": true,
-        "**/.mypy_cache": true,
         "**/.nx": true,
-        "**/.pytest_cache": true,
-        "**/.rollup.cache": true,
-        "**/.ruff_cache": true,
-        "**/.stryker-tmp": true,
-        "**/.ty_cache": true,
         "**/.venv": true,
-        "**/bin": true,
-        "**/coverage": true,
-        "**/dist": true,
-        "**/obj": true,
-        "**/*.tsbuildinfo": true
+        "**/dist": true
     },
 
     // --- [FILE_NESTING] ----------------------------------------------------------------
@@ -29,7 +19,6 @@
         "README.md": "LICENSE",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, stryker-config.json, Workspace.slnx",
         "*.cs": "${capture}.Tests.cs",
-        "*.csproj": "packages.lock.json",
         "*.cts": "${capture}.spec.cts, ${capture}.test.cts",
         "*.mts": "${capture}.spec.mts, ${capture}.test.mts",
         "*.py": "test_${capture}.py, ${capture}_test.py",
@@ -38,28 +27,32 @@
         ".gitignore": ".gitattributes",
         "buf.gen.yaml": "buf.yaml, buf.lock",
         "pyproject.toml": "uv.lock",
-        "package.json": "biome.json, nx.json, playwright.config.ts, pnpm-workspace.yaml, pnpm-lock.yaml, stryker.config.json, tsconfig.json, vite.config.ts, vitest.config.ts",
+        "nx.json": "mise.toml, sgconfig.yml",
+        "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, stryker.config.json, tsconfig.json, vite.config.ts, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },
 
     // --- [PYTHON] ----------------------------------------------------------------------
-    // Every checker runs the uv.lock version from the project environment in place of the bundled copy
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    // The extension finds .venv and the Ruff and ty extensions read the uv.lock copies from it, the mypy extension bundles its own copy by default
     "mypy-type-checker.importStrategy": "fromEnvironment",
-    "ruff.importStrategy": "fromEnvironment",
-    "ty.importStrategy": "fromEnvironment",
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff"
     },
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
-    // Biome from node_modules formats every surface biome.json owns beside the bundled TS service
+    // The workspace copy of Biome from node_modules formats every file type biome.json covers beside the bundled TS service
+    "biome.lsp.bin": {
+        "darwin-arm64": "./node_modules/.bin/biome",
+        "linux-x64": "./node_modules/.bin/biome",
+        "linux-arm64": "./node_modules/.bin/biome",
+        "win32-x64": "./node_modules/.bin/biome.cmd"
+    },
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": {
         "editor.defaultFormatter": "biomejs.biome"
     },
 
     // --- [MARKDOWN] --------------------------------------------------------------------
-    // Mapping SKILL.md and agent files from their own VS Code language ids back to markdown restores the formatter
+    // SKILL.md and agent files have their own VS Code language ids, the mapping back to markdown restores the formatter
     "files.associations": {
         "SKILL.md": "markdown",
         "**/.claude/agents/*.md": "markdown"

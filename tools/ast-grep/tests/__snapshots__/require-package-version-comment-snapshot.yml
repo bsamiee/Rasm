@@ -1,0 +1,32 @@
+id: require-package-version-comment
+snapshots:
+  ? |
+    <ItemGroup Label="Analyzers"><GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" /></ItemGroup>
+  : labels:
+    - source: <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" />
+      style: primary
+      start: 29
+      end: 102
+  ? |
+    <ItemGroup Label="Mathematics"><PackageVersion Include="CSparse" Version="4.4.1" /> <!-- Sparse LU,
+        Cholesky, and QR factorization --></ItemGroup>
+  : labels:
+    - source: <PackageVersion Include="CSparse" Version="4.4.1" />
+      style: primary
+      start: 31
+      end: 83
+  ? |
+    <ItemGroup Label="Mathematics"><PackageVersion Include="HyperJet" Version="0.3.0" /></ItemGroup>
+  : labels:
+    - source: <PackageVersion Include="HyperJet" Version="0.3.0" />
+      style: primary
+      start: 31
+      end: 84
+  ? |
+    <ItemGroup Label="Mathematics"><PackageVersion Include="MatFlat" Version="0.8.3" />
+        <!-- Automatic differentiation computing gradients and Hessians with SIMD acceleration --></ItemGroup>
+  : labels:
+    - source: <PackageVersion Include="MatFlat" Version="0.8.3" />
+      style: primary
+      start: 31
+      end: 83

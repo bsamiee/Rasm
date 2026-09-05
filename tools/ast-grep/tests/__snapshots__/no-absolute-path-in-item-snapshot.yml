@@ -1,0 +1,92 @@
+id: no-absolute-path-in-item
+snapshots:
+  ? |
+    <Compile Include="/srv/generated/Bindings.cs" />
+  : labels:
+    - source: '"/srv/generated/Bindings.cs"'
+      style: primary
+      start: 17
+      end: 45
+    - source: Include
+      style: secondary
+      start: 9
+      end: 16
+    - source: Include="/srv/generated/Bindings.cs"
+      style: secondary
+      start: 9
+      end: 45
+  ? |
+    <Import Project="/Users/someone/build/common.props" />
+  : labels:
+    - source: '"/Users/someone/build/common.props"'
+      style: primary
+      start: 16
+      end: 51
+    - source: Project
+      style: secondary
+      start: 8
+      end: 15
+    - source: Project="/Users/someone/build/common.props"
+      style: secondary
+      start: 8
+      end: 51
+  ? |
+    <None Include="/usr/local/share/data.bin" CopyToOutputDirectory="PreserveNewest" />
+  : labels:
+    - source: '"/usr/local/share/data.bin"'
+      style: primary
+      start: 14
+      end: 41
+    - source: Include
+      style: secondary
+      start: 6
+      end: 13
+    - source: Include="/usr/local/share/data.bin"
+      style: secondary
+      start: 6
+      end: 41
+  ? |
+    <Project Path="/Volumes/Work/Rasm/libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj" />
+  : labels:
+    - source: '"/Volumes/Work/Rasm/libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj"'
+      style: primary
+      start: 14
+      end: 87
+    - source: Path
+      style: secondary
+      start: 9
+      end: 13
+    - source: Path="/Volumes/Work/Rasm/libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj"
+      style: secondary
+      start: 9
+      end: 87
+  ? |
+    <Reference Include="Newtonsoft.Json" HintPath="~/.nuget/packages/newtonsoft.json/13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
+  : labels:
+    - source: '"~/.nuget/packages/newtonsoft.json/13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll"'
+      style: primary
+      start: 46
+      end: 127
+    - source: HintPath
+      style: secondary
+      start: 37
+      end: 45
+    - source: HintPath="~/.nuget/packages/newtonsoft.json/13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll"
+      style: secondary
+      start: 37
+      end: 127
+  ? |
+    <Reference Include="Tool" HintPath="C:\tools\mytool\mytool.dll" Private="false" />
+  : labels:
+    - source: '"C:\tools\mytool\mytool.dll"'
+      style: primary
+      start: 35
+      end: 63
+    - source: HintPath
+      style: secondary
+      start: 26
+      end: 34
+    - source: HintPath="C:\tools\mytool\mytool.dll"
+      style: secondary
+      start: 26
+      end: 63

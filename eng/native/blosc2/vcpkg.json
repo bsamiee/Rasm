@@ -1,5 +1,5 @@
 {
-    "name": "rasm-native-blosc2",
+    "name": "native-blosc2",
     "version-string": "3.3.2",
     "builtin-baseline": "30ef65cad98f08e7197c9a1656fbd871bcb72f2d",
     "dependencies": ["blosc2"]

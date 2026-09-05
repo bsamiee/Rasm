@@ -1,0 +1,19 @@
+id: no-keys-for-membership
+valid:
+    # The record tested directly
+    - 'const known = Record.has(packaging, target);'
+    # A key list kept as a list
+    - 'const names = Record.keys(packaging);'
+    # Membership over a list that is not a key list
+    - 'const listed = Array.contains(names, target);'
+invalid:
+    # The instance, the key list searched
+    - 'const known = Record.keys(packaging).includes(target);'
+    # The Object spelling of the key list
+    - 'const known = Object.keys(packaging).includes(target);'
+    # The data-first search
+    - 'const known = Array.contains(Record.keys(packaging), target);'
+    # The key list converted to a HashSet, the record filtered first
+    - 'const packagingNames = HashSet.fromIterable(Record.keys(Record.filter(projects, isPackaging)));'
+    # The key list converted to a Set
+    - 'const packagingNames = new Set(Object.keys(projects));'

@@ -1,11 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/project.json
-# Project root sgconfig.yml, the binary accepts unknown keys the schema rejects, path scoping uses per-rule files/ignores only
+# Project root sgconfig.yml written by hand, ast-grep new project writes absolute paths and a rule-tests directory
+# The binary accepts unknown keys the schema rejects, per-rule files and ignores scope paths
 ruleDirs:
-    - rules
+    - rules # Discovered recursively, rules/<language>/<package>/<family>.yml
 utilDirs:
-    - utils
+    - utils # Global utility rules, utils/<language>/<util-id>.yml
 testConfigs:
-    - testDir: rule-tests # Snapshots go in rule-tests/__snapshots__, snapshotDir overrides, the CLI --snapshot-dir flag is inert
+    - testDir: tests # Discovered recursively, snapshots go flat in tests/__snapshots__ and a test without its snapshot fails
+      snapshotDir: __snapshots__ # Relative to testDir, the CLI --snapshot-dir flag reads the same name
 languageGlobs:
     <language>: ['<glob>'] # Non-standard extensions and superset reuse, overrides the default parser for matched files
 customLanguages:
@@ -13,9 +15,10 @@ customLanguages:
         libraryPath: <parser-dylib> # tree-sitter dynamic library, relative to sgconfig.yml
         extensions: ['<ext>']
         expandoChar: µ # One character replacing $ where the grammar rejects it in patterns
+        metaVarChar: $ # The character opening a metavariable in patterns, a real field the project schema omits
         languageSymbol: <dylib-symbol> # Default tree_sitter_<name>
         outlineRules: <outline-rules>.yml
 languageInjections:
     - hostLanguage: <host-language>
-      rule: {pattern: '<host-pattern capturing $CONTENT>'}
-      injected: <embedded-language> # Or a list resolved through a $LANG capture in the rule
+      rule: {pattern: '<host-pattern capturing $CONTENT>'} # $CONTENT is the injected text, neither it nor $LANG is in the schema
+      injected: <embedded-language> # Or a list the rule's $LANG capture picks from

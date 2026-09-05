@@ -1,0 +1,12 @@
+language js(typescript, jsx)
+
+or {
+    `$value.then($args)`,
+    `$value.catch($args)`,
+    `$value.finally($args)`
+} as $hit where {
+    $hit <: not within `Effect.tryPromise($_)` ,
+    $hit <: not within `Effect.promise($_)` ,
+    $hit <: not within `Effect.tryMapPromise($_)` ,
+    register_diagnostic(span=$hit, message="Promise chain in domain code, convert the promise once at the boundary with Effect.tryPromise, Effect.promise, or Effect.tryMapPromise and compose Effect values inside", severity="error")
+}

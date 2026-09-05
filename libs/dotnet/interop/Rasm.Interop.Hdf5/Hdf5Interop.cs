@@ -2,6 +2,7 @@ using PureHDF.Filters;
 
 namespace Rasm.Interop.Hdf5;
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
 /// <summary>Provides the PureHDF external filter registration that executables run once at the composition root</summary>
 /// <remarks>
 /// <para>Compressed chunk reads and writes throw until their filter enters the process-global <see cref="H5Filter"/> registry, and a repeated <see cref="H5Filter.Register"/> call overwrites the entry</para>

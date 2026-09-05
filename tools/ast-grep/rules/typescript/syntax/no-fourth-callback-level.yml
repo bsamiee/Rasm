@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fourth-callback-level
+language: tsx
+severity: error
+utils:
+    # A function that adds a callback nesting level: it sits directly under an argument list and declares a parameter its body reads, and
+    # a variable initializer, a curried return, a pair value, and a zero-parameter thunk add none
+    callback:
+        all:
+            - any:
+                  - kind: arrow_function
+                  - kind: function_expression
+                  - kind: generator_function
+            - inside: {kind: arguments}
+            - any:
+                  - has: {field: parameters, has: {kind: required_parameter}}
+                  - has: {field: parameter, kind: identifier}
+rule:
+    matches: callback
+    inside:
+        matches: callback
+        stopBy: end
+        inside:
+            matches: callback
+            stopBy: end
+            inside:
+                matches: callback
+                stopBy: end
+    # The innermost callback of a chain reports once, an outer one holds a deeper callback
+    not: {has: {matches: callback, stopBy: end}}
+message: A callback with a parameter sits four callback levels deep and the reader carries four scopes
+note: >-
+    A callback under an argument list that declares a parameter adds a level, a thunk, a curried return, a pair value, and an
+    initializer add none, and the chain flattens into data-last steps in one `pipe`, a `yield*` per dependent step in
+    `Effect.gen`, or a `Match` at the call site

@@ -1,0 +1,23 @@
+id: no-sdk-hook-target-name
+snapshots:
+  ? |
+    <Target Name="AfterBuild"><Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" /></Target>
+  : labels:
+    - source: <Target Name="AfterBuild"><Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" /></Target>
+      style: primary
+      start: 0
+      end: 100
+  ? |
+    <Target Name="AfterResGen"><Message Text="resources" /></Target>
+  : labels:
+    - source: <Target Name="AfterResGen"><Message Text="resources" /></Target>
+      style: primary
+      start: 0
+      end: 64
+  ? |
+    <Target Name="BeforeCompile"><Message Text="compiling" /></Target>
+  : labels:
+    - source: <Target Name="BeforeCompile"><Message Text="compiling" /></Target>
+      style: primary
+      start: 0
+      end: 66

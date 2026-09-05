@@ -16,9 +16,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [CALL_RECORDING]
+# --- [CALL_RECORDING] -------------------------------------------------------------------
 
 
 def test_sync_stub_records_arguments_projects_and_returns(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -73,7 +71,7 @@ def test_factory_stub_records_factory_and_returned_function_calls(monkeypatch: p
     assert spy.projected(lambda call: [call[0]] if call[0] == "<f>.run" else []) == ["<f>.run", "<f>.run"]
 
 
-# --- [FIXTURE_WRITERS]
+# --- [FIXTURE_WRITERS] ------------------------------------------------------------------
 
 
 def test_variant_writer_writes_raw_encodes_objects_and_skips_absent(tmp_path: Path) -> None:
@@ -87,10 +85,10 @@ def test_variant_writer_writes_raw_encodes_objects_and_skips_absent(tmp_path: Pa
     paths = writer.write_all()
     assert paths["raw"].read_bytes() == b"\x00\x01", "raw bytes were re-encoded instead of written verbatim"
     assert msgspec.json.decode(paths["obj"].read_bytes()) == {"key": 1}, "object content did not encode through the codec"
-    assert not paths["gone"].exists(), "an absent variant was materialized"
+    assert not paths["gone"].exists(), "an absent variant was written"
 
 
-# --- [DECODE_ORACLES]
+# --- [DECODE_ORACLES] -------------------------------------------------------------------
 
 
 def test_ndjson_decoder_decodes_every_row_and_checks_the_exact_count() -> None:

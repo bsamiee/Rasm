@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <ReleaseGroup>Rasm.Interop</ReleaseGroup>
         <Description>Aggregate runtime initialization covering every interop facade in one call</Description>
     </PropertyGroup>
 

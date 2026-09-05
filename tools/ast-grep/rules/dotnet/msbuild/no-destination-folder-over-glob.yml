@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-destination-folder-over-glob
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Copy$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^DestinationFolder$'}, value: {regex: '\S'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^SourceFiles$'}, value: {regex: '\*\*'}}}
+message: Copy with DestinationFolder over a recursive glob writes every file into one directory and two files with one name overwrite each other, transform the items with %(RecursiveDir) into DestinationFiles

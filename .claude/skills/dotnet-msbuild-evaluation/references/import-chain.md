@@ -45,6 +45,6 @@ Single-targeting `Microsoft.NET.Sdk` projects under .NET SDK 10 import the liste
 |  [06]   | `TargetFrameworkIdentifier`, `OutputPath`       | `Sdk.targets` imports                        | `Directory.Build.targets`             |
 |  [07]   | `TargetPath`, `TargetFrameworkMoniker`          | `Microsoft.Common.CurrentVersion.targets`    | `Directory.Build.targets`             |
 |  [08]   | `IsPackable`, `EnableDefaultItems`              | `Microsoft.NET.Sdk.targets` imports          | Targets, or the project value         |
-|  [09]   | `IsTestProject`                                 | Test package `.props` or the project         | `Directory.Build.targets`             |
+|  [09]   | `IsTestProject`, `IsTestingPlatformApplication` | Test package `.props` or `.targets`, the project | `Directory.Build.targets`         |
 
 The outer build of a multi-targeting project imports `Directory.Build.targets` from `Microsoft.Common.CrossTargeting.targets`, which imports neither `CustomBeforeDirectoryBuildTargets` nor `CustomAfterDirectoryBuildTargets`.

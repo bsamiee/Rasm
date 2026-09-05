@@ -1,0 +1,32 @@
+id: no-stray-text-in-group
+valid:
+    # Whitespace and a comment between rows
+    - |
+      <ItemGroup>
+          <_RuntimeInitBinding Include="itext" Companion="itext.bouncy-castle-adapter" /> <!-- iText crypto paths need the adapter -->
+          <_RuntimeInitBinding Include="itext.pdfhtml" Companion="itext.bouncy-castle-adapter" />
+      </ItemGroup>
+    # Property text is the value of a property element, not group text
+    - |
+      <PropertyGroup><Description>Aggregate runtime initialization</Description></PropertyGroup>
+    # Metadata text is the value of a metadata element
+    - |
+      <ItemGroup><AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute"><_Parameter1>macos</_Parameter1></AssemblyAttribute></ItemGroup>
+invalid:
+    # The instance, a stray period after a row
+    - |
+      <ItemGroup>
+          <_RuntimeInitBinding Include="itext" Companion="itext.bouncy-castle-adapter" />. <!-- iText crypto paths need the adapter -->
+      </ItemGroup>
+    # A word left inside a property group
+    - |
+      <PropertyGroup>stale<Nullable>enable</Nullable></PropertyGroup>
+    # Text inside an item between its metadata elements
+    - |
+      <ItemGroup><PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
+    # Text inside a solution folder
+    - |
+      <Solution><Folder Name="/libs/">stale<Project Path="libs/A/A.csproj" /></Folder></Solution>
+    # Text inside a NuGet source list
+    - |
+      <packageSources><clear />stale<add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>

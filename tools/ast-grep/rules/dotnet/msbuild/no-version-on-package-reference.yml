@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-version-on-package-reference
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^PackageReference$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^(Version|VersionOverride)$'}, value: {regex: ''}}}
+message: A PackageReference names the id alone, the version belongs to its PackageVersion row in Directory.Packages.props, and VersionOverride is disabled by CentralPackageVersionOverrideEnabled
