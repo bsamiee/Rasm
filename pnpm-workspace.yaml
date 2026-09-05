@@ -303,6 +303,9 @@ catalogMode: strict
 
 linkWorkspacePackages: deep
 
+# fetchRetries: NEVER ADD - DO NOT REMOVE COMMENT
+# fetchRetryFactor: NEVER ADD - DO NOT REMOVE COMMENT
+
 overrides:
   axios: 1.20.0
   # cloudevents declares the deprecated uuid@^8, the v4 API is unchanged in 11
