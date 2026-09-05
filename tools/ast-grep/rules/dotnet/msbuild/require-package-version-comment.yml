@@ -12,4 +12,5 @@ utils:
 rule:
     matches: {msbuild-element: {name: {regex: '^(PackageVersion|GlobalPackageReference)$'}}}
     not: {matches: trailing-comment}
-message: A catalog row holds one trailing one-line comment naming the package's capability, add <!-- capability --> after the row on its line
+message: The central package version row has no trailing one-line comment naming the package's purpose
+note: Add <!-- purpose --> after the row on its line

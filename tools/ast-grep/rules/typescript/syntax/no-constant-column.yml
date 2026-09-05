@@ -28,7 +28,7 @@ rule:
     all:
         - has: {field: key, pattern: $KEY}
         - has: {field: value, pattern: $VALUE}
-        # The pair sits on the first row of a container whose every row holds it
+        # The pair sits on the first row of a container with the pair on every row
         - inside:
               kind: object
               any:

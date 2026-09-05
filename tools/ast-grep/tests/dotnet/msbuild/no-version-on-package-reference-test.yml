@@ -1,6 +1,6 @@
 id: no-version-on-package-reference
 valid:
-    # The id alone, the version comes from the central manifest
+    # The id alone, the version comes from Directory.Packages.props
     - |
       <ItemGroup Label="Test Dependencies"><PackageReference Include="coverlet.MTP" /></ItemGroup>
     # Asset metadata stays on the reference
@@ -13,10 +13,10 @@ valid:
     - |
       <ItemGroup><PackageReference Include="MinVer"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
 invalid:
-    # A version on the reference, which NU1008 rejects under central package management
+    # A version on the reference, NU1008 rejects it under central package management
     - |
       <ItemGroup><PackageReference Include="CsCheck" Version="4.8.0" /></ItemGroup>
-    # An override, which the manifest disables
+    # An override, CentralPackageVersionOverrideEnabled disables it
     - |
       <ItemGroup><PackageReference Include="CsCheck" VersionOverride="4.7.0" /></ItemGroup>
     # The start-tag form with metadata children

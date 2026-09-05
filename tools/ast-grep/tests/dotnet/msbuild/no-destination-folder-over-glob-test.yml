@@ -9,6 +9,9 @@ valid:
     # A one-level glob keeps no tree
     - |
       <Copy SourceFiles="$(StageRoot)*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
+    # An item holds the parameters as metadata and copies nothing
+    - |
+      <ItemGroup><_Stage Include="native" SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" /></ItemGroup>
 invalid:
     # A recursive glob flattened into one folder
     - |
@@ -16,3 +19,6 @@ invalid:
     # The parameters in the child-element form
     - |
       <Copy><SourceFiles>$(StageRoot)runtimes/**/*.dylib</SourceFiles><DestinationFolder>$(IntermediateOutputPath)native/</DestinationFolder></Copy>
+    # A Move flattens the tree the same way
+    - |
+      <Move SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />

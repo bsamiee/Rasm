@@ -15,6 +15,13 @@ snapshots:
       start: 51
       end: 94
   ? |
+    <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" /></Target>
+  : labels:
+    - source: <Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" />
+      style: primary
+      start: 51
+      end: 131
+  ? |
     <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
   : labels:
     - source: <Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" />

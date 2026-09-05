@@ -196,6 +196,41 @@ snapshots:
       start: 17
       end: 91
   ? |
+    Effect.matchEffect(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })
+  : labels:
+    - source: 'Effect.matchEffect(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })'
+      style: primary
+      start: 0
+      end: 92
+    - source: Effect.fail(error)
+      style: secondary
+      start: 44
+      end: 62
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 38
+      end: 62
+    - source: 'onFailure: () => Effect.fail(error)'
+      style: secondary
+      start: 27
+      end: 62
+    - source: Effect.succeed
+      style: secondary
+      start: 75
+      end: 89
+    - source: 'onSuccess: Effect.succeed'
+      style: secondary
+      start: 64
+      end: 89
+    - source: '{ onFailure: () => Effect.fail(error), onSuccess: Effect.succeed }'
+      style: secondary
+      start: 25
+      end: 91
+    - source: '{ onFailure: () => Effect.fail(error), onSuccess: Effect.succeed }'
+      style: secondary
+      start: 25
+      end: 91
+  ? |
     Either.match(decoded, { onLeft: Effect.fail, onRight: Effect.succeed })
   : labels:
     - source: 'Either.match(decoded, { onLeft: Effect.fail, onRight: Effect.succeed })'
@@ -292,6 +327,37 @@ snapshots:
       style: secondary
       start: 17
       end: 75
+  ? |
+    Exit.matchEffect(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
+  : labels:
+    - source: 'Exit.matchEffect(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })'
+      style: primary
+      start: 0
+      end: 82
+    - source: Effect.failCause
+      style: secondary
+      start: 36
+      end: 52
+    - source: 'onFailure: Effect.failCause'
+      style: secondary
+      start: 25
+      end: 52
+    - source: Effect.succeed
+      style: secondary
+      start: 65
+      end: 79
+    - source: 'onSuccess: Effect.succeed'
+      style: secondary
+      start: 54
+      end: 79
+    - source: '{ onFailure: Effect.failCause, onSuccess: Effect.succeed }'
+      style: secondary
+      start: 23
+      end: 81
+    - source: '{ onFailure: Effect.failCause, onSuccess: Effect.succeed }'
+      style: secondary
+      start: 23
+      end: 81
   ? |
     Option.match(found, { onNone: () => Effect.fail(error), onSome: () => Effect.void })
   : labels:

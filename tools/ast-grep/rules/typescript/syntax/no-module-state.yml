@@ -12,7 +12,7 @@ rule:
             - kind: program
             - kind: export_statement
               inside: {kind: program}
-message: A module-level binding is mutable and every function of the module reads and writes it as ambient state
+message: The module-level binding is mutable and every function of the module reads and writes it as ambient state
 note: >-
     Hold the changing value where one scope owns it, a local the producing function returns, a Ref inside the effect that needs it,
     or an ordinal the caller passes in, and declare module bindings with `const`

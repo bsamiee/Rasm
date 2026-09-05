@@ -21,3 +21,10 @@ snapshots:
       style: primary
       start: 0
       end: 92
+  ? |
+    <Move SourceFiles="$(IntermediateOutputPath)manifest.json" DestinationFolder="$(OutDir)" />
+  : labels:
+    - source: <Move SourceFiles="$(IntermediateOutputPath)manifest.json" DestinationFolder="$(OutDir)" />
+      style: primary
+      start: 0
+      end: 91

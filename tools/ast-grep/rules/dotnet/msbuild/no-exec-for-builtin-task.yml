@@ -6,4 +6,5 @@ rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
         - matches: {msbuild-metadata: {name: {regex: '^Command$'}, value: {regex: '^"?\s*(&quot;)?\s*((mkdir|md|rmdir|rd|copy|cp|xcopy|robocopy|del|rm|move|mv|ren|rename|touch)\b|echo\b[^"]*(>|&gt;))'}}}
-message: Exec runs a shell command a built-in task covers on every operating system, replace it with MakeDir, Copy, Delete, RemoveDir, Move, Touch, or WriteLinesToFile
+message: Exec runs a shell command a built-in task covers on every operating system
+note: Replace the command with MakeDir, Copy, Delete, RemoveDir, Move, Touch, or WriteLinesToFile

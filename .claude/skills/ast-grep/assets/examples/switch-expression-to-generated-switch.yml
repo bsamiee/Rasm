@@ -21,15 +21,14 @@ rule:
                             kind: declaration_pattern
                             has:
                                 kind: qualified_name
-        - has: # The subject is a primary expression, a compound one (await, cast, binary, conditional) rebinds under member access
-            nthChild: 1 # The subject is the first named child, switch_expression exposes no field for it
-            any:
-                - {kind: identifier}
-                - {kind: member_access_expression}
-                - {kind: conditional_access_expression}
-                - {kind: invocation_expression}
-                - {kind: element_access_expression}
-                - {kind: parenthesized_expression}
+constraints:
+    SUBJECT: # A primary expression, a compound one (await, cast, binary, conditional) rebinds under member access
+        any: # conditional_access_expression stays out, `x?.Y.Switch()` returns null where the switch throws and changes the type
+            - {kind: identifier}
+            - {kind: member_access_expression}
+            - {kind: invocation_expression}
+            - {kind: element_access_expression}
+            - {kind: parenthesized_expression}
 rewriters:
     - id: arm-to-named-argument
       rule:

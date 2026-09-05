@@ -20,6 +20,6 @@ rule:
         - pattern: new Set($LIST)
           has: {field: arguments, has: {matches: key-list}}
 message: The keys of $RECORD are listed to test membership
-note: Test the record itself with `Record.has(record, key)`, the key list and the set exist only to answer that question
+note: Test the record with `Record.has(record, key)`, the key list and the set exist to answer that question alone
 labels:
-    RECORD: {style: primary, message: The record whose keys are listed}
+    RECORD: {style: primary, message: The record with the listed keys}

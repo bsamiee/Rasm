@@ -6,7 +6,7 @@ valid:
     # A version read from the manifest before pack computes the package version
     - |
       <PropertyGroup><Version Condition="'$(_ManifestVersion)' != ''">$(_ManifestVersion)</Version></PropertyGroup>
-    # A property a target sets at execution time is not an evaluation default
+    # A property a target sets at execution time
     - |
       <Target Name="Pick"><PropertyGroup><RuntimeIdentifier>osx-arm64</RuntimeIdentifier></PropertyGroup></Target>
 invalid:

@@ -12,7 +12,7 @@ valid:
     # Both arms run effects, the branch selects between two operations
     - |
       Effect.if(ready, { onTrue: () => run, onFalse: () => wait })
-    # One arm fails and the other runs an operation, the branch is a dispatch and not a guard
+    # One arm fails and the other runs an operation, the branch is a dispatch
     - |
       Effect.if(ready, { onTrue: () => run, onFalse: () => Effect.fail(error) })
     # Both arms pass values through, the branch selects a value
@@ -21,9 +21,12 @@ valid:
     # An Option matched into an operation and a failure, a dispatch
     - |
       Option.match(found, { onNone: () => Effect.fail(error), onSome: (item) => write(item) })
-    # An Exit whose failure arm reports, the success arm point-free
+    # An Exit with a reporting failure arm and a point-free success arm
     - |
       Exit.match(exit, { onFailure: report, onSuccess: Effect.succeed })
+    # A match on a module outside the effect package, the rule reads the effect data types alone
+    - |
+      Item.match(item, { onLeaf: () => Effect.fail(error), onNode: () => Effect.void })
 invalid:
     # The instance, a boolean result inspected to fail
     - |
@@ -52,6 +55,12 @@ invalid:
     # An Exit re-lifted through point-free constructors, the cause arm as the constructor itself
     - |
       Exit.match(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
-    # An Option whose presence arm yields nothing
+    # An Option match with a presence arm that yields Effect.void
     - |
       Option.match(found, { onNone: () => Effect.fail(error), onSome: () => Effect.void })
+    # An Exit re-lifted through matchEffect, the effect-returning match spelling
+    - |
+      Exit.matchEffect(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
+    # The effect's own matchEffect, one arm fails with the renamed error and the other succeeds with the value
+    - |
+      Effect.matchEffect(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })

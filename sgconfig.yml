@@ -8,9 +8,9 @@ testConfigs:
     - testDir: tools/ast-grep/tests
 languageGlobs:
     tsx: ['*.ts', '*.mts', '*.cts'] # tsx grammar parses every TypeScript file, so one rule under language tsx covers .ts and .tsx sources
-    xml: ['NuGet.config'] # The one MSBuild and NuGet file the extension list cannot reach
+    xml: ['NuGet.config']           # Root MSBuild and NuGet file the extension list cannot reach
 customLanguages:
     xml:
         libraryPath: .cache/ast-grep/xml.so # Written by the root grammar target, every ast-grep run aborts until it exists
         extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
-        expandoChar: _ # XML names reject $, and _ is the one name character a metavariable in tag and attribute position parses as
+        expandoChar: _                      # XML names reject $, and _ is the one name character a metavariable in tag and attribute position parses as

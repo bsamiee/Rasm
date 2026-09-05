@@ -6,4 +6,5 @@ rule:
     # Analyzers, source generators, and build tools, the development dependencies with no runtime asset a consumer needs
     matches: {msbuild-package-reference: {id: {regex: '(?i)^"([A-Za-z0-9.]+\.(Analyzers?|SourceGenerators?|Generators?)|Riok\.Mapperly|Grpc\.Tools|MessagePackAnalyzer|Microsoft\.CodeAnalysis\.CSharp|Microsoft\.CodeAnalysis\.Analyzers|MinVer|Generator\.Equals)"$'}}}
     not: {matches: {msbuild-metadata: {name: {regex: '^PrivateAssets$'}, value: {regex: '(?i)^"?\s*all\s*"?$'}}}}
-message: An analyzer, generator, or build tool is a development dependency and flows to every consumer without PrivateAssets, add PrivateAssets="all" so it stays in the compiling project
+message: The analyzer, generator, or build tool is a development dependency and flows to every consumer without PrivateAssets
+note: Add PrivateAssets="all", the package stays in the compiling project

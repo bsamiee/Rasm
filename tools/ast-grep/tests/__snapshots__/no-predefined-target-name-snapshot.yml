@@ -1,4 +1,4 @@
-id: no-sdk-hook-target-name
+id: no-predefined-target-name
 snapshots:
   ? |
     <Target Name="AfterBuild"><Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" /></Target>

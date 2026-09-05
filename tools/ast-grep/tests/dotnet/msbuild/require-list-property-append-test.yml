@@ -34,3 +34,6 @@ invalid:
     # The interceptor namespaces the generator packages added
     - |
       <PropertyGroup><InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
+    # An empty assignment drops every inherited entry
+    - |
+      <PropertyGroup><NoWarn /></PropertyGroup>

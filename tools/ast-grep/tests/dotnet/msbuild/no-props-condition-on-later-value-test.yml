@@ -31,7 +31,7 @@ invalid:
     # The Rhino bundle group keyed on a body-derived host flag, moved to Directory.Build.targets
     - |
       <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'"><RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath></PropertyGroup>
-    # A test classification the framework package sets in its .props, one import too late for this file
+    # A test classification the framework package sets in its .props, one import after the .props reader
     - |
       <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'"><IsTestProject>true</IsTestProject></PropertyGroup>
     # The configuration default comes from the SDK props after this file
@@ -43,3 +43,6 @@ invalid:
     # An import keyed on the output type is skipped for every project
     - |
       <Import Project="host.props" Condition="'$(OutputType)' == 'Exe'" />
+    # An import path that reads the framework, the segment is empty in every .props reader
+    - |
+      <Import Project="$(MSBuildThisFileDirectory)frameworks/$(TargetFramework).props" />

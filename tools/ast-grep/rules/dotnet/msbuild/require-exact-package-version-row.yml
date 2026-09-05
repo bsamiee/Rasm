@@ -9,4 +9,7 @@ rule:
         - not: {matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {regex: '^"[^"]+"$'}}}}
         # One version, plain or as the exact range in brackets, no wildcard and no open range
         - not: {matches: {msbuild-metadata: {name: {regex: '^Version$'}, value: {regex: '^"(\[[^"*,\[\]()]+\]|[^"*,\[\]()]+)"$'}}}}
-message: A catalog row is <PackageVersion Include="<Id>" Version="<exact>" />, the root file declares rows with Include and an exact version because dotnet-outdated moves the pin and a floating or open version reads the feed state at restore
+message: >-
+    The central package version row lacks Include or an exact Version, dotnet-outdated moves the pin on an Include row and a floating or open
+    version reads the feed state at restore
+note: Write the row as <PackageVersion Include="<Id>" Version="<exact>" />

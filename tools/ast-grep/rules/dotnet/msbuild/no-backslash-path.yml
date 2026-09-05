@@ -13,4 +13,7 @@ rule:
         # Element text, a property value or an item metadata value, a regex inside a property function keeps its escapes
         - kind: CharData
           not: {regex: 'RegularExpressions'}
-message: A backslash separates the path, on macOS and Linux the evaluator converts it only when the first segment exists on disk and sh deletes it inside an Exec command, write / in every path
+message: >-
+    The backslash separates the path, on macOS and Linux the evaluator converts it only when the first segment exists on disk and sh deletes it
+    inside an Exec command
+note: Write / as the separator in every path

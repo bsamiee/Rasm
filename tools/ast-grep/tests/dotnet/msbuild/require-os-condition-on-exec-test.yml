@@ -12,6 +12,12 @@ valid:
     # A condition on the reserved OS property
     - |
       <Target Name="Stamp" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'"><Exec Command="cmd /c echo stamped" /></Target>
+    # An item holds the command as metadata and starts no process
+    - |
+      <Target Name="Perms"><ItemGroup><_Step Include="perm" Command="chmod +x $(OutDir)mytool" /></ItemGroup></Target>
+    # An environment variable naming a shell path is no command
+    - |
+      <Target Name="Setup" AfterTargets="Build"><Exec Command="./setup.sh" EnvironmentVariables="SHELL=/bin/bash" /></Target>
 invalid:
     # chmod with no condition, fails on Windows
     - |
@@ -28,3 +34,6 @@ invalid:
     # A program at an absolute path
     - |
       <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
+    # An environment variable that passes the reserved OS property conditions nothing
+    - |
+      <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" /></Target>

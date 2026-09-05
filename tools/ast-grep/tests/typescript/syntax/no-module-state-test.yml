@@ -16,7 +16,7 @@ invalid:
     - let nextSpanId = 0;
     # A binding declared for later assignment
     - let pending;
-    # The legacy declaration
+    # The var declaration
     - var legacy;
     # A mutable binding the module exports
     - export let shared = [];

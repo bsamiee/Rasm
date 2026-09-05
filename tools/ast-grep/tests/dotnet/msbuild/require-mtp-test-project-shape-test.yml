@@ -19,3 +19,6 @@ invalid:
     # A library output type beside the framework
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Library</OutputType></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    # An assembly named after the output type value sets no output type
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><AssemblyName>Exe</AssemblyName></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>

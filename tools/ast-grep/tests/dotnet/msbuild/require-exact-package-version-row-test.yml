@@ -12,6 +12,9 @@ valid:
     # A global package reference with an exact version
     - |
       <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" />
+    # The central package management switch is a property
+    - |
+      <PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup>
 invalid:
     # A floating version reads the feed state at restore
     - |
@@ -22,7 +25,7 @@ invalid:
     # A row without a version
     - |
       <PackageVersion Include="CsCheck" />
-    # A nested-file update row in the root file, which declares with Include
+    # A nested-file Update row in the root file, the root declares with Include
     - |
       <PackageVersion Update="CsCheck" Version="4.8.0" />
     # An empty version
@@ -31,3 +34,6 @@ invalid:
     # A floating global package reference
     - |
       <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.*" />
+    # An empty id
+    - |
+      <PackageVersion Include="" Version="4.8.0" />

@@ -15,6 +15,12 @@ valid:
     # A runtime library
     - |
       <PackageReference Include="LanguageExt.Core" />
+    # A PackageVersion row names the version and no assets
+    - |
+      <PackageVersion Include="Riok.Mapperly" Version="4.2.1" />
+    # A Remove names no dependency to keep private
+    - |
+      <PackageReference Remove="Riok.Mapperly" />
 invalid:
     # The instance, four projects added the generator without the private assets
     - |
@@ -31,3 +37,6 @@ invalid:
     # Private assets narrowed to one class flow the compile asset on
     - |
       <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets></PackageReference>
+    # IncludeAssets all keeps every asset flowing
+    - |
+      <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />

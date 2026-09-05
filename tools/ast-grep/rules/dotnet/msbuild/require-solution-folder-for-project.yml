@@ -6,4 +6,5 @@ files: ['*.slnx']
 rule:
     matches: {msbuild-element: {name: {regex: '^Project$'}}}
     not: {inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^Folder$'}}}}}}
-message: A solution project sits under the Folder named for its directory chain, move the Project into <Folder Name="/<area>/<language>/<group>/"> so the solution tree matches the repository layout
+message: The solution project sits outside the Folder named for its directory chain
+note: Move the Project into <Folder Name="/<area>/<language>/<group>/">, the solution tree matches the repository layout

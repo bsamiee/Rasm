@@ -1,0 +1,45 @@
+id: no-lifted-condition
+valid:
+    # The guarded value is lifted under its condition
+    - |
+      Option.liftPredicate(value, () => production)
+    # A predicate over the value itself
+    - |
+      Option.liftPredicate(candidate, (held) => held.ready)
+    # Elements kept under one condition
+    - |
+      Array.filter(plugins, () => production)
+    # A refinement predicate narrows the lifted value
+    - |
+      Option.filter(option, Predicate.isString)
+    # The identity under flatMap flattens a nested Option, the lifted value is the inner value
+    - |
+      Option.flatMap(nested, identity)
+    # A filter on a module outside the effect package, the rule reads the effect lifts alone
+    - |
+      Item.filter(items, identity)
+    # Effect.filter keeps the elements with an effect that yields true, the elements are the conditions and no value is guarded
+    - |
+      Effect.filter(checks, identity)
+invalid:
+    # The instance, a boolean lifted to stand for presence
+    - |
+      Option.liftPredicate(production, identity)
+    # The qualified identity
+    - |
+      Option.liftPredicate(config.react, Function.identity)
+    # The identity spelled as an arrow
+    - |
+      Option.filter(option, (held) => held)
+    # The data-last filter in a pipe
+    - |
+      Option.some(flag).pipe(Option.filter(identity))
+    # The Either sibling, the boolean stands as the Right value
+    - |
+      Either.liftPredicate(production, identity, () => error)
+    # The Effect sibling, the boolean stands as the success value
+    - |
+      Effect.liftPredicate(production, identity, () => error)
+    # The Array sibling, the data-last lift applied to the boolean
+    - |
+      Array.liftPredicate(identity)(production)

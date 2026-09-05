@@ -16,6 +16,14 @@ snapshots:
       start: 31
       end: 83
   ? |
+    <ItemGroup Label="Mathematics"><PackageVersion Include="CSparse" Version="4.4.1" /><!-- Sparse LU,
+        Cholesky, and QR factorization --></ItemGroup>
+  : labels:
+    - source: <PackageVersion Include="CSparse" Version="4.4.1" />
+      style: primary
+      start: 31
+      end: 83
+  ? |
     <ItemGroup Label="Mathematics"><PackageVersion Include="HyperJet" Version="0.3.0" /></ItemGroup>
   : labels:
     - source: <PackageVersion Include="HyperJet" Version="0.3.0" />

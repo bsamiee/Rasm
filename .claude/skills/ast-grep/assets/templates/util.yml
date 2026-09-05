@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: <package>-<shape> # Global util under utilDirs, the shape two rules share, a rule calls it through matches
 language: <language>
-arguments: [<slot>] # A utilDirs file alone declares arguments, every one is mandatory at the call, and a bare matches: <id> exits 8
+arguments: [<slot>] # A utilDirs file alone declares arguments, every one is mandatory at the call, and matches: <id> without them exits 8
 rule:
     kind: <kind> # The kind guard, matches: <slot> infers no kind and the caller prunes nothing without it
     all:

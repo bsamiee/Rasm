@@ -8,6 +8,8 @@ valid:
     - 'const settings = { provider: "doppler" };'
     # A provider key in the resource arguments, the second constructor argument
     - 'const record = new Record(name, { provider: "route53", zone }, { protect: true });'
+    # A shorthand option outside the provider grammar in the resource options
+    - 'const project = new Project(name, args, { parent });'
 invalid:
     # The instance, a provider constructed by hand
     - 'const doppler = new DopplerProvider({ dopplerToken });'

@@ -8,6 +8,8 @@ valid:
 invalid:
     - 'const swept = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => load(key));' # Options omitted
     - 'const gated = (item: Item) => Effect.all({ count: validate(item.count) }, { mode: "validate" });' # Options without a degree
+    - | # Shorthand option without a degree
+      const flagged = (keys: ReadonlyArray<string>, discard: boolean) => Effect.forEach(keys, load, { discard });
     - 'const piped = stream.pipe(Stream.mapEffect((item) => load(item)));' # Sibling module function, data-last
     - | # Degree inside a nested callback belongs to the inner call
       const nested = (keys: ReadonlyArray<string>) =>

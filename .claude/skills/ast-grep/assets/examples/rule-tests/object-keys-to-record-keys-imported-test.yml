@@ -8,11 +8,16 @@ valid:
     - | # Another platform read the Record module does not own
       import { Record } from "effect"
       const names = Reflect.ownKeys(items)
+    - | # Another Object member the Record module does not own
+      import { Record } from "effect"
+      const frozen = Object.freeze(items)
 invalid:
     - | # The instance, Record bound beside another module
       import { Effect, Record } from "effect"
       const names = Object.keys(items)
-    - | # Two sibling calls report as two findings, entries takes its renamed member
+    - | # entries takes its renamed member
       import { Record } from "effect"
       const rows = Object.entries(items)
+    - | # values keeps its name
+      import { Record } from "effect"
       const all = Object.values(items)

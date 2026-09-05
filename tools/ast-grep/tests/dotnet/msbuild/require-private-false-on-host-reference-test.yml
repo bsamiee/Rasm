@@ -12,6 +12,9 @@ valid:
     # A framework reference without a path copies nothing
     - |
       <Reference Include="System.Windows.Forms" />
+    # An item lists the host assemblies before a Reference adds them
+    - |
+      <ItemGroup><_HostAssembly Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" /></ItemGroup>
 invalid:
     # A hint path into a packages folder nothing restores
     - |
@@ -25,3 +28,6 @@ invalid:
     # The copy flag read from a property, the form the host references held before the literal
     - |
       <Reference Include="RhinoCommon"><HintPath>$(RhinoCommonReferencePath)</HintPath><Private>$(HostReferencePrivate)</Private></Reference>
+    # A false on the version binding, the copy flag stays at its default
+    - |
+      <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" SpecificVersion="false" />

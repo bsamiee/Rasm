@@ -32,7 +32,95 @@ snapshots:
       style: secondary
       start: 136
       end: 173
-    - source: request
+  ? |
+    public static class S {
+        public static int Indexed(Request[] requests) =>
+            requests[0] switch { Request.Open o => 1, Request.Close c => 0 };
+    }
+  : fixed: |
+      public static class S {
+          public static int Indexed(Request[] requests) =>
+              requests[0].Switch(open: static o => 1, close: static c => 0);
+      }
+    labels:
+    - source: requests[0] switch { Request.Open o => 1, Request.Close c => 0 }
+      style: primary
+      start: 85
+      end: 149
+    - source: Request.Open o
       style: secondary
-      start: 107
-      end: 114
+      start: 106
+      end: 120
+    - source: Request.Open o => 1
+      style: secondary
+      start: 106
+      end: 125
+  ? |
+    public static class S {
+        public static int Loaded(Ledger ledger) =>
+            ledger.Load() switch { Request.Open o => 1, Request.Close c => 0 };
+    }
+  : fixed: |
+      public static class S {
+          public static int Loaded(Ledger ledger) =>
+              ledger.Load().Switch(open: static o => 1, close: static c => 0);
+      }
+    labels:
+    - source: ledger.Load() switch { Request.Open o => 1, Request.Close c => 0 }
+      style: primary
+      start: 79
+      end: 145
+    - source: Request.Open o
+      style: secondary
+      start: 102
+      end: 116
+    - source: Request.Open o => 1
+      style: secondary
+      start: 102
+      end: 121
+  ? |
+    public static class S {
+        public static int Member(Envelope envelope) =>
+            envelope.Request switch { Request.Open o => 1, Request.Close c => 0 };
+    }
+  : fixed: |
+      public static class S {
+          public static int Member(Envelope envelope) =>
+              envelope.Request.Switch(open: static o => 1, close: static c => 0);
+      }
+    labels:
+    - source: envelope.Request switch { Request.Open o => 1, Request.Close c => 0 }
+      style: primary
+      start: 83
+      end: 152
+    - source: Request.Open o
+      style: secondary
+      start: 109
+      end: 123
+    - source: Request.Open o => 1
+      style: secondary
+      start: 109
+      end: 128
+  ? |
+    public static class S {
+        public static int Wrapped(object raw) =>
+            ((Request)raw) switch { Request.Open o => 1, Request.Close c => 0 };
+    }
+  : fixed: |
+      public static class S {
+          public static int Wrapped(object raw) =>
+              ((Request)raw).Switch(open: static o => 1, close: static c => 0);
+      }
+    labels:
+    - source: ((Request)raw) switch { Request.Open o => 1, Request.Close c => 0 }
+      style: primary
+      start: 77
+      end: 144
+    - source: Request.Open o
+      style: secondary
+      start: 101
+      end: 115
+    - source: Request.Open o => 1
+      style: secondary
+      start: 101
+      end: 120

@@ -10,8 +10,12 @@ valid:
     - 'const decoded = Schema.optionalWith(Schema.Array(Schema.Struct({ include: Schema.optional(Schema.String) })), { default: () => [] });'
     # Two levels with a callback
     - 'const flattened = Array.flatten(Array.map(rows, (row) => row.items));'
-    # Schema constructors nest as declarations and hoist instead of piping
+    # Schema constructors nested two deep as declarations
     - 'const kind = Schema.optionalWith(Schema.Union(Schema.Literal("a"), Schema.Number), { default: () => "a" });'
+    # A two-level chain as the second argument, the outer call's data is a value
+    - 'const dataLast = Effect.map(rows, Option.getOrElse(Option.map(found, (item) => item.name), () => fallback));'
+    # A data-last step as the middle call's second argument, two data-first levels
+    - 'const mapped = Array.flatten(Array.map(rows, Array.filter((row) => row.live)));'
 invalid:
     # The instance, three data-first Option steps
     - 'const nested = Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded);'
@@ -21,3 +25,5 @@ invalid:
     - 'const collected = Array.flatten(Array.map(Array.filter(rows, (row) => row.live), (row) => row.items));'
     # Four steps, the outermost call reports once and the inner three-step chain is its first argument
     - 'const deduped = Array.flatten(Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items));'
+    # A three-step chain as the second argument of a step, the chain reports at its own outermost call
+    - 'const inner = Effect.map(rows, Array.flatten(Array.map(Array.filter(items, (item) => item.live), (item) => item.parts)));'

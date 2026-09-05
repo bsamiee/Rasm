@@ -18,12 +18,31 @@ valid:
           public static readonly Route Primary = new("<key-a>", Other.Fallback);
           public static readonly Route Fallback = new("<key-b>", static () => Fallback);
       }
+    - | # Deferred member read of the item, the lambda walk reaches past the member access
+      [SmartEnum<string>]
+      public sealed partial class Route {
+          public static readonly Route Primary = new("<key-a>", static () => Fallback.Key);
+          public static readonly Route Fallback = new("<key-b>", static () => Fallback);
+      }
 invalid:
     - | # Eager forward reference captures null
       [SmartEnum<string>]
       public sealed partial class Route {
           public static readonly Route Primary = new("<key-a>", Fallback);
           public static readonly Route Fallback = new("<key-b>", Fallback);
+      }
+    - | # Eager member read of the item, the argument walk reaches past the member access
+      [SmartEnum<string>]
+      public sealed partial class Route {
+          public static readonly Route Primary = new("<key-a>", Fallback.Key);
+          public static readonly Route Fallback = new("<key-b>", static () => Fallback);
+      }
+    - | # Forward reference past an intervening item, the ordering walk spans the sibling list
+      [SmartEnum<string>]
+      public sealed partial class Route {
+          public static readonly Route Primary = new("<key-a>", Fallback);
+          public static readonly Route Secondary = new("<key-b>", static () => Fallback);
+          public static readonly Route Fallback = new("<key-c>", static () => Fallback);
       }
     - |- # Forward reference behind a leading argument
       [SmartEnum<string>]

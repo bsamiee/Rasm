@@ -14,6 +14,10 @@ snapshots:
       style: primary
       start: 58
       end: 81
+    - source: <packageSource key="local">
+      style: secondary
+      start: 31
+      end: 58
     - source: <packageSource key="local"><package pattern="*" /></packageSource>
       style: secondary
       start: 31
@@ -29,6 +33,10 @@ snapshots:
       style: primary
       start: 86
       end: 117
+    - source: <packageSource key="local">
+      style: secondary
+      start: 31
+      end: 58
     - source: <packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource>
       style: secondary
       start: 31
@@ -44,6 +52,10 @@ snapshots:
       style: primary
       start: 62
       end: 90
+    - source: <packageSource key="nuget.org">
+      style: secondary
+      start: 31
+      end: 62
     - source: <packageSource key="nuget.org"><package pattern="Rasm.*" /></packageSource>
       style: secondary
       start: 31
@@ -97,3 +109,18 @@ snapshots:
       style: secondary
       start: 16
       end: 62
+  ? |
+    <packageSources><clear /><add key="nuget.org" value="https://mirror.example.com/v3/index.json" /></packageSources>
+  : labels:
+    - source: <add key="nuget.org" value="https://mirror.example.com/v3/index.json" />
+      style: primary
+      start: 25
+      end: 97
+    - source: <packageSources><clear /><add key="nuget.org" value="https://mirror.example.com/v3/index.json" /></packageSources>
+      style: secondary
+      start: 0
+      end: 114
+    - source: <clear /><add key="nuget.org" value="https://mirror.example.com/v3/index.json" />
+      style: secondary
+      start: 16
+      end: 97

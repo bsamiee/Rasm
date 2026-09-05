@@ -40,7 +40,17 @@ Structural code work (map, find, prove, lint, or rewrite code by its syntax tree
 - [04]-[RULE_TESTING](references/rule-testing.md): Runner outcomes and flags, what a green run hides, case criteria, snapshots, disproving cases
 
 [SCRIPTS]:
-- [01]-[RULE_CHECKS](scripts/rule-checks.sh): Proves a rules tree paired by id, covered per arm, re-parsed after each fix, and reported once per case
+- [01]-[RULE_CHECKS](scripts/rule-checks.sh): Proves the rules tree `sgconfig.yml` names, one line per finding and exit 1 on any line
+
+`.claude/skills/ast-grep/scripts/rule-checks.sh <ext>` runs from the directory holding `sgconfig.yml`, one extension per run and one per language (`csproj` for the xml rules, `ts` for the tsx rules), its run, pairing, and shape lines cover the whole tree and its other lines the language that owns the extension, and a test exit other than 0 and 4 ends the run before any other check:
+- Use `rule-checks.sh <ext>` as the test gate: the run's `FAIL`, `SKIP`, `Configuration not found`, `Error:`, and `╰▻` lines, then its exit code
+- Use `rule-checks.sh <ext>` when a rule, test, or snapshot lands: `no test`, `no rule`, `orphan snapshot`, `id differs from file stem`,
+  `ids differ by case alone`, `severity off`, and `no language owns .<ext>` when no glob maps the extension
+- Use `rule-checks.sh <ext>` when a test changes: `unknown key in <id>: <key>`, `one side empty`, `no snapshot`, `orphan or missing snapshot key`
+- Use `rule-checks.sh <ext>` when a rule changes: `width <id> case <n>: <hits> hits`, past one a once-reporting gap, zero a missed `files:` glob
+- Use `rule-checks.sh <ext>` before a rule lands: `uncovered arm: <id> <op> <path>` for an arm no case fails on, `unchecked arm` for a rejected mutant
+- Use `rule-checks.sh <ext>` when a util or its caller changes: `no kind at util root`, `no rule calls util`, `one rule calls util`
+- Use `rule-checks.sh <ext>` in place of `run -k ERROR` per case: `ERROR node in <invalid|valid|fixed> <id> case <n>`
 
 ## [01]-[OUTLINE]
 
@@ -193,7 +203,7 @@ Each device is the standard form for its problem, developed through search and w
 - `precedes` and `follows` walk the sibling list alone, unnamed siblings included, and reject `field`
 - `constraints:` needs no kind set, negative and relational capture guards belong there
 - `has` visits unnamed children, a totality closure over a delimited container reads `not: {has: {pattern: $_, not: <allowed>}}`
-- Totality closures prove the container's children only, an allowed member's interior (an `elif` arm, a nested body) takes its own arm
+- Totality closures prove the container's children only, the inside of an allowed member (an `elif` arm, a nested body) takes its own arm
 - Constraints run after the whole rule, a capture guard cannot narrow a `not:`, the negation matches everything and the rule fails silently
 - Marker exemptions bind structurally: a comment `precedes: { kind: <body> }` marks its owner, a mark on a descendant proves nothing
 - Ordering rules bind statement nodes, an expression pattern alone has no statement siblings, wrap `precedes`/`follows` in `context`/`selector`
@@ -217,7 +227,7 @@ Durable rules are project structural rules enforced by a scanned gate, `sgconfig
 sgconfig.yml                                   # Project config the scan reads at the root
 rules/<language>/<package>/<rule-id>.yml       # Directories name the package or syntax the rules read, one rule per file, the id is the stem
 utils/<language>/<util-id>.yml                 # Global utils with explicit id and language, shadowed by a local utils: entry of the same id
-tests/<language>/<package>/<rule-id>-test.yml  # Test bound to its rule by id, one file per rule, the tree mirrors rules/
+tests/<language>/<package>/<rule-id>-test.yml  # Test bound to its rule by id, one file per rule, the tree matches rules/
 tests/__snapshots__/<rule-id>-snapshot.yml     # Written by ast-grep test -U, flat under the test directory
 ```
 
@@ -234,6 +244,7 @@ tests/__snapshots__/<rule-id>-snapshot.yml     # Written by ast-grep test -U, fl
 - A capture a local util binds reaches the caller's `fix`, a global util file's own never does, a collision with a caller binding fails the call
 - Argument rules bind their captures at the call site (`source: {pattern: $SOURCE, regex: '<re>'}`), and they reach `fix`, `message`, and `labels`
 - A missing `ruleDirs` or `utilDirs` directory aborts the scan, an empty one holds a `.gitkeep`, a shared rule set joins as a submodule or package
+- A symlinked directory under `ruleDirs` loads, a symlinked rule file is skipped with `Configuration not found!`, a hard link loads
 
 ```yaml
 id: <rule-id>                    # Imperative grammar: no-<construct> / require-<shape>
@@ -266,7 +277,7 @@ Each rule is added in sequence:
 13. Place the rule in its directory, `ast-grep scan --inspect entity` proves registration, `--filter '<rule-id>'` iterates it alone
 14. Scan the codebase, read every hit as a real finding or a rule defect, and correct the code or the rule before the rule joins the gate
 15. Check the correction the `note` prescribes against every other gate, a data-last step another gate rejects binds a local and stays data-first
-16. Gate with `ast-grep scan --error=unused-suppression --error=no-suppress-all` and `ast-grep test`, `--format github` annotates CI
+16. Gate with `ast-grep scan --error=unused-suppression --error=no-suppress-all` and `rule-checks.sh <ext>`, `--format github` annotates CI
 
 | [INDEX] | [RULE_CLASS]           | [MECHANISM]                                                                                            |
 | :-----: | :--------------------- | :----------------------------------------------------------------------------------------------------- |
@@ -292,7 +303,7 @@ Each rule is added in sequence:
 - A `./` prefix or a `!` glob in `files:` matches nothing, exclusion is `ignores:`, and `scan -r` reads globs relative to the rule file
 - A dot-directory scope (`.github/`, `.claude/`) needs `--no-ignore hidden` on the gate command
 - Green can prove nothing: omitted `severity` is `hint`, `--min-severity` drops rules, `test` passes zero cases, the snapshot run is the gate
-- A case holds one violation, and every arm of the rule has the case that flips when the arm is deleted
+- A case holds one violation, and every arm of the rule has the case that fails when the arm is deleted, an `uncovered arm` line otherwise
 - `metadata:` holds routing facts and appears under `--json --include-metadata`, `url:` shows in the editor and SARIF and never in `--json`
 
 ## [06]-[INTEGRATIONS]
@@ -303,7 +314,7 @@ Hosts consume the scan through its exit codes, its output formats, and the libra
 | :-----: | :------------ | :------------------------------------------------------------------------------------------------------------ |
 |  [01]   | CI annotation | `ast-grep scan --format github` prints `::error file=,line=,title=<rule-id>::` per finding above `hint`, no upload   |
 |  [02]   | Code scanning | `ast-grep scan --format sarif > <file>` then `github/codeql-action/upload-sarif`, `--format` excludes `--json`  |
-|  [03]   | Hook          | `ast-grep scan --report-style short --color never <staged>` and `ast-grep test` with no file argument          |
+|  [03]   | Hook          | `ast-grep scan --report-style short --color never <staged>`, then `rule-checks.sh <ext>` per language     |
 |  [04]   | Changed files | `ast-grep scan $(git diff --name-only <base>... -- '*.<ext>')`, an empty list exits before the scan            |
 |  [05]   | Pipeline      | `ast-grep scan --json=stream \| jq -c '<filter>'` — one match per line, `ruleId`, `range.byteOffset`, captures |
 |  [06]   | Baseline      | `ast-grep scan --filter '^<rule-id>$' --json=stream \| wc -l` against a recorded count, one rule's width over the tree |

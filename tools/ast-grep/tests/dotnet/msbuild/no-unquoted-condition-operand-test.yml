@@ -12,6 +12,9 @@ valid:
     # Exists and a negated Exists on an item metadata reference
     - |
       <_Missing Include="@(Reference->'%(HintPath)')" Condition="'%(Reference.HintPath)' != '' and !Exists('%(Reference.HintPath)')" />
+    # A comparison inside a message is text
+    - |
+      <Message Text="expected == $(Expected)" />
 invalid:
     # Both operands unquoted, the literal splits at the dot with MSB4092
     - |

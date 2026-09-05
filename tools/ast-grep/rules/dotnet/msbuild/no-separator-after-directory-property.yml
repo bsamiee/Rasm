@@ -9,4 +9,5 @@ rule:
     matches: doubled
     # MSBuildProjectDirectory and MSBuildStartupDirectory are the reserved directories without a trailing separator
     not: {regex: '\$\((MSBuildProjectDirectory|MSBuildStartupDirectory|MSBuildProjectDirectoryNoRoot)\)[\\/]'}
-message: A separator follows a directory property that already ends with one and the path holds a doubled separator, concatenate the segment directly or compose the path with NormalizeDirectory
+message: The separator follows a directory property that ends with one, the path holds a doubled separator
+note: Concatenate the segment directly, or compose the path with NormalizeDirectory

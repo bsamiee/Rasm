@@ -58,26 +58,6 @@ snapshots:
       style: primary
       start: 14
       end: 100
-    - source: Match.value(language)
-      style: secondary
-      start: 14
-      end: 35
-    - source: pipe
-      style: secondary
-      start: 36
-      end: 40
-    - source: Match.value(language).pipe
-      style: secondary
-      start: 14
-      end: 40
-    - source: Match.orElse(() => [name])
-      style: secondary
-      start: 73
-      end: 99
-    - source: (Match.when("python", () => []), Match.orElse(() => [name]))
-      style: secondary
-      start: 40
-      end: 100
     - source: '[]'
       style: secondary
       start: 68
@@ -121,26 +101,6 @@ snapshots:
     - source: Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({})))
       style: primary
       start: 21
-      end: 113
-    - source: Match.value(language)
-      style: secondary
-      start: 21
-      end: 42
-    - source: pipe
-      style: secondary
-      start: 43
-      end: 47
-    - source: Match.value(language).pipe
-      style: secondary
-      start: 21
-      end: 47
-    - source: Match.orElse(() => ({}))
-      style: secondary
-      start: 88
-      end: 112
-    - source: (Match.when("python", () => ({ name })), Match.orElse(() => ({})))
-      style: secondary
-      start: 47
       end: 113
     - source: '{}'
       style: secondary
@@ -196,6 +156,36 @@ snapshots:
       style: secondary
       start: 43
       end: 105
+  const options = { ...pipe(Match.value(language), Match.when("python", () => ({ name })), Match.orElse(() => ({}))) };:
+    labels:
+    - source: pipe(Match.value(language), Match.when("python", () => ({ name })), Match.orElse(() => ({})))
+      style: primary
+      start: 21
+      end: 114
+    - source: '{}'
+      style: secondary
+      start: 109
+      end: 111
+    - source: ({})
+      style: secondary
+      start: 108
+      end: 112
+    - source: () => ({})
+      style: secondary
+      start: 102
+      end: 112
+    - source: () => ({})
+      style: secondary
+      start: 102
+      end: 112
+    - source: Match.orElse(() => ({}))
+      style: secondary
+      start: 89
+      end: 113
+    - source: Match.orElse(() => ({}))
+      style: secondary
+      start: 89
+      end: 113
   'const parsed = Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] });':
     labels:
     - source: 'Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] })'

@@ -13,6 +13,18 @@ snapshots:
       start: 87
       end: 133
   ? |
+    <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><AssemblyName>Exe</AssemblyName></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+  : labels:
+    - source: |
+        <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><AssemblyName>Exe</AssemblyName></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+      style: primary
+      start: 0
+      end: 219
+    - source: <PackageReference Include="xunit.v3.mtp-v2" />
+      style: secondary
+      start: 150
+      end: 196
+  ? |
     <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
   : labels:
     - source: |

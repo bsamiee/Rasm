@@ -17,4 +17,4 @@ rule:
 message: The provider is configured by hand where the package configures its default provider from the environment
 note: >-
     Delete the provider and its option and run the program under the environment variables the provider reads,
-    an explicit provider stays for a second account or region alone
+    an explicit provider stays for another account or region alone

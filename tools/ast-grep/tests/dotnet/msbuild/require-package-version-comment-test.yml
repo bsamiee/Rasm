@@ -17,10 +17,14 @@ invalid:
     - |
       <ItemGroup Label="Mathematics"><PackageVersion Include="MatFlat" Version="0.8.3" />
           <!-- Automatic differentiation computing gradients and Hessians with SIMD acceleration --></ItemGroup>
-    # A comment spanning lines is not the one-line form
+    # A comment spanning lines
     - |
       <ItemGroup Label="Mathematics"><PackageVersion Include="CSparse" Version="4.4.1" /> <!-- Sparse LU,
           Cholesky, and QR factorization --></ItemGroup>
     # A global package reference with no comment
     - |
       <ItemGroup Label="Analyzers"><GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" /></ItemGroup>
+    # A comment spanning lines directly after the row
+    - |
+      <ItemGroup Label="Mathematics"><PackageVersion Include="CSparse" Version="4.4.1" /><!-- Sparse LU,
+          Cholesky, and QR factorization --></ItemGroup>

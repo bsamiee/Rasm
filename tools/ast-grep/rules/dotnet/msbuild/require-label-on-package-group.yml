@@ -6,4 +6,5 @@ files: ['Directory.Packages.props'] # The root file alone, eng/native/Directory.
 rule:
     matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}
     not: {matches: {msbuild-metadata: {name: {regex: '^Label$'}, value: {regex: '^"\S[^"]*"$'}}}}
-message: A catalog group names its responsibility, add Label="<Group>" to the ItemGroup so the rows sit under the group that owns them
+message: The PackageVersion group has no Label naming its responsibility
+note: Add Label="<Group>" to the ItemGroup, the rows sit under the group that owns them

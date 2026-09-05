@@ -21,6 +21,18 @@ invalid:
       #!/usr/bin/env bash
       set -e
       echo "hello"
+    - | # Nounset and pipefail without errexit
+      #!/usr/bin/env bash
+      set -uo pipefail
+      echo "hello"
+    - | # Errexit and pipefail without nounset
+      #!/usr/bin/env bash
+      set -eo pipefail
+      echo "hello"
+    - | # Errexit and nounset without pipefail
+      #!/usr/bin/env bash
+      set -eu
+      echo "hello"
     - |- # Strict mode buried in a function is not file-level strictness
       #!/usr/bin/env bash
       run() {

@@ -3,7 +3,7 @@ id: no-nested-combinator-calls
 language: tsx
 severity: error
 utils:
-    # A module call that is a step over its first argument, Schema calls construct a schema and hoist instead of piping
+    # A module call that is a step over its first argument, Schema calls construct a declaration and no step
     step:
         matches: effect-module-call
         not: {has: {field: function, has: {field: object, regex: '^Schema$'}}}

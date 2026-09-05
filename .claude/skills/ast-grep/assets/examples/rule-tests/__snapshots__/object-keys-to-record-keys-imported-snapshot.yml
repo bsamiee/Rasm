@@ -27,12 +27,35 @@ snapshots:
       end: 73
   ? |
     import { Record } from "effect"
-    const rows = Object.entries(items)
     const all = Object.values(items)
   : fixed: |
       import { Record } from "effect"
+      const all = Record.values(items)
+    labels:
+    - source: Object.values(items)
+      style: primary
+      start: 44
+      end: 64
+    - source: Record
+      style: secondary
+      start: 9
+      end: 15
+    - source: import { Record } from "effect"
+      style: secondary
+      start: 0
+      end: 31
+    - source: |
+        import { Record } from "effect"
+        const all = Object.values(items)
+      style: secondary
+      start: 0
+      end: 65
+  ? |
+    import { Record } from "effect"
+    const rows = Object.entries(items)
+  : fixed: |
+      import { Record } from "effect"
       const rows = Record.toEntries(items)
-      const all = Object.values(items)
     labels:
     - source: Object.entries(items)
       style: primary
@@ -49,7 +72,6 @@ snapshots:
     - source: |
         import { Record } from "effect"
         const rows = Object.entries(items)
-        const all = Object.values(items)
       style: secondary
       start: 0
-      end: 100
+      end: 67

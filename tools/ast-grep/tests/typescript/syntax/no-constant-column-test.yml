@@ -6,16 +6,18 @@ valid:
     - 'const single = [{ name: "dev", imported: true }];'
     # A later row lacks the pair
     - 'const rows = [{ name: "dev", kind: "environment" }, { name: "prd" }];'
-    # The repeated value is a reference, not a literal
+    # The repeated value is a reference
     - 'const rows = [{ name: "dev", slug: slug }, { name: "prd", slug: slug }];'
-    # A row that is not an object
+    # A string row beside an object row
     - 'const mixed = [{ name: "dev", imported: true }, "prd"];'
-    # A third element that is no object after two rows that repeat the pair
+    # A string element after two rows that repeat the pair
     - 'const mixed = [{ name: "dev", imported: true }, { name: "prd", imported: true }, "raw"];'
-    # A scalar pair beside the object rows, the container is a record and not a table
+    # A scalar pair beside the object rows, the container is a record
     - 'const targets = { lint: { cache: true, command: "lint" }, format: { cache: true, command: "format" }, name: "tools" };'
     # A later object row lacks the pair
     - 'const targets = { lint: { cache: true, command: "lint" }, format: { command: "format" } };'
+    # One object row, no second row repeats the pair
+    - 'const targets = { lint: { cache: true, command: "lint" } };'
 invalid:
     # The instance, one literal pair on every array row
     - 'const rows = [{ name: "dev", imported: true }, { name: "prd", imported: true }];'

@@ -1,18 +1,24 @@
-id: no-sdk-hook-target-name
+id: no-predefined-target-name
 valid:
     # The target owns its name and attaches to the SDK target
     - |
       <Target Name="ReportBuild" AfterTargets="Build"><Message Importance="high" Text="built $(TargetPath)" /></Target>
-    # A hook named in BeforeTargets is an attachment, not a redefinition
+    # A predefined target named in BeforeTargets is an attachment
     - |
       <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments"><RemoveDir Directories="$(_TestResultsDirectory)" /></Target>
+    # An item holds the predefined target name as metadata and defines no target
+    - |
+      <ItemGroup><_Stamp Include="build" Name="AfterBuild" /></ItemGroup>
+    # The predefined target named as the attachment point of a target with its own name
+    - |
+      <Target Name="Stamp" AfterTargets="AfterBuild"><Message Text="stamped" /></Target>
 invalid:
-    # The build hook
+    # The build target
     - |
       <Target Name="AfterBuild"><Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" /></Target>
-    # The compile hook
+    # The compile target
     - |
       <Target Name="BeforeCompile"><Message Text="compiling" /></Target>
-    # The resource generation hook
+    # The resource generation target
     - |
       <Target Name="AfterResGen"><Message Text="resources" /></Target>

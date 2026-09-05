@@ -3,6 +3,9 @@ valid:
     # The overwrite form that keeps the timestamp for the incremental check
     - |
       <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    # Another file task takes no Overwrite
+    - |
+      <Touch Files="$(IntermediateOutputPath)stamp.txt" AlwaysCreate="true" />
 invalid:
     # No Overwrite, two lines after two builds
     - |
@@ -16,3 +19,9 @@ invalid:
     # WriteOnlyWhenDifferent alone appends, two lines after two builds
     - |
       <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" WriteOnlyWhenDifferent="true" />
+    # Overwrite false beside WriteOnlyWhenDifferent appends
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="false" WriteOnlyWhenDifferent="true" />
+    # WriteOnlyWhenDifferent false beside Overwrite rewrites the file on every build
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="false" />

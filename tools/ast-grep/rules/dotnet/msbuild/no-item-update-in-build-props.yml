@@ -6,7 +6,8 @@ files: ['**/Directory.Build.props']
 rule:
     kind: element
     all:
+        # Update and Remove sit on items alone, the ItemGroup parent adds no shape
         - has: {matches: msbuild-tag, has: {kind: Attribute, has: {kind: Name, regex: '^(Update|Remove)$'}}}
-        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}}
         - not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
-message: An Update or Remove in Directory.Build.props runs before the SDK globs add any item and matches nothing, move it to Directory.Build.targets or the project file, and express an exclusion through DefaultItemExcludes
+message: The Update or Remove in Directory.Build.props runs before the SDK globs add any item and matches nothing
+note: Move the item to Directory.Build.targets or the project file, and express an exclusion through DefaultItemExcludes

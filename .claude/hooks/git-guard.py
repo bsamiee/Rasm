@@ -128,7 +128,9 @@ def _resolve(argv: list[str], depth: int) -> list[list[str]]:
     name = pathlib.PurePosixPath(argv[0]).name
     if name in _SHELLS:
         body = _flag_operand(argv, "c")
-        return _leaves(body, depth + 1) if body and depth < _MAX_DEPTH else [["git", _INTERP]]
+        if body and depth < _MAX_DEPTH:
+            return _leaves(body, depth + 1)
+        return [["git", _INTERP]] if any(t == "-s" or not t.startswith("-") for t in argv[1:]) else []  # No script and no stdin runs nothing
     if name.startswith(_INTERPRETERS) and (body := _flag_operand(argv, "c") or _flag_operand(argv, "e")):
         return [["git", _INTERP]] if _GIT_WORD.search(body) else []  # Implied reason, never keyword-scanned
     return [argv]

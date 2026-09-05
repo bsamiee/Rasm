@@ -6,6 +6,12 @@ valid:
     # A copy into the intermediate directory is a generator step
     - |
       <Copy SourceFiles="BuildInfo.cs.in" DestinationFiles="$(IntermediateOutputPath)BuildInfo.g.cs" />
+    # An item holds the destination as metadata and copies nothing
+    - |
+      <ItemGroup><_Asset Include="settings.ini" DestinationFolder="$(OutDir)assets/" /></ItemGroup>
+    # A copy out of the output directory into the intermediate directory
+    - |
+      <Copy SourceFiles="$(OutDir)$(TargetFileName)" DestinationFolder="$(IntermediateOutputPath)stage/" />
 invalid:
     # A copy into the output directory
     - |
@@ -16,3 +22,6 @@ invalid:
     # The parameter in the child-element form
     - |
       <Copy SourceFiles="settings.ini"><DestinationFolder>$(OutputPath)</DestinationFolder></Copy>
+    # A Move into the output directory reaches the same bin
+    - |
+      <Move SourceFiles="$(IntermediateOutputPath)manifest.json" DestinationFolder="$(OutDir)" />

@@ -40,3 +40,39 @@ snapshots:
       style: primary
       start: 0
       end: 40
+  ? |
+    #!/usr/bin/env bash
+    set -eo pipefail
+    echo "hello"
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -eo pipefail
+        echo "hello"
+      style: primary
+      start: 0
+      end: 50
+  ? |
+    #!/usr/bin/env bash
+    set -eu
+    echo "hello"
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -eu
+        echo "hello"
+      style: primary
+      start: 0
+      end: 41
+  ? |
+    #!/usr/bin/env bash
+    set -uo pipefail
+    echo "hello"
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -uo pipefail
+        echo "hello"
+      style: primary
+      start: 0
+      end: 50

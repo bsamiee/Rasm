@@ -6,16 +6,22 @@ valid:
     - 'const plugins = [...Array.flatMap(Option.toArray(Option.liftPredicate(config.react, identity)), reactPlugins)];'
     # A spread of whole objects, an optional object spreads as is
     - 'const merged = { ...defaults, ...overrides };'
-    # A two-arm match whose arms both hold a value
+    # A two-arm match with a value in both arms
     - 'const named = Boolean.match(managed, { onTrue: () => "managed", onFalse: () => "native" });'
-    # A two-step chain whose arms both hold a value, a union of shapes chosen by branch
+    # A two-step chain with a value in both arms, a union of shapes chosen by branch
     - 'const options = { ...Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({ name: other }))) };'
-    # A dispatch over many arms with an empty default, absence is not the question
+    # A dispatch over many arms with an empty fallback
     - 'const readings = Match.value(state).pipe(Match.when(isCounter, (counter) => [reading(counter)]), Match.when(isGauge, (gauge) => [reading(gauge)]), Match.orElse(() => []));'
-    # A two-arm match whose array arms both hold an element
+    # A two-arm match with an element in both array arms
     - 'const listed = Option.match(found, { onNone: () => [fallback], onSome: (item) => [item] });'
     # A nullish default spread, both sides hold a value
     - 'const options = { ...(override ?? {}) };'
+    # A dispatch over many arms through the pipe function, the same three steps as the method chain
+    - 'const readings = pipe(Match.value(state), Match.when(isCounter, (counter) => [reading(counter)]), Match.when(isGauge, (gauge) => [reading(gauge)]), Match.orElse(() => []));'
+    # A match on a module outside the effect package, the rule reads the effect data types alone
+    - 'const listed = Item.match(item, { onLeaf: () => [], onNode: (children) => children });'
+    # Either.mapBoth keeps both sides as an Either, the branch chooses no side
+    - 'const mapped = Either.mapBoth(decoded, { onLeft: () => [], onRight: (row) => [row] });'
 invalid:
     # An empty arm spread into an object
     - 'const targets = { pack, ...Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) }) };'
@@ -29,10 +35,12 @@ invalid:
     - 'const listed = Option.match(found, { onNone: () => [], onSome: (item) => [item] });'
     # An Either matched into an empty arm
     - 'const parsed = Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] });'
-    # A two-step chain with an empty closer inside a spread
+    # A two-step chain with an empty Match.orElse fallback inside a spread
     - 'const options = { ...Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({}))) };'
     # A two-step chain with an empty arm away from the spread
     - 'const names = Match.value(language).pipe(Match.when("python", () => []), Match.orElse(() => [name]));'
+    # A two-step chain through the pipe function with an empty fallback, the gap the method-form util left
+    - 'const options = { ...pipe(Match.value(language), Match.when("python", () => ({ name })), Match.orElse(() => ({}))) };'
     # A conjunction spread
     - 'const options = { ...(adopt && { import: id }) };'
     - 'const plugins = [...(production && plugins)];'

@@ -15,6 +15,9 @@ valid:
     # A message text holds no path
     - |
       <Message Text="built $(TargetPath)" />
+    # A regex escape in a condition attribute is no path
+    - |
+      <PropertyGroup Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(Version)', 'v\d+'))"><IsPrerelease>true</IsPrerelease></PropertyGroup>
 invalid:
     # A backslash in an Exec command, sh reads datafile.txt
     - |

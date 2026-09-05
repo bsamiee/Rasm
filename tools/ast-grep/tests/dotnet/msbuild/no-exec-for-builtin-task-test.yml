@@ -6,12 +6,18 @@ valid:
     # An external program with no built-in task
     - |
       <Exec Command="install_name_tool -change $(_TorchLibompInstallName) @loader_path/libomp.dylib '%(_TorchCpuDylib.FullPath)'" />
-    # An echo that only logs holds no redirect
+    # An echo that logs holds no redirect
     - |
       <Exec Command="echo $(Version)" />
     # A program name that opens with a listed word
     - |
       <Exec Command="cpio -o &lt; list.txt" />
+    # An item holds the command as metadata and runs nothing
+    - |
+      <ItemGroup><_Step Include="logs" Command="mkdir $(OutDir)logs" /></ItemGroup>
+    # A log pattern parameter names the shell command and runs nothing
+    - |
+      <Exec Command="./setup.sh" CustomErrorRegularExpression="mkdir: cannot create" />
 invalid:
     # A directory created through the shell
     - |

@@ -78,6 +78,32 @@ snapshots:
       style: secondary
       start: 31
       end: 103
+  const inner = Effect.map(rows, Array.flatten(Array.map(Array.filter(items, (item) => item.live), (item) => item.parts)));:
+    labels:
+    - source: Array.flatten(Array.map(Array.filter(items, (item) => item.live), (item) => item.parts))
+      style: primary
+      start: 31
+      end: 119
+    - source: Array.filter(items, (item) => item.live)
+      style: secondary
+      start: 55
+      end: 95
+    - source: (item) => item.parts
+      style: secondary
+      start: 97
+      end: 117
+    - source: (Array.filter(items, (item) => item.live), (item) => item.parts)
+      style: secondary
+      start: 54
+      end: 118
+    - source: Array.map(Array.filter(items, (item) => item.live), (item) => item.parts)
+      style: secondary
+      start: 45
+      end: 118
+    - source: Array.map(Array.filter(items, (item) => item.live), (item) => item.parts)
+      style: secondary
+      start: 45
+      end: 118
   ? const nested = Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded);
   : labels:
     - source: Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded)

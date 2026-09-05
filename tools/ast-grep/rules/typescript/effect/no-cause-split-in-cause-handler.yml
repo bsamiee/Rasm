@@ -10,7 +10,7 @@ utils:
             field: function
             kind: member_expression
             all:
-                - has: {field: object, regex: '^(Effect|Stream)$'}
+                - has: {field: object, regex: '^(Effect|Stream|Layer|Channel)$'}
                 - has: {field: property, regex: '^(tapErrorCause|catchAllCause|catchSomeCause|onError|matchCause|matchCauseEffect|mapErrorCause)$'}
 rule:
     all:

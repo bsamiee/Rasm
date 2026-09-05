@@ -35,6 +35,77 @@ snapshots:
       style: secondary
       start: 60
       end: 124
+  ? |
+    [SmartEnum<string>]
+    public sealed partial class Route {
+        public static readonly Route Primary = new("<key-a>", Fallback);
+        public static readonly Route Secondary = new("<key-b>", static () => Fallback);
+        public static readonly Route Fallback = new("<key-c>", static () => Fallback);
+    }
+  : labels:
+    - source: Fallback
+      style: primary
+      start: 114
+      end: 122
+    - source: Fallback
+      style: secondary
+      start: 114
+      end: 122
+    - source: static
+      style: secondary
+      start: 67
+      end: 73
+    - source: Fallback
+      style: secondary
+      start: 242
+      end: 250
+    - source: Fallback = new("<key-c>", static () => Fallback)
+      style: secondary
+      start: 242
+      end: 290
+    - source: public static readonly Route Fallback = new("<key-c>", static () => Fallback);
+      style: secondary
+      start: 213
+      end: 291
+    - source: public static readonly Route Primary = new("<key-a>", Fallback);
+      style: secondary
+      start: 60
+      end: 124
+  ? |
+    [SmartEnum<string>]
+    public sealed partial class Route {
+        public static readonly Route Primary = new("<key-a>", Fallback.Key);
+        public static readonly Route Fallback = new("<key-b>", static () => Fallback);
+    }
+  : labels:
+    - source: Fallback
+      style: primary
+      start: 114
+      end: 122
+    - source: Fallback.Key
+      style: secondary
+      start: 114
+      end: 126
+    - source: static
+      style: secondary
+      start: 67
+      end: 73
+    - source: Fallback
+      style: secondary
+      start: 162
+      end: 170
+    - source: Fallback = new("<key-b>", static () => Fallback)
+      style: secondary
+      start: 162
+      end: 210
+    - source: public static readonly Route Fallback = new("<key-b>", static () => Fallback);
+      style: secondary
+      start: 133
+      end: 211
+    - source: public static readonly Route Primary = new("<key-a>", Fallback.Key);
+      style: secondary
+      start: 60
+      end: 128
   ? |-
     [SmartEnum<string>]
     public sealed partial class Route {

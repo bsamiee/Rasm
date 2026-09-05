@@ -27,7 +27,7 @@
         ".gitignore": ".gitattributes",
         "buf.gen.yaml": "buf.yaml, buf.lock",
         "pyproject.toml": "uv.lock",
-        "nx.json": "mise.toml, sgconfig.yml",
+        "nx.json": ".editorconfig, mise.toml, sgconfig.yml",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, stryker.config.json, tsconfig.json, vite.config.ts, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },

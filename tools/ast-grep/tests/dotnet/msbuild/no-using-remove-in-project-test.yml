@@ -6,8 +6,11 @@ valid:
     # A central using keyed on the package that supplies the namespace
     - |
       <ItemGroup><Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" /></ItemGroup>
+    # A Remove on another item type
+    - |
+      <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
 invalid:
-    # The instance, three projects undid a central kernel-namespace injection
+    # The instance, three projects removed a central Using of the kernel namespace
     - |
       <ItemGroup Label="Kernel-Free Usings"><Using Remove="Rasm.Analysis" /></ItemGroup>
     # The start-tag form

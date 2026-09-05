@@ -1,5 +1,12 @@
 id: no-cause-split-in-cause-handler
 snapshots:
+  const channeled = Channel.catchAllCause(channel, (cause) => Channel.fromEffect(Effect.when(retry(), () => Cause.isDie(cause))));:
+    labels:
+    - source: isDie
+      message: The reader that splits the Cause
+      style: primary
+      start: 112
+      end: 117
   const guarded = Effect.onError(program, (cause) => { return Effect.when(report(cause), () => Cause.isFailure(cause)); });:
     labels:
     - source: isFailure
@@ -7,6 +14,13 @@ snapshots:
       style: primary
       start: 99
       end: 108
+  const layered = Layer.tapErrorCause(layer, (cause) => Effect.when(report(cause), () => Cause.isFailure(cause)));:
+    labels:
+    - source: isFailure
+      message: The reader that splits the Cause
+      style: primary
+      start: 93
+      end: 102
   ? 'const matched = Effect.matchCauseEffect(program, { onFailure: (cause) => Cause.match(cause, { onFail: report, onDie: crash, onInterrupt: () => Effect.void, onEmpty: Effect.void, onSequential: merge, onParallel: merge }), onSuccess: () => Effect.void });'
   : labels:
     - source: match

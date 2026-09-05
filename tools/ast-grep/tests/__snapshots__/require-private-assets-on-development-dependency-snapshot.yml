@@ -29,6 +29,13 @@ snapshots:
       start: 0
       end: 44
   ? |
+    <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />
+  : labels:
+    - source: <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />
+      style: primary
+      start: 0
+      end: 64
+  ? |
     <PackageReference Include="xunit.analyzers" />
   : labels:
     - source: <PackageReference Include="xunit.analyzers" />

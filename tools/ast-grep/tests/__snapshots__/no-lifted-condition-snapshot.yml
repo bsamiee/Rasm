@@ -1,5 +1,62 @@
-id: no-condition-as-payload
+id: no-lifted-condition
 snapshots:
+  ? |
+    Array.liftPredicate(identity)(production)
+  : labels:
+    - source: Array.liftPredicate(identity)
+      style: primary
+      start: 0
+      end: 29
+    - source: Array.liftPredicate
+      style: secondary
+      start: 0
+      end: 19
+    - source: identity
+      style: secondary
+      start: 20
+      end: 28
+    - source: identity
+      style: secondary
+      start: 20
+      end: 28
+  ? |
+    Effect.liftPredicate(production, identity, () => error)
+  : labels:
+    - source: Effect.liftPredicate(production, identity, () => error)
+      style: primary
+      start: 0
+      end: 55
+    - source: Effect.liftPredicate
+      style: secondary
+      start: 0
+      end: 20
+    - source: identity
+      style: secondary
+      start: 33
+      end: 41
+    - source: identity
+      style: secondary
+      start: 33
+      end: 41
+  ? |
+    Either.liftPredicate(production, identity, () => error)
+  : labels:
+    - source: Either.liftPredicate(production, identity, () => error)
+      style: primary
+      start: 0
+      end: 55
+    - source: Either.liftPredicate
+      style: secondary
+      start: 0
+      end: 20
+    - source: identity
+      style: secondary
+      start: 33
+      end: 41
+    - source: identity
+      style: secondary
+      start: 33
+      end: 41
   ? |
     Option.filter(option, (held) => held)
   : labels:
@@ -7,14 +64,6 @@ snapshots:
       style: primary
       start: 0
       end: 37
-    - source: Option
-      style: secondary
-      start: 0
-      end: 6
-    - source: filter
-      style: secondary
-      start: 7
-      end: 13
     - source: Option.filter
       style: secondary
       start: 0
@@ -50,14 +99,6 @@ snapshots:
       style: primary
       start: 0
       end: 53
-    - source: Option
-      style: secondary
-      start: 0
-      end: 6
-    - source: liftPredicate
-      style: secondary
-      start: 7
-      end: 20
     - source: Option.liftPredicate
       style: secondary
       start: 0
@@ -77,14 +118,6 @@ snapshots:
       style: primary
       start: 0
       end: 42
-    - source: Option
-      style: secondary
-      start: 0
-      end: 6
-    - source: liftPredicate
-      style: secondary
-      start: 7
-      end: 20
     - source: Option.liftPredicate
       style: secondary
       start: 0
@@ -104,14 +137,6 @@ snapshots:
       style: primary
       start: 23
       end: 46
-    - source: Option
-      style: secondary
-      start: 23
-      end: 29
-    - source: filter
-      style: secondary
-      start: 30
-      end: 36
     - source: Option.filter
       style: secondary
       start: 23

@@ -25,8 +25,33 @@ valid:
           public static int Cast(object raw) =>
               (Request)raw switch { Request.Open o => 1, Request.Close c => 0 };
       }
+    - | # Null-conditional subject, the member call returns null where the switch throws
+      public static class S {
+          public static int Optional(Envelope? envelope) =>
+              envelope?.Request switch { Request.Open o => 1, Request.Close c => 0 };
+      }
 invalid:
-    - |- # Bare qualified patterns on a language switch
+    - | # Member-access subject
+      public static class S {
+          public static int Member(Envelope envelope) =>
+              envelope.Request switch { Request.Open o => 1, Request.Close c => 0 };
+      }
+    - | # Invocation subject
+      public static class S {
+          public static int Loaded(Ledger ledger) =>
+              ledger.Load() switch { Request.Open o => 1, Request.Close c => 0 };
+      }
+    - | # Element-access subject
+      public static class S {
+          public static int Indexed(Request[] requests) =>
+              requests[0] switch { Request.Open o => 1, Request.Close c => 0 };
+      }
+    - | # Parenthesized cast subject, the primary form of the refused cast
+      public static class S {
+          public static int Wrapped(object raw) =>
+              ((Request)raw) switch { Request.Open o => 1, Request.Close c => 0 };
+      }
+    - |- # Unguarded qualified patterns on a language switch
       public static class S {
           public static Fin<Outcome> Dispatch(Request request, Ledger ledger) =>
               request switch {

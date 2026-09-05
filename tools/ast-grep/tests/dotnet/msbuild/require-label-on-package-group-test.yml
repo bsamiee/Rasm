@@ -13,3 +13,6 @@ invalid:
     # An empty label names nothing
     - |
       <Project><ItemGroup Label=""><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
+    # A condition names no responsibility
+    - |
+      <Project><ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>

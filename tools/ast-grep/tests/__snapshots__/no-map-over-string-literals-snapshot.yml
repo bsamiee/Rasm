@@ -21,3 +21,10 @@ snapshots:
       style: primary
       start: 15
       end: 67
+  const inputs = pipe(["props", "targets"], Array.map((suffix) => `Directory.Build.${suffix}`), Array.join(","));:
+    labels:
+    - source: '["props", "targets"]'
+      message: The literal list
+      style: primary
+      start: 20
+      end: 40

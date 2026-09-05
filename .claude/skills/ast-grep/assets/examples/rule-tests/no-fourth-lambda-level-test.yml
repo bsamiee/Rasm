@@ -13,3 +13,5 @@ invalid:
       rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)
     - | # A keyword-argument callback with a parameter at the fourth level
       rows = outer(lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a), items)
+    - | # Five levels report once at the innermost callback
+      rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: end(lambda e: e + d, a), a), a), a), items)

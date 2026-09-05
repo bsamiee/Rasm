@@ -4,8 +4,10 @@ valid:
     - 'const known = Record.has(packaging, target);'
     # A key list kept as a list
     - 'const names = Record.keys(packaging);'
-    # Membership over a list that is not a key list
+    # Membership over a plain list
     - 'const listed = Array.contains(names, target);'
+    # The key list as the searched element, the second argument of the data-first search
+    - 'const listed = Array.contains(groups, Record.keys(packaging));'
 invalid:
     # The instance, the key list searched
     - 'const known = Record.keys(packaging).includes(target);'

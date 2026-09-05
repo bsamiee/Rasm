@@ -3,7 +3,7 @@ id: no-run-in-effect-callback
 language: tsx
 severity: error
 utils:
-    # A call that runs an effect: a runtime method, or Runtime.runPromise(runtime) applied to an effect
+    # A call that runs an effect, a runtime method or Runtime.runPromise(runtime) applied to an effect
     runtime-run:
         kind: call_expression
         any:
@@ -21,7 +21,7 @@ utils:
                       field: function
                       kind: member_expression
                       has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
-    # A call whose callback belongs to the effect package: a module combinator or a run
+    # A call with a callback the effect package owns, a module combinator or a run
     effect-owner:
         any:
             - matches: effect-module-call

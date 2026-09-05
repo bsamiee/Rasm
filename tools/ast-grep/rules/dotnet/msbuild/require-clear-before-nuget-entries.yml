@@ -6,4 +6,5 @@ files: ['NuGet.config'] # The root NuGet.config alone, the one config of the wor
 rule:
     matches: {msbuild-element: {name: {regex: '^(packageSources|disabledPackageSources|packageSourceMapping)$'}}}
     not: {has: {kind: content, has: {matches: {msbuild-element: {name: {regex: '^clear$'}}}, nthChild: {position: 1, ofRule: {kind: element}}}}}
-message: A NuGet.config section opens with <clear /> so a user or machine config adds no source, disable, or mapping to the restore, put <clear /> before the first entry
+message: The NuGet.config section opens without <clear />, a user or machine config adds a source, disable, or mapping to the restore
+note: Put <clear /> before the first entry

@@ -9,4 +9,7 @@ rule:
     any:
         - not: {has: {all: [{matches: {msbuild-property: {name: {regex: '^OutputType$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*Exe\s*$'}}}}], stopBy: end}}
         - not: {has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^"coverlet\.MTP"$'}}}, stopBy: end}}
-message: A test project referencing xunit.v3.mtp-v2 declares <OutputType>Exe</OutputType> and references coverlet.MTP, the Microsoft Testing Platform host is an executable and every test run collects coverage
+message: >-
+    The test project referencing xunit.v3.mtp-v2 lacks <OutputType>Exe</OutputType> or the coverlet.MTP reference, the Microsoft Testing
+    Platform host is an executable and every test run collects coverage
+note: Declare <OutputType>Exe</OutputType> and reference coverlet.MTP

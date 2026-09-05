@@ -15,3 +15,5 @@ invalid:
     - 'const inputs = Array.map(["Directory.Build.props", "Directory.Build.targets"], (shared) => `{workspaceRoot}/eng/native/${shared}`);'
     # A concatenation in place of a template
     - 'const inputs = Array.map(["props", "targets"], (suffix) => "Directory.Build." + suffix);'
+    # The data-last Array.map in a pipe over the literal list
+    - 'const inputs = pipe(["props", "targets"], Array.map((suffix) => `Directory.Build.${suffix}`), Array.join(","));'

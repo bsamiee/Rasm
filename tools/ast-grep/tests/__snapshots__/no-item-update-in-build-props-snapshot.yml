@@ -19,14 +19,6 @@ snapshots:
       style: secondary
       start: 11
       end: 44
-    - source: <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
-      style: secondary
-      start: 0
-      end: 56
-    - source: <Compile Remove="Generated/**" />
-      style: secondary
-      start: 11
-      end: 44
   ? |
     <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   : labels:
@@ -42,14 +34,6 @@ snapshots:
       style: secondary
       start: 17
       end: 42
-    - source: <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
-      style: secondary
-      start: 11
-      end: 84
-    - source: <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
-      style: secondary
-      start: 0
-      end: 96
     - source: <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
       style: secondary
       start: 11
@@ -73,11 +57,3 @@ snapshots:
       style: secondary
       start: 11
       end: 52
-    - source: <ItemGroup><PackageReference Update="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
-      style: secondary
-      start: 0
-      end: 117
-    - source: <PackageReference Update="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference>
-      style: secondary
-      start: 11
-      end: 105

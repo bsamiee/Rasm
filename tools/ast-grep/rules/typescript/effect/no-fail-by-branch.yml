@@ -17,7 +17,10 @@ utils:
               has: {field: body, any: [{pattern: Effect.void}, {pattern: Effect.succeed($_)}]}
             - pattern: Effect.succeed
 rule:
-    matches: effect-two-arm-branch
+    any:
+        - matches: effect-two-arm-branch
+        # The effect's own effect-returning match, an arm that fails beside an arm that succeeds is Effect.mapError
+        - pattern: Effect.matchEffect($$$)
     has:
         field: arguments
         has:
@@ -25,7 +28,7 @@ rule:
             all:
                 - has: {kind: pair, has: {field: value, matches: fail-arm}}
                 - has: {kind: pair, has: {field: value, matches: pass-arm}}
-message: The branch fails on one side of the carrier and passes the value through on the other
+message: The branch fails in one arm and passes the value through in the other
 note: >-
     Guard a boolean with `Effect.filterOrFail(effect, predicate, () => error)`, `Effect.succeed(value)` when the inspected
-    value is a local, an Option, Either, or Exit is an Effect already and `Effect.mapError(carrier, () => error)` renames its failure
+    value is a local, an Option, Either, or Exit is an Effect already, and `Effect.mapError(effect, () => error)` renames its failure

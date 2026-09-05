@@ -11,17 +11,11 @@ utils:
             any:
                 - {kind: array, not: {has: {pattern: $_}}}
                 - {kind: parenthesized_expression, has: {kind: object, not: {has: {pattern: $_}}}}
-    # A Match.value chain of two steps, one arm and one closer, the two-arm match spelled as a matcher
+    # A Match.value chain of one Match.when arm and one Match.orElse fallback, the two-arm match spelled through either pipe form
     two-step-match-chain:
-        kind: call_expression
-        all:
-            - has:
-                  field: function
-                  kind: member_expression
-                  all:
-                      - has: {field: object, pattern: Match.value($_)}
-                      - has: {field: property, regex: '^pipe$'}
-            - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+        any:
+            - pattern: Match.value($_).pipe($_, $_)
+            - pattern: pipe(Match.value($_), $_, $_)
 rule:
     any:
         # One arm of the match is empty, in any position: a spread, an argument, a local, a return

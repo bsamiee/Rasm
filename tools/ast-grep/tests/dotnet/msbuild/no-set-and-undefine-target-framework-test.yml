@@ -6,10 +6,16 @@ valid:
     # The incompatible-framework form with the undefine alone
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" ReferenceOutputAssembly="false" />
+    # A custom item holds both names as metadata, SetTargetFramework does nothing outside ProjectReference
+    - |
+      <ItemGroup><_HostProject Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" /></ItemGroup>
+    # The incompatible-framework form with the set alone
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" />
 invalid:
-    # Both controls on one reference
+    # Both metadata on one reference
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
-    # Both controls in the metadata child form
+    # Both metadata in the child-element form
     - |
       <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework><UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>

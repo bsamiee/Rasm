@@ -12,14 +12,14 @@ valid:
     # A language version above the framework default belongs to the project
     - |
       <PropertyGroup><LangVersion>latest</LangVersion></PropertyGroup>
-    # A restore code suppressed on one reference is metadata, not a property
+    # A restore code suppressed on one reference is metadata
     - |
       <ItemGroup><PackageReference Include="EPPlus"><NoWarn>NU1603</NoWarn></PackageReference></ItemGroup>
 invalid:
     # The version a packaging project stated before the manifest owned it
     - |
       <PropertyGroup><Version>2.19.1</Version></PropertyGroup>
-    # The informational version the bridge tools stated
+    # An informational version stated in a project
     - |
       <PropertyGroup><InformationalVersion>0.1.0-cargo</InformationalVersion></PropertyGroup>
     # A tag prefix the release group derives in Directory.Build.targets
@@ -31,7 +31,7 @@ invalid:
     # A warning severity list left in a project body
     - |
       <PropertyGroup Label="IKVM Compile"><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
-    # The artifacts root, which NETSDK1199 rejects in a project
+    # The artifacts root, NETSDK1199 rejects it in a project
     - |
       <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath></PropertyGroup>
     # A pack on build in a library
@@ -43,7 +43,7 @@ invalid:
     # The test classification negated in a support project
     - |
       <PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>
-    # The runner flag the deleted bridge test projects carried
+    # The runner flag a test project set
     - |
       <PropertyGroup><UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner></PropertyGroup>
     # The platform flag the package sets

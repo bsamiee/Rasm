@@ -6,21 +6,23 @@ Hardening rebuilds a rule until it reports the higher-order pattern its correcti
 
 A rule is weak when the correction its `note` states applies to a shape the rule misses, and each row names one gap with the form that closes it:
 
-| [INDEX] | [SMELL]                                                         | [HIGHER_ORDER_FORM]                                             |
-| :-----: | :-------------------------------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | One literal callee where the module's siblings share a contract | `field: property` with a `regex` over the family, module pinned |
-|  [02]   | One spelling where the package documents data-first and method  | `any:` branch per form, the shape in a util                     |
-|  [03]   | One container where the correction reads the same over another  | Util per container, one `any:` over them                        |
-|  [04]   | One position where the shape is produced before it is consumed  | Match where the shape is produced, no position guard            |
-|  [05]   | Name where the rule means every node of a kind                  | `kind` with `field` and `nthChild`, `regex` on the name         |
-|  [06]   | Test with the instance alone under `invalid:`                   | One `invalid:` case per sibling, one `valid:` per guard         |
-|  [07]   | `note` naming the instance's fix                                | Correction as the shape to produce                              |
-|  [08]   | One hit where a file of the sibling shapes reports many         | Every sibling the package contract admits, counted over that file |
-|  [09]   | Two rules with messages that differ by a callee name            | One rule, or two over one global util                           |
-|  [10]   | Default `stopBy` where the related node sits levels away        | `stopBy: end` or a same-kind stopper                            |
-|  [11]   | `constraints` on a `$$$` capture or under `not`                 | Structural guard in the rule, `$ITEM` inside the list           |
-|  [12]   | Fix with no `not:` arm where a variant breaks the template      | `not:` arm per variant before the template                      |
-|  [13]   | Kind chain standing for a role in a depth or count rule         | `inside` with the parent kind, `has` on its field, near misses valid |
+| [INDEX] | [SMELL]                                                           | [HIGHER_ORDER_FORM]                                                  |
+| :-----: | :---------------------------------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | One literal callee where the module's siblings share a contract   | `field: property` with a `regex` over the family, module pinned      |
+|  [02]   | One spelling where the package documents data-first and method    | `any:` branch per form, the shape in a util                          |
+|  [03]   | One container where the correction reads the same over another    | Util per container, one `any:` over them                             |
+|  [04]   | One position where the shape is produced before it is consumed    | Match where the shape is produced, no position guard                 |
+|  [05]   | Name where the rule means every node of a kind                    | `kind` with `field` and `nthChild`, `regex` on the name              |
+|  [06]   | Test with the instance alone under `invalid:`                     | One `invalid:` case per sibling, one `valid:` per guard              |
+|  [07]   | `note` naming the instance's fix                                  | Correction as the shape to produce                                   |
+|  [08]   | One hit where a file of the sibling shapes reports many           | Every sibling the package contract admits, counted over that file    |
+|  [09]   | Two rules with messages that differ by a callee name              | One rule, or two over one global util                                |
+|  [10]   | Default `stopBy` where the related node sits levels away          | `stopBy: end` or a same-kind stopper                                 |
+|  [11]   | `constraints` on a `$$$` capture or under `not`                   | Structural guard in the rule, `$ITEM` inside the list                |
+|  [12]   | Fix with no `not:` arm where a variant breaks the template        | `not:` arm per variant before the template                           |
+|  [13]   | Kind chain standing for a role in a depth or count rule           | `inside` with the parent kind, `has` on its field, near misses valid |
+|  [14]   | One carrier module where the package exports the function on more | `regex` over the carriers on `field: object`, a case per carrier     |
+|  [15]   | Name guard no row of a fixed-schema file can violate              | The row as one tag `regex`, the guard leaves                         |
 
 Read every rule in scope against the table before any edit, and record each hit as `rule | row | sibling missed`, because the widening starts from the missed siblings. Use `rule-building` for the category of weak code a rule under-covers.
 
@@ -57,7 +59,7 @@ utils:
       - {kind: arrow_function, has: {field: body, any: [{pattern: Effect.void}, {pattern: Effect.succeed($_)}]}}
       - pattern: Effect.succeed
 rule:
-  matches: effect-two-arm-branch          # Global util: Effect.if, or Boolean, Option, Either, Exit .match
+  matches: effect-two-arm-branch # Global util: Effect.if, or Boolean, Option, Either, Exit .match
   has:
     field: arguments
     has:
@@ -80,24 +82,24 @@ Rules collapse into one when they share the correction and the reason, and they 
 5. Run `ast-grep test -U` once, then `ast-grep test`, and read the survivor's snapshot for every original invalid source
 6. Prove the count, `ast-grep scan --filter '^<survivor>$' --json=stream <root> | wc -l` is at least the sum of the superseded counts
 
-A collapse fails when the survivor's `note` lists a fix per branch, because the reader then picks by branch, and two rules over one global util is the form that keeps each `note` one shape.
+A widened rule keeps its id while the id still names the pattern the `message` states, and takes the pattern's name through the collapse steps once the id names one member of it (`no-copy-task-into-output` over `Copy` and `Move` keeps its id, a rule over `Copy` alone named for `DestinationFolder` renames). A collapse fails when the survivor's `note` lists a fix per branch, because the reader then picks by branch, and two rules over one global util is the form that keeps each `note` one shape.
 
 ## [04]-[DEVICES]
 
 Each device answers one symptom the widening raised, and a device with no symptom in the rule is bloat. Use the `ast-grep` skill's rule-craft devices for the relational, capture, and pattern-parse mechanics:
 
-| [INDEX] | [SYMPTOM]                                                    | [DEVICE]                                                            |
-| :-----: | :----------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | Sub-shape repeated in two `any:` arms of one rule            | Local `utils:` entry                                                |
-|  [02]   | Shape two rules match on                                     | Global util `<package>-<shape>` with `id` and `language`            |
-|  [03]   | Shared shape with one slot each caller fills                 | Parameterized global util, `arguments:` beside a `kind` guard       |
-|  [04]   | Nested form of the shape (a parenthesized number)            | Util recursion through `matches` under `has` or `inside`            |
-|  [05]   | Shape the `message` names as one noun                        | Util with that noun as its id, the rule reads as the sentence       |
-|  [06]   | Capture the fix re-matches inside the shared shape           | Local util binding it, or an argument rule binding it at the call   |
-|  [07]   | Family of one base shape and its narrower forms              | Base util, one local util per refinement over the base              |
-|  [08]   | Single capture that must fit a name grammar, outside `not`   | `constraints: {<VAR>: {regex, kind}}`                               |
-|  [09]   | Derived text in the fix, a function of one capture           | `transform` with `convert`, `replace`, or `substring`               |
-|  [10]   | Fix over each member of a list, joined by one separator      | `rewriters` with `rewrite($$$LIST, joinBy=<sep>)`                   |
+| [INDEX] | [SYMPTOM]                                                  | [DEVICE]                                                          |
+| :-----: | :--------------------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | Sub-shape repeated in two `any:` arms of one rule          | Local `utils:` entry                                              |
+|  [02]   | Shape two rules match on                                   | Global util `<package>-<shape>` with `id` and `language`          |
+|  [03]   | Shared shape with one slot each caller fills               | Parameterized global util, `arguments:` beside a `kind` guard     |
+|  [04]   | Nested form of the shape (a parenthesized number)          | Util recursion through `matches` under `has` or `inside`          |
+|  [05]   | Shape the `message` names as one noun                      | Util with that noun as its id, the rule reads as the sentence     |
+|  [06]   | Capture the fix re-matches inside the shared shape         | Local util binding it, or an argument rule binding it at the call |
+|  [07]   | Family of one base shape and its narrower forms            | Base util, one local util per refinement over the base            |
+|  [08]   | Single capture that must fit a name grammar, outside `not` | `constraints: {<VAR>: {regex, kind}}`                             |
+|  [09]   | Derived text in the fix, a function of one capture         | `transform` with `convert`, `replace`, or `substring`             |
+|  [10]   | Fix over each member of a list, joined by one separator    | `rewriters` with `rewrite($$$LIST, joinBy=<sep>)`                 |
 
 A device proves itself through `test_match_code_rule` on the sibling that needed it and on the near miss it must keep out, and a device that changes neither result leaves.
 
@@ -117,15 +119,15 @@ A util turns the sibling list into variants before the rule widens: the shape ev
 
 Each failure class has the check that finds it:
 
-| [INDEX] | [FAILURE]                                           | [CHECK]                                                                           |
-| :-----: | :-------------------------------------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | Util hiding the rule's shape, `matches:` alone      | Rule states its own kind, position, and guards, the util the shared shape         |
-|  [02]   | Global util one rule references                     | `rg -l 'matches: *<id>$'` and `'^\s*<id>:'`, one caller goes local, none deletes  |
-|  [03]   | Util without a kind at its root                     | `yq '.rule \| has("kind") or has("any")'` per util, a kind in each `any:` arm     |
-|  [04]   | Cycle through `matches`                             | Exit 8 at load naming the cyclic dependency, the recursion moved under `has`      |
-|  [05]   | Global util naming an undefined util                | Exit 0 and zero hits, the load skips the check, a count over a known hit shows it |
-|  [06]   | Argument bound to nothing                           | Every declared argument appears as `matches: <slot>` in the util body             |
-|  [07]   | Draft naming a global util under `--inline-rules`   | Exit 8, `scan -c <scratch>/sgconfig.yml`, its `utilDirs` the real directory       |
+| [INDEX] | [FAILURE]                                         | [CHECK]                                                                            |
+| :-----: | :------------------------------------------------ | :--------------------------------------------------------------------------------- |
+|  [01]   | Util hiding the rule's shape, `matches:` alone    | Rule states its own kind, position, and guards, the util the shared shape          |
+|  [02]   | Global util one rule references                   | `one rule calls util` of `rule-checks.sh` goes local, `no rule calls util` deletes |
+|  [03]   | Util without a kind at its root                   | `no kind at util root` from `rule-checks.sh`, a kind in each `any:` arm             |
+|  [04]   | Cycle through `matches`                           | Exit 8 at load naming the cyclic dependency, the recursion moved under `has`       |
+|  [05]   | Global util naming an undefined util              | Exit 0 and zero hits, the load skips the check, a count over a known hit shows it  |
+|  [06]   | Argument bound to nothing                         | Every declared argument appears as `matches: <slot>` in the util body              |
+|  [07]   | Draft naming a global util under `--inline-rules` | Exit 8, `scan -c <scratch>/sgconfig.yml`, its `utilDirs` the real directory        |
 
 A util is reviewed through its callers because `--inspect entity` prints `rule` and `file` entities and no util: a calling rule's `entity|rule` line after a load that did not exit 8 proves registration, a scratch rule `matches: <id>` under a config with `utilDirs` set to the real utils directory counts the util's shape alone, and each util case sits in the test of a calling rule because a test naming a util id prints `Configuration not found!`.
 
@@ -152,17 +154,17 @@ A widening moves a rule when the pattern it now reports belongs to another owner
 
 Maintained rule sets show the forms that hold up, and each row is the criterion a hardened rule meets with the form the set uses:
 
-| [INDEX] | [FORM]                                                          | [CRITERION]                                                       |
-| :-----: | :-------------------------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | Callee bound to `$IDENT` with `has: {pattern: $IDENT = <api>}`   | Alias of the API is the same violation as the direct call         |
-|  [02]   | Util that recurses through `has` over a binary chain            | Chain of allowed members is allowed whole, one arm per side        |
-|  [03]   | `not: {has: {stopBy: end, kind, all: [...]}}` over an argument  | Absence of a required argument reads the whole argument subtree   |
-|  [04]   | `pattern: {context, selector}` with `inside: {not: {has: <m>}}` | Member is a violation in an unmarked owner                        |
-|  [05]   | `constraints` entry carrying `kind`, `any`, and `not`           | Capture itself is the subject of a composite rule                 |
-|  [06]   | Fixable rule beside an unfixable sibling stating the reason     | Alias used across the file has no one-node fix                    |
-|  [07]   | `files:` over the package, `ignores:` over the replacement      | Module that implements the correction is exempt from it           |
-|  [08]   | `rules/<language>/<category>/` with flat `tests/__snapshots__/` | Snapshots key by id, and the tree deepens without moving them     |
-|  [09]   | One rule per pattern with `languageGlobs` on the superset       | No `-ts` and `-tsx` twins                                         |
-|  [10]   | CI step pairing each rule with a test by id, counting cases     | Rule that matches nothing is found before it goes dead            |
+| [INDEX] | [FORM]                                                          | [CRITERION]                                                     |
+| :-----: | :-------------------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | Callee bound to `$IDENT` with `has: {pattern: $IDENT = <api>}`  | Alias of the API is the same violation as the direct call       |
+|  [02]   | Util that recurses through `has` over a binary chain            | Chain of allowed members is allowed whole, one arm per side     |
+|  [03]   | `not: {has: {stopBy: end, kind, all: [...]}}` over an argument  | Absence of a required argument reads the whole argument subtree |
+|  [04]   | `pattern: {context, selector}` with `inside: {not: {has: <m>}}` | Member is a violation in an unmarked owner                      |
+|  [05]   | `constraints` entry carrying `kind`, `any`, and `not`           | Capture itself is the subject of a composite rule               |
+|  [06]   | Fixable rule beside an unfixable sibling stating the reason     | Alias used across the file has no one-node fix                  |
+|  [07]   | `files:` over the package, `ignores:` over the replacement      | Module that implements the correction is exempt from it         |
+|  [08]   | `rules/<language>/<category>/` with flat `tests/__snapshots__/` | Snapshots key by id, and the tree deepens without moving them   |
+|  [09]   | One rule per pattern with `languageGlobs` on the superset       | No `-ts` and `-tsx` suffix variants                             |
+|  [10]   | CI step pairing each rule with a test by id, counting cases     | Rule that matches nothing is found before it goes dead          |
 
 A rule set fails when a rule is `regex` alone, when a `files:` glob opens with `./`, when the test key is spelled outside the schema, or when a rule with no scan hit stays, and each is a hardening finding.

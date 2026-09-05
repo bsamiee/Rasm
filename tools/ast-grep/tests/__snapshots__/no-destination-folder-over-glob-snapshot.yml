@@ -14,3 +14,10 @@ snapshots:
       style: primary
       start: 0
       end: 142
+  ? |
+    <Move SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
+  : labels:
+    - source: <Move SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
+      style: primary
+      start: 0
+      end: 107

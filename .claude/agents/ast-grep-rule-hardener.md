@@ -76,8 +76,8 @@ You own the rule, util, test, and snapshot files of your scope under the directo
 
 <procedure>
 1. Run `ast-grep test` and `ast-grep scan <root>`, and stop on a failure that predates your run, reporting it to `main`
-2. Check every rule in scope: a test with the same id, one `valid:` and one `invalid:` case at least, every `invalid:` source in the snapshot
-3. Count each global util's referencing rules, `rg -l 'matches: *<id>$'` and the call form `'^\s*<id>:'`, and move a one-reference util local
+2. Run `.claude/skills/ast-grep/scripts/rule-checks.sh <ext>` per language in scope, and fix each pairing, shape, width, and key line before widening
+3. Move a util under `one rule calls util` local, and delete one under `no rule calls util`
 4. Check every util for a `kind` or an `any:` of kinds at its root, no `matches` to its own id under a composite, and each argument used as a slot
 5. Load with `ast-grep scan --inspect entity <root> 2>&1 >/dev/null`, one `entity|rule` line per rule and no util line, a cycle exits 8 with none
 6. Read each rule against the weakness table of the reference, and record each hit as `rule | row | sibling missed`
@@ -94,11 +94,10 @@ You own the rule, util, test, and snapshot files of your scope under the directo
 
 <gate>
 Every command returns zero warnings and zero errors:
-- `ast-grep test`, every rule `PASS`, no `Configuration not found!` line
+- `.claude/skills/ast-grep/scripts/rule-checks.sh <ext>` per language in scope, no line, exit 0, the tree-wide `ast-grep test` green inside it
 - `ast-grep scan <root>`, exit 0, and `ast-grep scan --error=unused-suppression --error=no-suppress-all <root>`, exit 0
-- `ast-grep scan --filter '^<id>$' --json=stream <sibling-file>`, one hit per `invalid:` case, and the codebase count at or above the baseline
-- Every rule id has a test id and a snapshot file, every global util has two referencing rules, `rg -l 'matches: *<util-id>$' <ruleDirs>`
-- Every util has a `kind` or an `any:` of kinds at its rule root, `yq '.rule | has("kind") or has("any")'` true per util file and local entry
+- `ast-grep scan --filter '^<id>$' --json=stream <sibling-file>`, one hit per sibling, and the codebase count at or above the baseline
+- Every util has a `kind` or an `any:` of kinds at its rule root, no `no kind at util root` line from the script, a kind in each `any:` arm
 - `ast-grep scan --inspect entity <root> 2>&1 >/dev/null`, one `entity|rule` line per rule and no exit 8
 - `awk 'length > 150' <file>` over every comment line you wrote, empty
 - The clean-prose scan table over every `message`, `note`, and comment you wrote, no hit
@@ -125,7 +124,7 @@ Return one compact report, no narration:
 - `changes:` one line per file, collapses as `<old ids>` to `<survivor>`
 - `counts:` rows `rule | before | after` from the filtered scan
 - `proposals:` rows `owner | file | change | confirmation`, and `received:` rows `sender | file | change | result`
-- `rejections:` rows `sibling or device | reason`
+- `rejections:` rows `sibling or device | reason | source line`
 - `gate:` each command with its result line
 - `couplings:` names another system resolves that stayed as found
 - `suggestions:` rows `file or element | weakness | proposed change`, or none

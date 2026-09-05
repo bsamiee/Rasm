@@ -17,41 +17,41 @@ Every documented default, combinator, and option of a package is a candidate rep
 
 A smell is code the checkers accept and the standards reject, and each category states the criterion an agent applies to the next unseen case:
 
-| [INDEX] | [CATEGORY]                | [CRITERION]                                                                            |
-| :-----: | :------------------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | Deep nesting              | Callback or block nesting past three levels, each level a scope the reader carries     |
-|  [02]   | Elements for one fact     | Constant, enum, string, class, type, or object that names what one value states        |
-|  [03]   | Repeated logic            | Same read, decode, or computation at two sites over one input                          |
-|  [04]   | Wrapper                   | Function with a body of one call on the same arguments and no domain type added        |
-|  [05]   | Forwarder, service locator | Layer that reaches a dependency the runtime or the function supplies                   |
-|  [06]   | Threaded value            | Value curried or passed through every call that one runtime or one scope owns          |
-|  [07]   | Constant column           | Flag or field that holds one value on every row of a collection                        |
-|  [08]   | Restated tool fact        | Table or option the code emits that the tool's own configuration owns                  |
-|  [09]   | Element order             | Declarations ordered against dependency, or a specific rewrite run after a general one |
-|  [10]   | Missed capability         | Hand-written logic where the package documents the same operation                      |
-|  [11]   | Presence by branch        | Branch with one arm that stands for absence or failure and one arm that passes the value   |
-|  [12]   | Re-lifted carrier         | Value matched into the type it is, an option, an either, or an exit into an effect     |
-|  [13]   | Known discriminator       | Match inside a callee on a value every call site knows                                 |
-|  [14]   | Deprecated member         | Member the package marks deprecated for a replacement it names                         |
+| [INDEX] | [CATEGORY]                 | [CRITERION]                                                                              |
+| :-----: | :------------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | Deep nesting               | Callback or block nesting past three levels, each level a scope the reader carries       |
+|  [02]   | Elements for one fact      | Constant, enum, string, class, type, or object that names what one value states          |
+|  [03]   | Repeated logic             | Same read, decode, or computation at two sites over one input                            |
+|  [04]   | Wrapper                    | Function with a body of one call on the same arguments and no domain type added          |
+|  [05]   | Forwarder, service locator | Layer that reaches a dependency the runtime or the function supplies                     |
+|  [06]   | Threaded value             | Value curried or passed through every call that one runtime or one scope owns            |
+|  [07]   | Constant column            | Flag or field that holds one value on every row of a collection                          |
+|  [08]   | Restated tool fact         | Table or option the code emits that the tool's own configuration owns                    |
+|  [09]   | Element order              | Declarations ordered against dependency, or a specific rewrite run after a general one   |
+|  [10]   | Missed capability          | Hand-written logic where the package documents the same operation                        |
+|  [11]   | Presence by branch         | Branch with one arm that stands for absence or failure and one arm that passes the value |
+|  [12]   | Re-lifted carrier          | Value matched into the type it is, an option, an either, or an exit into an effect       |
+|  [13]   | Known discriminator        | Match inside a callee on a value every call site knows                                   |
+|  [14]   | Deprecated member          | Member the package marks deprecated for a replacement it names                           |
 
 Flag each category with `find_code_by_rule` over a `kind` and a relational rule:
 
-| [INDEX] | [CATEGORY]                | [FLAG]                                                                                 |
-| :-----: | :------------------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | Deep nesting              | Callback kind `inside` three callback kinds, `stopBy: end` on each                     |
-|  [02]   | Elements for one fact     | Declaration with one use site, or a table with values that collapse to one rule        |
-|  [03]   | Repeated logic            | Two calls on one callee with the same argument in one scope                            |
-|  [04]   | Wrapper                   | Function body that is one call forwarding every parameter                              |
-|  [05]   | Forwarder, service locator | Tag or container holding other services beside a scalar                                |
-|  [06]   | Threaded value            | Parameter every callee passes unchanged to the next call                               |
-|  [07]   | Constant column           | Pair bound on the first row and repeated on every row                                  |
-|  [08]   | Restated tool fact        | Literal that names a tool's default or a tool's configuration key                      |
-|  [09]   | Element order             | Use that precedes its declaration, a general pattern before its specific form          |
-|  [10]   | Missed capability         | Loop, probe, or conversion beside an import of the package that owns the operation     |
-|  [11]   | Presence by branch        | Two-arm match with an empty arm, or with a fail arm beside a pass arm                  |
-|  [12]   | Re-lifted carrier         | Match on a carrier with arms that rebuild the carrier's own cases                      |
-|  [13]   | Known discriminator       | Parameter matched inside the callee and known at every caller                          |
-|  [14]   | Deprecated member         | Member's name, read from the deprecation in the package source                         |
+| [INDEX] | [CATEGORY]                 | [FLAG]                                                                             |
+| :-----: | :------------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | Deep nesting               | Callback kind `inside` three callback kinds, `stopBy: end` on each                 |
+|  [02]   | Elements for one fact      | Declaration with one use site, or a table with values that collapse to one rule    |
+|  [03]   | Repeated logic             | Two calls on one callee with the same argument in one scope                        |
+|  [04]   | Wrapper                    | Function body that is one call forwarding every parameter                          |
+|  [05]   | Forwarder, service locator | Tag or container holding other services beside a scalar                            |
+|  [06]   | Threaded value             | Parameter every callee passes unchanged to the next call                           |
+|  [07]   | Constant column            | Pair bound on the first row and repeated on every row                              |
+|  [08]   | Restated tool fact         | Literal that names a tool's default or a tool's configuration key                  |
+|  [09]   | Element order              | Use that precedes its declaration, a general pattern before its specific form      |
+|  [10]   | Missed capability          | Loop, probe, or conversion beside an import of the package that owns the operation |
+|  [11]   | Presence by branch         | Two-arm match with an empty arm, or with a fail arm beside a pass arm              |
+|  [12]   | Re-lifted carrier          | Match on a carrier with arms that rebuild the carrier's own cases                  |
+|  [13]   | Known discriminator        | Parameter matched inside the callee and known at every caller                      |
+|  [14]   | Deprecated member          | Member's name, read from the deprecation in the package source                     |
 
 The categories a package member decides (missed capability, presence by branch, re-lifted carrier, known discriminator, deprecated member) need the package source open beside the code, and the search flags the call sites once the member is named. A category the scope's own gates already report yields a finding and no rule. Read the rule list of each linter, analyzer, and plugin the scope runs before searching a category, and leave the pattern with the gate that reports it.
 
@@ -106,7 +106,7 @@ The branch, both arms, and the empty object leave, because `Record.getSomes` wri
 
 ## [05]-[DERIVATION]
 
-Enumerate siblings per module function with the same meaning, per data-first and data-last form, per container kind (object, array, argument list), per spelling of the same operation, and per position the shape occupies (a spread, an argument, a local, a return). A sibling is real when the correction produces the same after form from it, proven by writing the after form once for that sibling. A near miss is real when the after form adds an element or changes behavior, and every near miss becomes a `valid` test case. A pattern with one surface form and no sibling is an instance, and its rule waits for the second instance that proves the category.
+Enumerate siblings per module function with the same meaning, per carrier module that exports the function (`Option`, `Either`, `Effect`), per overload of a `dual` export (data-first and data-last), per container kind (object, array, argument list), per spelling of the same operation, and per position the shape occupies (a spread, an argument, a local, a return). A sibling is real when the correction produces the same after form from it, proven by writing the after form once for that sibling. A near miss is real when the after form adds an element or changes behavior, and every near miss becomes a `valid` test case. A pattern with one surface form and no sibling is an instance, and its rule waits for the second instance that proves the category.
 
 Write the shape the siblings share as a util with a `kind` at its rule root and each narrower sibling as a refinement of it, the rule references one util and the family is enumerated as util variants before the rule widens.
 

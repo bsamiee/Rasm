@@ -16,15 +16,12 @@ utils:
 rule:
     any:
         - pattern: $LIST.map($BUILDER)
-          all:
-              - has: {field: function, has: {field: object, matches: string-list}}
-              - has: {field: arguments, has: {matches: string-builder}}
         - pattern: Array.map($LIST, $BUILDER)
-          has:
-              field: arguments
-              all:
-                  - has: {nthChild: 1, matches: string-list}
-                  - has: {nthChild: 2, matches: string-builder}
+        # The data-last Array.map over the literal list through the pipe function
+        - pattern: pipe($LIST, Array.map($BUILDER), $$$)
+constraints:
+    LIST: {matches: string-list}
+    BUILDER: {matches: string-builder}
 message: The strings the map produces are known when the list is written
 note: Write the produced strings as the list, or one brace glob `prefix/{a,b,c}` when the consumer expands globs
 labels:

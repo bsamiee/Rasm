@@ -4,6 +4,10 @@ language: xml
 severity: error
 rule:
     all:
-        - matches: {msbuild-element: {name: {regex: '^Copy$'}}}
+        # Copy and Move take the same destination parameters
+        - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$'}}}
         - matches: {msbuild-metadata: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir)\)'}}}
-message: A Copy task into the output directory reaches this project's bin alone, a referencing project and dotnet publish never receive the file, declare it as a None or Content item with CopyToOutputDirectory
+message: >-
+    The Copy or Move task into the output directory reaches the project's own bin alone, a referencing project and dotnet publish never receive
+    the file
+note: Declare the file as a None or Content item with CopyToOutputDirectory

@@ -4,9 +4,9 @@ language: xml
 severity: error
 files: ['**/*.props']
 rule:
+    # A condition or an import path, every attribute that reads the value
     kind: Attribute
     all:
-        - has: {kind: Name, regex: '^Condition$'}
         # Values the SDK props, the project body, or the SDK targets assign after every .props import, and the workspace body properties
         - has: {kind: AttValue, regex: '\$\((Configuration|Platform|TargetFramework|TargetFrameworks|OutputType|TargetFrameworkIdentifier|TargetFrameworkVersion|TargetFrameworkMoniker|OutputPath|IntermediateOutputPath|TargetPath|TargetDir|TargetFileName|IsTestProject|IsTestingPlatformApplication|RhinoHost|PluginHost|ReleaseGroup|HostCommon|HostUi|HostPlatform|HostGrasshopper)\)'}
         # Empty-default guards, joined by and or or, are the one .props form that reads the names
@@ -17,6 +17,7 @@ rule:
             inside:
                 any:
                     - matches: {msbuild-element: {name: {regex: '^(PropertyGroup|When|Import)$'}}}
-                    - matches: {msbuild-property: {name: {regex: '.'}}}
+                    - matches: {msbuild-property: {name: {kind: Name}}}
         - not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
-message: A .props property condition reads a value the SDK props, the project body, or the SDK targets assign later and compares an empty string, move the group to Directory.Build.targets or key the condition on $(MSBuildProjectName) or the project directory
+message: The .props condition or import path reads a value the SDK props, the project body, or the SDK targets assign later and gets an empty string
+note: Move the group or the import to Directory.Build.targets, or key the condition on $(MSBuildProjectName) or the project directory

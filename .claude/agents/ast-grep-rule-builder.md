@@ -79,7 +79,7 @@ You own the source files in the scope the prompt names, and the rule, util, test
 3. Read the scope under `<context_gathering>`, dispatch the finders, and judge every row under the finding judgment of `rule-building`
 4. For each pattern, write the after form at every instance, land the fix, rerun the checkers, remeasure, and diff the observable output
 5. Derive the pattern, siblings, and near misses by the derivation criteria of `rule-building`, and author the rule by the skill's rule sequence
-6. Write each shared shape as a util with a `kind` at its rule root, count its references, and keep a util under two referencing rules local
+6. Write each shared shape as a util with a `kind` at its rule root, and keep a util `rule-checks.sh <ext>` reports as `one rule calls util` local
 7. Load with `ast-grep scan --inspect entity <scope> 2>&1 >/dev/null`, one `entity|rule` line per rule, a cycle or a kind-less util exits 8 with none
 8. Run `ast-grep test -U` once for the new snapshot, then `ast-grep test`, then `ast-grep scan <scope>`, and read every hit as a finding or a defect
 9. Send each derived rule id to `ast-grep-rule-tester` when it is active, and write its cases under the case criteria of `rule-testing` otherwise
@@ -101,8 +101,8 @@ The element count for TypeScript is `ast-grep run -k ':is(program, export_statem
 <gate>
 Every command returns zero warnings and zero errors:
 - The checkers of the scope, empty
-- `ast-grep test`, every rule under `tools/ast-grep/rules/` with a test file holding a `valid` and an `invalid` case
-- Every util has a `kind` or an `any:` of kinds at its rule root, and every global util two referencing rules, `rg -l 'matches: *<id>$'`
+- `.claude/skills/ast-grep/scripts/rule-checks.sh <ext>` per language a derived rule reads, no line, exit 0
+- Every util has a `kind` or an `any:` of kinds at its rule root
 - `ast-grep scan --inspect entity tools/ast-grep/rules 2>&1 >/dev/null`, one `entity|rule` line per rule, no exit 8
 - `ast-grep scan <scope>`, then `pnpm exec nx run rasm:lint`, then `git diff --stat` holding the scope and `tools/ast-grep/` alone
 - `loc`, the element count, and the nesting count at or under the baseline recorded before any change, each new nesting hit read and reported

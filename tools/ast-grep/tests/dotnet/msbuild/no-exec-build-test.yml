@@ -9,6 +9,12 @@ valid:
     # A tool restore evaluates no project
     - |
       <Exec Command="dotnet tool restore" />
+    # An item holds the command as metadata and starts no process
+    - |
+      <ItemGroup><_Step Include="tool" Command="dotnet build ../Tool/Tool.csproj" /></ItemGroup>
+    # A log pattern parameter names the subcommand and starts no build
+    - |
+      <Exec Command="./ci.sh" CustomErrorRegularExpression="dotnet build failed" />
 invalid:
     # A dotnet build of another project
     - |

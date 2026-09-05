@@ -5,5 +5,8 @@ severity: error
 rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^PackageReference$'}}}
-        - matches: {msbuild-metadata: {name: {regex: '^(Version|VersionOverride)$'}, value: {regex: ''}}}
-message: A PackageReference names the id alone, the version belongs to its PackageVersion row in Directory.Packages.props, and VersionOverride is disabled by CentralPackageVersionOverrideEnabled
+        - matches: {msbuild-metadata: {name: {regex: '^(Version|VersionOverride)$'}, value: {matches: msbuild-value}}}
+message: >-
+    The PackageReference names a version, the version belongs to its PackageVersion row in Directory.Packages.props and
+    CentralPackageVersionOverrideEnabled disables VersionOverride
+note: Name the package id alone on the reference

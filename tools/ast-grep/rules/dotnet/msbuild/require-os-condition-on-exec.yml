@@ -10,5 +10,7 @@ rule:
         # Programs one operating system or its package manager supplies, the shell of the other fails on the name
         - matches: {msbuild-metadata: {name: {regex: '^Command$'}, value: {regex: '^"?\s*(&quot;)?\s*([^\s"&]*/)?(chmod|chown|ln|install_name_tool|codesign|otool|xattr|xcrun|xcodebuild|lipo|dsymutil|hdiutil|brew|apt|apt-get|ldconfig|patchelf|powershell|pwsh|cmd(\.exe)?|reg|icacls|attrib|choco|winget|sh|bash|zsh|yak)\b'}}}
         - not: {has: {matches: msbuild-tag, has: {matches: os-condition}}}
-        - not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end, has: {matches: msbuild-tag, has: {matches: os-condition}}}}
-message: Exec runs an operating-system-specific program with no platform condition and fails on the other operating systems, guard the target with $([MSBuild]::IsOSPlatform('...'))
+        # The target is the one ancestor that holds a condition
+        - not: {inside: {kind: element, stopBy: end, has: {matches: msbuild-tag, has: {matches: os-condition}}}}
+message: Exec runs an operating-system-specific program with no platform condition and fails on the other operating systems
+note: Guard the target with $([MSBuild]::IsOSPlatform('...'))

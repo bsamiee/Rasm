@@ -1,5 +1,12 @@
 id: require-concurrency-option
 snapshots:
+  ? |
+    const flagged = (keys: ReadonlyArray<string>, discard: boolean) => Effect.forEach(keys, load, { discard });
+  : labels:
+    - source: Effect.forEach(keys, load, { discard })
+      style: primary
+      start: 67
+      end: 106
   'const gated = (item: Item) => Effect.all({ count: validate(item.count) }, { mode: "validate" });':
     labels:
     - source: 'Effect.all({ count: validate(item.count) }, { mode: "validate" })'

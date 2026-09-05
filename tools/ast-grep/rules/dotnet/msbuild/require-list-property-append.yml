@@ -5,7 +5,7 @@ severity: error
 rule:
     # The name and the text regex hold one list of the semicolon-valued properties, an XML name binds no metavariable
     matches: {msbuild-property: {name: {regex: '^(NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)$'}}}
-    has:
-        kind: content
-        has: {kind: CharData, regex: '\S', not: {regex: '^\s*\$\((NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)[).]'}}
-message: A list-valued property is assigned without its own value first, the assignment drops every entry the SDK and earlier files added, start the value with $(Name);
+    # No text opens with the property's own value, an empty element and a whitespace value drop the list the same way
+    not: {has: {kind: content, has: {kind: CharData, regex: '^\s*\$\((NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)[).]'}}}
+message: The list-valued property assignment omits the property's own value and drops every entry the SDK and earlier files added
+note: Start the value with $(Name);

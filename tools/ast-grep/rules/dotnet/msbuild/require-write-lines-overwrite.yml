@@ -7,4 +7,5 @@ rule:
     any:
         - not: {matches: {msbuild-metadata: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^"true"$'}}}}
         - not: {matches: {msbuild-metadata: {name: {regex: '^WriteOnlyWhenDifferent$'}, value: {regex: '(?i)^"true"$'}}}}
-message: WriteLinesToFile appends by default and rewrites the file on every build, set Overwrite="true" and WriteOnlyWhenDifferent="true" so the file holds one copy of Lines and keeps its timestamp for the incremental check
+message: WriteLinesToFile appends by default and rewrites the file on every build
+note: Set Overwrite="true" and WriteOnlyWhenDifferent="true", the file holds one copy of Lines and keeps its timestamp for the incremental check

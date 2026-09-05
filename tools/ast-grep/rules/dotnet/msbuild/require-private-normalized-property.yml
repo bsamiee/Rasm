@@ -11,4 +11,7 @@ rule:
                 text:
                     regex: >-
                         ^\s*\$\((\[MSBuild\]::(NormalizeDirectory|NormalizePath|EnsureTrailingSlash)|\[System\.IO\.Path\]::(GetFullPath|TrimEndingDirectorySeparator))\('\$\([A-Za-z_][A-Za-z0-9_]*\)'\)\)\s*$
-message: A public property re-assigns the normalized form of one property, a -p switch or an MSBuild task then supplies the name as a global property and the assignment is skipped, derive the normalized value into a _ prefixed private property and read that
+message: >-
+    The public property re-assigns the normalized form of one property, a -p switch or an MSBuild task then supplies the name as a global
+    property and skips the assignment
+note: Derive the normalized value into a _ prefixed private property and read that

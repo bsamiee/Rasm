@@ -4,10 +4,12 @@ valid:
     - 'const reported = program.pipe(Effect.tapError((error) => Console.error(error.message)), Effect.tapDefect((cause) => Console.error(Cause.pretty(cause))));'
     # The whole Cause handled as one value
     - 'const logged = program.pipe(Effect.tapErrorCause((cause) => Console.error(Cause.pretty(cause))));'
-    # The Cause squashed, not split
+    # The Cause squashed into one error
     - 'const squashed = Effect.catchAllCause(program, (cause) => Effect.fail(Cause.squash(cause)));'
     # A Cause reader outside a cause handler
     - 'const split = Option.match(Cause.failureOption(cause), { onNone: () => Effect.void, onSome: (error) => Console.error(error.message) });'
+    # A handler a module outside the effect package owns, the rule reads the effect handler family alone
+    - 'const guarded = Job.onError(job, (cause) => report(Cause.isDie(cause)));'
 invalid:
     # The instance, a failure option read inside the cause handler
     - 'const reported = program.pipe(Effect.tapErrorCause((cause) => Option.match(Cause.failureOption(cause), { onNone: () => Console.error(Cause.pretty(cause)), onSome: (error) => Console.error(error.message) })));'
@@ -19,3 +21,7 @@ invalid:
     - 'const matched = Effect.matchCauseEffect(program, { onFailure: (cause) => Cause.match(cause, { onFail: report, onDie: crash, onInterrupt: () => Effect.void, onEmpty: Effect.void, onSequential: merge, onParallel: merge }), onSuccess: () => Effect.void });'
     # The Stream sibling of the handler family
     - 'const streamed = stream.pipe(Stream.catchAllCause((cause) => Stream.fromEffect(Effect.when(retry(), () => Cause.isDie(cause)))));'
+    # The Layer sibling, Layer.tapError and Layer.catchAll take the failure apart from the defect
+    - 'const layered = Layer.tapErrorCause(layer, (cause) => Effect.when(report(cause), () => Cause.isFailure(cause)));'
+    # The Channel sibling, Channel.catchAll takes the failure and the defect passes through
+    - 'const channeled = Channel.catchAllCause(channel, (cause) => Channel.fromEffect(Effect.when(retry(), () => Cause.isDie(cause))));'

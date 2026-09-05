@@ -106,3 +106,54 @@ snapshots:
       style: secondary
       start: 68
       end: 69
+  ? |
+    rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: end(lambda e: e + d, a), a), a), a), items)
+  : labels:
+    - source: 'lambda e: e + d'
+      style: primary
+      start: 75
+      end: 90
+    - source: '(lambda d: end(lambda e: e + d, a), a)'
+      style: secondary
+      start: 60
+      end: 98
+    - source: d
+      style: secondary
+      start: 68
+      end: 69
+    - source: '(lambda c: last(lambda d: end(lambda e: e + d, a), a), a)'
+      style: secondary
+      start: 45
+      end: 102
+    - source: c
+      style: secondary
+      start: 53
+      end: 54
+    - source: '(lambda b: inner(lambda c: last(lambda d: end(lambda e: e + d, a), a), a), a)'
+      style: secondary
+      start: 29
+      end: 106
+    - source: b
+      style: secondary
+      start: 37
+      end: 38
+    - source: 'lambda b: inner(lambda c: last(lambda d: end(lambda e: e + d, a), a), a)'
+      style: secondary
+      start: 30
+      end: 102
+    - source: 'lambda c: last(lambda d: end(lambda e: e + d, a), a)'
+      style: secondary
+      start: 46
+      end: 98
+    - source: 'lambda d: end(lambda e: e + d, a)'
+      style: secondary
+      start: 61
+      end: 94
+    - source: '(lambda e: e + d, a)'
+      style: secondary
+      start: 74
+      end: 94
+    - source: e
+      style: secondary
+      start: 82
+      end: 83
