@@ -2,9 +2,9 @@
 id: require-label-on-package-group
 language: xml
 severity: error
-files: ['Directory.Packages.props'] # The root file alone, eng/native/Directory.Packages.props opts out of central package management
+files: ['Directory.Packages.props']
 rule:
     matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}
-    not: {matches: {msbuild-metadata: {name: {regex: '^Label$'}, value: {regex: '^"\S[^"]*"$'}}}}
+    not: {matches: {msbuild-metadata: {name: {regex: '^Label$'}, value: {regex: '^("\S[^"]*"|''\S[^'']*'')$'}}}}
 message: The PackageVersion group has no Label naming its responsibility
 note: Add Label="<Group>" to the ItemGroup, the rows sit under the group that owns them

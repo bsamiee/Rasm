@@ -1,0 +1,66 @@
+id: no-explicit-provider-by-hand
+snapshots:
+  const doppler = new DopplerProvider("doppler", { dopplerToken });:
+    labels:
+    - source: new DopplerProvider("doppler", { dopplerToken })
+      style: primary
+      start: 16
+      end: 64
+    - source: DopplerProvider
+      style: secondary
+      start: 20
+      end: 35
+  const gh = new github.Provider("github", { owner, token });:
+    labels:
+    - source: new github.Provider("github", { owner, token })
+      style: primary
+      start: 11
+      end: 58
+    - source: github.Provider
+      style: secondary
+      start: 15
+      end: 30
+  ? |
+    const project = new Project(
+        name,
+        // Arguments from the manifest
+        args,
+        { provider: doppler },
+    );
+  : labels:
+    - source: |-
+        (
+            name,
+            // Arguments from the manifest
+            args,
+            { provider: doppler },
+        )
+      style: primary
+      start: 27
+      end: 112
+  ? |
+    const project = new Project(name, args, {
+        protect: true,
+        provider: doppler, // Shared across stacks
+    });
+  : labels:
+    - source: |-
+        (name, args, {
+            protect: true,
+            provider: doppler, // Shared across stacks
+        })
+      style: primary
+      start: 27
+      end: 110
+  ? |
+    const repository = getRepository({ fullName }, {
+        provider: gh, // Organization token
+    });
+  : labels:
+    - source: |-
+        ({ fullName }, {
+            provider: gh, // Organization token
+        })
+      style: primary
+      start: 32
+      end: 91

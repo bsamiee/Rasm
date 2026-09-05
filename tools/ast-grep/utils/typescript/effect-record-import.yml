@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Import that binds the effect Record module under the name Record, a namespace import of the barrel binds every module under it
+id: effect-record-import
+language: tsx
+rule:
+    kind: import_statement
+    all:
+        # Type-only imports bind no value, the fix names Record as a value
+        - not: {has: {regex: '^type$'}}
+        - any:
+              - all:
+                    # The package exports map resolves effect/index to the barrel beside the package name
+                    - has: {field: source, regex: '^["'']effect(/index)?["'']$'}
+                    - has:
+                          stopBy: end
+                          kind: import_specifier
+                          not: {has: {regex: '^type$'}}
+                          # Imported name first and bound name last are both Record, an alias binds another export under the name
+                          all:
+                              - has: {kind: identifier, regex: '^Record$', nthChild: 1}
+                              - has: {kind: identifier, regex: '^Record$', nthChild: {position: 1, reverse: true}}
+              - all:
+                    - has: {field: source, regex: '^["'']effect/Record["'']$'}
+                    - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, regex: '^Record$'}}

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: enum-to-const-object
+language: typescript
+severity: error
+ignores: ['*.d.ts'] # Declaration files are ambient without the declare keyword, every enum in them is ambient
+rule:
+    kind: enum_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: body, pattern: $BODY}
+        - not: {has: {field: body, has: {kind: property_identifier}}} # Valueless member has no value to fold into a row and stays a residual finding
+        - not: {inside: {kind: export_statement}} # Exported enum, the object and its type each need the export and the API break is corrected by hand
+        - not: {inside: {kind: ambient_declaration, stopBy: end}} # declare enum, or an enum in a declare namespace, refuses an initializer
+        - not: {regex: '^const'} # const enum has no emit, an object adds a runtime value the enum never had
+        - not: {has: {field: body, has: {kind: comment}}} # Comment among the members, the join keeps rewritten rows alone and drops it
+        - not: # Member read by a later member, the name bound on the row re-matches inside a later value and the object has no such scope
+              has:
+                  field: body
+                  has:
+                      kind: enum_assignment
+                      has: {field: name, pattern: $REF}
+                      precedes: {stopBy: end, kind: enum_assignment, has: {stopBy: end, kind: identifier, pattern: $REF}}
+rewriters:
+    - id: enum-row
+      rule:
+        kind: enum_assignment
+        all:
+            - has: {field: name, pattern: $KEY}
+            - has: {field: value, pattern: $VALUE} # typescript_rule.json omits the value field, the cst proves it and the editor warning is noise
+      fix: '$KEY: $VALUE'
+transform:
+    ROWS:
+        rewrite:
+            rewriters: [enum-row]
+            source: $BODY
+            joinBy: ', '
+fix: |-
+    const $NAME = { $ROWS } as const;
+    type $NAME = (typeof $NAME)[keyof typeof $NAME];
+message: Enum declares constants through emit-bearing syntax
+note: The constants become an `as const` object with its value union derived, runtime values, key space, and value space survive verbatim

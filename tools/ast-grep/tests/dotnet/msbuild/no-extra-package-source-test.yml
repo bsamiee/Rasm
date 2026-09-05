@@ -2,29 +2,48 @@ id: no-extra-package-source
 valid:
     # The restore sources
     - |
-      <packageSources><clear /><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><add key="local" value=".artifacts/nuget" /></packageSources>
-    # A config entry is no source
+      <packageSources>
+        <clear />
+        <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+        <add key="local" value=".artifacts/nuget" />
+      </packageSources>
+    # Config entry, no source
     - |
       <config><add key="globalPackagesFolder" value=".cache/nuget/packages" /></config>
     # The mapping the config holds
     - |
-      <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="*" /></packageSource><packageSource key="local"><package pattern="Rasm.*" /></packageSource></packageSourceMapping>
+      <packageSourceMapping>
+        <clear />
+        <packageSource key="nuget.org"><package pattern="*" /></packageSource>
+        <packageSource key="local"><package pattern="Rasm.*" /></packageSource>
+      </packageSourceMapping>
+    # Single-quoted rows of both sections
+    - |
+      <configuration>
+        <packageSources><clear /><add key='nuget.org' value='https://api.nuget.org/v3/index.json' /><add key='local' value='.artifacts/nuget' />
+          </packageSources>
+        <packageSourceMapping><clear /><packageSource key='nuget.org'><package pattern='*' /></packageSource><packageSource key='local'>
+          <package pattern='Rasm.*' /></packageSource></packageSourceMapping>
+      </configuration>
 invalid:
     # The local feed at the path it held before the artifacts layout
     - |
       <packageSources><clear /><add key="local" value="eng/nuget" /></packageSources>
-    # A third source
+    # Third source
     - |
       <packageSources><clear /><add key="github" value="https://nuget.pkg.github.com/rasm/index.json" /></packageSources>
     # nuget.org under another key
     - |
       <packageSources><clear /><add key="NuGet" value="https://api.nuget.org/v3/index.json" /></packageSources>
-    # A mapping source outside the restore sources
+    # Mapping source outside the restore sources
     - |
       <packageSourceMapping><clear /><packageSource key="github"><package pattern="Contoso.*" /></packageSource></packageSourceMapping>
-    # A second prefix pinned to the local feed
+    # Second prefix pinned to the local feed
     - |
-      <packageSourceMapping><clear /><packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource></packageSourceMapping>
+      <packageSourceMapping>
+        <clear />
+        <packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource>
+      </packageSourceMapping>
     # The Rasm.* prefix mapped to nuget.org
     - |
       <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="Rasm.*" /></packageSource></packageSourceMapping>

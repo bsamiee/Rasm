@@ -1,8 +1,0 @@
-id: no-chained-pipe
-valid:
-    - 'const total = items.pipe(Array.map(price), Array.sum);' # One variadic pipe
-    - 'const total = items.pipe(Array.map(price)).length;' # A pipe followed by another member
-invalid:
-    - 'const total = items.pipe(Array.map(price)).pipe(Array.sum);' # Two links
-    - 'const total = items.pipe(Array.map(price)).pipe(Array.filter(positive)).pipe(Array.sum);' # Three links report once at the outermost
-    - 'const total = items.pipe(Array.map(price)).pipe(Array.sum).length;' # A chain under another member still reports

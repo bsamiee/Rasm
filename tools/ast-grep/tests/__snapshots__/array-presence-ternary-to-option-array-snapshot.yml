@@ -1,0 +1,129 @@
+id: array-presence-ternary-to-option-array
+snapshots:
+  'const configuration = { implicitDependencies: item.managed ? [native.name] : [] };':
+    fixed: 'const configuration = { implicitDependencies: Option.toArray(Option.liftPredicate(native.name, () => item.managed)) };'
+    labels:
+    - source: 'item.managed ? [native.name] : []'
+      style: primary
+      start: 46
+      end: 79
+  'const flags = [...(strict ? [false] : [])];':
+    fixed: const flags = [...Option.toArray(Option.liftPredicate(false, () => strict))];
+    labels:
+    - source: '(strict ? [false] : [])'
+      style: primary
+      start: 18
+      end: 41
+    - source: '...(strict ? [false] : [])'
+      style: secondary
+      start: 15
+      end: 41
+    - source: 'strict ? [false] : []'
+      style: secondary
+      start: 19
+      end: 40
+  'const names = [...(a === b ? [] : [label])];':
+    fixed: const names = [...Option.toArray(Option.liftPredicate(label, () => !(a === b)))];
+    labels:
+    - source: '(a === b ? [] : [label])'
+      style: primary
+      start: 18
+      end: 42
+    - source: '...(a === b ? [] : [label])'
+      style: secondary
+      start: 15
+      end: 42
+    - source: 'a === b ? [] : [label]'
+      style: secondary
+      start: 19
+      end: 41
+  'const names = [...(item.managed ? [] : [label])];':
+    fixed: const names = [...Option.toArray(Option.liftPredicate(label, () => !item.managed))];
+    labels:
+    - source: '(item.managed ? [] : [label])'
+      style: primary
+      start: 18
+      end: 47
+    - source: '...(item.managed ? [] : [label])'
+      style: secondary
+      start: 15
+      end: 47
+    - source: 'item.managed ? [] : [label]'
+      style: secondary
+      start: 19
+      end: 46
+  'const params = [...(seed !== undefined ? [seed] : [])];':
+    fixed: const params = [...Option.toArray(Option.fromNullable(seed))];
+    labels:
+    - source: '(seed !== undefined ? [seed] : [])'
+      style: primary
+      start: 19
+      end: 53
+    - source: '...(seed !== undefined ? [seed] : [])'
+      style: secondary
+      start: 16
+      end: 53
+    - source: 'seed !== undefined ? [seed] : []'
+      style: secondary
+      start: 20
+      end: 52
+  'const params = [...(seed === undefined ? [] : [seed])];':
+    fixed: const params = [...Option.toArray(Option.fromNullable(seed))];
+    labels:
+    - source: '(seed === undefined ? [] : [seed])'
+      style: primary
+      start: 19
+      end: 53
+    - source: '...(seed === undefined ? [] : [seed])'
+      style: secondary
+      start: 16
+      end: 53
+    - source: 'seed === undefined ? [] : [seed]'
+      style: secondary
+      start: 20
+      end: 52
+  'const plugins = [...(config.css !== undefined ? [build({ optimize: { minify: true } })] : [])];':
+    fixed: 'const plugins = [...Option.fromNullable(config.css).pipe(Option.map(() => build({ optimize: { minify: true } })), Option.toArray)];'
+    labels:
+    - source: '(config.css !== undefined ? [build({ optimize: { minify: true } })] : [])'
+      style: primary
+      start: 20
+      end: 93
+    - source: '...(config.css !== undefined ? [build({ optimize: { minify: true } })] : [])'
+      style: secondary
+      start: 17
+      end: 93
+    - source: 'config.css !== undefined ? [build({ optimize: { minify: true } })] : []'
+      style: secondary
+      start: 21
+      end: 92
+  'const plugins = [...(config.css === undefined ? [] : [build({ optimize: { minify: true } })])];':
+    fixed: 'const plugins = [...Option.fromNullable(config.css).pipe(Option.map(() => build({ optimize: { minify: true } })), Option.toArray)];'
+    labels:
+    - source: '(config.css === undefined ? [] : [build({ optimize: { minify: true } })])'
+      style: primary
+      start: 20
+      end: 93
+    - source: '...(config.css === undefined ? [] : [build({ optimize: { minify: true } })])'
+      style: secondary
+      start: 17
+      end: 93
+    - source: 'config.css === undefined ? [] : [build({ optimize: { minify: true } })]'
+      style: secondary
+      start: 21
+      end: 92
+  'const steps = [...(descending ? [-1] : [])];':
+    fixed: const steps = [...Option.toArray(Option.liftPredicate(-1, () => descending))];
+    labels:
+    - source: '(descending ? [-1] : [])'
+      style: primary
+      start: 18
+      end: 42
+    - source: '...(descending ? [-1] : [])'
+      style: secondary
+      start: 15
+      end: 42
+    - source: 'descending ? [-1] : []'
+      style: secondary
+      start: 19
+      end: 41

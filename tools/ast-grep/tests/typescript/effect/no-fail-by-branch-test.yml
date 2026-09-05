@@ -3,10 +3,10 @@ valid:
     # The guard names the predicate and the error beside each other
     - |
       Effect.filterOrFail(work, (held) => held.ok, () => new PolicyError({ reason: 'rejected' }))
-    # A local inspected through the guard, the value enters as a succeeded effect
+    # Local inspected through the guard, the value enters as a succeeded effect
     - |
       Effect.filterOrFail(Effect.succeed(report), (held) => held.verdict !== 'regression', () => error)
-    # An Option is an Effect, the failure is renamed in place
+    # Option as the Effect it is, the failure renamed in place
     - |
       Effect.mapError(found, () => new MissingError({ name }))
     # Both arms run effects, the branch selects between two operations
@@ -18,15 +18,24 @@ valid:
     # Both arms pass values through, the branch selects a value
     - |
       Effect.if(seen, { onTrue: () => Effect.succeed([]), onFalse: () => Effect.succeed(rows) })
-    # An Option matched into an operation and a failure, a dispatch
+    # Option matched into an operation and a failure, a dispatch
     - |
       Option.match(found, { onNone: () => Effect.fail(error), onSome: (item) => write(item) })
-    # An Exit with a reporting failure arm and a point-free success arm
+    # Exit with a reporting failure arm and a point-free success arm
     - |
       Exit.match(exit, { onFailure: report, onSuccess: Effect.succeed })
-    # A match on a module outside the effect package, the rule reads the effect data types alone
+    # Match on a module outside the effect package, the rule reads the effect data types alone
     - |
       Item.match(item, { onLeaf: () => Effect.fail(error), onNode: () => Effect.void })
+    # Layer match with layer arms, the rule reads the effect constructors alone
+    - |
+      Layer.match(layer, { onFailure: () => Layer.fail(error), onSuccess: Layer.succeedContext })
+    # Block-bodied arm, the constructor sits in a return statement
+    - |
+      Effect.if(holds, { onTrue: () => { return Effect.fail(error); }, onFalse: () => Effect.void })
+    # Two-step chain with a failing arm beside an arm that runs an operation, a dispatch
+    - |
+      Match.value(kind).pipe(Match.when("a", () => Effect.fail(error)), Match.orElse(() => run))
 invalid:
     # The instance, a boolean result inspected to fail
     - |
@@ -40,27 +49,45 @@ invalid:
     # The same branch spelled as Boolean.match
     - |
       Boolean.match(flag, { onFalse: () => Effect.succeed(value), onTrue: () => Effect.fail(error) })
-    # The branch inside a flatMap over the inspected value
+    # Branch inside a flatMap over the inspected value
     - |
       Effect.flatMap(work, (holds) => Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => Effect.void }))
-    # An Option re-lifted into the Effect it already is
+    # Option re-lifted into the Effect it is
     - |
       Option.match(found, { onNone: () => Effect.fail(new MissingError({ name })), onSome: (item) => Effect.succeed(item) })
-    # An Either re-lifted through point-free constructors
+    # Either re-lifted through point-free constructors
     - |
       Either.match(decoded, { onLeft: Effect.fail, onRight: Effect.succeed })
-    # An Exit re-lifted with its cause
+    # Exit re-lifted with its cause
     - |
       Exit.match(exit, { onFailure: (cause) => Effect.failCause(cause), onSuccess: Effect.succeed })
-    # An Exit re-lifted through point-free constructors, the cause arm as the constructor itself
+    # Exit re-lifted through point-free constructors, the cause arm as the constructor itself
     - |
       Exit.match(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
-    # An Option match with a presence arm that yields Effect.void
+    # Option match with a presence arm that yields Effect.void
     - |
       Option.match(found, { onNone: () => Effect.fail(error), onSome: () => Effect.void })
-    # An Exit re-lifted through matchEffect, the effect-returning match spelling
+    # Exit re-lifted through matchEffect, the effect-returning match spelling
     - |
       Exit.matchEffect(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
-    # The effect's own matchEffect, one arm fails with the renamed error and the other succeeds with the value
+    # Effect matched into a renamed failure and the value, the shape Effect.mapError states
     - |
       Effect.matchEffect(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })
+    # Micro matched into a renamed failure and the value through the Micro constructors
+    - |
+      Micro.matchEffect(work, { onFailure: () => Micro.fail(error), onSuccess: Micro.succeed })
+    # Option re-lifted into a Micro with its cause, the presence arm yields Micro.void
+    - |
+      Option.match(found, { onNone: () => Micro.failCause(cause), onSome: () => Micro.void })
+    # STM matched into a renamed failure and the value through the STM constructors
+    - |
+      STM.matchSTM(transaction, { onFailure: () => STM.fail(error), onSuccess: (value) => STM.succeed(value) })
+    # Either re-lifted into an STM through the point-free failure and the void pass
+    - |
+      Either.match(decoded, { onLeft: STM.fail, onRight: () => STM.void })
+    # Two-step chain over the boolean, Match.when fails and Match.orElse passes nothing through
+    - |
+      Match.value(holds).pipe(Match.when(true, () => Effect.fail(error)), Match.orElse(() => Effect.void))
+    # Two-step chain through the pipe function with the point-free failure and the lifted value
+    - |
+      pipe(Match.value(holds), Match.when(true, Effect.fail), Match.orElse(() => Effect.succeed(value)))

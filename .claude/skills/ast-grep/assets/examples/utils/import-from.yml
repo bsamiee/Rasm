@@ -5,5 +5,9 @@ arguments: [source, clause] # Each argument is a rule the caller passes, and the
 rule:
     kind: import_statement # The kind guard keeps pruning, matches: <argument> alone infers no kind
     all:
-        - has: {field: source, has: {kind: string_fragment, matches: source}} # The module path without its quotes
-        - has: {kind: import_clause, has: {matches: clause}} # The named, default, or namespace clause
+        - has: # The module path without its quotes, the source rule reads the fragment text alone
+              field: source
+              has: {kind: string_fragment, matches: source}
+        - has: # The named, default, or namespace clause, the clause rule reads the child of the import clause
+              kind: import_clause
+              has: {matches: clause}

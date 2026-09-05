@@ -2,91 +2,117 @@ id: no-central-property-in-project
 snapshots:
   ? |
     <PropertyGroup Label="IKVM Compile"><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup Label="IKVM Compile"></PropertyGroup>
+    labels:
     - source: <MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
       style: primary
       start: 36
       end: 119
   ? |
     <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
       style: primary
       start: 15
       end: 82
   ? |
     <PropertyGroup><GeneratePackageOnBuild>true</GeneratePackageOnBuild></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
       style: primary
       start: 15
       end: 68
   ? |
     <PropertyGroup><InformationalVersion>0.1.0-cargo</InformationalVersion></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <InformationalVersion>0.1.0-cargo</InformationalVersion>
       style: primary
       start: 15
       end: 71
   ? |
     <PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <IsTestProject>false</IsTestProject>
       style: primary
       start: 15
       end: 51
   ? |
     <PropertyGroup><IsTestProject>true</IsTestProject></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <IsTestProject>true</IsTestProject>
       style: primary
       start: 15
       end: 50
   ? |
     <PropertyGroup><IsTestingPlatformApplication>true</IsTestingPlatformApplication></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
       style: primary
       start: 15
       end: 80
   ? |
     <PropertyGroup><MinVerTagPrefix>v</MinVerTagPrefix></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <MinVerTagPrefix>v</MinVerTagPrefix>
       style: primary
       start: 15
       end: 51
   ? |
     <PropertyGroup><NoWarn>$(NoWarn);NU5128</NoWarn></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <NoWarn>$(NoWarn);NU5128</NoWarn>
       style: primary
       start: 15
       end: 48
   ? |
     <PropertyGroup><TestingPlatformCommandLineArguments>--coverlet</TestingPlatformCommandLineArguments></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <TestingPlatformCommandLineArguments>--coverlet</TestingPlatformCommandLineArguments>
       style: primary
       start: 15
       end: 100
   ? |
     <PropertyGroup><TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
       style: primary
       start: 15
       end: 88
   ? |
     <PropertyGroup><UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
       style: primary
       start: 15
       end: 90
   ? |
     <PropertyGroup><Version>2.19.1</Version></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <Version>2.19.1</Version>
       style: primary
       start: 15

@@ -2,22 +2,95 @@ id: no-unquoted-condition-operand
 snapshots:
   ? |
     <Compile Include="Extra.cs" Condition="'$(Configuration)' != Release" />
-  : labels:
+  : fixed: |
+      <Compile Include="Extra.cs" Condition="'$(Configuration)' != 'Release'" />
+    labels:
     - source: Condition="'$(Configuration)' != Release"
       style: primary
       start: 28
       end: 69
   ? |
+    <Optimize Condition="$(Configuration)==Release">true</Optimize>
+  : fixed: |
+      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    labels:
+    - source: Condition="$(Configuration)==Release"
+      style: primary
+      start: 10
+      end: 47
+  ? |
     <Optimize Condition="$(TargetFramework) == net10.0">true</Optimize>
-  : labels:
+  : fixed: |
+      <Optimize Condition="'$(TargetFramework)' == 'net10.0'">true</Optimize>
+    labels:
     - source: Condition="$(TargetFramework) == net10.0"
       style: primary
       start: 10
       end: 51
   ? |
+    <Optimize Condition="&quot;$(Configuration)&quot; == Release">true</Optimize>
+  : fixed: |
+      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    labels:
+    - source: Condition="&quot;$(Configuration)&quot; == Release"
+      style: primary
+      start: 10
+      end: 61
+  ? |
+    <Optimize Condition="'$(Configuration) $(Platform)' == Release">true</Optimize>
+  : fixed: |
+      <Optimize Condition="'$(Configuration) $(Platform)' == 'Release'">true</Optimize>
+    labels:
+    - source: Condition="'$(Configuration) $(Platform)' == Release"
+      style: primary
+      start: 10
+      end: 63
+  ? |
+    <Optimize Condition="`$(Configuration)` == `Release`">true</Optimize>
+  : fixed: |
+      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    labels:
+    - source: Condition="`$(Configuration)` == `Release`"
+      style: primary
+      start: 10
+      end: 53
+  ? |
+    <Optimize Condition='$(Configuration) == "Release"'>true</Optimize>
+  : fixed: |
+      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    labels:
+    - source: Condition='$(Configuration) == "Release"'
+      style: primary
+      start: 10
+      end: 51
+  ? |
     <PropertyGroup Condition="$(OutputType) == 'Exe'"><SelfContained>false</SelfContained></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup Condition="'$(OutputType)' == 'Exe'"><SelfContained>false</SelfContained></PropertyGroup>
+    labels:
     - source: Condition="$(OutputType) == 'Exe'"
       style: primary
       start: 15
       end: 49
+  ? |
+    <Trim Condition="$(OutputType) == Exe
+      and $(SelfContained) != true">true</Trim>
+  : fixed: |
+      <Trim Condition="'$(OutputType)' == 'Exe'
+        and '$(SelfContained)' != 'true'">true</Trim>
+    labels:
+    - source: |-
+        Condition="$(OutputType) == Exe
+          and $(SelfContained) != true"
+      style: primary
+      start: 6
+      end: 69
+  ? |
+    <Trim Condition="'$(OutputType)' == 'Exe' and $(SelfContained) != true">true</Trim>
+  : fixed: |
+      <Trim Condition="'$(OutputType)' == 'Exe' and '$(SelfContained)' != 'true'">true</Trim>
+    labels:
+    - source: Condition="'$(OutputType)' == 'Exe' and $(SelfContained) != true"
+      style: primary
+      start: 6
+      end: 71

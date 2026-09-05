@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+# Call on a module the effect package exports, the zero-argument base every module-shape util and rule refines
+id: effect-module-call
+language: typescript
+rule:
+    kind: call_expression
+    has:
+        field: function
+        kind: member_expression
+        has: {field: object, regex: '^(Array|Cause|Chunk|Effect|Either|Exit|HashMap|Layer|Option|Record|Stream|String)$'}

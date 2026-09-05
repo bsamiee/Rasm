@@ -1,30 +1,76 @@
 id: no-trailing-separator-on-artifacts-path
 snapshots:
   ? |
+    <PropertyGroup>
+      <ArtifactsPath>
+        $(RepoRoot)artifacts/
+      </ArtifactsPath>
+    </PropertyGroup>
+  : fixed: |
+      <PropertyGroup>
+        <ArtifactsPath>
+          $(RepoRoot)artifacts
+        </ArtifactsPath>
+      </PropertyGroup>
+    labels:
+    - source: |-
+        <ArtifactsPath>
+            $(RepoRoot)artifacts/
+          </ArtifactsPath>
+      style: primary
+      start: 18
+      end: 78
+  ? |
     <PropertyGroup><ArtifactsPath>$(RepoRoot).artifacts/dotnet/</ArtifactsPath></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><ArtifactsPath>$(RepoRoot).artifacts/dotnet</ArtifactsPath></PropertyGroup>
+    labels:
     - source: <ArtifactsPath>$(RepoRoot).artifacts/dotnet/</ArtifactsPath>
       style: primary
       start: 15
       end: 75
   ? |
     <PropertyGroup><ArtifactsPath>$(RepoRoot)artifacts\</ArtifactsPath></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><ArtifactsPath>$(RepoRoot)artifacts</ArtifactsPath></PropertyGroup>
+    labels:
     - source: <ArtifactsPath>$(RepoRoot)artifacts\</ArtifactsPath>
       style: primary
       start: 15
       end: 67
   ? |
     <PropertyGroup><ArtifactsPath>$([MSBuild]::EnsureTrailingSlash('$(ArtifactsRoot)'))</ArtifactsPath></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><ArtifactsPath>$([System.IO.Path]::TrimEndingDirectorySeparator('$(ArtifactsRoot)'))</ArtifactsPath></PropertyGroup>
+    labels:
     - source: <ArtifactsPath>$([MSBuild]::EnsureTrailingSlash('$(ArtifactsRoot)'))</ArtifactsPath>
       style: primary
       start: 15
       end: 99
   ? |
     <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
+    labels:
     - source: <ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
       style: primary
       start: 15
       end: 117
+  ? |
+    <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'artifacts/'))</ArtifactsPath></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', 'artifacts'))</ArtifactsPath></PropertyGroup>
+    labels:
+    - source: <ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'artifacts/'))</ArtifactsPath>
+      style: primary
+      start: 15
+      end: 107
+  ? |
+    <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', 'artifacts/'))</ArtifactsPath></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', 'artifacts'))</ArtifactsPath></PropertyGroup>
+    labels:
+    - source: <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', 'artifacts/'))</ArtifactsPath>
+      style: primary
+      start: 15
+      end: 102

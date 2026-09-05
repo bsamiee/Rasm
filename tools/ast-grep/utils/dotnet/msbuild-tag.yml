@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: msbuild-tag # The start tag or the empty-element tag of an element, the node that holds its name and its attributes
+id: msbuild-tag # Start tag or empty-element tag of an element, the node holding its name and its attributes
 language: xml
 rule:
     any: [{kind: STag}, {kind: EmptyElemTag}]

@@ -1,0 +1,70 @@
+id: object-keys-to-record-keys-imported
+valid:
+    # The target form
+    - |
+      import { Record } from "effect"
+      const names = Record.keys(items)
+    # No import binds Record, the header rewrite of object-keys-to-record-keys owns the file
+    - |
+      const names = Object.keys(items)
+    # Another platform read outside the Record module
+    - |
+      import { Record } from "effect"
+      const names = Reflect.ownKeys(items)
+    # Another Object member outside the Record module
+    - |
+      import { Record } from "effect"
+      const frozen = Object.freeze(items)
+    # Record of another package, the fix names the wrong module
+    - |
+      import { Record } from "immutable"
+      const names = Object.keys(items)
+    # Alias binds another name
+    - |
+      import { Record as R } from "effect"
+      const names = Object.keys(items)
+    # Type-only import statement binds no value
+    - |
+      import type { Record } from "effect"
+      const names = Object.keys(items)
+    # Type-only specifier binds no value
+    - |
+      import { type Record } from "effect"
+      const names = Object.keys(items)
+    # Namespace of the whole package binds no Record
+    - |
+      import * as Record from "effect"
+      const names = Object.keys(items)
+    # Namespace of the Record path under another name
+    - |
+      import * as Rec from "effect/Record"
+      const names = Object.keys(items)
+    # Effect import without Record
+    - |
+      import { Effect } from "effect"
+      const names = Object.keys(items)
+    # Type argument has no counterpart on the Record member
+    - |
+      import { Record } from "effect"
+      const rows = Object.entries<Row>(items)
+invalid:
+    # The instance, Record bound beside another module
+    - |
+      import { Effect, Record } from "effect"
+      const names = Object.keys(items)
+    # entries takes its renamed member
+    - |
+      import { Record } from "effect"
+      const rows = Object.entries(items)
+    # Value binding beside a type-only specifier
+    - |
+      import { Record, type Row } from "effect"
+      const names = Object.keys(items)
+    # Namespace of the Record path binds the module
+    - |
+      import * as Record from "effect/Record"
+      const names = Object.keys(items)
+    # values keeps its name
+    - |
+      import { Record } from "effect"
+      const all = Object.values(items)

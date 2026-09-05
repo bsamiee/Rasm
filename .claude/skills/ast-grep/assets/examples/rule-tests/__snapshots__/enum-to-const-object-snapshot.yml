@@ -34,3 +34,37 @@ snapshots:
       style: secondary
       start: 11
       end: 49
+  enum Phase { Draft = 0, Sealed = 1, }:
+    fixed: |-
+      const Phase = { Draft: 0, Sealed: 1 } as const;
+      type Phase = (typeof Phase)[keyof typeof Phase];
+    labels:
+    - source: enum Phase { Draft = 0, Sealed = 1, }
+      style: primary
+      start: 0
+      end: 37
+    - source: Phase
+      style: secondary
+      start: 5
+      end: 10
+    - source: '{ Draft = 0, Sealed = 1, }'
+      style: secondary
+      start: 11
+      end: 37
+  enum Rate { Base = LIMIT, Twice = 2 }:
+    fixed: |-
+      const Rate = { Base: LIMIT, Twice: 2 } as const;
+      type Rate = (typeof Rate)[keyof typeof Rate];
+    labels:
+    - source: enum Rate { Base = LIMIT, Twice = 2 }
+      style: primary
+      start: 0
+      end: 37
+    - source: Rate
+      style: secondary
+      start: 5
+      end: 9
+    - source: '{ Base = LIMIT, Twice = 2 }'
+      style: secondary
+      start: 10
+      end: 37

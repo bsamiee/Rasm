@@ -4,11 +4,15 @@ language: xml
 severity: error
 files: ['**/*.props']
 rule:
-    # A condition or an import path, every attribute that reads the value
+    # Condition or import path, every attribute reading the value before the SDK targets assign it
     kind: Attribute
     all:
         # Values the SDK props, the project body, or the SDK targets assign after every .props import, and the workspace body properties
-        - has: {kind: AttValue, regex: '\$\((Configuration|Platform|TargetFramework|TargetFrameworks|OutputType|TargetFrameworkIdentifier|TargetFrameworkVersion|TargetFrameworkMoniker|OutputPath|IntermediateOutputPath|TargetPath|TargetDir|TargetFileName|IsTestProject|IsTestingPlatformApplication|RhinoHost|PluginHost|ReleaseGroup|HostCommon|HostUi|HostPlatform|HostGrasshopper)\)'}
+        - has:
+              kind: AttValue
+              regex: "\\$\\((Configuration|Platform|TargetFramework|TargetFrameworks|OutputType|TargetFrameworkIdentifier|\
+                  TargetFrameworkVersion|TargetFrameworkMoniker|OutputPath|IntermediateOutputPath|TargetPath|TargetDir|TargetFileName|\
+                  IsTestProject|IsTestingPlatformApplication|RhinoHost|PluginHost|ReleaseGroup|HostCommon|HostUi|HostPlatform|HostGrasshopper)\\)"
         # Empty-default guards, joined by and or or, are the one .props form that reads the names
         - not: {has: {kind: AttValue, regex: "^\"\\s*('\\$\\(\\w+\\)' == ''\\s*((and|or)\\s+)?)+\"$"}}
         # The condition sits on a property group, a When arm, an Import, or a property, an item and a target read the final value

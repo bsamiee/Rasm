@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: require-tag-named-for-class
+language: typescript
+severity: error
+utils:
+    tagged-heritage: # The extends clause with the string argument that is the _tag, the local util's captures reach the rule and its fix
+        kind: extends_clause
+        has:
+            field: value
+            any:
+                - pattern: $MODULE.$KIND($TAG)
+                - pattern: # ast strictness lets $$$ after the written comma match zero annotations
+                      context: '$MODULE.$KIND<$_>()($TAG, $_, $$$)'
+                      strictness: ast
+rule:
+    kind: string
+    all:
+        - pattern: $TAG
+        - inside: {matches: tagged-heritage, stopBy: end}
+        - inside: {kind: class_declaration, stopBy: end, has: {field: name, pattern: $NAME}}
+        - not: {has: {kind: string_fragment, pattern: $NAME}} # The class name re-matched on the fragment text, a wrapped name unifies
+constraints:
+    MODULE: {regex: '^(Data|Schema)$'} # Effect.Service and Context.Tag identifiers follow another convention, no KIND grammar refuses a real shape
+transform:
+    TEXT: substring($TAG, startChar=1, endChar=-1) # The tag without its quotes, the message reads the transformed name
+fix: '"$NAME"'
+message: Tag `$TEXT` differs from the class name `$NAME` and catchTag reads the tag
+note: Name the tag after the class, `class Item extends Data.TaggedError("Item")<{}>`
+labels:
+    NAME: {style: secondary, message: The class name the tag repeats} # Two labels make the snapshot order random, one secondary beside the match

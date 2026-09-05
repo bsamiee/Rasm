@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: instanceof-ternary-to-match
+language: tsx
+severity: off
+rule:
+    kind: ternary_expression
+    pattern: $BRANCH
+    all:
+        - any: # The check in either direction, the negated check swaps the arms
+              - pattern: '$X instanceof $T ? $_ : $_'
+              - pattern: '!($X instanceof $T) ? $_ : $_'
+        # Object arm needs parentheses as an arrow body, a refused arm belongs to its lift or holds no thunk
+        - not: {has: {field: consequence, any: [{kind: object}, {matches: effect-refused-arm}]}}
+        - not: {has: {field: alternative, any: [{kind: object}, {matches: effect-refused-arm}]}}
+constraints:
+    X: {kind: identifier} # The value becomes the arm parameter, a member read has no name to bind
+rewriters:
+    - id: when-arm
+      rule: {any: [{pattern: '$_ instanceof $_ ? $A : $_'}, {pattern: '!($_ instanceof $_) ? $_ : $A'}]}
+      fix: $A
+    - id: else-arm
+      rule: {any: [{pattern: '$_ instanceof $_ ? $_ : $B'}, {pattern: '!($_ instanceof $_) ? $B : $_'}]}
+      fix: $B
+transform:
+    WHEN: rewrite($BRANCH, rewriters=[when-arm])
+    ELSE: rewrite($BRANCH, rewriters=[else-arm])
+fix: Match.value($X).pipe(Match.when(Match.instanceOf($T), ($X) => $WHEN), Match.orElse(($X) => $ELSE))
+message: Instance checks choose between two values through the ternary operator
+note: Dispatch through `Match.value(value).pipe(Match.when(Match.instanceOf(Type), (value) => arm), Match.orElse((value) => other))`

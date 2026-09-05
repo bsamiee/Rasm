@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parent-segment-concatenation-by-hand
+language: xml
+severity: error
+rule:
+    matches: msbuild-parent-segment
+    # Values the sibling no-parent-segment-concatenation refuses, a list, a wildcard, a second reference, an item transform, or a function argument
+    not: {matches: msbuild-composable-path}
+message: >-
+    The value appends a parent segment to a directory property inside a list, a wildcard, a second reference, an item transform, or a function
+    argument
+note: Compose each path with NormalizeDirectory or NormalizePath over its property and segments, and join the composed paths

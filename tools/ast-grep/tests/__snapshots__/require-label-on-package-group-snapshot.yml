@@ -1,16 +1,26 @@
 id: require-label-on-package-group
 snapshots:
   ? |
-    <Project><ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
+    <Project><ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="CsCheck" Version="4.8.0"
+      /> <!-- Property-based testing --></ItemGroup></Project>
   : labels:
-    - source: <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup>
+    - source: |-
+        <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="CsCheck" Version="4.8.0"
+          /> <!-- Property-based testing --></ItemGroup>
       style: primary
       start: 9
-      end: 162
+      end: 164
   ? |
     <Project><ItemGroup Label=""><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
   : labels:
     - source: <ItemGroup Label=""><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup>
+      style: primary
+      start: 9
+      end: 125
+  ? |
+    <Project><ItemGroup Label=''><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
+  : labels:
+    - source: <ItemGroup Label=''><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup>
       style: primary
       start: 9
       end: 125

@@ -1,0 +1,27 @@
+id: enum-to-const-object-by-hand
+valid:
+    # The mechanical fold of enum-to-const-object covers it
+    - 'enum Phase { Draft = 0, Sealed = 1 }'
+    # The target form
+    - 'const Phase = { Draft: 0, Sealed: 1 } as const;'
+    # Member read from outside the enum, the fold covers it
+    - 'enum Rate { Base = LIMIT, Twice = 2 }'
+invalid:
+    # Valueless member
+    - 'enum Plain { Draft, Sealed }'
+    # Exported member
+    - 'export enum Pub { Draft = 0 }'
+    # Ambient context
+    - 'declare enum Ambient { P = 1 }'
+    # Ambient context at an ancestor of the enum
+    - 'declare namespace Item { enum Phase { P = 1 } }'
+    # const enum
+    - 'const enum Inline { X = 1 }'
+    # Comment among the members
+    - |
+      enum Noted {
+          Draft = 0, // the open phase
+          Sealed = 1,
+      }
+    # Member read by a later member
+    - 'enum Flag { Read = 1, Write = Read << 1 }'

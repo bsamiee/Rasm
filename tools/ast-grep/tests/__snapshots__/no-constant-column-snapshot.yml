@@ -1,5 +1,17 @@
 id: no-constant-column
 snapshots:
+  ? |
+    const rows = [
+        // Rows per environment
+        { name: "dev", imported: true },
+        { name: "prd", imported: true },
+    ];
+  : labels:
+    - source: imported
+      message: The column that holds one value on every row
+      style: primary
+      start: 62
+      end: 70
   'const rows = [{ imported: true, name: "dev" }, { name: "prd", imported: true, slug: "p" }];':
     labels:
     - source: imported
@@ -7,6 +19,13 @@ snapshots:
       style: primary
       start: 16
       end: 24
+  'const rows = [{ name: "dev", glob: `*.ts` }, { name: "prd", glob: `*.ts` }];':
+    labels:
+    - source: glob
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 33
   'const rows = [{ name: "dev", imported: false }, { name: "prd", imported: false }];':
     labels:
     - source: imported
@@ -28,7 +47,28 @@ snapshots:
       style: primary
       start: 29
       end: 33
+  'const rows = [{ name: "dev", match: /^v/ }, { name: "prd", match: /^v/ }];':
+    labels:
+    - source: match
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 34
+  'const rows = [{ name: "dev", offset: -1 }, { name: "prd", offset: -1 }];':
+    labels:
+    - source: offset
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 35
   'const rows = [{ name: "dev", owner: null }, { name: "prd", owner: null }];':
+    labels:
+    - source: owner
+      message: The column that holds one value on every row
+      style: primary
+      start: 29
+      end: 34
+  'const rows = [{ name: "dev", owner: undefined }, { name: "prd", owner: undefined }];':
     labels:
     - source: owner
       message: The column that holds one value on every row
@@ -42,6 +82,25 @@ snapshots:
       style: primary
       start: 29
       end: 36
+  'const table = { rows: [{ name: "dev", imported: true }, { name: "prd", imported: true }] };':
+    labels:
+    - source: imported
+      message: The column that holds one value on every row
+      style: primary
+      start: 38
+      end: 46
+  ? |
+    const targets = {
+        // Targets per tool
+        lint: { cache: true, command: "lint" },
+        format: { cache: true, command: "format" },
+    };
+  : labels:
+    - source: cache
+      message: The column that holds one value on every row
+      style: primary
+      start: 54
+      end: 59
   'const targets = { lint: { cache: true, command: "lint" }, format: { cache: true, command: "format" } };':
     labels:
     - source: cache

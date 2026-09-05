@@ -1,0 +1,31 @@
+id: require-job-timeout
+valid:
+    # Job carrying its timeout
+    - |
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          timeout-minutes: 15
+          steps:
+            - run: make
+    # Reusable-workflow caller, timeout-minutes is schema-invalid on a uses: job
+    - |
+      jobs:
+        reuse:
+          uses: ./.github/workflows/other.yml
+invalid:
+    # Untimed job
+    - |
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - run: make
+    # Step-level timeout leaves the job untimed
+    - |
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - run: make
+              timeout-minutes: 5

@@ -3,26 +3,29 @@ valid:
     # The reference form orders the build
     - |
       <ProjectReference Include="../Tool/Tool.csproj" ReferenceOutputAssembly="false" />
-    # A dotnet query that builds nothing
+    # dotnet query building nothing
     - |
       <Exec Command="dotnet --version" ConsoleToMSBuild="true" />
-    # A tool restore evaluates no project
+    # Tool restore evaluating no project
     - |
       <Exec Command="dotnet tool restore" />
-    # An item holds the command as metadata and starts no process
+    # Custom item with the build command as metadata, no Exec runs it
     - |
       <ItemGroup><_Step Include="tool" Command="dotnet build ../Tool/Tool.csproj" /></ItemGroup>
-    # A log pattern parameter names the subcommand and starts no build
+    # Log pattern parameter naming the subcommand, no build starts
     - |
       <Exec Command="./ci.sh" CustomErrorRegularExpression="dotnet build failed" />
 invalid:
-    # A dotnet build of another project
+    # Single-quoted command holding the msbuild executable
+    - |
+      <Exec Command='msbuild Other.proj /t:Stage' />
+    # dotnet build of another project
     - |
       <Exec Command="dotnet build ../Tool/Tool.csproj -c $(Configuration)" />
-    # A pack from inside a target
+    # Pack from inside a target
     - |
       <Exec Command="dotnet pack $(MSBuildProjectFullPath) --no-build" />
-    # A run builds the project first
+    # Run, the project builds first
     - |
       <Exec Command="dotnet run --project ../Tool/Tool.csproj" />
     # The msbuild executable

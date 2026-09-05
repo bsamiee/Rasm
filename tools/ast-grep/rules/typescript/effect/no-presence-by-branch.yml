@@ -3,33 +3,66 @@ id: no-presence-by-branch
 language: tsx
 severity: error
 utils:
-    # An arm that yields an empty object or an empty array, the arm stands for absence
+    # Empty container, the brackets are unnamed children and $_ matches a named child alone
+    empty-container:
+        any:
+            - {kind: array, not: {has: {pattern: $_}}}
+            - {kind: object, not: {has: {pattern: $_}}}
+    # Arm yielding the empty container as is or in the parentheses an object body needs
     empty-arm:
         kind: arrow_function
         has:
             field: body
             any:
-                - {kind: array, not: {has: {pattern: $_}}}
-                - {kind: parenthesized_expression, has: {kind: object, not: {has: {pattern: $_}}}}
-    # A Match.value chain of one Match.when arm and one Match.orElse fallback, the two-arm match spelled through either pipe form
-    two-step-match-chain:
+                - matches: empty-container
+                - {kind: parenthesized_expression, has: {matches: empty-container}}
+    # Constructor that lifts a value into an effect carrier, an arm holding another effect runs an operation and dispatches
+    lifted:
+        regex: '^(Effect|Micro|STM)\.succeed$'
+        kind: member_expression
+    lifted-empty-arm:
+        kind: arrow_function
+        has:
+            field: body
+            kind: call_expression
+            all: [{has: {field: function, matches: lifted}}, {has: {field: arguments, has: {matches: empty-container}}}]
+    lifted-value-arm:
         any:
-            - pattern: Match.value($_).pipe($_, $_)
-            - pattern: pipe(Match.value($_), $_, $_)
+            - kind: arrow_function
+              has:
+                  field: body
+                  kind: call_expression
+                  all: [{has: {field: function, matches: lifted}}, {has: {field: arguments, has: {pattern: $_, not: {matches: empty-container}}}}]
+            - matches: lifted
 rule:
     any:
         # One arm of the match is empty, in any position: a spread, an argument, a local, a return
         - matches: effect-two-arm-branch
-          has: {field: arguments, has: {kind: object, has: {kind: pair, has: {field: value, matches: empty-arm}}}}
-        # One step of the two-step chain holds an empty arm, a chain of more steps is a dispatch
-        - matches: two-step-match-chain
-          has: {field: arguments, has: {kind: call_expression, has: {field: arguments, has: {matches: empty-arm}}}}
-        # A conjunction that yields the fragment or false, spread into a container
+          has:
+              field: arguments
+              has:
+                  kind: object
+                  any:
+                      - has: {kind: pair, has: {field: value, matches: empty-arm}}
+                      # Both arms lift values, the effect chooses between an empty container and a value
+                      - all:
+                            - has: {kind: pair, has: {field: value, matches: lifted-empty-arm}}
+                            - has: {kind: pair, has: {field: value, matches: lifted-value-arm}}
+        # Match.when and Match.orElse hold the arms as arguments, the same pair of shapes as the object form
+        - matches: effect-two-step-match-chain
+          has:
+              field: arguments
+              any:
+                  - has: {kind: call_expression, has: {field: arguments, has: {matches: empty-arm}}}
+                  - all:
+                        - has: {kind: call_expression, has: {field: arguments, has: {matches: lifted-empty-arm}}}
+                        - has: {kind: call_expression, has: {field: arguments, has: {matches: lifted-value-arm}}}
+        # Conjunction spread into a container, the false side spreads as nothing and stands for absence
         - kind: spread_element
           has:
               kind: parenthesized_expression
               has: {kind: binary_expression, has: {field: operator, regex: '^&&$'}}
-message: Presence is chosen by a branch, one arm or one side stands for absence
+message: The branch chooses presence, one arm or one side stands for absence
 note: >-
-    Lift the present value as an Option (`Option.liftPredicate(value, () => condition)`, `Either.getRight`),
-    then spread `Record.getSomes({ key: option })` for an object key and `Option.toArray(option)` for array elements
+    Lift the present value as an Option (`Option.liftPredicate(value, () => condition)`, `Either.getRight(either)`,
+    `Effect.option(effect)`), spread `Record.getSomes({ key: option })` for a key and `Option.toArray(option)` for elements

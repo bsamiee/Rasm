@@ -1,19 +1,20 @@
 id: no-property-default-in-targets
 valid:
-    # A value derived from a body property belongs here
+    # Value derived from a body property, a .targets value
     - |
       <PropertyGroup Label="Release Version"><MinVerTagPrefix>$(ReleaseGroup)@</MinVerTagPrefix></PropertyGroup>
-    # A version read from the manifest before pack computes the package version
+    # Version read from the manifest before pack computes the package version
     - |
       <PropertyGroup><Version Condition="'$(_ManifestVersion)' != ''">$(_ManifestVersion)</Version></PropertyGroup>
-    # A property a target sets at execution time
+    # Property a target sets at execution time
     - |
       <Target Name="Pick"><PropertyGroup><RuntimeIdentifier>osx-arm64</RuntimeIdentifier></PropertyGroup></Target>
 invalid:
     # The framework default that once sat in Directory.Build.targets, the SDK had already inferred the runtime identity
     - |
-      <PropertyGroup Label="Framework Default"><TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework></PropertyGroup>
-    # A runtime identifier pinned after RID inference ran
+      <PropertyGroup Label="Framework Default">
+        <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework></PropertyGroup>
+    # Runtime identifier pinned after RID inference ran
     - |
       <PropertyGroup><RuntimeIdentifier Condition="'$(HostPlatform)' == 'true'">osx-arm64</RuntimeIdentifier></PropertyGroup>
     # The artifacts root after the SDK composed the output paths

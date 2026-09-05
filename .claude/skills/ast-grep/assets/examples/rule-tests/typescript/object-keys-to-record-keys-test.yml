@@ -1,0 +1,29 @@
+id: object-keys-to-record-keys
+valid:
+    # The target form
+    - |
+      import { Record } from "effect"
+      const names = Record.keys(items)
+    # Record is bound, a header duplicates it and object-keys-to-record-keys-imported rewrites the call alone
+    - |
+      import { Effect, Record } from "effect"
+      const names = Object.keys(items)
+    # Another platform read outside the Record module
+    - |
+      const names = Reflect.ownKeys(items)
+    # Type argument has no counterpart on the Record member, a header without a rewrite is an unused import
+    - |
+      const rows = Object.entries<Row>(items)
+invalid:
+    # Two sibling calls in a file with no import, the header lands before the first line
+    - |
+      const names = Object.keys(items)
+      const rows = Object.entries(items)
+    # Effect import without Record, the header adds a second import statement from the package
+    - |
+      import { Effect } from "effect"
+      const each = Effect.forEach(Object.values(items), load, { concurrency: 4 })
+    # Another Object member beside the call keeps its name, the rewriter's constraints pin the three reads
+    - |
+      const names = Object.keys(items)
+      const frozen = Object.freeze(items)

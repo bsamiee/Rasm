@@ -1,0 +1,46 @@
+id: no-explicit-provider-by-hand
+valid:
+    # Options built by a call, no provider key
+    - 'const project = new Project(name, { name, description }, adoption(name));'
+    # Provider option with no comment, the shape no-explicit-provider fixes
+    - 'const project = new Project(name, args, { protect: true, provider: doppler });'
+    # Block comment inside the options, the shape no-explicit-provider fixes
+    - 'const project = new Project(name, args, { protect: true, provider: doppler /* shared */ });'
+    # Line comment inside the resource arguments, the shape no-explicit-provider fixes
+    - |
+      const project = new Project(
+          name,
+          {
+              name, // Doppler slug
+              description,
+          },
+          { provider: doppler },
+      );
+    # Resource named after a provider without the suffix
+    - 'const settings = new ProviderSettings(name, args);'
+    # Provider constructed inside the option, the shape no-explicit-provider deletes
+    - 'const project = new Project(name, args, { provider: new aws.Provider("x", { region }) });'
+invalid:
+    # The instance, a provider constructed by hand
+    - 'const doppler = new DopplerProvider("doppler", { dopplerToken });'
+    # Namespaced provider constructor
+    - 'const gh = new github.Provider("github", { owner, token });'
+    # Comment among the arguments
+    - |
+      const project = new Project(
+          name,
+          // Arguments from the manifest
+          args,
+          { provider: doppler },
+      );
+    # Line comment inside the options
+    - |
+      const project = new Project(name, args, {
+          protect: true,
+          provider: doppler, // Shared across stacks
+      });
+    # Line comment inside the invoke options
+    - |
+      const repository = getRepository({ fullName }, {
+          provider: gh, // Organization token
+      });

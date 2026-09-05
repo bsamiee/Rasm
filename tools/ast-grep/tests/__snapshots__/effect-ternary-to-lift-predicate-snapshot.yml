@@ -1,0 +1,58 @@
+id: effect-ternary-to-lift-predicate
+snapshots:
+  'const checked = Predicate.isError(cause) ? Effect.fail(error) : Effect.succeed(report.verdict);':
+    fixed: const checked = Effect.liftPredicate(report.verdict, () => !Predicate.isError(cause), () => error);
+    labels:
+    - source: 'Predicate.isError(cause) ? Effect.fail(error) : Effect.succeed(report.verdict)'
+      style: primary
+      start: 16
+      end: 94
+  'const checked = input < 0 ? Effect.fail("rejected" as const) : Effect.succeed(input);':
+    fixed: const checked = Effect.liftPredicate(input, () => !(input < 0), () => "rejected" as const);
+    labels:
+    - source: 'input < 0 ? Effect.fail("rejected" as const) : Effect.succeed(input)'
+      style: primary
+      start: 16
+      end: 84
+  'const checked = missing ? Effect.fail(error) : Effect.succeed(item);':
+    fixed: const checked = Effect.liftPredicate(item, () => !missing, () => error);
+    labels:
+    - source: 'missing ? Effect.fail(error) : Effect.succeed(item)'
+      style: primary
+      start: 16
+      end: 67
+  'const checked = present ? Effect.succeed(item) : Effect.fail(new LoadError({ message: detail }));':
+    fixed: 'const checked = Effect.liftPredicate(item, () => present, () => new LoadError({ message: detail }));'
+    labels:
+    - source: 'present ? Effect.succeed(item) : Effect.fail(new LoadError({ message: detail }))'
+      style: primary
+      start: 16
+      end: 96
+  'const count = present ? Effect.succeed(0) : Effect.fail(error);':
+    fixed: const count = Effect.liftPredicate(0, () => present, () => error);
+    labels:
+    - source: 'present ? Effect.succeed(0) : Effect.fail(error)'
+      style: primary
+      start: 14
+      end: 62
+  'const handle = present ? Effect.succeed(null) : Effect.fail(error);':
+    fixed: const handle = Effect.liftPredicate(null, () => present, () => error);
+    labels:
+    - source: 'present ? Effect.succeed(null) : Effect.fail(error)'
+      style: primary
+      start: 15
+      end: 66
+  'const rows = present ? Effect.succeed([]) : Effect.fail(error);':
+    fixed: const rows = Effect.liftPredicate([], () => present, () => error);
+    labels:
+    - source: 'present ? Effect.succeed([]) : Effect.fail(error)'
+      style: primary
+      start: 13
+      end: 62
+  'const rows = present ? Effect.succeed({}) : Effect.fail(error);':
+    fixed: const rows = Effect.liftPredicate({}, () => present, () => error);
+    labels:
+    - source: 'present ? Effect.succeed({}) : Effect.fail(error)'
+      style: primary
+      start: 13
+      end: 62

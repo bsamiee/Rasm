@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# List searched for a key through includes or either Array.contains overload, the list slot holds an effect-key-list call at the caller
+id: effect-key-search
+language: tsx
+arguments: [list, key]
+utils:
+    # Data-last Array.contains(key) applied through the pipe method or the pipe function, one step alone keeps the list as the searched value
+    contains-step:
+        pattern: Array.contains($_)
+        has: {field: arguments, has: {matches: key}}
+rule:
+    kind: call_expression
+    any:
+        - pattern: $_.includes($_)
+          all:
+              - has: {field: function, has: {field: object, matches: list}}
+              - has: {field: arguments, has: {matches: key}}
+        # Data-first overload, the key list precedes the key and the arity-pinned pattern leaves no third argument
+        - pattern: Array.contains($_, $_)
+          has: {field: arguments, all: [{has: {nthChild: 1, matches: list}}, {has: {nthChild: 2, matches: key}}]}
+        - pattern: $_.pipe($_)
+          all:
+              - has: {field: function, has: {field: object, matches: list}}
+              - has: {field: arguments, has: {matches: contains-step}}
+        # Swapped operands fail the type check, the pattern pins two arguments and the type checker orders them
+        - pattern: pipe($_, $_)
+          has: {field: arguments, all: [{has: {matches: list}}, {has: {matches: contains-step}}]}
+        # Data-last overload applied to the list directly, the curried call the pipe spellings unfold
+        - pattern: $_($_)
+          all:
+              - has: {field: function, matches: contains-step}
+              - has: {field: arguments, has: {matches: list}}

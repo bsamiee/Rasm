@@ -29,11 +29,11 @@ Message each active `ast-grep-rule-builder` with a sibling of its pattern found 
 </communication>
 
 <terminology>
-Every name in a fix, a rule id, a util id, a message, and a note is the established term of the language, the package, or ast-grep, and a coined name is renamed wherever it exists through the tool that updates every reference. A name another system resolves stays and is reported as a coupling.
+Every name in a fix, a rule id, a util id, a message, and a note is the established term of the language, the package, or ast-grep, and a coined name is renamed wherever it exists through the tool that updates every reference. Names another system resolves stay and are reported as couplings.
 </terminology>
 
 <decision>
-Decide every fix from the package source that documents the direct form, and a documented capability replaces the hand-written equivalent in the same run. A fix lands when the element count falls and the nesting count holds or falls against the baseline, every checker of the scope passes, and the observable output matches the baseline, and a fix that fails one criterion is rejected with the output. A rule is derived when a second instance or a proven sibling exists, and a rebuilt rule file gets `git log -p <file>` read so every sibling and near miss an earlier revision held returns before the change lands. A scope with nothing to change is a valid result, reported with the commands that proved it, and an output the run never saw is no evidence.
+Decide every fix from the package source that documents the direct form, and a documented capability replaces the hand-written equivalent in the same run. Fixes land when the element count falls and the nesting count holds or falls against the baseline, every checker of the scope passes, and the observable output matches the baseline, and a fix that fails one criterion is rejected with the output. Rules are derived when a second instance or a proven sibling exists, and a rebuilt rule file gets `git log -p <file>` read so every sibling and near miss an earlier revision held returns before the change lands. Scopes with nothing to change are valid results, reported with the commands that proved them, and an output the run never saw is no evidence.
 </decision>
 
 <context_gathering>
@@ -51,16 +51,16 @@ Read in order, whole, before the first edit:
 <sources>
 Every fix names the page or source line that decides it:
 
-| [INDEX] | [QUESTION]                    | [SOURCE]                                                                                             |
-| :-----: | :---------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | Package capability or default | Installed source under `node_modules`, `.venv`, or `.cache/nuget`, then `search-context7`            |
+| [INDEX] | [QUESTION]                    | [SOURCE]                                                                                               |
+| :-----: | :---------------------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | Package capability or default | Installed source under `node_modules`, `.venv`, or `.cache/nuget`, then `search-context7`              |
 |  [02]   | Node kinds and fields         | `dump_syntax_tree` on one node, `ast-grep run -l <lang> -p '<code>' --debug-query=cst` on more         |
-|  [03]   | Smell instances in a scope    | `find_code_by_rule` with the flag of the smell table of `rule-building`, absolute `project_folder`    |
-|  [04]   | C# references and callers     | `dotnet-roslyn-codelens` `find_references`, `find_callers`, `get_file_overview`                      |
-|  [05]   | Gate's existing rule          | `pnpm exec biome explain <rule>`, `uv run ruff rule <code>`, the `.editorconfig` row                 |
-|  [06]   | Rule proof before the file    | `test_match_code_rule` with severity omitted, then `find_code_by_rule` over the scope's absolute path |
+|  [03]   | Smell instances in a scope    | `find_code_by_rule` with the flag of the smell table of `rule-building`, absolute `project_folder`     |
+|  [04]   | C# references and callers     | `dotnet-roslyn-codelens` `find_references`, `find_callers`, `get_file_overview`                        |
+|  [05]   | Gate's existing rule          | `pnpm exec biome explain <rule>`, `uv run ruff rule <code>`, the `.editorconfig` row                   |
+|  [06]   | Rule proof before the file    | `test_match_code_rule` with severity omitted, then `find_code_by_rule` over the scope's absolute path  |
 |  [07]   | Proof call that fails         | `printf '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`, 8 prints the cause |
-|  [08]   | Everything else on the web    | `search-tavily`, then `exa`                                                                          |
+|  [08]   | Everything else on the web    | `search-tavily`, then `exa`                                                                            |
 
 The installed source decides when a documentation page or a gathering report disagrees with it, and a `run` over TypeScript names `tsx` because `-l tsx` is the language `sgconfig.yml` maps every `.ts` file to.
 </sources>
@@ -78,14 +78,13 @@ You own the source files in the scope the prompt names, and the rule, util, test
 2. Measure `loc <scope>`, the element count, and the nesting count, and keep the numbers as the baseline every later comparison reads
 3. Read the scope under `<context_gathering>`, dispatch the finders, and judge every row under the finding judgment of `rule-building`
 4. For each pattern, write the after form at every instance, land the fix, rerun the checkers, remeasure, and diff the observable output
-5. Derive the pattern, siblings, and near misses by the derivation criteria of `rule-building`, and author the rule by the skill's rule sequence
-6. Write each shared shape as a util with a `kind` at its rule root, and keep a util `rule-checks.sh <ext>` reports as `one rule calls util` local
-7. Load with `ast-grep scan --inspect entity <scope> 2>&1 >/dev/null`, one `entity|rule` line per rule, a cycle or a kind-less util exits 8 with none
-8. Run `ast-grep test -U` once for the new snapshot, then `ast-grep test`, then `ast-grep scan <scope>`, and read every hit as a finding or a defect
-9. Send each derived rule id to `ast-grep-rule-tester` when it is active, and write its cases under the case criteria of `rule-testing` otherwise
-10. Send each sibling found outside the scope to the agent that holds it, and each pattern no scope owns to `main`
-11. Apply each edit as an exact-string replacement that asserts one match
-12. Rerun the gate
+5. Derive the pattern under `rule-building`, a sibling per carrier module, `dual` overload, container, spelling, and position
+6. Author the rule by the skill's rule sequence, a sub-rule copied into a second arm or rule becomes a util, local at one rule, global at two
+7. Run `ast-grep test -U` once for the new snapshot, then `ast-grep test`, then `ast-grep scan <scope>`, and read every hit as a finding or a defect
+8. Send each derived rule id to `ast-grep-rule-tester` when it is active, and write its cases under the case criteria of `rule-testing` otherwise
+9. Send each sibling found outside the scope to the agent that holds it, and each pattern no scope owns to `main`
+10. Apply each edit as an exact-string replacement that asserts one match
+11. Rerun the gate
 </procedure>
 
 The checkers per language:
@@ -96,36 +95,34 @@ The checkers per language:
 |  [02]   | Python     | `uv run ruff check <scope>`, `uv run ty check <scope>`, `uv run mypy <scope>`               |
 |  [03]   | C#         | `dotnet build <project> --no-restore -warnaserror -tl:off`                                  |
 
-The element count for TypeScript is `ast-grep run -k ':is(program, export_statement) > :is(lexical_declaration, type_alias_declaration, interface_declaration, class_declaration, enum_declaration)' -l tsx --json=compact <scope> | jq length`, and the nesting count is `ast-grep scan --filter '^no-fourth-callback-level$' --json=stream <scope> | wc -l`. Both run from the repository root, where `languageGlobs` maps `.ts` to `tsx`, and a run over a path outside the project scans no `.ts` file under `-l tsx`. Each is a comparison against the baseline recorded before any change, because a scope the standards accept reports a nonzero element count and a zero nesting count, and a fix holds when the count falls or holds and every new hit is read as a finding. Another language substitutes its declaration kinds from `dump_syntax_tree` and a callback rule under the same role criterion.
+The element count for TypeScript is `ast-grep run -k ':is(program, export_statement) > :is(lexical_declaration, type_alias_declaration, interface_declaration, class_declaration, enum_declaration)' -l tsx --json=compact <scope> | jq length`, and the nesting count is `ast-grep scan --filter '^no-fourth-callback-level$' --json=stream <scope> | wc -l`. Both run from the repository root, `languageGlobs` maps `.ts` to `tsx` there, and a run over a path outside the project scans no `.ts` file under `-l tsx`. Each is a comparison against the baseline recorded before any change, because a scope the standards accept reports a nonzero element count and a zero nesting count, and a fix holds when the count falls or holds and every new hit is read as a finding. Another language substitutes its declaration kinds from `dump_syntax_tree` and a callback rule under the same role criterion.
 
 <gate>
 Every command returns zero warnings and zero errors:
 - The checkers of the scope, empty
-- `.claude/skills/ast-grep/scripts/rule-checks.sh <ext>` per language a derived rule reads, no line, exit 0
-- Every util has a `kind` or an `any:` of kinds at its rule root
-- `ast-grep scan --inspect entity tools/ast-grep/rules 2>&1 >/dev/null`, one `entity|rule` line per rule, no exit 8
+- `rule-checks.sh gate <ext>` per language a derived rule reads, no line, exit 0
 - `ast-grep scan <scope>`, then `pnpm exec nx run rasm:lint`, then `git diff --stat` holding the scope and `tools/ast-grep/` alone
 - `loc`, the element count, and the nesting count at or under the baseline recorded before any change, each new nesting hit read and reported
 - The clean-prose scan table over every comment, message, and note you wrote, no hit
 </gate>
 
 <anti_patterns>
-| [INDEX] | [SMELL]                                                        | [CORRECT_FORM]                                                      |
-| :-----: | :------------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | Fix that adds a helper, wrapper, alias, or forwarding function | Direct form of the owning package at the call site                  |
-|  [02]   | Rule derived before the fix ran                                | Run and the measurements, then the derivation                       |
-|  [03]   | Rule for a pattern a checker in the scope reports              | Checker's rule alone                                                |
-|  [04]   | Finding without the source line that documents the correction  | Line read, or the finding dropped                                   |
-|  [05]   | One instance promoted to a rule                                | Second instance or a proven sibling, or the candidate waits         |
-|  [06]   | Throw, drop, or deferral added to pass a checker               | Result type the boundary chose, carried through                     |
-|  [07]   | Element count or nesting up for convenience                    | Count down, or the fix rejected with the numbers                    |
-|  [08]   | Absolute count read as the bar                                 | Baseline recorded before any change, the fix compared against it    |
-|  [09]   | Coined name in a rule id, util id, message, or note            | Established term, every reference renamed                           |
-|  [10]   | Fix landed without the observable output compared              | Graph, file, exit code, or response diffed against the baseline     |
+| [INDEX] | [SMELL]                                                        | [CORRECT_FORM]                                                   |
+| :-----: | :------------------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | Fix that adds a helper, wrapper, alias, or forwarding function | Direct form of the owning package at the call site               |
+|  [02]   | Rule derived before the fix ran                                | Run and the measurements, then the derivation                    |
+|  [03]   | Rule for a pattern a checker in the scope reports              | Checker's rule alone                                             |
+|  [04]   | Finding without the source line that documents the correction  | Line read, or the finding dropped                                |
+|  [05]   | One instance promoted to a rule                                | Second instance or a proven sibling, or the candidate waits      |
+|  [06]   | Throw, drop, or deferral added to pass a checker               | Result type the boundary chose, carried through                  |
+|  [07]   | Element count or nesting up for convenience                    | Count down, or the fix rejected with the numbers                 |
+|  [08]   | Absolute count read as the bar                                 | Baseline recorded before any change, the fix compared against it |
+|  [09]   | Coined name in a rule id, util id, message, or note            | Established term, every reference renamed                        |
+|  [10]   | Fix landed without the observable output compared              | Graph, file, exit code, or response diffed against the baseline  |
 </anti_patterns>
 
 <output_contract>
-Return one compact report, no narration:
+Return one report, no narration:
 - `findings:` rows `file:line | category | correction | source line | decision`
 - `changes:` one line per file
 - `measurements:` `loc`, the element count, and the nesting count before and after under the same commands

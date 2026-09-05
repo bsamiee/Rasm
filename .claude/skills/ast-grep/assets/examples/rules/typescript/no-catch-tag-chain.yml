@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: no-catch-tag-chain
+language: typescript
+severity: error
+utils:
+    catch-tag: # String tags alone are entries, a tag held in a variable names the variable as the key
+        pattern: 'Effect.catchTag($_, $_)' # The comma takes the quoted form, a flow map splits at it into an unknown field
+        has: {field: arguments, has: {kind: string}}
+rule:
+    pattern: $SELF.pipe($$$STEPS)
+    all:
+        - has: {field: arguments, has: {matches: catch-tag, precedes: {matches: catch-tag, stopBy: end}}}
+        - not: # Steps before a catchTag run first, moving the tags ahead of them changes the order
+              has: {field: arguments, has: {pattern: $_, not: {matches: catch-tag}, precedes: {matches: catch-tag, stopBy: end}}}
+rewriters:
+    - id: tag-entry
+      rule: {pattern: 'Effect.catchTag($TAG, $HANDLER)'}
+      transform:
+          KEY: # Identifier tags lose their quotes, a miss keeps the text and any other tag stays a quoted key
+              replace: {source: $TAG, replace: '^["'']([A-Za-z_$][\w$]*)["'']$', by: '$1'}
+      fix: '$KEY: $HANDLER'
+    - id: other-step
+      rule: # Pinned to top-level steps, a rewriter tries the descendants of an unmatched node
+          pattern: $STEP
+          not: {matches: catch-tag}
+          inside: {kind: arguments, inside: {pattern: $_.pipe($$$)}}
+      fix: $STEP
+transform:
+    ENTRIES: rewrite($$$STEPS, rewriters=[tag-entry], joinBy=', ') # Two filtering rewriters partition one capture, joinBy drops the rest
+    REST: rewrite($$$STEPS, rewriters=[other-step], joinBy=', ')
+    TAIL: replace($REST, replace='^.+', by=', $0') # The separator when a step survived and empty otherwise, a later stage reads the earlier output
+fix: '$SELF.pipe(Effect.catchTags({ $ENTRIES })$TAIL)'
+message: Consecutive catchTag steps handle one failure tag each
+note: 'Handle the tags in one `Effect.catchTags({ <tag>: <handler> })` step'

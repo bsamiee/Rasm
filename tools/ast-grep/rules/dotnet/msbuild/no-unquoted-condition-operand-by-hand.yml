@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unquoted-condition-operand-by-hand
+language: xml
+severity: error
+rule:
+    matches: msbuild-unquoted-comparison
+    # The operands the sibling no-unquoted-condition-operand refuses to quote, a function call or a group boundary glued to the operand
+    has: {matches: msbuild-composite-operand}
+message: The condition compares an unquoted operand that holds a function call or a group boundary
+note: Quote the whole operand as '$(Name.Function(Argument))' == 'value' with the group boundary outside the quotes

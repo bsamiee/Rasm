@@ -1,0 +1,187 @@
+id: no-elif-dispatch
+snapshots:
+  ? |
+    def label(kind):
+        if kind == "a":
+            return 1
+        elif kind == "b":
+            return 2
+        # the rare kinds
+        elif kind == "c":
+            return 3
+        # the rarest kind
+        elif kind == "d":
+            return 4
+        return 0
+  : labels:
+    - source: |-
+        if kind == "a":
+                return 1
+            elif kind == "b":
+                return 2
+            # the rare kinds
+            elif kind == "c":
+                return 3
+            # the rarest kind
+            elif kind == "d":
+                return 4
+      style: primary
+      start: 21
+      end: 213
+    - source: kind == "a"
+      style: secondary
+      start: 24
+      end: 35
+    - source: kind == "d"
+      style: secondary
+      start: 184
+      end: 195
+    - source: kind == "c"
+      style: secondary
+      start: 123
+      end: 134
+    - source: kind == "b"
+      style: secondary
+      start: 63
+      end: 74
+    - source: |-
+        elif kind == "b":
+                return 2
+      style: secondary
+      start: 58
+      end: 92
+    - source: |-
+        elif kind == "c":
+                return 3
+      style: secondary
+      start: 118
+      end: 152
+    - source: |-
+        elif kind == "d":
+                return 4
+      style: secondary
+      start: 179
+      end: 213
+  ? |
+    def label(kind):
+        if kind == "a":
+            return 1
+        elif kind == "b":
+            return 2
+        elif kind == "c":
+            return 3
+        elif kind == "d":
+            return 4
+        elif kind == "e":
+            return 5
+        else:
+            return 0
+  : labels:
+    - source: |-
+        if kind == "a":
+                return 1
+            elif kind == "b":
+                return 2
+            elif kind == "c":
+                return 3
+            elif kind == "d":
+                return 4
+            elif kind == "e":
+                return 5
+            else:
+                return 0
+      style: primary
+      start: 21
+      end: 236
+    - source: kind == "a"
+      style: secondary
+      start: 24
+      end: 35
+    - source: kind == "d"
+      style: secondary
+      start: 141
+      end: 152
+    - source: kind == "c"
+      style: secondary
+      start: 102
+      end: 113
+    - source: kind == "b"
+      style: secondary
+      start: 63
+      end: 74
+    - source: |-
+        elif kind == "b":
+                return 2
+      style: secondary
+      start: 58
+      end: 92
+    - source: |-
+        elif kind == "c":
+                return 3
+      style: secondary
+      start: 97
+      end: 131
+    - source: |-
+        elif kind == "d":
+                return 4
+      style: secondary
+      start: 136
+      end: 170
+  ? |
+    def label(kind):
+        if kind == "a":
+            return 1
+        elif kind == "b":
+            return 2
+        elif kind == "c":
+            return 3
+        elif kind == "d":
+            return 4
+        return 0
+  : labels:
+    - source: |-
+        if kind == "a":
+                return 1
+            elif kind == "b":
+                return 2
+            elif kind == "c":
+                return 3
+            elif kind == "d":
+                return 4
+      style: primary
+      start: 21
+      end: 170
+    - source: kind == "a"
+      style: secondary
+      start: 24
+      end: 35
+    - source: kind == "d"
+      style: secondary
+      start: 141
+      end: 152
+    - source: kind == "c"
+      style: secondary
+      start: 102
+      end: 113
+    - source: kind == "b"
+      style: secondary
+      start: 63
+      end: 74
+    - source: |-
+        elif kind == "b":
+                return 2
+      style: secondary
+      start: 58
+      end: 92
+    - source: |-
+        elif kind == "c":
+                return 3
+      style: secondary
+      start: 97
+      end: 131
+    - source: |-
+        elif kind == "d":
+                return 4
+      style: secondary
+      start: 136
+      end: 170

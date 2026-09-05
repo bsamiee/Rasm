@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-target-framework-form-by-hand
+language: xml
+severity: error
+rule:
+    # Both properties in one file, the SDK reads the singular and BuildCheck reports BC0107, the file decides which one states its intent
+    kind: document
+    all:
+        - has: {matches: {msbuild-property: {name: {regex: '^TargetFramework$'}}}, stopBy: end}
+        - has: {matches: {msbuild-property: {name: {regex: '^TargetFrameworks$'}}}, stopBy: end}
+message: The file sets TargetFramework and TargetFrameworks, the SDK reads the singular and BuildCheck reports BC0107
+note: Keep one property, TargetFramework for one framework or TargetFrameworks for a semicolon list

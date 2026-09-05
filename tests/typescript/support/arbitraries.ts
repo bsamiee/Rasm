@@ -1,4 +1,4 @@
-import { Arbitrary, Array, Equal, FastCheck, HashSet, Match, Option, Predicate, Record, Schema, SchemaAST } from 'effect';
+import { Arbitrary, Array, Equal, FastCheck, HashSet, Match, Option, Predicate, pipe, Record, Schema, SchemaAST } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -79,8 +79,10 @@ const missingClassifications = <A, Label extends string>(
     labels: readonly Label[],
     sampling: Sampling = _SAMPLING,
 ): readonly Label[] => {
-    const seen = HashSet.fromIterable(
-        Array.flatMap(FastCheck.sample(arbitrary, { ..._SAMPLING, ...sampling }), (value) => Array.ensure(classify(value))),
+    const seen = pipe(
+        FastCheck.sample(arbitrary, { ..._SAMPLING, ...sampling }),
+        Array.flatMap((value) => Array.ensure(classify(value))),
+        HashSet.fromIterable,
     );
     return Array.filter(labels, (label) => !HashSet.has(seen, label));
 };

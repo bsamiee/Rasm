@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typeof-ternary-to-match
+language: tsx
+severity: off
+rule:
+    kind: ternary_expression
+    pattern: $BRANCH
+    all:
+        - any: # The check in either direction, the unequal check swaps the arms
+              - pattern: 'typeof $X === $KIND ? $_ : $_'
+              - pattern: 'typeof $X !== $KIND ? $_ : $_'
+        - not: {has: {field: consequence, any: [{kind: object}, {matches: effect-refused-arm}]}}
+        - not: {has: {field: alternative, any: [{kind: object}, {matches: effect-refused-arm}]}}
+constraints:
+    X: {kind: identifier}
+    KIND: {regex: "^'(string|number|boolean|bigint|symbol)'$"} # The typeof results with a Match matcher, function, object, and undefined have none
+rewriters:
+    - id: when-arm
+      rule: {any: [{pattern: 'typeof $_ === $_ ? $A : $_'}, {pattern: 'typeof $_ !== $_ ? $_ : $A'}]}
+      fix: $A
+    - id: else-arm
+      rule: {any: [{pattern: 'typeof $_ === $_ ? $_ : $B'}, {pattern: 'typeof $_ !== $_ ? $B : $_'}]}
+      fix: $B
+transform:
+    MATCHER: {replace: {source: $KIND, replace: "^'(\\w+)'$", by: '$1'}}
+    WHEN: rewrite($BRANCH, rewriters=[when-arm])
+    ELSE: rewrite($BRANCH, rewriters=[else-arm])
+fix: Match.value($X).pipe(Match.when(Match.$MATCHER, ($X) => $WHEN), Match.orElse(($X) => $ELSE))
+message: Typeof checks choose between two values through the ternary operator
+note: Dispatch through `Match.value(value).pipe(Match.when(Match.string, (value) => arm), Match.orElse((value) => other))`

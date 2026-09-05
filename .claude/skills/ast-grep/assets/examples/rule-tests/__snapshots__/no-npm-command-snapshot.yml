@@ -1,0 +1,23 @@
+id: no-npm-command
+snapshots:
+  NPM_CONFIG_LOGLEVEL=silent npx tsc --build:
+    fixed: NPM_CONFIG_LOGLEVEL=silent pnpm exec tsc --build
+    labels:
+    - source: npx
+      style: primary
+      start: 27
+      end: 30
+  npm install:
+    fixed: pnpm install
+    labels:
+    - source: npm
+      style: primary
+      start: 0
+      end: 3
+  npx biome check .:
+    fixed: pnpm exec biome check .
+    labels:
+    - source: npx
+      style: primary
+      start: 0
+      end: 3

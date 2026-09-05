@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Argument list with the option in its options object, a comment among the arguments is a named child the position skips
+id: pulumi-provider-arguments
+language: tsx
+arguments: [option]
+utils:
+    argument: {not: {kind: comment}}
+rule:
+    kind: arguments
+    any:
+        # Third of a constructor, second of an invoke, fourth of a static get
+        - inside: {kind: new_expression}
+          has: {nthChild: {position: 3, ofRule: {matches: argument}}, kind: object, has: {matches: option}}
+        - inside: {kind: call_expression, has: {field: function, regex: '(^|\.)get[A-Z]\w*$'}}
+          has: {nthChild: {position: 2, ofRule: {matches: argument}}, kind: object, has: {matches: option}}
+        - inside: {kind: call_expression, has: {field: function, regex: '\.get$'}}
+          has: {nthChild: {position: 4, ofRule: {matches: argument}}, kind: object, has: {matches: option}}

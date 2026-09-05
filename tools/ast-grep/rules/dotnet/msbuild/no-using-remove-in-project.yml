@@ -4,7 +4,8 @@ language: xml
 severity: error
 files: ['**/*.csproj']
 rule:
-    matches: {msbuild-element: {name: {regex: '^Using$'}}}
-    has: {matches: msbuild-tag, has: {kind: Attribute, has: {kind: Name, regex: '^Remove$'}}}
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Using$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Remove$'}, value: {kind: AttValue}}}
 message: The project removes a global using the root files add, the central Using is the defect
 note: Key the central Using on the PackageReference that supplies the namespace, or move it to the projects that consume it

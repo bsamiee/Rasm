@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: no-namespace-effect-import
+language: typescript
+severity: error
+rule:
+    kind: import_statement
+    matches:
+        import-from: # The second caller of utils/import-from.yml, the shape went global with it
+            source: {regex: '^effect$'}
+            clause: {kind: namespace_import, has: {kind: identifier, pattern: $ALIAS}}
+message: The effect package is imported as the namespace `$ALIAS`
+note: >-
+    Import the modules by name, `import { Effect, Option } from "effect"`, every use of the alias across the file
+    takes the module name, and no one-node fix reaches them

@@ -1,39 +1,45 @@
 id: require-exact-package-version-row
 valid:
-    # An exact version
+    # Exact version
     - |
       <PackageVersion Include="CsCheck" Version="4.8.0" />
-    # A prerelease is exact
+    # Prerelease, exact
     - |
       <PackageVersion Include="LanguageExt.Core" Version="5.0.0-beta-77" />
-    # An exact range in brackets pins one version
+    # Exact range in brackets pinning one version
     - |
       <PackageVersion Include="TextureCompressor" Version="[0.1.0]" />
-    # A global package reference with an exact version
+    # Global package reference with an exact version
     - |
       <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" />
     # The central package management switch is a property
     - |
       <PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup>
+    # Single-quoted exact row
+    - |
+      <PackageVersion Include='CsCheck' Version='4.8.0' />
 invalid:
-    # A floating version reads the feed state at restore
+    # Single-quoted floating version
+    - |
+      <PackageVersion Include='CsCheck' Version='4.*' />
+    # Floating version reading the feed state at restore
     - |
       <PackageVersion Include="CsCheck" Version="4.*" />
-    # An open range takes the newest version the feed holds
+    # Open range taking the newest version the feed holds
     - |
       <PackageVersion Include="CsCheck" Version="[4.0,5.0)" />
-    # A row without a version
+    # Row without a version
     - |
       <PackageVersion Include="CsCheck" />
-    # A nested-file Update row in the root file, the root declares with Include
+    # Nested-file Update row in the root file, the root declares with Include
     - |
       <PackageVersion Update="CsCheck" Version="4.8.0" />
-    # An empty version
+    # Empty version
     - |
       <PackageVersion Include="CsCheck" Version="" />
-    # A floating global package reference
+    # Floating global package reference
     - |
       <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.*" />
-    # An empty id
+    # Empty id
     - |
       <PackageVersion Include="" Version="4.8.0" />

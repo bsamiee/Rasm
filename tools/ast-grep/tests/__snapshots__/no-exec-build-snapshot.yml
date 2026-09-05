@@ -28,3 +28,10 @@ snapshots:
       style: primary
       start: 0
       end: 50
+  ? |
+    <Exec Command='msbuild Other.proj /t:Stage' />
+  : labels:
+    - source: <Exec Command='msbuild Other.proj /t:Stage' />
+      style: primary
+      start: 0
+      end: 46

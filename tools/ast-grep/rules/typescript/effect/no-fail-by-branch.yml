@@ -3,32 +3,45 @@ id: no-fail-by-branch
 language: tsx
 severity: error
 utils:
-    # An arm that fails the effect, as an arrow or as the constructor passed point-free
+    # Constructors of the failed carrier, Exit.fail and Either.left build a value the match returns and no effect the match runs
+    fail-constructor:
+        any: [{pattern: Effect.fail}, {pattern: Effect.failCause}, {pattern: Micro.fail}, {pattern: Micro.failCause}, {pattern: STM.fail}]
+    pass-constructor:
+        any: [{pattern: Effect.succeed}, {pattern: Micro.succeed}, {pattern: STM.succeed}]
+    # Arm as an arrow with an expression body calling the constructor, or the constructor passed point-free, a block body stays out
     fail-arm:
         any:
-            - kind: arrow_function
-              has: {field: body, any: [{pattern: Effect.fail($_)}, {pattern: Effect.failCause($_)}]}
-            - pattern: Effect.fail
-            - pattern: Effect.failCause
-    # An arm that passes a value through, or nothing
+            - {kind: arrow_function, has: {field: body, kind: call_expression, has: {field: function, matches: fail-constructor}}}
+            - matches: fail-constructor
     pass-arm:
         any:
             - kind: arrow_function
-              has: {field: body, any: [{pattern: Effect.void}, {pattern: Effect.succeed($_)}]}
-            - pattern: Effect.succeed
+              has:
+                  field: body
+                  any:
+                      - {kind: call_expression, has: {field: function, matches: pass-constructor}}
+                      - pattern: Effect.void
+                      - pattern: Micro.void
+                      - pattern: STM.void
+            - matches: pass-constructor
 rule:
     any:
         - matches: effect-two-arm-branch
-        # The effect's own effect-returning match, an arm that fails beside an arm that succeeds is Effect.mapError
-        - pattern: Effect.matchEffect($$$)
-    has:
-        field: arguments
-        has:
-            kind: object
-            all:
-                - has: {kind: pair, has: {field: value, matches: fail-arm}}
-                - has: {kind: pair, has: {field: value, matches: pass-arm}}
+          has:
+              field: arguments
+              has:
+                  kind: object
+                  all:
+                      - has: {kind: pair, has: {field: value, matches: fail-arm}}
+                      - has: {kind: pair, has: {field: value, matches: pass-arm}}
+        # Match.when and Match.orElse hold the arms as arguments, one step fails and the other passes the value
+        - matches: effect-two-step-match-chain
+          has:
+              field: arguments
+              all:
+                  - has: {kind: call_expression, has: {field: arguments, has: {matches: fail-arm}}}
+                  - has: {kind: call_expression, has: {field: arguments, has: {matches: pass-arm}}}
 message: The branch fails in one arm and passes the value through in the other
 note: >-
-    Guard a boolean with `Effect.filterOrFail(effect, predicate, () => error)`, `Effect.succeed(value)` when the inspected
-    value is a local, an Option, Either, or Exit is an Effect already, and `Effect.mapError(effect, () => error)` renames its failure
+    Guard a boolean with `Effect.filterOrFail(effect, predicate, () => error)`, a local enters as `Effect.succeed(value)`,
+    and `Effect.mapError` renames the failure of an Option, Either, or Exit

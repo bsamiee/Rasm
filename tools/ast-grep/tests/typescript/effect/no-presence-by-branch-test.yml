@@ -1,46 +1,99 @@
 id: no-presence-by-branch
 valid:
-    # An optional key lifted as an Option
+    # Optional key lifted as an Option
     - 'const targets = { pack, ...Record.getSomes({ stage: Option.liftPredicate(stage, () => !managed) }) };'
     # Optional elements lifted as an Option
     - 'const plugins = [...Array.flatMap(Option.toArray(Option.liftPredicate(config.react, identity)), reactPlugins)];'
-    # A spread of whole objects, an optional object spreads as is
+    # Spread of whole objects, an optional object spreads as is
     - 'const merged = { ...defaults, ...overrides };'
-    # A two-arm match with a value in both arms
+    # Two-arm match with a value in both arms
     - 'const named = Boolean.match(managed, { onTrue: () => "managed", onFalse: () => "native" });'
-    # A two-step chain with a value in both arms, a union of shapes chosen by branch
+    # Two-step chain with a value in both arms, a union of shapes chosen by branch
     - 'const options = { ...Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({ name: other }))) };'
-    # A dispatch over many arms with an empty fallback
-    - 'const readings = Match.value(state).pipe(Match.when(isCounter, (counter) => [reading(counter)]), Match.when(isGauge, (gauge) => [reading(gauge)]), Match.orElse(() => []));'
-    # A two-arm match with an element in both array arms
+    # Dispatch over many arms with an empty fallback
+    - |
+      const readings = Match.value(state).pipe(
+        Match.when(isCounter, (counter) => [reading(counter)]),
+        Match.when(isGauge, (gauge) => [reading(gauge)]),
+        Match.orElse(() => []),
+      );
+    # Two-arm match with an element in both array arms
     - 'const listed = Option.match(found, { onNone: () => [fallback], onSome: (item) => [item] });'
-    # A nullish default spread, both sides hold a value
+    # Nullish default spread, both sides hold a value
     - 'const options = { ...(override ?? {}) };'
-    # A dispatch over many arms through the pipe function, the same three steps as the method chain
-    - 'const readings = pipe(Match.value(state), Match.when(isCounter, (counter) => [reading(counter)]), Match.when(isGauge, (gauge) => [reading(gauge)]), Match.orElse(() => []));'
-    # A match on a module outside the effect package, the rule reads the effect data types alone
+    # Dispatch over many arms through the pipe function, the same three steps as the method chain
+    - |
+      const readings = pipe(
+        Match.value(state),
+        Match.when(isCounter, (counter) => [reading(counter)]),
+        Match.when(isGauge, (gauge) => [reading(gauge)]),
+        Match.orElse(() => []),
+      );
+    # Match on a module outside the effect package with an empty arm, the carrier regex keeps it out
     - 'const listed = Item.match(item, { onLeaf: () => [], onNode: (children) => children });'
     # Either.mapBoth keeps both sides as an Either, the branch chooses no side
     - 'const mapped = Either.mapBoth(decoded, { onLeft: () => [], onRight: (row) => [row] });'
+    # Effect.if with a value in both succeed arms
+    - 'const rows = Effect.if(seen, { onTrue: () => Effect.succeed([first]), onFalse: () => Effect.succeed([second]) });'
+    # Effect.if with an empty succeed arm beside an arm that runs an operation, a dispatch
+    - 'const rows = Effect.if(seen, { onTrue: () => Effect.succeed([]), onFalse: () => append(rows) });'
+    # Empty succeed arm beside an operation passed point-free, a dispatch
+    - 'const logged = Option.match(found, { onNone: () => Effect.succeed([]), onSome: Console.log });'
+    # Type matcher dispatch over three steps with an empty fallback
+    - |
+      const readings = Match.type<Reading>().pipe(
+        Match.when({ kind: "counter" }, (counter) => [counter.value]),
+        Match.when({ kind: "gauge" }, (gauge) => [gauge.value]),
+        Match.orElse(() => []),
+      );
+    # Two-step chain with an empty lifted arm beside an arm that runs an operation, a dispatch
+    - 'const rows = Match.value(kind).pipe(Match.when("a", () => Effect.succeed([])), Match.orElse(() => append(rows)));'
 invalid:
-    # An empty arm spread into an object
+    # Empty arm spread into an object
     - 'const targets = { pack, ...Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) }) };'
-    # An empty arm spread into an array
+    # Empty arm spread into an array
     - 'const plugins = [...Boolean.match(config.react, { onFalse: () => [], onTrue: reactPlugins })];'
-    # An empty arm bound to a local, the same choice away from the spread
+    # Empty arm bound to a local, the same choice away from the spread
     - 'const inProduction = (plugins) => Boolean.match(production, { onFalse: () => [], onTrue: plugins });'
-    # An Option matched into an empty arm
+    # Option matched into an empty arm
     - 'const options = { ...Option.match(release, { onNone: () => ({}), onSome: (group) => ({ release: group })}) };'
-    # An Option matched into an array
+    # Option matched into an array
     - 'const listed = Option.match(found, { onNone: () => [], onSome: (item) => [item] });'
-    # An Either matched into an empty arm
+    # Either matched into an empty arm
     - 'const parsed = Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] });'
-    # A two-step chain with an empty Match.orElse fallback inside a spread
+    # Exit matched into an empty arm
+    - 'const settled = Exit.match(exit, { onFailure: () => [], onSuccess: (value) => [value] });'
+    # Effect matched into an empty arm, the failure stands for absence
+    - 'const loaded = Effect.match(load, { onFailure: () => ({}), onSuccess: (config) => ({ config }) });'
+    # Micro matched into an empty arm
+    - 'const rows = Micro.match(work, { onFailure: () => [], onSuccess: (row) => [row] });'
+    # STM matched into an empty arm
+    - 'const rows = STM.match(transaction, { onFailure: () => [], onSuccess: (row) => [row] });'
+    # Effect.if with an empty object lifted through Effect.succeed
+    - 'const targets = Effect.if(managed, { onTrue: () => Effect.succeed({}), onFalse: () => Effect.succeed({ stage }) });'
+    # Exit matched through matchEffect with an empty array lifted through Effect.succeed
+    - 'const settled = Exit.matchEffect(exit, { onFailure: () => Effect.succeed([]), onSuccess: (value) => Effect.succeed([value]) });'
+    # Micro matched through matchEffect with an empty array lifted through Micro.succeed
+    - 'const rows = Micro.matchEffect(work, { onFailure: () => Micro.succeed([]), onSuccess: (row) => Micro.succeed([row]) });'
+    # STM matched through matchSTM with an empty object lifted through STM.succeed
+    - 'const rows = STM.matchSTM(transaction, { onFailure: () => STM.succeed({}), onSuccess: (row) => STM.succeed({ row }) });'
+    # Option matched into an empty lifted arm beside the point-free lift of the value
+    - 'const rows = Option.match(found, { onNone: () => Effect.succeed([]), onSome: Effect.succeed });'
+    # Two-step chain with an empty Match.orElse fallback inside a spread
     - 'const options = { ...Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({}))) };'
-    # A two-step chain with an empty arm away from the spread
+    # Two-step chain with an empty arm away from the spread
     - 'const names = Match.value(language).pipe(Match.when("python", () => []), Match.orElse(() => [name]));'
-    # A two-step chain through the pipe function with an empty fallback, the gap the method-form util left
+    # Two-step chain through the pipe function with an empty fallback, the gap the method-form util left
     - 'const options = { ...pipe(Match.value(language), Match.when("python", () => ({ name })), Match.orElse(() => ({}))) };'
-    # A conjunction spread
+    # Two-step type matcher with an empty fallback through the pipe method
+    - 'const names = Match.type<Language>().pipe(Match.when("python", () => [name]), Match.orElse(() => []));'
+    # Two-step type matcher with an empty arm through the pipe function
+    - 'const names = pipe(Match.type<Language>(), Match.when("python", () => []), Match.orElse(() => [name]));'
+    # Two-step chain with an empty array lifted through Effect.succeed beside the lifted value
+    - 'const rows = Match.value(kind).pipe(Match.when("a", () => Effect.succeed([])), Match.orElse(() => Effect.succeed([row])));'
+    # Two-step chain through the pipe function with an empty lifted object beside the point-free lift
+    - 'const rows = pipe(Match.value(kind), Match.when("a", () => Effect.succeed({})), Match.orElse(Effect.succeed));'
+    # Conjunction spread into an object
     - 'const options = { ...(adopt && { import: id }) };'
+    # Conjunction spread into an array
     - 'const plugins = [...(production && plugins)];'

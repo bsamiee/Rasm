@@ -4,10 +4,8 @@ language: xml
 severity: error
 files: ['**/Directory.Build.props']
 rule:
-    kind: element
-    all:
-        # Update and Remove sit on items alone, the ItemGroup parent adds no shape
-        - has: {matches: msbuild-tag, has: {kind: Attribute, has: {kind: Name, regex: '^(Update|Remove)$'}}}
-        - not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
+    # Update and Remove sit on items alone, an ItemGroup parent adds no shape and a child element of that name is metadata
+    matches: {msbuild-metadata: {name: {regex: '^(Update|Remove)$'}, value: {kind: AttValue}}}
+    not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
 message: The Update or Remove in Directory.Build.props runs before the SDK globs add any item and matches nothing
 note: Move the item to Directory.Build.targets or the project file, and express an exclusion through DefaultItemExcludes

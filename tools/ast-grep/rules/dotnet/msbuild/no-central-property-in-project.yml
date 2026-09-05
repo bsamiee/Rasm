@@ -4,11 +4,20 @@ language: xml
 severity: error
 files: ['**/*.csproj']
 rule:
+    pattern: _PROPERTY
     matches:
         msbuild-property:
             name:
                 # Severities, analysis, restore, output, version, CI, and test runner settings, a project value copies or overrides the owner
-                regex: '^(NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|(MSBuild|CodeAnalysis)?TreatWarningsAsErrors|AnalysisLevel|AnalysisMode|RunAnalyzers|EnforceCodeStyleInBuild|NuGetAudit(Mode|Level)?|ArtifactsPath|UseArtifactsOutput|ArtifactsProjectName|Base(Intermediate)?OutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|InformationalVersion|AssemblyVersion|FileVersion|MinVer[A-Za-z]*|GeneratePackageOnBuild|ContinuousIntegrationBuild|RestorePackagesWithLockFile|RestoreLockedMode|IsTestProject|UseMicrosoftTestingPlatformRunner|IsTestingPlatformApplication|TestingPlatform[A-Za-z]*|Enable(MSTest|NUnit)Runner|GenerateTestingPlatformEntryPoint)$'
+                regex: "^(NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|(MSBuild|CodeAnalysis)?TreatWarningsAsErrors|AnalysisLevel|\
+                        AnalysisMode|RunAnalyzers|EnforceCodeStyleInBuild|NuGetAudit(Mode|Level)?|ArtifactsPath|UseArtifactsOutput|\
+                        ArtifactsProjectName|Base(Intermediate)?OutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|\
+                        InformationalVersion|AssemblyVersion|FileVersion|MinVer[A-Za-z]*|GeneratePackageOnBuild|ContinuousIntegrationBuild|\
+                        RestorePackagesWithLockFile|RestoreLockedMode|IsTestProject|UseMicrosoftTestingPlatformRunner|IsTestingPlatformApplication|\
+                        TestingPlatform[A-Za-z]*|Enable(MSTest|NUnit)Runner|GenerateTestingPlatformEntryPoint)$"
+fix:
+    template: ''
+    expandEnd: {kind: CharData, regex: '^\s*$'}
 message: The project file sets a property another file owns
 note: >-
     Delete the property, versions come from the release tag or the native manifest, severities from .editorconfig, output, analysis, restore,

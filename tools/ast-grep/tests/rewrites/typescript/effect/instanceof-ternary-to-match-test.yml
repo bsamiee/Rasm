@@ -1,0 +1,25 @@
+id: instanceof-ternary-to-match
+valid:
+    # The match
+    - 'const detail = Match.value(cause).pipe(Match.when(Match.instanceOf(Error), (cause) => cause.message), Match.orElse((cause) => String(cause)));'
+    # Member read as the checked value has no name to bind
+    - 'const detail = this.cause instanceof Error ? this.cause.message : Inspectable.toStringUnknown(this.cause);'
+    # Success arm belongs to the Effect lift
+    - 'const checked = cause instanceof Error ? Effect.succeed(cause) : detail;'
+    # Failure arm in the alternative
+    - 'const checked = cause instanceof Error ? detail : Effect.fail(cause);'
+    # Effect.void as the arm
+    - 'const checked = cause instanceof Error ? Effect.void : detail;'
+    # Await as the arm, an arrow body holds none
+    - 'const detail = cause instanceof Error ? await report(cause) : detail;'
+    # Object arm needs parentheses, hand repair
+    - 'const detail = cause instanceof Error ? { message: cause.message } : cause;'
+    # Object arm in the alternative
+    - "const detail = cause instanceof Error ? cause : { message: 'unknown' };"
+invalid:
+    # The instance
+    - 'const detail = cause instanceof Error ? cause.message : Inspectable.toStringUnknown(cause);'
+    # Qualified type
+    - 'const varied = input instanceof FastCheck.Arbitrary ? vary(input, keys) : record(input);'
+    # The negated check, the arms swap
+    - 'const detail = !(cause instanceof Error) ? Inspectable.toStringUnknown(cause) : cause.message;'

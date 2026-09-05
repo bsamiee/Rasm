@@ -1,0 +1,30 @@
+id: require-target-framework-form-by-hand
+valid:
+    # One framework alone
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework></PropertyGroup></Project>
+    # List alone
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    # Root default guarding on both forms and setting the singular alone
+    - |
+      <Project><PropertyGroup><TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
+        </PropertyGroup></Project>
+    # Reference metadata naming the singular beside the plural property, metadata is no property
+    - |
+      <Project><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup><ItemGroup>
+        <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework></ProjectReference>
+          </ItemGroup></Project>
+invalid:
+    # Both properties in one group, the singular wins silently
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework>
+        <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    # Both properties in separate groups, one under a condition
+    - |
+      <Project><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup>
+        <PropertyGroup Condition="'$(Legacy)' == 'true'"><TargetFramework>net48</TargetFramework></PropertyGroup></Project>
+    # Both properties holding lists, the sibling refuses the rename
+    - |
+      <Project><PropertyGroup><TargetFramework>net10.0;netstandard2.0</TargetFramework>
+        <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>

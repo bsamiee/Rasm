@@ -1,0 +1,92 @@
+id: no-elif-dispatch
+valid:
+    # The target form
+    - |
+      def label(kind):
+          match kind:
+              case "a":
+                  return 1
+              case "b":
+                  return 2
+              case "c":
+                  return 3
+              case _:
+                  return 0
+    # Three arms
+    - |
+      def label(kind):
+          if kind == "a":
+              return 1
+          elif kind == "b":
+              return 2
+          elif kind == "c":
+              return 3
+          return 0
+    # Foreign subject between the arms breaks the chain, match has no case for it
+    - |
+      def label(kind, other):
+          if kind == "a":
+              return 1
+          elif kind == "b":
+              return 2
+          elif other == "b":
+              return 2
+          elif kind == "c":
+              return 3
+          elif kind == "d":
+              return 4
+          return 0
+    # Range arms compare with an order, no value dispatch
+    - |
+      def label(n):
+          if n == 0:
+              return 1
+          elif n < 2:
+              return 2
+          elif n < 4:
+              return 3
+          elif n < 8:
+              return 4
+          return 0
+invalid:
+    # Four arms over one subject
+    - |
+      def label(kind):
+          if kind == "a":
+              return 1
+          elif kind == "b":
+              return 2
+          elif kind == "c":
+              return 3
+          elif kind == "d":
+              return 4
+          return 0
+    # Comments between arms are siblings the walk passes
+    - |
+      def label(kind):
+          if kind == "a":
+              return 1
+          elif kind == "b":
+              return 2
+          # the rare kinds
+          elif kind == "c":
+              return 3
+          # the rarest kind
+          elif kind == "d":
+              return 4
+          return 0
+    # Five arms and an else report once at the if
+    - |
+      def label(kind):
+          if kind == "a":
+              return 1
+          elif kind == "b":
+              return 2
+          elif kind == "c":
+              return 3
+          elif kind == "d":
+              return 4
+          elif kind == "e":
+              return 5
+          else:
+              return 0

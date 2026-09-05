@@ -1,15 +1,16 @@
 id: require-solution-folder-for-project
 valid:
-    # A project under the folder of its directory chain
+    # Project under the folder of its directory chain
     - |
-      <Solution><Folder Name="/tests/dotnet/libs/"><Project Path="tests/dotnet/libs/Rasm.Interop.Tests/Rasm.Interop.Tests.csproj" /></Folder></Solution>
-    # An empty folder marks a level of the tree
+      <Solution><Folder Name="/tests/dotnet/libs/"><Project Path="tests/dotnet/libs/Rasm.Interop.Tests/Rasm.Interop.Tests.csproj" /></Folder>
+        </Solution>
+    # Empty folder marking a level of the tree
     - |
       <Solution><Folder Name="/tests/" /></Solution>
 invalid:
-    # A project in the solution root, the form dotnet sln add --in-root writes
+    # Project in the solution root, the form dotnet sln add --in-root writes
     - |
       <Solution><Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" /></Solution>
-    # A project in the root beside a folder that holds another
+    # Project in the root beside a folder holding another
     - |
       <Solution><Folder Name="/libs/"><Project Path="libs/A/A.csproj" /></Folder><Project Path="tools/B/B.csproj" /></Solution>

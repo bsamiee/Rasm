@@ -1,0 +1,15 @@
+id: no-npm-command
+valid:
+    # The target form
+    - 'pnpm exec biome check .'
+    # The pnpm command
+    - 'pnpm install --frozen-lockfile'
+    # The word as an argument
+    - 'echo npm'
+invalid:
+    # The instance
+    - 'npx biome check .'
+    # The package manager command
+    - 'npm install'
+    # Leading assignment keeps the command name
+    - 'NPM_CONFIG_LOGLEVEL=silent npx tsc --build'

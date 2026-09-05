@@ -2,21 +2,22 @@ id: require-private-normalized-property
 valid:
     # The private derived form of Directory.Build.targets
     - |
-      <PropertyGroup><_RhinoAppDir Condition="'$(RhinoAppPath)' != ''">$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</_RhinoAppDir></PropertyGroup>
-    # A composed path with segments is a new value
+      <PropertyGroup><_RhinoAppDir Condition="'$(RhinoAppPath)' != ''">$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</_RhinoAppDir>
+        </PropertyGroup>
+    # Composed path with segments, a new value
     - |
       <PropertyGroup><LibsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'libs'))</LibsRoot></PropertyGroup>
-    # A private trailing-slash guarantee
+    # Private trailing-slash guarantee
     - |
       <PropertyGroup><_NuGetPackageRoot>$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))</_NuGetPackageRoot></PropertyGroup>
 invalid:
     # The instance, -p:RhinoAppPath left the value without its slash
     - |
       <PropertyGroup><RhinoAppPath>$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</RhinoAppPath></PropertyGroup>
-    # A public property normalized onto itself
+    # Public property normalized onto itself
     - |
       <PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup>
-    # A public alias of an already normalized reserved directory
+    # Public alias of a normalized reserved directory
     - |
       <PropertyGroup><RepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</RepoRoot></PropertyGroup>
     # The BCL path function normalizes the same way

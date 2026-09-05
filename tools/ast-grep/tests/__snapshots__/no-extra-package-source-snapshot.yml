@@ -1,15 +1,46 @@
 id: no-extra-package-source
 snapshots:
   ? |
+    <packageSourceMapping>
+      <clear />
+      <packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource>
+    </packageSourceMapping>
+  : fixed: |
+      <packageSourceMapping>
+        <clear />
+        <packageSource key="local"><package pattern="Rasm.*" /></packageSource>
+      </packageSourceMapping>
+    labels:
+    - source: <package pattern="Contoso.*" />
+      style: primary
+      start: 92
+      end: 123
+    - source: <packageSource key="local">
+      style: secondary
+      start: 37
+      end: 64
+    - source: <packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource>
+      style: secondary
+      start: 37
+      end: 139
+    - source: <package pattern="Rasm.*" /><package pattern="Contoso.*" />
+      style: secondary
+      start: 64
+      end: 123
+  ? |
     <packageSourceMapping><clear /><packageSource key="github"><package pattern="Contoso.*" /></packageSource></packageSourceMapping>
-  : labels:
+  : fixed: |
+      <packageSourceMapping><clear /></packageSourceMapping>
+    labels:
     - source: <packageSource key="github"><package pattern="Contoso.*" /></packageSource>
       style: primary
       start: 31
       end: 106
   ? |
     <packageSourceMapping><clear /><packageSource key="local"><package pattern="*" /></packageSource></packageSourceMapping>
-  : labels:
+  : fixed: |
+      <packageSourceMapping><clear /><packageSource key="local"></packageSource></packageSourceMapping>
+    labels:
     - source: <package pattern="*" />
       style: primary
       start: 58
@@ -27,27 +58,10 @@ snapshots:
       start: 58
       end: 81
   ? |
-    <packageSourceMapping><clear /><packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource></packageSourceMapping>
-  : labels:
-    - source: <package pattern="Contoso.*" />
-      style: primary
-      start: 86
-      end: 117
-    - source: <packageSource key="local">
-      style: secondary
-      start: 31
-      end: 58
-    - source: <packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource>
-      style: secondary
-      start: 31
-      end: 133
-    - source: <package pattern="Rasm.*" /><package pattern="Contoso.*" />
-      style: secondary
-      start: 58
-      end: 117
-  ? |
     <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="Rasm.*" /></packageSource></packageSourceMapping>
-  : labels:
+  : fixed: |
+      <packageSourceMapping><clear /><packageSource key="nuget.org"></packageSource></packageSourceMapping>
+    labels:
     - source: <package pattern="Rasm.*" />
       style: primary
       start: 62
@@ -66,7 +80,9 @@ snapshots:
       end: 90
   ? |
     <packageSources><clear /><add key="NuGet" value="https://api.nuget.org/v3/index.json" /></packageSources>
-  : labels:
+  : fixed: |
+      <packageSources><clear /></packageSources>
+    labels:
     - source: <add key="NuGet" value="https://api.nuget.org/v3/index.json" />
       style: primary
       start: 25
@@ -81,7 +97,9 @@ snapshots:
       end: 88
   ? |
     <packageSources><clear /><add key="github" value="https://nuget.pkg.github.com/rasm/index.json" /></packageSources>
-  : labels:
+  : fixed: |
+      <packageSources><clear /></packageSources>
+    labels:
     - source: <add key="github" value="https://nuget.pkg.github.com/rasm/index.json" />
       style: primary
       start: 25
@@ -96,7 +114,9 @@ snapshots:
       end: 98
   ? |
     <packageSources><clear /><add key="local" value="eng/nuget" /></packageSources>
-  : labels:
+  : fixed: |
+      <packageSources><clear /></packageSources>
+    labels:
     - source: <add key="local" value="eng/nuget" />
       style: primary
       start: 25
@@ -111,7 +131,9 @@ snapshots:
       end: 62
   ? |
     <packageSources><clear /><add key="nuget.org" value="https://mirror.example.com/v3/index.json" /></packageSources>
-  : labels:
+  : fixed: |
+      <packageSources><clear /></packageSources>
+    labels:
     - source: <add key="nuget.org" value="https://mirror.example.com/v3/index.json" />
       style: primary
       start: 25

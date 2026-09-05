@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+# Node that wraps a value and keeps it a value, the kind set a shape util recurses through and a rule walks up through
+id: syntax-value-wrapper
+language: typescript
+rule:
+    any:
+        - kind: parenthesized_expression
+        - kind: as_expression
+        - kind: satisfies_expression
+        - kind: non_null_expression

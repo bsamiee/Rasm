@@ -1,0 +1,23 @@
+id: require-concurrency-option
+valid:
+    # Degree declared as a pair
+    - |
+      const declared = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => load(key), { concurrency: "inherit" });
+    # Degree declared as a shorthand property
+    - |
+      const shorthand = (keys: ReadonlyArray<string>, concurrency: number) =>
+          Effect.forEach(keys, (key) => load(key), { concurrency, discard: true });
+invalid:
+    # Options omitted
+    - 'const swept = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => load(key));'
+    # Options without a degree
+    - 'const gated = (item: Item) => Effect.all({ count: validate(item.count) }, { mode: "validate" });'
+    # Shorthand option without a degree
+    - |
+      const flagged = (keys: ReadonlyArray<string>, discard: boolean) => Effect.forEach(keys, load, { discard });
+    # Sibling module function, data-last
+    - 'const piped = stream.pipe(Stream.mapEffect((item) => load(item)));'
+    # Degree inside a nested callback belongs to the inner call
+    - |
+      const nested = (keys: ReadonlyArray<string>) =>
+          Effect.forEach(keys, (key) => Effect.forEach(key.split(","), load, { concurrency: 4 }));

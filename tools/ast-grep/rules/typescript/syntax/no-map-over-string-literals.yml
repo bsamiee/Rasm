@@ -3,24 +3,28 @@ id: no-map-over-string-literals
 language: tsx
 severity: error
 utils:
-    # An array literal holding string literals alone, the named children are strings and the punctuation is skipped through $_
-    string-list:
-        kind: array
-        all:
-            - has: {kind: string}
-            - not: {has: {pattern: $_, not: {kind: string}}}
-    # A callback that builds a string from its item
+    # Template or concatenation as the body or in a return, a comparison against a string builds nothing
+    string-value:
+        any:
+            - kind: template_string
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^\+$'}}, {has: {kind: string}}]
     string-builder:
-        kind: arrow_function
-        has: {field: body, any: [{kind: template_string}, {kind: binary_expression, has: {kind: string}}]}
+        any: [{kind: arrow_function}, {kind: function_expression}]
+        has:
+            field: body
+            any:
+                - matches: string-value
+                - kind: statement_block
+                  has: {kind: return_statement, has: {matches: string-value}}
 rule:
     any:
         - pattern: $LIST.map($BUILDER)
         - pattern: Array.map($LIST, $BUILDER)
-        # The data-last Array.map over the literal list through the pipe function
+        - pattern: Array.map($BUILDER)($LIST)
         - pattern: pipe($LIST, Array.map($BUILDER), $$$)
 constraints:
-    LIST: {matches: string-list}
+    LIST: {matches: {syntax-homogeneous-container: {item: {matches: syntax-string-literal}}}}
     BUILDER: {matches: string-builder}
 message: The strings the map produces are known when the list is written
 note: Write the produced strings as the list, or one brace glob `prefix/{a,b,c}` when the consumer expands globs

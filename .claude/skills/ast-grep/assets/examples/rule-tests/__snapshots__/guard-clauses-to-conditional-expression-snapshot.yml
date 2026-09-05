@@ -26,12 +26,12 @@ snapshots:
       style: secondary
       start: 30
       end: 75
-  ? |-
+  ? |
     def paired(n):
         if n < 0:
             return 1, 2
         return 3, 4
-  : fixed: |-
+  : fixed: |
       def paired(n):
           return (1, 2) if n < 0 else (3, 4)
     labels:

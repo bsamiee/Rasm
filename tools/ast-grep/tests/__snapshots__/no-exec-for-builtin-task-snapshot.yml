@@ -29,9 +29,9 @@ snapshots:
       start: 0
       end: 40
   ? |
-    <Exec><Command>mkdir $(OutDir)logs</Command></Exec>
+    <Exec Command='mkdir $(OutDir)logs' />
   : labels:
-    - source: <Exec><Command>mkdir $(OutDir)logs</Command></Exec>
+    - source: <Exec Command='mkdir $(OutDir)logs' />
       style: primary
       start: 0
-      end: 51
+      end: 38

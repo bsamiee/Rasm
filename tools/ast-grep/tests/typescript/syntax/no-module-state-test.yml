@@ -1,22 +1,58 @@
 id: no-module-state
 valid:
-    # An immutable module binding
+    # Immutable module binding
     - const fixed = 1;
-    # A mutable local inside the scope that owns it
+    # Mutable local inside the scope that owns it
     - |
       const next = () => {
           let local = 0;
           local += 1;
           return local;
       };
-    # An exported immutable binding
+    # Container built inside the function that owns it
+    - |
+      const collect = (items) => {
+          const seen = new Map();
+          return seen;
+      };
+    # Exported immutable binding
     - export const held = 2;
+    # Object literal table under as const, a value the module reads
+    - 'const targets = { lint: "lint", format: "format" } as const;'
+    # Object literal with pairs, a data table
+    - 'const commands = { lint: "lint", format: "format" };'
+    # Array literal with rows, a data table
+    - const rows = [1, 2];
+    # Constructed value outside the container grammar
+    - const client = new Client(settings);
+    # Frozen value from a call outside the mutable module grammar
+    - 'const frozen = Object.freeze({ retries: 3 });'
+    # Empty array under as const, an immutable tuple
+    - const none = [] as const;
+    # Immutable HashMap outside the mutable module grammar
+    - const table = HashMap.empty();
+    # Ref.make describes the Ref inside an effect, nothing is held at load
+    - const described = Ref.make(0);
+    # Var declaration, biome noVar reports it
+    - var legacy;
 invalid:
     # The instance, a counter every constructor increments
     - let nextSpanId = 0;
-    # A binding declared for later assignment
+    # Binding declared for later assignment
     - let pending;
-    # The var declaration
-    - var legacy;
-    # A mutable binding the module exports
+    # Mutable binding the module exports
     - export let shared = [];
+    # Const over a Map constructor
+    - const registry = new Map<string, Item>();
+    # Const over an empty array literal, an accumulator
+    - const seen = [];
+    # Const over an empty object literal, a cache
+    - const cache = {};
+    # Const over an effect MutableRef
+    - const counter = MutableRef.make(0);
+    # Const over an effect MutableHashMap
+    - const index = MutableHashMap.empty();
+    # Const over a Ref built outside an effect
+    - const current = Ref.unsafeMake(0);
+    # Const over a SynchronizedRef built outside an effect
+    - const guarded = SynchronizedRef.unsafeMake(0);

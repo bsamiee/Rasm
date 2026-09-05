@@ -3,7 +3,7 @@ id: no-lifted-condition
 language: tsx
 severity: error
 utils:
-    # A predicate that returns its argument, the lifted value is its own condition
+    # Predicate that returns its argument, identity typed as Predicate<A> compiles for a boolean A alone, the lifted value is the condition
     identity-predicate:
         any:
             - pattern: identity
@@ -27,5 +27,5 @@ rule:
         - has: {field: arguments, has: {matches: identity-predicate}}
 message: The lifted value is the condition itself, and the value the condition guards sits elsewhere
 note: >-
-    Lift the guarded value, `Option.liftPredicate(value, () => condition)` for one value and `Array.filter(values, () => condition)`
-    for elements, and a host object that owns an activation option (a plugin's `apply`) takes the condition there
+    Lift the guarded value, `Option.liftPredicate(value, () => condition)` for one value, `Array.filter(values, () => condition)`
+    for elements, a host activation option (`apply`) for a plugin

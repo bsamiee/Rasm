@@ -2,9 +2,28 @@
 id: require-clear-before-nuget-entries
 language: xml
 severity: error
-files: ['NuGet.config'] # The root NuGet.config alone, the one config of the workspace
+files: ['NuGet.config']
 rule:
+    pattern: _SECTION
     matches: {msbuild-element: {name: {regex: '^(packageSources|disabledPackageSources|packageSourceMapping)$'}}}
     not: {has: {kind: content, has: {matches: {msbuild-element: {name: {regex: '^clear$'}}}, nthChild: {position: 1, ofRule: {kind: element}}}}}
+transform:
+    # Every clear leaves, one returns after the start tag on the line of the first entry, and an empty section holds the clear alone
+    UNCLEARED:
+        replace:
+            source: $SECTION
+            replace: '\s*<clear\s*(/>|>\s*</clear>)'
+            by: ''
+    OPENED:
+        replace:
+            source: $UNCLEARED
+            replace: '^(<(packageSources|disabledPackageSources|packageSourceMapping)(\s[^>]*[^/>])?>)(\s*)'
+            by: '$1$4<clear />$4'
+    FILLED:
+        replace:
+            source: $OPENED
+            replace: '^<(packageSources|disabledPackageSources|packageSourceMapping)((\s[^>]*[^\s/>])?)\s*/>$'
+            by: '<$1$2><clear /></$1>'
+fix: $FILLED
 message: The NuGet.config section opens without <clear />, a user or machine config adds a source, disable, or mapping to the restore
 note: Put <clear /> before the first entry

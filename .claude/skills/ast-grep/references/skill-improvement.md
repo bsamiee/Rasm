@@ -4,7 +4,7 @@ Improve the ast-grep skill by comparing every section against the tool's sources
 
 ## [01]-[SOURCES]
 
-A fact is settled by the highest-ranked source that states it, and a disagreement between two sources ends with a probe against the installed binary:
+Facts are settled by the highest-ranked source that states them, and a disagreement between two sources ends with a probe against the installed binary:
 
 | [INDEX] | [SOURCE]               | [DECIDES]                                                     |
 | :-----: | :--------------------- | :------------------------------------------------------------ |
@@ -18,11 +18,11 @@ A fact is settled by the highest-ranked source that states it, and a disagreemen
 |  [08]   | Subcommand help        | Flag set and defaults of the installed version                |
 |  [09]   | MCP server source      | What each tool passes, returns, hides, and rejects            |
 
-A probe is one scratch project, one rule, one file, the command, and the exit code, and its result outranks every page. The crate sources that decide a rule question sit under `crates/config/src` and `crates/core/src` at the installed tag, the CLI under `crates/cli/src`, and the schemas under `schemas/`. The documentation states intent and lags the binary in both directions: a claim a probe disproves (`regex` matching the whole node text, the binary matches an unanchored substring), a type the schema widens (`metadata` as string to string, the value is free-form), a value the site keeps to the CLI and the schema accepts in a rule (`template` strictness in a pattern object), and a capability the site omits (parameterized utils, the `fix` list, `$CONTENT`, `$LANG`, `metaVarChar`), each settled by the source ranked above the site. A thread answer describes the version of its date, and a thread claim about order or scope gets the source read at the installed tag before it lands.
+Probes are one scratch project, one rule, one file, the command, and the exit code, and their result outranks every page. The crate sources that decide a rule question sit under `crates/config/src` and `crates/core/src` at the installed tag, the CLI under `crates/cli/src`, and the schemas under `schemas/`. The documentation states intent and lags the binary in both directions: a claim a probe disproves (`regex` matching the whole node text, the binary matches an unanchored substring), a type the schema widens (`metadata` as string to string, the value is free-form), a value the site keeps to the CLI and the schema accepts in a rule (`template` strictness in a pattern object), a capability the site omits (parameterized utils, the `matches` call object, the `fix` list, `$CONTENT`, `$LANG`, `metaVarChar`), and a worked example that fails as written (the two-document rewrite with no `language` on the second document), each settled by the source ranked above the site. Thread answers describe the version of their date, and a thread claim about order or scope gets the source read at the installed tag before it lands.
 
 ## [02]-[SEQUENCE]
 
-Run the steps in order, and stop at the step with a failing criterion. A claim that entered without a rank stays wrong through later rebuilds, because each rebuild trusts what is already there, and the first step ranks every existing fact before any source is read:
+Run the steps in order, and stop at the step with a failing criterion. Claims that entered without a rank stay wrong through later rebuilds, because each rebuild trusts what is already there, and the first step ranks every existing fact before any source is read:
 
 | [INDEX] | [STEP]                                                  | [CRITERION]                                                                 |
 | :-----: | :------------------------------------------------------ | :-------------------------------------------------------------------------- |
@@ -37,7 +37,7 @@ Run the steps in order, and stop at the step with a failing criterion. A claim t
 |  [09]   | Prove by a run                                          | `ast-grep test`, the gate scan, one template filled, one example run        |
 |  [10]   | Report                                                  | Weaknesses with sources, sections changed, proofs, out-of-scope findings    |
 
-The gather dispatches one Opus general-purpose gatherer per source kind into the skill's `.archive/`, each briefed with the output folder, the installed version, the method, the coverage criterion, and a report of at most 15 lines, and the gather reads an archive that holds a source kind in place of gathering that kind again. A capability qualifies when an agent following the section fails a real task without it, and a source naming a key qualifies nothing. Placement follows one test: a fact goes in `SKILL.md` when leaving it out lets an agent violate a standard, and in a reference when leaving it out only slows the agent, and a flow, a long example, or a history moves to a reference behind a one-line pointer. The history comparison reads `git log -p -- <file>` and `git diff HEAD -- <file>`, and where the earlier text and the current text disagree, a probe decides which one is restored.
+The gather dispatches one Opus general-purpose gatherer per source kind into the skill's `.archive/`, each briefed with the output folder, the installed version, the method, the coverage criterion, and a report of at most 15 lines, and the gather reads an archive that holds a source kind in place of gathering that kind again. Capabilities qualify when an agent following the section fails a real task without them, and a source naming a key qualifies nothing. Placement follows one test: a fact goes in `SKILL.md` when leaving it out lets an agent violate a standard, and in a reference when leaving it out only slows the agent, and a flow, a long example, or a history moves to a reference behind a one-line pointer. The history comparison reads `git log -p -- <file>` and `git diff HEAD -- <file>`, and where the earlier text and the current text disagree, a probe decides which one is restored.
 
 ## [03]-[SMELLS]
 
@@ -61,21 +61,21 @@ The gather dispatches one Opus general-purpose gatherer per source kind into the
 One rebuild, with the source that decided it:
 
 ```text
-BEFORE  `expandStart`/`expandEnd` consume exactly one adjacent sibling matching the sub-rule (`stopBy` inert)
+BEFORE  `expandStart`/`expandEnd` consume exactly one adjacent sibling matching the sub-rule (`stopBy` does nothing)
 AFTER   `expandStart`/`expandEnd` extend the fix range to the first sibling matching the sub-rule, the adjacent one by default and any under `stopBy: end`
 SOURCE  crates/config/src/fixer.rs walks node.next() under neighbor and node.next_all() under end, proven by scan --json replacementOffsets
 ```
 
 ## [04]-[OPPORTUNITIES]
 
-A real opportunity is a documented or proven capability an agent following the skill needs on a task it names and no section uses, or a section with steps an agent can follow and still produce a weak result. Each lands in the section that owns its mechanism, as one line with a criterion, and stays out when no task in the skill's scope reaches it. The source rows yield candidates in each listed category, and the check for each is the run that exposes it:
+Real opportunities are documented or proven capabilities an agent following the skill needs on a task it names and no section uses, or sections with steps an agent can follow and still produce a weak result. Each lands in the section that owns its mechanism, as one line with a criterion, and stays out when no task in the skill's scope reaches it. The source rows yield candidates in each listed category, and the check for each is the run that exposes it:
 
 | [INDEX] | [CATEGORY]                                         | [CHECK]                                                             |
 | :-----: | :------------------------------------------------- | :------------------------------------------------------------------ |
 |  [01]   | Flag conflict that silently drops an operation     | Two flags on one command, the file and the exit code read afterward |
 |  [02]   | Default that decides what a green run proved       | Flag omitted, the severity or the threshold read from the output    |
 |  [03]   | Path resolved against a root the caller is not     | Command run from a subdirectory, the reported paths compared        |
-|  [04]   | Output field a format carries and another does not | Both formats over one match, the key sets diffed                    |
+|  [04]   | Output field a format holds and another does not   | Both formats over one match, the key sets diffed                    |
 |  [05]   | Interactive key or prompt the session depends on   | Prompt source at the installed tag, the keys read                   |
 |  [06]   | Filter or severity flag that hides a rule          | Scan with and without it, the rule counts compared                  |
 |  [07]   | Tool wrapper folding two outcomes into one         | Tool call and the CLI form over one input, exit codes compared      |
@@ -83,8 +83,8 @@ A real opportunity is a documented or proven capability an agent following the s
 ## [05]-[CRITERIA]
 
 Improvements from an agent's suggestions land when each meets every criterion:
-- A step an agent skipped or ran without its criterion is rebuilt with the criterion it lacked, in place, and the step count stays
-- A source an agent needed and did not reach becomes a row of the source table, and the agent's sources table gains the exact command
-- A failure class the smell table lacks joins it with its correct form, and its check joins the step that owns it
-- A finding reported as a log of a run is rewritten as the principle or the poor guidance it exposes before it lands anywhere
-- A second instance of a class collapses into the class row, and a second phrasing of a step replaces the first
+- Steps an agent skipped or ran without their criterion are rebuilt with the criterion they lacked, in place, and the step count stays
+- Sources an agent needed and did not reach become rows of the source table, and the agent's sources table gains the exact command
+- Failure classes the smell table lacks join it with their correct form, and their check joins the step that owns it
+- Findings reported as a log of a run are rewritten as the principle or the poor guidance they expose before they land anywhere
+- Second instances of a class collapse into the class row, and a second phrasing of a step replaces the first

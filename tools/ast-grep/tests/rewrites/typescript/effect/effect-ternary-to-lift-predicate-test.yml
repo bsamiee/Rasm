@@ -1,0 +1,35 @@
+id: effect-ternary-to-lift-predicate
+valid:
+    # The lift
+    - 'const checked = Effect.liftPredicate(item, () => present, () => new LoadError({ message: detail }));'
+    # Call as the value runs under the condition alone
+    - 'const checked = present ? Effect.succeed(load(item)) : Effect.fail(error);'
+    # Object with rows as the value, the rows build ahead of the condition
+    - 'const checked = present ? Effect.succeed({ item }) : Effect.fail(error);'
+    # Effect.void holds no value to lift
+    - 'const checked = holds ? Effect.void : Effect.fail(new LoadError({ message: detail }));'
+    # Type argument on the constructor, the lift infers none
+    - 'const checked = present ? Effect.succeed<readonly Row[]>([]) : Effect.fail(error);'
+    # The operand a guard call narrows as the failure, the error thunk keeps the wide type
+    - 'const checked = Predicate.isError(cause) ? Effect.fail(cause) : Effect.succeed(report.verdict);'
+    # The checked operand as the value, the two-step form `Effect.orElseFail(Effect.fromNullable(value), () => error)` is no lift
+    - 'const value = x !== undefined ? Effect.succeed(x) : Effect.fail(error);'
+    # Two success arms are a choice
+    - 'const checked = present ? Effect.succeed(a) : Effect.succeed(b);'
+invalid:
+    # The instance, a name succeeds when the condition holds and the error is built in the failing arm
+    - 'const checked = present ? Effect.succeed(item) : Effect.fail(new LoadError({ message: detail }));'
+    # The arms swapped, a compound condition negates in parentheses
+    - 'const checked = input < 0 ? Effect.fail("rejected" as const) : Effect.succeed(input);'
+    # The arms swapped under a name condition, the name negates without parentheses
+    - 'const checked = missing ? Effect.fail(error) : Effect.succeed(item);'
+    # Member read fails under a guard call over another name
+    - 'const checked = Predicate.isError(cause) ? Effect.fail(error) : Effect.succeed(report.verdict);'
+    # Empty array literal as the value
+    - 'const rows = present ? Effect.succeed([]) : Effect.fail(error);'
+    # Empty object literal as the value
+    - 'const rows = present ? Effect.succeed({}) : Effect.fail(error);'
+    # Number literal as the value
+    - 'const count = present ? Effect.succeed(0) : Effect.fail(error);'
+    # The null literal as the value
+    - 'const handle = present ? Effect.succeed(null) : Effect.fail(error);'

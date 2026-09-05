@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/yaml_rule.json
+id: no-single-value-matrix-axis
+language: yaml
+severity: error
+files: ['.github/workflows/**']
+utils:
+    only-entry: # The only child from the child's side, first of all siblings and last of the siblings that are no comment
+        all:
+            - nthChild: 1 # Comments before the first item attach to the pair holding the sequence, one after it stays inside
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}, reverse: true}
+rule:
+    kind: block_mapping_pair
+    all:
+        - inside:
+              kind: block_mapping
+              inside:
+                  kind: block_node
+                  inside: {kind: block_mapping_pair, has: {field: key, regex: '^matrix$'}}
+        - has: {field: key, pattern: $AXIS}
+        - not: {has: {field: key, regex: '^(include|exclude)$'}} # Include and exclude row lists are no axis, one row there is a legal shape
+        - has:
+              field: value
+              any:
+                  - {kind: flow_node, has: {kind: flow_sequence, has: {kind: flow_node, matches: only-entry}}}
+                  - {kind: block_node, has: {kind: block_sequence, has: {kind: block_sequence_item, matches: only-entry}}}
+message: Matrix axis `$AXIS` holds one value and every job reads the same one
+note: Read the value where `matrix.<axis>` was read, or list the values the axis varies over

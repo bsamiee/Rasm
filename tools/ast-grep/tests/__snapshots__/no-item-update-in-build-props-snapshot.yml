@@ -7,35 +7,11 @@ snapshots:
       style: primary
       start: 11
       end: 44
-    - source: Remove
-      style: secondary
-      start: 20
-      end: 26
-    - source: Remove="Generated/**"
-      style: secondary
-      start: 20
-      end: 41
-    - source: <Compile Remove="Generated/**" />
-      style: secondary
-      start: 11
-      end: 44
   ? |
     <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   : labels:
     - source: <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
       style: primary
-      start: 11
-      end: 84
-    - source: Update
-      style: secondary
-      start: 17
-      end: 23
-    - source: Update="appsettings.json"
-      style: secondary
-      start: 17
-      end: 42
-    - source: <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
-      style: secondary
       start: 11
       end: 84
   ? |
@@ -45,15 +21,3 @@ snapshots:
       style: primary
       start: 11
       end: 105
-    - source: Update
-      style: secondary
-      start: 29
-      end: 35
-    - source: Update="Riok.Mapperly"
-      style: secondary
-      start: 29
-      end: 51
-    - source: <PackageReference Update="Riok.Mapperly">
-      style: secondary
-      start: 11
-      end: 52

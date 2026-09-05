@@ -10,7 +10,7 @@ snapshots:
       style: primary
       start: 0
       end: 33
-  ? |-
+  ? |
     #!/usr/bin/env bash
     run() {
       set -euo pipefail
@@ -18,7 +18,7 @@ snapshots:
     }
     run
   : labels:
-    - source: |-
+    - source: |
         #!/usr/bin/env bash
         run() {
           set -euo pipefail
@@ -27,7 +27,7 @@ snapshots:
         run
       style: primary
       start: 0
-      end: 68
+      end: 69
   ? |
     #!/usr/bin/env bash
     set -e

@@ -2,43 +2,82 @@ id: require-private-assets-on-development-dependency
 snapshots:
   ? |
     <PackageReference Include="MinVer" />
-  : labels:
+  : fixed: |
+      <PackageReference Include="MinVer" PrivateAssets="all" />
+    labels:
     - source: <PackageReference Include="MinVer" />
       style: primary
       start: 0
       end: 37
   ? |
+    <PackageReference Include="MinVer"><NoWarn>NU1603</NoWarn></PackageReference>
+  : fixed: |
+      <PackageReference Include="MinVer" PrivateAssets="all"><NoWarn>NU1603</NoWarn></PackageReference>
+    labels:
+    - source: <PackageReference Include="MinVer"><NoWarn>NU1603</NoWarn></PackageReference>
+      style: primary
+      start: 0
+      end: 77
+  ? |
+    <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">build</PrivateAssets></PackageReference>
+  : fixed: |
+      <PackageReference Include="MinVer" PrivateAssets="all" />
+    labels:
+    - source: <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">build</PrivateAssets></PackageReference>
+      style: primary
+      start: 0
+      end: 121
+  ? |
     <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets></PackageReference>
-  : labels:
+  : fixed: |
+      <PackageReference Include="MinVer" PrivateAssets="all" />
+    labels:
     - source: <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets></PackageReference>
       style: primary
       start: 0
       end: 90
   ? |
     <PackageReference Include="PureHDF.SourceGenerator" />
-  : labels:
+  : fixed: |
+      <PackageReference Include="PureHDF.SourceGenerator" PrivateAssets="all" />
+    labels:
     - source: <PackageReference Include="PureHDF.SourceGenerator" />
       style: primary
       start: 0
       end: 54
   ? |
     <PackageReference Include="Riok.Mapperly" />
-  : labels:
+  : fixed: |
+      <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+    labels:
     - source: <PackageReference Include="Riok.Mapperly" />
       style: primary
       start: 0
       end: 44
   ? |
     <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />
-  : labels:
+  : fixed: |
+      <PackageReference Include="Riok.Mapperly" IncludeAssets="all" PrivateAssets="all" />
+    labels:
     - source: <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />
       style: primary
       start: 0
       end: 64
   ? |
     <PackageReference Include="xunit.analyzers" />
-  : labels:
+  : fixed: |
+      <PackageReference Include="xunit.analyzers" PrivateAssets="all" />
+    labels:
     - source: <PackageReference Include="xunit.analyzers" />
       style: primary
       start: 0
       end: 46
+  ? |
+    <PackageReference Include='MinVer' />
+  : fixed: |
+      <PackageReference Include='MinVer' PrivateAssets="all" />
+    labels:
+    - source: <PackageReference Include='MinVer' />
+      style: primary
+      start: 0
+      end: 37

@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: no-await-on-module-value
+language: typescript
+severity: error
+rule:
+    kind: await_expression
+    has: {matches: effect-module-value} # The second caller of utils/effect-module-value.yml, the wrapped forms count the same
+    not: # runPromise and decodePromise return promises, the member name marks every promise-returning call
+        has: {stopBy: end, kind: member_expression, has: {field: property, regex: 'Promise'}}
+message: Await on a module value resolves to the value itself and the effect never runs
+note: Run the effect at the boundary with `Effect.runPromise(effect)`, or compose it with `yield*` inside the generator

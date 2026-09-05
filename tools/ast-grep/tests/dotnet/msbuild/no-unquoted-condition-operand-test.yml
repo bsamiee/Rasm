@@ -12,16 +12,50 @@ valid:
     # Exists and a negated Exists on an item metadata reference
     - |
       <_Missing Include="@(Reference->'%(HintPath)')" Condition="'%(Reference.HintPath)' != '' and !Exists('%(Reference.HintPath)')" />
-    # A comparison inside a message is text
+    # Comparison inside a message, text
     - |
       <Message Text="expected == $(Expected)" />
+    # Function call glued to the operand before the operator, the sibling no-unquoted-condition-operand-by-hand reports it
+    - |
+      <IsMac Condition="$([MSBuild]::IsOSPlatform('OSX')) == true">true</IsMac>
+    # Function call glued to the operand after the operator, the sibling reports it
+    - |
+      <IsMac Condition="'$(HostIsMac)' == $([MSBuild]::IsOSPlatform('OSX'))">true</IsMac>
+    # Group opening glued to the operand before the operator, the sibling reports it
+    - |
+      <Trim Condition="($(OutputType) == 'Exe') and '$(SelfContained)' == 'true'">true</Trim>
+    # Group close glued to the operand after the operator, the sibling reports it
+    - |
+      <Trim Condition="'$(OutputType)' == 'Exe' and (Exists('bin') or '$(Configuration)' == Release)">true</Trim>
 invalid:
     # Both operands unquoted, the literal splits at the dot with MSB4092
     - |
       <Optimize Condition="$(TargetFramework) == net10.0">true</Optimize>
-    # An unquoted property on the left of a quoted literal
+    # Unquoted property on the left of a quoted literal
     - |
       <PropertyGroup Condition="$(OutputType) == 'Exe'"><SelfContained>false</SelfContained></PropertyGroup>
-    # An unquoted literal on the right of an inequality
+    # Unquoted literal on the right of an inequality
     - |
       <Compile Include="Extra.cs" Condition="'$(Configuration)' != Release" />
+    # Unquoted operands without whitespace around the operator
+    - |
+      <Optimize Condition="$(Configuration)==Release">true</Optimize>
+    # Unquoted operand inside a chain, the quoted comparisons stay
+    - |
+      <Trim Condition="'$(OutputType)' == 'Exe' and $(SelfContained) != true">true</Trim>
+    # Backtick quotes, the fix rewrites them as single quotes
+    - |
+      <Optimize Condition="`$(Configuration)` == `Release`">true</Optimize>
+    # Entity quotes, the fix rewrites them as single quotes
+    - |
+      <Optimize Condition="&quot;$(Configuration)&quot; == Release">true</Optimize>
+    # Single-quoted attribute, the fix writes the attribute in double quotes and the operands in single quotes
+    - |
+      <Optimize Condition='$(Configuration) == "Release"'>true</Optimize>
+    # Quoted operand holding whitespace beside an unquoted one, the quoted operand stays
+    - |
+      <Optimize Condition="'$(Configuration) $(Platform)' == Release">true</Optimize>
+    # Condition spanning lines, the delimiters return as double quotes across the break
+    - |
+      <Trim Condition="$(OutputType) == Exe
+        and $(SelfContained) != true">true</Trim>

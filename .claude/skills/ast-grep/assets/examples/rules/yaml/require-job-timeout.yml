@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/yaml_rule.json
+id: require-job-timeout
+language: yaml
+severity: error
+files: ['.github/workflows/**'] # .github is hidden, the scan needs --no-ignore hidden to reach the workflows
+rule:
+    kind: block_mapping_pair # One job entry in block style, a flow-style jobs map is another shape
+    all:
+        - inside: # The walk climbs while every ancestor is a mapping or its node, the pair it stops at must be jobs
+              kind: block_mapping_pair
+              has: {field: key, regex: '^jobs$'}
+              stopBy: {not: {any: [{kind: block_mapping}, {kind: block_node}]}}
+        - not:
+              has: # Direct-child chain, a step-level timeout sits two mappings deeper and fails it
+                  kind: block_node
+                  has:
+                      kind: block_mapping
+                      has:
+                          kind: block_mapping_pair
+                          has: {field: key, regex: '^timeout-minutes$'}
+        - not: # Reusable-workflow callers hold uses: and the schema rejects timeout-minutes on them
+              has:
+                  kind: block_node
+                  has:
+                      kind: block_mapping
+                      has:
+                          kind: block_mapping_pair
+                          has: {field: key, regex: '^uses$'}
+message: Workflow job declares no timeout-minutes
+note: Add timeout-minutes as a direct key of the job entry, sized to the job's real runtime ceiling

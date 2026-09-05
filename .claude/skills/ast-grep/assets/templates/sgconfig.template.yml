@@ -1,24 +1,24 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/project.json
-# Project root sgconfig.yml written by hand, ast-grep new project writes absolute paths and a rule-tests directory
-# The binary accepts unknown keys the schema rejects, per-rule files and ignores scope paths
+# Project config beside the rule tree, ast-grep new project writes the same layout with absolute paths and no other key
 ruleDirs:
-    - rules # Discovered recursively, rules/<language>/<package>/<family>.yml
+    - rules # Every YAML under it is a rule, discovered recursively, a missing directory aborts the scan
+    - rewrites # Rewrite documents at severity off, one runs under --error=<id> and test --include-off runs their cases
 utilDirs:
-    - utils # Global utility rules, utils/<language>/<util-id>.yml
+    - utils # Global utility rules with id and language, none loads under scan -r, --inline-rules, or the MCP tools
 testConfigs:
-    - testDir: tests # Discovered recursively, snapshots go flat in tests/__snapshots__ and a test without its snapshot fails
-      snapshotDir: __snapshots__ # Relative to testDir, the CLI --snapshot-dir flag reads the same name
+    - testDir: rule-tests # Every file under it is a test document, a snapshot when its path starts with the snapshot directory
+      snapshotDir: __snapshots__ # Relative to testDir and the default, one file per id written by ast-grep test -U
 languageGlobs:
-    <language>: ['<glob>'] # Non-standard extensions and superset reuse, overrides the default parser for matched files
+    <language>: ['<glob>'] # Reassigns the parser of matched files, a superset grammar keeps one rule per pattern
 customLanguages:
     <name>:
-        libraryPath: <parser-dylib> # tree-sitter dynamic library, relative to sgconfig.yml
+        libraryPath: <parser-dylib> # tree-sitter dynamic library relative to sgconfig.yml, or a map keyed by Rust target triple
         extensions: ['<ext>']
-        expandoChar: µ # One character replacing $ where the grammar rejects it in patterns
-        metaVarChar: $ # The character opening a metavariable in patterns, a real field the project schema omits
-        languageSymbol: <dylib-symbol> # Default tree_sitter_<name>
-        outlineRules: <outline-rules>.yml
+        expandoChar: <char> # Replaces $ in patterns where the grammar rejects it, fix and transform still spell $
+        metaVarChar: <char> # Opens a metavariable in patterns, a field the project schema omits and the loader reads
+        languageSymbol: <dylib-symbol> # The symbol the library exports the grammar through, tree_sitter_<name> when omitted
+        outlineRules: <outline-rules>.yml # Extractors ast-grep outline loads after the bundled set, relative to sgconfig.yml
 languageInjections:
     - hostLanguage: <host-language>
-      rule: {pattern: '<host-pattern capturing $CONTENT>'} # $CONTENT is the injected text, neither it nor $LANG is in the schema
-      injected: <embedded-language> # Or a list the rule's $LANG capture picks from
+      rule: {pattern: '<host-pattern capturing $CONTENT>'} # $CONTENT is the injected region, and scan -U writes one region per pass
+      injected: <embedded-language> # One language, or a list the rule's $LANG capture picks the region's language from

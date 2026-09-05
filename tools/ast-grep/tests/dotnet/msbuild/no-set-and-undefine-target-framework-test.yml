@@ -1,21 +1,46 @@
 id: no-set-and-undefine-target-framework
 valid:
-    # A single-targeting reference
+    # Single-targeting reference
     - |
       <ProjectReference Include="../Tool/Tool.csproj" />
-    # The incompatible-framework form with the undefine alone
+    # Undefine alone, the corrected form
     - |
-      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" ReferenceOutputAssembly="false" />
-    # A custom item holds both names as metadata, SetTargetFramework does nothing outside ProjectReference
+      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework"
+        ReferenceOutputAssembly="false" />
+    # Custom item holding both names as metadata, SetTargetFramework does nothing outside ProjectReference
     - |
-      <ItemGroup><_HostProject Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" /></ItemGroup>
-    # The incompatible-framework form with the set alone
+      <ItemGroup><_HostProject Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+        </ItemGroup>
+    # Set alone
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" />
+    # Undefine of another property beside the set, TargetFrameworks holds the name as a prefix
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0"
+        UndefineProperties="Platform;TargetFrameworks" />
+    # Condition literal equal to the property name beside the set, the name slot keeps it out of the undefine clause
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0"
+        Condition="'$(ReferenceMode)' == 'TargetFramework'" />
 invalid:
-    # Both metadata on one reference
+    # GlobalPropertiesToRemove beside the set, the task receives it as RemoveProperties
     - |
-      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
-    # Both metadata in the child-element form
+      <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" GlobalPropertiesToRemove="TargetFramework" />
+    # Both metadata on one reference, the fix moves the skip flag to the end of the tag
     - |
-      <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework><UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0"
+        UndefineProperties="TargetFramework" />
+    # Both metadata in the child-element form, the fix adds the skip flag as an attribute
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework>
+        <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+    # TargetFramework inside a longer undefine list, no skip flag
+    - |
+      <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="Platform;TargetFramework" />
+    # Single-quoted attributes, the fix keeps them and writes the skip flag in double quotes
+    - |
+      <ProjectReference Include='../Tool/Tool.csproj' SetTargetFramework='TargetFramework=net10.0' UndefineProperties='TargetFramework' />
+    # Conditioned SetTargetFramework child, the fix strips it with its attributes
+    - |
+      <ProjectReference Include="Tool.csproj"><SetTargetFramework Condition="'$(Legacy)' != 'true'">TargetFramework=net10.0</SetTargetFramework>
+        <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>

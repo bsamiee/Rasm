@@ -1,0 +1,24 @@
+# Outline extractors ast-grep outline loads through --outline-rules or customLanguages.<name>.outlineRules, one document per extractor
+id: <item-extractor-id>
+language: <language>
+role: item # Top-level structure, a member document names its item through parentRuleIds
+symbolType: <lsp-symbol-kind> # module, class, function, variable, constant, or another lower camel case LSP SymbolKind
+rule: {kind: <kind>, has: {field: name, pattern: $NAME}} # The same rule, constraints, utils, and transform as a scan rule
+transform:
+    <SHOWN>: <op>($NAME, <key>=<value>)
+name: $SHOWN # The entry name, a template over captured and transformed metavariables
+signature: '<text with $NAME>' # Omitted, the first non-empty line of the match is the signature
+isImport: false
+isExported: {has: {regex: '<export-marker>'}} # Boolean or a rule over the matched node, default true
+---
+id: <member-extractor-id>
+language: <language>
+role: member
+parentRuleIds: [<item-extractor-id>] # Attachment is syntax containment under the item, names and types attach nothing
+symbolType: <lsp-symbol-kind>
+rule: # Body nodes sit between member and item, the neighbor default attaches nothing
+    kind: <kind>
+    inside: {kind: <item-kind>, stopBy: end}
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isPublic: {has: {regex: '<visibility-marker>'}} # Boolean or a rule, default true, --pub-members hides the rest

@@ -1,0 +1,53 @@
+id: no-throw-in-fin-method
+snapshots:
+  ? |
+    public static class S {
+        public static Fin<Row> Parse(string raw) => raw is "" ? throw new ArgumentException("empty") : Row.Parse(raw);
+    }
+  : labels:
+    - source: 'public static Fin<Row> Parse(string raw) => raw is "" ? throw new ArgumentException("empty") : Row.Parse(raw);'
+      style: primary
+      start: 28
+      end: 138
+    - source: Fin<Row>
+      style: secondary
+      start: 42
+      end: 50
+    - source: throw new ArgumentException("empty")
+      style: secondary
+      start: 84
+      end: 120
+  ? |
+    public static class S {
+        public static Fin<Row> Parse(string raw) { if (raw is "") throw new ArgumentException("empty"); return Row.Parse(raw); }
+    }
+  : labels:
+    - source: public static Fin<Row> Parse(string raw) { if (raw is "") throw new ArgumentException("empty"); return Row.Parse(raw); }
+      style: primary
+      start: 28
+      end: 148
+    - source: Fin<Row>
+      style: secondary
+      start: 42
+      end: 50
+    - source: throw new ArgumentException("empty");
+      style: secondary
+      start: 86
+      end: 123
+  ? |
+    public static class S {
+        public static Option<Row> Parse(string raw) { throw new NotSupportedException(); }
+    }
+  : labels:
+    - source: public static Option<Row> Parse(string raw) { throw new NotSupportedException(); }
+      style: primary
+      start: 28
+      end: 110
+    - source: Option<Row>
+      style: secondary
+      start: 42
+      end: 53
+    - source: throw new NotSupportedException();
+      style: secondary
+      start: 74
+      end: 108

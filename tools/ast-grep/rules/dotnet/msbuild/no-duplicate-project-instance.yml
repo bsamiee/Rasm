@@ -5,9 +5,12 @@ severity: error
 rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^MSBuild$'}}}
-        - matches: {msbuild-metadata: {name: {regex: '^Projects$'}, value: {regex: '\$\((MSBuildProjectFullPath|MSBuildProjectFile|MSBuildThisFileFullPath)\)'}}}
-        # A Properties value with one character past the quotes, an empty value passes no global property
-        - matches: {msbuild-metadata: {name: {regex: '^Properties$'}, value: {regex: '[^"\s]'}}}
+        - matches:
+              msbuild-metadata:
+                  name: {regex: '^Projects$'}
+                  value: {regex: '\$\((MSBuildProjectFullPath|MSBuildProjectFile|MSBuildThisFileFullPath)\)'}
+        # Properties value with one character past the quotes, an empty value passes no global property
+        - matches: {msbuild-metadata: {name: {regex: '^Properties$'}, value: {regex: '[^"''\s]'}}}
 message: >-
     The MSBuild task calls the project itself with a Properties value and creates a second instance that runs every target against the same bin
     and obj

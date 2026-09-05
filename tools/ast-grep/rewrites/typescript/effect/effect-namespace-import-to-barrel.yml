@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-namespace-import-to-barrel
+language: tsx
+severity: off
+rule:
+    kind: import_statement
+    all:
+        - has: {kind: import_clause, has: {kind: namespace_import, has: {kind: identifier, pattern: $N}}}
+        - has: {field: source, kind: string, pattern: $S}
+        # Type-only namespace import keeps its keyword under verbatimModuleSyntax, the template writes a value import
+        - not: {has: {regex: '^type$'}}
+constraints:
+    S: {regex: "^'effect/[A-Z]\\w*'$"} # Module the barrel re-exports as a namespace, effect/FastCheck and effect/Arbitrary among them
+transform:
+    MODULE:
+        replace: {source: $S, replace: "^'effect/(\\w+)'$", by: '$1'}
+fix: import { $MODULE as $N } from 'effect';
+message: The effect module is imported as a namespace from its subpath
+note: Import the module from the barrel, `import { Module } from 'effect'`, Biome drops the useless rename and merges the barrel imports

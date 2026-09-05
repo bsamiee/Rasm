@@ -1,21 +1,22 @@
 id: no-item-update-in-build-props
 valid:
-    # An Include adds items at any point
+    # Include adding items at any point
     - |
       <ItemGroup><PackageReference Include="MinVer" PrivateAssets="all" /></ItemGroup>
-    # An exclusion the SDK glob reads
+    # Exclusion the SDK glob reads
     - |
       <PropertyGroup><DefaultItemExcludes>$(DefaultItemExcludes);Generated/**</DefaultItemExcludes></PropertyGroup>
     # Inside a target the items exist
     - |
-      <Target Name="Mark" BeforeTargets="AssignTargetPaths"><ItemGroup><None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" /></ItemGroup></Target>
+      <Target Name="Mark" BeforeTargets="AssignTargetPaths"><ItemGroup><None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" />
+        </ItemGroup></Target>
 invalid:
-    # An Update on an item the SDK glob adds later, no None item exists yet
+    # Update on an item the SDK glob adds later, no None item exists yet
     - |
       <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
-    # A Remove before the Compile glob ran
+    # Remove before the Compile glob ran
     - |
       <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
-    # An update of the package references the project body declares later
+    # Update of the package references the project body declares later
     - |
       <ItemGroup><PackageReference Update="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>

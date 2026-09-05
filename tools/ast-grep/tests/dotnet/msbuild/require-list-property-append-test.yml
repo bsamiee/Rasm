@@ -3,29 +3,29 @@ valid:
     # The append form the correction produced
     - |
       <PropertyGroup><MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
-    # A restore code appended to NoWarn
+    # Restore code appended to NoWarn
     - |
       <PropertyGroup><NoWarn>$(NoWarn);NU1603</NoWarn></PropertyGroup>
-    # A define appended
+    # Define appended
     - |
       <PropertyGroup><DefineConstants>$(DefineConstants);HOST_MACOS</DefineConstants></PropertyGroup>
-    # A scalar property holds no list
+    # Scalar property holding no list
     - |
       <PropertyGroup><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
-    # A property function over the list keeps the inherited entries
+    # Property function over the list keeping the inherited entries
     - |
       <PropertyGroup><NoWarn>$(NoWarn.Replace('CS1591', ''))</NoWarn></PropertyGroup>
-    # A restore code on one reference is metadata, not the list property
+    # Restore code on one reference, metadata and no list property
     - |
       <ItemGroup><PackageReference Include="EPPlus"><NoWarn>NU1603</NoWarn></PackageReference></ItemGroup>
 invalid:
     # The instance, the inherited list was discarded
     - |
       <PropertyGroup><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
-    # A NoWarn assignment, the SDK default 1701;1702 is lost
+    # NoWarn assignment, the SDK default 1701;1702 is lost
     - |
       <PropertyGroup><NoWarn>CS1591</NoWarn></PropertyGroup>
-    # A define list that drops the SDK's TRACE and DEBUG
+    # Define list dropping the SDK's TRACE and DEBUG
     - |
       <PropertyGroup><DefineConstants>MY_FEATURE</DefineConstants></PropertyGroup>
     # Excludes that drop bin and obj
@@ -34,6 +34,9 @@ invalid:
     # The interceptor namespaces the generator packages added
     - |
       <PropertyGroup><InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
-    # An empty assignment drops every inherited entry
+    # Empty assignment dropping every inherited entry
     - |
       <PropertyGroup><NoWarn /></PropertyGroup>
+    # Conditioned assignment, the fix keeps the attribute
+    - |
+      <PropertyGroup><NoWarn Condition="'$(ContinuousIntegrationBuild)' == 'true'">CS1591</NoWarn></PropertyGroup>

@@ -1,0 +1,89 @@
+id: no-discard-arm-over-union
+snapshots:
+  ? |
+    public static class S {
+        public static int Code(Request request) => request switch { Request.Open o => 1, Request.Close c => 0, _ => -1 };
+    }
+  : labels:
+    - source: _
+      style: primary
+      start: 131
+      end: 132
+    - source: Request.Open
+      style: secondary
+      start: 88
+      end: 100
+    - source: Request.Open o
+      style: secondary
+      start: 88
+      end: 102
+    - source: Request.Open o => 1
+      style: secondary
+      start: 88
+      end: 107
+    - source: request switch { Request.Open o => 1, Request.Close c => 0, _ => -1 }
+      style: secondary
+      start: 71
+      end: 140
+    - source: _ => -1
+      style: secondary
+      start: 131
+      end: 138
+  ? |
+    public static class S {
+        public static int Code(Request request) => request switch { Request.Open o => 1, _ => 0 };
+    }
+  : labels:
+    - source: _
+      style: primary
+      start: 109
+      end: 110
+    - source: Request.Open
+      style: secondary
+      start: 88
+      end: 100
+    - source: Request.Open o
+      style: secondary
+      start: 88
+      end: 102
+    - source: Request.Open o => 1
+      style: secondary
+      start: 88
+      end: 107
+    - source: request switch { Request.Open o => 1, _ => 0 }
+      style: secondary
+      start: 71
+      end: 117
+    - source: _ => 0
+      style: secondary
+      start: 109
+      end: 115
+  ? |
+    public static class S {
+        public static int Code(Request request) => request switch { Request.Open { Code: 1 } => 1, _ => 0 };
+    }
+  : labels:
+    - source: _
+      style: primary
+      start: 119
+      end: 120
+    - source: Request.Open
+      style: secondary
+      start: 88
+      end: 100
+    - source: 'Request.Open { Code: 1 }'
+      style: secondary
+      start: 88
+      end: 112
+    - source: 'Request.Open { Code: 1 } => 1'
+      style: secondary
+      start: 88
+      end: 117
+    - source: 'request switch { Request.Open { Code: 1 } => 1, _ => 0 }'
+      style: secondary
+      start: 71
+      end: 127
+    - source: _ => 0
+      style: secondary
+      start: 119
+      end: 125

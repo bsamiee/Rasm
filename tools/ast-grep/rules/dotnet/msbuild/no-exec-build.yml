@@ -6,6 +6,9 @@ rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
         # Every dotnet subcommand that evaluates a project, and the msbuild executable
-        - matches: {msbuild-metadata: {name: {regex: '^Command$'}, value: {regex: '(?i)\bdotnet\s+(build|pack|publish|test|run|clean|restore|msbuild)\b|(^"|[\s/\;&])msbuild(\.exe)?\s'}}}
+        - matches:
+              msbuild-metadata:
+                  name: {regex: '^Command$'}
+                  value: {regex: '(?i)\bdotnet\s+(build|pack|publish|test|run|clean|restore|msbuild)\b|(^["'']|[\s/;&])msbuild(\.exe)?\s'}
 message: Exec starts a separate build process the engine cannot schedule or log, BuildCheck reports BC0302
 note: Order a project through ProjectReference with ReferenceOutputAssembly="false", or call a target through the MSBuild task

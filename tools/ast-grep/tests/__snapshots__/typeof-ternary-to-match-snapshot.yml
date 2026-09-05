@@ -1,0 +1,23 @@
+id: typeof-ternary-to-match
+snapshots:
+  'const count = typeof value === ''number'' ? value : Number(value);':
+    fixed: const count = Match.value(value).pipe(Match.when(Match.number, (value) => value), Match.orElse((value) => Number(value)));
+    labels:
+    - source: 'typeof value === ''number'' ? value : Number(value)'
+      style: primary
+      start: 14
+      end: 63
+  'const hits = typeof hit !== ''string'' ? hit : [hit];':
+    fixed: const hits = Match.value(hit).pipe(Match.when(Match.string, (hit) => [hit]), Match.orElse((hit) => hit));
+    labels:
+    - source: 'typeof hit !== ''string'' ? hit : [hit]'
+      style: primary
+      start: 13
+      end: 50
+  'const hits = typeof hit === ''string'' ? [hit] : hit;':
+    fixed: const hits = Match.value(hit).pipe(Match.when(Match.string, (hit) => [hit]), Match.orElse((hit) => hit));
+    labels:
+    - source: 'typeof hit === ''string'' ? [hit] : hit'
+      style: primary
+      start: 13
+      end: 50

@@ -1,0 +1,223 @@
+id: ternary-to-boolean-match
+snapshots:
+  'const load = size > limit ? async () => await fetch(root) : none;':
+    fixed: 'const load = Boolean.match(size > limit, { onFalse: () => none, onTrue: () => async () => await fetch(root) });'
+    labels:
+    - source: 'size > limit ? async () => await fetch(root) : none'
+      style: primary
+      start: 13
+      end: 64
+    - source: '>'
+      style: secondary
+      start: 18
+      end: 19
+    - source: size > limit
+      style: secondary
+      start: 13
+      end: 25
+  'const load = size > limit ? async function () { return await fetch(root); } : none;':
+    fixed: 'const load = Boolean.match(size > limit, { onFalse: () => none, onTrue: () => async function () { return await fetch(root); } });'
+    labels:
+    - source: 'size > limit ? async function () { return await fetch(root); } : none'
+      style: primary
+      start: 13
+      end: 82
+    - source: '>'
+      style: secondary
+      start: 18
+      end: 19
+    - source: size > limit
+      style: secondary
+      start: 13
+      end: 25
+  'const mode = ''root'' in config ? ''app'' : ''library'';':
+    fixed: 'const mode = Boolean.match(''root'' in config, { onFalse: () => ''library'', onTrue: () => ''app'' });'
+    labels:
+    - source: '''root'' in config ? ''app'' : ''library'''
+      style: primary
+      start: 13
+      end: 49
+    - source: in
+      style: secondary
+      start: 20
+      end: 22
+    - source: '''root'' in config'
+      style: secondary
+      start: 13
+      end: 29
+  'const mode = (size > limit) && (count > 1) ? ''large'' : ''small'';':
+    fixed: 'const mode = Boolean.match((size > limit) && (count > 1), { onFalse: () => ''small'', onTrue: () => ''large'' });'
+    labels:
+    - source: '(size > limit) && (count > 1) ? ''large'' : ''small'''
+      style: primary
+      start: 13
+      end: 62
+    - source: '&&'
+      style: secondary
+      start: 28
+      end: 30
+    - source: '>'
+      style: secondary
+      start: 19
+      end: 20
+    - source: size > limit
+      style: secondary
+      start: 14
+      end: 26
+    - source: (size > limit)
+      style: secondary
+      start: 13
+      end: 27
+    - source: '>'
+      style: secondary
+      start: 38
+      end: 39
+    - source: count > 1
+      style: secondary
+      start: 32
+      end: 41
+    - source: (count > 1)
+      style: secondary
+      start: 31
+      end: 42
+    - source: (size > limit) && (count > 1)
+      style: secondary
+      start: 13
+      end: 42
+  'const mode = size > limit && count > 1 ? ''large'' : ''small'';':
+    fixed: 'const mode = Boolean.match(size > limit && count > 1, { onFalse: () => ''small'', onTrue: () => ''large'' });'
+    labels:
+    - source: 'size > limit && count > 1 ? ''large'' : ''small'''
+      style: primary
+      start: 13
+      end: 58
+    - source: '&&'
+      style: secondary
+      start: 26
+      end: 28
+    - source: '>'
+      style: secondary
+      start: 18
+      end: 19
+    - source: size > limit
+      style: secondary
+      start: 13
+      end: 25
+    - source: '>'
+      style: secondary
+      start: 35
+      end: 36
+    - source: count > 1
+      style: secondary
+      start: 29
+      end: 38
+    - source: size > limit && count > 1
+      style: secondary
+      start: 13
+      end: 38
+  'const mode = typeof hit === ''string'' && size > limit ? ''large'' : ''small'';':
+    fixed: 'const mode = Boolean.match(typeof hit === ''string'' && size > limit, { onFalse: () => ''small'', onTrue: () => ''large'' });'
+    labels:
+    - source: 'typeof hit === ''string'' && size > limit ? ''large'' : ''small'''
+      style: primary
+      start: 13
+      end: 72
+    - source: '&&'
+      style: secondary
+      start: 37
+      end: 39
+    - source: ===
+      style: secondary
+      start: 24
+      end: 27
+    - source: typeof hit === 'string'
+      style: secondary
+      start: 13
+      end: 36
+    - source: '>'
+      style: secondary
+      start: 45
+      end: 46
+    - source: size > limit
+      style: secondary
+      start: 40
+      end: 52
+    - source: typeof hit === 'string' && size > limit
+      style: secondary
+      start: 13
+      end: 52
+  'const order = !ascending ? -1 : 1;':
+    fixed: 'const order = Boolean.match(!ascending, { onFalse: () => 1, onTrue: () => -1 });'
+    labels:
+    - source: '!ascending ? -1 : 1'
+      style: primary
+      start: 14
+      end: 33
+    - source: '!'
+      style: secondary
+      start: 14
+      end: 15
+    - source: '!ascending'
+      style: secondary
+      start: 14
+      end: 24
+  'const parity = value % 2 === 0 ? ''even'' : ''odd'';':
+    fixed: 'const parity = Boolean.match(value % 2 === 0, { onFalse: () => ''odd'', onTrue: () => ''even'' });'
+    labels:
+    - source: 'value % 2 === 0 ? ''even'' : ''odd'''
+      style: primary
+      start: 15
+      end: 47
+    - source: ===
+      style: secondary
+      start: 25
+      end: 28
+    - source: value % 2 === 0
+      style: secondary
+      start: 15
+      end: 30
+  'const plugin = size > limit ? compress({ level: 9 }) : identity;':
+    fixed: 'const plugin = Boolean.match(size > limit, { onFalse: () => identity, onTrue: () => compress({ level: 9 }) });'
+    labels:
+    - source: 'size > limit ? compress({ level: 9 }) : identity'
+      style: primary
+      start: 15
+      end: 63
+    - source: '>'
+      style: secondary
+      start: 20
+      end: 21
+    - source: size > limit
+      style: secondary
+      start: 15
+      end: 27
+  'const sign = value === -1 ? ''negative'' : ''other'';':
+    fixed: 'const sign = Boolean.match(value === -1, { onFalse: () => ''other'', onTrue: () => ''negative'' });'
+    labels:
+    - source: 'value === -1 ? ''negative'' : ''other'''
+      style: primary
+      start: 13
+      end: 48
+    - source: ===
+      style: secondary
+      start: 19
+      end: 22
+    - source: value === -1
+      style: secondary
+      start: 13
+      end: 25
+  'const target = kind === ''app'' ? { root, entry: main } : { root };':
+    fixed: 'const target = Boolean.match(kind === ''app'', { onFalse: () => ({ root }), onTrue: () => ({ root, entry: main }) });'
+    labels:
+    - source: 'kind === ''app'' ? { root, entry: main } : { root }'
+      style: primary
+      start: 15
+      end: 64
+    - source: ===
+      style: secondary
+      start: 20
+      end: 23
+    - source: kind === 'app'
+      style: secondary
+      start: 15
+      end: 29

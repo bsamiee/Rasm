@@ -1,29 +1,31 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: <rule-id> # Imperative grammar: no-<construct> / require-<shape>, defaults to the file stem when omitted, one rule per file
+# Lint rule under ruleDirs, one rule per file with the id as the file stem, every field the scan reads
+id: <rule-id> # Imperative grammar, no-<construct> or require-<shape>, unique across the tree, the file stem when omitted
 language: <language>
-severity: error # off parses unquoted, skips the scan and the tests, and --error=<rule-id> or test --include-off runs it
-files: ['<scope-glob>'] # Relative to sgconfig.yml, to the working directory under --inline-rules, no ./ prefix, {glob, caseInsensitive} too
-ignores: ['<boundary-glob>'] # Tested before files and the one exclusion channel, a !-negated glob inside files: matches nothing
+severity: error # Omitted is hint, off skips the scan and the tests, and error alone makes the scan exit 1
+files: ['<scope-glob>'] # Relative to sgconfig.yml without a ./ prefix, a glob with no directory takes an implied **/ prefix
+ignores: ['<boundary-glob>'] # Tested before files and the one exclusion channel, a !-negated glob inside files matches nothing
 utils:
-    <util-id>: # The shape every sibling shares, referenced through matches
+    <util-id>: # The shape every sibling shares, referenced through matches, a global util of the same id is shadowed
         any:
             - {kind: <kind-a>}
             - {kind: <kind-b>}
 rule:
-    all: # Explicit all: capture order matters, the defining pattern comes first
+    all: # Explicit all keeps list order, the clause binding a capture comes before the clauses that re-match it
         - pattern: <code with $VAR and $$$ARGS>
         - matches: <util-id>
         - has: {kind: <kind>, field: <role>, stopBy: end}
         - not: {inside: {kind: <exempting-kind>, stopBy: end}}
 constraints:
-    <VAR>: {regex: '<grammar>'} # Post-rule filter on a single-node capture
+    <VAR>: {regex: '<grammar>'} # Runs after the whole rule on a single-node capture, a $$$ name parses and never runs
+rewriters:
+    - id: <rewriter-id> # Tried on the captured nodes and their descendants, rewrite($$$ARGS, rewriters=[<rewriter-id>]) joins their fixes
+      rule: {pattern: $ITEM, kind: <kind>}
+      fix: <per-item template referencing $ITEM>
 transform:
-    <NEW>: <op>($VAR, <key>=<value>) # op: replace | substring | convert | rewrite, a call with no key keeps the comma, substring($VAR,)
-fix: <template referencing $VAR and $NEW> # When the replacement re-parses and compiles, list entries each carry title and -U takes the first
+    <NEW>: <op>($VAR, <key>=<value>) # replace, substring, convert, or rewrite, a call with no key keeps the comma, substring($VAR,)
+fix: <template referencing $VAR and $NEW> # String, {template, expandStart, expandEnd, title}, or a list of them, -U takes the first
 message: <one line naming the violation, captures and transform variables interpolate>
 note: <the correction as the shape to produce, no capture interpolates>
-url: <documentation link the editor shows>
 labels:
-    <VAR>: {style: primary, message: '<span fact>'} # Rule or constraints vars, the message interpolates nothing, fix: renders the diff in their place
-metadata:
-    <key>: <routing-fact> # Appears under --json --include-metadata
+    <VAR>: {style: primary, message: '<span fact>'} # Rule or constraints captures alone, two labels leave the snapshot order random

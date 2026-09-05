@@ -8,13 +8,6 @@ snapshots:
       start: 0
       end: 107
   ? |
-    <Copy><SourceFiles>$(StageRoot)runtimes/**/*.dylib</SourceFiles><DestinationFolder>$(IntermediateOutputPath)native/</DestinationFolder></Copy>
-  : labels:
-    - source: <Copy><SourceFiles>$(StageRoot)runtimes/**/*.dylib</SourceFiles><DestinationFolder>$(IntermediateOutputPath)native/</DestinationFolder></Copy>
-      style: primary
-      start: 0
-      end: 142
-  ? |
     <Move SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
   : labels:
     - source: <Move SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />

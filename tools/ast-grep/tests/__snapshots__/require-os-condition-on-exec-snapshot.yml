@@ -22,6 +22,13 @@ snapshots:
       start: 51
       end: 131
   ? |
+    <Target Name="Perms" AfterTargets="Build"><Exec Command='chmod +x $(OutDir)mytool' /></Target>
+  : labels:
+    - source: <Exec Command='chmod +x $(OutDir)mytool' />
+      style: primary
+      start: 42
+      end: 85
+  ? |
     <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
   : labels:
     - source: <Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" />
@@ -36,9 +43,12 @@ snapshots:
       start: 42
       end: 80
   ? |
-    <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac" WorkingDirectory="$(YakPackageDirectory)" /></Target>
+    <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac"
+      WorkingDirectory="$(YakPackageDirectory)" /></Target>
   : labels:
-    - source: <Exec Command="yak build --platform mac" WorkingDirectory="$(YakPackageDirectory)" />
+    - source: |-
+        <Exec Command="yak build --platform mac"
+          WorkingDirectory="$(YakPackageDirectory)" />
       style: primary
       start: 90
-      end: 175
+      end: 177

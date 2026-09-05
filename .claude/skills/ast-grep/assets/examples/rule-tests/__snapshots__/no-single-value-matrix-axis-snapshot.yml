@@ -1,0 +1,226 @@
+id: no-single-value-matrix-axis
+snapshots:
+  ? |
+    jobs:
+      build:
+        strategy:
+          matrix:
+            rid:
+              # - osx-arm64
+              - linux-x64
+  : labels:
+    - source: |
+        rid:
+                  # - osx-arm64
+                  - linux-x64
+      style: primary
+      start: 51
+      end: 102
+    - source: matrix
+      style: secondary
+      start: 35
+      end: 41
+    - source: |
+        matrix:
+                rid:
+                  # - osx-arm64
+                  - linux-x64
+      style: secondary
+      start: 35
+      end: 102
+    - source: |
+        rid:
+                  # - osx-arm64
+                  - linux-x64
+      style: secondary
+      start: 51
+      end: 102
+    - source: |
+        rid:
+                  # - osx-arm64
+                  - linux-x64
+      style: secondary
+      start: 51
+      end: 102
+    - source: rid
+      style: secondary
+      start: 51
+      end: 54
+    - source: '- linux-x64'
+      style: secondary
+      start: 90
+      end: 101
+    - source: |
+        - linux-x64
+      style: secondary
+      start: 90
+      end: 102
+    - source: |
+        - linux-x64
+      style: secondary
+      start: 90
+      end: 102
+  ? |
+    jobs:
+      build:
+        strategy:
+          matrix:
+            rid:
+              - linux-x64
+  : labels:
+    - source: |
+        rid:
+                  - linux-x64
+      style: primary
+      start: 51
+      end: 78
+    - source: matrix
+      style: secondary
+      start: 35
+      end: 41
+    - source: |
+        matrix:
+                rid:
+                  - linux-x64
+      style: secondary
+      start: 35
+      end: 78
+    - source: |
+        rid:
+                  - linux-x64
+      style: secondary
+      start: 51
+      end: 78
+    - source: |
+        rid:
+                  - linux-x64
+      style: secondary
+      start: 51
+      end: 78
+    - source: rid
+      style: secondary
+      start: 51
+      end: 54
+    - source: '- linux-x64'
+      style: secondary
+      start: 66
+      end: 77
+    - source: |
+        - linux-x64
+      style: secondary
+      start: 66
+      end: 78
+    - source: |
+        - linux-x64
+      style: secondary
+      start: 66
+      end: 78
+  ? |
+    jobs:
+      build:
+        strategy:
+          matrix:
+            rid:
+              - linux-x64
+              # - osx-arm64
+  : labels:
+    - source: |
+        rid:
+                  - linux-x64
+                  # - osx-arm64
+      style: primary
+      start: 51
+      end: 102
+    - source: matrix
+      style: secondary
+      start: 35
+      end: 41
+    - source: |
+        matrix:
+                rid:
+                  - linux-x64
+                  # - osx-arm64
+      style: secondary
+      start: 35
+      end: 102
+    - source: |
+        rid:
+                  - linux-x64
+                  # - osx-arm64
+      style: secondary
+      start: 51
+      end: 102
+    - source: |
+        rid:
+                  - linux-x64
+                  # - osx-arm64
+      style: secondary
+      start: 51
+      end: 102
+    - source: rid
+      style: secondary
+      start: 51
+      end: 54
+    - source: '- linux-x64'
+      style: secondary
+      start: 66
+      end: 77
+    - source: |
+        - linux-x64
+                  # - osx-arm64
+      style: secondary
+      start: 66
+      end: 102
+    - source: |
+        - linux-x64
+                  # - osx-arm64
+      style: secondary
+      start: 66
+      end: 102
+  ? |
+    jobs:
+      build:
+        strategy:
+          matrix:
+            rid: [linux-x64]
+  : labels:
+    - source: 'rid: [linux-x64]'
+      style: primary
+      start: 51
+      end: 67
+    - source: matrix
+      style: secondary
+      start: 35
+      end: 41
+    - source: |
+        matrix:
+                rid: [linux-x64]
+      style: secondary
+      start: 35
+      end: 68
+    - source: |
+        rid: [linux-x64]
+      style: secondary
+      start: 51
+      end: 68
+    - source: |
+        rid: [linux-x64]
+      style: secondary
+      start: 51
+      end: 68
+    - source: rid
+      style: secondary
+      start: 51
+      end: 54
+    - source: linux-x64
+      style: secondary
+      start: 57
+      end: 66
+    - source: '[linux-x64]'
+      style: secondary
+      start: 56
+      end: 67
+    - source: '[linux-x64]'
+      style: secondary
+      start: 56
+      end: 67

@@ -1,0 +1,45 @@
+id: object-presence-ternary-to-get-somes
+valid:
+    # The lift
+    - 'const modes = { ...Record.getSomes({ refresh: Option.liftPredicate(true as const, () => refresh) }) };'
+    # Value with a call runs under the condition alone
+    - 'const named = { root, ...(language === "python" ? { name: Array.join(String.split(root, "/"), "-") } : {}) };'
+    # Value that is its own condition, the truthiness check narrows it and the type decides the lift
+    - 'const options = { ...(config.root ? { root: config.root } : {}) };'
+    # Member read of the operand a truthiness check narrows
+    - 'const names = { ...(config.root ? { name: config.root.name } : {}) };'
+    # Shorthand row of the operand a typeof check narrows, the lift keeps the wide type
+    - "const modes = { ...(typeof mode === 'string' ? { mode } : {}) };"
+    # Read of the checked operand inside a larger value beside the operand row
+    - 'const options = { ...(config.extensions === undefined ? {} : { extensions: config.extensions, count: config.extensions.length }) };'
+    # The checked operand under a conjunction, the defined check narrows one operand of it
+    - 'const options = { ...(root !== undefined && ready ? { root } : {}) };'
+    # Member read of the operand a guard call narrows, the hand edit lifts the operand under the guard and maps
+    - 'const tags = () => (Predicate.isError(cause) ? { name: cause.name } : {});'
+    # Nested spread row
+    - 'const options = { ...(browser ? { ...defaults, dedupe: modules } : {}) };'
+    # Two present arms are a choice
+    - 'const options = { ...(browser ? { dedupe: modules } : { dedupe: none }) };'
+    # Spread outside a branch
+    - 'const options = { ...defaults, root };'
+invalid:
+    # The instance, an as-const literal present when a flag holds
+    - 'const modes = { ...(refresh ? { refresh: true as const } : {}) };'
+    # Shorthand row present when a flag holds
+    - 'const options = { ...(browser ? { root } : {}) };'
+    # The undefined literal as the value
+    - 'const options = { ...(reset ? { root: undefined } : {}) };'
+    # The checked operand present when defined
+    - 'const options = { ...(config.extensions === undefined ? {} : { extensions: config.extensions }) };'
+    # The checked operand in the other arm order, the branch outside a spread as a property value
+    - 'const options = { extensions: config.extensions !== undefined ? { extensions: config.extensions } : {} };'
+    # The checked operand as a shorthand row
+    - 'const options = { ...(root !== undefined ? { root } : {}) };'
+    # The checked operand as a shorthand row beside a row that reads it nowhere
+    - 'const options = { ...(root === undefined ? {} : { root, name: label }) };'
+    # Shorthand row and a keyed row, present when the condition fails, a compound condition negates in parentheses
+    - 'const options = { ...(a === b ? {} : { root, name: label }) };'
+    # Member read present under a comparison on another member, the branch outside a spread as a return value
+    - "const tags = () => (item.verdict === 'regression' ? { name: item.name } : {});"
+    # Key spelled like the checked operand beside a read of another member
+    - 'const options = { ...(root !== undefined ? { root, name: item.root } : {}) };'

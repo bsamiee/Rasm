@@ -1,0 +1,40 @@
+id: no-raise-in-result-function
+valid:
+    # Re-raise with no operand propagating cancellation
+    - |
+      def bounded(step: Callable[[], T], /) -> Result[T, Fault]:
+          try:
+              return Ok(step())
+          except CancelledError:
+              release()
+              raise
+          return Error("<deadline>")
+    # Result-free function raises freely
+    - |
+      def plain(raw: object, /) -> Shape:
+          if not raw:
+              raise ValueError("<empty>")
+          return Shape(raw)
+    # Raise inside a nested closure belongs to the closure
+    - |
+      def validated(rows: Rows) -> Result[Rows, Fault]:
+          def claimed() -> Rows:
+              if rows.empty:
+                  raise ValueError("<empty>")
+              return rows
+          return boundary("validated", claimed)
+invalid:
+    # Result-typed head raises in its own body
+    - |
+      def accepted(raw: object, /) -> Result[Shape, Fault]:
+          if not raw:
+              raise ValueError("<empty>")
+          return Ok(Shape(raw))
+    # Option-typed head is the sibling return type
+    - |
+      def located(raw: object, /) -> Option[Shape]:
+          raise ValueError("<empty>")
+    # Stringized annotation is still a result type
+    - |
+      def quoted(raw: object, /) -> "Result[Shape, Fault]":
+          raise ValueError("<empty>")

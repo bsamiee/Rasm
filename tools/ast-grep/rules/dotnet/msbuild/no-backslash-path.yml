@@ -3,16 +3,23 @@ id: no-backslash-path
 language: xml
 severity: error
 utils:
-    # A separator between two path characters, a regex escape follows a quote or a bracket and never a path character
+    # Separator between two path characters, a regex escape follows a quote or a bracket and never a path character
     separator: {matches: msbuild-value, regex: '[A-Za-z0-9_.):*]\\[A-Za-z0-9_.$*(@%]'}
 rule:
+    pattern: _VALUE
     matches: separator
     any:
         - kind: AttValue
-          inside: {kind: Attribute, has: {kind: Name, regex: '^(Include|Exclude|Remove|Update|Project|Path|HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|Command|Inputs|Outputs|WorkingDirectory|PackagePath)$'}}
-        # Element text, a property value or an item metadata value, a regex inside a property function keeps its escapes
+          inside: {kind: Attribute, has: {kind: Name, regex: "^(Include|Exclude|Remove|Update|Project|Path|HintPath|SourceFiles|DestinationFiles|\
+                  DestinationFolder|Directories|Files|File|Command|Inputs|Outputs|WorkingDirectory|PackagePath)$"}}
+        # Element text, a property or metadata value, the regex function name is read from the whole content as an entity reference splits the text
         - kind: CharData
-          not: {regex: 'RegularExpressions'}
+          not: {inside: {kind: content, has: {kind: CharData, regex: 'RegularExpressions'}}}
+transform:
+    # Each separator between two path characters, a match consumes the character after it and the second stage converts the one it skipped
+    SLASHED: {replace: {source: $VALUE, replace: '([A-Za-z0-9_.):*])\\([A-Za-z0-9_.$*(@%])', by: '$1/$2'}}
+    SLASHED_AGAIN: {replace: {source: $SLASHED, replace: '([A-Za-z0-9_.):*])\\([A-Za-z0-9_.$*(@%])', by: '$1/$2'}}
+fix: $SLASHED_AGAIN
 message: >-
     The backslash separates the path, on macOS and Linux the evaluator converts it only when the first segment exists on disk and sh deletes it
     inside an Exec command

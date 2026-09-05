@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: option-ternary-to-lift-predicate
+language: tsx
+severity: off
+rule:
+    kind: ternary_expression
+    pattern: $BRANCH
+    any:
+        # The checked operand present when defined, Option.fromNullable reads the check
+        - pattern: '$X === undefined ? Option.none() : Option.some($X)'
+        - pattern: '$X !== undefined ? Option.some($X) : Option.none()'
+        # The present value in either arm, the lift evaluates it ahead of the condition and keeps the wide type of a narrowed operand
+        - pattern: '$_ ? Option.some($V) : Option.none()'
+          not: {matches: syntax-narrowed-branch}
+        - pattern: '$_ ? Option.none() : Option.some($V)'
+          not: {matches: syntax-narrowed-branch}
+constraints:
+    V: {matches: effect-liftable-value}
+rewriters:
+    - id: nullable-value
+      rule: {any: [{pattern: '$X === undefined ? Option.none() : Option.some($X)'}, {pattern: '$X !== undefined ? Option.some($X) : Option.none()'}]}
+      fix: Option.fromNullable($X)
+    - id: present-when-true
+      rule: {pattern: '$C ? Option.some($V) : Option.none()'}
+      fix: Option.liftPredicate($V, () => $C)
+    - id: present-when-false
+      rule: {pattern: '$C ? Option.none() : Option.some($V)'}
+      transform:
+          NOT: rewrite($C, rewriters=[negate-negation, negate-operand, negate-compound])
+      fix: Option.liftPredicate($V, () => $NOT)
+    # Rewriters resolve inside their own document, a global util or another rule supplies none, every lift holds the trio
+    - id: negate-negation # Negated condition drops its operator, a double negation passes Biome and reads as a cast
+      rule: {pattern: '!$E'}
+      fix: $E
+    - id: negate-operand
+      rule: {pattern: $E, matches: syntax-negation-operand}
+      fix: '!$E'
+    - id: negate-compound
+      rule: {pattern: $E}
+      fix: '!($E)'
+transform:
+    LIFT: rewrite($BRANCH, rewriters=[nullable-value, present-when-true, present-when-false])
+fix: $LIFT
+message: The branch lifts a value into an Option by hand
+note: Lift the value under its condition, `Option.liftPredicate(value, () => condition)`, or `Option.fromNullable(value)` under a defined check

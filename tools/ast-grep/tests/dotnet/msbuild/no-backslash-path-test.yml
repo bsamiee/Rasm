@@ -3,37 +3,44 @@ valid:
     # Forward slashes throughout
     - |
       <PropertyGroup><StageRoot>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'native'))</StageRoot></PropertyGroup>
-    # A regex escape inside a property function is no path
+    # Regex escape after an entity reference inside a property function, the reference splits the text into nodes
     - |
-      <PropertyGroup><_CentralPackageVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(CentralPackagesPath)')), '(?&lt;=Include="$(CentralPackageId)"\s+Version=")[^"]+').Value)</_CentralPackageVersion></PropertyGroup>
-    # A regex escape between two path characters inside a property function is no separator
+      <PropertyGroup>
+        <_PackageVersion>$([System.Text.RegularExpressions.Regex]::Match('$(Manifest)', '(?&lt;=Version=")\s*[^"]+').Value)</_PackageVersion>
+      </PropertyGroup>
+    # Regex escape between two path characters inside a property function, no separator
     - |
       <PropertyGroup><Major>$([System.Text.RegularExpressions.Regex]::Replace('$(Version)', '(\d+)\.(\d+).*', '$1'))</Major></PropertyGroup>
-    # An Exec command with forward slashes
+    # Exec command with forward slashes
     - |
       <Exec Command="cat data/file.txt" />
-    # A message text holds no path
+    # Message text holding no path
     - |
       <Message Text="built $(TargetPath)" />
-    # A regex escape in a condition attribute is no path
+    # Regex escape in a condition attribute, no path
     - |
-      <PropertyGroup Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(Version)', 'v\d+'))"><IsPrerelease>true</IsPrerelease></PropertyGroup>
+      <PropertyGroup Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(Version)', 'v\d+'))">
+        <IsPrerelease>true</IsPrerelease>
+      </PropertyGroup>
 invalid:
-    # A backslash in an Exec command, sh reads datafile.txt
+    # Backslash in an Exec command, sh reads datafile.txt
     - |
       <Exec Command="cat data\file.txt" />
-    # An import path with backslashes
+    # Import path with backslashes
     - |
       <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
-    # A property that composes a path with backslashes
+    # Property composing a path with backslashes
     - |
       <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)tools\mytool\mytool.exe</ToolPath></PropertyGroup>
-    # An item glob with backslashes
+    # Item glob with backslashes
     - |
       <Compile Include="Generated\**\*.cs" />
     # The child-element form of a hint path
     - |
       <Reference Include="Tool"><HintPath>..\packages\tool\lib\tool.dll</HintPath><Private>false</Private></Reference>
-    # A solution project path written by a Windows tool
+    # Solution project path written by a Windows tool
     - |
       <Project Path="libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj" />
+    # One-character segments, the second stage converts the separator the first stage skipped
+    - |
+      <Compile Include="a\b\c.cs" />

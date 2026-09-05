@@ -1,27 +1,132 @@
 id: no-cause-split-in-cause-handler
 valid:
     # Each case has its own combinator, the failure and the defect handled apart
-    - 'const reported = program.pipe(Effect.tapError((error) => Console.error(error.message)), Effect.tapDefect((cause) => Console.error(Cause.pretty(cause))));'
+    - |
+      const reported = program.pipe(
+        Effect.tapError((error) => Console.error(error.message)),
+        Effect.tapDefect((cause) => Console.error(Cause.pretty(cause))),
+      );
     # The whole Cause handled as one value
     - 'const logged = program.pipe(Effect.tapErrorCause((cause) => Console.error(Cause.pretty(cause))));'
     # The Cause squashed into one error
     - 'const squashed = Effect.catchAllCause(program, (cause) => Effect.fail(Cause.squash(cause)));'
-    # A Cause reader outside a cause handler
+    # Cause reader outside a cause handler
     - 'const split = Option.match(Cause.failureOption(cause), { onNone: () => Effect.void, onSome: (error) => Console.error(error.message) });'
-    # A handler a module outside the effect package owns, the rule reads the effect handler family alone
+    # Handler a module outside the effect package owns, the rule reads the effect handler family alone
     - 'const guarded = Job.onError(job, (cause) => report(Cause.isDie(cause)));'
+    # Micro cause squashed into one error, the Micro spelling of the squash
+    - 'const squashed = Micro.catchAllCause(program, (cause) => Micro.fail(Micro.causeSquash(cause)));'
+    # Micro.match on another value inside a Micro cause handler, a match on Micro reads no cause
+    - 'const matched = Micro.catchAllCause(program, (cause) => Micro.match(other, { onFailure: report, onSuccess: keep }));'
+    # Exit.mapErrorCause receives the Cause and Exit has no defect combinator to split it toward
+    - 'const mapped = Exit.mapErrorCause(exit, (cause) => Cause.stripFailures(cause));'
 invalid:
     # The instance, a failure option read inside the cause handler
-    - 'const reported = program.pipe(Effect.tapErrorCause((cause) => Option.match(Cause.failureOption(cause), { onNone: () => Console.error(Cause.pretty(cause)), onSome: (error) => Console.error(error.message) })));'
-    # An Either split inside the recovery handler
-    - 'const recovered = program.pipe(Effect.catchAllCause((cause) => Either.match(Cause.failureOrCause(cause), { onLeft: (error) => fallback(error), onRight: (defect) => Effect.failCause(defect) })));'
-    # A predicate reader inside a block-bodied handler
+    - |
+      const reported = program.pipe(
+        Effect.tapErrorCause((cause) =>
+          Option.match(Cause.failureOption(cause), {
+            onNone: () => Console.error(Cause.pretty(cause)),
+            onSome: (error) => Console.error(error.message),
+          }),
+        ),
+      );
+    # Either split inside the recovery handler
+    - |
+      const recovered = program.pipe(
+        Effect.catchAllCause((cause) =>
+          Either.match(Cause.failureOrCause(cause), {
+            onLeft: (error) => fallback(error),
+            onRight: (defect) => Effect.failCause(defect),
+          }),
+        ),
+      );
+    # Predicate reader inside a block-bodied handler
     - 'const guarded = Effect.onError(program, (cause) => { return Effect.when(report(cause), () => Cause.isFailure(cause)); });'
     # Cause.match inside a matchCauseEffect arm
-    - 'const matched = Effect.matchCauseEffect(program, { onFailure: (cause) => Cause.match(cause, { onFail: report, onDie: crash, onInterrupt: () => Effect.void, onEmpty: Effect.void, onSequential: merge, onParallel: merge }), onSuccess: () => Effect.void });'
-    # The Stream sibling of the handler family
+    - |
+      const matched = Effect.matchCauseEffect(program, {
+        onFailure: (cause) =>
+          Cause.match(cause, {
+            onFail: report,
+            onDie: crash,
+            onInterrupt: () => Effect.void,
+            onEmpty: Effect.void,
+            onSequential: merge,
+            onParallel: merge,
+          }),
+        onSuccess: () => Effect.void,
+      });
+    # Stream sibling of the handler family
     - 'const streamed = stream.pipe(Stream.catchAllCause((cause) => Stream.fromEffect(Effect.when(retry(), () => Cause.isDie(cause)))));'
-    # The Layer sibling, Layer.tapError and Layer.catchAll take the failure apart from the defect
+    # Layer sibling, Layer.tapError and Layer.catchAll take the failure apart from the defect
     - 'const layered = Layer.tapErrorCause(layer, (cause) => Effect.when(report(cause), () => Cause.isFailure(cause)));'
-    # The Channel sibling, Channel.catchAll takes the failure and the defect passes through
+    # Channel sibling, Channel.catchAll takes the failure and the defect passes through
     - 'const channeled = Channel.catchAllCause(channel, (cause) => Channel.fromEffect(Effect.when(retry(), () => Cause.isDie(cause))));'
+    # Micro sibling, the MicroCause read through its own predicate
+    - 'const micro = Micro.catchAllCause(program, (cause) => Micro.when(retry(), () => Micro.causeIsDie(cause)));'
+    # Micro tap handler with the fail predicate
+    - 'const tapped = Micro.tapErrorCause(program, (cause) => Micro.when(report(cause), () => Micro.causeIsFail(cause)));'
+    # Micro match handler with the interrupt predicate
+    - |
+      const halted = Micro.matchCauseEffect(program, {
+        onFailure: (cause) => Micro.when(stop(), () => Micro.causeIsInterrupt(cause)),
+        onSuccess: () => Micro.void,
+      });
+    # Defect option read inside the some handler
+    - 'const some = Effect.catchSomeCause(program, (cause) => Option.map(Cause.dieOption(cause), crash));'
+    # Interrupt option read inside the error handler
+    - |
+      const interrupted = Effect.onError(program, (cause) =>
+        Option.match(Cause.interruptOption(cause), { onNone: () => Effect.void, onSome: stop }),
+      );
+    # Failure list read inside the mapping handler
+    - 'const failed = Effect.mapErrorCause(program, (cause) => Cause.fail(Array.headNonEmpty(Cause.failures(cause))));'
+    # Defect list read inside the stream handler
+    - 'const defects = Stream.onError(stream, (cause) => Effect.forEach(Cause.defects(cause), crash));'
+    # Interruptor set read inside the layer handler
+    - 'const interruptors = Layer.catchAllCause(layer, (cause) => Layer.fail(report(Cause.interruptors(cause))));'
+    # Defects kept apart from the failures
+    - 'const kept = Effect.catchAllCause(program, (cause) => Effect.failCause(Cause.keepDefects(cause)));'
+    # Failures stripped from the cause
+    - 'const stripped = Stream.mapErrorCause(stream, (cause) => Cause.stripFailures(cause));'
+    # Some defects stripped by predicate
+    - 'const partial = Channel.mapErrorCause(channel, (cause) => Cause.stripSomeDefects(cause, isRecoverable));'
+    # Empty cause read inside the tap handler
+    - 'const emptied = Stream.tapErrorCause(stream, (cause) => Effect.unless(report(cause), () => Cause.isEmpty(cause)));'
+    # Interrupt predicate inside the handler
+    - 'const interrupted = Effect.tapErrorCause(program, (cause) => Effect.when(stop(), () => Cause.isInterrupted(cause)));'
+    # Interrupt-only predicate inside the handler
+    - 'const only = Effect.tapErrorCause(program, (cause) => Effect.when(stop(), () => Cause.isInterruptedOnly(cause)));'
+    # Empty case refinement inside the handler
+    - |
+      const empty = Layer.matchCause(layer, {
+        onFailure: (cause) => Layer.fail(Cause.isEmptyType(cause)),
+        onSuccess: Layer.succeedContext,
+      });
+    # Fail case refinement inside the handler
+    - 'const failType = Effect.catchAllCause(program, (cause) => Effect.when(report(cause), () => Cause.isFailType(cause)));'
+    # Die case refinement inside the handler
+    - 'const dieType = Effect.catchAllCause(program, (cause) => Effect.when(crash(cause), () => Cause.isDieType(cause)));'
+    # Interrupt case refinement inside the handler
+    - 'const interruptType = Effect.catchAllCause(program, (cause) => Effect.when(stop(), () => Cause.isInterruptType(cause)));'
+    # Sequential case refinement inside the handler
+    - 'const sequential = Stream.catchSomeCause(stream, (cause) => Option.liftPredicate(retry, () => Cause.isSequentialType(cause)));'
+    # Parallel case refinement inside the handler
+    - 'const parallel = Stream.catchSomeCause(stream, (cause) => Option.liftPredicate(retry, () => Cause.isParallelType(cause)));'
+    # Search over the cause tree inside the handler
+    - 'const found = Effect.catchAllCause(program, (cause) => Effect.fromOption(Cause.find(cause, matchRecoverable)));'
+    # Cause tree filtered inside the handler
+    - 'const filtered = Effect.mapErrorCause(program, (cause) => Cause.filter(cause, Cause.isFailType));'
+    # Fold over the cause inside the handler
+    - 'const folded = Effect.catchAllCause(program, (cause) => Effect.fail(Cause.reduce(cause, empty, merge)));'
+    # Fold with context over the cause inside the handler
+    - 'const reduced = Effect.catchAllCause(program, (cause) => Effect.fail(Cause.reduceWithContext(cause, context, reducer)));'
+    # Cause linearized into its leaves inside the handler
+    - 'const leaves = Effect.tapErrorCause(program, (cause) => Effect.forEach(Cause.linearize(cause), report));'
+    # Micro predicate handler with the die predicate passed point-free
+    - 'const guarded = Micro.catchCauseIf(program, Micro.causeIsDie, (cause) => Micro.void);'
+    # Micro predicate tap handler with the fail predicate passed point-free
+    - 'const tapped = Micro.tapErrorCauseIf(program, Micro.causeIsFail, report);'
+    # Failure option read point-free through the pipe function inside the handler
+    - 'const piped = Effect.catchAllCause(program, (cause) => Effect.fromOption(pipe(cause, Cause.failureOption)));'

@@ -1,0 +1,39 @@
+id: no-identity-step
+valid:
+    # Steps that change the value
+    - 'const total = rows.pipe(Effect.map(count), Effect.map(sum));'
+    # Identity map outside a pipe is data-first
+    - 'const same = Effect.map(rows, (row) => row);'
+    # Body over the parameter is a step
+    - 'const picked = rows.pipe(Effect.map((row) => row.id));'
+    # Body naming another value is a step
+    - 'const swapped = rows.pipe(Effect.map((row) => other));'
+    # Named function is a step
+    - 'const fitted = rows.pipe(Effect.map(fit));'
+    # Block body with a statement before the return is a step
+    - 'const logged = rows.pipe(Effect.map((row) => { log(row); return row; }));'
+invalid:
+    # First step, the comma after it goes
+    - 'const total = rows.pipe(Effect.map(identity), Effect.map(sum));'
+    # Middle step, the comma after it goes
+    - 'const total = rows.pipe(Effect.map(count), Option.map((row) => row), Effect.map(sum));'
+    # Last step, the comma before it goes
+    - 'const total = rows.pipe(Effect.map(count), Array.map(identity));'
+    # Only step, no comma to consume
+    - 'const total = rows.pipe(Stream.map(identity));'
+    # Identity imported through its module
+    - 'const total = rows.pipe(Effect.map(Function.identity), Effect.map(sum));'
+    # Parameter without parentheses
+    - 'const total = rows.pipe(Effect.map(row => row), Effect.map(sum));'
+    # Annotated parameter
+    - 'const total = rows.pipe(Effect.map((row: Row) => row), Effect.map(sum));'
+    # Index parameter beside the item
+    - 'const total = rows.pipe(Array.map((row, index) => row), Effect.map(sum));'
+    # Block body returning the parameter alone
+    - 'const total = rows.pipe(Effect.map((row) => { return row; }), Effect.map(sum));'
+    # Last step under a trailing comma, the comma after it goes
+    - |
+      const total = rows.pipe(
+          Effect.map(count),
+          Effect.map((row) => row),
+      );

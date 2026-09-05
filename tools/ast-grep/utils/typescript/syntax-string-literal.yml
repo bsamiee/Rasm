@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# String or template string without a substitution, the text is fixed when the file is written
+id: syntax-string-literal
+language: tsx
+rule:
+    any:
+        - kind: string
+        - kind: template_string
+          not: {has: {kind: template_substitution}}

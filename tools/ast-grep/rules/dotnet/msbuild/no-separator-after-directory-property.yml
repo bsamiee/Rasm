@@ -3,11 +3,23 @@ id: no-separator-after-directory-property
 language: xml
 severity: error
 utils:
-    # Directory-valued properties end with a separator, by the suffix convention or by the SDK's own composition
-    doubled: {matches: msbuild-value, regex: '\$\(([A-Za-z_][A-Za-z0-9_]*(Dir|Directory|Root)|(Base|BaseIntermediate|Intermediate|PackageOutput)?OutputPath|MSBuildProjectExtensionsPath|NuGetPackageRoot)\)[\\/]'}
+    # Names outside the MSBuild prefix end with a separator by convention, MSBuildThisFileDirectory alone among the reserved names does
+    doubled:
+        matches: msbuild-value
+        regex: "\\$\\((MSBuildThisFileDirectory(NoRoot)?|([A-LN-Za-z_]|M[A-RT-Za-z0-9_]|MS[AC-Za-z0-9_])[A-Za-z0-9_]*(Dir|Directory|Root)|\
+            (Base|BaseIntermediate|Intermediate|PackageOutput)?OutputPath|MSBuildProjectExtensionsPath|NuGetPackageRoot)\\)[\\\\/]"
 rule:
+    pattern: _VALUE
     matches: doubled
-    # MSBuildProjectDirectory and MSBuildStartupDirectory are the reserved directories without a trailing separator
-    not: {regex: '\$\((MSBuildProjectDirectory|MSBuildStartupDirectory|MSBuildProjectDirectoryNoRoot)\)[\\/]'}
+transform:
+    # The directory reference without the separator run after it, the same name set the util spells
+    JOINED:
+        replace:
+            source: $VALUE
+            replace: "(\\$\\((?:MSBuildThisFileDirectory(?:NoRoot)?|(?:[A-LN-Za-z_]|M[A-RT-Za-z0-9_]|MS[AC-Za-z0-9_])[A-Za-z0-9_]*\
+                (?:Dir|Directory|Root)|(?:Base|BaseIntermediate|Intermediate|PackageOutput)?OutputPath|MSBuildProjectExtensionsPath|\
+                NuGetPackageRoot)\\))[\\\\/]+"
+            by: '$1'
+fix: $JOINED
 message: The separator follows a directory property that ends with one, the path holds a doubled separator
-note: Concatenate the segment directly, or compose the path with NormalizeDirectory
+note: Concatenate the segment directly after the property

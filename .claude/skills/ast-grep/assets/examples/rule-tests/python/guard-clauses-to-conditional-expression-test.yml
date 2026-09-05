@@ -1,0 +1,51 @@
+id: guard-clauses-to-conditional-expression
+valid:
+    # Already a chain
+    - |
+      def flat(ceiling, raw):
+          return Error("<empty>") if raw == "" else Ok(len(raw))
+    # Statement-bearing body stays
+    - |
+      def kernel(ceiling, raw):
+          trimmed = raw.strip()
+          if trimmed == "":
+              return Error("<empty>")
+          return Ok(len(trimmed))
+    # Comment between the guards is a block child the closure refuses
+    - |
+      def noted(raw):
+          if raw == "":
+              return Error("<empty>")
+          # the long path
+          return Ok(len(raw))
+    # Elif chain is no guard set
+    - |
+      def branched(n):
+          if n < 0:
+              return "neg"
+          elif n == 0:
+              return "zero"
+          return "pos"
+    # Else branch is no guard set
+    - |
+      def forked(n):
+          if n < 0:
+              return "neg"
+          else:
+              return "zero"
+          return "pos"
+invalid:
+    # All guard clauses
+    - |
+      def gauged(ceiling, raw):
+          if raw == "":
+              return Error("<empty>")
+          if len(raw) > ceiling:
+              return Error("<over>")
+          return Ok(len(raw))
+    # Tuple returns survive the parenthesized chain
+    - |
+      def paired(n):
+          if n < 0:
+              return 1, 2
+          return 3, 4

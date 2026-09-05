@@ -1,0 +1,32 @@
+id: no-await-on-module-value
+snapshots:
+  const row = await (Option.some(id) as Option.Option<string>);:
+    labels:
+    - source: await (Option.some(id) as Option.Option<string>)
+      style: primary
+      start: 12
+      end: 60
+    - source: (Option.some(id) as Option.Option<string>)
+      style: secondary
+      start: 18
+      end: 60
+  const row = await Effect.succeed(id);:
+    labels:
+    - source: await Effect.succeed(id)
+      style: primary
+      start: 12
+      end: 36
+    - source: Effect.succeed(id)
+      style: secondary
+      start: 18
+      end: 36
+  const row = await Stream.runCollect(rows);:
+    labels:
+    - source: await Stream.runCollect(rows)
+      style: primary
+      start: 12
+      end: 41
+    - source: Stream.runCollect(rows)
+      style: secondary
+      start: 18
+      end: 41

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Arm shapes the match rewrites refuse: a carrier or an empty container a lift owns, a nested branch Match dispatches, a suspension
+id: effect-refused-arm
+language: tsx
+utils:
+    # Await and yield suspend the function that holds them, an arrow body holds neither
+    suspension:
+        any: [{kind: await_expression}, {kind: yield_expression}]
+    # Nested function holds its own suspensions, the walk from the arm stops at it
+    function-boundary:
+        any: [{kind: arrow_function}, {kind: function_expression}]
+rule:
+    any:
+        - pattern: Option.some($_)
+        - pattern: Option.none()
+        - pattern: Effect.succeed($_)
+        - pattern: Effect.fail($_)
+        - pattern: Effect.void
+        - {kind: array, not: {has: {pattern: $_}}}
+        - {kind: object, not: {has: {pattern: $_}}}
+        - {kind: ternary_expression}
+        - {kind: parenthesized_expression, has: {matches: effect-refused-arm}}
+        - matches: suspension
+        - {pattern: $_, not: {matches: function-boundary}, has: {stopBy: {matches: function-boundary}, matches: suspension}}

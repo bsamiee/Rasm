@@ -3,9 +3,25 @@ id: no-parent-segment-concatenation
 language: xml
 severity: error
 rule:
-    matches: msbuild-value
-    regex: '\$\([^)]+\)[\\/]?\.\.[\\/]'
-    # The file-above functions normalize their own result
-    not: {regex: 'FileAbove'}
+    pattern: _VALUE
+    all: [{matches: msbuild-parent-segment}, {matches: msbuild-composable-path}]
+transform:
+    # Separator returns after the reference when the segment is glued to it, each separator run then becomes an argument boundary
+    SEPARATED: {replace: {source: $VALUE, replace: '^(\s*["'']?\$\([A-Za-z_][A-Za-z0-9_]*\))([^\\/])', by: '$1/$2'}}
+    SEGMENTS: {replace: {source: $SEPARATED, replace: '[\\/]+', by: ''', '''}}
+    # Trailing separator selects NormalizeDirectory, the rest NormalizePath, the wrapped value opens with a bracket and matches neither again
+    DIRECTORY:
+        replace:
+            source: $SEGMENTS
+            replace: '^(\s*["'']?)(\$\(.*)'', ''(["'']?\s*)$'
+            by: '$1$$([MSBuild]::NormalizeDirectory(''$2''))$3'
+    PATH:
+        replace:
+            source: $DIRECTORY
+            replace: '^(\s*["'']?)(\$\([A-Za-z_].*?)(["'']?\s*)$'
+            by: '$1$$([MSBuild]::NormalizePath(''$2''))$3'
+    # Single-quoted attribute delimiters become double quotes, the composed function holds single quotes and the value held none
+    FLIPPED: {replace: {source: $PATH, replace: '^''(\$\(\[MSBuild\]::Normalize(Directory|Path)\(.*\)\))''$', by: '"$1"'}}
+fix: $FLIPPED
 message: The value appends a parent segment to a directory property as text, the path keeps the .. and the hand-written separator
-note: Compose the path with $([MSBuild]::NormalizeDirectory('$(Base)', '..', 'segment')) or NormalizePath
+note: Compose the path with NormalizeDirectory or NormalizePath over the property and each segment

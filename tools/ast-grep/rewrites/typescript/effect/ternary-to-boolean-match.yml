@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: ternary-to-boolean-match
+language: tsx
+severity: off
+utils:
+    # Condition the syntax proves boolean, a comparison, a negation, a conjunction of them, or one of them in parentheses
+    boolean-condition:
+        any:
+            - {kind: binary_expression, has: {field: operator, regex: '^(===|!==|==|!=|<|>|<=|>=|in)$'}}
+            - kind: binary_expression
+              all:
+                  - has: {field: operator, regex: '^(&&|\|\|)$'}
+                  - has: {field: left, matches: boolean-condition}
+                  - has: {field: right, matches: boolean-condition}
+            - {kind: unary_expression, has: {field: operator, regex: '^!$'}}
+            - {kind: parenthesized_expression, has: {matches: boolean-condition}}
+rule:
+    kind: ternary_expression
+    all:
+        - pattern: '$C ? $A : $B'
+        - has: {field: condition, matches: boolean-condition}
+        # Nullable check belongs to the Option rewrites, a typeof or instance check in either direction to the Match rewrites
+        - not:
+              has:
+                  field: condition
+                  any:
+                      - matches: syntax-nullable-check
+                      - pattern: typeof $_ === $_
+                      - pattern: typeof $_ !== $_
+                      - pattern: '!($_ instanceof $_)'
+        - not: {matches: syntax-narrowed-branch}
+        - not: {has: {field: consequence, matches: effect-refused-arm}}
+        - not: {has: {field: alternative, matches: effect-refused-arm}}
+rewriters:
+    - id: object-arm # Object literal as an arrow body takes parentheses, the braces read as a block otherwise
+      rule: {kind: object, pattern: $O}
+      fix: ($O)
+    - id: other-arm # Any other arm root stays, the rewriter consumes it and no nested object is wrapped
+      rule: {pattern: $X}
+      fix: $X
+transform:
+    TRUE_ARM: rewrite($A, rewriters=[object-arm, other-arm])
+    FALSE_ARM: rewrite($B, rewriters=[object-arm, other-arm])
+fix: 'Boolean.match($C, { onFalse: () => $FALSE_ARM, onTrue: () => $TRUE_ARM })'
+message: Booleans choose between two values through the ternary operator
+note: 'Dispatch through `Boolean.match(condition, { onFalse: () => other, onTrue: () => value })`'

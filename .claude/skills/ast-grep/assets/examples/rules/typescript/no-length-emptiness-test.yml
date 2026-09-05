@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: no-length-emptiness-test
+language: typescript
+severity: error
+rule:
+    any:
+        - kind: binary_expression # Either operand order and either equality operator, the operator is an unnamed child has reaches
+          all:
+              - has: {field: operator, regex: '^===?$'}
+              - has: {kind: number, regex: '^0$'}
+              - has: {pattern: $ITEMS.length}
+        - pattern: '!$ITEMS.length'
+fix: # Titled alternatives, the type decides the module and no node shows it, -U and --json take the first, -i offers both
+    - title: Array
+      template: Array.isEmptyArray($ITEMS)
+    - title: String
+      template: String.isEmpty($ITEMS)
+message: Emptiness of `$ITEMS` is tested through its length
+note: Test with `Array.isEmptyArray` or `String.isEmpty`, the module that owns the type

@@ -1,37 +1,37 @@
 id: switch-expression-to-generated-switch
 snapshots:
-  ? |-
+  ? |
     public static class S {
         public static Fin<Outcome> Dispatch(Request request, Ledger ledger) =>
             request switch {
-                Request.Open o => ledger.Open(o.Code),
-                Request.Amend a => ledger.Amend(a.Code, a.Delta),
-                Request.Close c => ledger.Close(c.Code),
+                Request.Open o => ledger.Open(o),
+                Request.Amend a => ledger.Amend(a),
+                Request.Close c => ledger.Close(c),
             };
     }
-  : fixed: |-
+  : fixed: |
       public static class S {
           public static Fin<Outcome> Dispatch(Request request, Ledger ledger) =>
-              request.Switch(open: static o => ledger.Open(o.Code), amend: static a => ledger.Amend(a.Code, a.Delta), close: static c => ledger.Close(c.Code));
+              request.Switch(open: static o => ledger.Open(o), amend: static a => ledger.Amend(a), close: static c => ledger.Close(c));
       }
     labels:
     - source: |-
         request switch {
-                    Request.Open o => ledger.Open(o.Code),
-                    Request.Amend a => ledger.Amend(a.Code, a.Delta),
-                    Request.Close c => ledger.Close(c.Code),
+                    Request.Open o => ledger.Open(o),
+                    Request.Amend a => ledger.Amend(a),
+                    Request.Close c => ledger.Close(c),
                 }
       style: primary
       start: 107
-      end: 299
+      end: 275
     - source: Request.Open o
       style: secondary
       start: 136
       end: 150
-    - source: Request.Open o => ledger.Open(o.Code)
+    - source: Request.Open o => ledger.Open(o)
       style: secondary
       start: 136
-      end: 173
+      end: 168
   ? |
     public static class S {
         public static int Indexed(Request[] requests) =>
@@ -101,6 +101,29 @@ snapshots:
       style: secondary
       start: 109
       end: 128
+  ? |
+    public static class S {
+        public static int Qualified(Request request) =>
+            request switch { Contracts.Request.Open o => 1, Contracts.Request.Close c => 0 };
+    }
+  : fixed: |
+      public static class S {
+          public static int Qualified(Request request) =>
+              request.Switch(open: static o => 1, close: static c => 0);
+      }
+    labels:
+    - source: request switch { Contracts.Request.Open o => 1, Contracts.Request.Close c => 0 }
+      style: primary
+      start: 84
+      end: 164
+    - source: Contracts.Request.Open o
+      style: secondary
+      start: 101
+      end: 125
+    - source: Contracts.Request.Open o => 1
+      style: secondary
+      start: 101
+      end: 130
   ? |
     public static class S {
         public static int Wrapped(object raw) =>

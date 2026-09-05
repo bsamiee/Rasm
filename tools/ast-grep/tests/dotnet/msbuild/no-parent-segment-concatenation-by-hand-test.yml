@@ -1,0 +1,32 @@
+id: no-parent-segment-concatenation-by-hand
+valid:
+    # One reference and plain segments, the sibling no-parent-segment-concatenation composes it
+    - |
+      <PropertyGroup><StageRoot>$(MSBuildThisFileDirectory)../../.artifacts/native/stage/</StageRoot></PropertyGroup>
+    # Composed form
+    - |
+      <PropertyGroup><RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..'))</RepositoryRoot></PropertyGroup>
+    # GetPathOfFileAbove over a parent path, the function normalizes its result
+    - |
+      <PropertyGroup><_Outer>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_Outer></PropertyGroup>
+    # Whitespace-padded value of one reference and plain segments, the sibling composes it
+    - |
+      <PropertyGroup><StageRoot>
+        $(MSBuildThisFileDirectory)../.artifacts/native/stage/
+      </StageRoot></PropertyGroup>
+invalid:
+    # List of two parent paths
+    - |
+      <PropertyGroup><Roots>$(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b</Roots></PropertyGroup>
+    # Wildcard after the parent segment
+    - |
+      <Compile Include="$(MSBuildProjectDirectory)/../shared/**/*.cs" />
+    # Second reference inside the path
+    - |
+      <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe</ToolPath></PropertyGroup>
+    # Parent path as a function argument
+    - |
+      <PropertyGroup><ToolPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))</ToolPath></PropertyGroup>
+    # Item transform holding the parent path
+    - |
+      <None Include="@(Asset->'$(MSBuildThisFileDirectory)../%(Filename)%(Extension)')" />

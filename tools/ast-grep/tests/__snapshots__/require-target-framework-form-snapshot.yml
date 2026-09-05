@@ -2,31 +2,62 @@ id: require-target-framework-form
 snapshots:
   ? |
     <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
-  : labels:
+  : fixed: |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    labels:
     - source: <TargetFramework>net10.0;netstandard2.0</TargetFramework>
       style: primary
       start: 48
       end: 105
   ? |
-    <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
-  : labels:
-    - source: |
-        <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>
+      net10.0
+    </TargetFrameworks></PropertyGroup></Project>
+  : fixed: |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>
+        net10.0
+      </TargetFramework></PropertyGroup></Project>
+    labels:
+    - source: |-
+        <TargetFrameworks>
+          net10.0
+        </TargetFrameworks>
       style: primary
-      start: 0
-      end: 176
-    - source: <TargetFramework>net10.0</TargetFramework>
-      style: secondary
       start: 48
-      end: 90
-    - source: <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
-      style: secondary
-      start: 90
-      end: 149
+      end: 96
+  ? |
+    <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks><!-- one --> net10.0</TargetFrameworks></PropertyGroup></Project>
+  : fixed: |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework><!-- one --> net10.0</TargetFramework></PropertyGroup></Project>
+    labels:
+    - source: <TargetFrameworks><!-- one --> net10.0</TargetFrameworks>
+      style: primary
+      start: 48
+      end: 105
   ? |
     <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0</TargetFrameworks></PropertyGroup></Project>
-  : labels:
+  : fixed: |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+    labels:
     - source: <TargetFrameworks>net10.0</TargetFrameworks>
       style: primary
       start: 48
       end: 92
+  ? |
+    <Project><PropertyGroup><TargetFramework Condition="'$(Multi)' == 'true'">net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
+  : fixed: |
+      <Project><PropertyGroup><TargetFrameworks Condition="'$(Multi)' == 'true'">net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    labels:
+    - source: <TargetFramework Condition="'$(Multi)' == 'true'">net10.0;netstandard2.0</TargetFramework>
+      style: primary
+      start: 24
+      end: 114
+  ? |
+    <Project><PropertyGroup><TargetFramework><!-- both --> net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
+  : fixed: |
+      <Project><PropertyGroup><TargetFrameworks><!-- both --> net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    labels:
+    - source: <TargetFramework><!-- both --> net10.0;netstandard2.0</TargetFramework>
+      style: primary
+      start: 24
+      end: 95

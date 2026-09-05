@@ -1,9 +1,0 @@
-id: no-internal-module-import
-valid:
-    - 'import { List } from "item";' # The package root
-    - 'import { Internal } from "internal-item";' # A package name holding the word is no internal path
-invalid:
-    - 'import { List } from "item/internal/list";' # Named clause
-    - 'import Item from "item/internal";' # Default clause, the path ends at the internal directory
-    - 'import * as Internal from "item/internal/list";' # Namespace clause
-    - "import type { Row } from 'item/internal/row';" # Type-only import keeps its keyword and its quote style

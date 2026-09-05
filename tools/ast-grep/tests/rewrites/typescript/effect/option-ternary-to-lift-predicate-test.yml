@@ -1,0 +1,63 @@
+id: option-ternary-to-lift-predicate
+valid:
+    # The lift
+    - 'const code = Option.liftPredicate(item.name, () => item.verdict === "regression");'
+    # Call as the present value runs under the condition alone, the lift runs it ahead
+    - 'const code = cause instanceof Error ? Option.some(render(cause)) : Option.none();'
+    # Member read through a nested call
+    - 'const code = ok ? Option.some(load().item.name) : Option.none();'
+    # Template string holding a call
+    - 'const code = ok ? Option.some(`${load().name}`) : Option.none();'
+    # Array with elements as the value, the elements build ahead of the condition
+    - 'const code = ok ? Option.some([a]) : Option.none();'
+    # Member read of the operand an instance check narrows, the hand edit lifts the operand under Predicate.isError and maps
+    - 'const code = cause instanceof Error ? Option.some(cause.name) : Option.none();'
+    # The operand a typeof check narrows as the value, the lift keeps the wide type
+    - "const text = typeof value === 'string' ? Option.some(value) : Option.none();"
+    # Member read of the operand a truthiness check narrows
+    - 'const name = config.root ? Option.some(config.root.name) : Option.none();'
+    # Name as the truthiness check, the arm reads it
+    - 'const name = root ? Option.some(root.name) : Option.none();'
+    # Negated truthiness check in the other arm order
+    - 'const name = !root ? Option.none() : Option.some(root.name);'
+    # Key check narrows the object it reads
+    - "const root = 'root' in config ? Option.some(config.root) : Option.none();"
+    # The operand a typeof check narrows in the other arm order
+    - "const text = typeof value !== 'string' ? Option.none() : Option.some(value);"
+    # Parenthesized conjunction holding the defined check
+    - 'const value = (x !== undefined && ready) ? Option.some(x) : Option.none();'
+    # The checked operand under a conjunction, the defined check narrows one operand of it
+    - 'const value = x !== undefined && ready ? Option.some(x) : Option.none();'
+    # Null check keeps an undefined operand where Option.fromNullable drops it
+    - 'const value = x !== null ? Option.some(x) : Option.none();'
+    # Two present arms are a choice
+    - 'const code = ok ? Option.some(a) : Option.some(b);'
+    # An Effect branch belongs to the Effect lift
+    - 'const code = ok ? Effect.succeed(a) : Effect.fail(e);'
+invalid:
+    # The instance, a member read present when a comparison on another member holds, the comparison narrows nothing
+    - 'const code = item.verdict === "regression" ? Option.some(item.name) : Option.none();'
+    # The checked operand present when defined
+    - 'const value = x !== undefined ? Option.some(x) : Option.none();'
+    # The checked operand in the other arm order
+    - 'const value = x === undefined ? Option.none() : Option.some(x);'
+    # The arms swapped, a name present when the condition fails, a compound condition negates in parentheses
+    - 'const code = value % 2 === 0 ? Option.none() : Option.some(value);'
+    # Call condition negates without parentheses
+    - 'const name = Predicate.isError(cause) ? Option.none() : Option.some(label);'
+    # Call over the value that is no guard, the value keeps its type
+    - 'const name = render(label) ? Option.none() : Option.some(label);'
+    # Guard call narrows its first argument alone, the second keeps its type
+    - 'const name = Predicate.isTagged(item, tag) ? Option.some(tag) : Option.none();'
+    # Member named like the checked operand, the property names no binding
+    - 'const name = root ? Option.some(item.root) : Option.none();'
+    # Parenthesized condition negates without more parentheses
+    - 'const name = (a === b) ? Option.none() : Option.some(label);'
+    # Negated condition drops its negation
+    - 'const name = !hidden ? Option.none() : Option.some(label);'
+    # Literal present value
+    - 'const kind = item.verdict === "regression" ? Option.some("regression") : Option.none();'
+    # Negative literal present value
+    - 'const step = descending ? Option.some(-1) : Option.none();'
+    # Template string without a call
+    - 'const key = ok ? Option.some(`${group}-${name}`) : Option.none();'

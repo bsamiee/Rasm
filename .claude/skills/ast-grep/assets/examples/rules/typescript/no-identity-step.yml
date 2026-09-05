@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: no-identity-step
+language: typescript
+severity: error
+utils:
+    identity-lambda: # The first parameter re-matched as the body, or as the one returned statement, proves identity
+        kind: arrow_function
+        all:
+            - any:
+                  - has: {field: parameter, pattern: $ITEM}
+                  - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $ITEM}}
+            - any:
+                  - has: {field: body, pattern: $ITEM}
+                  - has: {field: body, kind: statement_block, has: {kind: return_statement, has: {pattern: $ITEM}}, not: {has: {nthChild: 2}}}
+rule:
+    pattern: $_.map($STEP)
+    inside: {kind: arguments, inside: {pattern: $_.pipe($$$)}}
+constraints:
+    STEP: # The capture is the subject of a composite rule, the named function by regex and the lambda by shape
+        any:
+            - regex: '^(Function\.)?identity$'
+            - matches: identity-lambda
+fix:
+    template: '' # Deletes the node, the snapshot's fixed text skips both expansions, scan --json replacementOffsets show the comma
+    expandEnd: {regex: ','} # The comma after the step goes with it, a last step has none and the range stays
+    expandStart: {regex: ',', not: {precedes: {regex: ',', stopBy: end}}} # The comma before a last step, the one no later comma follows
+message: Identity map is a step that changes nothing
+note: Delete the step, a pipe left with no step is its value

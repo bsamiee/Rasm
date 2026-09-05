@@ -8,9 +8,9 @@ snapshots:
       start: 0
       end: 98
   ? |
-    <MSBuild Targets="Publish"><Projects>$(MSBuildProjectFile)</Projects><Properties>_IsPublishing=true</Properties></MSBuild>
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties='_IsPublishing=true' />
   : labels:
-    - source: <MSBuild Targets="Publish"><Projects>$(MSBuildProjectFile)</Projects><Properties>_IsPublishing=true</Properties></MSBuild>
+    - source: <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties='_IsPublishing=true' />
       style: primary
       start: 0
-      end: 122
+      end: 98

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-property-value # Property element with a tag name passing the name rule and text passing the text rule
+language: xml
+arguments: [name, text]
+rule:
+    kind: element
+    all:
+        # The text slot binds here and its capture reaches the caller
+        - matches: {msbuild-property: {name: {matches: name}}}
+        - has: {kind: content, has: {kind: CharData, matches: text}}

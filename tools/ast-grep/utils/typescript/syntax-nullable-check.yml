@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Binary expressions with undefined or null as the right operand, the order Biome noYodaExpression enforces and Option.fromNullable reads
+id: syntax-nullable-check
+language: tsx
+rule:
+    kind: binary_expression
+    has: {field: right, any: [{kind: undefined}, {kind: 'null'}]}

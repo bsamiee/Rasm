@@ -4,6 +4,6 @@ valid:
     - |
       <Target Name="Report" DependsOnTargets="Compute"><Message Text="$(Computed)" /></Target>
 invalid:
-    # A CallTarget before the task that reads its property, $(Computed) is empty in the Message
+    # CallTarget before the task reading its property, $(Computed) is empty in the Message
     - |
       <Target Name="Report"><CallTarget Targets="Compute" /><Message Text="$(Computed)" /></Target>

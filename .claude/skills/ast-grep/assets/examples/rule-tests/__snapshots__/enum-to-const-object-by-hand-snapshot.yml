@@ -26,20 +26,68 @@ snapshots:
       style: secondary
       start: 0
       end: 47
-  enum Bare { Draft, Sealed }:
+  enum Flag { Read = 1, Write = Read << 1 }:
     labels:
-    - source: enum Bare { Draft, Sealed }
+    - source: enum Flag { Read = 1, Write = Read << 1 }
       style: primary
       start: 0
-      end: 27
-    - source: Draft
+      end: 41
+    - source: Read
       style: secondary
       start: 12
-      end: 17
-    - source: Draft
+      end: 16
+    - source: Read
+      style: secondary
+      start: 30
+      end: 34
+    - source: Write = Read << 1
+      style: secondary
+      start: 22
+      end: 39
+    - source: Read = 1
       style: secondary
       start: 12
-      end: 17
+      end: 20
+    - source: Read = 1
+      style: secondary
+      start: 12
+      end: 20
+  ? |
+    enum Noted {
+        Draft = 0, // the open phase
+        Sealed = 1,
+    }
+  : labels:
+    - source: |-
+        enum Noted {
+            Draft = 0, // the open phase
+            Sealed = 1,
+        }
+      style: primary
+      start: 0
+      end: 63
+    - source: // the open phase
+      style: secondary
+      start: 28
+      end: 45
+    - source: // the open phase
+      style: secondary
+      start: 28
+      end: 45
+  enum Plain { Draft, Sealed }:
+    labels:
+    - source: enum Plain { Draft, Sealed }
+      style: primary
+      start: 0
+      end: 28
+    - source: Draft
+      style: secondary
+      start: 13
+      end: 18
+    - source: Draft
+      style: secondary
+      start: 13
+      end: 18
   export enum Pub { Draft = 0 }:
     labels:
     - source: enum Pub { Draft = 0 }

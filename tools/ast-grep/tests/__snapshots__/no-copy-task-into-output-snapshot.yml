@@ -15,13 +15,6 @@ snapshots:
       start: 0
       end: 65
   ? |
-    <Copy SourceFiles="settings.ini"><DestinationFolder>$(OutputPath)</DestinationFolder></Copy>
-  : labels:
-    - source: <Copy SourceFiles="settings.ini"><DestinationFolder>$(OutputPath)</DestinationFolder></Copy>
-      style: primary
-      start: 0
-      end: 92
-  ? |
     <Move SourceFiles="$(IntermediateOutputPath)manifest.json" DestinationFolder="$(OutDir)" />
   : labels:
     - source: <Move SourceFiles="$(IntermediateOutputPath)manifest.json" DestinationFolder="$(OutDir)" />

@@ -3,36 +3,33 @@ id: no-cause-split-in-cause-handler
 language: tsx
 severity: error
 utils:
-    # A call that hands the whole Cause to a handler
+    # Handler that receives the whole Cause on a carrier with error and defect combinators, Exit.mapErrorCause has no defect combinator beside it
     cause-handler:
         kind: call_expression
         has:
             field: function
             kind: member_expression
             all:
-                - has: {field: object, regex: '^(Effect|Stream|Layer|Channel)$'}
-                - has: {field: property, regex: '^(tapErrorCause|catchAllCause|catchSomeCause|onError|matchCause|matchCauseEffect|mapErrorCause)$'}
+                - has: {field: object, regex: '^(Effect|Stream|Layer|Channel|Micro)$'}
+                - has:
+                      field: property
+                      regex: "^(tapErrorCause|tapErrorCauseIf|catchAllCause|catchSomeCause|catchCauseIf|onError|matchCause|matchCauseEffect|\
+                          mapErrorCause)$"
+    # Reader of one case of the Cause, called or passed point-free, Micro reads its MicroCause through causeIs predicates, squash reads all
+    case-reader:
+        pattern: $MODULE.$READER
+        any:
+            - regex: "^Cause\\.(failureOption|failureOrCause|dieOption|interruptOption|failures|defects|interruptors|keepDefects|\
+                  stripFailures|stripSomeDefects|isEmpty|isFailure|isDie|isInterrupted|isInterruptedOnly|isEmptyType|isFailType|\
+                  isDieType|isInterruptType|isSequentialType|isParallelType|match|find|filter|reduce|reduceWithContext|linearize)$"
+            - regex: '^Micro\.causeIs(Fail|Die|Interrupt)$'
 rule:
     all:
         - matches: cause-handler
-        - has:
-              field: arguments
-              has:
-                  stopBy: end
-                  kind: call_expression
-                  has:
-                      field: function
-                      kind: member_expression
-                      all:
-                          - has: {field: object, regex: '^Cause$'}
-                          - has: {field: property, pattern: $READER}
-constraints:
-    READER:
-        regex: "^(failureOption|failureOrCause|dieOption|interruptOption|failures|defects|keepDefects|stripFailures|\
-            isFailure|isDie|isInterrupted|isFailType|isDieType|isInterruptType|match|find|reduce)$"
-message: The cause handler splits the Cause into its failure and defect cases through Cause.$READER
+        - has: {field: arguments, has: {stopBy: end, matches: case-reader}}
+message: The cause handler splits the Cause into its failure and defect cases through $MODULE.$READER
 note: >-
-    Handle the failure with the error-typed combinator (Effect.tapError, Effect.catchAll, Effect.catchTag, Effect.match)
-    and the defect with its defect combinator (Effect.tapDefect, Effect.catchAllDefect), each handler receives its own case
+    Handle the failure with the error-typed combinator (Effect.tapError, Effect.catchAll, Effect.catchTag)
+    and the defect with its own (Effect.tapDefect, Effect.catchAllDefect), each handler receives one case
 labels:
     READER: {style: primary, message: The reader that splits the Cause}

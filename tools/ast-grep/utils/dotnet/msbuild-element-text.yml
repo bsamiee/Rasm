@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: msbuild-element-text # An element with text that passes the text rule, the value of a property, a metadata child, or a task parameter child
-language: xml
-arguments: [text]
-rule:
-    kind: element
-    has: {kind: content, has: {kind: CharData, matches: text}}

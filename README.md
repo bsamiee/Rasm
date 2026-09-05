@@ -22,7 +22,7 @@ Rasm/
 │   └── scripts/              # Python automation that Nx targets invoke
 ├── infra/                    # Pulumi program for repository settings and the Doppler project
 ├── tools/                    # Tools the repository builds for its checks
-│   ├── ast-grep/             # Structural rules, utilities, and rule tests per language
+│   ├── ast-grep/             # Structural rules, on-demand rewrites, utilities, and rule tests per language
 │   ├── biome/                # Biome GritQL plugin rules
 │   ├── dotnet/               # Roslyn analyzers executables and plugin hosts reference
 │   └── nx/                   # Nx plugin for language tags and packaging projects
@@ -64,6 +64,7 @@ Rasm/
 Nx is the task runner, `nx.json` and the root `package.json` `nx` field are the one entry point, and every developer command is a target:
 - `nx run-many -t <target> -p tag:language:<language>` runs one target across one language, and `nx run <project>:<target>` runs one project
 - `check` depends on `lint`, `format`, `typecheck`, and `test`, and the rewriting targets fix what their tool can fix and fail on the rest
+- `nx run rasm:rewrite --id=<id> --paths=<paths>` applies one rewrite rule across the paths, re-run until it applies nothing
 - Root targets hold the operations with no owning project, and plugins infer every other target from the language manifests and the packaging projects
 - Repository settings and secrets are infrastructure code under `infra/`, applied through a root target and read from the secret store at run time
 - `mise.toml` owns the machine setup, every tool at its newest release, and the language lock files are the only pins
@@ -117,6 +118,6 @@ Changes replace structure in place, and releases run per project from git tags t
 - Schema libraries apply the delta from the owning types to the live database at startup or from a command, with no migration file or history table
 - Each project or fixed group gets a `<name>@<version>` tag, build tools read the version from the tag, and registries take trusted publishing
 - No file states a version
-- No package, namespace, route, contract, or directory has a version suffix or `v1` folder, and a changed structure keeps the name of the one it replaces
+- No package, namespace, route, contract, or directory has a version suffix or `v1` folder, and a changed structure keeps its predecessor's name
 - No compatibility shim, fallback reader, or deprecation period keeps a replaced structure alive, and one commit holds the change and the removal
 - No `src/` directory exists at any depth, a project's files sit at its root, and no directory exists only to add a level of nesting

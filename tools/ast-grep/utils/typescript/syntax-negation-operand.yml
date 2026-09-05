@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Expression shapes the not operator negates without parentheses, every other shape takes them to keep its precedence
+id: syntax-negation-operand
+language: tsx
+rule:
+    any:
+        - {kind: identifier}
+        - {kind: member_expression}
+        - {kind: call_expression}
+        - {kind: parenthesized_expression}

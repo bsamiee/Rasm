@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Branches with an arm that reads an operand the condition narrows, the read outside the branch keeps the wide type
+id: syntax-narrowed-branch
+language: tsx
+utils:
+    # Node the walk between the branch and the narrowing leaves passes through, the leaves keep their own narrowing under it
+    logical-node:
+        any:
+            - {kind: parenthesized_expression}
+            - {kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}}
+            - {kind: unary_expression}
+    # Leaf the type checker narrows an operand by: truthiness, typeof, instanceof, a nullable comparison, in, a guard call
+    narrowing-check:
+        any:
+            - {kind: identifier, pattern: $X}
+            - {kind: member_expression, pattern: $X}
+            - {kind: binary_expression, has: {field: left, pattern: typeof $X}}
+            - {kind: binary_expression, all: [{has: {field: operator, regex: '^instanceof$'}}, {has: {field: left, pattern: $X}}]}
+            - {matches: syntax-nullable-check, has: {field: left, pattern: $X}}
+            - {kind: binary_expression, all: [{has: {field: operator, regex: '^in$'}}, {has: {field: right, pattern: $X}}]}
+            - {kind: call_expression, all: [{has: {field: function, regex: '\.is[A-Z]\w*$'}}, {has: {field: arguments, has: {pattern: $X}}}]}
+    # Read of the operand, a key or a member name spelled like it names no binding
+    operand-read:
+        pattern: $X
+        not: {any: [{inside: {kind: pair, field: key}}, {inside: {kind: member_expression, field: property}}]}
+    # Leaf with a branch that reads the operand in an arm, the read sits in the leaf test because has binds its first candidate
+    narrowed-leaf:
+        matches: narrowing-check
+        inside:
+            kind: ternary_expression
+            stopBy: {not: {matches: logical-node}}
+            any:
+                - has: {field: consequence, stopBy: end, matches: operand-read}
+                - has: {field: alternative, stopBy: end, matches: operand-read}
+    # Narrowed leaf or a logical node over one, the walk recurses one child at a time from the condition
+    narrowed-node:
+        any:
+            - matches: narrowed-leaf
+            - {matches: logical-node, has: {matches: narrowed-node}}
+rule:
+    kind: ternary_expression
+    has: {field: condition, matches: narrowed-node}

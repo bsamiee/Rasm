@@ -1,27 +1,57 @@
 id: no-run-in-effect-callback
 valid:
     # Two runs beside each other, the second inside a callback a devkit function owns
-    - 'const source = runtime.runSync(Effect.cached(localSource)); return createNodesFromFiles((file) => runtime.runPromise(node(source, files, file)), files, options, context);'
-    # A run from a callback a package outside effect owns, the outside call sits between the run and the combinator
-    - 'const stack = yield* Effect.tryPromise({ try: () => LocalWorkspace.createOrSelectStack({ program: () => Runtime.runPromise(fiberRuntime)(program(adopt)) }, workspace), catch: (cause) => new StackError({ cause }) });'
-    # A run inside an output callback an API outside effect owns
+    - |
+      const source = runtime.runSync(Effect.cached(localSource));
+      return createNodesFromFiles((file) => runtime.runPromise(node(source, files, file)), files, options, context);
+    # Run from a callback a package outside effect owns, the outside call sits between the run and the combinator
+    - |
+      const stack = yield* Effect.tryPromise({
+        try: () => LocalWorkspace.createOrSelectStack({ program: () => Runtime.runPromise(fiberRuntime)(program(adopt)) }, workspace),
+        catch: (cause) => new StackError({ cause }),
+      });
+    # Run inside an output callback an API outside effect owns
     - 'const result = yield* Effect.tryPromise({ try: () => stack.up({ onOutput: (line) => runtime.runSync(Console.log(line)) }) });'
-    # The entry point runs once
+    # Entry point runs once
     - 'NodeRuntime.runMain(Command.run(cli, { name: "cli", version: "" })(process.argv).pipe(Effect.provide(NodeContext.layer)));'
-    # A test runs the effect inside a callback the test framework owns
+    # Test runs the effect inside a callback the test framework owns
     - 'it("decodes", () => { expect(Effect.runSync(decode(config))).toEqual(expected); });'
-    # A curried combinator applied inside the callback, Effect.provide(layer)(effect) runs nothing
+    # Curried combinator applied inside the callback, Effect.provide(layer)(effect) runs nothing
     - 'const provided = Effect.map(load(), (config) => Effect.provide(layer)(decode(config)));'
+    # Run inside a callback a module outside the effect package owns, the module name sits outside the barrel
+    - 'const items = Job.map(job, (item) => Effect.runSync(load(item)));'
+    # Test callback with an expression body, the framework owns the callback and runs the promise
+    - 'it("decodes", () => Effect.runPromise(decode(config)));'
 invalid:
-    # A run inside a map callback, the callback returns the effect and the combinator is flatMap
+    # Run inside a map callback, the callback returns the effect and the combinator is flatMap
     - 'const decoded = Effect.runSync(Effect.map(load(), (config) => Effect.runSync(decode(config))));'
-    # A run inside a promise thunk, the effect is yielded in place
+    # Run inside a promise thunk, the effect is yielded in place
     - 'const job = Effect.promise(() => Runtime.runPromise(fiberRuntime)(job));'
-    # A fiber runtime run inside the entry run's generator
-    - 'NodeRuntime.runMain(Effect.gen(function* () { const fiberRuntime = yield* Effect.runtime(); yield* Effect.promise(() => Runtime.runPromise(fiberRuntime)(job)); }));'
-    # A run as the argument of a run
+    # Fiber runtime run inside the entry run's generator
+    - |
+      NodeRuntime.runMain(
+        Effect.gen(function* () {
+          const fiberRuntime = yield* Effect.runtime();
+          yield* Effect.promise(() => Runtime.runPromise(fiberRuntime)(job));
+        }),
+      );
+    # Run as the argument of a run
     - 'const value = Effect.runSync(Effect.succeed(Effect.runSync(inner)));'
-    # A run inside the exit callback a run owns, the report composes through Effect.onExit before the run
+    # Run inside the exit callback a run owns, the report composes through Effect.onExit before the run
     - 'runtime.runCallback(program, { onExit: (exit) => runtime.runSync(report(exit)) });'
-    # A run inside an Array combinator callback, the traversal is Effect.forEach
+    # Run inside an Array combinator callback, the traversal is Effect.forEach
     - 'const rows = Array.map(files, (file) => runtime.runSync(read(file)));'
+    # Run inside a Layer constructor thunk, the constructor is Layer.effect
+    - 'const live = Layer.sync(Service, () => Effect.runSync(build));'
+    # Run inside a Channel callback, the mapping is Channel.mapOutEffect
+    - 'const mapped = Channel.mapOut(channel, (out) => Effect.runSync(transform(out)));'
+    # Run inside a Sink callback, the mapping is Sink.mapEffect
+    - 'const summed = Sink.map(sink, (total) => Effect.runSync(report(total)));'
+    # Micro run inside a Micro callback, the callback returns the Micro and the combinator is Micro.flatMap
+    - 'const decoded = Micro.map(load, (config) => Micro.runSync(decode(config)));'
+    # Run inside a Ref update callback, the update composes through Ref.updateEffect
+    - 'const bumped = Ref.update(counter, (count) => Effect.runSync(next(count)));'
+    # Run inside the body of a named Effect.fn, the curried application owns the generator and yield* runs it
+    - 'const load = Effect.fn("load")(function* (name) { return Effect.runSync(read(name)); });'
+    # Run inside a sync thunk, the thunk returns the value the effect computes
+    - 'const built = Effect.sync(() => Effect.runSync(build));'

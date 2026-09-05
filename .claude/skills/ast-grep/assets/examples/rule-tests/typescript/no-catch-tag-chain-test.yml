@@ -1,0 +1,50 @@
+id: no-catch-tag-chain
+valid:
+    # The target form
+    - 'const row = load(id).pipe(Effect.catchTags({ NotFound: fallback, Timeout: retry }), Effect.map(pick));'
+    # One catchTag step
+    - 'const row = load(id).pipe(Effect.catchTag("NotFound", fallback), Effect.map(pick));'
+    # Step runs before the tags
+    - |
+      const row = load(id).pipe(
+          Effect.map(pick),
+          Effect.catchTag("NotFound", fallback),
+          Effect.catchTag("Timeout", retry),
+      );
+    # Step between the tags
+    - |
+      const row = load(id).pipe(
+          Effect.catchTag("NotFound", fallback),
+          Effect.map(pick),
+          Effect.catchTag("Timeout", retry),
+      );
+    # Multi-tag step is no entry, one two-argument step remains
+    - |
+      const row = load(id).pipe(Effect.catchTag("NotFound", "Timeout", fallback), Effect.catchTag("Late", retry));
+    # Tag held in a variable is no entry, the key names the variable
+    - |
+      const row = load(id).pipe(Effect.catchTag(tag, fallback), Effect.catchTag("Timeout", retry));
+    # Comment among the steps is a node the join drops, the step guard refuses it
+    - |
+      const row = load(id).pipe(
+          Effect.catchTag("NotFound", fallback), // retried upstream
+          Effect.catchTag("Timeout", retry),
+      );
+invalid:
+    # The instance
+    - 'const row = load(id).pipe(Effect.catchTag("NotFound", fallback), Effect.catchTag("Timeout", retry), Effect.map(pick));'
+    # No other step, no separator
+    - 'const row = load(id).pipe(Effect.catchTag("NotFound", fallback), Effect.catchTag("Timeout", retry));'
+    # Single-quoted tag loses its quotes with the double-quoted one
+    - |
+      const row = load(id).pipe(Effect.catchTag('NotFound', fallback), Effect.catchTag("Timeout", retry));
+    # Tag that is no identifier keeps its quotes as the key
+    - |
+      const row = load(id).pipe(Effect.catchTag("app/NotFound", fallback), Effect.catchTag("Timeout", retry));
+    # Three steps under trailing commas
+    - |
+      const row = load(id).pipe(
+          Effect.catchTag("NotFound", fallback),
+          Effect.catchTag("Timeout", retry),
+          Effect.map(pick),
+      );

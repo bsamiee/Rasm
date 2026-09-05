@@ -2,42 +2,63 @@ id: require-list-property-append
 snapshots:
   ? |
     <PropertyGroup><DefaultItemExcludes>Generated/**</DefaultItemExcludes></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><DefaultItemExcludes>$(DefaultItemExcludes);Generated/**</DefaultItemExcludes></PropertyGroup>
+    labels:
     - source: <DefaultItemExcludes>Generated/**</DefaultItemExcludes>
       style: primary
       start: 15
       end: 70
   ? |
     <PropertyGroup><DefineConstants>MY_FEATURE</DefineConstants></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants></PropertyGroup>
+    labels:
     - source: <DefineConstants>MY_FEATURE</DefineConstants>
       style: primary
       start: 15
       end: 60
   ? |
     <PropertyGroup><InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><InterceptorsNamespaces>$(InterceptorsNamespaces);Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
+    labels:
     - source: <InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces>
       style: primary
       start: 15
       end: 78
   ? |
     <PropertyGroup><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
+    labels:
     - source: <MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
       style: primary
       start: 15
       end: 98
   ? |
     <PropertyGroup><NoWarn /></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><NoWarn>$(NoWarn);</NoWarn></PropertyGroup>
+    labels:
     - source: <NoWarn />
       style: primary
       start: 15
       end: 25
   ? |
+    <PropertyGroup><NoWarn Condition="'$(ContinuousIntegrationBuild)' == 'true'">CS1591</NoWarn></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><NoWarn Condition="'$(ContinuousIntegrationBuild)' == 'true'">$(NoWarn);CS1591</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn Condition="'$(ContinuousIntegrationBuild)' == 'true'">CS1591</NoWarn>
+      style: primary
+      start: 15
+      end: 92
+  ? |
     <PropertyGroup><NoWarn>CS1591</NoWarn></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><NoWarn>$(NoWarn);CS1591</NoWarn></PropertyGroup>
+    labels:
     - source: <NoWarn>CS1591</NoWarn>
       style: primary
       start: 15

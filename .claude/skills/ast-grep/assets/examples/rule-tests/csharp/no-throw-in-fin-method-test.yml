@@ -1,0 +1,53 @@
+id: no-throw-in-fin-method
+valid:
+    # The target form
+    - |
+      public static class S {
+          public static Fin<Row> Parse(string raw) => raw is "" ? Fin<Row>.Fail(Error.New("empty")) : Row.Parse(raw);
+      }
+    # Throw inside a lambda belongs to the closure
+    - |
+      public static class S {
+          public static Fin<Row> Parse(string raw) =>
+              IO.lift(() => { if (raw is "") throw new ArgumentException("empty"); return raw; }).Map(Row.Parse);
+      }
+    # Throw inside an anonymous method belongs to the closure
+    - |
+      public static class S {
+          public static Fin<Row> Parse(string raw) =>
+              IO.lift(delegate { if (raw is "") throw new ArgumentException("empty"); return raw; }).Map(Row.Parse);
+      }
+    # Throw inside a local function belongs to the closure
+    - |
+      public static class S {
+          public static Fin<Row> Parse(string raw) {
+              Row Read() { if (raw is "") throw new ArgumentException("empty"); return Row.Parse(raw); }
+              return Read();
+          }
+      }
+    # Rethrow with no operand propagates the defect a catch observed
+    - |
+      public static class S {
+          public static Fin<Row> Parse(string raw) { try { return Row.Parse(raw); } catch (OperationCanceledException) { Release(); throw; } }
+      }
+    # Plain return type throws freely
+    - |
+      public static class S {
+          public static Row Parse(string raw) { if (raw is "") throw new ArgumentException("empty"); return Row.Parse(raw); }
+      }
+invalid:
+    # Throw statement in the body
+    - |
+      public static class S {
+          public static Fin<Row> Parse(string raw) { if (raw is "") throw new ArgumentException("empty"); return Row.Parse(raw); }
+      }
+    # Throw expression in the body
+    - |
+      public static class S {
+          public static Fin<Row> Parse(string raw) => raw is "" ? throw new ArgumentException("empty") : Row.Parse(raw);
+      }
+    # Sibling result type
+    - |
+      public static class S {
+          public static Option<Row> Parse(string raw) { throw new NotSupportedException(); }
+      }

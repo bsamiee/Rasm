@@ -1,0 +1,30 @@
+id: no-unquoted-condition-operand-by-hand
+valid:
+    # Both operands quoted beside a boolean function
+    - |
+      <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">/Applications/Rhino 9.app</RhinoAppPath>
+    # Comparison with a group inside a message, text
+    - |
+      <Message Text="built ($(Configuration) == Release)" />
+    # Quoted group
+    - |
+      <Trim Condition="('$(OutputType)' == 'Exe') and '$(SelfContained)' == 'true'">true</Trim>
+    # One-token operands unquoted, the sibling no-unquoted-condition-operand quotes them
+    - |
+      <Optimize Condition="$(TargetFramework) == net10.0">true</Optimize>
+    # Group boundary separated from the operand by whitespace, the sibling quotes the operand
+    - |
+      <Trim Condition="( $(OutputType) == 'Exe' ) and '$(SelfContained)' == 'true'">true</Trim>
+invalid:
+    # Function call glued to the operand before the operator
+    - |
+      <IsMac Condition="$([MSBuild]::IsOSPlatform('OSX')) == true">true</IsMac>
+    # Function call glued to the operand after the operator
+    - |
+      <IsMac Condition="'$(HostIsMac)' == $([MSBuild]::IsOSPlatform('OSX'))">true</IsMac>
+    # Group opening glued to the operand before the operator
+    - |
+      <Trim Condition="($(OutputType) == 'Exe') and '$(SelfContained)' == 'true'">true</Trim>
+    # Group close glued to the operand after the operator
+    - |
+      <Trim Condition="'$(OutputType)' == 'Exe' and (Exists('bin') or '$(Configuration)' == Release)">true</Trim>

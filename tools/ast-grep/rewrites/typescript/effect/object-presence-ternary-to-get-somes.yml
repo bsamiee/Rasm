@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: object-presence-ternary-to-get-somes
+language: tsx
+severity: off
+utils:
+    # Row the lift writes, a pair over a liftable value or a shorthand property
+    present-row:
+        any:
+            - {kind: pair, has: {field: value, matches: effect-liftable-value}}
+            - {kind: shorthand_property_identifier}
+    # Pair over the value, the key and the value bound for the row template
+    keyed-pair:
+        kind: pair
+        all:
+            - has: {field: key, pattern: $K}
+            - has: {field: value, pattern: $V}
+    # The branch with the present rows in either arm, the condition bound for the row rewriters
+    presence-branch:
+        kind: ternary_expression
+        all:
+            - has: {field: condition, pattern: $C}
+            - any:
+                  # The checked operand as a whole row value, Option.fromNullable reads the check, a read inside a larger value keeps the wide type
+                  - any: [{pattern: '$X === undefined ? {} : $ROWS'}, {pattern: '$X !== undefined ? $ROWS : {}'}]
+                    not:
+                        has:
+                            kind: object
+                            has:
+                                stopBy: end
+                                pattern: $X
+                                not:
+                                    any:
+                                        - {kind: shorthand_property_identifier}
+                                        - {inside: {kind: pair}}
+                                        - {inside: {kind: member_expression, field: property}}
+                  - any: [{pattern: '$_ ? $ROWS : {}'}, {pattern: '$_ ? {} : $ROWS'}]
+                    not: {matches: syntax-narrowed-branch}
+            # Row the lift cannot write, a spread, a method, a computed key, or a value with a call, refuses the whole branch
+            - not: {has: {kind: object, has: {pattern: $_, not: {matches: present-row}}}}
+rule:
+    any:
+        - kind: parenthesized_expression
+          inside: {kind: spread_element}
+          has: {matches: presence-branch}
+        - matches: presence-branch
+          not: {inside: {kind: parenthesized_expression, inside: {kind: spread_element}}}
+constraints:
+    ROWS: {kind: object, has: {pattern: $_}}
+rewriters:
+    - id: row-nullable # The checked operand itself as the value, present when defined, Option.fromNullable reads the check
+      rule:
+          matches: keyed-pair
+          inside: {stopBy: end, any: [{pattern: '$V === undefined ? {} : $_'}, {pattern: '$V !== undefined ? $_ : {}'}]}
+      fix: '$K: Option.fromNullable($V)'
+    - id: shorthand-nullable
+      rule:
+          kind: shorthand_property_identifier
+          pattern: $S
+          inside: {stopBy: end, any: [{pattern: '$S === undefined ? {} : $_'}, {pattern: '$S !== undefined ? $_ : {}'}]}
+      fix: '$S: Option.fromNullable($S)'
+    - id: row-when-true
+      rule: {matches: keyed-pair, inside: {stopBy: end, pattern: '$C ? $_ : {}'}}
+      fix: '$K: Option.liftPredicate($V, () => $C)'
+    - id: row-when-false
+      rule: {matches: keyed-pair, inside: {stopBy: end, pattern: '$C ? {} : $_'}}
+      transform:
+          NOT: rewrite($C, rewriters=[negate-negation, negate-operand, negate-compound])
+      fix: '$K: Option.liftPredicate($V, () => $NOT)'
+    - id: shorthand-when-true
+      rule: {kind: shorthand_property_identifier, pattern: $S, inside: {stopBy: end, pattern: '$C ? $_ : {}'}}
+      fix: '$S: Option.liftPredicate($S, () => $C)'
+    - id: shorthand-when-false
+      rule: {kind: shorthand_property_identifier, pattern: $S, inside: {stopBy: end, pattern: '$C ? {} : $_'}}
+      transform:
+          NOT: rewrite($C, rewriters=[negate-negation, negate-operand, negate-compound])
+      fix: '$S: Option.liftPredicate($S, () => $NOT)'
+    - id: negate-negation
+      rule: {pattern: '!$E'}
+      fix: $E
+    - id: negate-operand
+      rule: {pattern: $E, matches: syntax-negation-operand}
+      fix: '!$E'
+    - id: negate-compound
+      rule: {pattern: $E}
+      fix: '!($E)'
+transform:
+    OPTIONS:
+        rewrite:
+            source: $ROWS
+            rewriters: [row-nullable, shorthand-nullable, row-when-true, row-when-false, shorthand-when-true, shorthand-when-false]
+            joinBy: ', '
+fix: 'Record.getSomes({ $OPTIONS })'
+message: The branch chooses its keys through an empty arm
+note: 'Lift each value as an Option, `Record.getSomes({ key: Option.liftPredicate(value, () => condition) })`'

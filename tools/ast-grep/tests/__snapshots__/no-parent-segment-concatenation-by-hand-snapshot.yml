@@ -1,0 +1,37 @@
+id: no-parent-segment-concatenation-by-hand
+snapshots:
+  ? |
+    <Compile Include="$(MSBuildProjectDirectory)/../shared/**/*.cs" />
+  : labels:
+    - source: '"$(MSBuildProjectDirectory)/../shared/**/*.cs"'
+      style: primary
+      start: 17
+      end: 63
+  ? |
+    <None Include="@(Asset->'$(MSBuildThisFileDirectory)../%(Filename)%(Extension)')" />
+  : labels:
+    - source: '"@(Asset->''$(MSBuildThisFileDirectory)../%(Filename)%(Extension)'')"'
+      style: primary
+      start: 14
+      end: 81
+  ? |
+    <PropertyGroup><Roots>$(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b</Roots></PropertyGroup>
+  : labels:
+    - source: $(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b
+      style: primary
+      start: 22
+      end: 85
+  ? |
+    <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe</ToolPath></PropertyGroup>
+  : labels:
+    - source: $(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe
+      style: primary
+      start: 25
+      end: 81
+  ? |
+    <PropertyGroup><ToolPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))</ToolPath></PropertyGroup>
+  : labels:
+    - source: $([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))
+      style: primary
+      start: 25
+      end: 104

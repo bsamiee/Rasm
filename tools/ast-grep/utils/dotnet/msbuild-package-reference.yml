@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: msbuild-package-reference # A PackageReference element with an Include value that passes the id rule, in the start-tag and the empty-tag form
+id: msbuild-package-reference # PackageReference element with an Include value passing the id rule, the id regex reads the quoted value
 language: xml
 arguments: [id]
 rule:

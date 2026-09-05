@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-explicit-provider-by-hand
+language: tsx
+severity: error
+rule:
+    any:
+        # The declaration goes with every reference to it, a statement-level edit across the file
+        - kind: new_expression
+          has: {field: constructor, regex: '(^|\.)[A-Za-z]*Provider$'}
+          # Providers constructed inside the option go with the option no-explicit-provider deletes
+          not: {inside: {matches: {pulumi-provider-arguments: {option: {matches: pulumi-provider-option}}}, stopBy: end}}
+        - all:
+              - matches: {pulumi-provider-arguments: {option: {matches: pulumi-provider-option, pattern: $OPTION}}}
+              - matches: syntax-commented-arguments
+message: The explicit provider is constructed by hand or passed beside a comment, a form no fix rewrites
+note: Delete the provider declaration and every option naming it by hand, the default provider reads its token from the environment

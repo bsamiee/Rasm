@@ -3,9 +3,14 @@ id: no-absolute-path-in-item
 language: xml
 severity: error
 rule:
-    kind: AttValue
-    # A drive letter, a home directory, or a root directory opens the value
-    regex: '^"([A-Za-z]:[\\/]|~[\\/]|/[A-Za-z0-9_.-])'
-    inside: {kind: Attribute, has: {kind: Name, regex: '^(Include|Exclude|Update|Remove|Project|Path|HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|Inputs|Outputs|WorkingDirectory)$'}}
-message: The item or import names a path that exists on one machine, elsewhere the build fails with MSB4019 or MSB3245
+    # Item, import, and task path parameters as attributes, and item metadata as child elements
+    matches:
+        msbuild-metadata:
+            name: {regex: "^(Include|Exclude|Update|Remove|Project|Path|HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|\
+                    Files|File|Inputs|Outputs|WorkingDirectory)$"}
+            # Drive letter, home directory, or root directory opening the value
+            value: {regex: '^["'']?([A-Za-z]:[\\/]|~[\\/]|/[A-Za-z0-9_.-])'}
+    # Property groups hold no item, import, or task, a property named like a parameter stays a property
+    not: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}}
+message: The item, import, or task parameter names a path that exists on one machine, elsewhere the build fails with MSB4019 or MSB3245
 note: Compose the path from $(MSBuildThisFileDirectory) with NormalizePath, or read an installation root from a property with an environment override

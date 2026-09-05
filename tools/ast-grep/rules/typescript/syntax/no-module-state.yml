@@ -2,17 +2,31 @@
 id: no-module-state
 language: tsx
 severity: error
+utils:
+    # Containers a const binding leaves mutable, the effect Mutable modules and the unsafe Ref and Deferred constructors among them
+    mutable-container:
+        any:
+            - kind: new_expression
+              has: {field: constructor, regex: '^(Map|Set|WeakMap|WeakSet|Array)$'}
+            - kind: array
+              not: {has: {pattern: $_}}
+            - kind: object
+              not: {has: {pattern: $_}}
+            - kind: call_expression
+              has: {field: function, regex: '^Mutable(Ref|HashMap|HashSet|List|Queue)\.\w+$|^(\w*Ref|Deferred)\.unsafeMake\w*$'}
 rule:
+    # Biome noVar reports every var, the arms read let and the const bindings over a mutable container
     any:
         - kind: lexical_declaration
           regex: '^let\b'
-        - kind: variable_declaration
+        - kind: lexical_declaration
+          has: {kind: variable_declarator, has: {field: value, matches: mutable-container}}
     inside:
         any:
             - kind: program
             - kind: export_statement
               inside: {kind: program}
-message: The module-level binding is mutable and every function of the module reads and writes it as ambient state
+message: The module-level binding holds mutable state and every function of the module reads and writes it as ambient state
 note: >-
     Hold the changing value where one scope owns it, a local the producing function returns, a Ref inside the effect that needs it,
-    or an ordinal the caller passes in, and declare module bindings with `const`
+    or an ordinal the caller passes in, and declare module bindings with `const` over an immutable value

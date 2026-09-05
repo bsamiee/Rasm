@@ -19,11 +19,14 @@ type _Refinement = Callable[[list[str], str], str]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _INTERP = "<inline-interpreter>"
-_BACKTICK = re.compile(r"(?<!\\)`((?:[^`\\]|\\.)*)`")  # An escaped backtick is a literal, never a substitution edge
+_BACKTICK = re.compile(r"(?<!\\)`((?:[^`\\]|\\.)*)`")  # Escaped backticks are literals, no substitution edge
 _CONTINUE = re.compile(r"\\\n")
+_SUB_EDGE = re.compile(r"\\.|\"|'[^']*'|\$\(")  # Escaped characters and single-quoted strings are literal, a double quote toggles the quote state
 _CTRL = re.compile(r"[\x00-\x1f\x7f]+")
-_HEREDOC = re.compile(r"<<-?\s*(['\"])(\w+)\1\n.*?^\t*\2$", re.DOTALL | re.MULTILINE)  # Quoted delimiter: the body expands nothing
+_HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1\n.*?^\t*\2$", re.DOTALL | re.MULTILINE)  # Quoted delimiters expand nothing in the body
 _GIT_WORD = re.compile(r"\bgit\b")
+_PROCESS_CALL = re.compile(r"subprocess|child_process|os\.(?:system|exec|spawn|popen)|\b(?:system|exec|spawn|popen|qx|Open3)\b|`|%x")
+_LITERAL = re.compile(r"[\[\](){}\"',]")  # List, call, and string punctuation around a process argv in interpreter code
 _IFS = re.compile(r"\$\{IFS[^}]*\}|\$IFS")
 _ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _MAX_DEPTH = 8
@@ -39,7 +42,9 @@ _SUBCOMMANDS = ("run", "exec", "tool", "x")
 _TOOLS = ("Bash", "Monitor")
 _VALUE_OPTS = ("-u", "-I", "-n", "-g", "--user", "--replace")
 _RUNNERS = frozenset(("uv", "npm", "npx", "pnpm", "poetry", "hatch"))
-_WRAPPERS = frozenset(("sudo", "doas", "env", "command", "nice", "nohup", "stdbuf", "timeout", "xargs", "caffeinate", "arch", "setsid")) | _RUNNERS
+_WRAPPERS = (
+    frozenset(("sudo", "doas", "env", "command", "nice", "nohup", "stdbuf", "timeout", "time", "xargs", "caffeinate", "arch", "setsid")) | _RUNNERS
+)
 _ADVICE = "Blocked by git-guard: destructive git actions are disabled. Keep all work as-is."
 
 # --- [POLICIES] -------------------------------------------------------------------------
@@ -132,15 +137,22 @@ def _resolve(argv: list[str], depth: int) -> list[list[str]]:
             return _leaves(body, depth + 1)
         return [["git", _INTERP]] if any(t == "-s" or not t.startswith("-") for t in argv[1:]) else []  # No script and no stdin runs nothing
     if name.startswith(_INTERPRETERS) and (body := _flag_operand(argv, "c") or _flag_operand(argv, "e")):
-        return [["git", _INTERP]] if _GIT_WORD.search(body) else []  # Implied reason, never keyword-scanned
+        if not _PROCESS_CALL.search(body):
+            return []  # Code with no process call runs no git, the word alone is text
+        leaves = _leaves(_LITERAL.sub(" ", body), depth + 1) if depth < _MAX_DEPTH else [["git", _INTERP]]
+        return [leaf[i:] for leaf in leaves for i, t in enumerate(leaf) if t.rpartition("/")[2] == "git"]
     return [argv]
 
 
 def _leaves(command: str, depth: int = 0) -> list[list[str]]:
     """Return every argv leaf of a shell command, substitution bodies parse first and the rest splits quote-aware."""
-    command = _HEREDOC.sub(" ", command)
-    bodies, flat, cursor = _BACKTICK.findall(command), _BACKTICK.sub(" ", _CONTINUE.sub(" ", command)), 0
-    while (opened := flat.find("$(", cursor)) >= 0:
+    command = _HEREDOC.sub(lambda m: " " if m[1] else m[0], command)  # Unquoted bodies keep their substitutions for the scan
+    bodies, flat, cursor, quoted = _BACKTICK.findall(command), _BACKTICK.sub(" ", _CONTINUE.sub(" ", command)), 0, False
+    while (hit := _SUB_EDGE.search(flat, cursor)) is not None:
+        opened, quoted = hit.start(), quoted ^ (hit[0] == '"')
+        cursor = opened + 1 if quoted and hit[0][0] == "'" else hit.end()  # Inside double quotes a single quote is one literal character
+        if hit[0] != "$(":
+            continue
         close, level = opened + 2, 1
         while close < len(flat) and level:
             level += (flat[close] == "(") - (flat[close] == ")")
@@ -148,7 +160,7 @@ def _leaves(command: str, depth: int = 0) -> list[list[str]]:
         bodies.append(flat[opened + 2 : close - 1])
         flat, cursor = flat[:opened] + " \0sub " + flat[close:], opened + 6  # Splice, the residue never splits a leaf
     out: list[list[str]] = [leaf for body in bodies if depth < _MAX_DEPTH for leaf in _leaves(body, depth + 1)]
-    lexer = shlex.shlex(_IFS.sub(" ", flat), posix=True, punctuation_chars=";&|<>()\n\r")
+    lexer = shlex.shlex(_IFS.sub(" ", _HEREDOC.sub(" ", flat)), posix=True, punctuation_chars=";&|<>()\n\r")
     lexer.whitespace, lexer.whitespace_split = " \t\f\v", True
     argv: list[str] = []
     for token in lexer:
@@ -182,7 +194,7 @@ def _refusal(command: str, cwd: str) -> str:
     """Return why the first destructive leaf in a command must be blocked, or the empty string to allow it."""
     if len(command) > _MAX_COMMAND:
         return "the command is too long to lex within the hook deadline, it cannot be checked safely"
-    heads = (leaf[i:] for leaf in _leaves(command) for i, t in enumerate(leaf) if pathlib.PurePosixPath(t).name == "git")
+    heads = (leaf[i:] for leaf in _leaves(command) for i, t in enumerate(leaf) if (i == 0 or leaf[i - 1] == "--") and t.rpartition("/")[2] == "git")
     return next((r for head in heads if (r := _reason(head, cwd))), "")
 
 

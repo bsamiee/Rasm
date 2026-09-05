@@ -1,0 +1,93 @@
+id: option-ternary-to-lift-predicate
+snapshots:
+  'const code = item.verdict === "regression" ? Option.some(item.name) : Option.none();':
+    fixed: const code = Option.liftPredicate(item.name, () => item.verdict === "regression");
+    labels:
+    - source: 'item.verdict === "regression" ? Option.some(item.name) : Option.none()'
+      style: primary
+      start: 13
+      end: 83
+  'const code = value % 2 === 0 ? Option.none() : Option.some(value);':
+    fixed: const code = Option.liftPredicate(value, () => !(value % 2 === 0));
+    labels:
+    - source: 'value % 2 === 0 ? Option.none() : Option.some(value)'
+      style: primary
+      start: 13
+      end: 65
+  'const key = ok ? Option.some(`${group}-${name}`) : Option.none();':
+    fixed: const key = Option.liftPredicate(`${group}-${name}`, () => ok);
+    labels:
+    - source: 'ok ? Option.some(`${group}-${name}`) : Option.none()'
+      style: primary
+      start: 12
+      end: 64
+  'const kind = item.verdict === "regression" ? Option.some("regression") : Option.none();':
+    fixed: const kind = Option.liftPredicate("regression", () => item.verdict === "regression");
+    labels:
+    - source: 'item.verdict === "regression" ? Option.some("regression") : Option.none()'
+      style: primary
+      start: 13
+      end: 86
+  'const name = !hidden ? Option.none() : Option.some(label);':
+    fixed: const name = Option.liftPredicate(label, () => hidden);
+    labels:
+    - source: '!hidden ? Option.none() : Option.some(label)'
+      style: primary
+      start: 13
+      end: 57
+  'const name = (a === b) ? Option.none() : Option.some(label);':
+    fixed: const name = Option.liftPredicate(label, () => !(a === b));
+    labels:
+    - source: '(a === b) ? Option.none() : Option.some(label)'
+      style: primary
+      start: 13
+      end: 59
+  'const name = Predicate.isError(cause) ? Option.none() : Option.some(label);':
+    fixed: const name = Option.liftPredicate(label, () => !Predicate.isError(cause));
+    labels:
+    - source: 'Predicate.isError(cause) ? Option.none() : Option.some(label)'
+      style: primary
+      start: 13
+      end: 74
+  'const name = Predicate.isTagged(item, tag) ? Option.some(tag) : Option.none();':
+    fixed: const name = Option.liftPredicate(tag, () => Predicate.isTagged(item, tag));
+    labels:
+    - source: 'Predicate.isTagged(item, tag) ? Option.some(tag) : Option.none()'
+      style: primary
+      start: 13
+      end: 77
+  'const name = render(label) ? Option.none() : Option.some(label);':
+    fixed: const name = Option.liftPredicate(label, () => !render(label));
+    labels:
+    - source: 'render(label) ? Option.none() : Option.some(label)'
+      style: primary
+      start: 13
+      end: 63
+  'const name = root ? Option.some(item.root) : Option.none();':
+    fixed: const name = Option.liftPredicate(item.root, () => root);
+    labels:
+    - source: 'root ? Option.some(item.root) : Option.none()'
+      style: primary
+      start: 13
+      end: 58
+  'const step = descending ? Option.some(-1) : Option.none();':
+    fixed: const step = Option.liftPredicate(-1, () => descending);
+    labels:
+    - source: 'descending ? Option.some(-1) : Option.none()'
+      style: primary
+      start: 13
+      end: 57
+  'const value = x !== undefined ? Option.some(x) : Option.none();':
+    fixed: const value = Option.fromNullable(x);
+    labels:
+    - source: 'x !== undefined ? Option.some(x) : Option.none()'
+      style: primary
+      start: 14
+      end: 62
+  'const value = x === undefined ? Option.none() : Option.some(x);':
+    fixed: const value = Option.fromNullable(x);
+    labels:
+    - source: 'x === undefined ? Option.none() : Option.some(x)'
+      style: primary
+      start: 14
+      end: 62

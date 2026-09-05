@@ -2,14 +2,18 @@ id: require-clear-before-nuget-entries
 snapshots:
   ? |
     <packageSourceMapping><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
-  : labels:
+  : fixed: |
+      <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
+    labels:
     - source: <packageSourceMapping><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
       style: primary
       start: 0
       end: 115
   ? |
     <packageSources />
-  : labels:
+  : fixed: |
+      <packageSources><clear /></packageSources>
+    labels:
     - source: <packageSources />
       style: primary
       start: 0
@@ -18,7 +22,12 @@ snapshots:
     <packageSources>
         <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
     </packageSources>
-  : labels:
+  : fixed: |
+      <packageSources>
+          <clear />
+          <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+      </packageSources>
+    labels:
     - source: |-
         <packageSources>
             <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
@@ -28,8 +37,19 @@ snapshots:
       end: 106
   ? |
     <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear /></packageSources>
-  : labels:
+  : fixed: |
+      <packageSources><clear /><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>
+    labels:
     - source: <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear /></packageSources>
       style: primary
       start: 0
       end: 109
+  ? |
+    <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear></clear></packageSources>
+  : fixed: |
+      <packageSources><clear /><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>
+    labels:
+    - source: <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear></clear></packageSources>
+      style: primary
+      start: 0
+      end: 115

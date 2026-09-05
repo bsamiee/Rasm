@@ -1,0 +1,23 @@
+id: instanceof-ternary-to-match
+snapshots:
+  'const detail = !(cause instanceof Error) ? Inspectable.toStringUnknown(cause) : cause.message;':
+    fixed: const detail = Match.value(cause).pipe(Match.when(Match.instanceOf(Error), (cause) => cause.message), Match.orElse((cause) => Inspectable.toStringUnknown(cause)));
+    labels:
+    - source: '!(cause instanceof Error) ? Inspectable.toStringUnknown(cause) : cause.message'
+      style: primary
+      start: 15
+      end: 93
+  'const detail = cause instanceof Error ? cause.message : Inspectable.toStringUnknown(cause);':
+    fixed: const detail = Match.value(cause).pipe(Match.when(Match.instanceOf(Error), (cause) => cause.message), Match.orElse((cause) => Inspectable.toStringUnknown(cause)));
+    labels:
+    - source: 'cause instanceof Error ? cause.message : Inspectable.toStringUnknown(cause)'
+      style: primary
+      start: 15
+      end: 90
+  'const varied = input instanceof FastCheck.Arbitrary ? vary(input, keys) : record(input);':
+    fixed: const varied = Match.value(input).pipe(Match.when(Match.instanceOf(FastCheck.Arbitrary), (input) => vary(input, keys)), Match.orElse((input) => record(input)));
+    labels:
+    - source: 'input instanceof FastCheck.Arbitrary ? vary(input, keys) : record(input)'
+      style: primary
+      start: 15
+      end: 87

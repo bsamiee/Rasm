@@ -1,0 +1,11 @@
+id: no-namespace-effect-import
+valid:
+    # Modules imported by name
+    - 'import { Effect, Option } from "effect";'
+    # Namespace import of another package
+    - 'import * as Item from "item";'
+invalid:
+    # Short alias
+    - 'import * as E from "effect";'
+    # Alias named after one module
+    - 'import * as Effect from "effect";'

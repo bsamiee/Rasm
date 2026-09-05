@@ -1,36 +1,77 @@
 id: no-separator-after-directory-property
 snapshots:
   ? |
+    <Compile Include="$(MSBuildThisFileDirectoryNoRoot)/*.cs" />
+  : fixed: |
+      <Compile Include="$(MSBuildThisFileDirectoryNoRoot)*.cs" />
+    labels:
+    - source: '"$(MSBuildThisFileDirectoryNoRoot)/*.cs"'
+      style: primary
+      start: 17
+      end: 57
+  ? |
     <Copy SourceFiles="@(Asset)" DestinationFolder="$(OutputPath)/assets/" />
-  : labels:
+  : fixed: |
+      <Copy SourceFiles="@(Asset)" DestinationFolder="$(OutputPath)assets/" />
+    labels:
     - source: '"$(OutputPath)/assets/"'
       style: primary
       start: 47
       end: 70
   ? |
     <None Include="$(StageRoot)/runtimes/**" Pack="true" PackagePath="runtimes/" />
-  : labels:
+  : fixed: |
+      <None Include="$(StageRoot)runtimes/**" Pack="true" PackagePath="runtimes/" />
+    labels:
     - source: '"$(StageRoot)/runtimes/**"'
       style: primary
       start: 14
       end: 40
   ? |
-    <PropertyGroup><RhinoResourcesPath>$(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath></PropertyGroup>
-  : labels:
+    <PropertyGroup>
+      <RhinoResourcesPath>$(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
+    </PropertyGroup>
+  : fixed: |
+      <PropertyGroup>
+        <RhinoResourcesPath>$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
+      </PropertyGroup>
+    labels:
     - source: $(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/
       style: primary
-      start: 35
-      end: 115
+      start: 38
+      end: 118
+  ? |
+    <PropertyGroup><GeneratedRoot>$(OutDir)//gen</GeneratedRoot></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><GeneratedRoot>$(OutDir)gen</GeneratedRoot></PropertyGroup>
+    labels:
+    - source: $(OutDir)//gen
+      style: primary
+      start: 30
+      end: 44
+  ? |
+    <PropertyGroup><Sources>$(MSBuildProjectDirectory)/shared;$(OutDir)/gen</Sources></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><Sources>$(MSBuildProjectDirectory)/shared;$(OutDir)gen</Sources></PropertyGroup>
+    labels:
+    - source: $(MSBuildProjectDirectory)/shared;$(OutDir)/gen
+      style: primary
+      start: 24
+      end: 71
   ? |
     <WriteLinesToFile File="$(IntermediateOutputPath)\version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-  : labels:
+  : fixed: |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    labels:
     - source: '"$(IntermediateOutputPath)\version.txt"'
       style: primary
       start: 23
       end: 62
   ? |
     <_YakManifestFile Include="$(YakManifestDirectory)/*" />
-  : labels:
+  : fixed: |
+      <_YakManifestFile Include="$(YakManifestDirectory)*" />
+    labels:
     - source: '"$(YakManifestDirectory)/*"'
       style: primary
       start: 26

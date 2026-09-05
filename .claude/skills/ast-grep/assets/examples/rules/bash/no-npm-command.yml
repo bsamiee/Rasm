@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-npm-command
+language: bash
+severity: error
+rule:
+    kind: command_name
+    pattern: $CLI
+    regex: '^np[mx]$'
+transform:
+    EXEC: replace($CLI, replace='^npx$', by='pnpm exec') # Each stage rewrites one spelling and passes the other through unchanged
+    PNPM: replace($EXEC, replace='^npm$', by='pnpm')
+fix: $PNPM
+message: '`$CLI` resolves packages outside the pnpm workspace and its lock'
+note: Run through pnpm, `pnpm exec <bin>` and `pnpm <command>`, the injected run steps of a workflow included

@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-composable-path # Property reference and plain segments inside whitespace, each segment a NormalizePath or NormalizeDirectory argument
+language: xml
+rule:
+    any: [{kind: AttValue}, {kind: CharData}]
+    regex: '^\s*["'']?\$\([A-Za-z_][A-Za-z0-9_]*\)([\\/]?[A-Za-z0-9_. -]+)*[\\/]?["'']?\s*$'

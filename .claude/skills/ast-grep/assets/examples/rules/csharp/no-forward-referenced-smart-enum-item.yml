@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+id: no-forward-referenced-smart-enum-item
+language: csharp
+severity: error
+rule:
+    kind: identifier # The reference is the match, every identifier is tried and a has: from the owner binds the first alone
+    all:
+        - pattern: $ROW
+        - inside: {kind: argument, stopBy: end}
+        - not: # Other.Item names another type's member, the name position of a member access is no reference
+              inside: {kind: member_access_expression, field: name}
+        - not: {inside: {kind: lambda_expression, stopBy: end}} # Deferred `static () => Item` values are the legal form
+        - inside: # The ordering walk hangs off the enclosing declaration, an expression has no statement siblings
+            stopBy: end
+            kind: field_declaration
+            has: {kind: modifier, regex: '^static$'}
+            precedes:
+                stopBy: end
+                kind: field_declaration
+                has:
+                    stopBy: end
+                    kind: variable_declarator
+                    has: {field: name, pattern: $ROW} # Bound on the reference, the walk re-matches its text on every later item
+fix: static () => $ROW
+message: Static initializer reads `$ROW` before the owner declares it
+note: The eager field read captures null before the item is initialized, defer the reference behind `static () => <Item>`

@@ -2,23 +2,35 @@ id: require-mtp-test-project-shape
 valid:
     # The test project form, an executable with coverage collection
     - |
-      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup Label="Test Dependencies"><PackageReference Include="coverlet.MTP" /><PackageReference Include="CsCheck" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
-    # A library project references no test framework and owes no test shape
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup Label="Test Dependencies">
+        <PackageReference Include="coverlet.MTP" /><PackageReference Include="CsCheck" /><PackageReference Include="xunit.v3.mtp-v2" />
+          </ItemGroup></Project>
+    # Library project referencing no test framework, no test shape owed
     - |
       <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="PureHDF" /></ItemGroup></Project>
     # The references in the start-tag form
     - |
-      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP"></PackageReference><PackageReference Include="xunit.v3.mtp-v2"></PackageReference></ItemGroup></Project>
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup>
+        <PackageReference Include="coverlet.MTP"></PackageReference><PackageReference Include="xunit.v3.mtp-v2"></PackageReference></ItemGroup>
+          </Project>
 invalid:
+    # Single-quoted framework reference without the executable output type
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include='xunit.v3.mtp-v2' />
+        </ItemGroup></Project>
     # The framework without the executable output type
     - |
-      <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+      <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" />
+        </ItemGroup></Project>
     # The framework without coverage collection
     - |
-      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
-    # A library output type beside the framework
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup>
+        <PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    # Library output type beside the framework
     - |
-      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Library</OutputType></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
-    # An assembly named after the output type value sets no output type
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Library</OutputType></PropertyGroup><ItemGroup>
+        <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    # Assembly named after the output type value, no output type set
     - |
-      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><AssemblyName>Exe</AssemblyName></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><AssemblyName>Exe</AssemblyName></PropertyGroup><ItemGroup>
+        <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>

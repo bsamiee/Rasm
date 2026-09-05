@@ -1,0 +1,19 @@
+id: no-await-on-module-value
+valid:
+    # The target form, a run returns a promise
+    - 'const row = await Effect.runPromise(load(id));'
+    # Sibling run
+    - 'const row = await Effect.runPromiseExit(load(id));'
+    # Promise from a plain function
+    - 'const row = await load(id);'
+    # Promise from a method on a value
+    - 'const row = await client.load(id);'
+    # Method on the promise
+    - 'const row = await Effect.runPromise(load(id)).then(pick);'
+invalid:
+    # The instance
+    - 'const row = await Effect.succeed(id);'
+    # The value under a wrapper
+    - 'const row = await (Option.some(id) as Option.Option<string>);'
+    # Run on a Stream returns an effect
+    - 'const row = await Stream.runCollect(rows);'

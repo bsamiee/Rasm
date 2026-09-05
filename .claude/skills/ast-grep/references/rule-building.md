@@ -15,11 +15,11 @@ Every documented default, combinator, and option of a package is a candidate rep
 
 ## [02]-[SMELLS]
 
-A smell is code the checkers accept and the standards reject, and each category states the criterion an agent applies to the next unseen case:
+Smells are code the checkers accept and the standards reject, and each category states the criterion an agent applies to the next unseen case:
 
 | [INDEX] | [CATEGORY]                 | [CRITERION]                                                                              |
 | :-----: | :------------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | Deep nesting               | Callback or block nesting past three levels, each level a scope the reader carries       |
+|  [01]   | Deep nesting               | Callback or block nesting past three levels, each level a scope the reader holds         |
 |  [02]   | Elements for one fact      | Constant, enum, string, class, type, or object that names what one value states          |
 |  [03]   | Repeated logic             | Same read, decode, or computation at two sites over one input                            |
 |  [04]   | Wrapper                    | Function with a body of one call on the same arguments and no domain type added          |
@@ -53,7 +53,7 @@ Flag each category with `find_code_by_rule` over a `kind` and a relational rule:
 |  [13]   | Known discriminator        | Parameter matched inside the callee and known at every caller                      |
 |  [14]   | Deprecated member          | Member's name, read from the deprecation in the package source                     |
 
-The categories a package member decides (missed capability, presence by branch, re-lifted carrier, known discriminator, deprecated member) need the package source open beside the code, and the search flags the call sites once the member is named. A category the scope's own gates already report yields a finding and no rule. Read the rule list of each linter, analyzer, and plugin the scope runs before searching a category, and leave the pattern with the gate that reports it.
+The categories a package member decides (missed capability, presence by branch, re-lifted carrier, known discriminator, deprecated member) need the package source open beside the code, and the search flags the call sites once the member is named. Categories the scope's own gates already report yield a finding and no rule. Read the rule list of each linter, analyzer, and plugin the scope runs before searching a category, and leave the pattern with the gate that reports it.
 
 ## [03]-[FINDING]
 
@@ -62,20 +62,20 @@ Smells across a codebase come from fresh Opus general-purpose agents, one per pa
 - Each brief scopes the agent to one directory or one package and asks for at most 15 rows
 - Each row reads `file:line | category | the code | the correction | the reason` with the package source line that documents the correction
 - Each agent reads the whole scope and the installed package sources before it reports, and reports no finding a checker in the scope reports
-- A finding without the documenting source line is a guess and goes back to the agent with the line to read
+- Findings without the documenting source line are guesses and go back to the agent with the line to read
 
 Findings are one higher-order pattern when the same correction applies for the same reason across them, and they differ when the correction or the reason diverges:
 - Two findings with one correction and one reason are one pattern, and their instances become the sibling list of one rule
 - Two findings with one shape and two corrections are two patterns, because a rule's `note` states one correction
 - Two findings with one correction and two reasons are two patterns when the reason changes which near miss is valid
-- A finding with a correction no run has proven is a candidate, and the fix promotes it or ends it
+- Findings with a correction no run has proven are candidates, and the fix promotes or ends them
 
 ## [04]-[FIX]
 
-A fix is the direct form the owning package documents, landed in place, and proven by a run before any rule is derived:
+Fixes are the direct form the owning package documents, landed in place, and proven by a run before any rule is derived:
 - The scope ends with fewer constants, types, schemas, classes, and objects, at most three callback levels, and fewer lines
-- A callback level is a function directly under an argument list that declares a parameter
-- A thunk, an initializer, a curried return, and a pair value add no callback level
+- Callback levels are functions directly under an argument list that declare a parameter
+- Thunks, initializers, curried returns, and pair values add no callback level
 - The correction lands at the site it corrects, and a fix that names a new function, type, file, or alias to hold what the site held is rejected
 - Each library in the fix is used for a capability its source documents, in the direct form, with no wrapper, helper, forwarder, or alias added
 - No error the code handled is thrown, dropped, or deferred, and the result type of the scope stays the one its boundary chose
@@ -106,7 +106,7 @@ The branch, both arms, and the empty object leave, because `Record.getSomes` wri
 
 ## [05]-[DERIVATION]
 
-Enumerate siblings per module function with the same meaning, per carrier module that exports the function (`Option`, `Either`, `Effect`), per overload of a `dual` export (data-first and data-last), per container kind (object, array, argument list), per spelling of the same operation, and per position the shape occupies (a spread, an argument, a local, a return). A sibling is real when the correction produces the same after form from it, proven by writing the after form once for that sibling. A near miss is real when the after form adds an element or changes behavior, and every near miss becomes a `valid` test case. A pattern with one surface form and no sibling is an instance, and its rule waits for the second instance that proves the category.
+Enumerate siblings per module function with the same meaning, per carrier module that exports the function (`Option`, `Either`, `Effect`), per overload of a `dual` export (data-first and data-last), per container kind (object, array, argument list), per spelling of the same operation, and per position the shape occupies (a spread, an argument, a local, a return). Siblings are real when the correction produces the same after form from them, proven by writing the after form once per sibling. Near misses are real when the after form adds an element or changes behavior, and every near miss becomes a `valid` test case. Patterns with one form and no sibling are instances, and their rule waits for the second instance that proves the category.
 
 Write the shape the siblings share as a util with a `kind` at its rule root and each narrower sibling as a refinement of it, the rule references one util and the family is enumerated as util variants before the rule widens.
 

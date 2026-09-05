@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: array-presence-ternary-to-option-array
+language: tsx
+severity: off
+utils:
+    # One-element arm the lift writes, the checked operand, an element built without it, or a liftable value under a plain condition
+    presence-branch:
+        kind: ternary_expression
+        any:
+            - pattern: '$X === undefined ? [] : [$X]'
+            - pattern: '$X !== undefined ? [$X] : []'
+            - pattern: '$X === undefined ? [] : [$_]'
+              not: {has: {field: alternative, has: {stopBy: end, pattern: $X}}}
+            - pattern: '$X !== undefined ? [$_] : []'
+              not: {has: {field: consequence, has: {stopBy: end, pattern: $X}}}
+            - pattern: '$_ ? [$V] : []'
+              not: {matches: syntax-narrowed-branch}
+            - pattern: '$_ ? [] : [$V]'
+              not: {matches: syntax-narrowed-branch}
+rule:
+    any: # The parentheses go with the branch under a spread, the branch outside a spread stands alone
+        - kind: parenthesized_expression
+          inside: {kind: spread_element}
+          has: {pattern: $BRANCH, matches: presence-branch}
+        - pattern: $BRANCH
+          matches: presence-branch
+          not: {inside: {kind: parenthesized_expression, inside: {kind: spread_element}}}
+constraints:
+    V: {matches: effect-liftable-value}
+rewriters:
+    - id: nullable-element # The checked operand is the element, Option.fromNullable reads the check without a predicate
+      rule: {any: [{pattern: '$X === undefined ? [] : [$X]'}, {pattern: '$X !== undefined ? [$X] : []'}]}
+      fix: Option.toArray(Option.fromNullable($X))
+    - id: nullable-mapped # The element is built when the operand is defined, and the map keeps the build lazy
+      rule: {any: [{pattern: '$X === undefined ? [] : [$E]'}, {pattern: '$X !== undefined ? [$E] : []'}]}
+      fix: Option.fromNullable($X).pipe(Option.map(() => $E), Option.toArray)
+    - id: element-when-true
+      rule: {pattern: '$C ? [$V] : []'}
+      fix: Option.toArray(Option.liftPredicate($V, () => $C))
+    - id: element-when-false
+      rule: {pattern: '$C ? [] : [$V]'}
+      transform:
+          NOT: rewrite($C, rewriters=[negate-negation, negate-operand, negate-compound])
+      fix: Option.toArray(Option.liftPredicate($V, () => $NOT))
+    - id: negate-negation
+      rule: {pattern: '!$E'}
+      fix: $E
+    - id: negate-operand
+      rule: {pattern: $E, matches: syntax-negation-operand}
+      fix: '!$E'
+    - id: negate-compound
+      rule: {pattern: $E}
+      fix: '!($E)'
+transform:
+    ELEMENTS: rewrite($BRANCH, rewriters=[nullable-element, nullable-mapped, element-when-true, element-when-false])
+fix: $ELEMENTS
+message: The branch chooses its element through an empty arm
+note: Lift the element as an Option, `Option.toArray(Option.liftPredicate(element, () => condition))`

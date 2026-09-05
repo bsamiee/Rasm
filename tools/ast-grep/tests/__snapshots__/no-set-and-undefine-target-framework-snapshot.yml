@@ -1,16 +1,68 @@
 id: no-set-and-undefine-target-framework
 snapshots:
   ? |
-    <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
-  : labels:
-    - source: <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+    <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" GlobalPropertiesToRemove="TargetFramework" />
+  : fixed: |
+      <ProjectReference Include="../Tool/Tool.csproj" GlobalPropertiesToRemove="TargetFramework" SkipGetTargetFrameworkProperties="true" />
+    labels:
+    - source: <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" GlobalPropertiesToRemove="TargetFramework" />
       style: primary
       start: 0
-      end: 172
+      end: 138
   ? |
-    <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework><UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
-  : labels:
-    - source: <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework><UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+    <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="Platform;TargetFramework" />
+  : fixed: |
+      <ProjectReference Include="../Tool/Tool.csproj" UndefineProperties="Platform;TargetFramework" SkipGetTargetFrameworkProperties="true" />
+    labels:
+    - source: <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="Platform;TargetFramework" />
       style: primary
       start: 0
-      end: 187
+      end: 141
+  ? |
+    <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0"
+      UndefineProperties="TargetFramework" />
+  : fixed: |
+      <ProjectReference Include="../Tool/Tool.csproj"
+        UndefineProperties="TargetFramework" SkipGetTargetFrameworkProperties="true" />
+    labels:
+    - source: |-
+        <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0"
+          UndefineProperties="TargetFramework" />
+      style: primary
+      start: 0
+      end: 174
+  ? |
+    <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework>
+      <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+  : fixed: |
+      <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true">
+        <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+    labels:
+    - source: |-
+        <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework>
+          <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+      style: primary
+      start: 0
+      end: 190
+  ? |
+    <ProjectReference Include="Tool.csproj"><SetTargetFramework Condition="'$(Legacy)' != 'true'">TargetFramework=net10.0</SetTargetFramework>
+      <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+  : fixed: |
+      <ProjectReference Include="Tool.csproj" SkipGetTargetFrameworkProperties="true">
+        <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+    labels:
+    - source: |-
+        <ProjectReference Include="Tool.csproj"><SetTargetFramework Condition="'$(Legacy)' != 'true'">TargetFramework=net10.0</SetTargetFramework>
+          <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
+      style: primary
+      start: 0
+      end: 216
+  ? |
+    <ProjectReference Include='../Tool/Tool.csproj' SetTargetFramework='TargetFramework=net10.0' UndefineProperties='TargetFramework' />
+  : fixed: |
+      <ProjectReference Include='../Tool/Tool.csproj' UndefineProperties='TargetFramework' SkipGetTargetFrameworkProperties="true" />
+    labels:
+    - source: <ProjectReference Include='../Tool/Tool.csproj' SetTargetFramework='TargetFramework=net10.0' UndefineProperties='TargetFramework' />
+      style: primary
+      start: 0
+      end: 132

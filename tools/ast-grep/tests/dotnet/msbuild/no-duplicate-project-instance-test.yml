@@ -3,28 +3,31 @@ valid:
     # The DependsOnTargets form, one instance
     - |
       <Target Name="PublishOnBuild" AfterTargets="Build" DependsOnTargets="Publish" Condition="'$(_IsPublishing)' != 'true'" />
-    # A query of the referenced projects without global properties
+    # Query of the referenced projects without global properties
     - |
       <MSBuild Projects="@(ProjectReference)" Targets="GetSchemaFiles" BuildInParallel="$(BuildInParallel)" SkipNonexistentTargets="true" />
-    # A call of the project itself without global properties shares the instance
+    # Call of the project itself without global properties, the instance is shared
     - |
       <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" />
-    # An empty Properties value passes no global property and shares the instance
+    # Empty Properties value, no global property and the same instance
     - |
       <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="" />
-    # An item holds the parameters as metadata and starts no build
+    # Item holding the parameters as metadata, no build starts
     - |
       <ItemGroup><_Publish Include="self" Projects="$(MSBuildProjectFullPath)" Properties="_IsPublishing=true" /></ItemGroup>
     # The project path passed as a property value names no project to build
     - |
       <MSBuild Projects="@(ProjectReference)" Targets="Build" Properties="Caller=$(MSBuildProjectFullPath)" />
-    # A referenced project built with global properties is another instance by design
+    # Referenced project built with global properties, another instance by design
     - |
       <MSBuild Projects="@(ProjectReference)" Targets="Build" Properties="Configuration=$(Configuration)" />
+    # Empty single-quoted Properties value
+    - |
+      <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties='' />
 invalid:
-    # A call of the project itself with a Properties value, another instance shares bin and obj
+    # Single-quoted Properties value
+    - |
+      <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties='_IsPublishing=true' />
+    # Call of the project itself with a Properties value, another instance shares bin and obj
     - |
       <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
-    # The parameters in the child-element form
-    - |
-      <MSBuild Targets="Publish"><Projects>$(MSBuildProjectFile)</Projects><Properties>_IsPublishing=true</Properties></MSBuild>

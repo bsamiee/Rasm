@@ -3,17 +3,34 @@ id: require-target-framework-form
 language: xml
 severity: error
 rule:
+    pattern: _PROPERTY
     any:
-        # Both properties in one file, the SDK takes the singular and BuildCheck reports BC0107
-        - kind: document
-          all:
-              - has: {matches: {msbuild-property: {name: {regex: '^TargetFramework$'}}}, stopBy: end}
-              - has: {matches: {msbuild-property: {name: {regex: '^TargetFrameworks$'}}}, stopBy: end}
-        # A list in the singular fails with NETSDK1046
-        - all: [{matches: {msbuild-property: {name: {regex: '^TargetFramework$'}}}}, {matches: {msbuild-element-text: {text: {regex: ';'}}}}]
+        # List in the singular fails the SDK with NETSDK1046, the plural tag is the list form
+        - matches: {msbuild-property-value: {name: {regex: '^TargetFramework$'}, text: {regex: ';'}}}
         # One literal framework in the plural runs an outer build around one inner build
-        - all: [{matches: {msbuild-property: {name: {regex: '^TargetFrameworks$'}}}}, {matches: {msbuild-element-text: {text: {regex: '^\s*[A-Za-z][A-Za-z0-9.-]*\s*$'}}}}]
+        - matches: {msbuild-property-value: {name: {regex: '^TargetFrameworks$'}, text: {regex: '^\s*[A-Za-z][A-Za-z0-9.-]*\s*$'}}}
+    # Files holding both properties go to the sibling require-target-framework-form-by-hand, a rename there duplicates the kept one
+    not:
+        inside:
+            kind: document
+            stopBy: end
+            all:
+                - has: {matches: {msbuild-property: {name: {regex: '^TargetFramework$'}}}, stopBy: end}
+                - has: {matches: {msbuild-property: {name: {regex: '^TargetFrameworks$'}}}, stopBy: end}
+transform:
+    # The plural tag takes the list, then the singular tag takes one framework, attributes, comments, and text stay
+    PLURAL:
+        replace:
+            source: $PROPERTY
+            replace: '^<TargetFramework(\s[^>]*)?>((?:[^<]|<!--[\s\S]*?-->)*)</TargetFramework>$'
+            by: '<TargetFrameworks$1>$2</TargetFrameworks>'
+    SINGULAR:
+        replace:
+            source: $PLURAL
+            replace: '^<TargetFrameworks(\s[^>]*)?>((?:\s|<!--[\s\S]*?-->)*[A-Za-z][A-Za-z0-9.-]*(?:\s|<!--[\s\S]*?-->)*)</TargetFrameworks>$'
+            by: '<TargetFramework$1>$2</TargetFramework>'
+fix: $SINGULAR
 message: >-
-    TargetFramework holds one framework and TargetFrameworks holds a semicolon list, both together take the singular with BC0107, a list in the
-    singular fails with NETSDK1046, and one framework in the plural adds an outer build
-note: Set TargetFramework to one framework or TargetFrameworks to a semicolon list, and one file sets one of them
+    TargetFramework holds one framework and TargetFrameworks holds a semicolon list, a list in the singular fails with NETSDK1046 and one
+    framework in the plural adds an outer build
+note: Name the property after its value, TargetFramework for one framework and TargetFrameworks for a semicolon list

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: no-nested-module-call
+language: typescript
+severity: error
+utils:
+    data-argument: # The first argument of a module call, or a node wrapped inside that argument, local recursion through inside
+        any:
+            - all:
+                  - nthChild: 1
+                  - inside: {kind: arguments, inside: {matches: effect-module-call}}
+            - inside: {all: [{matches: syntax-value-wrapper}, {matches: data-argument}]}
+rule:
+    matches: effect-module-call
+    all:
+        - has:
+              field: arguments
+              all:
+                  - has: # utils/effect-module-value.yml reaches every wrapper depth in one clause, the first argument is the data
+                        nthChild: 1
+                        matches: effect-module-value
+                  - has: {nthChild: 2} # The second argument marks the data-first form, a one-argument call is a constructor over a value
+        - not: {matches: data-argument} # The outermost call of a chain reports once, an inner call is itself a data argument
+message: Module call takes a module call as its data argument and reads inside out
+note: Start from the inner value and pipe each step, `inner.pipe(Module.step(rest))`

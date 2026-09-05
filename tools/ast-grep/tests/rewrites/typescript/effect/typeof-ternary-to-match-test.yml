@@ -1,0 +1,27 @@
+id: typeof-ternary-to-match
+valid:
+    # The match
+    - 'const hits = Match.value(hit).pipe(Match.when(Match.string, (hit) => [hit]), Match.orElse((hit) => hit));'
+    # Object arm needs parentheses, hand repair
+    - "const configuration = typeof options === 'string' ? { seed: options } : (options ?? {});"
+    # Object arm in the alternative
+    - "const configuration = typeof options === 'string' ? options : { seed: options };"
+    # An Option arm belongs to the Option lift
+    - "const hits = typeof hit === 'string' ? Option.some(hit) : hit;"
+    # Empty array arm is presence
+    - "const hits = typeof hit === 'string' ? hit : [];"
+    # Nested ternary in parentheses dispatches through a Match chain
+    - "const hits = typeof hit === 'string' ? (short ? [hit] : hits) : hit;"
+    # Typeof kind the Match module has no matcher for
+    - "const kind = typeof value === 'function' ? call(value) : value;"
+    # The undefined kind, Match.undefined is no member of the module
+    - "const kind = typeof value === 'undefined' ? fallback : value;"
+    # Member read as the checked value has no name to bind
+    - "const hits = typeof item.hit === 'string' ? [item.hit] : item.hit;"
+invalid:
+    # The instance
+    - "const hits = typeof hit === 'string' ? [hit] : hit;"
+    # Number check
+    - "const count = typeof value === 'number' ? value : Number(value);"
+    # The unequal check, the arms swap
+    - "const hits = typeof hit !== 'string' ? hit : [hit];"

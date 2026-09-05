@@ -52,6 +52,62 @@ snapshots:
       style: secondary
       start: 35
       end: 81
+  'const loaded = Effect.match(load, { onFailure: () => ({}), onSuccess: (config) => ({ config }) });':
+    labels:
+    - source: 'Effect.match(load, { onFailure: () => ({}), onSuccess: (config) => ({ config }) })'
+      style: primary
+      start: 15
+      end: 97
+    - source: '{}'
+      style: secondary
+      start: 54
+      end: 56
+    - source: ({})
+      style: secondary
+      start: 53
+      end: 57
+    - source: () => ({})
+      style: secondary
+      start: 47
+      end: 57
+    - source: 'onFailure: () => ({})'
+      style: secondary
+      start: 36
+      end: 57
+    - source: '{ onFailure: () => ({}), onSuccess: (config) => ({ config }) }'
+      style: secondary
+      start: 34
+      end: 96
+    - source: '{ onFailure: () => ({}), onSuccess: (config) => ({ config }) }'
+      style: secondary
+      start: 34
+      end: 96
+  const names = Match.type<Language>().pipe(Match.when("python", () => [name]), Match.orElse(() => []));:
+    labels:
+    - source: Match.type<Language>().pipe(Match.when("python", () => [name]), Match.orElse(() => []))
+      style: primary
+      start: 14
+      end: 101
+    - source: '[]'
+      style: secondary
+      start: 97
+      end: 99
+    - source: () => []
+      style: secondary
+      start: 91
+      end: 99
+    - source: () => []
+      style: secondary
+      start: 91
+      end: 99
+    - source: Match.orElse(() => [])
+      style: secondary
+      start: 78
+      end: 100
+    - source: (Match.when("python", () => [name]), Match.orElse(() => []))
+      style: secondary
+      start: 41
+      end: 101
   const names = Match.value(language).pipe(Match.when("python", () => []), Match.orElse(() => [name]));:
     labels:
     - source: Match.value(language).pipe(Match.when("python", () => []), Match.orElse(() => [name]))
@@ -74,10 +130,36 @@ snapshots:
       style: secondary
       start: 41
       end: 71
+    - source: (Match.when("python", () => []), Match.orElse(() => [name]))
+      style: secondary
+      start: 40
+      end: 100
+  const names = pipe(Match.type<Language>(), Match.when("python", () => []), Match.orElse(() => [name]));:
+    labels:
+    - source: pipe(Match.type<Language>(), Match.when("python", () => []), Match.orElse(() => [name]))
+      style: primary
+      start: 14
+      end: 102
+    - source: '[]'
+      style: secondary
+      start: 70
+      end: 72
+    - source: () => []
+      style: secondary
+      start: 64
+      end: 72
+    - source: () => []
+      style: secondary
+      start: 64
+      end: 72
     - source: Match.when("python", () => [])
       style: secondary
-      start: 41
-      end: 71
+      start: 43
+      end: 73
+    - source: (Match.type<Language>(), Match.when("python", () => []), Match.orElse(() => [name]))
+      style: secondary
+      start: 18
+      end: 102
   'const options = { ...(adopt && { import: id }) };':
     labels:
     - source: '...(adopt && { import: id })'
@@ -122,10 +204,10 @@ snapshots:
       style: secondary
       start: 88
       end: 112
-    - source: Match.orElse(() => ({}))
+    - source: (Match.when("python", () => ({ name })), Match.orElse(() => ({})))
       style: secondary
-      start: 88
-      end: 112
+      start: 47
+      end: 113
   'const options = { ...Option.match(release, { onNone: () => ({}), onSome: (group) => ({ release: group })}) };':
     labels:
     - source: 'Option.match(release, { onNone: () => ({}), onSome: (group) => ({ release: group })})'
@@ -182,10 +264,10 @@ snapshots:
       style: secondary
       start: 89
       end: 113
-    - source: Match.orElse(() => ({}))
+    - source: (Match.value(language), Match.when("python", () => ({ name })), Match.orElse(() => ({})))
       style: secondary
-      start: 89
-      end: 113
+      start: 25
+      end: 114
   'const parsed = Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] });':
     labels:
     - source: 'Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] })'
@@ -256,6 +338,494 @@ snapshots:
       style: secondary
       start: 48
       end: 91
+  const rows = Match.value(kind).pipe(Match.when("a", () => Effect.succeed([])), Match.orElse(() => Effect.succeed([row])));:
+    labels:
+    - source: Match.value(kind).pipe(Match.when("a", () => Effect.succeed([])), Match.orElse(() => Effect.succeed([row])))
+      style: primary
+      start: 13
+      end: 121
+    - source: Effect.succeed
+      style: secondary
+      start: 58
+      end: 72
+    - source: '[]'
+      style: secondary
+      start: 73
+      end: 75
+    - source: '[]'
+      style: secondary
+      start: 73
+      end: 75
+    - source: Effect.succeed([])
+      style: secondary
+      start: 58
+      end: 76
+    - source: () => Effect.succeed([])
+      style: secondary
+      start: 52
+      end: 76
+    - source: () => Effect.succeed([])
+      style: secondary
+      start: 52
+      end: 76
+    - source: Match.when("a", () => Effect.succeed([]))
+      style: secondary
+      start: 36
+      end: 77
+    - source: Effect.succeed
+      style: secondary
+      start: 98
+      end: 112
+    - source: '[row]'
+      style: secondary
+      start: 113
+      end: 118
+    - source: '[row]'
+      style: secondary
+      start: 113
+      end: 118
+    - source: Effect.succeed([row])
+      style: secondary
+      start: 98
+      end: 119
+    - source: () => Effect.succeed([row])
+      style: secondary
+      start: 92
+      end: 119
+    - source: () => Effect.succeed([row])
+      style: secondary
+      start: 92
+      end: 119
+    - source: Match.orElse(() => Effect.succeed([row]))
+      style: secondary
+      start: 79
+      end: 120
+    - source: (Match.when("a", () => Effect.succeed([])), Match.orElse(() => Effect.succeed([row])))
+      style: secondary
+      start: 35
+      end: 121
+  'const rows = Micro.match(work, { onFailure: () => [], onSuccess: (row) => [row] });':
+    labels:
+    - source: 'Micro.match(work, { onFailure: () => [], onSuccess: (row) => [row] })'
+      style: primary
+      start: 13
+      end: 82
+    - source: '[]'
+      style: secondary
+      start: 50
+      end: 52
+    - source: () => []
+      style: secondary
+      start: 44
+      end: 52
+    - source: 'onFailure: () => []'
+      style: secondary
+      start: 33
+      end: 52
+    - source: '{ onFailure: () => [], onSuccess: (row) => [row] }'
+      style: secondary
+      start: 31
+      end: 81
+    - source: '{ onFailure: () => [], onSuccess: (row) => [row] }'
+      style: secondary
+      start: 31
+      end: 81
+  'const rows = Micro.matchEffect(work, { onFailure: () => Micro.succeed([]), onSuccess: (row) => Micro.succeed([row]) });':
+    labels:
+    - source: 'Micro.matchEffect(work, { onFailure: () => Micro.succeed([]), onSuccess: (row) => Micro.succeed([row]) })'
+      style: primary
+      start: 13
+      end: 118
+    - source: Micro.succeed
+      style: secondary
+      start: 56
+      end: 69
+    - source: '[]'
+      style: secondary
+      start: 70
+      end: 72
+    - source: '[]'
+      style: secondary
+      start: 70
+      end: 72
+    - source: Micro.succeed([])
+      style: secondary
+      start: 56
+      end: 73
+    - source: () => Micro.succeed([])
+      style: secondary
+      start: 50
+      end: 73
+    - source: 'onFailure: () => Micro.succeed([])'
+      style: secondary
+      start: 39
+      end: 73
+    - source: Micro.succeed
+      style: secondary
+      start: 95
+      end: 108
+    - source: '[row]'
+      style: secondary
+      start: 109
+      end: 114
+    - source: '[row]'
+      style: secondary
+      start: 109
+      end: 114
+    - source: Micro.succeed([row])
+      style: secondary
+      start: 95
+      end: 115
+    - source: (row) => Micro.succeed([row])
+      style: secondary
+      start: 86
+      end: 115
+    - source: 'onSuccess: (row) => Micro.succeed([row])'
+      style: secondary
+      start: 75
+      end: 115
+    - source: '{ onFailure: () => Micro.succeed([]), onSuccess: (row) => Micro.succeed([row]) }'
+      style: secondary
+      start: 37
+      end: 117
+    - source: '{ onFailure: () => Micro.succeed([]), onSuccess: (row) => Micro.succeed([row]) }'
+      style: secondary
+      start: 37
+      end: 117
+  'const rows = Option.match(found, { onNone: () => Effect.succeed([]), onSome: Effect.succeed });':
+    labels:
+    - source: 'Option.match(found, { onNone: () => Effect.succeed([]), onSome: Effect.succeed })'
+      style: primary
+      start: 13
+      end: 94
+    - source: Effect.succeed
+      style: secondary
+      start: 49
+      end: 63
+    - source: '[]'
+      style: secondary
+      start: 64
+      end: 66
+    - source: '[]'
+      style: secondary
+      start: 64
+      end: 66
+    - source: Effect.succeed([])
+      style: secondary
+      start: 49
+      end: 67
+    - source: () => Effect.succeed([])
+      style: secondary
+      start: 43
+      end: 67
+    - source: 'onNone: () => Effect.succeed([])'
+      style: secondary
+      start: 35
+      end: 67
+    - source: Effect.succeed
+      style: secondary
+      start: 77
+      end: 91
+    - source: 'onSome: Effect.succeed'
+      style: secondary
+      start: 69
+      end: 91
+    - source: '{ onNone: () => Effect.succeed([]), onSome: Effect.succeed }'
+      style: secondary
+      start: 33
+      end: 93
+    - source: '{ onNone: () => Effect.succeed([]), onSome: Effect.succeed }'
+      style: secondary
+      start: 33
+      end: 93
+  'const rows = STM.match(transaction, { onFailure: () => [], onSuccess: (row) => [row] });':
+    labels:
+    - source: 'STM.match(transaction, { onFailure: () => [], onSuccess: (row) => [row] })'
+      style: primary
+      start: 13
+      end: 87
+    - source: '[]'
+      style: secondary
+      start: 55
+      end: 57
+    - source: () => []
+      style: secondary
+      start: 49
+      end: 57
+    - source: 'onFailure: () => []'
+      style: secondary
+      start: 38
+      end: 57
+    - source: '{ onFailure: () => [], onSuccess: (row) => [row] }'
+      style: secondary
+      start: 36
+      end: 86
+    - source: '{ onFailure: () => [], onSuccess: (row) => [row] }'
+      style: secondary
+      start: 36
+      end: 86
+  'const rows = STM.matchSTM(transaction, { onFailure: () => STM.succeed({}), onSuccess: (row) => STM.succeed({ row }) });':
+    labels:
+    - source: 'STM.matchSTM(transaction, { onFailure: () => STM.succeed({}), onSuccess: (row) => STM.succeed({ row }) })'
+      style: primary
+      start: 13
+      end: 118
+    - source: STM.succeed
+      style: secondary
+      start: 58
+      end: 69
+    - source: '{}'
+      style: secondary
+      start: 70
+      end: 72
+    - source: '{}'
+      style: secondary
+      start: 70
+      end: 72
+    - source: STM.succeed({})
+      style: secondary
+      start: 58
+      end: 73
+    - source: () => STM.succeed({})
+      style: secondary
+      start: 52
+      end: 73
+    - source: 'onFailure: () => STM.succeed({})'
+      style: secondary
+      start: 41
+      end: 73
+    - source: STM.succeed
+      style: secondary
+      start: 95
+      end: 106
+    - source: '{ row }'
+      style: secondary
+      start: 107
+      end: 114
+    - source: '{ row }'
+      style: secondary
+      start: 107
+      end: 114
+    - source: STM.succeed({ row })
+      style: secondary
+      start: 95
+      end: 115
+    - source: (row) => STM.succeed({ row })
+      style: secondary
+      start: 86
+      end: 115
+    - source: 'onSuccess: (row) => STM.succeed({ row })'
+      style: secondary
+      start: 75
+      end: 115
+    - source: '{ onFailure: () => STM.succeed({}), onSuccess: (row) => STM.succeed({ row }) }'
+      style: secondary
+      start: 39
+      end: 117
+    - source: '{ onFailure: () => STM.succeed({}), onSuccess: (row) => STM.succeed({ row }) }'
+      style: secondary
+      start: 39
+      end: 117
+  const rows = pipe(Match.value(kind), Match.when("a", () => Effect.succeed({})), Match.orElse(Effect.succeed));:
+    labels:
+    - source: pipe(Match.value(kind), Match.when("a", () => Effect.succeed({})), Match.orElse(Effect.succeed))
+      style: primary
+      start: 13
+      end: 109
+    - source: Effect.succeed
+      style: secondary
+      start: 59
+      end: 73
+    - source: '{}'
+      style: secondary
+      start: 74
+      end: 76
+    - source: '{}'
+      style: secondary
+      start: 74
+      end: 76
+    - source: Effect.succeed({})
+      style: secondary
+      start: 59
+      end: 77
+    - source: () => Effect.succeed({})
+      style: secondary
+      start: 53
+      end: 77
+    - source: () => Effect.succeed({})
+      style: secondary
+      start: 53
+      end: 77
+    - source: Match.when("a", () => Effect.succeed({}))
+      style: secondary
+      start: 37
+      end: 78
+    - source: Effect.succeed
+      style: secondary
+      start: 93
+      end: 107
+    - source: Effect.succeed
+      style: secondary
+      start: 93
+      end: 107
+    - source: Match.orElse(Effect.succeed)
+      style: secondary
+      start: 80
+      end: 108
+    - source: (Match.value(kind), Match.when("a", () => Effect.succeed({})), Match.orElse(Effect.succeed))
+      style: secondary
+      start: 17
+      end: 109
+  'const settled = Exit.match(exit, { onFailure: () => [], onSuccess: (value) => [value] });':
+    labels:
+    - source: 'Exit.match(exit, { onFailure: () => [], onSuccess: (value) => [value] })'
+      style: primary
+      start: 16
+      end: 88
+    - source: '[]'
+      style: secondary
+      start: 52
+      end: 54
+    - source: () => []
+      style: secondary
+      start: 46
+      end: 54
+    - source: 'onFailure: () => []'
+      style: secondary
+      start: 35
+      end: 54
+    - source: '{ onFailure: () => [], onSuccess: (value) => [value] }'
+      style: secondary
+      start: 33
+      end: 87
+    - source: '{ onFailure: () => [], onSuccess: (value) => [value] }'
+      style: secondary
+      start: 33
+      end: 87
+  'const settled = Exit.matchEffect(exit, { onFailure: () => Effect.succeed([]), onSuccess: (value) => Effect.succeed([value]) });':
+    labels:
+    - source: 'Exit.matchEffect(exit, { onFailure: () => Effect.succeed([]), onSuccess: (value) => Effect.succeed([value]) })'
+      style: primary
+      start: 16
+      end: 126
+    - source: Effect.succeed
+      style: secondary
+      start: 58
+      end: 72
+    - source: '[]'
+      style: secondary
+      start: 73
+      end: 75
+    - source: '[]'
+      style: secondary
+      start: 73
+      end: 75
+    - source: Effect.succeed([])
+      style: secondary
+      start: 58
+      end: 76
+    - source: () => Effect.succeed([])
+      style: secondary
+      start: 52
+      end: 76
+    - source: 'onFailure: () => Effect.succeed([])'
+      style: secondary
+      start: 41
+      end: 76
+    - source: Effect.succeed
+      style: secondary
+      start: 100
+      end: 114
+    - source: '[value]'
+      style: secondary
+      start: 115
+      end: 122
+    - source: '[value]'
+      style: secondary
+      start: 115
+      end: 122
+    - source: Effect.succeed([value])
+      style: secondary
+      start: 100
+      end: 123
+    - source: (value) => Effect.succeed([value])
+      style: secondary
+      start: 89
+      end: 123
+    - source: 'onSuccess: (value) => Effect.succeed([value])'
+      style: secondary
+      start: 78
+      end: 123
+    - source: '{ onFailure: () => Effect.succeed([]), onSuccess: (value) => Effect.succeed([value]) }'
+      style: secondary
+      start: 39
+      end: 125
+    - source: '{ onFailure: () => Effect.succeed([]), onSuccess: (value) => Effect.succeed([value]) }'
+      style: secondary
+      start: 39
+      end: 125
+  'const targets = Effect.if(managed, { onTrue: () => Effect.succeed({}), onFalse: () => Effect.succeed({ stage }) });':
+    labels:
+    - source: 'Effect.if(managed, { onTrue: () => Effect.succeed({}), onFalse: () => Effect.succeed({ stage }) })'
+      style: primary
+      start: 16
+      end: 114
+    - source: Effect.succeed
+      style: secondary
+      start: 51
+      end: 65
+    - source: '{}'
+      style: secondary
+      start: 66
+      end: 68
+    - source: '{}'
+      style: secondary
+      start: 66
+      end: 68
+    - source: Effect.succeed({})
+      style: secondary
+      start: 51
+      end: 69
+    - source: () => Effect.succeed({})
+      style: secondary
+      start: 45
+      end: 69
+    - source: 'onTrue: () => Effect.succeed({})'
+      style: secondary
+      start: 37
+      end: 69
+    - source: Effect.succeed
+      style: secondary
+      start: 86
+      end: 100
+    - source: '{ stage }'
+      style: secondary
+      start: 101
+      end: 110
+    - source: '{ stage }'
+      style: secondary
+      start: 101
+      end: 110
+    - source: Effect.succeed({ stage })
+      style: secondary
+      start: 86
+      end: 111
+    - source: () => Effect.succeed({ stage })
+      style: secondary
+      start: 80
+      end: 111
+    - source: 'onFalse: () => Effect.succeed({ stage })'
+      style: secondary
+      start: 71
+      end: 111
+    - source: '{ onTrue: () => Effect.succeed({}), onFalse: () => Effect.succeed({ stage }) }'
+      style: secondary
+      start: 35
+      end: 113
+    - source: '{ onTrue: () => Effect.succeed({}), onFalse: () => Effect.succeed({ stage }) }'
+      style: secondary
+      start: 35
+      end: 113
   'const targets = { pack, ...Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) }) };':
     labels:
     - source: 'Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) })'

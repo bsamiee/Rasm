@@ -2,70 +2,90 @@ id: no-restated-default-in-project
 snapshots:
   ? |
     <PropertyGroup><Authors>bsamiee</Authors></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <Authors>bsamiee</Authors>
       style: primary
       start: 15
       end: 41
   ? |
     <PropertyGroup><Company>bsamiee</Company></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <Company>bsamiee</Company>
       style: primary
       start: 15
       end: 41
   ? |
     <PropertyGroup><DebugType>portable</DebugType></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <DebugType>portable</DebugType>
       style: primary
       start: 15
       end: 46
   ? |
     <PropertyGroup><Deterministic>True</Deterministic></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <Deterministic>True</Deterministic>
       style: primary
       start: 15
       end: 50
   ? |
     <PropertyGroup><Nullable> enable </Nullable></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <Nullable> enable </Nullable>
       style: primary
       start: 15
       end: 44
   ? |
     <PropertyGroup><OutputType>Library</OutputType></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <OutputType>Library</OutputType>
       style: primary
       start: 15
       end: 47
   ? |
     <PropertyGroup><RepositoryType>git</RepositoryType></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <RepositoryType>git</RepositoryType>
       style: primary
       start: 15
       end: 51
   ? |
     <PropertyGroup><SatelliteResourceLanguages>en</SatelliteResourceLanguages></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
       style: primary
       start: 15
       end: 74
   ? |
     <PropertyGroup><SymbolPackageFormat>snupkg</SymbolPackageFormat></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <SymbolPackageFormat>snupkg</SymbolPackageFormat>
       style: primary
       start: 15
       end: 64
   ? |
     <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
     - source: <TargetFramework>net10.0</TargetFramework>
       style: primary
       start: 15

@@ -26,6 +26,58 @@ snapshots:
       style: secondary
       start: 32
       end: 100
+  const collected = Sink.map(Sink.filterInput(Sink.collectAll(), isLive), Chunk.size);:
+    labels:
+    - source: Sink.map(Sink.filterInput(Sink.collectAll(), isLive), Chunk.size)
+      style: primary
+      start: 18
+      end: 83
+    - source: Sink.collectAll()
+      style: secondary
+      start: 44
+      end: 61
+    - source: isLive
+      style: secondary
+      start: 63
+      end: 69
+    - source: (Sink.collectAll(), isLive)
+      style: secondary
+      start: 43
+      end: 70
+    - source: Sink.filterInput(Sink.collectAll(), isLive)
+      style: secondary
+      start: 27
+      end: 70
+    - source: Sink.filterInput(Sink.collectAll(), isLive)
+      style: secondary
+      start: 27
+      end: 70
+  const decoded = Micro.map(Micro.flatMap(Micro.succeed(raw), parse), normalize);:
+    labels:
+    - source: Micro.map(Micro.flatMap(Micro.succeed(raw), parse), normalize)
+      style: primary
+      start: 16
+      end: 78
+    - source: Micro.succeed(raw)
+      style: secondary
+      start: 40
+      end: 58
+    - source: parse
+      style: secondary
+      start: 60
+      end: 65
+    - source: (Micro.succeed(raw), parse)
+      style: secondary
+      start: 39
+      end: 66
+    - source: Micro.flatMap(Micro.succeed(raw), parse)
+      style: secondary
+      start: 26
+      end: 66
+    - source: Micro.flatMap(Micro.succeed(raw), parse)
+      style: secondary
+      start: 26
+      end: 66
   const deduped = Array.flatten(Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items));:
     labels:
     - source: Array.flatten(Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items))
@@ -52,32 +104,40 @@ snapshots:
       style: secondary
       start: 30
       end: 112
-  ? 'const failed = Effect.mapError(Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling), () => new WorkspaceError({ message: "no native project" }));'
+  ? |
+    const failed = Effect.mapError(
+      Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling),
+      () => new WorkspaceError({ message: "no native project" }),
+    );
   : labels:
-    - source: 'Effect.mapError(Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling), () => new WorkspaceError({ message: "no native project" }))'
+    - source: |-
+        Effect.mapError(
+          Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling),
+          () => new WorkspaceError({ message: "no native project" }),
+        )
       style: primary
       start: 15
-      end: 164
+      end: 171
     - source: Option.liftPredicate(name, () => !managed)
       style: secondary
-      start: 45
-      end: 87
+      start: 48
+      end: 90
     - source: () => sibling
       style: secondary
-      start: 89
-      end: 102
+      start: 92
+      end: 105
     - source: (Option.liftPredicate(name, () => !managed), () => sibling)
       style: secondary
-      start: 44
-      end: 103
+      start: 47
+      end: 106
     - source: Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling)
       style: secondary
-      start: 31
-      end: 103
+      start: 34
+      end: 106
     - source: Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling)
       style: secondary
-      start: 31
-      end: 103
+      start: 34
+      end: 106
   const inner = Effect.map(rows, Array.flatten(Array.map(Array.filter(items, (item) => item.live), (item) => item.parts)));:
     labels:
     - source: Array.flatten(Array.map(Array.filter(items, (item) => item.live), (item) => item.parts))
@@ -104,29 +164,115 @@ snapshots:
       style: secondary
       start: 45
       end: 118
-  ? const nested = Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded);
+  const live = Layer.provide(Layer.merge(Layer.effect(Service, make), other), dependencies);:
+    labels:
+    - source: Layer.provide(Layer.merge(Layer.effect(Service, make), other), dependencies)
+      style: primary
+      start: 13
+      end: 89
+    - source: Layer.effect(Service, make)
+      style: secondary
+      start: 39
+      end: 66
+    - source: other
+      style: secondary
+      start: 68
+      end: 73
+    - source: (Layer.effect(Service, make), other)
+      style: secondary
+      start: 38
+      end: 74
+    - source: Layer.merge(Layer.effect(Service, make), other)
+      style: secondary
+      start: 27
+      end: 74
+    - source: Layer.merge(Layer.effect(Service, make), other)
+      style: secondary
+      start: 27
+      end: 74
+  ? |
+    const nested = Option.getOrElse(
+      Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)),
+      () => loaded,
+    );
   : labels:
-    - source: Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded)
+    - source: |-
+        Option.getOrElse(
+          Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)),
+          () => loaded,
+        )
       style: primary
       start: 15
-      end: 159
+      end: 166
     - source: Option.liftPredicate(loaded, isClass)
       style: secondary
-      start: 47
-      end: 84
+      start: 50
+      end: 87
     - source: (module) => Option.liftPredicate(module.default, isClass)
       style: secondary
-      start: 86
-      end: 143
+      start: 89
+      end: 146
     - source: (Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass))
       style: secondary
-      start: 46
-      end: 144
+      start: 49
+      end: 147
     - source: Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass))
       style: secondary
-      start: 32
-      end: 144
+      start: 35
+      end: 147
     - source: Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass))
       style: secondary
-      start: 32
-      end: 144
+      start: 35
+      end: 147
+  const piped = Channel.mapOut(Channel.map(Channel.fromEffect(effect), done), transform);:
+    labels:
+    - source: Channel.mapOut(Channel.map(Channel.fromEffect(effect), done), transform)
+      style: primary
+      start: 14
+      end: 86
+    - source: Channel.fromEffect(effect)
+      style: secondary
+      start: 41
+      end: 67
+    - source: done
+      style: secondary
+      start: 69
+      end: 73
+    - source: (Channel.fromEffect(effect), done)
+      style: secondary
+      start: 40
+      end: 74
+    - source: Channel.map(Channel.fromEffect(effect), done)
+      style: secondary
+      start: 29
+      end: 74
+    - source: Channel.map(Channel.fromEffect(effect), done)
+      style: secondary
+      start: 29
+      end: 74
+  const seen = HashSet.fromIterable(Array.flatMap(FastCheck.sample(arbitrary, sampling), (value) => classify(value)));:
+    labels:
+    - source: HashSet.fromIterable(Array.flatMap(FastCheck.sample(arbitrary, sampling), (value) => classify(value)))
+      style: primary
+      start: 13
+      end: 115
+    - source: FastCheck.sample(arbitrary, sampling)
+      style: secondary
+      start: 48
+      end: 85
+    - source: (value) => classify(value)
+      style: secondary
+      start: 87
+      end: 113
+    - source: (FastCheck.sample(arbitrary, sampling), (value) => classify(value))
+      style: secondary
+      start: 47
+      end: 114
+    - source: Array.flatMap(FastCheck.sample(arbitrary, sampling), (value) => classify(value))
+      style: secondary
+      start: 34
+      end: 114
+    - source: Array.flatMap(FastCheck.sample(arbitrary, sampling), (value) => classify(value))
+      style: secondary
+      start: 34
+      end: 114

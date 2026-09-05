@@ -3,18 +3,29 @@ id: no-explicit-provider
 language: tsx
 severity: error
 rule:
-    any:
-        # A provider constructed by hand
-        - kind: new_expression
-          has: {field: constructor, regex: '(^|\.)[A-Za-z]*Provider$'}
-        # A resource handed a provider through its options, a pair or a shorthand key in the third constructor argument
-        - any:
-              - kind: pair
-                has: {field: key, regex: '^(provider|providers)$'}
-              - kind: shorthand_property_identifier
-                regex: '^(provider|providers)$'
-          inside: {kind: object, nthChild: 3, inside: {kind: arguments, inside: {kind: new_expression}}}
-message: The provider is configured by hand where the package configures its default provider from the environment
+    pattern: $ARGS
+    matches: {pulumi-provider-arguments: {option: {matches: pulumi-provider-option, pattern: $OPTION}}}
+    not: {matches: syntax-commented-arguments}
+rewriters:
+    # Each rewriter re-matches $ARGS as the direct parent, an argument list nested in an option leaks its members otherwise
+    - id: argument
+      rule: {pattern: $A, inside: {pattern: $ARGS}, not: {nthChild: {position: 1, reverse: true}}}
+      fix: $A
+    - id: option
+      rule:
+          pattern: $P
+          inside: {kind: object, nthChild: {position: 1, reverse: true}, inside: {pattern: $ARGS}}
+          not: {matches: pulumi-provider-option}
+      fix: $P
+transform:
+    HEAD: rewrite($ARGS, rewriters=[argument], joinBy=', ')
+    KEPT: rewrite($ARGS, rewriters=[option], joinBy=', ')
+    # Empty KEPT fails the regex and stays empty, a kept option brings the comma and braces back
+    OPTS: replace($KEPT, replace='^(.+)$', by=', { $1 }')
+fix: ($HEAD$OPTS)
+message: The provider option configures by hand what the package configures from the environment
 note: >-
-    Delete the provider and its option and run the program under the environment variables the provider reads,
-    an explicit provider stays for another account or region alone
+    Delete the option and run the program under the environment variables the default provider reads,
+    another account or region keeps its explicit provider
+labels:
+    OPTION: {style: primary, message: The explicit provider option}

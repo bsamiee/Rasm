@@ -333,7 +333,7 @@
                             "forwardAllArgs": false
                         },
                         {
-                            "command": "ast-grep test",
+                            "command": "ast-grep test --include-off",
                             "forwardAllArgs": false
                         },
                         {
@@ -360,6 +360,14 @@
                     "{workspaceRoot}/.vscode/**/*",
                     "{workspaceRoot}/infra/**/*",
                     "{workspaceRoot}/tools/**/*"
+                ]
+            },
+            "rewrite": {
+                "command": "ast-grep scan --filter '^{args.id}$' --error={args.id} -U {args.paths}",
+                "cache": false,
+                "parallelism": false,
+                "dependsOn": [
+                    "grammar"
                 ]
             },
             "check": {},

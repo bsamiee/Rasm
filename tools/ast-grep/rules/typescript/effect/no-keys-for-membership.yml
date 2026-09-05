@@ -2,24 +2,13 @@
 id: no-keys-for-membership
 language: tsx
 severity: error
-utils:
-    key-list:
-        any:
-            - pattern: Record.keys($RECORD)
-            - pattern: Object.keys($RECORD)
 rule:
-    any:
-        # The key list is searched
-        - pattern: $LIST.includes($KEY)
-          has: {field: function, has: {field: object, matches: key-list}}
-        - pattern: Array.contains($LIST, $KEY)
-          has: {field: arguments, has: {nthChild: 1, matches: key-list}}
-        # The key list is converted to a set
-        - pattern: HashSet.fromIterable($LIST)
-          has: {field: arguments, has: {matches: key-list}}
-        - pattern: new Set($LIST)
-          has: {field: arguments, has: {matches: key-list}}
-message: The keys of $RECORD are listed to test membership
-note: Test the record with `Record.has(record, key)`, the key list and the set exist to answer that question alone
+    # $RECORD and $KEY bind in the argument rules at the call site, the util's own body exports nothing to the fix
+    matches: {effect-key-search: {list: {matches: {effect-key-list: {record: {pattern: $RECORD}}}}, key: {pattern: $KEY}}}
+    # Object.keys in a file without a Record import breaks the fix, the sibling no-keys-for-membership-by-hand reports it
+    not: {has: {stopBy: end, pattern: Object.keys($_)}, not: {inside: {kind: program, stopBy: end, has: {matches: effect-record-import}}}}
+fix: Record.has($RECORD, $KEY)
+message: The key list of $RECORD answers a membership test the record answers itself
+note: Test the record with `Record.has(record, key)`, the key list exists for the membership test alone
 labels:
     RECORD: {style: primary, message: The record with the listed keys}

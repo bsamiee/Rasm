@@ -43,6 +43,13 @@ snapshots:
       start: 0
       end: 56
   ? |
+    <PackageVersion Include='CsCheck' Version='4.*' />
+  : labels:
+    - source: <PackageVersion Include='CsCheck' Version='4.*' />
+      style: primary
+      start: 0
+      end: 50
+  ? |
     <PackageVersion Update="CsCheck" Version="4.8.0" />
   : labels:
     - source: <PackageVersion Update="CsCheck" Version="4.8.0" />

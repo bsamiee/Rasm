@@ -3,11 +3,21 @@ id: no-trailing-separator-on-artifacts-path
 language: xml
 severity: error
 rule:
-    all:
-        - matches: {msbuild-property: {name: {regex: '^ArtifactsPath$'}}}
-        # A separator written at the end of the value, or a function that appends one
-        - matches: {msbuild-element-text: {text: {regex: '[\\/]\s*$|NormalizeDirectory|EnsureTrailingSlash'}}}
+    pattern: _PROPERTY
+    # Separator ending the value or the last NormalizePath argument, or a function appending one, the text slot binds the value for the message
+    matches:
+        msbuild-property-value:
+            name: {regex: '^ArtifactsPath$'}
+            text: {pattern: _TEXT, regex: '[\\/]\s*$|[\\/]''\s*\)\s*\)\s*$|NormalizeDirectory|EnsureTrailingSlash'}
+transform:
+    # Padding around the value trims away, the message stays on one line
+    VALUE: {replace: {source: $TEXT, replace: '^\s+|\s+$', by: ''}}
+    # NormalizePath keeps a separator its last argument ends with, EnsureTrailingSlash over one property takes the BCL trim
+    TRIMMED: {replace: {source: $PROPERTY, replace: '[\\/](\s*</ArtifactsPath>|''\s*\)\s*\)\s*</ArtifactsPath>)$', by: '$1'}}
+    NORMALIZED: {replace: {source: $TRIMMED, replace: 'NormalizeDirectory\(', by: 'NormalizePath('}}
+    UNSLASHED: {replace: {source: $NORMALIZED, replace: '\[MSBuild\]::EnsureTrailingSlash\(', by: '[System.IO.Path]::TrimEndingDirectorySeparator('}}
+fix: $UNSLASHED
 message: >-
-    ArtifactsPath ends with a separator and the SDK appends its own before bin, obj, publish, and package, every output path holds a doubled
-    separator
-note: Compose the value with NormalizePath
+    ArtifactsPath $VALUE ends with a separator and the SDK appends its own before bin, obj, publish, and package, every output path holds a
+    doubled separator
+note: Write the value without a trailing separator, NormalizePath for NormalizeDirectory and TrimEndingDirectorySeparator for EnsureTrailingSlash

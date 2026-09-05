@@ -1,0 +1,101 @@
+id: object-static-to-record
+valid:
+    # The Record module
+    - |
+      import { Effect, Record } from 'effect';
+      const names = Record.keys(configs);
+    # No barrel import to extend, the file binds effect nowhere
+    - |
+      const names = Object.keys(configs);
+    # Type-only barrel import binds no value to extend
+    - |
+      import type { Effect } from 'effect';
+      const names = Object.keys(configs);
+    # The Record module bound to another name, the calls take that name
+    - |
+      import { Effect, Record as Rec } from 'effect';
+      const names = Object.keys(configs);
+    # Another module bound as Record, the rewritten calls read it
+    - |
+      import { Effect, Struct as Record } from 'effect';
+      const names = Object.keys(configs);
+    # Namespace from another module bound as Record
+    - |
+      import { Effect } from 'effect';
+      import * as Record from './schema.ts';
+      const names = Object.keys(configs);
+    # Local declaration named Record
+    - |
+      import { Effect } from 'effect';
+      const Record = { keys: () => [] };
+      const names = Object.keys(configs);
+    # Function named Record
+    - |
+      import { Effect } from 'effect';
+      function Record() {}
+      const names = Object.keys(configs);
+    # Class named Record
+    - |
+      import { Effect } from 'effect';
+      class Record {}
+      const names = Object.keys(configs);
+    # Record bound as a type alone
+    - |
+      import { Effect, type Record } from 'effect';
+      const names = Object.keys(configs);
+    # Record bound from another module
+    - |
+      import { Effect } from 'effect';
+      import { Record } from './schema.ts';
+      const names = Object.keys(configs);
+    # Object.freeze is no record read
+    - |
+      import { Effect } from 'effect';
+      const defaults = Object.freeze({ assets: [] });
+    # Comment among the arguments sits outside the captured record
+    - |
+      import { Effect } from 'effect';
+      const names = Object.keys(/* every flag */ configs);
+invalid:
+    # The instance, the barrel import gains Record and the call moves to the module
+    - |
+      import { Effect } from 'effect';
+      const attributes = Object.fromEntries(span.attributes);
+    # Record already bound, the calls alone move, entries renames to toEntries
+    - |
+      import { Array, Record } from 'effect';
+      const policy = Object.fromEntries(Object.entries(config.csp).map(([directive, values]) => [directive, [...values]]));
+    # Values and keys keep their names
+    - |
+      import { Effect, type Option } from 'effect';
+      const flags = Object.values(_FLAGS);
+      const names = Object.keys(_FLAGS);
+    # Record bound as a namespace beside the barrel import, the barrel import gains nothing
+    - |
+      import { Effect } from 'effect';
+      import * as Record from 'effect/Record';
+      const names = Object.keys(configs);
+    # Object.freeze beside a record read keeps its name
+    - |
+      import { Effect } from 'effect';
+      const defaults = Object.freeze({ assets: [] });
+      const names = Object.keys(sample);
+    # Alias over another module name binds no Record
+    - |
+      import { Effect, Option as Opt } from 'effect';
+      const names = Object.keys(configs);
+    # Namespace import of another package binds no Record
+    - |
+      import { Effect } from 'effect';
+      import * as path from 'node:path';
+      const names = Object.keys(configs);
+    # Two barrel imports with another import between them, the first alone gains Record
+    - |
+      import { Effect } from 'effect';
+      import * as path from 'node:path';
+      import { Option } from 'effect';
+      const names = Object.keys(configs);
+    # Trailing comma in the call goes with the call
+    - |
+      import { Effect } from 'effect';
+      const names = Object.keys(configs,);

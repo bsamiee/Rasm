@@ -4,9 +4,9 @@ language: xml
 severity: error
 rule:
     all:
-        # Copy and Move take the same source and destination parameters
+        # Move flattens a recursive glob the way Copy does, one DestinationFolder for every file
         - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$'}}}
-        # A literal recursive glob in a parameter, SourceFiles is the one list parameter and a literal batches no %(RecursiveDir)
+        # Literal recursive glob in a parameter, SourceFiles is the one list parameter and a literal batches no %(RecursiveDir)
         - matches: {msbuild-metadata: {name: {kind: Name}, value: {regex: '\*\*'}}}
 message: >-
     Copy or Move over a literal recursive glob keeps no tree, DestinationFolder writes every file into one directory and files with one name

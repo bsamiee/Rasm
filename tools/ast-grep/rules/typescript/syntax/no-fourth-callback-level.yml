@@ -3,16 +3,23 @@ id: no-fourth-callback-level
 language: tsx
 severity: error
 utils:
-    # A function under an argument list that declares a parameter, an initializer, a curried return, a pair value, and a thunk add no level
+    # Wrappers an argument keeps its callback role through, the walk to the argument list stops at any other kind
+    wrapper:
+        any:
+            - kind: parenthesized_expression
+            - kind: as_expression
+            - kind: satisfies_expression
+            - kind: non_null_expression
+    # Thunks, initializers, curried returns, pair values, and methods add no level, the role is a parameter under an argument list
     callback:
         all:
             - any:
                   - kind: arrow_function
                   - kind: function_expression
                   - kind: generator_function
-            - inside: {kind: arguments}
+            - inside: {kind: arguments, stopBy: {not: {matches: wrapper}}}
             - any:
-                  - has: {field: parameters, has: {kind: required_parameter}}
+                  - has: {field: parameters, has: {any: [{kind: required_parameter}, {kind: optional_parameter}]}}
                   - has: {field: parameter, kind: identifier}
 rule:
     matches: callback
@@ -25,7 +32,7 @@ rule:
             inside:
                 matches: callback
                 stopBy: end
-    # The innermost callback of a chain reports once, an outer one holds a deeper callback
+    # The chain reports at its innermost callback, every outer callback holds a deeper callback
     not: {has: {matches: callback, stopBy: end}}
 message: The callback with a parameter sits four callback levels deep and the reader holds four scopes
 note: Flatten the chain into data-last steps in one `pipe`, a `yield*` per dependent step in `Effect.gen`, or a `Match` at the call site

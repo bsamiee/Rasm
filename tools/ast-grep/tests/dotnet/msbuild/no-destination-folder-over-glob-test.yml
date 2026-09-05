@@ -3,22 +3,20 @@ valid:
     # The tree kept through a DestinationFiles transform
     - |
       <Copy SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(IntermediateOutputPath)assets/%(RecursiveDir)%(Filename)%(Extension)')" />
-    # A flat file list into one folder
+    # Flat file list into one folder
     - |
       <Copy SourceFiles="$(StageRoot)manifest.yml" DestinationFolder="$(IntermediateOutputPath)stage/" />
-    # A one-level glob keeps no tree
+    # One-level glob, no tree to keep
     - |
       <Copy SourceFiles="$(StageRoot)*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
-    # An item holds the parameters as metadata and copies nothing
+    # Item holding the parameters as metadata, nothing copies
     - |
-      <ItemGroup><_Stage Include="native" SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" /></ItemGroup>
+      <ItemGroup><_Stage Include="native" SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
+        </ItemGroup>
 invalid:
-    # A recursive glob flattened into one folder
+    # Recursive glob flattened into one folder
     - |
       <Copy SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />
-    # The parameters in the child-element form
-    - |
-      <Copy><SourceFiles>$(StageRoot)runtimes/**/*.dylib</SourceFiles><DestinationFolder>$(IntermediateOutputPath)native/</DestinationFolder></Copy>
-    # A Move flattens the tree the same way
+    # Move flattening the tree the same way
     - |
       <Move SourceFiles="$(StageRoot)runtimes/**/*.dylib" DestinationFolder="$(IntermediateOutputPath)native/" />

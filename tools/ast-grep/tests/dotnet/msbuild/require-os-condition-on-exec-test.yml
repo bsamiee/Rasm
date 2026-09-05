@@ -2,38 +2,45 @@ id: require-os-condition-on-exec
 valid:
     # The retarget targets of Directory.Build.targets, the condition sits on the target
     - |
-      <Target Name="RetargetTorchLibompInstallName" AfterTargets="CopyFilesToOutputDirectory" Condition="$([MSBuild]::IsOSPlatform('OSX'))"><Exec Command="install_name_tool -change $(_TorchLibompInstallName) @loader_path/libomp.dylib '%(_TorchCpuDylib.FullPath)' &amp;&amp; codesign --force --sign - '%(_TorchCpuDylib.FullPath)'" /></Target>
+      <Target Name="RetargetTorchLibompInstallName" AfterTargets="CopyFilesToOutputDirectory" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <Exec Command="install_name_tool -change $(_OldName) @loader_path/libomp.dylib '%(_D.FullPath)' &amp;&amp; codesign -s - '%(_D.FullPath)'" />
+      </Target>
     # The condition on the task itself
     - |
-      <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" /></Target>
-    # A portable program
+      <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool"
+        Condition="!$([MSBuild]::IsOSPlatform('Windows'))" /></Target>
+    # Portable program
     - |
       <Target Name="Version" AfterTargets="Build"><Exec Command="dotnet --version" /></Target>
-    # A condition on the reserved OS property
+    # Condition on the reserved OS property
     - |
       <Target Name="Stamp" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'"><Exec Command="cmd /c echo stamped" /></Target>
-    # An item holds the command as metadata and starts no process
+    # Item holding the command as metadata, no process starts
     - |
       <Target Name="Perms"><ItemGroup><_Step Include="perm" Command="chmod +x $(OutDir)mytool" /></ItemGroup></Target>
-    # An environment variable naming a shell path is no command
+    # Environment variable naming a shell path, no command
     - |
       <Target Name="Setup" AfterTargets="Build"><Exec Command="./setup.sh" EnvironmentVariables="SHELL=/bin/bash" /></Target>
 invalid:
+    # Single-quoted command with no condition
+    - |
+      <Target Name="Perms" AfterTargets="Build"><Exec Command='chmod +x $(OutDir)mytool' /></Target>
     # chmod with no condition, fails on Windows
     - |
       <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" /></Target>
     # The macOS package tool that once ran with no platform guard
     - |
-      <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac" WorkingDirectory="$(YakPackageDirectory)" /></Target>
-    # A Windows shell, fails on macOS and Linux
+      <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac"
+        WorkingDirectory="$(YakPackageDirectory)" /></Target>
+    # Windows shell, fails on macOS and Linux
     - |
       <Target Name="Stamp" AfterTargets="Build"><Exec Command="cmd /c echo stamped" /></Target>
-    # A macOS package manager
+    # macOS package manager
     - |
       <Target Name="Deps" BeforeTargets="Build"><Exec Command="brew install libomp" /></Target>
-    # A program at an absolute path
+    # Program at an absolute path
     - |
       <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
-    # An environment variable that passes the reserved OS property conditions nothing
+    # Environment variable passing the reserved OS property, no condition
     - |
       <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" /></Target>

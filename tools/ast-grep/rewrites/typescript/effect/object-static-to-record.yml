@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: object-static-to-record
+language: tsx
+severity: off
+utils:
+    # Record read the rewriter moves to the Record module, a comment among the arguments sits outside the captured record
+    record-read:
+        kind: call_expression
+        has: {field: function, regex: '^Object\.(keys|values|entries|fromEntries)$'}
+        not: {has: {field: arguments, has: {kind: comment}}}
+rule:
+    kind: program # The file is the match, the barrel import gains Record beside the rewritten calls
+    all:
+        - pattern: $P
+        - has: {stopBy: end, matches: record-read}
+        - has: {pattern: "import { $$$ } from 'effect'"}
+        # Specifier naming Record while no import binds the value Record refuses the file, an alias or a type-only import
+        - not:
+              all:
+                  - has: {stopBy: end, kind: import_specifier, has: {kind: identifier, regex: '^Record$'}}
+                  - not: {has: {matches: effect-record-import}}
+        # Namespace of another module or a declaration in the file bound as Record, the rewritten calls read that binding
+        - not:
+              has:
+                  stopBy: end
+                  any:
+                      - kind: namespace_import
+                        has: {kind: identifier, regex: '^Record$'}
+                        not: {inside: {stopBy: end, matches: effect-record-import}}
+                      - any: [{kind: variable_declarator}, {kind: function_declaration}, {kind: class_declaration}]
+                        has: {field: name, regex: '^Record$'}
+rewriters:
+    - id: record-import # The first barrel import gains Record while no import binds it, Biome orders the names and merges the imports
+      rule:
+          pattern: "import { $$$NAMES } from 'effect'"
+          not:
+              any:
+                  - inside: {kind: program, has: {matches: effect-record-import}}
+                  - follows: {stopBy: end, pattern: "import { $$$ } from 'effect'"}
+      fix: "import { $$$NAMES, Record } from 'effect';"
+    - id: record-call
+      rule: {pattern: Object.$M($R), matches: record-read}
+      transform:
+          NEW_M: replace($M, replace='^entries$', by='toEntries') # Miss keeps the name, keys, values, and fromEntries keep theirs
+          NEW_R: rewrite($R, rewriters=[record-call]) # Read nested in the record argument rewrites in the same pass
+      fix: Record.$NEW_M($NEW_R)
+transform:
+    NEW_P: rewrite($P, rewriters=[record-import, record-call]) # No joinBy, the rewritten nodes splice back into the program text
+fix: $NEW_P
+message: Record members are read through the global Object and the effect Record module owns the typed form
+note: Read a record through `Record.keys`, `Record.values`, `Record.toEntries`, and `Record.fromEntries` from the effect package

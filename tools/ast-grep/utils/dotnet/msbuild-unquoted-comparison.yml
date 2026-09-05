@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-unquoted-comparison # Condition attribute with an operand outside single quotes beside == or !=, the delimiters count as operand text
+language: xml
+rule:
+    kind: Attribute
+    matches: {msbuild-attribute: {name: {regex: '^Condition$'}, value: {regex: "[^'\\s]\\s*(==|!=)|(==|!=)\\s*[^'\\s]"}}}

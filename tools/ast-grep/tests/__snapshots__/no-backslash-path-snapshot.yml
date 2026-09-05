@@ -2,7 +2,9 @@ id: no-backslash-path
 snapshots:
   ? |
     <Compile Include="Generated\**\*.cs" />
-  : labels:
+  : fixed: |
+      <Compile Include="Generated/**/*.cs" />
+    labels:
     - source: '"Generated\**\*.cs"'
       style: primary
       start: 17
@@ -16,8 +18,27 @@ snapshots:
       start: 9
       end: 36
   ? |
+    <Compile Include="a\b\c.cs" />
+  : fixed: |
+      <Compile Include="a/b/c.cs" />
+    labels:
+    - source: '"a\b\c.cs"'
+      style: primary
+      start: 17
+      end: 27
+    - source: Include
+      style: secondary
+      start: 9
+      end: 16
+    - source: Include="a\b\c.cs"
+      style: secondary
+      start: 9
+      end: 27
+  ? |
     <Exec Command="cat data\file.txt" />
-  : labels:
+  : fixed: |
+      <Exec Command="cat data/file.txt" />
+    labels:
     - source: '"cat data\file.txt"'
       style: primary
       start: 14
@@ -32,7 +53,9 @@ snapshots:
       end: 33
   ? |
     <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
-  : labels:
+  : fixed: |
+      <Import Project="$(MSBuildThisFileDirectory)../../build/common.props" />
+    labels:
     - source: '"$(MSBuildThisFileDirectory)..\..\build\common.props"'
       style: primary
       start: 16
@@ -47,7 +70,9 @@ snapshots:
       end: 69
   ? |
     <Project Path="libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj" />
-  : labels:
+  : fixed: |
+      <Project Path="libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj" />
+    labels:
     - source: '"libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj"'
       style: primary
       start: 14
@@ -62,14 +87,18 @@ snapshots:
       end: 68
   ? |
     <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)tools\mytool\mytool.exe</ToolPath></PropertyGroup>
-  : labels:
+  : fixed: |
+      <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)tools/mytool/mytool.exe</ToolPath></PropertyGroup>
+    labels:
     - source: $(MSBuildThisFileDirectory)tools\mytool\mytool.exe
       style: primary
       start: 25
       end: 75
   ? |
     <Reference Include="Tool"><HintPath>..\packages\tool\lib\tool.dll</HintPath><Private>false</Private></Reference>
-  : labels:
+  : fixed: |
+      <Reference Include="Tool"><HintPath>../packages/tool/lib/tool.dll</HintPath><Private>false</Private></Reference>
+    labels:
     - source: ..\packages\tool\lib\tool.dll
       style: primary
       start: 36

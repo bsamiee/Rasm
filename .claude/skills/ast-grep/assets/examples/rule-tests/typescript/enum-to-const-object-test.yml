@@ -1,0 +1,33 @@
+id: enum-to-const-object
+valid:
+    # The target form
+    - |
+      const Phase = { Draft: 0, Sealed: 1 } as const;
+      type Phase = (typeof Phase)[keyof typeof Phase];
+    # Valueless member has nothing to fold
+    - 'enum Plain { Draft, Sealed }'
+    # Exported member, the API break is corrected by hand
+    - 'export enum Pub { Draft = 0 }'
+    # Ambient context refuses an initializer
+    - 'declare enum Ambient { P = 1 }'
+    # Ambient context at an ancestor of the enum, the guard walks to the root
+    - 'declare namespace Item { enum Phase { P = 1 } }'
+    # const enum has no emit
+    - 'const enum Inline { X = 1 }'
+    # Comment among the members, the join drops it
+    - |
+      enum Noted {
+          Draft = 0, // the open phase
+          Sealed = 1,
+      }
+    # Member read by a later member has no scope in the object
+    - 'enum Flag { Read = 1, Write = Read << 1 }'
+invalid:
+    # Numeric members
+    - 'enum Phase { Draft = 0, Sealed = 1, Retired = 2 }'
+    # String members fold the same way
+    - 'enum Mode { Read = "read", Write = "write" }'
+    # Member read from outside the enum keeps its name
+    - 'enum Rate { Base = LIMIT, Twice = 2 }'
+    # Trailing comma goes with the join
+    - 'enum Phase { Draft = 0, Sealed = 1, }'

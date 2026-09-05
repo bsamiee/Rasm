@@ -1,37 +1,110 @@
 id: no-keys-for-membership
 snapshots:
   const known = Array.contains(Record.keys(packaging), target);:
+    fixed: const known = Record.has(packaging, target);
     labels:
     - source: packaging
       message: The record with the listed keys
       style: primary
       start: 41
       end: 50
-  const known = Object.keys(packaging).includes(target);:
+  const known = Array.contains(target)(Record.keys(packaging));:
+    fixed: const known = Record.has(packaging, target);
     labels:
     - source: packaging
       message: The record with the listed keys
       style: primary
-      start: 26
-      end: 35
+      start: 49
+      end: 58
   const known = Record.keys(packaging).includes(target);:
+    fixed: const known = Record.has(packaging, target);
     labels:
     - source: packaging
       message: The record with the listed keys
       style: primary
       start: 26
       end: 35
-  const packagingNames = HashSet.fromIterable(Record.keys(Record.filter(projects, isPackaging)));:
+  const known = Record.keys(packaging).pipe(Array.contains(target));:
+    fixed: const known = Record.has(packaging, target);
     labels:
-    - source: Record.filter(projects, isPackaging)
+    - source: packaging
       message: The record with the listed keys
       style: primary
-      start: 56
-      end: 92
-  const packagingNames = new Set(Object.keys(projects));:
+      start: 26
+      end: 35
+  const known = Struct.keys(packaging).includes(target);:
+    fixed: const known = Record.has(packaging, target);
     labels:
-    - source: projects
+    - source: packaging
       message: The record with the listed keys
       style: primary
-      start: 43
-      end: 51
+      start: 26
+      end: 35
+  const known = pipe(Record.keys(packaging), Array.contains(target));:
+    fixed: const known = Record.has(packaging, target);
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 31
+      end: 40
+  ? |
+    import * as Record from "effect/Record";
+    const known = Array.contains(Object.keys(packaging), target);
+  : fixed: |
+      import * as Record from "effect/Record";
+      const known = Record.has(packaging, target);
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 82
+      end: 91
+  ? |
+    import { Record as Record } from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : fixed: |
+      import { Record as Record } from "effect";
+      const known = Record.has(packaging, target);
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 69
+      end: 78
+  ? |
+    import { Record } from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : fixed: |
+      import { Record } from "effect";
+      const known = Record.has(packaging, target);
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 59
+      end: 68
+  ? |
+    import { Record } from "effect/index";
+    const known = Object.keys(packaging).includes(target);
+  : fixed: |
+      import { Record } from "effect/index";
+      const known = Record.has(packaging, target);
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 65
+      end: 74
+  ? |
+    import { Record, type Option } from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : fixed: |
+      import { Record, type Option } from "effect";
+      const known = Record.has(packaging, target);
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 72
+      end: 81

@@ -1,0 +1,244 @@
+id: no-identity-step
+snapshots:
+  ? |
+    const total = rows.pipe(
+        Effect.map(count),
+        Effect.map((row) => row),
+    );
+  : fixed: |
+      const total = rows.pipe(
+          Effect.map(count),
+          ,
+      );
+    labels:
+    - source: Effect.map((row) => row)
+      style: primary
+      start: 52
+      end: 76
+    - source: |-
+        rows.pipe(
+            Effect.map(count),
+            Effect.map((row) => row),
+        )
+      style: secondary
+      start: 14
+      end: 79
+    - source: |-
+        (
+            Effect.map(count),
+            Effect.map((row) => row),
+        )
+      style: secondary
+      start: 23
+      end: 79
+    - source: row
+      style: secondary
+      start: 64
+      end: 67
+    - source: row
+      style: secondary
+      start: 64
+      end: 67
+    - source: row
+      style: secondary
+      start: 72
+      end: 75
+  const total = rows.pipe(Array.map((row, index) => row), Effect.map(sum));:
+    fixed: const total = rows.pipe(, Effect.map(sum));
+    labels:
+    - source: Array.map((row, index) => row)
+      style: primary
+      start: 24
+      end: 54
+    - source: rows.pipe(Array.map((row, index) => row), Effect.map(sum))
+      style: secondary
+      start: 14
+      end: 72
+    - source: (Array.map((row, index) => row), Effect.map(sum))
+      style: secondary
+      start: 23
+      end: 72
+    - source: row
+      style: secondary
+      start: 35
+      end: 38
+    - source: row
+      style: secondary
+      start: 35
+      end: 38
+    - source: row
+      style: secondary
+      start: 50
+      end: 53
+  const total = rows.pipe(Effect.map((row) => { return row; }), Effect.map(sum));:
+    fixed: const total = rows.pipe(, Effect.map(sum));
+    labels:
+    - source: Effect.map((row) => { return row; })
+      style: primary
+      start: 24
+      end: 60
+    - source: rows.pipe(Effect.map((row) => { return row; }), Effect.map(sum))
+      style: secondary
+      start: 14
+      end: 78
+    - source: (Effect.map((row) => { return row; }), Effect.map(sum))
+      style: secondary
+      start: 23
+      end: 78
+    - source: row
+      style: secondary
+      start: 36
+      end: 39
+    - source: row
+      style: secondary
+      start: 36
+      end: 39
+    - source: row
+      style: secondary
+      start: 53
+      end: 56
+    - source: return row;
+      style: secondary
+      start: 46
+      end: 57
+    - source: '{ return row; }'
+      style: secondary
+      start: 44
+      end: 59
+  'const total = rows.pipe(Effect.map((row: Row) => row), Effect.map(sum));':
+    fixed: const total = rows.pipe(, Effect.map(sum));
+    labels:
+    - source: 'Effect.map((row: Row) => row)'
+      style: primary
+      start: 24
+      end: 53
+    - source: 'rows.pipe(Effect.map((row: Row) => row), Effect.map(sum))'
+      style: secondary
+      start: 14
+      end: 71
+    - source: '(Effect.map((row: Row) => row), Effect.map(sum))'
+      style: secondary
+      start: 23
+      end: 71
+    - source: row
+      style: secondary
+      start: 36
+      end: 39
+    - source: row
+      style: secondary
+      start: 36
+      end: 39
+    - source: row
+      style: secondary
+      start: 49
+      end: 52
+  const total = rows.pipe(Effect.map(Function.identity), Effect.map(sum));:
+    fixed: const total = rows.pipe(, Effect.map(sum));
+    labels:
+    - source: Effect.map(Function.identity)
+      style: primary
+      start: 24
+      end: 53
+    - source: rows.pipe(Effect.map(Function.identity), Effect.map(sum))
+      style: secondary
+      start: 14
+      end: 71
+    - source: (Effect.map(Function.identity), Effect.map(sum))
+      style: secondary
+      start: 23
+      end: 71
+  const total = rows.pipe(Effect.map(count), Array.map(identity));:
+    fixed: const total = rows.pipe(Effect.map(count), );
+    labels:
+    - source: Array.map(identity)
+      style: primary
+      start: 43
+      end: 62
+    - source: rows.pipe(Effect.map(count), Array.map(identity))
+      style: secondary
+      start: 14
+      end: 63
+    - source: (Effect.map(count), Array.map(identity))
+      style: secondary
+      start: 23
+      end: 63
+  const total = rows.pipe(Effect.map(count), Option.map((row) => row), Effect.map(sum));:
+    fixed: const total = rows.pipe(Effect.map(count), , Effect.map(sum));
+    labels:
+    - source: Option.map((row) => row)
+      style: primary
+      start: 43
+      end: 67
+    - source: rows.pipe(Effect.map(count), Option.map((row) => row), Effect.map(sum))
+      style: secondary
+      start: 14
+      end: 85
+    - source: (Effect.map(count), Option.map((row) => row), Effect.map(sum))
+      style: secondary
+      start: 23
+      end: 85
+    - source: row
+      style: secondary
+      start: 55
+      end: 58
+    - source: row
+      style: secondary
+      start: 55
+      end: 58
+    - source: row
+      style: secondary
+      start: 63
+      end: 66
+  const total = rows.pipe(Effect.map(identity), Effect.map(sum));:
+    fixed: const total = rows.pipe(, Effect.map(sum));
+    labels:
+    - source: Effect.map(identity)
+      style: primary
+      start: 24
+      end: 44
+    - source: rows.pipe(Effect.map(identity), Effect.map(sum))
+      style: secondary
+      start: 14
+      end: 62
+    - source: (Effect.map(identity), Effect.map(sum))
+      style: secondary
+      start: 23
+      end: 62
+  const total = rows.pipe(Effect.map(row => row), Effect.map(sum));:
+    fixed: const total = rows.pipe(, Effect.map(sum));
+    labels:
+    - source: Effect.map(row => row)
+      style: primary
+      start: 24
+      end: 46
+    - source: rows.pipe(Effect.map(row => row), Effect.map(sum))
+      style: secondary
+      start: 14
+      end: 64
+    - source: (Effect.map(row => row), Effect.map(sum))
+      style: secondary
+      start: 23
+      end: 64
+    - source: row
+      style: secondary
+      start: 35
+      end: 38
+    - source: row
+      style: secondary
+      start: 42
+      end: 45
+  const total = rows.pipe(Stream.map(identity));:
+    fixed: const total = rows.pipe();
+    labels:
+    - source: Stream.map(identity)
+      style: primary
+      start: 24
+      end: 44
+    - source: rows.pipe(Stream.map(identity))
+      style: secondary
+      start: 14
+      end: 45
+    - source: (Stream.map(identity))
+      style: secondary
+      start: 23
+      end: 45

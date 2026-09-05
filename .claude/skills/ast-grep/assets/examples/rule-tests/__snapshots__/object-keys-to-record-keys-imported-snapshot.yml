@@ -1,6 +1,27 @@
 id: object-keys-to-record-keys-imported
 snapshots:
   ? |
+    import * as Record from "effect/Record"
+    const names = Object.keys(items)
+  : fixed: |
+      import * as Record from "effect/Record"
+      const names = Record.keys(items)
+    labels:
+    - source: Object.keys(items)
+      style: primary
+      start: 54
+      end: 72
+    - source: import * as Record from "effect/Record"
+      style: secondary
+      start: 0
+      end: 39
+    - source: |
+        import * as Record from "effect/Record"
+        const names = Object.keys(items)
+      style: secondary
+      start: 0
+      end: 73
+  ? |
     import { Effect, Record } from "effect"
     const names = Object.keys(items)
   : fixed: |
@@ -11,10 +32,6 @@ snapshots:
       style: primary
       start: 54
       end: 72
-    - source: Record
-      style: secondary
-      start: 17
-      end: 23
     - source: import { Effect, Record } from "effect"
       style: secondary
       start: 0
@@ -36,10 +53,6 @@ snapshots:
       style: primary
       start: 44
       end: 64
-    - source: Record
-      style: secondary
-      start: 9
-      end: 15
     - source: import { Record } from "effect"
       style: secondary
       start: 0
@@ -61,10 +74,6 @@ snapshots:
       style: primary
       start: 45
       end: 66
-    - source: Record
-      style: secondary
-      start: 9
-      end: 15
     - source: import { Record } from "effect"
       style: secondary
       start: 0
@@ -75,3 +84,24 @@ snapshots:
       style: secondary
       start: 0
       end: 67
+  ? |
+    import { Record, type Row } from "effect"
+    const names = Object.keys(items)
+  : fixed: |
+      import { Record, type Row } from "effect"
+      const names = Record.keys(items)
+    labels:
+    - source: Object.keys(items)
+      style: primary
+      start: 56
+      end: 74
+    - source: import { Record, type Row } from "effect"
+      style: secondary
+      start: 0
+      end: 41
+    - source: |
+        import { Record, type Row } from "effect"
+        const names = Object.keys(items)
+      style: secondary
+      start: 0
+      end: 75

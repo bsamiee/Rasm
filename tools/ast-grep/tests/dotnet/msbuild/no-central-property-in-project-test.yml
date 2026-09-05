@@ -1,40 +1,43 @@
 id: no-central-property-in-project
 valid:
-    # A project states only what differs
+    # Description and license, values the project holds alone
     - |
-      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><Description>Little CMS shared library staged per runtime identifier</Description><PackageLicenseExpression>MIT</PackageLicenseExpression></PropertyGroup></Project>
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><Description>Little CMS shared library staged per runtime identifier</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression></PropertyGroup></Project>
     # The framework and the output type are project values
     - |
-      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup></Project>
-    # A manifest file name, a central package id, and a release group are project facts
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework><OutputType>Exe</OutputType>
+        </PropertyGroup></Project>
+    # Manifest file name, central package id, and release group, project facts
     - |
-      <PropertyGroup><VersionManifestFileName>extensions.json</VersionManifestFileName><CentralPackageId>DuckDB.NET.Data.Full</CentralPackageId><ReleaseGroup>Rasm.Interop</ReleaseGroup></PropertyGroup>
-    # A language version above the framework default belongs to the project
+      <PropertyGroup><VersionManifestFileName>extensions.json</VersionManifestFileName><CentralPackageId>DuckDB.NET.Data.Full</CentralPackageId>
+        <ReleaseGroup>Rasm.Interop</ReleaseGroup></PropertyGroup>
+    # Language version above the framework default, a project value
     - |
       <PropertyGroup><LangVersion>latest</LangVersion></PropertyGroup>
-    # A restore code suppressed on one reference is metadata
+    # Restore code suppressed on one reference, metadata
     - |
       <ItemGroup><PackageReference Include="EPPlus"><NoWarn>NU1603</NoWarn></PackageReference></ItemGroup>
 invalid:
     # The version a packaging project stated before the manifest owned it
     - |
       <PropertyGroup><Version>2.19.1</Version></PropertyGroup>
-    # An informational version stated in a project
+    # Informational version stated in a project
     - |
       <PropertyGroup><InformationalVersion>0.1.0-cargo</InformationalVersion></PropertyGroup>
-    # A tag prefix the release group derives in Directory.Build.targets
+    # Tag prefix the release group derives in Directory.Build.targets
     - |
       <PropertyGroup><MinVerTagPrefix>v</MinVerTagPrefix></PropertyGroup>
-    # A restore code suppressed per project
+    # Restore code suppressed per project
     - |
       <PropertyGroup><NoWarn>$(NoWarn);NU5128</NoWarn></PropertyGroup>
-    # A warning severity list left in a project body
+    # Warning severity list left in a project body
     - |
       <PropertyGroup Label="IKVM Compile"><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
     # The artifacts root, NETSDK1199 rejects it in a project
     - |
       <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath></PropertyGroup>
-    # A pack on build in a library
+    # Pack on build in a library
     - |
       <PropertyGroup><GeneratePackageOnBuild>true</GeneratePackageOnBuild></PropertyGroup>
     # The test classification Directory.Build.targets derives, stated

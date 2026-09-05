@@ -5,10 +5,10 @@ severity: error
 files: ['**/*.csproj']
 rule:
     kind: document
-    has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^"xunit\.v3\.mtp-v2"$'}}}, stopBy: end}
+    has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^["'']xunit\.v3\.mtp-v2["'']$'}}}, stopBy: end}
     any:
-        - not: {has: {all: [{matches: {msbuild-property: {name: {regex: '^OutputType$'}}}}, {matches: {msbuild-element-text: {text: {regex: '(?i)^\s*Exe\s*$'}}}}], stopBy: end}}
-        - not: {has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^"coverlet\.MTP"$'}}}, stopBy: end}}
+        - not: {has: {matches: {msbuild-property-value: {name: {regex: '^OutputType$'}, text: {regex: '(?i)^\s*Exe\s*$'}}}, stopBy: end}}
+        - not: {has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^["'']coverlet\.MTP["'']$'}}}, stopBy: end}}
 message: >-
     The test project referencing xunit.v3.mtp-v2 lacks <OutputType>Exe</OutputType> or the coverlet.MTP reference, the Microsoft Testing
     Platform host is an executable and every test run collects coverage

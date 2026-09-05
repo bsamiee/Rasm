@@ -1,0 +1,45 @@
+id: array-presence-ternary-to-option-array
+valid:
+    # The lift
+    - 'const deps = [...Option.toArray(Option.liftPredicate(native.name, () => item.managed))];'
+    # Two elements have no one option to hold them
+    - 'const plugins = [...(production ? [compress(), inspect()] : [])];'
+    # Call element under a plain condition runs under it alone
+    - 'const plugins = [...(config.react === true ? [react()] : [])];'
+    # Element built from the checked operand needs the narrowed value
+    - 'const files = [...(config.warmup === undefined ? [] : [warm(config.warmup)])];'
+    # Element built from the checked operand in the other arm order
+    - 'const files = [...(config.warmup !== undefined ? [warm(config.warmup)] : [])];'
+    # Member read from the checked operand needs the narrowed value
+    - 'const names = [...(config.root === undefined ? [] : [config.root.name])];'
+    # Member read from the checked operand in the other arm order
+    - 'const names = [...(config.root !== undefined ? [config.root.name] : [])];'
+    # The operand a typeof check narrows as the element, the lift keeps the wide type
+    - "const hits = [...(typeof hit === 'string' ? [hit] : [])];"
+    # Member read of the operand a truthiness check narrows
+    - 'const names = [...(config.root ? [config.root.name] : [])];'
+    # The checked operand under a conjunction, the defined check narrows one operand of it
+    - 'const params = [...(seed !== undefined && ready ? [seed] : [])];'
+    # Null check keeps an undefined operand where Option.fromNullable drops it
+    - 'const params = [...(seed !== null ? [seed] : [])];'
+    # Two present arms are a choice
+    - 'const files = [...(browser ? [a] : [b])];'
+invalid:
+    # The instance, a member read present when a flag holds, the branch outside a spread as a property value
+    - 'const configuration = { implicitDependencies: item.managed ? [native.name] : [] };'
+    # The checked operand as the element under a spread
+    - 'const params = [...(seed === undefined ? [] : [seed])];'
+    # The checked operand as the element in the other arm order
+    - 'const params = [...(seed !== undefined ? [seed] : [])];'
+    # Element built without the operand, lazily under the map
+    - 'const plugins = [...(config.css === undefined ? [] : [build({ optimize: { minify: true } })])];'
+    # Element built without the operand in the other arm order
+    - 'const plugins = [...(config.css !== undefined ? [build({ optimize: { minify: true } })] : [])];'
+    # The arms swapped under a compound condition
+    - 'const names = [...(a === b ? [] : [label])];'
+    # The arms swapped under a member condition, the member read negates without parentheses
+    - 'const names = [...(item.managed ? [] : [label])];'
+    # The false literal as the element
+    - 'const flags = [...(strict ? [false] : [])];'
+    # Negative literal as the element
+    - 'const steps = [...(descending ? [-1] : [])];'

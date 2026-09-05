@@ -1,0 +1,46 @@
+id: no-unquoted-condition-operand-by-hand
+snapshots:
+  ? |
+    <IsMac Condition="$([MSBuild]::IsOSPlatform('OSX')) == true">true</IsMac>
+  : labels:
+    - source: Condition="$([MSBuild]::IsOSPlatform('OSX')) == true"
+      style: primary
+      start: 7
+      end: 60
+    - source: '"$([MSBuild]::IsOSPlatform(''OSX'')) == true"'
+      style: secondary
+      start: 17
+      end: 60
+  ? |
+    <IsMac Condition="'$(HostIsMac)' == $([MSBuild]::IsOSPlatform('OSX'))">true</IsMac>
+  : labels:
+    - source: Condition="'$(HostIsMac)' == $([MSBuild]::IsOSPlatform('OSX'))"
+      style: primary
+      start: 7
+      end: 70
+    - source: '"''$(HostIsMac)'' == $([MSBuild]::IsOSPlatform(''OSX''))"'
+      style: secondary
+      start: 17
+      end: 70
+  ? |
+    <Trim Condition="'$(OutputType)' == 'Exe' and (Exists('bin') or '$(Configuration)' == Release)">true</Trim>
+  : labels:
+    - source: Condition="'$(OutputType)' == 'Exe' and (Exists('bin') or '$(Configuration)' == Release)"
+      style: primary
+      start: 6
+      end: 95
+    - source: '"''$(OutputType)'' == ''Exe'' and (Exists(''bin'') or ''$(Configuration)'' == Release)"'
+      style: secondary
+      start: 16
+      end: 95
+  ? |
+    <Trim Condition="($(OutputType) == 'Exe') and '$(SelfContained)' == 'true'">true</Trim>
+  : labels:
+    - source: Condition="($(OutputType) == 'Exe') and '$(SelfContained)' == 'true'"
+      style: primary
+      start: 6
+      end: 75
+    - source: '"($(OutputType) == ''Exe'') and ''$(SelfContained)'' == ''true''"'
+      style: secondary
+      start: 16
+      end: 75

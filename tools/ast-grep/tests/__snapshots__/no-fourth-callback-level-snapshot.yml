@@ -1,5 +1,71 @@
 id: no-fourth-callback-level
 snapshots:
+  const asserted = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)!))));:
+    labels:
+    - source: (w) => w
+      style: primary
+      start: 95
+      end: 103
+    - source: (z, ((w) => w)!)
+      style: secondary
+      start: 90
+      end: 106
+    - source: w
+      style: secondary
+      start: 96
+      end: 97
+    - source: w
+      style: secondary
+      start: 96
+      end: 97
+    - source: (y, (z) => Effect.map(z, ((w) => w)!))
+      style: secondary
+      start: 69
+      end: 107
+    - source: z
+      style: secondary
+      start: 74
+      end: 75
+    - source: z
+      style: secondary
+      start: 74
+      end: 75
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)!)))
+      style: secondary
+      start: 48
+      end: 108
+    - source: y
+      style: secondary
+      start: 53
+      end: 54
+    - source: y
+      style: secondary
+      start: 53
+      end: 54
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)!))))
+      style: secondary
+      start: 27
+      end: 109
+    - source: x
+      style: secondary
+      start: 33
+      end: 34
+    - source: x
+      style: secondary
+      start: 33
+      end: 34
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)!)))
+      style: secondary
+      start: 32
+      end: 108
+    - source: (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)!))
+      style: secondary
+      start: 52
+      end: 107
+    - source: (z) => Effect.map(z, ((w) => w)!)
+      style: secondary
+      start: 73
+      end: 106
   const asynchronous = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, async (w) => w))));:
     labels:
     - source: async (w) => w
@@ -116,6 +182,138 @@ snapshots:
       style: secondary
       start: 65
       end: 91
+  const cast = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) as Step))));:
+    labels:
+    - source: (w) => w
+      style: primary
+      start: 91
+      end: 99
+    - source: (z, ((w) => w) as Step)
+      style: secondary
+      start: 86
+      end: 109
+    - source: w
+      style: secondary
+      start: 92
+      end: 93
+    - source: w
+      style: secondary
+      start: 92
+      end: 93
+    - source: (y, (z) => Effect.map(z, ((w) => w) as Step))
+      style: secondary
+      start: 65
+      end: 110
+    - source: z
+      style: secondary
+      start: 70
+      end: 71
+    - source: z
+      style: secondary
+      start: 70
+      end: 71
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) as Step)))
+      style: secondary
+      start: 44
+      end: 111
+    - source: y
+      style: secondary
+      start: 49
+      end: 50
+    - source: y
+      style: secondary
+      start: 49
+      end: 50
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) as Step))))
+      style: secondary
+      start: 23
+      end: 112
+    - source: x
+      style: secondary
+      start: 29
+      end: 30
+    - source: x
+      style: secondary
+      start: 29
+      end: 30
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) as Step)))
+      style: secondary
+      start: 28
+      end: 111
+    - source: (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) as Step))
+      style: secondary
+      start: 48
+      end: 110
+    - source: (z) => Effect.map(z, ((w) => w) as Step)
+      style: secondary
+      start: 69
+      end: 109
+  const checked = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) satisfies Step))));:
+    labels:
+    - source: (w) => w
+      style: primary
+      start: 94
+      end: 102
+    - source: (z, ((w) => w) satisfies Step)
+      style: secondary
+      start: 89
+      end: 119
+    - source: w
+      style: secondary
+      start: 95
+      end: 96
+    - source: w
+      style: secondary
+      start: 95
+      end: 96
+    - source: (y, (z) => Effect.map(z, ((w) => w) satisfies Step))
+      style: secondary
+      start: 68
+      end: 120
+    - source: z
+      style: secondary
+      start: 73
+      end: 74
+    - source: z
+      style: secondary
+      start: 73
+      end: 74
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) satisfies Step)))
+      style: secondary
+      start: 47
+      end: 121
+    - source: y
+      style: secondary
+      start: 52
+      end: 53
+    - source: y
+      style: secondary
+      start: 52
+      end: 53
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) satisfies Step))))
+      style: secondary
+      start: 26
+      end: 122
+    - source: x
+      style: secondary
+      start: 32
+      end: 33
+    - source: x
+      style: secondary
+      start: 32
+      end: 33
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) satisfies Step)))
+      style: secondary
+      start: 31
+      end: 121
+    - source: (y) => Option.map(y, (z) => Effect.map(z, ((w) => w) satisfies Step))
+      style: secondary
+      start: 51
+      end: 120
+    - source: (z) => Effect.map(z, ((w) => w) satisfies Step)
+      style: secondary
+      start: 72
+      end: 119
   const destructured = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ({ w }) => w))));:
     labels:
     - source: ({ w }) => w
@@ -512,3 +710,135 @@ snapshots:
       style: secondary
       start: 85
       end: 133
+  const optional = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w?) => w))));:
+    labels:
+    - source: (w?) => w
+      style: primary
+      start: 94
+      end: 103
+    - source: (z, (w?) => w)
+      style: secondary
+      start: 90
+      end: 104
+    - source: w?
+      style: secondary
+      start: 95
+      end: 97
+    - source: w?
+      style: secondary
+      start: 95
+      end: 97
+    - source: (y, (z) => Effect.map(z, (w?) => w))
+      style: secondary
+      start: 69
+      end: 105
+    - source: z
+      style: secondary
+      start: 74
+      end: 75
+    - source: z
+      style: secondary
+      start: 74
+      end: 75
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, (w?) => w)))
+      style: secondary
+      start: 48
+      end: 106
+    - source: y
+      style: secondary
+      start: 53
+      end: 54
+    - source: y
+      style: secondary
+      start: 53
+      end: 54
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w?) => w))))
+      style: secondary
+      start: 27
+      end: 107
+    - source: x
+      style: secondary
+      start: 33
+      end: 34
+    - source: x
+      style: secondary
+      start: 33
+      end: 34
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w?) => w)))
+      style: secondary
+      start: 32
+      end: 106
+    - source: (y) => Option.map(y, (z) => Effect.map(z, (w?) => w))
+      style: secondary
+      start: 52
+      end: 105
+    - source: (z) => Effect.map(z, (w?) => w)
+      style: secondary
+      start: 73
+      end: 104
+  const wrapped = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)))));:
+    labels:
+    - source: (w) => w
+      style: primary
+      start: 94
+      end: 102
+    - source: (z, ((w) => w))
+      style: secondary
+      start: 89
+      end: 104
+    - source: w
+      style: secondary
+      start: 95
+      end: 96
+    - source: w
+      style: secondary
+      start: 95
+      end: 96
+    - source: (y, (z) => Effect.map(z, ((w) => w)))
+      style: secondary
+      start: 68
+      end: 105
+    - source: z
+      style: secondary
+      start: 73
+      end: 74
+    - source: z
+      style: secondary
+      start: 73
+      end: 74
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w))))
+      style: secondary
+      start: 47
+      end: 106
+    - source: y
+      style: secondary
+      start: 52
+      end: 53
+    - source: y
+      style: secondary
+      start: 52
+      end: 53
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)))))
+      style: secondary
+      start: 26
+      end: 107
+    - source: x
+      style: secondary
+      start: 32
+      end: 33
+    - source: x
+      style: secondary
+      start: 32
+      end: 33
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w))))
+      style: secondary
+      start: 31
+      end: 106
+    - source: (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)))
+      style: secondary
+      start: 51
+      end: 105
+    - source: (z) => Effect.map(z, ((w) => w))
+      style: secondary
+      start: 72
+      end: 104

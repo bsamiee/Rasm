@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: msbuild-attribute # An attribute with a name and a quoted value that pass the two rules, the value regex sees the surrounding double quotes
+id: msbuild-attribute # Attribute with a name and a value that pass the slot rules, the value regex sees its delimiters and pins them as ["']
 language: xml
 arguments: [name, value]
 rule:

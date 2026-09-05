@@ -1,0 +1,33 @@
+id: no-discard-arm-over-union
+valid:
+    # The target form
+    - |
+      public static class S {
+          public static int Code(Request request) => request switch { Request.Open o => 1, Request.Close c => 0 };
+      }
+    # Discard beside constant arms
+    - |
+      public static class S {
+          public static int Code(int n) => n switch { 1 => 1, 2 => 2, _ => 0 };
+      }
+    # Discard beside an unqualified type test
+    - |
+      public static class S {
+          public static int Code(object raw) => raw switch { Request r => 1, _ => 0 };
+      }
+invalid:
+    # Discard beside declaration arms
+    - |
+      public static class S {
+          public static int Code(Request request) => request switch { Request.Open o => 1, Request.Close c => 0, _ => -1 };
+      }
+    # Discard beside one declaration arm
+    - |
+      public static class S {
+          public static int Code(Request request) => request switch { Request.Open o => 1, _ => 0 };
+      }
+    # Discard beside a property pattern arm
+    - |
+      public static class S {
+          public static int Code(Request request) => request switch { Request.Open { Code: 1 } => 1, _ => 0 };
+      }

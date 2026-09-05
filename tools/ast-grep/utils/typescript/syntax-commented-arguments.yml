@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Comments a joined rewrite of the argument list breaks on, a block comment inside the last object survives the join
+id: syntax-commented-arguments
+language: tsx
+rule:
+    kind: arguments
+    any:
+        - has: {kind: comment}
+        - has: {kind: object, nthChild: {position: 1, reverse: true}, has: {kind: comment, regex: '^//'}}

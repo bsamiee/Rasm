@@ -1,15 +1,15 @@
 id: no-trailing-separator-on-artifacts-path
 valid:
-    # The root form, NormalizePath yields no trailing separator
+    # Root form, the last NormalizePath argument ends without a separator
     - |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
     # The packaging form, a segment appended to a directory property
     - |
       <PropertyGroup><ArtifactsPath>$(NativeArtifactsRoot)msbuild</ArtifactsPath></PropertyGroup>
-    # A directory property takes NormalizeDirectory, the SDK appends nothing to it
+    # Directory property taking NormalizeDirectory, the SDK appends nothing to it
     - |
       <PropertyGroup><LibsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'libs'))</LibsRoot></PropertyGroup>
-    # A directory property ends with its separator
+    # Directory property ending with its separator
     - |
       <PropertyGroup><PackageOutputPath>$(ArtifactsPath)/package/</PackageOutputPath></PropertyGroup>
 invalid:
@@ -22,6 +22,19 @@ invalid:
     # EnsureTrailingSlash appends the same separator
     - |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::EnsureTrailingSlash('$(ArtifactsRoot)'))</ArtifactsPath></PropertyGroup>
-    # A backslash at the end of the value
+    # NormalizeDirectory with a last argument ending in a separator, the fix trims it before it renames the function
+    - |
+      <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'artifacts/'))</ArtifactsPath></PropertyGroup>
+    # Backslash at the end of the value
     - |
       <PropertyGroup><ArtifactsPath>$(RepoRoot)artifacts\</ArtifactsPath></PropertyGroup>
+    # NormalizePath with a last argument ending in a separator, the function keeps it
+    - |
+      <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', 'artifacts/'))</ArtifactsPath></PropertyGroup>
+    # Whitespace-padded value, the message prints the trimmed value on one line
+    - |
+      <PropertyGroup>
+        <ArtifactsPath>
+          $(RepoRoot)artifacts/
+        </ArtifactsPath>
+      </PropertyGroup>

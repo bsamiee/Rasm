@@ -2,24 +2,39 @@ id: no-separator-after-directory-property
 valid:
     # Direct concatenation after a directory property
     - |
-      <PropertyGroup><RhinoResourcesPath>$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath></PropertyGroup>
+      <PropertyGroup>
+        <RhinoResourcesPath>$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
+      </PropertyGroup>
     # The project directory has no trailing separator
     - |
       <Compile Include="@(_StagedSource);$(MSBuildProjectDirectory)/*.cs" />
-    # An output glob
+    # Output glob
     - |
       <_TorchCpuDylib Include="$(OutDir)runtimes/*/native/libtorch_cpu.dylib" />
     # The artifacts root ends without a separator, the SDK appends its own segment
     - |
       <PropertyGroup><PackageOutputPath>$(ArtifactsPath)/package/</PackageOutputPath></PropertyGroup>
-    # An application bundle path ends without a separator
+    # Reserved directories without a trailing separator
     - |
-      <PropertyGroup><RhinoResourcesPath>$(RhinoAppPath)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath></PropertyGroup>
+      <Compile Include="$(MSBuildStartupDirectory)/*.cs;$(MSBuildProjectDirectoryNoRoot)/*.cs" />
+    # Application bundle path ending without a separator
+    - |
+      <PropertyGroup>
+        <RhinoResourcesPath>$(RhinoAppPath)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
+      </PropertyGroup>
 invalid:
+    # Reserved directory beside a doubled reference in one value, the fix leaves the reserved one alone
+    - |
+      <PropertyGroup><Sources>$(MSBuildProjectDirectory)/shared;$(OutDir)/gen</Sources></PropertyGroup>
+    # Reserved directory with a trailing separator
+    - |
+      <Compile Include="$(MSBuildThisFileDirectoryNoRoot)/*.cs" />
     # The instance under its corrected name, the app directory already ends with a separator
     - |
-      <PropertyGroup><RhinoResourcesPath>$(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath></PropertyGroup>
-    # A manifest glob after a directory property
+      <PropertyGroup>
+        <RhinoResourcesPath>$(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
+      </PropertyGroup>
+    # Manifest glob after a directory property
     - |
       <_YakManifestFile Include="$(YakManifestDirectory)/*" />
     # The staging root in an attribute
@@ -31,3 +46,6 @@ invalid:
     # The intermediate path ends with a separator
     - |
       <WriteLinesToFile File="$(IntermediateOutputPath)\version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    # Separator run after the reference, the fix removes the whole run
+    - |
+      <PropertyGroup><GeneratedRoot>$(OutDir)//gen</GeneratedRoot></PropertyGroup>

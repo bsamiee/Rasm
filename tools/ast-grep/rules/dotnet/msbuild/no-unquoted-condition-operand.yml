@@ -3,6 +3,17 @@ id: no-unquoted-condition-operand
 language: xml
 severity: error
 rule:
-    matches: {msbuild-attribute: {name: {regex: '^Condition$'}, value: {regex: "[^'\\s]\\s*(==|!=)|(==|!=)\\s*[^'\\s]"}}}
-message: The condition compares an unquoted operand, MSBuild tokenizes the literal before it expands the property
+    pattern: _CONDITION
+    matches: msbuild-unquoted-comparison
+    # Operands the fix cannot wrap as one token, the sibling no-unquoted-condition-operand-by-hand reports them
+    not: {has: {matches: msbuild-composite-operand}}
+transform:
+    # Every quote becomes a single quote, the attribute delimiters included, then the attribute delimiters return as double quotes
+    SINGLE: {replace: {source: $CONDITION, replace: '"|&quot;|`', by: ''''}}
+    DOUBLED: {replace: {source: $SINGLE, replace: '(?s)^(Condition\s*=\s*)''(.*)''$', by: '$1"$2"'}}
+    # The unquoted token before an operator, after the opening quote or whitespace, then the unquoted token after an operator
+    LEFT: {replace: {source: $DOUBLED, replace: '(^|[\s"])([^\s''"=!]+)\s*(==|!=)', by: '$1''$2'' $3'}}
+    QUOTED: {replace: {source: $LEFT, replace: '(==|!=)\s*([^\s''"=!]+)', by: '$1 ''$2'''}}
+fix: $QUOTED
+message: The condition compares an operand outside single quotes, MSBuild tokenizes an unquoted literal before it expands the property
 note: Quote both sides as '$(Name)' == 'value'

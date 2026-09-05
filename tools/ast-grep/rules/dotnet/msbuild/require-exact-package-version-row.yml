@@ -6,9 +6,9 @@ files: ['Directory.Packages.props'] # The root file alone, eng/native/Directory.
 rule:
     matches: {msbuild-element: {name: {regex: '^(PackageVersion|GlobalPackageReference)$'}}}
     any:
-        - not: {matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {regex: '^"[^"]+"$'}}}}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {regex: '^["''][^"'']+["'']$'}}}}
         # One version, plain or as the exact range in brackets, no wildcard and no open range
-        - not: {matches: {msbuild-metadata: {name: {regex: '^Version$'}, value: {regex: '^"(\[[^"*,\[\]()]+\]|[^"*,\[\]()]+)"$'}}}}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Version$'}, value: {regex: '^["''](\[[^"''*,\[\]()]+\]|[^"''*,\[\]()]+)["'']$'}}}}
 message: >-
     The central package version row lacks Include or an exact Version, dotnet-outdated moves the pin on an Include row and a floating or open
     version reads the feed state at restore

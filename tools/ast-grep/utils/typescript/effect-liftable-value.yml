@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Value shapes a lift evaluates ahead of the condition, a call among them runs before the condition holds
+id: effect-liftable-value
+language: tsx
+rule:
+    any:
+        - {kind: identifier}
+        - {kind: member_expression, not: {has: {kind: call_expression, stopBy: end}}}
+        - {kind: string}
+        - {kind: number}
+        - {kind: unary_expression, has: {field: argument, kind: number}}
+        - {kind: template_string, not: {has: {kind: call_expression, stopBy: end}}}
+        - {kind: 'true'}
+        - {kind: 'false'}
+        - {kind: 'null'}
+        - {kind: undefined}
+        - {kind: array, not: {has: {pattern: $_}}}
+        - {kind: object, not: {has: {pattern: $_}}}
+        - {kind: as_expression, has: {matches: effect-liftable-value}}

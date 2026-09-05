@@ -1,0 +1,24 @@
+id: no-fourth-lambda-level
+valid:
+    # Three levels
+    - |
+      rows = outer(lambda a: middle(lambda b: inner(lambda c: c + b + a, a), a), items)
+    # Thunk at the fourth level declares no parameter
+    - |
+      rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda: c, a), a), a), items)
+    # Dictionary value at the fourth level sits under a pair, outside any argument list
+    - |
+      rows = outer(lambda a: middle(lambda b: inner(lambda c: {"key": lambda d: d}, a), a), items)
+    # Default parameter value at the fourth level sits under the parameters, outside any argument list
+    - |
+      rows = outer(lambda a: middle(lambda b: inner(lambda c, key=lambda d: d: c, a), a), items)
+invalid:
+    # Positional callback with a parameter at the fourth level
+    - |
+      rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)
+    # Keyword-argument callback with a parameter at the fourth level
+    - |
+      rows = outer(lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a), items)
+    # Five levels report once at the innermost callback
+    - |
+      rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: end(lambda e: e + d, a), a), a), a), items)

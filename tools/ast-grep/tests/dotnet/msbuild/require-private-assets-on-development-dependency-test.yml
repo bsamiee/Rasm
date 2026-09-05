@@ -3,7 +3,7 @@ valid:
     # The analyzer rows of Directory.Build.props
     - |
       <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers" PrivateAssets="all" />
-    # A generator kept private
+    # Generator kept private
     - |
       <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     # The private assets in the metadata child form
@@ -12,23 +12,29 @@ valid:
     # The runtime half of a generator pair holds the attributes consumers name
     - |
       <PackageReference Include="Generator.Equals.Runtime" />
-    # A runtime library
+    # Runtime library
     - |
       <PackageReference Include="LanguageExt.Core" />
-    # A PackageVersion row names the version and no assets
+    # PackageVersion row naming the version and no assets
     - |
       <PackageVersion Include="Riok.Mapperly" Version="4.2.1" />
-    # A Remove names no dependency to keep private
+    # Remove naming no dependency to keep private
     - |
       <PackageReference Remove="Riok.Mapperly" />
+    # Single-quoted private assets
+    - |
+      <PackageReference Include='Riok.Mapperly' PrivateAssets='all' />
 invalid:
+    # Single-quoted id, the fix keeps the Include quotes and writes the attribute in double quotes
+    - |
+      <PackageReference Include='MinVer' />
     # The instance, four projects added the generator without the private assets
     - |
       <PackageReference Include="Riok.Mapperly" />
-    # A generator id ending in the generator suffix
+    # Generator id ending in the generator suffix
     - |
       <PackageReference Include="PureHDF.SourceGenerator" />
-    # An analyzer in mixed case
+    # Analyzer in mixed case
     - |
       <PackageReference Include="xunit.analyzers" />
     # The version tool
@@ -40,3 +46,9 @@ invalid:
     # IncludeAssets all keeps every asset flowing
     - |
       <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />
+    # Start tag with another metadata child and no private assets, the fix adds the attribute and keeps the child
+    - |
+      <PackageReference Include="MinVer"><NoWarn>NU1603</NoWarn></PackageReference>
+    # Conditioned private assets child narrowed to one class, the fix replaces it with the attribute
+    - |
+      <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">build</PrivateAssets></PackageReference>

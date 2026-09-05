@@ -1,12 +1,14 @@
 id: no-using-remove-in-project
 valid:
-    # A project adds a using it needs
+    # Project adding a using it needs
     - |
       <ItemGroup><Using Include="Rhino.Geometry" /></ItemGroup>
-    # A central using keyed on the package that supplies the namespace
+    # Central using keyed on the package supplying the namespace
     - |
-      <ItemGroup><Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" /></ItemGroup>
-    # A Remove on another item type
+      <ItemGroup>
+        <Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" />
+      </ItemGroup>
+    # Remove on another item type
     - |
       <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
 invalid:

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-elif-dispatch
+language: python
+severity: error
+utils:
+    arm: # Elif arms comparing the subject the if bound, the capture re-matches its text on every arm
+        kind: elif_clause
+        has: {field: condition, pattern: $SUBJECT == $_}
+rule:
+    kind: if_statement
+    all:
+        - has: {field: condition, pattern: $SUBJECT == $_}
+        - has: # Nested follows count adjacent arms, the third follows an arm that follows an arm, no arithmetic
+              matches: arm
+              follows:
+                  matches: arm
+                  stopBy: {kind: elif_clause} # The nearest elif, a comment between arms is a sibling the walk passes
+                  follows: {matches: arm, stopBy: {kind: elif_clause}}
+message: if/elif chain compares `$SUBJECT` with a value in four arms
+note: Dispatch through `match <subject>:` with one `case` per value, an `else` becomes `case _`

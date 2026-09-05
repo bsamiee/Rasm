@@ -1,18 +1,25 @@
 id: require-label-on-package-group
 valid:
-    # A labeled group
+    # Labeled group
     - |
       <Project><ItemGroup Label="Testing"><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
-    # A property group needs no label, the rule reads item groups alone
+    # Property group, the rule reads item groups alone
     - |
       <Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup></Project>
+    # Single-quoted label
+    - |
+      <Project><ItemGroup Label='Testing'><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
 invalid:
-    # An ItemGroup without a Label
+    # Empty single-quoted label
+    - |
+      <Project><ItemGroup Label=''><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
+    # ItemGroup without a Label
     - |
       <Project><ItemGroup><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
-    # An empty label names nothing
+    # Empty label naming nothing
     - |
       <Project><ItemGroup Label=""><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
-    # A condition names no responsibility
+    # Condition naming no responsibility
     - |
-      <Project><ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
+      <Project><ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="CsCheck" Version="4.8.0"
+        /> <!-- Property-based testing --></ItemGroup></Project>

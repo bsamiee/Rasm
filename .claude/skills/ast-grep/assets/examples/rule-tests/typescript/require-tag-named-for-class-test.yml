@@ -1,0 +1,27 @@
+id: require-tag-named-for-class
+valid:
+    # The target form
+    - 'class StackError extends Data.TaggedError("StackError")<{ readonly cause: unknown }> {}'
+    # Schema form without annotations
+    - 'class Missing extends Schema.TaggedError<Missing>()("Missing", { id: Schema.String }) {}'
+    # With annotations
+    - 'class Missing extends Schema.TaggedError<Missing>()("Missing", { id: Schema.String }, { description: "row" }) {}'
+    # Literal in the fields is no tag
+    - 'class Missing extends Schema.TaggedError<Missing>()("Missing", { kind: Schema.Literal("row") }) {}'
+    # Service identifier follows another convention
+    - 'class Db extends Effect.Service<Db>()("app/Db", { succeed: 1 }) {}'
+    # Heritage outside the tagged family
+    - 'class Item extends Base("item") {}'
+invalid:
+    # The instance
+    - 'class LoadError extends Data.TaggedError("Load")<{ readonly cause: unknown }> {}'
+    # Sibling constructor
+    - 'class Row extends Data.TaggedClass("row")<{ readonly id: string }> {}'
+    # Schema form, no annotations
+    - 'class Missing extends Schema.TaggedError<Missing>()("NotFound", { id: Schema.String }) {}'
+    # With annotations
+    - 'class Missing extends Schema.TaggedError<Missing>()("NotFound", { id: Schema.String }, { description: "row" }) {}'
+    # Request
+    - 'class Fetch extends Schema.TaggedRequest<Fetch>()("Load", { failure: Schema.Never, success: Schema.String, payload: {} }) {}'
+    # Single quotes
+    - "class LoadError extends Data.TaggedError('Load')<{ readonly cause: unknown }> {}"

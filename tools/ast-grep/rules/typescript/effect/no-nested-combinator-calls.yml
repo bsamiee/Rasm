@@ -3,17 +3,17 @@ id: no-nested-combinator-calls
 language: tsx
 severity: error
 utils:
-    # A module call that is a step over its first argument, Schema calls construct a declaration and no step
+    # Module call that pipes over its first argument, a Schema or FastCheck call has no data-last form and nests as a declaration
     step:
         matches: effect-module-call
-        not: {has: {field: function, has: {field: object, regex: '^Schema$'}}}
-    # A data-first step, the first argument is a step and at least one more argument follows it
+        not: {has: {field: function, has: {field: object, regex: '^(Schema|FastCheck)$'}}}
+    # Step over any module call (the origin, FastCheck.sample included) with a second argument, a one-argument call wraps a value
     data-first-step:
         matches: step
         has:
             field: arguments
             all:
-                - has: {nthChild: 1, matches: step}
+                - has: {nthChild: 1, matches: effect-module-call}
                 - has: {nthChild: 2}
 rule:
     all:

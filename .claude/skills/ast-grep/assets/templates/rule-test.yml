@@ -1,11 +1,16 @@
-id: <rule-id> # Binds to the rule by id, the file name binds nothing, a rule with no test and a test with no rule both pass ast-grep test
+# Test document under testDir, bound to its rule by id, one document per rule and one violation per case
+id: <rule-id> # Tests with an id that names no rule print Configuration not found! and the run stays green
 valid:
-    - | # The correction the note states, code holding key: value text takes the block scalar or the run exits 8
+    # The correction the note states, code holding key: value text takes the block scalar or the run exits 8
+    - |
       <corrected snippet>
-    - | # A sibling shape the correction does not apply to, one case per guard
+    # Near miss per not: arm, per constraints boundary, and per stopBy bound
+    - |
       <near-miss snippet>
 invalid:
-    - | # The instance the rule was derived from, one violation per case because the snapshot records the first match alone
+    # The instance the rule was derived from, the snapshot records the first match's labels and fix alone
+    - |
       <violating snippet>
-    - | # A surface form the same correction applies to, one case per any: branch, ast-grep test -U writes the snapshots
+    # Sibling per any: branch, carrier, container, and spelling, ast-grep test -U writes the snapshots
+    - |
       <sibling snippet>

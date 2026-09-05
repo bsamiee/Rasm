@@ -1,23 +1,41 @@
 id: no-chained-pipe
 snapshots:
-  const total = items.pipe(Array.map(price)).pipe(Array.filter(positive)).pipe(Array.sum);:
-    fixed: const total = items.pipe(Array.map(price)).pipe(Array.filter(positive), Array.sum);
+  ? |
+    const total = items.pipe(
+        Array.map(price),
+    ).pipe(
+        Number.sumAll,
+    );
+  : fixed: |
+      const total = items.pipe(Array.map(price), Number.sumAll);
     labels:
-    - source: items.pipe(Array.map(price)).pipe(Array.filter(positive)).pipe(Array.sum)
+    - source: |-
+        items.pipe(
+            Array.map(price),
+        ).pipe(
+            Number.sumAll,
+        )
       style: primary
       start: 14
-      end: 87
-  const total = items.pipe(Array.map(price)).pipe(Array.sum).length;:
-    fixed: const total = items.pipe(Array.map(price), Array.sum).length;
+      end: 76
+  const total = items.pipe(Array.map(price)).pipe(Array.filter(positive)).pipe(Number.sumAll);:
+    fixed: const total = items.pipe(Array.map(price)).pipe(Array.filter(positive), Number.sumAll);
     labels:
-    - source: items.pipe(Array.map(price)).pipe(Array.sum)
+    - source: items.pipe(Array.map(price)).pipe(Array.filter(positive)).pipe(Number.sumAll)
       style: primary
       start: 14
-      end: 58
-  const total = items.pipe(Array.map(price)).pipe(Array.sum);:
-    fixed: const total = items.pipe(Array.map(price), Array.sum);
+      end: 91
+  const total = items.pipe(Array.map(price)).pipe(Number.sumAll).length;:
+    fixed: const total = items.pipe(Array.map(price), Number.sumAll).length;
     labels:
-    - source: items.pipe(Array.map(price)).pipe(Array.sum)
+    - source: items.pipe(Array.map(price)).pipe(Number.sumAll)
       style: primary
       start: 14
-      end: 58
+      end: 62
+  const total = items.pipe(Array.map(price)).pipe(Number.sumAll);:
+    fixed: const total = items.pipe(Array.map(price), Number.sumAll);
+    labels:
+    - source: items.pipe(Array.map(price)).pipe(Number.sumAll)
+      style: primary
+      start: 14
+      end: 62

@@ -1,0 +1,48 @@
+id: effect-namespace-import-to-barrel
+snapshots:
+  import * as Arb from 'effect/Arbitrary';:
+    fixed: import { Arbitrary as Arb } from 'effect';
+    labels:
+    - source: import * as Arb from 'effect/Arbitrary';
+      style: primary
+      start: 0
+      end: 40
+    - source: Arb
+      style: secondary
+      start: 12
+      end: 15
+    - source: '* as Arb'
+      style: secondary
+      start: 7
+      end: 15
+    - source: '* as Arb'
+      style: secondary
+      start: 7
+      end: 15
+    - source: '''effect/Arbitrary'''
+      style: secondary
+      start: 21
+      end: 39
+  import * as FastCheck from 'effect/FastCheck';:
+    fixed: import { FastCheck as FastCheck } from 'effect';
+    labels:
+    - source: import * as FastCheck from 'effect/FastCheck';
+      style: primary
+      start: 0
+      end: 46
+    - source: FastCheck
+      style: secondary
+      start: 12
+      end: 21
+    - source: '* as FastCheck'
+      style: secondary
+      start: 7
+      end: 21
+    - source: '* as FastCheck'
+      style: secondary
+      start: 7
+      end: 21
+    - source: '''effect/FastCheck'''
+      style: secondary
+      start: 27
+      end: 45

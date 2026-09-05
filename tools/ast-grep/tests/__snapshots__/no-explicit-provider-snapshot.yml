@@ -1,102 +1,164 @@
 id: no-explicit-provider
 snapshots:
-  const doppler = new DopplerProvider({ dopplerToken });:
+  ? |
+    const project = new Project(
+        name,
+        args,
+        { protect: true, provider: doppler },
+    );
+  : fixed: |
+      const project = new Project(name, args, { protect: true });
     labels:
-    - source: new DopplerProvider({ dopplerToken })
+    - source: 'provider: doppler'
+      message: The explicit provider option
       style: primary
-      start: 16
-      end: 53
-    - source: DopplerProvider
-      style: secondary
-      start: 20
-      end: 35
-  const gh = new github.Provider("github", { owner, token });:
+      start: 70
+      end: 87
+  ? |
+    const project = new Project(
+        name,
+        {
+            name, // Doppler slug
+            description,
+        },
+        { provider: doppler },
+    );
+  : fixed: |
+      const project = new Project(name, {
+              name, // Doppler slug
+              description,
+          });
     labels:
-    - source: new github.Provider("github", { owner, token })
+    - source: 'provider: doppler'
+      message: The explicit provider option
       style: primary
-      start: 11
-      end: 58
-    - source: github.Provider
-      style: secondary
-      start: 15
-      end: 30
-  const project = new Project(name, args, { provider });:
+      start: 109
+      end: 126
+  const project = new Project(name, args, { ...opts, provider });:
+    fixed: const project = new Project(name, args, { ...opts });
     labels:
     - source: provider
+      message: The explicit provider option
+      style: primary
+      start: 51
+      end: 59
+  'const project = new Project(name, args, { protect: true, provider: doppler /* shared */ });':
+    fixed: 'const project = new Project(name, args, { protect: true, /* shared */ });'
+    labels:
+    - source: 'provider: doppler'
+      message: The explicit provider option
+      style: primary
+      start: 57
+      end: 74
+  'const project = new Project(name, args, { protect: true, provider: doppler, });':
+    fixed: 'const project = new Project(name, args, { protect: true });'
+    labels:
+    - source: 'provider: doppler'
+      message: The explicit provider option
+      style: primary
+      start: 57
+      end: 74
+  const project = new Project(name, args, { provider });:
+    fixed: const project = new Project(name, args);
+    labels:
+    - source: provider
+      message: The explicit provider option
       style: primary
       start: 42
       end: 50
-    - source: new Project(name, args, { provider })
-      style: secondary
-      start: 16
-      end: 53
-    - source: (name, args, { provider })
-      style: secondary
-      start: 27
-      end: 53
-    - source: '{ provider }'
-      style: secondary
-      start: 40
-      end: 52
-  'const project = new Project(name, { name, description }, { provider: doppler });':
+  'const project = new Project(name, args, { provider: doppler, parent: make(a, b) });':
+    fixed: 'const project = new Project(name, args, { parent: make(a, b) });'
     labels:
     - source: 'provider: doppler'
+      message: The explicit provider option
+      style: primary
+      start: 42
+      end: 59
+  'const project = new Project(name, args, { provider: getProvider(region, { profile: "x" }) });':
+    fixed: const project = new Project(name, args);
+    labels:
+    - source: 'provider: getProvider(region, { profile: "x" })'
+      message: The explicit provider option
+      style: primary
+      start: 42
+      end: 89
+  'const project = new Project(name, args, { provider: new aws.Provider("x", { region }) });':
+    fixed: const project = new Project(name, args);
+    labels:
+    - source: 'provider: new aws.Provider("x", { region })'
+      message: The explicit provider option
+      style: primary
+      start: 42
+      end: 85
+  const project = new Project(name, await args(), { provider });:
+    fixed: const project = new Project(name, await args());
+    labels:
+    - source: provider
+      message: The explicit provider option
+      style: primary
+      start: 50
+      end: 58
+  const project = new Project(name, pulumi.output(args), { provider });:
+    fixed: const project = new Project(name, pulumi.output(args));
+    labels:
+    - source: provider
+      message: The explicit provider option
+      style: primary
+      start: 57
+      end: 65
+  'const project = new Project(name, { name, description }, { provider: doppler });':
+    fixed: const project = new Project(name, { name, description });
+    labels:
+    - source: 'provider: doppler'
+      message: The explicit provider option
       style: primary
       start: 59
       end: 76
-    - source: provider
-      style: secondary
-      start: 59
-      end: 67
-    - source: 'new Project(name, { name, description }, { provider: doppler })'
-      style: secondary
-      start: 16
-      end: 79
-    - source: '(name, { name, description }, { provider: doppler })'
-      style: secondary
-      start: 27
-      end: 79
-    - source: '{ provider: doppler }'
-      style: secondary
-      start: 57
-      end: 78
-  'const repository = new Repository(name, args, { protect: true, providers: [gh] });':
+  'const repository = Repository.get(name, id, state, { provider: gh });':
+    fixed: const repository = Repository.get(name, id, state);
+    labels:
+    - source: 'provider: gh'
+      message: The explicit provider option
+      style: primary
+      start: 53
+      end: 65
+  'const repository = getRepository({ fullName }, { provider: gh });':
+    fixed: const repository = getRepository({ fullName });
+    labels:
+    - source: 'provider: gh'
+      message: The explicit provider option
+      style: primary
+      start: 49
+      end: 61
+  'const repository = github.getRepositoryOutput({ fullName }, { provider: gh });':
+    fixed: const repository = github.getRepositoryOutput({ fullName });
+    labels:
+    - source: 'provider: gh'
+      message: The explicit provider option
+      style: primary
+      start: 62
+      end: 74
+  'const stack = new Stack(name, args, { protect: true, providers: [gh] });':
+    fixed: 'const stack = new Stack(name, args, { protect: true });'
     labels:
     - source: 'providers: [gh]'
+      message: The explicit provider option
       style: primary
-      start: 63
-      end: 78
-    - source: providers
-      style: secondary
-      start: 63
-      end: 72
-    - source: 'new Repository(name, args, { protect: true, providers: [gh] })'
-      style: secondary
-      start: 19
-      end: 81
-    - source: '(name, args, { protect: true, providers: [gh] })'
-      style: secondary
-      start: 33
-      end: 81
-    - source: '{ protect: true, providers: [gh] }'
-      style: secondary
-      start: 46
-      end: 80
-  const repository = new Repository(name, args, { providers });:
+      start: 53
+      end: 68
+  const stack = new Stack(name, args, { providers, ...adoption(name) });:
+    fixed: const stack = new Stack(name, args, { ...adoption(name) });
     labels:
     - source: providers
+      message: The explicit provider option
       style: primary
-      start: 48
-      end: 57
-    - source: new Repository(name, args, { providers })
-      style: secondary
-      start: 19
-      end: 60
-    - source: (name, args, { providers })
-      style: secondary
-      start: 33
-      end: 60
-    - source: '{ providers }'
-      style: secondary
-      start: 46
-      end: 59
+      start: 38
+      end: 47
+  'const stack = new Stack(name, args, { providers: { github: gh } });':
+    fixed: const stack = new Stack(name, args);
+    labels:
+    - source: 'providers: { github: gh }'
+      message: The explicit provider option
+      style: primary
+      start: 38
+      end: 63

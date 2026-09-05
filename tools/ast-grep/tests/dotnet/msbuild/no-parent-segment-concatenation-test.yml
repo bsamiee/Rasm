@@ -1,21 +1,50 @@
 id: no-parent-segment-concatenation
 valid:
-    # The normalized repository root of eng/native/Directory.Build.props
+    # Normalized repository root of eng/native/Directory.Build.props
     - |
       <PropertyGroup><RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..'))</RepositoryRoot></PropertyGroup>
-    # A relative project reference resolves against the project directory
+    # Relative project reference, resolved against the project directory
     - |
       <ProjectReference Include="../../../../libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
-    # The file-above lookup takes the parent form and returns a normalized path
+    # File-above lookup taking the parent form, its result is normalized
     - |
-      <PropertyGroup><_OuterDirectoryBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterDirectoryBuildProps></PropertyGroup>
+      <PropertyGroup><_Outer>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_Outer></PropertyGroup>
+    # List of two parent paths, the sibling no-parent-segment-concatenation-by-hand reports it
+    - |
+      <PropertyGroup><Roots>$(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b</Roots></PropertyGroup>
+    # Wildcard after the parent segment, the sibling reports it
+    - |
+      <Compile Include="$(MSBuildProjectDirectory)/../shared/**/*.cs" />
+    # Second reference inside the path, the sibling reports it
+    - |
+      <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe</ToolPath></PropertyGroup>
+    # Parent path as a function argument, the sibling reports it
+    - |
+      <PropertyGroup><ToolPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))</ToolPath></PropertyGroup>
+    # Item transform holding the parent path, the sibling reports it
+    - |
+      <None Include="@(Asset->'$(MSBuildThisFileDirectory)../%(Filename)%(Extension)')" />
 invalid:
-    # The staging root a packaging project once composed by hand
+    # Staging root a packaging project once composed by hand, the trailing separator selects NormalizeDirectory
     - |
       <PropertyGroup><StageRoot>$(MSBuildThisFileDirectory)../../../.artifacts/native/lcms2/stage/</StageRoot></PropertyGroup>
-    # The artifacts root before the normalized RepositoryRoot existed
+    # Artifacts root before the normalized RepositoryRoot existed, the segment glued to the reference
     - |
       <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory)../../.artifacts/native/msbuild</ArtifactsPath></PropertyGroup>
-    # A manifest path appended to the project directory
+    # Manifest path appended to the project directory, a file path selects NormalizePath
     - |
       <PropertyGroup><VcpkgManifest>$(MSBuildProjectDirectory)/../duckdbextensions/extensions.json</VcpkgManifest></PropertyGroup>
+    # Import path in an attribute, the fix keeps the attribute delimiters around the function
+    - |
+      <Import Project="$(MSBuildThisFileDirectory)../../build/common.props" />
+    # Backslash separators, each becomes an argument boundary
+    - |
+      <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
+    # Single-quoted import path, the fix writes the composed value in double quotes
+    - |
+      <Import Project='$(MSBuildThisFileDirectory)../../build/common.props' />
+    # Whitespace-padded property value, the padding stays outside the composed function
+    - |
+      <PropertyGroup><StageRoot>
+        $(MSBuildThisFileDirectory)../.artifacts/native/stage/
+      </StageRoot></PropertyGroup>

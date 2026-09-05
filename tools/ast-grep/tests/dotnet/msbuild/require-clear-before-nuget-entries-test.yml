@@ -12,7 +12,7 @@ valid:
     # Mappings open with the clear
     - |
       <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
-    # A comment before the clear is no entry
+    # Comment before the clear, no entry
     - |
       <packageSources><!-- restore sources --><clear /><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>
     # The config section takes no clear
@@ -24,12 +24,15 @@ invalid:
       <packageSources>
           <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
       </packageSources>
-    # A clear after the first source clears the source it follows
+    # Clear after the first source, the source before it is cleared
     - |
       <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear /></packageSources>
     # Mappings without the clear
     - |
       <packageSourceMapping><packageSource key="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>
-    # An empty section inherits every source
+    # Empty section inheriting every source
     - |
       <packageSources />
+    # Clear in the start-tag form after the first source, the fix removes it with the empty-tag form
+    - |
+      <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear></clear></packageSources>

@@ -1,10 +1,14 @@
 id: no-nested-combinator-calls
 valid:
-    # The chain piped from the value
-    - 'const piped = Option.liftPredicate(loaded, isClass).pipe(Option.flatMap((module) => Option.liftPredicate(module.default, isClass)), Option.getOrElse(() => loaded));'
+    # Chain piped from the value
+    - |
+      const piped = Option.liftPredicate(loaded, isClass).pipe(
+        Option.flatMap((module) => Option.liftPredicate(module.default, isClass)),
+        Option.getOrElse(() => loaded),
+      );
     # Two levels, the bound of a readable nesting
     - 'const two = Option.filter(Option.fromNullable(include), (target) => target !== source);'
-    # A data-last step as the second argument
+    # Data-last step as the second argument
     - 'const dataLast = Effect.map(rows, Array.filterMap(({ include }) => Option.fromNullable(include)));'
     # Schema constructors declare a schema
     - 'const decoded = Schema.optionalWith(Schema.Array(Schema.Struct({ include: Schema.optional(Schema.String) })), { default: () => [] });'
@@ -12,18 +16,40 @@ valid:
     - 'const flattened = Array.flatten(Array.map(rows, (row) => row.items));'
     # Schema constructors nested two deep as declarations
     - 'const kind = Schema.optionalWith(Schema.Union(Schema.Literal("a"), Schema.Number), { default: () => "a" });'
-    # A two-level chain as the second argument, the outer call's data is a value
+    # FastCheck arbitraries nested as declarations, the sample runs the declared arbitrary
+    - 'const pairs = FastCheck.sample(FastCheck.tuple(FastCheck.integer(bits), FastCheck.integer(bits)), seed);'
+    # Two-level chain as the second argument, the outer call's data is a value
     - 'const dataLast = Effect.map(rows, Option.getOrElse(Option.map(found, (item) => item.name), () => fallback));'
-    # A data-last step as the middle call's second argument, two data-first levels
+    # Data-last step as the middle call's second argument, two data-first levels
     - 'const mapped = Array.flatten(Array.map(rows, Array.filter((row) => row.live)));'
+    # Three steps on a module outside the effect package, the rule reads the barrel modules alone
+    - 'const jobs = Job.flatten(Job.map(Job.filter(queue, (job) => job.live), (job) => job.parts));'
 invalid:
     # The instance, three data-first Option steps
-    - 'const nested = Option.getOrElse(Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)), () => loaded);'
+    - |
+      const nested = Option.getOrElse(
+        Option.flatMap(Option.liftPredicate(loaded, isClass), (module) => Option.liftPredicate(module.default, isClass)),
+        () => loaded,
+      );
     # Three steps across Effect and Option
-    - 'const failed = Effect.mapError(Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling), () => new WorkspaceError({ message: "no native project" }));'
+    - |
+      const failed = Effect.mapError(
+        Option.orElse(Option.liftPredicate(name, () => !managed), () => sibling),
+        () => new WorkspaceError({ message: "no native project" }),
+      );
     # Three Array steps
     - 'const collected = Array.flatten(Array.map(Array.filter(rows, (row) => row.live), (row) => row.items));'
     # Four steps, the outermost call reports once and the inner three-step chain is its first argument
     - 'const deduped = Array.flatten(Array.map(Array.filter(Array.dedupe(rows), (row) => row.live), (row) => row.items));'
-    # A three-step chain as the second argument of a step, the chain reports at its own outermost call
+    # Three-step chain as the second argument of a step, the chain reports at its own outermost call
     - 'const inner = Effect.map(rows, Array.flatten(Array.map(Array.filter(items, (item) => item.live), (item) => item.parts)));'
+    # Three Layer steps, the layer built by a constructor then merged and provided
+    - 'const live = Layer.provide(Layer.merge(Layer.effect(Service, make), other), dependencies);'
+    # Three Channel steps
+    - 'const piped = Channel.mapOut(Channel.map(Channel.fromEffect(effect), done), transform);'
+    # Three Sink steps, a zero-argument constructor starts the chain
+    - 'const collected = Sink.map(Sink.filterInput(Sink.collectAll(), isLive), Chunk.size);'
+    # Three Micro steps
+    - 'const decoded = Micro.map(Micro.flatMap(Micro.succeed(raw), parse), normalize);'
+    # Two steps over a sampled origin, FastCheck.sample starts the chain the way Sink.collectAll and Micro.succeed do
+    - 'const seen = HashSet.fromIterable(Array.flatMap(FastCheck.sample(arbitrary, sampling), (value) => classify(value)));'

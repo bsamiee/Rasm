@@ -1,0 +1,50 @@
+id: require-tag-named-for-class
+snapshots:
+  'class Fetch extends Schema.TaggedRequest<Fetch>()("Load", { failure: Schema.Never, success: Schema.String, payload: {} }) {}':
+    fixed: 'class Fetch extends Schema.TaggedRequest<Fetch>()("Fetch", { failure: Schema.Never, success: Schema.String, payload: {} }) {}'
+    labels:
+    - source: Fetch
+      message: The class name the tag repeats
+      style: secondary
+      start: 6
+      end: 11
+  'class LoadError extends Data.TaggedError("Load")<{ readonly cause: unknown }> {}':
+    fixed: 'class LoadError extends Data.TaggedError("LoadError")<{ readonly cause: unknown }> {}'
+    labels:
+    - source: LoadError
+      message: The class name the tag repeats
+      style: secondary
+      start: 6
+      end: 15
+  'class LoadError extends Data.TaggedError(''Load'')<{ readonly cause: unknown }> {}':
+    fixed: 'class LoadError extends Data.TaggedError("LoadError")<{ readonly cause: unknown }> {}'
+    labels:
+    - source: LoadError
+      message: The class name the tag repeats
+      style: secondary
+      start: 6
+      end: 15
+  'class Missing extends Schema.TaggedError<Missing>()("NotFound", { id: Schema.String }) {}':
+    fixed: 'class Missing extends Schema.TaggedError<Missing>()("Missing", { id: Schema.String }) {}'
+    labels:
+    - source: Missing
+      message: The class name the tag repeats
+      style: secondary
+      start: 6
+      end: 13
+  'class Missing extends Schema.TaggedError<Missing>()("NotFound", { id: Schema.String }, { description: "row" }) {}':
+    fixed: 'class Missing extends Schema.TaggedError<Missing>()("Missing", { id: Schema.String }, { description: "row" }) {}'
+    labels:
+    - source: Missing
+      message: The class name the tag repeats
+      style: secondary
+      start: 6
+      end: 13
+  'class Row extends Data.TaggedClass("row")<{ readonly id: string }> {}':
+    fixed: 'class Row extends Data.TaggedClass("Row")<{ readonly id: string }> {}'
+    labels:
+    - source: Row
+      message: The class name the tag repeats
+      style: secondary
+      start: 6
+      end: 9

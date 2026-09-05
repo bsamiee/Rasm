@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+# Module call as a value, the call itself or the call under any depth of value wrappers
+id: effect-module-value
+language: typescript
+rule:
+    any:
+        - matches: effect-module-call
+        - matches: syntax-value-wrapper
+          has: {matches: effect-module-value} # Zero-argument recursion through has, the caller keeps one clause for every depth

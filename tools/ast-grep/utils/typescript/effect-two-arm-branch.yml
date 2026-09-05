@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# A two-arm branch over a boolean, an Option, an Either, or an Exit, as match or the effect-returning matchEffect on an Exit
+# Two-arm branch over a carrier, Effect.if or a match with an onX pair, Layer.match and Fiber.match take arms no rule reads
 id: effect-two-arm-branch
 language: tsx
 rule:
@@ -10,5 +10,5 @@ rule:
         any:
             - pattern: Effect.if
             - all:
-                  - has: {field: object, regex: '^(Boolean|Option|Either|Exit)$'}
-                  - has: {field: property, regex: '^(match|matchEffect)$'}
+                  - has: {field: object, regex: '^(Boolean|Option|Either|Exit|Effect|Micro|STM)$'}
+                  - has: {field: property, regex: '^(match|matchEffect|matchSTM)$'}

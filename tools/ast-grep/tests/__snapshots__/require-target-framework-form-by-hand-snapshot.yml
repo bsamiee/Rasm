@@ -1,0 +1,56 @@
+id: require-target-framework-form-by-hand
+snapshots:
+  ? |
+    <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework>
+      <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+  : labels:
+    - source: |
+        <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework>
+          <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+      style: primary
+      start: 0
+      end: 179
+    - source: <TargetFramework>net10.0</TargetFramework>
+      style: secondary
+      start: 48
+      end: 90
+    - source: <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
+      style: secondary
+      start: 93
+      end: 152
+  ? |
+    <Project><PropertyGroup><TargetFramework>net10.0;netstandard2.0</TargetFramework>
+      <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+  : labels:
+    - source: |
+        <Project><PropertyGroup><TargetFramework>net10.0;netstandard2.0</TargetFramework>
+          <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+      style: primary
+      start: 0
+      end: 170
+    - source: <TargetFramework>net10.0;netstandard2.0</TargetFramework>
+      style: secondary
+      start: 24
+      end: 81
+    - source: <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
+      style: secondary
+      start: 84
+      end: 143
+  ? |
+    <Project><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup>
+      <PropertyGroup Condition="'$(Legacy)' == 'true'"><TargetFramework>net48</TargetFramework></PropertyGroup></Project>
+  : labels:
+    - source: |
+        <Project><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup>
+          <PropertyGroup Condition="'$(Legacy)' == 'true'"><TargetFramework>net48</TargetFramework></PropertyGroup></Project>
+      style: primary
+      start: 0
+      end: 218
+    - source: <TargetFramework>net48</TargetFramework>
+      style: secondary
+      start: 151
+      end: 191
+    - source: <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
+      style: secondary
+      start: 24
+      end: 83

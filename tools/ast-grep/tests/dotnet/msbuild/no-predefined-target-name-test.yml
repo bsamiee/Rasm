@@ -3,16 +3,19 @@ valid:
     # The target owns its name and attaches to the SDK target
     - |
       <Target Name="ReportBuild" AfterTargets="Build"><Message Importance="high" Text="built $(TargetPath)" /></Target>
-    # A predefined target named in BeforeTargets is an attachment
+    # Predefined target named in BeforeTargets, an attachment
     - |
       <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments"><RemoveDir Directories="$(_TestResultsDirectory)" /></Target>
-    # An item holds the predefined target name as metadata and defines no target
+    # Item holding the predefined target name as metadata, no target defined
     - |
       <ItemGroup><_Stamp Include="build" Name="AfterBuild" /></ItemGroup>
     # The predefined target named as the attachment point of a target with its own name
     - |
       <Target Name="Stamp" AfterTargets="AfterBuild"><Message Text="stamped" /></Target>
 invalid:
+    # Single-quoted target name
+    - |
+      <Target Name='AfterBuild'><Message Text="built" /></Target>
     # The build target
     - |
       <Target Name="AfterBuild"><Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" /></Target>

@@ -3,9 +3,17 @@ id: require-list-property-append
 language: xml
 severity: error
 rule:
+    pattern: _PROPERTY
     # The name and the text regex hold one list of the semicolon-valued properties, an XML name binds no metavariable
-    matches: {msbuild-property: {name: {regex: '^(NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)$'}}}
+    matches: {msbuild-property: {name: {regex: "^(NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|\
+            InterceptorsNamespaces|InterceptorsPreviewNamespaces)$"}}}
     # No text opens with the property's own value, an empty element and a whitespace value drop the list the same way
-    not: {has: {kind: content, has: {kind: CharData, regex: '^\s*\$\((NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)[).]'}}}
+    not: {has: {kind: content, has: {kind: CharData, regex: "^\\s*\\$\\((NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|\
+            DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)[).]"}}}
+transform:
+    # The own value after the start tag and the leading whitespace of the text, the tag name is the second group
+    APPENDED: {replace: {source: $PROPERTY, replace: '^(<([A-Za-z]+)(\s[^>]*[^/>])?>\s*)', by: '$1$$($2);'}}
+    FILLED: {replace: {source: $APPENDED, replace: '^<([A-Za-z]+)((\s[^>]*[^\s/>])?)\s*/>$', by: '<$1$2>$$($1);</$1>'}}
+fix: $FILLED
 message: The list-valued property assignment omits the property's own value and drops every entry the SDK and earlier files added
-note: Start the value with $(Name);
+note: Start the value with $(Name); and keep the entries after it

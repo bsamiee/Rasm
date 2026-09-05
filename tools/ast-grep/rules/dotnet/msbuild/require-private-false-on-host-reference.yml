@@ -3,9 +3,32 @@ id: require-private-false-on-host-reference
 language: xml
 severity: error
 rule:
+    pattern: _REFERENCE
     all:
         - matches: {msbuild-element: {name: {regex: '^Reference$'}}}
         - matches: {msbuild-metadata: {name: {regex: '^HintPath$'}, value: {matches: msbuild-value}}}
-        - not: {matches: {msbuild-metadata: {name: {regex: '^Private$'}, value: {regex: '(?i)^"?\s*false\s*"?$'}}}}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Private$'}, value: {regex: '(?i)^["'']?\s*false\s*["'']?$'}}}}
+transform:
+    STRIPPED:
+        replace:
+            source: $REFERENCE
+            replace: '\s+Private=("[^"]*"|''[^'']*'')|\s*<Private(\s[^>]*)?>[^<]*</Private>'
+            by: ''
+    EMPTY_TAG:
+        replace:
+            source: $STRIPPED
+            replace: '^(<Reference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*/>'
+            by: '$1 Private="false" />'
+    START_TAG:
+        replace:
+            source: $EMPTY_TAG
+            replace: '^(<Reference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>'
+            by: '$1 Private="false">'
+    CLOSED:
+        replace:
+            source: $START_TAG
+            replace: '^(<Reference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>\s*</Reference>$'
+            by: '$1 />'
+fix: $CLOSED
 message: The Reference with a HintPath copies the host-supplied assembly into the output and the host loads that copy
 note: Add Private="false", and reference a package or project output through PackageReference or ProjectReference

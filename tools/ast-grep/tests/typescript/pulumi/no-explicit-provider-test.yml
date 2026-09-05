@@ -4,21 +4,87 @@ valid:
     - 'const project = new Project(name, { name, description }, adoption(name));'
     # Options spread from a call
     - 'const repository = new Repository(name, args, { protect: true, ...adoption(name) });'
-    # A provider key in a plain object, no resource options
+    # Provider key in a plain object, no resource options
     - 'const settings = { provider: "doppler" };'
-    # A provider key in the resource arguments, the second constructor argument
+    # Provider key in the resource arguments, the second constructor argument
     - 'const record = new Record(name, { provider: "route53", zone }, { protect: true });'
-    # A shorthand option outside the provider grammar in the resource options
+    # Provider key in the invoke arguments, the first argument
+    - 'const record = getRecord({ provider: "route53", zone });'
+    # Provider key in the state of a static get, the third argument
+    - 'const repository = Repository.get(name, id, { provider: "route53" });'
+    # Shorthand option outside the provider grammar in the resource options
     - 'const project = new Project(name, args, { parent });'
-invalid:
-    # The instance, a provider constructed by hand
-    - 'const doppler = new DopplerProvider({ dopplerToken });'
-    # A namespaced provider constructor
+    # Provider key in a nested option object, no resource option
+    - 'const project = new Project(name, args, { config: { provider: "x" } });'
+    # Options object as the only argument, outside the constructor grammar
+    - 'const client = new Client({ provider });'
+    # Call outside the invoke grammar with a provider option
+    - 'const client = configure(settings, { provider });'
+    # Four-argument call outside the static get grammar
+    - 'const handle = register(kind, name, state, { provider });'
+    # Comment among the arguments, the shape no-explicit-provider-by-hand reports
+    - |
+      const project = new Project(
+          name,
+          // Arguments from the manifest
+          args,
+          { provider: doppler },
+      );
+    # Line comment inside the options, the shape no-explicit-provider-by-hand reports
+    - |
+      const project = new Project(name, args, {
+          protect: true,
+          provider: doppler, // Shared across stacks
+      });
+    # Provider constructed by hand, the shape no-explicit-provider-by-hand reports
     - 'const gh = new github.Provider("github", { owner, token });'
-    # A provider handed through the options
+invalid:
+    # The instance, a provider handed through the resource options beside object arguments
     - 'const project = new Project(name, { name, description }, { provider: doppler });'
-    # A providers list in the options
-    - 'const repository = new Repository(name, args, { protect: true, providers: [gh] });'
-    # A shorthand provider key
+    # Providers list in the component options
+    - 'const stack = new Stack(name, args, { protect: true, providers: [gh] });'
+    # Providers record in the component options
+    - 'const stack = new Stack(name, args, { providers: { github: gh } });'
+    # Shorthand provider key alone in the options
     - 'const project = new Project(name, args, { provider });'
-    - 'const repository = new Repository(name, args, { providers });'
+    # Shorthand providers key beside a spread
+    - 'const stack = new Stack(name, args, { providers, ...adoption(name) });'
+    # Provider in the invoke options
+    - 'const repository = getRepository({ fullName }, { provider: gh });'
+    # Provider in the namespaced Output invoke options
+    - 'const repository = github.getRepositoryOutput({ fullName }, { provider: gh });'
+    # Provider in the options of a static get
+    - 'const repository = Repository.get(name, id, state, { provider: gh });'
+    # Kept option holding a call, the arguments of the call stay inside it
+    - 'const project = new Project(name, args, { provider: doppler, parent: make(a, b) });'
+    # Provider built by a call with its own options object
+    - 'const project = new Project(name, args, { provider: getProvider(region, { profile: "x" }) });'
+    # Provider constructed inside the option, deleted with the option
+    - 'const project = new Project(name, args, { provider: new aws.Provider("x", { region }) });'
+    # Trailing comma in the options
+    - 'const project = new Project(name, args, { protect: true, provider: doppler, });'
+    # Spread before the shorthand provider
+    - 'const project = new Project(name, args, { ...opts, provider });'
+    # Awaited arguments object
+    - 'const project = new Project(name, await args(), { provider });'
+    # Arguments wrapped in an Output
+    - 'const project = new Project(name, pulumi.output(args), { provider });'
+    # Block comment inside the options survives the rewrite
+    - 'const project = new Project(name, args, { protect: true, provider: doppler /* shared */ });'
+    # Line comment inside the resource arguments, kept with the argument
+    - |
+      const project = new Project(
+          name,
+          {
+              name, // Doppler slug
+              description,
+          },
+          { provider: doppler },
+      );
+    # Options spread over lines
+    - |
+      const project = new Project(
+          name,
+          args,
+          { protect: true, provider: doppler },
+      );

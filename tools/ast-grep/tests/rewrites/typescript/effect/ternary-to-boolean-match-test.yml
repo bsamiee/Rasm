@@ -1,0 +1,67 @@
+id: ternary-to-boolean-match
+valid:
+    # The match
+    - "const parity = Boolean.match(value % 2 === 0, { onFalse: () => 'odd', onTrue: () => 'even' });"
+    # Name as the condition, the syntax holds no type for it
+    - "const mode = production ? 'production' : 'development';"
+    # Conjunction of a name and a comparison, the name keeps its own type through the operator
+    - "const mode = name && size > limit ? 'large' : 'small';"
+    # Bitwise operator over comparisons yields a number
+    - 'const flags = a > b | c > d ? 1 : 0;'
+    # Minus sign is no negation
+    - "const sign = -count ? 'nonzero' : 'zero';"
+    # Defined check belongs to the Option rewrites
+    - 'const params = list === undefined ? undefined : [...list];'
+    # Defined check in the other direction
+    - 'const params = list !== undefined ? [...list] : undefined;'
+    # Null check reads as a nullable check
+    - "const kind = value === null ? 'absent' : 'present';"
+    # Typeof check belongs to the Match rewrite
+    - "const kind = typeof hit === 'string' ? 'text' : 'other';"
+    # Typeof check in the other direction
+    - "const kind = typeof hit !== 'string' ? 'other' : 'text';"
+    # Negated instance check belongs to the Match rewrite
+    - "const kind = !(cause instanceof Error) ? 'other' : 'error';"
+    # Typeof check as one operand of a conjunction, the arm reads the operand it narrows
+    - "const size = typeof hit === 'string' && size > limit ? hit.length : 0;"
+    # Defined check as one operand of a conjunction, the arm reads the operand it narrows
+    - 'const rows = list !== undefined && size > limit ? [...list] : fallback;'
+    # An Option arm belongs to the Option lift
+    - 'const code = value % 2 === 0 ? Option.some(value) : label;'
+    # An Option arm in the alternative
+    - 'const code = value % 2 === 0 ? label : Option.none();'
+    # Empty arm is presence, the spread lifts
+    - "const named = language === 'python' ? { name } : {};"
+    # Nested ternary dispatches through Match
+    - "const verdict = size > limit ? 'regression' : noisy ? 'noisy' : 'pass';"
+    # Nested ternary in parentheses
+    - "const verdict = size > limit ? (noisy ? 'noisy' : 'pass') : 'regression';"
+    # Await as the arm, an arrow body holds none
+    - "const report = size > limit ? await load() : 'small';"
+    # Await inside the arm
+    - "const report = size > limit ? render(await load()) : 'small';"
+    # Yield inside the arm
+    - "const report = size > limit ? render(yield* load) : 'small';"
+invalid:
+    # The instance, two literals under a comparison
+    - "const parity = value % 2 === 0 ? 'even' : 'odd';"
+    # Object arms take parentheses as arrow bodies
+    - "const target = kind === 'app' ? { root, entry: main } : { root };"
+    # Negated condition
+    - 'const order = !ascending ? -1 : 1;'
+    # Conjunction of two comparisons
+    - "const mode = size > limit && count > 1 ? 'large' : 'small';"
+    # Conjunction with parenthesized comparisons
+    - "const mode = (size > limit) && (count > 1) ? 'large' : 'small';"
+    # Typeof check as one operand of a conjunction, no arm reads the operand it narrows
+    - "const mode = typeof hit === 'string' && size > limit ? 'large' : 'small';"
+    # Comparison against a negative literal
+    - "const sign = value === -1 ? 'negative' : 'other';"
+    # Key check
+    - "const mode = 'root' in config ? 'app' : 'library';"
+    # Object nested inside a call arm keeps its shape
+    - 'const plugin = size > limit ? compress({ level: 9 }) : identity;'
+    # Await inside a nested arrow, the nested function holds it
+    - 'const load = size > limit ? async () => await fetch(root) : none;'
+    # Await inside a nested function expression
+    - 'const load = size > limit ? async function () { return await fetch(root); } : none;'

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Key list of a record, Struct.keys types the keys of a struct and Record.has still answers membership on it, the record slot binds
+id: effect-key-list
+language: tsx
+arguments: [record]
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, regex: '^(Record|Object|Struct)\.keys$'}
+        - has: {field: arguments, has: {matches: record}}

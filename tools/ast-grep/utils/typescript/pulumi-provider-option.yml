@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# provider on CustomResourceOptions and InvokeOptions, providers on ComponentResourceOptions as a list or a record
+id: pulumi-provider-option
+language: tsx
+rule:
+    any:
+        - kind: pair
+          has: {field: key, regex: '^(provider|providers)$'}
+        - kind: shorthand_property_identifier
+          regex: '^(provider|providers)$'

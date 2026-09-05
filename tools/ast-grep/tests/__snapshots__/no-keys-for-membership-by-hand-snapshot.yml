@@ -1,0 +1,157 @@
+id: no-keys-for-membership-by-hand
+snapshots:
+  const known = Array.contains(Object.keys(packaging), target);:
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 41
+      end: 50
+  const known = Array.contains(target)(Object.keys(packaging));:
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 49
+      end: 58
+  const known = HashSet.has(HashSet.fromIterable(Record.keys(packaging)), target);:
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 59
+      end: 68
+  const known = Object.keys(packaging).includes(target);:
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 26
+      end: 35
+  const known = pipe(Object.keys(packaging), Array.contains(target));:
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 31
+      end: 40
+  const packagingNames = HashSet.fromIterable(Record.keys(Record.filter(projects, isPackaging)));:
+    labels:
+    - source: Record.filter(projects, isPackaging)
+      message: The record with the listed keys
+      style: primary
+      start: 56
+      end: 92
+  const packagingNames = MutableHashSet.fromIterable(Struct.keys(projects));:
+    labels:
+    - source: projects
+      message: The record with the listed keys
+      style: primary
+      start: 63
+      end: 71
+  const packagingNames = new Set(Object.keys(projects));:
+    labels:
+    - source: projects
+      message: The record with the listed keys
+      style: primary
+      start: 43
+      end: 51
+  ? |
+    const { Record } = await import("effect");
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 69
+      end: 78
+  ? |
+    const { Record } = require("effect");
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 64
+      end: 73
+  ? |
+    export { Record } from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 59
+      end: 68
+  ? |
+    import * as R from "effect/Record";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 62
+      end: 71
+  ? |
+    import * as Record from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 60
+      end: 69
+  ? |
+    import Record from "effect/Record";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 62
+      end: 71
+  ? |
+    import type { Record } from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 64
+      end: 73
+  ? |
+    import { Option } from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 59
+      end: 68
+  ? |
+    import { Rec as Record } from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 66
+      end: 75
+  ? |
+    import { Record as Rec } from "effect";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 66
+      end: 75
+  ? |
+    import { Record } from "./schema";
+    const known = Object.keys(packaging).includes(target);
+  : labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 61
+      end: 70

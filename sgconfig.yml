@@ -2,6 +2,7 @@
 # Structural rules per language under tools/ast-grep, the root lint target runs the rule tests and every project lint target scans its root
 ruleDirs:
     - tools/ast-grep/rules
+    - tools/ast-grep/rewrites # severity: off, loaded by --error=<id> on demand and by ast-grep test --include-off
 utilDirs:
     - tools/ast-grep/utils
 testConfigs:
@@ -13,4 +14,4 @@ customLanguages:
     xml:
         libraryPath: .cache/ast-grep/xml.so # Written by the root grammar target, every ast-grep run aborts until it exists
         extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
-        expandoChar: _                      # XML names reject $, and _ is the one name character a metavariable in tag and attribute position parses as
+        expandoChar: _ # XML names reject $, and _ is the one name character a metavariable in tag and attribute position parses as

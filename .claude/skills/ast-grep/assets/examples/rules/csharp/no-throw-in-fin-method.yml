@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+id: no-throw-in-fin-method
+language: csharp
+severity: error
+utils:
+    closure:
+        any:
+            - kind: lambda_expression
+            - kind: anonymous_method_expression
+            - kind: local_function_statement
+rule:
+    kind: method_declaration
+    all:
+        - has: {field: returns, regex: '^(Fin|Option|Validation|Either|IO|Eff)<'}
+        - has:
+              stopBy: {matches: closure} # The walk stops at a closure, a throw inside a lambda or local function belongs to it
+              any:
+                  - kind: throw_statement
+                    not: {regex: '^throw;$'} # Rethrows with no operand propagate the defect a catch observed and add no throw site
+                  - kind: throw_expression
+message: Method returning a result type throws in its own body
+note: Return `Fin<T>.Fail(Error.New(<reason>))` in the declared result type, or move the throw into the closure `IO.lift` wraps

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+id: no-discard-arm-over-union
+language: csharp
+severity: error
+rule: # ESQuery in kind, the rightmost compound is the match, :has nests one direct-child step per level, the folded scalar joins with spaces
+    kind: >-
+        switch_expression:has(> switch_expression_arm:has(> :is(declaration_pattern, recursive_pattern):has(> qualified_name)))
+        > switch_expression_arm > discard
+message: Discard arm beside union case arms hides the case the arms miss
+note: Name every case, or dispatch through the generated `Switch`, which is total

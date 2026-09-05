@@ -6,43 +6,44 @@ valid:
     # The root default guards on both framework forms
     - |
       <PropertyGroup><TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework></PropertyGroup>
-    # A classification from the project directory, available at .props time
+    # Classification from the project directory, available at .props time
     - |
       <PropertyGroup><ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(LibsRoot)'))">libs</ProjectRole></PropertyGroup>
-    # A condition on the classification the same file derives
+    # Condition on the classification the same file derives
     - |
       <PropertyGroup><IsPackable Condition="'$(ProjectRole)' != 'libs'">false</IsPackable></PropertyGroup>
     # Item conditions read the final value
     - |
       <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="Some.Package" Version="10.0.0" /></ItemGroup>
-    # A target body evaluates after every property
+    # Target body, evaluated after every property
     - |
       <Target Name="Report"><PropertyGroup Condition="'$(OutputType)' == 'Exe'"><_Host>true</_Host></PropertyGroup></Target>
-    # A pipeline variable is a global property and holds its value here
+    # Pipeline variable, a global property holding its value here
     - |
       <PropertyGroup Condition="'$(CI)' == 'true'"><ContinuousIntegrationBuild>true</ContinuousIntegrationBuild></PropertyGroup>
 invalid:
-    # A group conditioned on the framework, empty in every .props reader
+    # Group conditioned on the framework, empty in every .props reader
     - |
       <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'"><DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants></PropertyGroup>
-    # A property conditioned on the output type
+    # Property conditioned on the output type
     - |
       <PropertyGroup><SelfContained Condition="'$(OutputType)' == 'Exe'">false</SelfContained></PropertyGroup>
     # The Rhino bundle group keyed on a body-derived host flag, moved to Directory.Build.targets
     - |
-      <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'"><RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath></PropertyGroup>
-    # A test classification the framework package sets in its .props, one import after the .props reader
+      <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'">
+        <RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath></PropertyGroup>
+    # Test classification the framework package sets in its .props, one import after the .props reader
     - |
       <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'"><IsTestProject>true</IsTestProject></PropertyGroup>
-    # The configuration default comes from the SDK props after this file
+    # Configuration default from the SDK props after the .props reader
     - |
       <PropertyGroup Condition="'$(Configuration)' == 'Release'"><Optimize>true</Optimize></PropertyGroup>
-    # A Choose arm reads the same empty value
+    # Choose arm reading the same empty value
     - |
       <Choose><When Condition="'$(TargetFramework)' == 'net10.0'"><PropertyGroup><Modern>true</Modern></PropertyGroup></When></Choose>
-    # An import keyed on the output type is skipped for every project
+    # Import keyed on the output type, skipped for every project
     - |
       <Import Project="host.props" Condition="'$(OutputType)' == 'Exe'" />
-    # An import path that reads the framework, the segment is empty in every .props reader
+    # Import path reading the framework, the segment is empty in every .props reader
     - |
       <Import Project="$(MSBuildThisFileDirectory)frameworks/$(TargetFramework).props" />

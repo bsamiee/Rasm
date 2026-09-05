@@ -96,22 +96,23 @@ The staged tree enters the `pack` inputs through `dependentTasksOutputFiles`, an
 
 ## [04]-[ROOT_TARGETS]
 
-Root targets exist when the root manifest `nx` field declares them, one per operation, with no owning project, and the root project carries the tag of its manifest's language:
+Root targets exist when the root manifest `nx` field declares them, one per operation, with no owning project, and the root project holds the tag of its manifest's language:
 
-| [INDEX] | [TARGET]    | [RUNS]                                                                                             | [CACHE] |
-| :-----: | :---------- | :------------------------------------------------------------------------------------------------- | :-----: |
-|  [01]   | `restore`   | `dotnet restore <solution>`, the one restore the .NET `build`, `format`, and publish defaults need | `true`  |
-|  [02]   | `grammar`   | `tree-sitter build` of the XML grammar under `.cache/ast-grep/`, the `lint` defaults depend on it  | `true`  |
-|  [03]   | `lint`      | Biome, `actionlint`, `ast-grep test`, and `ast-grep scan` over the root files and the tool trees   | `true`  |
-|  [04]   | `format`    | `biome format --write` over the root files and the tool trees                                      | `true`  |
-|  [05]   | `check`     | Nothing, the tag-filtered `check` default fills it                                                 | Unset   |
-|  [06]   | `typecheck` | `tsc --build` over the root configuration files, the plugin files, and the infrastructure program  | `true`  |
-|  [07]   | `up`        | `doppler run` around the infrastructure program's `up`                                             | `false` |
-|  [08]   | `refresh`   | `doppler run` around the infrastructure program's `refresh`                                        | `false` |
-|  [09]   | `coverage`  | Coverage script, one language's reports merged                                                     | `false` |
-|  [10]   | `mutation`  | Mutation script                                                                                    | `false` |
-|  [11]   | `upgrade`   | `uv lock --upgrade`, `pnpm update --latest --recursive`, and dotnet-outdated under `dotnet dnx`    | `false` |
-|  [12]   | `workflow`  | `act push` over the Linux jobs                                                                     | `false` |
+| [INDEX] | [TARGET]    | [RUNS]                                                                                                         | [CACHE] |
+| :-----: | :---------- | :------------------------------------------------------------------------------------------------------------- | :-----: |
+|  [01]   | `restore`   | `dotnet restore <solution>`, the one restore the .NET `build`, `format`, and publish defaults need             | `true`  |
+|  [02]   | `grammar`   | `tree-sitter build` of the XML grammar under `.cache/ast-grep/`, the `lint` defaults depend on it              | `true`  |
+|  [03]   | `lint`      | Biome, `actionlint`, `ast-grep test --include-off`, and `ast-grep scan` over the root files and the tool trees | `true`  |
+|  [04]   | `format`    | `biome format --write` over the root files and the tool trees                                                  | `true`  |
+|  [05]   | `check`     | Nothing, the tag-filtered `check` default fills it                                                             |  Unset  |
+|  [06]   | `typecheck` | `tsc --build` over the root configuration files, the plugin files, and the infrastructure program              | `true`  |
+|  [07]   | `up`        | `doppler run` around the infrastructure program's `up`                                                         | `false` |
+|  [08]   | `refresh`   | `doppler run` around the infrastructure program's `refresh`                                                    | `false` |
+|  [09]   | `coverage`  | Coverage script, one language's reports merged                                                                 | `false` |
+|  [10]   | `rewrite`   | `ast-grep scan --filter '^<id>$' --error=<id> -U <paths>` from `--id` and `--paths`, after `grammar`           | `false` |
+|  [11]   | `mutation`  | Mutation script                                                                                                | `false` |
+|  [12]   | `upgrade`   | `uv lock --upgrade`, `pnpm update --latest --recursive`, and dotnet-outdated under `dotnet dnx`                | `false` |
+|  [13]   | `workflow`  | `act push` over the Linux jobs                                                                                 | `false` |
 
 - `upgrade` moves every language's dependency set to its newest release, prereleases included, and every command writes a shared file
 - `upgrade` runs `dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore <solution>` for the .NET set

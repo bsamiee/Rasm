@@ -3,7 +3,7 @@ id: no-run-in-effect-callback
 language: tsx
 severity: error
 utils:
-    # A call that runs an effect, a runtime method or Runtime.runPromise(runtime) applied to an effect
+    # Call that runs an effect, a run method on Effect, Micro, a ManagedRuntime, or the function Runtime.runPromise(runtime) returns
     runtime-run:
         kind: call_expression
         any:
@@ -12,7 +12,7 @@ utils:
                         field: function
                         kind: member_expression
                         has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback|runMain)$'}
-                  # Runtime.runPromise(runtime) is the function of the run that follows, that run reports
+                  # Runtime.runPromise(runtime) is the function of the run that follows, the outer call reports
                   - not: {inside: {kind: call_expression, field: function}}
             - has:
                   field: function
@@ -21,22 +21,23 @@ utils:
                       field: function
                       kind: member_expression
                       has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
-    # A call with a callback the effect package owns, a module combinator or a run
+    # Owner of the callback, a module call, its curried application (Effect.fn(name)(body)), or a run, a run nested as an argument counts the same
     effect-owner:
         any:
             - matches: effect-module-call
+            - {kind: call_expression, has: {field: function, matches: effect-module-call}}
             - matches: runtime-run
 rule:
     matches: runtime-run
     all:
         - inside: {stopBy: end, matches: effect-owner}
-        # A call outside the package between the run and the combinator owns the callback, the run there is the boundary
+        # Call outside the package between the run and the combinator owns the callback, the run there is the boundary
         - not:
               inside:
                   kind: call_expression
                   not: {matches: effect-owner}
                   stopBy: {matches: effect-owner}
-message: The effect runs inside a callback an effect combinator owns and the boundary is crossed twice
+message: The effect runs inside an argument of an effect combinator and crosses the boundary twice
 note: >-
-    Return the effect from the callback and compose it with Effect.flatMap or yield*, the enclosing run executes it,
-    a callback a package outside effect owns takes the fiber's Runtime through Effect.runtime and runs there
+    Return the effect from the callback and compose it with Effect.flatMap or yield*,
+    a callback owned outside effect runs on the Runtime from Effect.runtime

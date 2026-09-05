@@ -2,13 +2,28 @@
 id: no-stray-text-in-group
 language: xml
 severity: error
+utils:
+    # Text with a character outside whitespace, or a reference the parser splits from the text around it
+    stray: {any: [{kind: CharData, regex: '\S'}, {kind: EntityRef}, {kind: CharRef}]}
 rule:
-    kind: CharData
-    regex: '\S'
+    pattern: _TEXT
+    matches: stray
     any:
         # Containers of MSBuild, solution, and NuGet configuration files hold elements alone
-        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^(Project|PropertyGroup|ItemGroup|ItemDefinitionGroup|Target|Choose|When|Otherwise|Solution|Folder|configuration|packageSources|disabledPackageSources|packageSourceMapping|packageSource|config)$'}}}}}
-        # An item holds metadata elements and no text
-        - inside: {kind: content, inside: {kind: element, inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}}}}
+        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: "^(Project|PropertyGroup|ItemGroup|ItemDefinitionGroup|Target|\
+                Choose|When|Otherwise|Solution|Folder|configuration|packageSources|disabledPackageSources|packageSourceMapping|packageSource|\
+                config)$"}}}}}
+        # Items hold metadata elements and no text, an item under ItemGroup is the second container level
+        - inside:
+              kind: content
+              inside:
+                  kind: element
+                  inside:
+                      kind: content
+                      inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}
+transform:
+    # The text up to its last non-whitespace character, the whitespace before the next node stays
+    STRIPPED: {replace: {source: $TEXT, replace: '(?s)^.*\S', by: ''}}
+fix: $STRIPPED
 message: Text sits between the elements of a group, MSBuild rejects it with MSB4025 or reads it as a value
-note: Delete the stray characters
+note: Delete the stray characters and keep the whitespace between the elements

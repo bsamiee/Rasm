@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-composite-operand # Condition value with a comparison operand no quote wraps as one token, a parenthesis or a group close glued to it
+language: xml
+rule:
+    kind: AttValue
+    any:
+        # Left operand holding or opening with a parenthesis outside a property, item, or metadata reference
+        - regex: '(^|[^$@%])\([^\s"=!]*\s*(==|!=)'
+        # Right operand holding or opening with a parenthesis outside a reference
+        - regex: '(==|!=)\s*([^\s"=!]*[^\s"=!$@%])?\('
+        # Right operand unquoted with a group close glued to it
+        - regex: '(==|!=)\s*[^\s''"=!()][^\s"=!()]*\)'

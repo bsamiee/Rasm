@@ -1,5 +1,12 @@
 id: no-map-over-string-literals
 snapshots:
+  const inputs = Array.map((suffix) => `Directory.Build.${suffix}`)(["props", "targets"]);:
+    labels:
+    - source: '["props", "targets"]'
+      message: The literal list
+      style: primary
+      start: 66
+      end: 86
   ? const inputs = Array.map(["Directory.Build.props", "Directory.Build.targets"], (shared) => `{workspaceRoot}/eng/native/${shared}`);
   : labels:
     - source: '["Directory.Build.props", "Directory.Build.targets"]'
@@ -21,6 +28,34 @@ snapshots:
       style: primary
       start: 15
       end: 67
+  const inputs = ["props", "targets"].map((suffix) => { return `Directory.Build.${suffix}`; });:
+    labels:
+    - source: '["props", "targets"]'
+      message: The literal list
+      style: primary
+      start: 15
+      end: 35
+  const inputs = ["props", "targets"].map(function (suffix) { return `Directory.Build.${suffix}`; });:
+    labels:
+    - source: '["props", "targets"]'
+      message: The literal list
+      style: primary
+      start: 15
+      end: 35
+  const inputs = ["props", /* shared */ "targets"].map((suffix) => `Directory.Build.${suffix}`);:
+    labels:
+    - source: '["props", /* shared */ "targets"]'
+      message: The literal list
+      style: primary
+      start: 15
+      end: 48
+  const inputs = [`props`, `targets`].map((suffix) => `Directory.Build.${suffix}`);:
+    labels:
+    - source: '[`props`, `targets`]'
+      message: The literal list
+      style: primary
+      start: 15
+      end: 35
   const inputs = pipe(["props", "targets"], Array.map((suffix) => `Directory.Build.${suffix}`), Array.join(","));:
     labels:
     - source: '["props", "targets"]'

@@ -2,20 +2,108 @@ id: no-keys-for-membership
 valid:
     # The record tested directly
     - 'const known = Record.has(packaging, target);'
-    # A key list kept as a list
+    # Key list kept as a list
     - 'const names = Record.keys(packaging);'
     # Membership over a plain list
     - 'const listed = Array.contains(names, target);'
-    # The key list as the searched element, the second argument of the data-first search
+    # Plain list searched through includes, no key list call
+    - 'const named = names.includes(target);'
+    # Data-last search applied directly to a plain list
+    - 'const listed = Array.contains(target)(names);'
+    # Key list searched through a predicate, the predicate can test more than equality
+    - 'const some = Record.keys(packaging).some((key) => key === target);'
+    # Key list as the searched element, the second argument of the data-first search
     - 'const listed = Array.contains(groups, Record.keys(packaging));'
+    # Value list searched, no key list
+    - 'const known = Object.values(packaging).includes(target);'
+    # Key list mapped before the data-last search, the searched list holds no keys
+    - 'const known = Record.keys(packaging).pipe(Array.map(String.toLowerCase), Array.contains(target));'
+    # Pipe function with a step after the search, the search result flows on
+    - 'const missing = pipe(Record.keys(packaging), Array.contains(target), Boolean.not);'
+    # Pipe method with a step after the search
+    - 'const missing = Record.keys(packaging).pipe(Array.contains(target), Boolean.not);'
+    # The Object spelling in a file without the Record import, the sibling no-keys-for-membership-by-hand reports it
+    - 'const known = Object.keys(packaging).includes(target);'
+    # The Object spelling under an import that binds another effect module, the sibling reports it
+    - |
+      import { Option } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under an import that binds Record to another name, the sibling reports it
+    - |
+      import { Record as Rec } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a Record import from another module, the sibling reports it
+    - |
+      import { Record } from "./schema";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a type-only import of Record, the sibling reports it
+    - |
+      import type { Record } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a type-only specifier of Record, the sibling reports it
+    - |
+      import { type Record } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a namespace import bound to another name, the sibling reports it
+    - |
+      import * as R from "effect/Record";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under an alias that binds another export as Record, the sibling reports it
+    - |
+      import { Rec as Record } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a namespace import of the barrel named Record, Record.has is then no function
+    - |
+      import * as Record from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # Key list converted to a set, the sibling no-keys-for-membership-by-hand reports it
+    - 'const packagingNames = HashSet.fromIterable(Record.keys(projects));'
+    # The Object spelling under a default import, effect/Record has no default export and the sibling reports it
+    - |
+      import Record from "effect/Record";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a re-export of Record, the file binds no name and the sibling reports it
+    - |
+      export { Record } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a require of Record, no import statement binds it and the sibling reports it
+    - |
+      const { Record } = require("effect");
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a dynamic import of Record, the sibling reports it
+    - |
+      const { Record } = await import("effect");
+      const known = Object.keys(packaging).includes(target);
 invalid:
     # The instance, the key list searched
     - 'const known = Record.keys(packaging).includes(target);'
-    # The Object spelling of the key list
-    - 'const known = Object.keys(packaging).includes(target);'
-    # The data-first search
+    # Data-first search
     - 'const known = Array.contains(Record.keys(packaging), target);'
-    # The key list converted to a HashSet, the record filtered first
-    - 'const packagingNames = HashSet.fromIterable(Record.keys(Record.filter(projects, isPackaging)));'
-    # The key list converted to a Set
-    - 'const packagingNames = new Set(Object.keys(projects));'
+    # Data-last search applied through the pipe method
+    - 'const known = Record.keys(packaging).pipe(Array.contains(target));'
+    # Data-last search applied through the pipe function
+    - 'const known = pipe(Record.keys(packaging), Array.contains(target));'
+    # Data-last search applied directly to the key list
+    - 'const known = Array.contains(target)(Record.keys(packaging));'
+    # Struct spelling of the key list
+    - 'const known = Struct.keys(packaging).includes(target);'
+    # The Object spelling in a file that binds Record
+    - |
+      import { Record } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling in the data-first search under a namespace import
+    - |
+      import * as Record from "effect/Record";
+      const known = Array.contains(Object.keys(packaging), target);
+    # The Object spelling under a specifier that names Record on both sides of the alias
+    - |
+      import { Record as Record } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under a Record specifier beside a type-only specifier
+    - |
+      import { Record, type Option } from "effect";
+      const known = Object.keys(packaging).includes(target);
+    # The Object spelling under the effect/index spelling of the barrel
+    - |
+      import { Record } from "effect/index";
+      const known = Object.keys(packaging).includes(target);

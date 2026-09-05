@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: enum-to-const-object-by-hand
+language: typescript
+severity: error
+ignores: ['*.d.ts'] # Declaration files describe an enum another package emits, the fold belongs to that package
+rule:
+    kind: enum_declaration
+    any: # The variants the guards of enum-to-const-object refuse in the same order, the residual keeps the scan red and states the manual correction
+        - has: {field: body, has: {kind: property_identifier}}
+        - inside: {kind: export_statement}
+        - inside: {kind: ambient_declaration, stopBy: end}
+        - regex: '^const'
+        - has: {field: body, has: {kind: comment}}
+        - has:
+              field: body
+              has:
+                  kind: enum_assignment
+                  has: {field: name, pattern: $REF}
+                  precedes: {stopBy: end, kind: enum_assignment, has: {stopBy: end, kind: identifier, pattern: $REF}}
+message: Enum declares constants through emit-bearing syntax and its variant refuses the mechanical fold
+note: >-
+    Fold by hand into an `as const` object with its value union, assign each valueless member a value,
+    keep the export on the object and its type, drop `declare` and the `const` modifier, keep each comment on its row,
+    and qualify a member read with the object name

@@ -2,18 +2,36 @@ id: no-map-over-string-literals
 valid:
     # The produced strings written as one brace glob
     - 'const inputs = ["{workspaceRoot}/eng/native/{Directory.Build.props,Directory.Build.targets}"];'
-    # A map over a variable list
+    # Map over a variable list
     - 'const inputs = Array.map(files, (file) => `{workspaceRoot}/${file}`);'
-    # A map over literals that builds no string
+    # Map over literals that builds no string
     - 'const sizes = ["a", "bb"].map((name) => name.length);'
-    # A list holding a non-string literal
+    # List holding a non-string literal
     - 'const mixed = ["a", 1].map((item) => `${item}`);'
+    # Comparison against a string, the callback is a predicate
+    - 'const flags = ["a", "b"].map((item) => item === "a");'
+    # Block body returning the item unchanged
+    - 'const same = ["a", "b"].map((item) => { return item; });'
+    # Template with a substitution in the list, the strings vary at run time
+    - 'const varying = [`${root}/a`, `b`].map((item) => `x/${item}`);'
+    # Filter step before the map, the produced set depends on the predicate
+    - 'const kept = pipe(["a", "b"], Array.filter(wanted), Array.map((item) => `x/${item}`));'
 invalid:
+    # List of template strings without a substitution
+    - 'const inputs = [`props`, `targets`].map((suffix) => `Directory.Build.${suffix}`);'
     # The instance, a template built from each literal
     - 'const inputs = ["Directory.Build.props", "Directory.Build.targets"].map((shared) => `{workspaceRoot}/eng/native/${shared}`);'
     # The data-first Array.map spelling
     - 'const inputs = Array.map(["Directory.Build.props", "Directory.Build.targets"], (shared) => `{workspaceRoot}/eng/native/${shared}`);'
-    # A concatenation in place of a template
+    # Concatenation in place of a template
     - 'const inputs = Array.map(["props", "targets"], (suffix) => "Directory.Build." + suffix);'
     # The data-last Array.map in a pipe over the literal list
     - 'const inputs = pipe(["props", "targets"], Array.map((suffix) => `Directory.Build.${suffix}`), Array.join(","));'
+    # The data-last Array.map applied to the literal list directly
+    - 'const inputs = Array.map((suffix) => `Directory.Build.${suffix}`)(["props", "targets"]);'
+    # Block body returning the template
+    - 'const inputs = ["props", "targets"].map((suffix) => { return `Directory.Build.${suffix}`; });'
+    # Function expression building the template
+    - 'const inputs = ["props", "targets"].map(function (suffix) { return `Directory.Build.${suffix}`; });'
+    # Comment between the literals
+    - 'const inputs = ["props", /* shared */ "targets"].map((suffix) => `Directory.Build.${suffix}`);'

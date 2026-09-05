@@ -1,0 +1,192 @@
+id: no-catch-tag-chain
+snapshots:
+  ? |
+    const row = load(id).pipe(
+        Effect.catchTag("NotFound", fallback),
+        Effect.catchTag("Timeout", retry),
+        Effect.map(pick),
+    );
+  : fixed: |
+      const row = load(id).pipe(Effect.catchTags({ NotFound: fallback, Timeout: retry }), Effect.map(pick));
+    labels:
+    - source: |-
+        load(id).pipe(
+            Effect.catchTag("NotFound", fallback),
+            Effect.catchTag("Timeout", retry),
+            Effect.map(pick),
+        )
+      style: primary
+      start: 12
+      end: 132
+    - source: '"NotFound"'
+      style: secondary
+      start: 47
+      end: 57
+    - source: '"NotFound"'
+      style: secondary
+      start: 47
+      end: 57
+    - source: '"Timeout"'
+      style: secondary
+      start: 90
+      end: 99
+    - source: '"Timeout"'
+      style: secondary
+      start: 90
+      end: 99
+    - source: Effect.catchTag("Timeout", retry)
+      style: secondary
+      start: 74
+      end: 107
+    - source: Effect.catchTag("NotFound", fallback)
+      style: secondary
+      start: 31
+      end: 68
+    - source: Effect.catchTag("NotFound", fallback)
+      style: secondary
+      start: 31
+      end: 68
+  const row = load(id).pipe(Effect.catchTag("NotFound", fallback), Effect.catchTag("Timeout", retry));:
+    fixed: 'const row = load(id).pipe(Effect.catchTags({ NotFound: fallback, Timeout: retry }));'
+    labels:
+    - source: load(id).pipe(Effect.catchTag("NotFound", fallback), Effect.catchTag("Timeout", retry))
+      style: primary
+      start: 12
+      end: 99
+    - source: '"NotFound"'
+      style: secondary
+      start: 42
+      end: 52
+    - source: '"NotFound"'
+      style: secondary
+      start: 42
+      end: 52
+    - source: '"Timeout"'
+      style: secondary
+      start: 81
+      end: 90
+    - source: '"Timeout"'
+      style: secondary
+      start: 81
+      end: 90
+    - source: Effect.catchTag("Timeout", retry)
+      style: secondary
+      start: 65
+      end: 98
+    - source: Effect.catchTag("NotFound", fallback)
+      style: secondary
+      start: 26
+      end: 63
+    - source: Effect.catchTag("NotFound", fallback)
+      style: secondary
+      start: 26
+      end: 63
+  const row = load(id).pipe(Effect.catchTag("NotFound", fallback), Effect.catchTag("Timeout", retry), Effect.map(pick));:
+    fixed: 'const row = load(id).pipe(Effect.catchTags({ NotFound: fallback, Timeout: retry }), Effect.map(pick));'
+    labels:
+    - source: load(id).pipe(Effect.catchTag("NotFound", fallback), Effect.catchTag("Timeout", retry), Effect.map(pick))
+      style: primary
+      start: 12
+      end: 117
+    - source: '"NotFound"'
+      style: secondary
+      start: 42
+      end: 52
+    - source: '"NotFound"'
+      style: secondary
+      start: 42
+      end: 52
+    - source: '"Timeout"'
+      style: secondary
+      start: 81
+      end: 90
+    - source: '"Timeout"'
+      style: secondary
+      start: 81
+      end: 90
+    - source: Effect.catchTag("Timeout", retry)
+      style: secondary
+      start: 65
+      end: 98
+    - source: Effect.catchTag("NotFound", fallback)
+      style: secondary
+      start: 26
+      end: 63
+    - source: Effect.catchTag("NotFound", fallback)
+      style: secondary
+      start: 26
+      end: 63
+  ? |
+    const row = load(id).pipe(Effect.catchTag("app/NotFound", fallback), Effect.catchTag("Timeout", retry));
+  : fixed: |
+      const row = load(id).pipe(Effect.catchTags({ "app/NotFound": fallback, Timeout: retry }));
+    labels:
+    - source: load(id).pipe(Effect.catchTag("app/NotFound", fallback), Effect.catchTag("Timeout", retry))
+      style: primary
+      start: 12
+      end: 103
+    - source: '"app/NotFound"'
+      style: secondary
+      start: 42
+      end: 56
+    - source: '"app/NotFound"'
+      style: secondary
+      start: 42
+      end: 56
+    - source: '"Timeout"'
+      style: secondary
+      start: 85
+      end: 94
+    - source: '"Timeout"'
+      style: secondary
+      start: 85
+      end: 94
+    - source: Effect.catchTag("Timeout", retry)
+      style: secondary
+      start: 69
+      end: 102
+    - source: Effect.catchTag("app/NotFound", fallback)
+      style: secondary
+      start: 26
+      end: 67
+    - source: Effect.catchTag("app/NotFound", fallback)
+      style: secondary
+      start: 26
+      end: 67
+  ? |
+    const row = load(id).pipe(Effect.catchTag('NotFound', fallback), Effect.catchTag("Timeout", retry));
+  : fixed: |
+      const row = load(id).pipe(Effect.catchTags({ NotFound: fallback, Timeout: retry }));
+    labels:
+    - source: load(id).pipe(Effect.catchTag('NotFound', fallback), Effect.catchTag("Timeout", retry))
+      style: primary
+      start: 12
+      end: 99
+    - source: '''NotFound'''
+      style: secondary
+      start: 42
+      end: 52
+    - source: '''NotFound'''
+      style: secondary
+      start: 42
+      end: 52
+    - source: '"Timeout"'
+      style: secondary
+      start: 81
+      end: 90
+    - source: '"Timeout"'
+      style: secondary
+      start: 81
+      end: 90
+    - source: Effect.catchTag("Timeout", retry)
+      style: secondary
+      start: 65
+      end: 98
+    - source: Effect.catchTag('NotFound', fallback)
+      style: secondary
+      start: 26
+      end: 63
+    - source: Effect.catchTag('NotFound', fallback)
+      style: secondary
+      start: 26
+      end: 63

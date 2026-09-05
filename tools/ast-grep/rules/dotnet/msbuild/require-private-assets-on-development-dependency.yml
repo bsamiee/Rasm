@@ -3,8 +3,36 @@ id: require-private-assets-on-development-dependency
 language: xml
 severity: error
 rule:
+    pattern: _REFERENCE
     # Analyzers, source generators, and build tools, the development dependencies with no runtime asset a consumer needs
-    matches: {msbuild-package-reference: {id: {regex: '(?i)^"([A-Za-z0-9.]+\.(Analyzers?|SourceGenerators?|Generators?)|Riok\.Mapperly|Grpc\.Tools|MessagePackAnalyzer|Microsoft\.CodeAnalysis\.CSharp|Microsoft\.CodeAnalysis\.Analyzers|MinVer|Generator\.Equals)"$'}}}
-    not: {matches: {msbuild-metadata: {name: {regex: '^PrivateAssets$'}, value: {regex: '(?i)^"?\s*all\s*"?$'}}}}
+    matches:
+        msbuild-package-reference:
+            id:
+                regex: "(?i)^[\"']([A-Za-z0-9.]+\\.(Analyzers?|SourceGenerators?|Generators?)|Riok\\.Mapperly|Grpc\\.Tools|MessagePackAnalyzer|\
+                    Microsoft\\.CodeAnalysis\\.CSharp|Microsoft\\.CodeAnalysis\\.Analyzers|MinVer|Generator\\.Equals)[\"']$"
+    not: {matches: {msbuild-metadata: {name: {regex: '^PrivateAssets$'}, value: {regex: '(?i)^["'']?\s*all\s*["'']?$'}}}}
+transform:
+    # Both metadata forms leave before the attribute returns, and an element left with no children closes itself
+    STRIPPED:
+        replace:
+            source: $REFERENCE
+            replace: '\s+PrivateAssets=("[^"]*"|''[^'']*'')|\s*<PrivateAssets(\s[^>]*)?>[^<]*</PrivateAssets>'
+            by: ''
+    EMPTY_TAG:
+        replace:
+            source: $STRIPPED
+            replace: '^(<PackageReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*/>'
+            by: '$1 PrivateAssets="all" />'
+    START_TAG:
+        replace:
+            source: $EMPTY_TAG
+            replace: '^(<PackageReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>'
+            by: '$1 PrivateAssets="all">'
+    CLOSED:
+        replace:
+            source: $START_TAG
+            replace: '^(<PackageReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>\s*</PackageReference>$'
+            by: '$1 />'
+fix: $CLOSED
 message: The analyzer, generator, or build tool is a development dependency and flows to every consumer without PrivateAssets
 note: Add PrivateAssets="all", the package stays in the compiling project

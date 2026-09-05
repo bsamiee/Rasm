@@ -7,6 +7,73 @@ snapshots:
       style: primary
       start: 112
       end: 117
+  const defects = Stream.onError(stream, (cause) => Effect.forEach(Cause.defects(cause), crash));:
+    labels:
+    - source: defects
+      message: The reader that splits the Cause
+      style: primary
+      start: 71
+      end: 78
+  const dieType = Effect.catchAllCause(program, (cause) => Effect.when(crash(cause), () => Cause.isDieType(cause)));:
+    labels:
+    - source: isDieType
+      message: The reader that splits the Cause
+      style: primary
+      start: 95
+      end: 104
+  const emptied = Stream.tapErrorCause(stream, (cause) => Effect.unless(report(cause), () => Cause.isEmpty(cause)));:
+    labels:
+    - source: isEmpty
+      message: The reader that splits the Cause
+      style: primary
+      start: 97
+      end: 104
+  ? |
+    const empty = Layer.matchCause(layer, {
+      onFailure: (cause) => Layer.fail(Cause.isEmptyType(cause)),
+      onSuccess: Layer.succeedContext,
+    });
+  : labels:
+    - source: isEmptyType
+      message: The reader that splits the Cause
+      style: primary
+      start: 81
+      end: 92
+  const failType = Effect.catchAllCause(program, (cause) => Effect.when(report(cause), () => Cause.isFailType(cause)));:
+    labels:
+    - source: isFailType
+      message: The reader that splits the Cause
+      style: primary
+      start: 97
+      end: 107
+  const failed = Effect.mapErrorCause(program, (cause) => Cause.fail(Array.headNonEmpty(Cause.failures(cause))));:
+    labels:
+    - source: failures
+      message: The reader that splits the Cause
+      style: primary
+      start: 92
+      end: 100
+  const filtered = Effect.mapErrorCause(program, (cause) => Cause.filter(cause, Cause.isFailType));:
+    labels:
+    - source: filter
+      message: The reader that splits the Cause
+      style: primary
+      start: 64
+      end: 70
+  const folded = Effect.catchAllCause(program, (cause) => Effect.fail(Cause.reduce(cause, empty, merge)));:
+    labels:
+    - source: reduce
+      message: The reader that splits the Cause
+      style: primary
+      start: 74
+      end: 80
+  const found = Effect.catchAllCause(program, (cause) => Effect.fromOption(Cause.find(cause, matchRecoverable)));:
+    labels:
+    - source: find
+      message: The reader that splits the Cause
+      style: primary
+      start: 79
+      end: 83
   const guarded = Effect.onError(program, (cause) => { return Effect.when(report(cause), () => Cause.isFailure(cause)); });:
     labels:
     - source: isFailure
@@ -14,6 +81,62 @@ snapshots:
       style: primary
       start: 99
       end: 108
+  const guarded = Micro.catchCauseIf(program, Micro.causeIsDie, (cause) => Micro.void);:
+    labels:
+    - source: causeIsDie
+      message: The reader that splits the Cause
+      style: primary
+      start: 50
+      end: 60
+  ? |
+    const halted = Micro.matchCauseEffect(program, {
+      onFailure: (cause) => Micro.when(stop(), () => Micro.causeIsInterrupt(cause)),
+      onSuccess: () => Micro.void,
+    });
+  : labels:
+    - source: causeIsInterrupt
+      message: The reader that splits the Cause
+      style: primary
+      start: 104
+      end: 120
+  const interruptType = Effect.catchAllCause(program, (cause) => Effect.when(stop(), () => Cause.isInterruptType(cause)));:
+    labels:
+    - source: isInterruptType
+      message: The reader that splits the Cause
+      style: primary
+      start: 95
+      end: 110
+  ? |
+    const interrupted = Effect.onError(program, (cause) =>
+      Option.match(Cause.interruptOption(cause), { onNone: () => Effect.void, onSome: stop }),
+    );
+  : labels:
+    - source: interruptOption
+      message: The reader that splits the Cause
+      style: primary
+      start: 76
+      end: 91
+  const interrupted = Effect.tapErrorCause(program, (cause) => Effect.when(stop(), () => Cause.isInterrupted(cause)));:
+    labels:
+    - source: isInterrupted
+      message: The reader that splits the Cause
+      style: primary
+      start: 93
+      end: 106
+  const interruptors = Layer.catchAllCause(layer, (cause) => Layer.fail(report(Cause.interruptors(cause))));:
+    labels:
+    - source: interruptors
+      message: The reader that splits the Cause
+      style: primary
+      start: 83
+      end: 95
+  const kept = Effect.catchAllCause(program, (cause) => Effect.failCause(Cause.keepDefects(cause)));:
+    labels:
+    - source: keepDefects
+      message: The reader that splits the Cause
+      style: primary
+      start: 77
+      end: 88
   const layered = Layer.tapErrorCause(layer, (cause) => Effect.when(report(cause), () => Cause.isFailure(cause)));:
     labels:
     - source: isFailure
@@ -21,27 +144,118 @@ snapshots:
       style: primary
       start: 93
       end: 102
-  ? 'const matched = Effect.matchCauseEffect(program, { onFailure: (cause) => Cause.match(cause, { onFail: report, onDie: crash, onInterrupt: () => Effect.void, onEmpty: Effect.void, onSequential: merge, onParallel: merge }), onSuccess: () => Effect.void });'
+  const leaves = Effect.tapErrorCause(program, (cause) => Effect.forEach(Cause.linearize(cause), report));:
+    labels:
+    - source: linearize
+      message: The reader that splits the Cause
+      style: primary
+      start: 77
+      end: 86
+  ? |
+    const matched = Effect.matchCauseEffect(program, {
+      onFailure: (cause) =>
+        Cause.match(cause, {
+          onFail: report,
+          onDie: crash,
+          onInterrupt: () => Effect.void,
+          onEmpty: Effect.void,
+          onSequential: merge,
+          onParallel: merge,
+        }),
+      onSuccess: () => Effect.void,
+    });
   : labels:
     - source: match
       message: The reader that splits the Cause
       style: primary
-      start: 79
-      end: 84
-  ? 'const recovered = program.pipe(Effect.catchAllCause((cause) => Either.match(Cause.failureOrCause(cause), { onLeft: (error) => fallback(error), onRight: (defect) => Effect.failCause(defect) })));'
+      start: 85
+      end: 90
+  const micro = Micro.catchAllCause(program, (cause) => Micro.when(retry(), () => Micro.causeIsDie(cause)));:
+    labels:
+    - source: causeIsDie
+      message: The reader that splits the Cause
+      style: primary
+      start: 86
+      end: 96
+  const only = Effect.tapErrorCause(program, (cause) => Effect.when(stop(), () => Cause.isInterruptedOnly(cause)));:
+    labels:
+    - source: isInterruptedOnly
+      message: The reader that splits the Cause
+      style: primary
+      start: 86
+      end: 103
+  const parallel = Stream.catchSomeCause(stream, (cause) => Option.liftPredicate(retry, () => Cause.isParallelType(cause)));:
+    labels:
+    - source: isParallelType
+      message: The reader that splits the Cause
+      style: primary
+      start: 98
+      end: 112
+  const partial = Channel.mapErrorCause(channel, (cause) => Cause.stripSomeDefects(cause, isRecoverable));:
+    labels:
+    - source: stripSomeDefects
+      message: The reader that splits the Cause
+      style: primary
+      start: 64
+      end: 80
+  const piped = Effect.catchAllCause(program, (cause) => Effect.fromOption(pipe(cause, Cause.failureOption)));:
+    labels:
+    - source: failureOption
+      message: The reader that splits the Cause
+      style: primary
+      start: 91
+      end: 104
+  ? |
+    const recovered = program.pipe(
+      Effect.catchAllCause((cause) =>
+        Either.match(Cause.failureOrCause(cause), {
+          onLeft: (error) => fallback(error),
+          onRight: (defect) => Effect.failCause(defect),
+        }),
+      ),
+    );
   : labels:
     - source: failureOrCause
       message: The reader that splits the Cause
       style: primary
-      start: 82
-      end: 96
-  ? 'const reported = program.pipe(Effect.tapErrorCause((cause) => Option.match(Cause.failureOption(cause), { onNone: () => Console.error(Cause.pretty(cause)), onSome: (error) => Console.error(error.message) })));'
+      start: 89
+      end: 103
+  const reduced = Effect.catchAllCause(program, (cause) => Effect.fail(Cause.reduceWithContext(cause, context, reducer)));:
+    labels:
+    - source: reduceWithContext
+      message: The reader that splits the Cause
+      style: primary
+      start: 75
+      end: 92
+  ? |
+    const reported = program.pipe(
+      Effect.tapErrorCause((cause) =>
+        Option.match(Cause.failureOption(cause), {
+          onNone: () => Console.error(Cause.pretty(cause)),
+          onSome: (error) => Console.error(error.message),
+        }),
+      ),
+    );
   : labels:
     - source: failureOption
       message: The reader that splits the Cause
       style: primary
-      start: 81
-      end: 94
+      start: 88
+      end: 101
+  const sequential = Stream.catchSomeCause(stream, (cause) => Option.liftPredicate(retry, () => Cause.isSequentialType(cause)));:
+    labels:
+    - source: isSequentialType
+      message: The reader that splits the Cause
+      style: primary
+      start: 100
+      end: 116
+  const some = Effect.catchSomeCause(program, (cause) => Option.map(Cause.dieOption(cause), crash));:
+    labels:
+    - source: dieOption
+      message: The reader that splits the Cause
+      style: primary
+      start: 72
+      end: 81
   ? const streamed = stream.pipe(Stream.catchAllCause((cause) => Stream.fromEffect(Effect.when(retry(), () => Cause.isDie(cause)))));
   : labels:
     - source: isDie
@@ -49,3 +263,24 @@ snapshots:
       style: primary
       start: 112
       end: 117
+  const stripped = Stream.mapErrorCause(stream, (cause) => Cause.stripFailures(cause));:
+    labels:
+    - source: stripFailures
+      message: The reader that splits the Cause
+      style: primary
+      start: 63
+      end: 76
+  const tapped = Micro.tapErrorCause(program, (cause) => Micro.when(report(cause), () => Micro.causeIsFail(cause)));:
+    labels:
+    - source: causeIsFail
+      message: The reader that splits the Cause
+      style: primary
+      start: 93
+      end: 104
+  const tapped = Micro.tapErrorCauseIf(program, Micro.causeIsFail, report);:
+    labels:
+    - source: causeIsFail
+      message: The reader that splits the Cause
+      style: primary
+      start: 52
+      end: 63

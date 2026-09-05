@@ -1,0 +1,37 @@
+id: no-nested-module-call
+valid:
+    # The target form
+    - 'const total = Effect.succeed(rows).pipe(Effect.map(count));'
+    # One argument, a constructor over a value
+    - 'const lifted = Effect.succeed(Option.some(item));'
+    # Module call in the second position is data-last
+    - 'const zipped = Effect.zip(rows, Effect.succeed(item));'
+    # Module call inside a callback is the callback's value
+    - 'const mapped = Effect.map(rows, (row) => Effect.succeed(row));'
+    # Method call on a value is no module call
+    - 'const total = Effect.map(client.load(rows), count);'
+invalid:
+    # The instance
+    - 'const total = Effect.map(Effect.succeed(rows), count);'
+    # The inner call under an as wrapper
+    - 'const total = Effect.map(Effect.succeed(rows) as Effect.Effect<Rows>, count);'
+    # The inner call under parentheses
+    - 'const total = Effect.map((Effect.succeed(rows)), count);'
+    # The inner call under a satisfies wrapper
+    - 'const total = Effect.map(Effect.succeed(rows) satisfies Rows, count);'
+    # The inner call under a non-null assertion
+    - 'const total = Effect.map(Effect.succeed(rows)!, count);'
+    # Three levels report once at the outermost call
+    - 'const total = Effect.map(Effect.map(Effect.succeed(rows), count), sum);'
+    # Parenthesized middle call still reports once
+    - 'const total = Effect.map((Effect.map(Effect.succeed(rows), count)), sum);'
+    # As-wrapped middle call
+    - 'const total = Effect.map(Effect.map(Effect.succeed(rows), count) as Effect.Effect<number>, sum);'
+    # Satisfies-wrapped middle call
+    - 'const total = Effect.map(Effect.map(Effect.succeed(rows), count) satisfies Counted, sum);'
+    # Non-null-asserted middle call
+    - 'const total = Effect.map(Effect.map(Effect.succeed(rows), count)!, sum);'
+    # Nesting in the second position is no data argument
+    - 'const total = Effect.zip(rows, Effect.map(Effect.succeed(item), count));'
+    # Nesting inside a callback reports the callback's chain
+    - 'const total = Effect.map(rows, (row) => Effect.map(Effect.succeed(row), count));'

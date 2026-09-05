@@ -1,0 +1,218 @@
+id: no-nested-module-call
+snapshots:
+  const total = Effect.map((Effect.map(Effect.succeed(rows), count)), sum);:
+    labels:
+    - source: Effect.map((Effect.map(Effect.succeed(rows), count)), sum)
+      style: primary
+      start: 14
+      end: 72
+    - source: (Effect.map(Effect.succeed(rows), count))
+      style: secondary
+      start: 25
+      end: 66
+    - source: sum
+      style: secondary
+      start: 68
+      end: 71
+    - source: ((Effect.map(Effect.succeed(rows), count)), sum)
+      style: secondary
+      start: 24
+      end: 72
+  const total = Effect.map((Effect.succeed(rows)), count);:
+    labels:
+    - source: Effect.map((Effect.succeed(rows)), count)
+      style: primary
+      start: 14
+      end: 55
+    - source: (Effect.succeed(rows))
+      style: secondary
+      start: 25
+      end: 47
+    - source: count
+      style: secondary
+      start: 49
+      end: 54
+    - source: ((Effect.succeed(rows)), count)
+      style: secondary
+      start: 24
+      end: 55
+  const total = Effect.map(Effect.map(Effect.succeed(rows), count) as Effect.Effect<number>, sum);:
+    labels:
+    - source: Effect.map(Effect.map(Effect.succeed(rows), count) as Effect.Effect<number>, sum)
+      style: primary
+      start: 14
+      end: 95
+    - source: Effect.map(Effect.succeed(rows), count) as Effect.Effect<number>
+      style: secondary
+      start: 25
+      end: 89
+    - source: sum
+      style: secondary
+      start: 91
+      end: 94
+    - source: (Effect.map(Effect.succeed(rows), count) as Effect.Effect<number>, sum)
+      style: secondary
+      start: 24
+      end: 95
+  const total = Effect.map(Effect.map(Effect.succeed(rows), count) satisfies Counted, sum);:
+    labels:
+    - source: Effect.map(Effect.map(Effect.succeed(rows), count) satisfies Counted, sum)
+      style: primary
+      start: 14
+      end: 88
+    - source: Effect.map(Effect.succeed(rows), count) satisfies Counted
+      style: secondary
+      start: 25
+      end: 82
+    - source: sum
+      style: secondary
+      start: 84
+      end: 87
+    - source: (Effect.map(Effect.succeed(rows), count) satisfies Counted, sum)
+      style: secondary
+      start: 24
+      end: 88
+  const total = Effect.map(Effect.map(Effect.succeed(rows), count)!, sum);:
+    labels:
+    - source: Effect.map(Effect.map(Effect.succeed(rows), count)!, sum)
+      style: primary
+      start: 14
+      end: 71
+    - source: Effect.map(Effect.succeed(rows), count)!
+      style: secondary
+      start: 25
+      end: 65
+    - source: sum
+      style: secondary
+      start: 67
+      end: 70
+    - source: (Effect.map(Effect.succeed(rows), count)!, sum)
+      style: secondary
+      start: 24
+      end: 71
+  const total = Effect.map(Effect.map(Effect.succeed(rows), count), sum);:
+    labels:
+    - source: Effect.map(Effect.map(Effect.succeed(rows), count), sum)
+      style: primary
+      start: 14
+      end: 70
+    - source: Effect.map(Effect.succeed(rows), count)
+      style: secondary
+      start: 25
+      end: 64
+    - source: sum
+      style: secondary
+      start: 66
+      end: 69
+    - source: (Effect.map(Effect.succeed(rows), count), sum)
+      style: secondary
+      start: 24
+      end: 70
+  const total = Effect.map(Effect.succeed(rows) as Effect.Effect<Rows>, count);:
+    labels:
+    - source: Effect.map(Effect.succeed(rows) as Effect.Effect<Rows>, count)
+      style: primary
+      start: 14
+      end: 76
+    - source: Effect.succeed(rows) as Effect.Effect<Rows>
+      style: secondary
+      start: 25
+      end: 68
+    - source: count
+      style: secondary
+      start: 70
+      end: 75
+    - source: (Effect.succeed(rows) as Effect.Effect<Rows>, count)
+      style: secondary
+      start: 24
+      end: 76
+  const total = Effect.map(Effect.succeed(rows) satisfies Rows, count);:
+    labels:
+    - source: Effect.map(Effect.succeed(rows) satisfies Rows, count)
+      style: primary
+      start: 14
+      end: 68
+    - source: Effect.succeed(rows) satisfies Rows
+      style: secondary
+      start: 25
+      end: 60
+    - source: count
+      style: secondary
+      start: 62
+      end: 67
+    - source: (Effect.succeed(rows) satisfies Rows, count)
+      style: secondary
+      start: 24
+      end: 68
+  const total = Effect.map(Effect.succeed(rows)!, count);:
+    labels:
+    - source: Effect.map(Effect.succeed(rows)!, count)
+      style: primary
+      start: 14
+      end: 54
+    - source: Effect.succeed(rows)!
+      style: secondary
+      start: 25
+      end: 46
+    - source: count
+      style: secondary
+      start: 48
+      end: 53
+    - source: (Effect.succeed(rows)!, count)
+      style: secondary
+      start: 24
+      end: 54
+  const total = Effect.map(Effect.succeed(rows), count);:
+    labels:
+    - source: Effect.map(Effect.succeed(rows), count)
+      style: primary
+      start: 14
+      end: 53
+    - source: Effect.succeed(rows)
+      style: secondary
+      start: 25
+      end: 45
+    - source: count
+      style: secondary
+      start: 47
+      end: 52
+    - source: (Effect.succeed(rows), count)
+      style: secondary
+      start: 24
+      end: 53
+  const total = Effect.map(rows, (row) => Effect.map(Effect.succeed(row), count));:
+    labels:
+    - source: Effect.map(Effect.succeed(row), count)
+      style: primary
+      start: 40
+      end: 78
+    - source: Effect.succeed(row)
+      style: secondary
+      start: 51
+      end: 70
+    - source: count
+      style: secondary
+      start: 72
+      end: 77
+    - source: (Effect.succeed(row), count)
+      style: secondary
+      start: 50
+      end: 78
+  const total = Effect.zip(rows, Effect.map(Effect.succeed(item), count));:
+    labels:
+    - source: Effect.map(Effect.succeed(item), count)
+      style: primary
+      start: 31
+      end: 70
+    - source: Effect.succeed(item)
+      style: secondary
+      start: 42
+      end: 62
+    - source: count
+      style: secondary
+      start: 64
+      end: 69
+    - source: (Effect.succeed(item), count)
+      style: secondary
+      start: 41
+      end: 70

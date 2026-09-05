@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: object-keys-to-record-keys-imported
+language: typescript
+severity: error
+rule:
+    pattern: Object.$M($R) # The call is the match, the sibling object-keys-to-record-keys owns the file that lacks the import
+    inside:
+        kind: program
+        stopBy: end
+        has:
+            kind: import_statement # The value binding of the effect Record, the named module or the namespace of its own path
+            not: {has: {regex: '^type$'}} # Type-only imports bind no value, the type keyword is an unnamed child of the statement
+            any:
+                - matches:
+                      import-from:
+                          source: {regex: '^effect$'}
+                          clause: # The bound name is the last identifier of the specifier, the alias when one is written
+                              kind: named_imports
+                              has:
+                                  kind: import_specifier
+                                  not: {has: {regex: '^type$'}}
+                                  has: {kind: identifier, regex: '^Record$', nthChild: {position: 1, reverse: true}}
+                - matches:
+                      import-from:
+                          source: {regex: '^effect/Record$'}
+                          clause: {kind: namespace_import, has: {kind: identifier, regex: '^Record$'}}
+constraints:
+    M: {regex: '^(keys|values|entries)$'}
+transform:
+    NEW_M: replace($M, replace='^entries$', by='toEntries')
+fix: Record.$NEW_M($R)
+message: Record members are read through the global Object and the file binds the effect Record module
+note: Read a record through `Record.keys`, `Record.values`, and `Record.toEntries` from the effect package

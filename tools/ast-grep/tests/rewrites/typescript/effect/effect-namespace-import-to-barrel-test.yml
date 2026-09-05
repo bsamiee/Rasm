@@ -1,0 +1,17 @@
+id: effect-namespace-import-to-barrel
+valid:
+    # The barrel import
+    - "import { Arbitrary, FastCheck } from 'effect';"
+    # Namespace import of another package
+    - "import * as path from 'node:path';"
+    # Named import from the subpath, a different correction
+    - "import { make } from 'effect/Arbitrary';"
+    # Namespace import of the barrel itself
+    - "import * as E from 'effect';"
+    # Type-only namespace import keeps its keyword
+    - "import type * as Arb from 'effect/Arbitrary';"
+invalid:
+    # The instance, the module name is its own alias
+    - "import * as FastCheck from 'effect/FastCheck';"
+    # Alias other than the module name
+    - "import * as Arb from 'effect/Arbitrary';"

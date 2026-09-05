@@ -4,7 +4,7 @@ language: xml
 severity: error
 rule:
     all:
-        # Copy and Move take the same destination parameters
+        # Copy and Move take the same destination parameters and reach the same output directory
         - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$'}}}
         - matches: {msbuild-metadata: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir)\)'}}}
 message: >-

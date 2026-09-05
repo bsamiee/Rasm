@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# A call on a module the effect package exports, the family every combinator-shape rule matches on
+# Call on a barrel namespace with a callable member, a JS global of the same name (Array, String, Symbol) counts as the module
 id: effect-module-call
 language: tsx
 rule:
@@ -9,5 +9,19 @@ rule:
         kind: member_expression
         has:
             field: object
-            regex: "^(Array|Boolean|Cause|Chunk|Config|DateTime|Duration|Effect|Either|Exit|HashMap|HashSet|Iterable|Layer|List|\
-                Match|Number|Option|Order|Predicate|Record|Schedule|Schema|Sink|Stream|String|Struct|Tuple)$"
+            regex: "^(Arbitrary|Array|BigDecimal|BigInt|Boolean|Brand|Cache|Cause|Channel|ChildExecutorDecision|Chunk|Clock|Config|\
+                ConfigError|ConfigProvider|ConfigProviderPathPatch|Console|Context|Cron|Data|DateTime|Deferred|Differ|Duration|\
+                Effect|Either|Encoding|Equal|Equivalence|ExecutionPlan|ExecutionStrategy|Exit|FastCheck|Fiber|FiberHandle|\
+                FiberId|FiberMap|FiberRef|FiberRefs|FiberRefsPatch|FiberSet|FiberStatus|Function|GlobalValue|Graph|GroupBy|\
+                Hash|HashMap|HashRing|HashSet|Inspectable|Iterable|JSONSchema|KeyedPool|Layer|LayerMap|List|Logger|LogLevel|\
+                LogSpan|Mailbox|ManagedRuntime|Match|MergeDecision|MergeState|MergeStrategy|Metric|MetricBoundaries|MetricHook|\
+                MetricKey|MetricKeyType|MetricLabel|MetricPair|MetricPolling|MetricRegistry|MetricState|Micro|ModuleVersion|\
+                MutableHashMap|MutableHashSet|MutableList|MutableQueue|MutableRef|NonEmptyIterable|Number|Option|Order|Ordering|\
+                ParseResult|PartitionedSemaphore|Pipeable|Pool|Predicate|Pretty|PrimaryKey|PubSub|Queue|Random|RateLimiter|\
+                RcMap|RcRef|Readable|Record|Redacted|RedBlackTree|Ref|RegExp|Reloadable|Request|RequestBlock|RequestResolver|\
+                Resource|Runtime|RuntimeFlags|RuntimeFlagsPatch|Schedule|ScheduleDecision|ScheduleInterval|ScheduleIntervals|\
+                Scheduler|Schema|SchemaAST|Scope|ScopedCache|ScopedRef|Secret|SingleProducerAsyncInput|Sink|SortedMap|SortedSet|\
+                STM|Stream|StreamHaltStrategy|String|Struct|Subscribable|SubscriptionRef|Supervisor|Symbol|SynchronizedRef|Take|\
+                TArray|TDeferred|TestAnnotation|TestAnnotationMap|TestAnnotations|TestClock|TestConfig|TestLive|TestServices|\
+                TestSized|TMap|TPriorityQueue|TPubSub|TQueue|Tracer|TRandom|TReentrantLock|TRef|Trie|TSemaphore|TSet|\
+                TSubscriptionRef|Tuple|Unify|UpstreamPullRequest|UpstreamPullStrategy|Utils)$"

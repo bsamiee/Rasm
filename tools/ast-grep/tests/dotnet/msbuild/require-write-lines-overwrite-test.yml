@@ -6,6 +6,9 @@ valid:
     # Another file task takes no Overwrite
     - |
       <Touch Files="$(IntermediateOutputPath)stamp.txt" AlwaysCreate="true" />
+    # Single-quoted values
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite='true' WriteOnlyWhenDifferent='true' />
 invalid:
     # No Overwrite, two lines after two builds
     - |
@@ -25,3 +28,6 @@ invalid:
     # WriteOnlyWhenDifferent false beside Overwrite rewrites the file on every build
     - |
       <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="false" />
+    # Single-quoted Overwrite alone, the fix writes both attributes in double quotes
+    - |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite='true' />

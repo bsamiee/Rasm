@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-ternary-to-lift-predicate
+language: tsx
+severity: off
+rule:
+    kind: ternary_expression
+    pattern: $BRANCH
+    any: # The value in either arm, the lift evaluates it ahead of the condition and the error stays in its thunk
+        - pattern: '$_ ? Effect.succeed($V) : Effect.fail($_)'
+        - pattern: '$_ ? Effect.fail($_) : Effect.succeed($V)'
+    not: {matches: syntax-narrowed-branch}
+constraints:
+    V: {matches: effect-liftable-value}
+rewriters:
+    - id: value-when-true
+      rule: {pattern: '$C ? Effect.succeed($V) : Effect.fail($E)'}
+      fix: Effect.liftPredicate($V, () => $C, () => $E)
+    - id: value-when-false
+      rule: {pattern: '$C ? Effect.fail($E) : Effect.succeed($V)'}
+      transform:
+          NOT: rewrite($C, rewriters=[negate-negation, negate-operand, negate-compound])
+      fix: Effect.liftPredicate($V, () => $NOT, () => $E)
+    - id: negate-negation
+      rule: {pattern: '!$E'}
+      fix: $E
+    - id: negate-operand
+      rule: {pattern: $E, matches: syntax-negation-operand}
+      fix: '!$E'
+    - id: negate-compound
+      rule: {pattern: $E}
+      fix: '!($E)'
+transform:
+    LIFT: rewrite($BRANCH, rewriters=[value-when-true, value-when-false])
+fix: $LIFT
+message: The branch fails or succeeds an effect by hand
+note: Lift the value under its condition, `Effect.liftPredicate(value, () => condition, () => error)`

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/project.json
+# The layout ast-grep new project scaffolds, every example rule loads through it and ast-grep test runs from its directory
+ruleDirs:
+    - rules
+utilDirs:
+    - utils
+testConfigs:
+    - testDir: rule-tests
+languageInjections:
+    - hostLanguage: yaml # The bash rules read every run step of a workflow, scan -U writes one injected region per pass
+      rule:
+          kind: block_mapping_pair
+          all:
+              - has: {field: key, regex: '^run$'}
+              - has: {field: value, pattern: $CONTENT} # $CONTENT is the injected region, a block scalar keeps its | indicator
+      injected: bash

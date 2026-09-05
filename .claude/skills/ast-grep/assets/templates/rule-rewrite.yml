@@ -1,23 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# On demand, ast-grep scan --filter '^<id>$' --error=<id> -U <paths>, the filter drops the unused-suppression report
 id: <rule-id>
 language: <language>
-severity: error
+severity: off # No plain scan runs it, scan -r included, --error=<id> enables one run and test --include-off runs its cases
+utils:
+    <guard-id>: {<shape the template cannot rewrite>} # Local guard, a shape every rewrite over the construct refuses goes in a global util
 rule:
     all:
         - pattern: <code capturing $$$ITEMS>
-        - not: <unfixable variant> # Every variant the template cannot rewrite is a not: arm before the fix
+        - not: {matches: <guard-id>} # Every variant the template cannot rewrite is a not: arm before the fix
+constraints:
+    <VAR>: {regex: '<grammar>'}
 rewriters:
-    - id: <rewriter-id> # Ordered sequence: per node the first matching rewriter wins, an unmatched node keeps its text
-      rule: {pattern: $ITEM, kind: <kind>} # kind alone binds no metavariable, the pattern names the node the fix reads
+    - id: <rewriter-id> # Ordered, per node the first matching rewriter wins, an unmatched node keeps its text or leaves under joinBy
+      rule: {pattern: $ITEM, kind: <kind>} # Rewriters try the captured nodes and their descendants, a guard pins the level
+      constraints: {ITEM: {regex: '<grammar>'}} # Rewriters hold their own constraints, transform, and utils, and export no capture
       transform:
-        <LOCAL>: <op>($ITEM, <key>=<value>) # The rewriter's fix reads the outer captures, its own vars, transform, and utils stay inside it
+          <LOCAL>: <op>($ITEM, <key>=<value>)
       fix: <per-item template referencing $ITEM and $LOCAL>
 transform:
-    <OUT>:
-        rewrite:
-            source: $$$ITEMS # Rewriters apply to the captured nodes and their descendants, outer nodes first, without overlap
-            rewriters: [<rewriter-id>]
-            joinBy: '<sep>' # Joins the rewritten items and drops unmatched members, absent it splices them back in place
-fix: <template referencing $OUT>
+    <OUT>: # Absent joinBy splices the rewrites back in place and keeps every unmatched node's text
+        rewrite: {source: $$$ITEMS, rewriters: [<rewriter-id>], joinBy: '<sep>'}
+    <TAIL>: replace($OUT, replace='^.+', by='<sep>$0') # Later stages read earlier outputs, the separator when the list survived
+fix: <template referencing $OUT and $TAIL>
 message: <one line naming the violation>
 note: <the correction as the shape to produce>

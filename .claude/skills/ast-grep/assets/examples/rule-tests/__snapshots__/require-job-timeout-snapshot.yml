@@ -28,23 +28,7 @@ snapshots:
       style: secondary
       start: 0
       end: 71
-    - source: |
-        build:
-            runs-on: ubuntu-latest
-            steps:
-              - run: make
-      style: secondary
-      start: 8
-      end: 71
-    - source: |
-        build:
-            runs-on: ubuntu-latest
-            steps:
-              - run: make
-      style: secondary
-      start: 8
-      end: 71
-  ? |-
+  ? |
     jobs:
       build:
         runs-on: ubuntu-latest
@@ -52,7 +36,7 @@ snapshots:
           - run: make
             timeout-minutes: 5
   : labels:
-    - source: |-
+    - source: |
         build:
             runs-on: ubuntu-latest
             steps:
@@ -60,12 +44,12 @@ snapshots:
                 timeout-minutes: 5
       style: primary
       start: 8
-      end: 97
+      end: 98
     - source: jobs
       style: secondary
       start: 0
       end: 4
-    - source: |-
+    - source: |
         jobs:
           build:
             runs-on: ubuntu-latest
@@ -74,22 +58,4 @@ snapshots:
                 timeout-minutes: 5
       style: secondary
       start: 0
-      end: 97
-    - source: |-
-        build:
-            runs-on: ubuntu-latest
-            steps:
-              - run: make
-                timeout-minutes: 5
-      style: secondary
-      start: 8
-      end: 97
-    - source: |-
-        build:
-            runs-on: ubuntu-latest
-            steps:
-              - run: make
-                timeout-minutes: 5
-      style: secondary
-      start: 8
-      end: 97
+      end: 98

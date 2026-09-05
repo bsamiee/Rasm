@@ -1,0 +1,245 @@
+id: object-static-to-record
+snapshots:
+  ? |
+    import { Array, Record } from 'effect';
+    const policy = Object.fromEntries(Object.entries(config.csp).map(([directive, values]) => [directive, [...values]]));
+  : fixed: |
+      import { Array, Record } from 'effect';
+      const policy = Record.fromEntries(Record.toEntries(config.csp).map(([directive, values]) => [directive, [...values]]));
+    labels:
+    - source: |
+        import { Array, Record } from 'effect';
+        const policy = Object.fromEntries(Object.entries(config.csp).map(([directive, values]) => [directive, [...values]]));
+      style: primary
+      start: 0
+      end: 158
+    - source: Object.fromEntries
+      style: secondary
+      start: 55
+      end: 73
+    - source: Object.fromEntries(Object.entries(config.csp).map(([directive, values]) => [directive, [...values]]))
+      style: secondary
+      start: 55
+      end: 156
+    - source: import { Array, Record } from 'effect';
+      style: secondary
+      start: 0
+      end: 39
+  ? |
+    import { Effect } from 'effect';
+    const attributes = Object.fromEntries(span.attributes);
+  : fixed: |
+      import { Effect, Record } from 'effect';
+      const attributes = Record.fromEntries(span.attributes);
+    labels:
+    - source: |
+        import { Effect } from 'effect';
+        const attributes = Object.fromEntries(span.attributes);
+      style: primary
+      start: 0
+      end: 89
+    - source: Object.fromEntries
+      style: secondary
+      start: 52
+      end: 70
+    - source: Object.fromEntries(span.attributes)
+      style: secondary
+      start: 52
+      end: 87
+    - source: import { Effect } from 'effect';
+      style: secondary
+      start: 0
+      end: 32
+  ? |
+    import { Effect } from 'effect';
+    const defaults = Object.freeze({ assets: [] });
+    const names = Object.keys(sample);
+  : fixed: |
+      import { Effect, Record } from 'effect';
+      const defaults = Object.freeze({ assets: [] });
+      const names = Record.keys(sample);
+    labels:
+    - source: |
+        import { Effect } from 'effect';
+        const defaults = Object.freeze({ assets: [] });
+        const names = Object.keys(sample);
+      style: primary
+      start: 0
+      end: 116
+    - source: Object.keys
+      style: secondary
+      start: 95
+      end: 106
+    - source: Object.keys(sample)
+      style: secondary
+      start: 95
+      end: 114
+    - source: import { Effect } from 'effect';
+      style: secondary
+      start: 0
+      end: 32
+  ? |
+    import { Effect } from 'effect';
+    const names = Object.keys(configs,);
+  : fixed: |
+      import { Effect, Record } from 'effect';
+      const names = Record.keys(configs);
+    labels:
+    - source: |
+        import { Effect } from 'effect';
+        const names = Object.keys(configs,);
+      style: primary
+      start: 0
+      end: 70
+    - source: Object.keys
+      style: secondary
+      start: 47
+      end: 58
+    - source: Object.keys(configs,)
+      style: secondary
+      start: 47
+      end: 68
+    - source: import { Effect } from 'effect';
+      style: secondary
+      start: 0
+      end: 32
+  ? |
+    import { Effect } from 'effect';
+    import * as Record from 'effect/Record';
+    const names = Object.keys(configs);
+  : fixed: |
+      import { Effect } from 'effect';
+      import * as Record from 'effect/Record';
+      const names = Record.keys(configs);
+    labels:
+    - source: |
+        import { Effect } from 'effect';
+        import * as Record from 'effect/Record';
+        const names = Object.keys(configs);
+      style: primary
+      start: 0
+      end: 110
+    - source: Object.keys
+      style: secondary
+      start: 88
+      end: 99
+    - source: Object.keys(configs)
+      style: secondary
+      start: 88
+      end: 108
+    - source: import { Effect } from 'effect';
+      style: secondary
+      start: 0
+      end: 32
+  ? |
+    import { Effect } from 'effect';
+    import * as path from 'node:path';
+    const names = Object.keys(configs);
+  : fixed: |
+      import { Effect, Record } from 'effect';
+      import * as path from 'node:path';
+      const names = Record.keys(configs);
+    labels:
+    - source: |
+        import { Effect } from 'effect';
+        import * as path from 'node:path';
+        const names = Object.keys(configs);
+      style: primary
+      start: 0
+      end: 104
+    - source: Object.keys
+      style: secondary
+      start: 82
+      end: 93
+    - source: Object.keys(configs)
+      style: secondary
+      start: 82
+      end: 102
+    - source: import { Effect } from 'effect';
+      style: secondary
+      start: 0
+      end: 32
+  ? |
+    import { Effect } from 'effect';
+    import * as path from 'node:path';
+    import { Option } from 'effect';
+    const names = Object.keys(configs);
+  : fixed: |
+      import { Effect, Record } from 'effect';
+      import * as path from 'node:path';
+      import { Option } from 'effect';
+      const names = Record.keys(configs);
+    labels:
+    - source: |
+        import { Effect } from 'effect';
+        import * as path from 'node:path';
+        import { Option } from 'effect';
+        const names = Object.keys(configs);
+      style: primary
+      start: 0
+      end: 137
+    - source: Object.keys
+      style: secondary
+      start: 115
+      end: 126
+    - source: Object.keys(configs)
+      style: secondary
+      start: 115
+      end: 135
+    - source: import { Effect } from 'effect';
+      style: secondary
+      start: 0
+      end: 32
+  ? |
+    import { Effect, Option as Opt } from 'effect';
+    const names = Object.keys(configs);
+  : fixed: |
+      import { Effect, Option as Opt, Record } from 'effect';
+      const names = Record.keys(configs);
+    labels:
+    - source: |
+        import { Effect, Option as Opt } from 'effect';
+        const names = Object.keys(configs);
+      style: primary
+      start: 0
+      end: 84
+    - source: Object.keys
+      style: secondary
+      start: 62
+      end: 73
+    - source: Object.keys(configs)
+      style: secondary
+      start: 62
+      end: 82
+    - source: import { Effect, Option as Opt } from 'effect';
+      style: secondary
+      start: 0
+      end: 47
+  ? |
+    import { Effect, type Option } from 'effect';
+    const flags = Object.values(_FLAGS);
+    const names = Object.keys(_FLAGS);
+  : fixed: |
+      import { Effect, type Option, Record } from 'effect';
+      const flags = Record.values(_FLAGS);
+      const names = Record.keys(_FLAGS);
+    labels:
+    - source: |
+        import { Effect, type Option } from 'effect';
+        const flags = Object.values(_FLAGS);
+        const names = Object.keys(_FLAGS);
+      style: primary
+      start: 0
+      end: 118
+    - source: Object.values
+      style: secondary
+      start: 60
+      end: 73
+    - source: Object.values(_FLAGS)
+      style: secondary
+      start: 60
+      end: 81
+    - source: import { Effect, type Option } from 'effect';
+      style: secondary
+      start: 0
+      end: 45

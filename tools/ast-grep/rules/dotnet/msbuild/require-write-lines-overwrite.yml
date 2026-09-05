@@ -3,9 +3,27 @@ id: require-write-lines-overwrite
 language: xml
 severity: error
 rule:
+    pattern: _TASK
     matches: {msbuild-element: {name: {regex: '^WriteLinesToFile$'}}}
     any:
-        - not: {matches: {msbuild-metadata: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^"true"$'}}}}
-        - not: {matches: {msbuild-metadata: {name: {regex: '^WriteOnlyWhenDifferent$'}, value: {regex: '(?i)^"true"$'}}}}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^["'']true["'']$'}}}}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^WriteOnlyWhenDifferent$'}, value: {regex: '(?i)^["'']true["'']$'}}}}
+transform:
+    STRIPPED:
+        replace:
+            source: $TASK
+            replace: '\s+(Overwrite|WriteOnlyWhenDifferent)=("[^"]*"|''[^'']*'')'
+            by: ''
+    EMPTY_TAG:
+        replace:
+            source: $STRIPPED
+            replace: '^(<WriteLinesToFile(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*/>'
+            by: '$1 Overwrite="true" WriteOnlyWhenDifferent="true" />'
+    START_TAG:
+        replace:
+            source: $EMPTY_TAG
+            replace: '^(<WriteLinesToFile(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>'
+            by: '$1 Overwrite="true" WriteOnlyWhenDifferent="true">'
+fix: $START_TAG
 message: WriteLinesToFile appends by default and rewrites the file on every build
 note: Set Overwrite="true" and WriteOnlyWhenDifferent="true", the file holds one copy of Lines and keeps its timestamp for the incremental check

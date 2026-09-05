@@ -2,7 +2,7 @@
 id: require-package-version-comment
 language: xml
 severity: error
-files: ['Directory.Packages.props'] # The root file alone, eng/native/Directory.Packages.props opts out of central package management
+files: ['Directory.Packages.props']
 utils:
     trailing-comment: # One comment on the row's own line, after nothing or after blanks, and no line break inside it
         kind: element

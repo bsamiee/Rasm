@@ -9,17 +9,23 @@ valid:
     # The path as an attribute and the copy flag as a child
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Private>false</Private></Reference>
-    # A framework reference without a path copies nothing
+    # Framework reference without a path, nothing copies
     - |
       <Reference Include="System.Windows.Forms" />
-    # An item lists the host assemblies before a Reference adds them
+    # Item listing the host assemblies before a Reference adds them
     - |
       <ItemGroup><_HostAssembly Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" /></ItemGroup>
+    # Single-quoted copy flag
+    - |
+      <Reference Include='Eto' HintPath='$(EtoReferencePath)' Private='false' />
 invalid:
-    # A hint path into a packages folder nothing restores
+    # Single-quoted hint path, the fix keeps its quotes and writes the attribute in double quotes
+    - |
+      <Reference Include='RhinoCommon' HintPath='$(RhinoAssemblyDirectory)RhinoCommon.dll' />
+    # Hint path into a packages folder nothing restores
     - |
       <Reference Include="Newtonsoft.Json" HintPath="../packages/Newtonsoft.Json.13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
-    # A host assembly copied into the output, the host then loads the copy
+    # Host assembly copied into the output, the host then loads the copy
     - |
       <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
     # The child-element form with Private true
@@ -28,6 +34,12 @@ invalid:
     # The copy flag read from a property, the form the host references held before the literal
     - |
       <Reference Include="RhinoCommon"><HintPath>$(RhinoCommonReferencePath)</HintPath><Private>$(HostReferencePrivate)</Private></Reference>
-    # A false on the version binding, the copy flag stays at its default
+    # False on the version binding, the copy flag stays at its default
     - |
       <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" SpecificVersion="false" />
+    # Start tag with the path child and no copy flag, the fix adds the attribute and keeps the child
+    - |
+      <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath></Reference>
+    # Conditioned copy flag child set to true, the fix replaces it with the attribute
+    - |
+      <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private Condition="'$(CopyHost)' == 'true'">true</Private></Reference>

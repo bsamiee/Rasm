@@ -1,0 +1,25 @@
+id: no-length-emptiness-test
+valid:
+    # The target form for an array
+    - 'if (Array.isEmptyArray(rows)) {}'
+    # The target form for a string
+    - 'if (String.isEmpty(name)) {}'
+    # Count that is no emptiness test
+    - 'if (rows.length === 1) {}'
+    # The non-empty family is another correction
+    - 'if (rows.length > 0) {}'
+    # Optional chain reads undefined as non-empty and the module test reads it as empty
+    - 'if (rows?.length === 0) {}'
+    # Optional chain under the negation
+    - 'if (!rows?.length) {}'
+invalid:
+    # The instance
+    - 'if (rows.length === 0) {}'
+    # Loose equality
+    - 'if (rows.length == 0) {}'
+    # Reversed operands
+    - 'if (0 === rows.length) {}'
+    # Reversed loose equality
+    - 'if (0 == rows.length) {}'
+    # Negated length
+    - 'if (!rows.length) {}'

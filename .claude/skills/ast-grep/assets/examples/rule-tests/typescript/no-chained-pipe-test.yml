@@ -1,0 +1,20 @@
+id: no-chained-pipe
+valid:
+    # One variadic pipe
+    - 'const total = items.pipe(Array.map(price), Number.sumAll);'
+    # Pipe followed by another member
+    - 'const total = items.pipe(Array.map(price)).length;'
+invalid:
+    # Two links
+    - 'const total = items.pipe(Array.map(price)).pipe(Number.sumAll);'
+    # Three links report once at the outermost
+    - 'const total = items.pipe(Array.map(price)).pipe(Array.filter(positive)).pipe(Number.sumAll);'
+    # Chain under another member still reports
+    - 'const total = items.pipe(Array.map(price)).pipe(Number.sumAll).length;'
+    # Trailing commas in both lists go with the fold
+    - |
+      const total = items.pipe(
+          Array.map(price),
+      ).pipe(
+          Number.sumAll,
+      );

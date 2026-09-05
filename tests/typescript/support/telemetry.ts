@@ -1,4 +1,4 @@
-import { Array, type Context, Effect, Exit, HashMap, Match, Metric, type MetricPair, MetricState, Option, Order, pipe, Tracer } from 'effect';
+import { Array, type Context, Effect, Exit, HashMap, Match, Metric, type MetricPair, MetricState, Option, Order, pipe, Record, Tracer } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -149,7 +149,7 @@ const _spanRecord = (span: _CapturedSpan): SpanRecord => ({
             Match.exhaustive,
         ),
     ),
-    attributes: Object.fromEntries(span.attributes),
+    attributes: Record.fromEntries(span.attributes),
     events: [...span.events],
     outcome: Match.value(span.status).pipe(
         Match.tag('Started', (): SpanOutcome => 'open'),

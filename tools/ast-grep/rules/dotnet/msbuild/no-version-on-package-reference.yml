@@ -3,9 +3,22 @@ id: no-version-on-package-reference
 language: xml
 severity: error
 rule:
+    pattern: _REFERENCE
     all:
         - matches: {msbuild-element: {name: {regex: '^PackageReference$'}}}
         - matches: {msbuild-metadata: {name: {regex: '^(Version|VersionOverride)$'}, value: {matches: msbuild-value}}}
+transform:
+    STRIPPED:
+        replace:
+            source: $REFERENCE
+            replace: '\s+(Version|VersionOverride)=("[^"]*"|''[^'']*'')|\s*<(Version|VersionOverride)(\s[^>]*)?>[^<]*</(Version|VersionOverride)>'
+            by: ''
+    CLOSED:
+        replace:
+            source: $STRIPPED
+            replace: '^(<PackageReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>\s*</PackageReference>$'
+            by: '$1 />'
+fix: $CLOSED
 message: >-
     The PackageReference names a version, the version belongs to its PackageVersion row in Directory.Packages.props and
     CentralPackageVersionOverrideEnabled disables VersionOverride

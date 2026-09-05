@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Matcher of one Match.when arm and one Match.orElse fallback over a value or a type, a third step makes it a dispatch
+id: effect-two-step-match-chain
+language: tsx
+rule:
+    kind: call_expression
+    any:
+        - pattern: Match.value($_).pipe($_, $_)
+        - pattern: pipe(Match.value($_), $_, $_)
+        - pattern: Match.type<$_>().pipe($_, $_)
+        - pattern: pipe(Match.type<$_>(), $_, $_)

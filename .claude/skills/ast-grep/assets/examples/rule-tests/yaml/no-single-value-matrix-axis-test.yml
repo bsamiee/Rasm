@@ -1,0 +1,73 @@
+id: no-single-value-matrix-axis
+valid:
+    # Two values
+    - |
+      jobs:
+        build:
+          strategy:
+            matrix:
+              rid: [linux-x64, osx-arm64]
+    # Two block entries
+    - |
+      jobs:
+        build:
+          strategy:
+            matrix:
+              rid:
+                - linux-x64
+                - osx-arm64
+    # Include row list is no axis
+    - |
+      jobs:
+        build:
+          strategy:
+            matrix:
+              include:
+                - rid: linux-x64
+    # Sequence under another key
+    - |
+      jobs:
+        build:
+          with:
+            rids: [linux-x64]
+    # Expression axis holds no sequence
+    - |
+      jobs:
+        build:
+          strategy:
+            matrix:
+              rid: ${{ fromJSON(inputs.rids) }}
+invalid:
+    # One flow value
+    - |
+      jobs:
+        build:
+          strategy:
+            matrix:
+              rid: [linux-x64]
+    # One block entry
+    - |
+      jobs:
+        build:
+          strategy:
+            matrix:
+              rid:
+                - linux-x64
+    # One block entry before a commented one
+    - |
+      jobs:
+        build:
+          strategy:
+            matrix:
+              rid:
+                - linux-x64
+                # - osx-arm64
+    # One block entry after a commented one
+    - |
+      jobs:
+        build:
+          strategy:
+            matrix:
+              rid:
+                # - osx-arm64
+                - linux-x64

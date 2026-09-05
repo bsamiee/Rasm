@@ -2,11 +2,14 @@
 id: no-predefined-target-name
 language: xml
 severity: error
-# A project body and every .props file import before the SDK targets that define the predefined targets
+# Project bodies and .props files import before the SDK targets defining the predefined targets
 files: ['**/*.csproj', '**/*.props']
 rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^Target$'}}}
-        - matches: {msbuild-metadata: {name: {regex: '^Name$'}, value: {regex: '^"(Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)"$'}}}
+        - matches:
+              msbuild-metadata:
+                  name: {regex: '^Name$'}
+                  value: {regex: '^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
 message: The SDK import that follows the project body and the .props files redefines a target named after a predefined target, the target never runs
 note: Give the target its own name and attach it with AfterTargets or BeforeTargets

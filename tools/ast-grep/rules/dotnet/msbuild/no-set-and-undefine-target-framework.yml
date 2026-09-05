@@ -3,11 +3,40 @@ id: no-set-and-undefine-target-framework
 language: xml
 severity: error
 rule:
+    pattern: _REFERENCE
     all:
         - matches: {msbuild-element: {name: {regex: '^ProjectReference$'}}}
         - matches: {msbuild-metadata: {name: {regex: '^SetTargetFramework$'}, value: {matches: msbuild-value}}}
-        - matches: {msbuild-metadata: {name: {regex: '^UndefineProperties$'}, value: {matches: msbuild-value}}}
-message: The ProjectReference both sets and undefines the TargetFramework global property
-note: >-
-    Write SkipGetTargetFrameworkProperties="true" with one of UndefineProperties="TargetFramework" or SetTargetFramework on an incompatible
-    reference
+        # GlobalPropertiesToRemove reaches the MSBuild task as RemoveProperties and undefines the same way
+        - matches:
+              msbuild-metadata:
+                  name: {regex: '^(UndefineProperties|GlobalPropertiesToRemove)$'}
+                  value: {regex: '(^|[\s;"''])TargetFramework([\s;"'']|$)'}
+transform:
+    # The MSBuild task removes the undefined names after it overlays the set ones, the set value never reaches the reference
+    STRIPPED:
+        replace:
+            source: $REFERENCE
+            replace: "\\s+(SetTargetFramework|SkipGetTargetFrameworkProperties)=(\"[^\"]*\"|'[^']*')|\\s*<(SetTargetFramework|\
+                SkipGetTargetFrameworkProperties)(\\s[^>]*)?>[^<]*</[A-Za-z]+>"
+            by: ''
+    EMPTY_TAG:
+        replace:
+            source: $STRIPPED
+            replace: '^(<ProjectReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*/>'
+            by: '$1 SkipGetTargetFrameworkProperties="true" />'
+    START_TAG:
+        replace:
+            source: $EMPTY_TAG
+            replace: '^(<ProjectReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>'
+            by: '$1 SkipGetTargetFrameworkProperties="true">'
+    CLOSED:
+        replace:
+            source: $START_TAG
+            replace: '^(<ProjectReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>\s*</ProjectReference>$'
+            by: '$1 />'
+fix: $CLOSED
+message: >-
+    The ProjectReference sets and undefines the TargetFramework global property, the MSBuild task removes the undefined names after it
+    overlays the set one
+note: Delete SetTargetFramework and keep UndefineProperties="TargetFramework" beside SkipGetTargetFrameworkProperties="true"

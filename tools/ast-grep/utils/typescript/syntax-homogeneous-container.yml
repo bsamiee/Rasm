@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Array or object literal with every named child of one shape, comments pass because the collection reads the same with them
+id: syntax-homogeneous-container
+language: tsx
+arguments: [item]
+rule:
+    any: [{kind: array}, {kind: object}]
+    all:
+        - has: {matches: item}
+        - not: {has: {pattern: $_, not: {any: [{matches: item}, {kind: comment}]}}}
