@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-execution
-description: "Use when writing an MSBuild target: SDK hook points, incremental Inputs and Outputs, generated files, tasks, batching, errors, multi-targeting and publish scope, copy to output."
+description: "Use when writing an MSBuild target, covering SDK hook points, incremental Inputs and Outputs, generated files, tasks, batching, errors, multi-targeting and publish scope, and copy to output."
 ---
 
 # [DOTNET_MSBUILD_EXECUTION]

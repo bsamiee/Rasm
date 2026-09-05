@@ -2,10 +2,8 @@
 name: search-tavily
 description: >-
     Owns live-web retrieval through Tavily CLI (`tvly`), search, extract, map, crawl,
-    research, on the cheapest subcommand that answers: relevance is server-side, not
-    post-filtered locally, and bulk page content routed to disk, never the context window.
-    Beats blind single-URL fetching, which ranks and scopes nothing. Any current-web question
-    routes here.
+    research, on the cheapest subcommand that answers, with relevance ranked server-side and bulk
+    page content routed to disk. Any current-web question routes here.
 ---
 
 # [SEARCH_TAVILY]

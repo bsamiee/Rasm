@@ -1,13 +1,13 @@
 ---
 name: pulumi
 description: >-
-    Owns Pulumi infrastructure-as-code: creating, inspecting, and destroying cloud and SaaS
+    Owns Pulumi infrastructure-as-code, creating, inspecting, and destroying cloud and SaaS
     resources on any Pulumi-registry provider via `pulumi do` one-offs, projects and stacks,
     ComponentResource design and packaging, Automation API, ESC environments, policy packs, drift
     schedules. Use when reviewing or refactoring Pulumi code, debugging a failed `up` or `preview`,
     chasing an unexpected replace or delete in a preview, adopting resources via `pulumi import`,
-    converting Terraform, CloudFormation, CDK, Bicep, or ARM code, and on tasks that never name
-    Pulumi: "deploy this app", "provision a database", "stand up a VPC", "tear down staging".
+    converting Terraform, CloudFormation, CDK, Bicep, or ARM code, and on tasks that name the outcome
+    alone, "deploy this app", "provision a database", "stand up a VPC", "tear down staging".
 ---
 
 # [PULUMI]

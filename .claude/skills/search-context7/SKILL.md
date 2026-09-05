@@ -1,8 +1,8 @@
 ---
 name: search-context7
 description: >-
-    External-package truth: any signature, member, or capability of an imported library
-    resolves through Context7 over memory or a guessed git tag. Load before the first lookup.
+    Resolves any signature, member, or capability of an imported library through Context7
+    in place of memory or a guessed git tag. Load before the first lookup.
     Fires on any Context7 mention, doc or API lookup, a new import, "how does <lib> do X",
     and before coding against an uninstalled member. Un-indexed sources belong to search-tavily.
 ---

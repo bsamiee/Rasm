@@ -1,8 +1,8 @@
 ---
 name: secrets
 description: >-
-    Owns secret storage in 1Password and Doppler: op is the permanent local store and
-    SSH-key holder, Doppler the runtime backend. Use when creating a secret, token, or env key
+    Owns secret storage in 1Password and Doppler, with op as the permanent local store and
+    SSH-key holder and Doppler as the runtime backend. Use when creating a secret, token, or env key
     or when one fails to resolve, creating and managing them, the op agent key, a tool or code logic
     needs a scoped token, or a config file needs secret material. Issuing tokens and creating projects
     or configs is a row in the owning repository's infra/ Pulumi program, and a directory scope is a row

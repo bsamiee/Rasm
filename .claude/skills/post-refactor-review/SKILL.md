@@ -1,6 +1,6 @@
 ---
 name: post-refactor-review
-description: Use after a proven rebuild, refactor, or hard fix in any language: patterns into ast-grep rules, rule hardening, skill, reference, and agent improvement.
+description: Use after a proven rebuild, refactor, or hard fix in any language, covering patterns into ast-grep rules, rule hardening, skill, reference, and agent improvement.
 ---
 
 # [POST_REFACTOR_REVIEW]

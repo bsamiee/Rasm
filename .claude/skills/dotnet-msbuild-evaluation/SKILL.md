@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-evaluation
-description: "Use when writing or debugging a .props, .targets, or .csproj declaration: MSBuild evaluation passes, import chain, conditions, property functions, item operations, owning file, -getProperty proof."
+description: "Use when writing or debugging a .props, .targets, or .csproj declaration, covering MSBuild evaluation passes, import chain, conditions, property functions, item operations, owning file, and -getProperty proof."
 ---
 
 # [DOTNET_MSBUILD_EVALUATION]

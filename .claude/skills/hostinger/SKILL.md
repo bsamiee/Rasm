@@ -2,8 +2,8 @@
 name: hostinger
 description: >-
     Owns Hostinger account work through `hostinger` MCP tools, REST under `HOSTINGER_API_TOKEN`,
-    or SSH on the server, with safety rules for irreversible acts: snapshot first, firewall sync,
-    async polling, hPanel-only steps. Covers domains, DNS zones, WHOIS, VPS lifecycle, firewalls,
+    or SSH on the server, with safety rules for irreversible acts (snapshot first, firewall sync,
+    async polling, hPanel-only steps). Covers domains, DNS zones, WHOIS, VPS lifecycle, firewalls,
     SSH keys, recovery, Docker Compose deploy and rollback, shared hosting, WordPress, databases,
     ecommerce stores, Reach deliverability and segments, and the billing catalog `item_id` every
     purchase consumes. Use for "deploy to the VPS", "point the domain at", "roll back the deploy",

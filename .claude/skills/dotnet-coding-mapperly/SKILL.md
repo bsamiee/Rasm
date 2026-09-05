@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding-mapperly
-description: "Use when mapping domain types to or from transport, persistence, or read-model contracts with Mapperly: placement, conversion allowlist, target ownership, generated types, projections, attributes, options."
+description: "Use when mapping domain types to or from transport, persistence, or read-model contracts with Mapperly, covering placement, conversion allowlist, target ownership, generated types, projections, attributes, and options."
 ---
 
 # [DOTNET_CODING_MAPPERLY]

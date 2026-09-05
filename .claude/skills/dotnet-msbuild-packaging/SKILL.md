@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-packaging
-description: "Use when a .csproj, Directory.Packages.props, NuGet.config, or .slnx file changes: project set, central package management, restore, package authoring, CI build properties, NU codes."
+description: "Use when a .csproj, Directory.Packages.props, NuGet.config, or .slnx file changes, covering project set, central package management, restore, package authoring, CI build properties, and NU codes."
 ---
 
 # [DOTNET_MSBUILD_PACKAGING]

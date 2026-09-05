@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-diagnostics
-description: "Use when diagnosing a .NET build from its .binlog: capture switches, binlog MCP tools, failure triage, BuildCheck codes, shared output paths, performance captures."
+description: "Use when diagnosing a .NET build from its .binlog, covering capture switches, binlog MCP tools, failure triage, BuildCheck codes, shared output paths, and performance captures."
 ---
 
 # [DOTNET_MSBUILD_DIAGNOSTICS]

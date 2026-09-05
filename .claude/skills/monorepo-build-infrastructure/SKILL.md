@@ -1,6 +1,6 @@
 ---
 name: monorepo-build-infrastructure
-description: "Use when changing eng/, infra/, tools/, mise.toml, nx.json, or .github/, or orchestrating repository-wide tooling work: placement, targets, native chain, toolchain, environment, infrastructure, CI, proof."
+description: "Use when changing eng/, infra/, tools/, mise.toml, nx.json, or .github/, or orchestrating repository-wide tooling work, covering placement, targets, native chain, toolchain, environment, infrastructure, CI, and proof."
 ---
 
 # [MONOREPO_BUILD_INFRASTRUCTURE]

@@ -95,7 +95,7 @@ class _Rule:
 
 
 _POLICY: dict[str, _Rule] = {
-    _INTERP: _Rule("invokes git inside an opaque one-liner, run git directly", starts=_ANY_ARG),
+    _INTERP: _Rule("the command runs git or a script through a shell or an interpreter, run git directly and a script by its path", starts=_ANY_ARG),
     "branch": _Rule("deletes or force-moves a branch", flags=("-d", "-D", "-M", "--delete"), starts=("--force",)),
     "checkout": _Rule("discards local changes", flags=("-f", "-B", "-p", "--patch", "--ours", "--theirs"), starts=("--force",), refine=_pathspec),
     "clean": _Rule("deletes untracked files", starts=_ANY_ARG),
@@ -184,7 +184,9 @@ def _reason(argv: list[str], cwd: str) -> str:
     if (row := _POLICY.get(key)) is None or (args[:1] and args[0] in row.safe):
         return ""
     hit = next((t for t in ["", *args] if t in row.flags or t.startswith(row.starts)), None)
-    return " ".join(w for w in ("git", key, hit, row.why) if w) if hit is not None else row.refine(args, cwd)
+    if hit is None:
+        return row.refine(args, cwd)
+    return row.why if key == _INTERP else " ".join(w for w in ("git", key, hit, row.why) if w)
 
 
 # --- [ENTRY] ----------------------------------------------------------------------------

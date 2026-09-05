@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding-thinktecture
-description: "Use when declaring a Thinktecture value object, smart enum, or union, or a TTRESG diagnostic appears: hooks, generated API, Switch, Map, settings, factories, integrations."
+description: "Use when declaring a Thinktecture value object, smart enum, or union, or a TTRESG diagnostic appears, covering hooks, generated API, Switch, Map, settings, factories, and integrations."
 ---
 
 # [DOTNET_CODING_THINKTECTURE]

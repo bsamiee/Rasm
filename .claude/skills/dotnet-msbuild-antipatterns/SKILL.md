@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-antipatterns
-description: "Use when reviewing a .csproj, .props, or .targets file: MSBuild evaluation, placement, item, target, path, and build graph smells with severity, corrected form, and proof."
+description: "Use when reviewing a .csproj, .props, or .targets file for MSBuild evaluation, placement, item, target, path, and build graph smells with severity, corrected form, and proof."
 ---
 
 # [DOTNET_MSBUILD_ANTIPATTERNS]

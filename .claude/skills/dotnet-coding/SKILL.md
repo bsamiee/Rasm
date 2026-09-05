@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding
-description: "Use when writing or reviewing C#: honest signatures, purity, pattern matching, immutability, Option, Fin, Validation, IO, composition operators, errors, unions, dependencies, and failure policies."
+description: "Use when writing or reviewing C#, covering honest signatures, purity, pattern matching, immutability, Option, Fin, Validation, IO, composition operators, errors, unions, dependencies, and failure policies."
 ---
 
 # [DOTNET_CODING]
