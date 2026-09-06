@@ -69,7 +69,7 @@ Nx is the task runner, `nx.json` and the root `package.json` `nx` field are the 
 - Repository settings and secrets are infrastructure code under `infra/`, applied through a root target and read from the secret store at run time
 - `mise.toml` owns the machine setup, every tool at its newest release, and the language lock files are the only pins
 
-Use the `monorepo-build-infrastructure` skill for the targets, the toolchain, `eng/`, `infra/`, CI, and release.
+Use the `manage-repo` skill for the targets, the toolchain, `eng/`, `infra/`, CI, and release.
 
 ## [03]-[QUALITY]
 

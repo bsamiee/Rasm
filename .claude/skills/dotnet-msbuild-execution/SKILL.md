@@ -11,7 +11,7 @@ Covers the execution phase, from target order to the copy-to-output rules.
 - Use `dotnet-msbuild-antipatterns` for the review catalog of smells with `BAD` and `GOOD` pairs
 - Use `dotnet-msbuild-diagnostics` for binlog capture and queries, failure triage, performance, double builds, and BuildCheck
 - Use `dotnet-msbuild-packaging` for `Pack`, `GenerateNuspec` content, central package management, solution files, and CI properties
-- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
+- Use `manage-repo` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 
 [REFERENCES]:
 - [01]-[HOOK_POINTS](references/hook-points.md): Every SDK hook point with its phase and the items and properties present there

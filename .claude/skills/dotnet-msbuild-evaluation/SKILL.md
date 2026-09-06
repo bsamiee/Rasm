@@ -11,7 +11,7 @@ Covers the evaluation phase of a `Microsoft.NET.Sdk` project, from the import ch
 - Use `dotnet-msbuild-antipatterns` for the review catalog of smells with `BAD` and `GOOD` pairs
 - Use `dotnet-msbuild-diagnostics` for binary logs, the `binlog` MCP, failure triage, and BuildCheck runs
 - Use `dotnet-msbuild-packaging` for NuGet package metadata, package `build/` folders, central package management, solution files, and CI properties
-- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
+- Use `manage-repo` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 
 [REFERENCES]:
 - [01]-[IMPORT_CHAIN](references/import-chain.md): Every import of a `Microsoft.NET.Sdk` project in order, with the properties each file assigns

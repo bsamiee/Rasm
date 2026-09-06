@@ -11,7 +11,7 @@ Covers the review catalog for project and build files. Each entry names the smel
 - Use `dotnet-msbuild-execution` for targets, `DependsOnTargets`, `Inputs` and `Outputs`, `FileWrites`, and copy modes
 - Use `dotnet-msbuild-diagnostics` for binlog capture and query, the `-check` workflow, and shared output paths
 - Use `dotnet-msbuild-packaging` for NuGet package authoring, central package management, solution files, and CI properties
-- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
+- Use `manage-repo` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 
 [REFERENCES]:
 - [01]-[WORKED_EXAMPLES](references/worked-examples.md): Full files for the catalog entries with a fix that spans more than one element

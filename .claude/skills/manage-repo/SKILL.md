@@ -1,5 +1,5 @@
 ---
-name: monorepo-build-infrastructure
+name: manage-repo
 description: "Use when changing eng/, infra/, tools/, mise.toml, nx.json, or .github/, or orchestrating repository-wide tooling work, covering placement, targets, native chain, toolchain, environment, infrastructure, CI, and proof."
 ---
 

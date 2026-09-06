@@ -23,7 +23,7 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS use `dotnet-msbuild-execution` skill for `<Target>` ordering, `DependsOn` chains, incremental `Inputs`/`Outputs`, and generated files
 - ALWAYS use `dotnet-msbuild-diagnostics` skill for `.binlog` work, build failures, shared output paths, and timing, NEVER read a `.binlog` directly
 - ALWAYS use `dotnet-msbuild-packaging` skill for package references, versions, sources, package projects, `.slnx`, and CI properties
-- ALWAYS use `monorepo-build-infrastructure` skill for Nx targets, the toolchain, configuration ownership, `eng/`, `infra/`, CI, and release
+- ALWAYS use `manage-repo` skill for Nx targets, the toolchain, configuration ownership, `eng/`, `infra/`, CI, and release
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex usage, config, harness work, and understanding
 

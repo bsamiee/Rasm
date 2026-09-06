@@ -11,7 +11,7 @@ Covers diagnosing a build from its binary log, from capture through the `binlog`
 - Use `dotnet-msbuild-execution` for the fix of a target, `DependsOn` chain, `Inputs` and `Outputs`, or `FileWrites`
 - Use `dotnet-msbuild-antipatterns` for the corrected file beside each detected defect
 - Use `dotnet-msbuild-packaging` for restore, central package management diagnostics, and CI logger flags
-- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
+- Use `manage-repo` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 - Use `dotnet-roslyn-codelens` for compiler and analyzer diagnostics in C# source
 
 [AGENTS]: Use `msbuild-debugger` when binlog output fills the context window, it takes one build symptom and returns cause, change, and proof.

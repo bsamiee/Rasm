@@ -11,7 +11,7 @@ Covers the package and project files of a repository, from the project set to th
 - Use `dotnet-msbuild-execution` for targets, `DependsOn` chains, and the SDK hook points
 - Use `dotnet-msbuild-antipatterns` for the review catalog of build-file smells
 - Use `dotnet-msbuild-diagnostics` for binlog capture and queries and BuildCheck
-- Use `monorepo-build-infrastructure` for the `eng/` directory, task runner targets, and the isolation of a packaging subtree from the root build files
+- Use `manage-repo` for the `eng/` directory, task runner targets, and the isolation of a packaging subtree from the root build files
 
 [REFERENCES]:
 - [01]-[NUGET_CODES](references/nuget-codes.md): `NU1xxx` restore codes and `NU5xxx` pack codes with the cause and the fix of each

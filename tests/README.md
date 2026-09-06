@@ -60,7 +60,7 @@ Treat a failing test as evidence until triage identifies a production defect, an
 
 Every test tool writes its reports under `.artifacts/<language>/` and its relocatable state under `.cache/<tool>/`, configured in the tool's own config file or in its target when the file has no setting, and wrapper scripts and `conftest.py` set none. Stryker.NET takes its report directory from `--output` on the command the `mutation` script runs, because `stryker-config.json` rejects every key outside its schema. StrykerJS keeps the root `tsconfig.json` out of its sandbox through `ignorePatterns`, because its core parses that file with the JavaScript compiler API the native `typescript` package lacks. After a tool runs, `git status --short` shows no new entry.
 
-Use the `monorepo-build-infrastructure` skill for the target and output layout.
+Use the `manage-repo` skill for the target and output layout.
 
 ## [05]-[SUITE_PLACEMENT]
 
@@ -94,4 +94,4 @@ Read the owning configuration before changing a test dependency, runner, output,
 |  [04]   | `pnpm-workspace.yaml`                              | TypeScript test versions, peer resolutions, package globs          |
 |  [05]   | `vitest.config.ts` with `stryker*.json`            | TypeScript runner defaults, outputs, mutation configuration        |
 
-Use the `monorepo-build-infrastructure` skill for the toolchain and the targets.
+Use the `manage-repo` skill for the toolchain and the targets.
