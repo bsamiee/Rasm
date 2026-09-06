@@ -20,8 +20,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/mise-env.py",
-                        "args": [],
+                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
                         "timeout": 30,
                         "statusMessage": "mise-env"
                     }
@@ -33,8 +32,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/mise-env.py",
-                        "args": [],
+                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
                         "timeout": 30,
                         "statusMessage": "mise-env"
                     }

@@ -71,7 +71,7 @@ Changes outside the table go through `SendMessage`:
 </ownership>
 
 <mise>
-Every `Bash` command runs under the environment `.claude/hooks/mise-env.py` writes from `mise env -s bash`:
+Every `Bash` command runs under the environment the `SessionStart` and `CwdChanged` hooks in `.claude/settings.json` write to `CLAUDE_ENV_FILE`:
 - Machine exports override the manifest and `[env]`, and `uv cache dir` printing a path outside `.cache/` names a shell export to report
 - Before trusting a tool version, run `mise ls --current` and `mise which python` from the repository root, a `/nix/store` path is the machine copy
 - Prove the shell with `mise env -s bash > <scratch>/env.sh` then `bash -c "source <scratch>/env.sh; uv python find; ruff --version"`
@@ -86,7 +86,7 @@ Every `Bash` command runs under the environment `.claude/hooks/mise-env.py` writ
 5. Prove a group stands alone with `UV_PROJECT_ENVIRONMENT=.cache/uv-<group> uv sync --locked --only-group <group>` and an import of each module
 6. Prove a plugin's startup cost with `uv run pytest --co -q -p no:<plugin>` and the warning count
 7. Prove the coverage flow with `COVERAGE_FILE` set as `nx.json` sets it, then `.venv/bin/python -m eng.scripts.coverage --language python`
-8. Prove a hook by piping its JSON payload to it with `CLAUDE_ENV_FILE` set and reading the file
+8. Prove the environment hook with `CLAUDE_ENV_FILE=<scratch>/env.sh sh -c 'mise env -s bash > "$CLAUDE_ENV_FILE"'` and a read of the file
 9. Snapshot `pyproject.toml` and `uv.lock` before `uv lock` or `rasm:upgrade`, diff afterward, and run checks with `uv run --no-sync` meanwhile
 10. Apply each edit as an exact-string replacement that asserts one match, and match a multi-line constant in the form `ruff format` left it
 11. Trace sync, lint, format, typecheck, test, coverage merge, provision, stage, and publish end to end after the change, with inputs and outputs

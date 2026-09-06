@@ -75,7 +75,7 @@ Changes outside the table go through `SendMessage`:
 </ownership>
 
 <mise>
-Every `Bash` command runs under the environment `.claude/hooks/mise-env.py` writes from `mise env -s bash`:
+Every `Bash` command runs under the environment the `SessionStart` and `CwdChanged` hooks in `.claude/settings.json` write to `CLAUDE_ENV_FILE`:
 - Before trusting a tool version, run `mise ls --current` and `mise which dotnet` from the repository root, a `/nix/store` path is the machine copy
 - Prove the shell with `mise env -s bash > <scratch>/env.sh` then `bash -c "source <scratch>/env.sh; dotnet --version"`
 - Tell the other language agents the row and its consumer when a mise change touches `_.path`, `[env]`, or a tool their targets run

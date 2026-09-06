@@ -5,8 +5,8 @@ Tool-general configuration is the environment every process reads, the toolchain
 ## [01]-[ENVIRONMENT]
 
 `mise.toml` `[env]` holds the process settings no manifest field can hold, and each process takes them through one path:
-- Targets and scripts take the values from the shell hook or the shims, CI steps from the setup action, and the agent shell from the session hook
-- `.claude/hooks/mise-env.py` runs under `SessionStart` and `CwdChanged` and writes `mise env -s bash` to the file every `Bash` command reads
+- Targets and scripts take the values from the shell hook or the shims, CI steps from the setup action, and the agent shell from the settings hooks
+- `.claude/settings.json` runs `mise env -s bash > "$CLAUDE_ENV_FILE"` under `SessionStart` and `CwdChanged`, the preamble of every `Bash` command
 - Processes started outside `Bash` (the editor, the MCP servers, the hooks, a daemon from another shell) hold no `[env]` value and no PATH addition
 - `doppler run --project <project> --config <config> -- <command>` injects the config into the process without a shell on every operating system
 - Run `mise env` after a `mise.toml` change, and read each changed value in its output
@@ -152,3 +152,4 @@ The agent harness, the editor, and git read their own root configuration files, 
 |  [04]   | `[env]` rows for a setting a manifest table holds            | Manifest the tool reads by directory walk (`UV_CACHE_DIR`)   |
 |  [05]   | `[env]` rows for a directory one script or program computes  | Script or program derives it beside its other paths          |
 |  [06]   | Binary-only npm packages in the catalog and `allowBuilds`    | `[tools]` rows at `latest`                                   |
+|  [07]   | Script file for a hook the documentation states as a command | The command itself in `.claude/settings.json`                |
