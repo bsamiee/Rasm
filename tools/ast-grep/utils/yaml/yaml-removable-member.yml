@@ -1,0 +1,34 @@
+id: yaml-removable-member
+language: yaml
+rule:
+    kind: block_mapping_pair, flow_pair
+    not:
+        any:
+            - has:
+                kind: anchor
+                stopBy: end
+            - inside:
+                kind: block_node, flow_node
+                stopBy: end
+                has:
+                    kind: anchor
+            - kind: flow_pair
+              precedes:
+                kind: comment
+            - inside:
+                kind: block_mapping, flow_mapping
+                has:
+                    kind: block_mapping_pair, flow_pair
+                    has:
+                        field: key
+                        regex: ^(<<|"<<"|'<<')$
+            - kind: block_mapping_pair
+              inside:
+                kind: block_mapping
+                not:
+                    has:
+                        kind: block_mapping_pair
+                        nthChild:
+                            position: 2
+                            ofRule:
+                                kind: block_mapping_pair

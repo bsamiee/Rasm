@@ -12,7 +12,7 @@ snapshots:
   ? |
     <Optimize Condition="$(Configuration)==Release">true</Optimize>
   : fixed: |
-      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+      <Optimize Condition="'$(Configuration)'=='Release'">true</Optimize>
     labels:
     - source: Condition="$(Configuration)==Release"
       style: primary
@@ -28,15 +28,6 @@ snapshots:
       start: 10
       end: 51
   ? |
-    <Optimize Condition="&quot;$(Configuration)&quot; == Release">true</Optimize>
-  : fixed: |
-      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
-    labels:
-    - source: Condition="&quot;$(Configuration)&quot; == Release"
-      style: primary
-      start: 10
-      end: 61
-  ? |
     <Optimize Condition="'$(Configuration) $(Platform)' == Release">true</Optimize>
   : fixed: |
       <Optimize Condition="'$(Configuration) $(Platform)' == 'Release'">true</Optimize>
@@ -46,23 +37,14 @@ snapshots:
       start: 10
       end: 63
   ? |
-    <Optimize Condition="`$(Configuration)` == `Release`">true</Optimize>
+    <P Condition="'a==b' == value">true</P>
   : fixed: |
-      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+      <P Condition="'a==b' == 'value'">true</P>
     labels:
-    - source: Condition="`$(Configuration)` == `Release`"
+    - source: Condition="'a==b' == value"
       style: primary
-      start: 10
-      end: 53
-  ? |
-    <Optimize Condition='$(Configuration) == "Release"'>true</Optimize>
-  : fixed: |
-      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
-    labels:
-    - source: Condition='$(Configuration) == "Release"'
-      style: primary
-      start: 10
-      end: 51
+      start: 3
+      end: 30
   ? |
     <PropertyGroup Condition="$(OutputType) == 'Exe'"><SelfContained>false</SelfContained></PropertyGroup>
   : fixed: |
@@ -72,25 +54,3 @@ snapshots:
       style: primary
       start: 15
       end: 49
-  ? |
-    <Trim Condition="$(OutputType) == Exe
-      and $(SelfContained) != true">true</Trim>
-  : fixed: |
-      <Trim Condition="'$(OutputType)' == 'Exe'
-        and '$(SelfContained)' != 'true'">true</Trim>
-    labels:
-    - source: |-
-        Condition="$(OutputType) == Exe
-          and $(SelfContained) != true"
-      style: primary
-      start: 6
-      end: 69
-  ? |
-    <Trim Condition="'$(OutputType)' == 'Exe' and $(SelfContained) != true">true</Trim>
-  : fixed: |
-      <Trim Condition="'$(OutputType)' == 'Exe' and '$(SelfContained)' != 'true'">true</Trim>
-    labels:
-    - source: Condition="'$(OutputType)' == 'Exe' and $(SelfContained) != true"
-      style: primary
-      start: 6
-      end: 71

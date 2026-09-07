@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# Enable on demand with ast-grep scan --filter '^numeric-test-to-arithmetic-command$' --error=numeric-test-to-arithmetic-command -U <paths>
+id: numeric-test-to-arithmetic-command
+language: bash
+severity: off
+ignores: ["**/*.json"]
+utils:
+    numeric-operator: {kind: test_operator, regex: '^-(eq|ne|lt|le|gt|ge)$'}
+    # A parameter the arithmetic command reads by name, empty reads as zero in both forms
+    named-parameter: {matches: {bash-parameter: {name: {any: [{kind: variable_name}, {kind: subscript}]}}}}
+    # An operand both forms evaluate alike, a named or special parameter, a length expansion, a number, a bare word, or an arithmetic expansion
+    numeric-operand:
+        any:
+            - matches: named-parameter
+            - kind: simple_expansion
+              has: {kind: special_variable_name}
+            - kind: expansion
+              has: {field: operator, regex: '^#$'}
+            - kind: number
+            - kind: word
+            - kind: arithmetic_expansion
+    # A comparison the arithmetic command spells with its own operator, over operands it evaluates alike
+    comparison:
+        kind: binary_expression
+        all:
+            - has: {field: operator, matches: numeric-operator}
+            - has: {field: left, matches: numeric-operand}
+            - has: {field: right, matches: numeric-operand}
+    # Comparisons joined by the list operators, negated, or grouped, the forms the arithmetic command spells the same way
+    numeric-expression:
+        any:
+            - matches: comparison
+            - kind: binary_expression
+              all:
+                - has: {field: left, matches: numeric-expression}
+                - has: {field: right, matches: numeric-expression}
+            - kind: unary_expression
+              has: {matches: numeric-expression}
+            - kind: parenthesized_expression
+              has: {matches: numeric-expression}
+rule:
+    kind: test_command
+    regex: '^\[\['
+    pattern: $TEST
+    has: {pattern: $EXPRESSION, matches: numeric-expression}
+rewriters:
+    # The bare name of a parameter, its dollar sign and braces removed
+    - id: name
+      rule:
+        matches: named-parameter
+        pattern: $PARAMETER
+      transform:
+        BARE: {replace: {source: $PARAMETER, replace: '^"?\$\{?|\}?"?$', by: ''}}
+      fix: $BARE
+    - id: compare
+      rule:
+        matches: comparison
+        all:
+            - has: {field: left, pattern: $LEFT}
+            - has: {field: operator, pattern: $OPERATOR}
+            - has: {field: right, pattern: $RIGHT}
+      transform:
+        L: rewrite($LEFT, rewriters=[name])
+        R: rewrite($RIGHT, rewriters=[name])
+        EQ: replace($OPERATOR, replace='^-eq$', by='==')
+        NE: replace($EQ, replace='^-ne$', by='!=')
+        LT: replace($NE, replace='^-lt$', by='<')
+        LE: replace($LT, replace='^-le$', by='<=')
+        GT: replace($LE, replace='^-gt$', by='>')
+        OP: replace($GT, replace='^-ge$', by='>=')
+      fix: $L $OP $R
+transform:
+    BODY: rewrite($EXPRESSION, rewriters=[compare])
+fix: (( $BODY ))
+message: The test command compares numbers through a -eq family operator
+note: Express the numeric condition as an arithmetic command, `(( left == right ))`, reading each parameter by name so an empty value is zero

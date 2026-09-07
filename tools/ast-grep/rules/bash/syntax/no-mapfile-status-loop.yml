@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# The rewrite mapfile-status-loop-to-length-test fixes the named-array form, a redirected reader reopens its file on every pass
+id: no-mapfile-status-loop
+language: bash
+severity: error
+ignores: ["**/*.json"]
+utils:
+    isolated-execution:
+        any:
+            - inside: {kind: pipeline}
+              not: {nthChild: {position: 1, reverse: true}}
+            - precedes: {regex: '^&$'}
+    reader:
+        any:
+            - kind: command
+              any:
+                - has: {field: name, regex: '^(mapfile|readarray)$'}
+                - all:
+                    - has: {field: name, regex: '^builtin$'}
+                    - has: {field: argument, regex: '^(mapfile|readarray)$'}
+              not:
+                has:
+                    any:
+                        - regex: '^["'']?-[a-zA-Z]*C'
+                        - matches: bash-expanding-word
+            - kind: redirected_statement
+              has: {field: body, matches: reader}
+rule:
+    kind: while_statement
+    pattern: $LOOP
+    regex: '^while\b'
+    all:
+        - has: {field: condition, matches: reader}
+        # Another condition can test the number of records just read.
+        - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'do_group, comment'}}}}}
+        - not:
+            has:
+                field: body
+                has:
+                    stopBy:
+                        any:
+                            - kind: 'function_definition, subshell, command_substitution, process_substitution'
+                            - matches: isolated-execution
+                    kind: command
+                    not: {matches: isolated-execution}
+                    any:
+                        - has: {field: name, regex: '^(return|exit)$'}
+                        - all:
+                            - has: {field: name, regex: '^break$'}
+                            - any:
+                                - inside:
+                                    kind: while_statement
+                                    pattern: $LOOP
+                                    stopBy: {kind: 'while_statement, for_statement, c_style_for_statement'}
+                                # Syntax alone does not compare a supplied level with the enclosing loop count.
+                                - has: {field: argument, not: {regex: '^["'']?1["'']?$'}}
+message: mapfile and readarray succeed at EOF, so their status cannot terminate this loop
+note: Read once, or test the populated array length after each bounded batch, and keep the producer's failure handling

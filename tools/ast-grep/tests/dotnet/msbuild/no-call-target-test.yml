@@ -3,7 +3,25 @@ valid:
     # The dependency named on the consuming target
     - |
       <Target Name="Report" DependsOnTargets="Compute"><Message Text="$(Computed)" /></Target>
+    # Item metadata named after the task, no target runs it
+    - |
+      <ItemGroup><_Step Include="report"><CallTarget>Compute</CallTarget></_Step></ItemGroup>
 invalid:
     # CallTarget before the task reading its property, $(Computed) is empty in the Message
     - |
       <Target Name="Report"><CallTarget Targets="Compute" /><Message Text="$(Computed)" /></Target>
+    # Existing dependencies, the called targets follow them
+    - |
+      <Target Name="Report" DependsOnTargets="Prepare"><CallTarget Targets="Compute;Check" /><Message Text="$(Computed)" /></Target>
+    # Call on its own line, the line and its indentation leave with it
+    - |
+      <Target Name="Report" AfterTargets="Build">
+        <CallTarget Targets="Compute" />
+        <Message Text="$(Computed)" />
+      </Target>
+    # Call after another task, the move would reorder the tasks and the fix leaves the target as written
+    - |
+      <Target Name="Report"><Message Text="start" /><CallTarget Targets="Compute" /></Target>
+    # Conditioned call, a dependency takes no condition and the fix leaves the target as written
+    - |
+      <Target Name="Report"><CallTarget Targets="Compute" Condition="'$(Skip)' != 'true'" /><Message Text="$(Computed)" /></Target>

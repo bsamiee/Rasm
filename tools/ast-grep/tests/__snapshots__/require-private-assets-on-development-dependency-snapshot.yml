@@ -1,14 +1,32 @@
 id: require-private-assets-on-development-dependency
 snapshots:
   ? |
+    <PackageReference Include = "MinVer" Note=' PrivateAssets="kept" >' PrivateAssets = "build" />
+  : fixed: |
+      <PackageReference Include = "MinVer" Note=' PrivateAssets="kept" >' PrivateAssets="all"/>
+    labels:
+    - source: <PackageReference Include = "MinVer" Note=' PrivateAssets="kept" >' PrivateAssets = "build" />
+      style: primary
+      start: 0
+      end: 94
+  ? |
     <PackageReference Include="MinVer" />
   : fixed: |
-      <PackageReference Include="MinVer" PrivateAssets="all" />
+      <PackageReference Include="MinVer" PrivateAssets="all"/>
     labels:
     - source: <PackageReference Include="MinVer" />
       style: primary
       start: 0
       end: 37
+  ? |
+    <PackageReference Include="MinVer" PrivateAssets="all"><PrivateAssets>build</PrivateAssets></PackageReference>
+  : fixed: |
+      <PackageReference Include="MinVer" PrivateAssets="all"></PackageReference>
+    labels:
+    - source: <PackageReference Include="MinVer" PrivateAssets="all"><PrivateAssets>build</PrivateAssets></PackageReference>
+      style: primary
+      start: 0
+      end: 110
   ? |
     <PackageReference Include="MinVer"><NoWarn>NU1603</NoWarn></PackageReference>
   : fixed: |
@@ -19,18 +37,45 @@ snapshots:
       start: 0
       end: 77
   ? |
+    <PackageReference Include="MinVer"><Other>all</Other></PackageReference>
+  : fixed: |
+      <PackageReference Include="MinVer" PrivateAssets="all"><Other>all</Other></PackageReference>
+    labels:
+    - source: <PackageReference Include="MinVer"><Other>all</Other></PackageReference>
+      style: primary
+      start: 0
+      end: 72
+  ? |
+    <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">all</PrivateAssets></PackageReference>
+  : fixed: |
+      <PackageReference Include="MinVer" PrivateAssets="all"></PackageReference>
+    labels:
+    - source: <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">all</PrivateAssets></PackageReference>
+      style: primary
+      start: 0
+      end: 119
+  ? |
     <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">build</PrivateAssets></PackageReference>
   : fixed: |
-      <PackageReference Include="MinVer" PrivateAssets="all" />
+      <PackageReference Include="MinVer" PrivateAssets="all"></PackageReference>
     labels:
     - source: <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">build</PrivateAssets></PackageReference>
       style: primary
       start: 0
       end: 121
   ? |
+    <PackageReference Include="MinVer"><PrivateAssets>all</PrivateAssets><PrivateAssets>other</PrivateAssets></PackageReference>
+  : fixed: |
+      <PackageReference Include="MinVer" PrivateAssets="all"></PackageReference>
+    labels:
+    - source: <PackageReference Include="MinVer"><PrivateAssets>all</PrivateAssets><PrivateAssets>other</PrivateAssets></PackageReference>
+      style: primary
+      start: 0
+      end: 124
+  ? |
     <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets></PackageReference>
   : fixed: |
-      <PackageReference Include="MinVer" PrivateAssets="all" />
+      <PackageReference Include="MinVer" PrivateAssets="all"></PackageReference>
     labels:
     - source: <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets></PackageReference>
       style: primary
@@ -39,7 +84,7 @@ snapshots:
   ? |
     <PackageReference Include="PureHDF.SourceGenerator" />
   : fixed: |
-      <PackageReference Include="PureHDF.SourceGenerator" PrivateAssets="all" />
+      <PackageReference Include="PureHDF.SourceGenerator" PrivateAssets="all"/>
     labels:
     - source: <PackageReference Include="PureHDF.SourceGenerator" />
       style: primary
@@ -48,7 +93,7 @@ snapshots:
   ? |
     <PackageReference Include="Riok.Mapperly" />
   : fixed: |
-      <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+      <PackageReference Include="Riok.Mapperly" PrivateAssets="all"/>
     labels:
     - source: <PackageReference Include="Riok.Mapperly" />
       style: primary
@@ -57,7 +102,7 @@ snapshots:
   ? |
     <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />
   : fixed: |
-      <PackageReference Include="Riok.Mapperly" IncludeAssets="all" PrivateAssets="all" />
+      <PackageReference Include="Riok.Mapperly" IncludeAssets="all" PrivateAssets="all"/>
     labels:
     - source: <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />
       style: primary
@@ -66,7 +111,7 @@ snapshots:
   ? |
     <PackageReference Include="xunit.analyzers" />
   : fixed: |
-      <PackageReference Include="xunit.analyzers" PrivateAssets="all" />
+      <PackageReference Include="xunit.analyzers" PrivateAssets="all"/>
     labels:
     - source: <PackageReference Include="xunit.analyzers" />
       style: primary
@@ -75,7 +120,7 @@ snapshots:
   ? |
     <PackageReference Include='MinVer' />
   : fixed: |
-      <PackageReference Include='MinVer' PrivateAssets="all" />
+      <PackageReference Include='MinVer' PrivateAssets="all"/>
     labels:
     - source: <PackageReference Include='MinVer' />
       style: primary

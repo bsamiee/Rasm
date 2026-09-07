@@ -2,10 +2,15 @@
     "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
     "testRunner": "vitest",
     "plugins": ["@stryker-mutator/vitest-runner"],
-    "vitest": {
-        "related": false
-    },
-    "mutate": ["libs/typescript/**/*.{ts,tsx}", "!**/gen/**", "!**/dist/**", "!**/*.{test,spec}.{ts,tsx}", "!**/*.config.{ts,tsx}", "!**/*.d.ts"],
+    "vitest": { "related": false },
+    "mutate": [
+        "libs/typescript/**/*.{ts,tsx}",
+        "!**/gen/**",
+        "!**/dist/**",
+        "!**/*.{test,spec}.{ts,tsx}",
+        "!**/*.config.{ts,tsx}",
+        "!**/*.d.ts"
+    ],
     "ignoreStatic": true,
     "ignorePatterns": ["/.artifacts", "/.cache", "/.venv", "/tsconfig.json"],
     "tempDirName": ".cache/stryker/tmp",
@@ -13,10 +18,6 @@
     "incremental": true,
     "incrementalFile": ".cache/stryker/incremental.json",
     "reporters": ["html", "json", "progress"],
-    "htmlReporter": {
-        "fileName": ".artifacts/typescript/stryker/mutation-report.html"
-    },
-    "jsonReporter": {
-        "fileName": ".artifacts/typescript/stryker/mutation-report.json"
-    }
+    "htmlReporter": { "fileName": ".artifacts/typescript/stryker/mutation-report.html" },
+    "jsonReporter": { "fileName": ".artifacts/typescript/stryker/mutation-report.json" }
 }

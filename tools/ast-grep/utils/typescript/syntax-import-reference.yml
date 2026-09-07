@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Resolve a runtime named export, including namespace and default module receivers.
+id: syntax-import-reference
+language: tsx
+arguments: [source, exported]
+rule:
+    any:
+        - kind: identifier
+          pattern: $IMPORTED
+          all:
+            - not: {matches: syntax-shadowed-import}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: import_statement
+                    all:
+                        - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, matches: source}}
+                        - not: {has: {regex: '^type$'}}
+                        - has:
+                            kind: import_clause
+                            has:
+                                kind: named_imports
+                                has:
+                                    kind: import_specifier
+                                    all:
+                                        - has: {field: name, matches: exported}
+                                        - has: {kind: identifier, pattern: $IMPORTED, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
+                                        - not: {has: {regex: '^type$'}}
+        - kind: member_expression
+          all:
+            - has: {field: property, matches: exported}
+            - has: {field: object, kind: identifier, pattern: $IMPORTED, not: {matches: syntax-shadowed-import}}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: import_statement
+                    all:
+                        - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, matches: source}}
+                        - not: {has: {regex: '^type$'}}
+                        - has:
+                            kind: import_clause
+                            any:
+                                - has: {kind: identifier, pattern: $IMPORTED}
+                                - has: {kind: namespace_import, has: {kind: identifier, pattern: $IMPORTED}}

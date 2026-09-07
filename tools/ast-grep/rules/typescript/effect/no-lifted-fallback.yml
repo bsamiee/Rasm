@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-lifted-fallback
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has: {field: function, pattern: $M.orElse}
+        - has:
+            field: arguments
+            has:
+                matches:
+                    effect-constant-handler:
+                        answer:
+                            not: {has: {field: arguments, has: {kind: spread_element}}}
+                            any:
+                                - pattern: $M.succeed($_)
+                                - pattern: $M.fail($_)
+    not:
+        any:
+            - has: {field: type_arguments, kind: type_arguments}
+            - has: {kind: comment, stopBy: end}
+            - has:
+                field: arguments
+                has:
+                    any: [{kind: arrow_function}, {kind: function_expression}]
+                    has: {field: return_type, kind: type_annotation}
+constraints:
+    M: {matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}
+rewriters:
+    - id: empty-parameters
+      rule: {kind: formal_parameters}
+      fix: ()
+    - id: empty-parameter
+      rule: {kind: identifier, inside: {kind: arrow_function, field: parameter}}
+      fix: ()
+    # The constant as the handler's answer, the handler text keeps its block or expression form
+    - id: unlift-object # Object literal as an arrow body takes parentheses, the braces read as a block otherwise
+      rule: {pattern: $_.$_($V), has: {field: arguments, has: {kind: object}}}
+      fix: ($V)
+    - id: unlift
+      rule: {pattern: $_.$_($V)}
+      fix: $V
+    # The member the handler's constructor selects, orElseSucceed for succeed and orElseFail for fail, each overload its own rewriter
+    - id: succeed-first
+      rule: {pattern: '$M.orElse($SELF, $H)', has: {field: arguments, has: {pattern: $H, matches: {effect-constant-handler: {answer: {pattern: $M.succeed($_)}}}}}}
+      transform:
+        FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
+      fix: $M.orElseSucceed($SELF, $FALLBACK)
+    - id: succeed-last
+      rule: {pattern: $M.orElse($H), has: {field: arguments, has: {pattern: $H, matches: {effect-constant-handler: {answer: {pattern: $M.succeed($_)}}}}}}
+      transform:
+        FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
+      fix: $M.orElseSucceed($FALLBACK)
+    - id: fail-first
+      rule: {pattern: '$M.orElse($SELF, $H)'}
+      transform:
+        FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
+      fix: $M.orElseFail($SELF, $FALLBACK)
+    - id: fail-last
+      rule: {pattern: $M.orElse($H)}
+      transform:
+        FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
+      fix: $M.orElseFail($FALLBACK)
+transform:
+    RECOVERED: rewrite($CALL, rewriters=[succeed-first, succeed-last, fail-first, fail-last])
+fix: $RECOVERED
+message: The alternative only lifts the value returned by its fallback
+note: State the fallback in one member, `Effect.orElseSucceed(effect, () => value)` or `Effect.orElseFail(effect, () => error)`, kept lazy

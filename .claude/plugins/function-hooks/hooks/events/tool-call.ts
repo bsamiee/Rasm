@@ -424,6 +424,16 @@ const _call = (on: On, options: Options): void => {
             _nxCaches(e, facts, (argv, env) => $.process.run(argv, { env }).catch(abort)),
         ]);
         const sets = _stamps(all, session);
+        const sleep = (ms: number): Promise<void> => $.clock.sleep(ms, { signal: next.signal });
+        const io: Io = {
+            run: (argv, env, timeoutMs) => $.process.run(argv, { env, timeoutMs }).catch(abort),
+            record: (row) => $.store.set(key('scan', id($.clock.now(), crypto.randomUUID())), row),
+            list: (dir) => $.fs.listDir(dir).catch(() => []),
+            call: async (tool, args) => _reply(await $.mcp.call(SERVER, tool, args).catch(_failed)),
+            set: (storeKey, value) => $.store.set(storeKey, value),
+            sleep,
+            now: () => $.clock.now(),
+        };
         const decision = fold<ToolCallInput, unknown, string>([
             when(_isBash, restore(pairs(secretsOf(secrets)))),
             when(_hasCommand, gitGuard(existing)),
@@ -440,18 +450,9 @@ const _call = (on: On, options: Options): void => {
             rewrite: async (input, context) => {
                 await Promise.all(_onceKeys(input, sets).map((name) => $.store.set(key('injected', session, name), stamp(session, $.clock.now()))));
                 fromBoolean(context.length > 0).match<void>({ some: () => $.ui.notice(e.tool_use_id, context.join(' ')), none: () => undefined });
-                const sleep = (ms: number): Promise<void> => $.clock.sleep(ms, { signal: next.signal });
                 const waited = await _settle(input, map((row: Stamp) => row.at)(decodeStamp(roslynRow)), $.clock.now(), sleep);
                 const read = _diagnosticsResult(e, await next(input));
-                const lines = await _settled({ cwd, session, facts }, e, read.result, {
-                    run: (argv, env, timeoutMs) => $.process.run(argv, { env, timeoutMs }).catch(abort),
-                    record: (row) => $.store.set(key('scan', id($.clock.now(), crypto.randomUUID())), row),
-                    list: (dir) => $.fs.listDir(dir).catch(() => []),
-                    call: async (tool, args) => _reply(await $.mcp.call(SERVER, tool, args).catch(_failed)),
-                    set: (storeKey, value) => $.store.set(storeKey, value),
-                    sleep,
-                    now: () => $.clock.now(),
-                });
+                const lines = await _settled({ cwd, session, facts }, e, read.result, io);
                 return _withContext(read.result, [...context, ...waited, ...read.lines, ...lines]);
             },
         });

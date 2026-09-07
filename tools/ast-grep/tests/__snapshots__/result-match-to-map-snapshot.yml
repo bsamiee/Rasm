@@ -1,0 +1,242 @@
+id: result-match-to-map
+snapshots:
+  ? |
+    async def owner(path, cwd):
+        match await run(["otool", "-L", str(path)], cwd, capture=True):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+  : fixed: |
+      async def owner(path, cwd):
+          return (await run(["otool", "-L", str(path)], cwd, capture=True)).map(lambda text: [line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+    labels:
+    - source: await run(["otool", "-L", str(path)], cwd, capture=True)
+      message: Result transformation
+      style: primary
+      start: 38
+      end: 94
+  ? |
+    def owner(names):
+        match names:
+            case Result(error=failure, tag="error"):
+                return Result.Error(failure)
+            case Result(ok=text):
+                return Result.Ok(text.strip())
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 28
+      end: 33
+  ? |
+    def owner(names):
+        match names:
+            case Result(ok=text):
+                return Ok(text.strip())
+            case Result(tag="error", error=failure):
+                return Error(failure)
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 28
+      end: 33
+  ? |
+    def owner(names):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(parse(text))
+  : fixed: |
+      def owner(names):
+          return names.map(parse)
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 28
+      end: 33
+  ? |
+    def owner(names):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text)
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 28
+      end: 33
+  ? |
+    def owner(names):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+        # Every arm returns
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text)
+          # Every arm returns
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 28
+      end: 33
+  ? |
+    def owner(names):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(tag="ok", ok=text):
+                return Ok(text.strip())
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 28
+      end: 33
+  ? |
+    def owner(names):
+        match names:
+            case result.Result(tag="error", error=failure):
+                return Error(failure)
+            case result.Result(ok=text):
+                return Ok(text.strip())
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 28
+      end: 33
+  ? |
+    def owner(names):
+        try:
+            def inner(value):
+                match value:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        return Ok(text.strip())
+            return names.bind(inner)
+        finally:
+            observe(locals())
+  : fixed: |
+      def owner(names):
+          try:
+              def inner(value):
+                  return value.map(lambda text: text.strip())
+              return names.bind(inner)
+          finally:
+              observe(locals())
+    labels:
+    - source: value
+      message: Result transformation
+      style: primary
+      start: 71
+      end: 76
+  ? |
+    def owner(names, flag):
+        if flag:
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+        return Ok("")
+  : fixed: |
+      def owner(names, flag):
+          if flag:
+              return names.map(lambda text: text)
+          return Ok("")
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 51
+      end: 56
+  ? |
+    def owner(names, path):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(load(path))
+  : fixed: |
+      def owner(names, path):
+          return names.map(lambda text: load(path))
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 34
+      end: 39
+  ? |
+    def owner(names, path):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(parse(text, path))
+  : fixed: |
+      def owner(names, path):
+          return names.map(lambda text: parse(text, path))
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 34
+      end: 39
+  ? |
+    def owner(self):
+        match self.names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text.strip())
+  : fixed: |
+      def owner(self):
+          return self.names.map(lambda text: text.strip())
+    labels:
+    - source: self.names
+      message: Result transformation
+      style: primary
+      start: 27
+      end: 37
+  ? |
+    def owner(self, names):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(self.parse(text))
+  : fixed: |
+      def owner(self, names):
+          return names.map(self.parse)
+    labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 34
+      end: 39

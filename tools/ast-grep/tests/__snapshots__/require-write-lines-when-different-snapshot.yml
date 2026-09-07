@@ -1,0 +1,53 @@
+id: require-write-lines-when-different
+snapshots:
+  ? |
+    <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite = 'True'/>
+  : fixed: |
+      <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite = 'True' WriteOnlyWhenDifferent="true"/>
+    labels:
+    - source: <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite = 'True'/>
+      style: primary
+      start: 0
+      end: 76
+    - source: WriteLinesToFile
+      style: secondary
+      start: 1
+      end: 17
+    - source: Overwrite = 'True'
+      style: secondary
+      start: 56
+      end: 74
+  ? |
+    <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite="true" />
+  : fixed: |
+      <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite="true"  WriteOnlyWhenDifferent="true"/>
+    labels:
+    - source: <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite="true" />
+      style: primary
+      start: 0
+      end: 75
+    - source: WriteLinesToFile
+      style: secondary
+      start: 1
+      end: 17
+    - source: Overwrite="true"
+      style: secondary
+      start: 56
+      end: 72
+  ? |
+    <WriteLinesToFile File="version.txt" Lines='text WriteOnlyWhenDifferent="false" suffix' Condition="'$(Count)' > '0'" Overwrite="true"></WriteLinesToFile>
+  : fixed: |
+      <WriteLinesToFile File="version.txt" Lines='text WriteOnlyWhenDifferent="false" suffix' Condition="'$(Count)' > '0'" Overwrite="true" WriteOnlyWhenDifferent="true"></WriteLinesToFile>
+    labels:
+    - source: <WriteLinesToFile File="version.txt" Lines='text WriteOnlyWhenDifferent="false" suffix' Condition="'$(Count)' > '0'" Overwrite="true">
+      style: primary
+      start: 0
+      end: 134
+    - source: WriteLinesToFile
+      style: secondary
+      start: 1
+      end: 17
+    - source: Overwrite="true"
+      style: secondary
+      start: 117
+      end: 133

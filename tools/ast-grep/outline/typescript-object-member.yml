@@ -1,0 +1,27 @@
+id: typescript-object-member
+language: tsx
+role: member
+parentRuleIds: [tsx-export-const, tsx-export-const-typed, tsx-top-level-const, tsx-top-level-const-typed, tsx-export-let, tsx-export-let-typed, tsx-top-level-let, tsx-top-level-let-typed]
+symbolType: property
+rule:
+    any:
+        - kind: pair
+          has: {field: key, pattern: $NAME}
+        - kind: shorthand_property_identifier
+          pattern: $NAME
+    pattern: $DECLARATION
+    inside:
+        kind: object
+        inside:
+            kind: variable_declarator
+            field: value
+            inside:
+                kind: lexical_declaration
+                any:
+                    - inside: {kind: program}
+                    - inside: {kind: export_statement, inside: {kind: program}}
+            stopBy:
+                not: {any: [{kind: as_expression}, {kind: satisfies_expression}, {kind: parenthesized_expression}]}
+name: $NAME
+signature: $DECLARATION
+isPublic: true

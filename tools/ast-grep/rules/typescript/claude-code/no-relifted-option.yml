@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# A none arm alone does not prove an Option-valued fold; mixed scalar and Option results are valid.
+id: no-relifted-option
+language: tsx
+severity: error
+files:
+    - '**/.claude/plugins/function-hooks/hooks/**'
+utils:
+    match-cases:
+        kind: object
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, has: {field: property, regex: ^match$}}
+    none-arm:
+        any:
+            - kind: pair
+              all:
+                - {has: {field: key, regex: ^none$}}
+                - {has: {field: value, any: [{pattern: () => none()}, {pattern: () => none<$_>()}, {pattern: none}]}}
+            - kind: shorthand_property_identifier
+              pattern: {context: 'const cases = { none }', selector: shorthand_property_identifier}
+    empty-arm:
+        kind: pair
+        all:
+            - {has: {field: key, pattern: {context: 'const cases = { none: 0 }', selector: property_identifier}}}
+            - {has: {field: value, pattern: '() => []'}}
+    option-operation:
+        any:
+            - {kind: variable_declarator}
+            - {kind: function_declaration}
+        has: {field: name, regex: ^(map|flatMap|getOrElse|toArray|liftPredicate)$}
+rule:
+    kind: pair
+    all:
+        - {has: {field: key, regex: ^some$}}
+        - {inside: {matches: match-cases}}
+        - any:
+            - all:
+                - {inside: {matches: match-cases, has: {matches: none-arm}}}
+                - any:
+                    - inside:
+                        matches: match-cases
+                        inside:
+                            kind: arguments
+                            inside:
+                                kind: call_expression
+                                has: {field: type_arguments, pattern: {context: match<Option<$_>>(), selector: type_arguments}}
+                    - has:
+                        field: value
+                        kind: arrow_function
+                        has:
+                            field: body
+                            kind: call_expression
+                            has: {field: function, kind: identifier, regex: ^(some|none|fromNullable)$}
+            - {has: {field: value, any: [{pattern: ($X) => $X}, {pattern: '($X: $_) => $X'}]}}
+            - all:
+                - has:
+                    field: value
+                    kind: arrow_function
+                    has:
+                        field: body
+                        kind: array
+                        all:
+                            - {has: {pattern: $_, not: {kind: spread_element}}}
+                            - {not: {has: {nthChild: 2}}}
+                - {inside: {matches: match-cases, has: {matches: empty-arm}}}
+        - not:
+            inside: {stopBy: {any: [{kind: variable_declarator}, {kind: function_declaration}]}, matches: option-operation}
+    pattern: $MATCH
+message: The case record rebuilds the Option's own cases, and `composition/option.ts` exports the operation the arms spell
+note: 'Call `map(f)(option)` for `some: (x) => some(f(x))`, `flatMap(f)(option)` for an arm that answers an Option, `getOrElse(() => fallback)(option)` for `some: (x) => x`, and `toArray(option)` or `toArray(map(f)(option))` for a one-element arm beside `none: () => []`'
+labels: {MATCH: {style: primary}}

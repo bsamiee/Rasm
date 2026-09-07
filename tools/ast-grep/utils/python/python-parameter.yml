@@ -8,7 +8,12 @@ rule:
         - kind: identifier
           matches: name
         - kind: typed_parameter
-          has: {kind: identifier, matches: name} # The name is the first child and carries no field
+          has:
+            any:
+                - kind: identifier
+                  matches: name
+                - kind: list_splat_pattern, dictionary_splat_pattern
+                  has: {kind: identifier, matches: name}
         - kind: default_parameter
           has: {field: name, matches: name}
         - kind: typed_default_parameter

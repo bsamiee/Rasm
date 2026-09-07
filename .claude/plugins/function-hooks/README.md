@@ -1,6 +1,6 @@
 # [FUNCTION_HOOKS]
 
-Function hooks is the plugin `function-hooks@rasm` of the `rasm` marketplace at `.claude/plugins/`, one hooks module (`hooks/register.ts`) loaded under `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the `env` block of `.claude/settings.json`. Hooks `($, e, next)` run inside the Claude Code process on a typed event and answer a typed result, in place of a shell hook's stdin JSON and exit code, with no shell, no spawn, and no platform difference. `claude --plugin-dir .claude/plugins/function-hooks` loads the directory in place of the installed copy under `~/.claude/plugins/cache/`.
+Function hooks is the plugin `function-hooks@rasm` of the `rasm` marketplace at `.claude/plugins/`, one hooks module (`hooks/register.ts`) loaded under `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the `env` block of `.claude/settings.json`. Hooks `($, e, next)` run inside the Claude Code process on a typed event and answer a typed result, in place of a shell hook's stdin JSON and exit code, without spawning a shell to dispatch the hook. `claude --plugin-dir .claude/plugins/function-hooks` loads the directory in place of the installed copy under `~/.claude/plugins/cache/`.
 
 ## [01]-[LAYOUT]
 
@@ -10,7 +10,7 @@ function-hooks/
 │   └── plugin.json           # Manifest with name, description, and userConfig rows with type and default
 ├── hooks/
 │   ├── hooks.json            # Names register.ts as the one module the loader reads
-│   ├── register.ts           # Reads the options once and registers every event file, the audit before the rest
+│   ├── register.ts           # Reads the options once and registers every event file in engine lifecycle order
 │   ├── composition/          # Carriers as case records, the dispatch every file uses in place of a branch
 │   │   ├── option.ts         # Option with its constructors and data-last operations, the one if
 │   │   └── decision.ts       # Decision with rewrite, deny, and answer, when over a refinement, fold over rules
@@ -40,7 +40,7 @@ function-hooks/
 │   └── authoring/            # Skill function-hooks:authoring with its references, the approach main briefs and judges by
 ├── agents/
 │   └── hook-builder.md       # Agent function-hooks:hook-builder, dispatched by main per scope
-├── package.json              # Workspace membership, language tag, the lint, format, and check targets, the test target's inputs
+├── package.json              # Workspace membership, language tag, the lint, format, check, and typecheck targets, the test target's inputs
 ├── tsconfig.json             # The declarations header's config plus allowImportingTsExtensions for the relative .ts imports
 └── vitest.config.ts          # Vitest configuration that gives the project its test target
 ```
@@ -65,43 +65,45 @@ flowchart LR
 
 The composition, text, and host modules export the carriers, the text operations, and the boundary values the policies and events build on:
 
-| [INDEX] | [MODULE]                  | [GROUP]      | [EXPORTS]                                                                                                         |
-| :-----: | :------------------------ | :----------- | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `composition/option.ts`   | Constructors | `some`, `none`, `fromPredicate`, `fromNullable`, `fromBoolean`, `liftPredicate`, `struct`, `optional`, `isRecord` |
-|  [02]   | `composition/option.ts`   | Operations   | `map`, `flatMap`, `getOrElse`, `toArray`, `traverse`, `forEach`                                                   |
-|  [03]   | `composition/decision.ts` | Constructors | `rewrite`, `deny`, `answer`                                                                                       |
-|  [04]   | `composition/decision.ts` | Operations   | `when`, `fold`, `absurd`                                                                                          |
-|  [05]   | `text/argv.ts`            | Operations   | `leaves`, `strip`, and the `INTERPRETER` sentinel word                                                            |
-|  [06]   | `text/path.ts`            | Operations   | `basename`, `extension`, `under`, `relative`                                                                      |
-|  [07]   | `text/lines.ts`           | Operations   | `lines`, `first`                                                                                                  |
-|  [08]   | `text/replace.ts`         | Operations   | `replace`, `notes`                                                                                                |
-|  [09]   | `host/store.ts`           | Tables       | `NAMESPACES`, `KIND_NAMES`, `STATUS`, `PART_NAMES`                                                                |
-|  [10]   | `host/store.ts`           | Keys         | `key`, `keys`, `ids`, `suffix`, `id`                                                                              |
-|  [11]   | `host/store.ts`           | Decoders     | `decode<Row>` per row type, `decodeJson`, `secretsOf`, `cleanedOf`, `is<Type>` refinements                        |
-|  [12]   | `host/options.ts`         | Options      | `OPTIONS`, `Options`, `options`, `whenEnabled`                                                                    |
-|  [13]   | `host/tools.d.ts`         | Tool input   | `McpToolInputs['mcp__function-hooks__close']`                                                                     |
-|  [14]   | `host/tools.d.ts`         | Op events    | `UndeclaredOpEventOf`, `UndeclaredOpValueOf`, `SessionAuthorization`, the two omitted ops                         |
+| [INDEX] | [MODULE]                  | [GROUP]      | [EXPORTS]                                                                                  |
+| :-----: | :------------------------ | :----------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `composition/option.ts`   | Constructors | `some`, `none`, `fromPredicate`, `fromNullable`, `fromBoolean`, `liftPredicate`            |
+|  [02]   | `composition/option.ts`   | Refinements  | `struct`, `optional`, `isRecord`                                                           |
+|  [03]   | `composition/option.ts`   | Operations   | `map`, `flatMap`, `getOrElse`, `toArray`, `traverse`, `forEach`                            |
+|  [04]   | `composition/decision.ts` | Constructors | `rewrite`, `deny`, `answer`                                                                |
+|  [05]   | `composition/decision.ts` | Operations   | `when`, `bind`, `fold`, `absurd`                                                           |
+|  [06]   | `text/argv.ts`            | Operations   | `leaves`, `strip`, and the `INTERPRETER` sentinel word                                     |
+|  [07]   | `text/path.ts`            | Operations   | `basename`, `extension`, `under`, `relative`                                               |
+|  [08]   | `text/lines.ts`           | Operations   | `lines`, `first`                                                                           |
+|  [09]   | `text/replace.ts`         | Operations   | `replace`, `notes`                                                                         |
+|  [10]   | `host/store.ts`           | Tables       | `NAMESPACES`, `KIND_NAMES`, `STATUS`, `PART_NAMES`                                         |
+|  [11]   | `host/store.ts`           | Keys         | `key`, `keys`, `ids`, `suffix`, `id`                                                       |
+|  [12]   | `host/store.ts`           | Decoders     | `decode<Row>` per row type, `decodeJson`, `secretsOf`, `cleanedOf`, `is<Type>` refinements |
+|  [13]   | `host/options.ts`         | Options      | `OPTIONS`, `Options`, `options`, `whenEnabled`                                             |
+|  [14]   | `host/tools.d.ts`         | Tool input   | `McpToolInputs['mcp__function-hooks__close']`                                              |
+|  [15]   | `host/tools.d.ts`         | Op events    | `UndeclaredOpEventOf`, `UndeclaredOpValueOf`, `SessionAuthorization`, the two omitted ops  |
 
 ## [04]-[STORE]
 
 `NAMESPACES` in `host/store.ts` names every key prefix, and each key has one writer. Stamp rows are read by presence, and every other row through its `decode<Row>`:
 
-| [INDEX] | [KEY]                      | [ROW]      | [WRITER]                          | [READER]                                                                |
-| :-----: | :------------------------- | :--------- | :-------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `secrets`                  | `Secrets`  | Seeded outside the plugin         | `prompt.submit`, `tool.call`                                            |
-|  [02]   | `session/<session>`        | `Session`  | `session.start`                   | `tool.call`, `skill.prompt`, the timer, every `$.process.run`           |
-|  [03]   | `injected/<session>/<key>` | `Stamp`    | `tool.call`                       | `tool.call`                                                             |
-|  [04]   | `loaded/<session>/<skill>` | `Stamp`    | `skill.prompt`                    | `tool.call`                                                             |
-|  [05]   | `snapshot/<session>/<vm>`  | `Stamp`    | `tool.call`, recording tools      | `tool.call`                                                             |
-|  [06]   | `dns/<session>/<domain>`   | `Stamp`    | `tool.call`, recording tools      | `tool.call`                                                             |
-|  [07]   | `prompt/<session>`         | `Notice`   | `prompt.submit`                   | `tool.call`                                                             |
-|  [08]   | `findings/<id>`            | `Finding`  | `turn.complete`, `close`          | `prompt.context`, `ui.render`, `close`, pruned past the window at start |
-|  [09]   | `notice`                   | `Notice`   | The timer, refused spawn          | `ui.render`, its button deletes it                                      |
-|  [10]   | `cleaned`                  | `Cleaned`  | `close`                           | `session.start`, the timer, `close`                                     |
-|  [11]   | `dispatch/<batchId>`       | `Dispatch` | The timer                         | `agent.spawn`, the timer                                                |
-|  [12]   | `skill/<skill>`            | `Skill`    | `skill.prompt`                    | No plugin reader, the cleaning pass over the skills part                |
-|  [13]   | `scan/<id>`                | `Scan`     | `tool.call`, a landed edit        | `skill.prompt`, the telemetry block, pruned past the window at start    |
-|  [14]   | `roslyn/<session>`         | `Stamp`    | `tool.call`, a landed `.cs` write | `tool.call`, the wait before a read of the server                       |
+| [INDEX] | [KEY]                      | [ROW]      | [WRITER]                          | [READER]                                                             |
+| :-----: | :------------------------- | :--------- | :-------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `secrets`                  | `Secrets`  | Seeded outside the plugin         | `prompt.submit`, `tool.call`                                         |
+|  [02]   | `session/<session>`        | `Session`  | `session.start`                   | `tool.call`, `skill.prompt`, the timer, every `$.process.run`        |
+|  [03]   | `injected/<session>/<key>` | `Stamp`    | `tool.call`                       | `tool.call`                                                          |
+|  [04]   | `loaded/<session>/<skill>` | `Stamp`    | `skill.prompt`                    | `tool.call`                                                          |
+|  [05]   | `snapshot/<session>/<vm>`  | `Stamp`    | `tool.call`, recording tools      | `tool.call`                                                          |
+|  [06]   | `dns/<session>/<domain>`   | `Stamp`    | `tool.call`, recording tools      | `tool.call`                                                          |
+|  [07]   | `prompt/<session>`         | `Notice`   | `prompt.submit`                   | `tool.call`                                                          |
+|  [08]   | `findings/<id>`            | `Finding`  | `turn.complete`, `close`          | `close`, the timer, pruned past the window at start                  |
+|  [09]   | `summary`                  | `Summary`  | `turn.complete`, `close`, start   | `prompt.context`, `ui.render`                                        |
+|  [10]   | `notice`                   | `Notice`   | The timer, refused spawn          | `ui.render`, its button deletes it                                   |
+|  [11]   | `cleaned`                  | `Cleaned`  | `close`                           | `session.start`, the timer, `close`                                  |
+|  [12]   | `dispatch/<batchId>`       | `Dispatch` | The timer                         | `agent.spawn`, the timer                                             |
+|  [13]   | `skill/<skill>`            | `Skill`    | `skill.prompt`                    | No plugin reader, the cleaning pass over the skills part             |
+|  [14]   | `scan/<id>`                | `Scan`     | `tool.call`, a landed edit        | `skill.prompt`, the telemetry block, pruned past the window at start |
+|  [15]   | `roslyn/<session>`         | `Stamp`    | `tool.call`, a landed `.cs` write | `tool.call`, the wait before a read of the server                    |
 
 `Session.env` is the answer of `mise env --json` in the session's working directory, PATH with the mise installs first and the `mise.toml` `[env]` rows, and every `$.process.run` passes it as `init.env`, so a child resolves the same binaries and values as the agent shell does through `CLAUDE_ENV_FILE`. Both channels run `mise` from the PATH `claude` was launched with, and a launch without it fails `session.start` with `$.process.run(mise) failed to start: ENOENT` in the debug file beside the settings hook's `mise: command not found`.
 
@@ -109,12 +111,12 @@ The composition, text, and host modules export the carriers, the text operations
 
 `userConfig` in `plugin.json` declares each option with its type and default, the host validates the values before the module loads, and `options(raw)` in `host/options.ts` narrows them once. Values sit under `pluginConfigs[<plugin key>].options` in user settings, the `--settings` flag, or managed settings, and Claude Code ignores the key in a project's `.claude/settings.json` and `.claude/settings.local.json`. The key is the plugin id `function-hooks@rasm` for the installed copy and the manifest `name` (or `<name>@inline`) for a `--plugin-dir` load. Refusals, rewrites, redaction, and routing context are always on, and each option turns on one behavior:
 
-| [INDEX] | [OPTION]         | [DEFAULT] | [BEHAVIOR]                                                                   |
-| :-----: | :--------------- | :-------- | :--------------------------------------------------------------------------- |
-|  [01]   | `packageManager` | `pnpm`    | The command that replaces `npm` in a Bash call                               |
-|  [02]   | `speak`          | `false`   | Speaks a summary of each answer at `turn.complete`                           |
-|  [03]   | `classify`       | `false`   | Classifies each answer at `turn.complete` and writes one `findings/<id>` row |
-|  [04]   | `dispatch`       | `false`   | Sets the status line, serves the `close` tool, and runs the editor timer     |
+| [INDEX] | [OPTION]         | [DEFAULT] | [BEHAVIOR]                                                                    |
+| :-----: | :--------------- | :-------- | :---------------------------------------------------------------------------- |
+|  [01]   | `packageManager` | `pnpm`    | The command that replaces `npm` in a Bash call                                |
+|  [02]   | `speak`          | `false`   | Speaks a summary of each answer at `turn.complete`                            |
+|  [03]   | `classify`       | `false`   | Classifies each answer at `turn.complete` and writes one `findings/<id>` row  |
+|  [04]   | `dispatch`       | `false`   | Sets the status line, draws the band, serves the `close` tool, runs the timer |
 
 ## [06]-[POLICIES]
 
@@ -128,24 +130,25 @@ Each policy file holds its tables and the rules over them, and the events table 
 |  [04]   | `tools.ts`    | `TOOLS`, `FAMILIES`, `SERVERS`, `FETCH`, `DESCRIBE` | `toolRule`, `toolRecords`, `toolSkills`, `describeRule`                              |
 |  [05]   | `secrets.ts`  | The `secrets` rows as `pairs`                       | `redact`, `restore`                                                                  |
 |  [06]   | `agents.ts`   | `AGENTS`, `OFFERS`                                  | `spawnRule`, `spawnLabel`                                                            |
-|  [07]   | `findings.ts` | `CLOSE`, `FINDING_VIEWS`                            | `finding`, `questions`, `open`, `due`, `status`, `batch`, `close`                    |
-|  [08]   | `kinds.ts`    | `KINDS`, `LABELS`                                   | `hasEvidence`, `CLASSIFIER_PROMPT`, `decodeFields`, `fieldsOf`                       |
-|  [09]   | `scan.ts`     | `SCAN`                                              | `scanRows`, `needsRuleIds`, `scanHits`, `abort`, `stem`, `TREE`, `stale`, the blocks |
-|  [10]   | `roslyn.ts`   | `SERVER`, `SOLUTION`, `WRONG_DIAGNOSTICS`           | The decoders, the request builders, `replyClass`, `diagnosticLines`                  |
-|  [11]   | `roslyn.ts`   | `ROSLYN_READS`, `WATCHER_SETTLE_MS`                 | `isRoslynRead`, `settleWait`, `settleLine`, `filterEnvelope`, `droppedLines`         |
+|  [07]   | `findings.ts` | `CLOSE`                                             | `finding`, `summarize`, `withFinding`, `questions`, `close`                          |
+|  [08]   | `findings.ts` | `FINDING_VIEWS`, `DUE_MS`                           | `open`, `due`, `status`, `batch`                                                     |
+|  [09]   | `kinds.ts`    | `KINDS`, `LABELS`                                   | `hasEvidence`, `CLASSIFIER_PROMPT`, `decodeFields`, `fieldsOf`                       |
+|  [10]   | `scan.ts`     | `SCAN`                                              | `scanRows`, `needsRuleIds`, `scanHits`, `abort`, `stem`, `TREE`, `stale`, the blocks |
+|  [11]   | `roslyn.ts`   | `SERVER`, `SOLUTION`, `WRONG_DIAGNOSTICS`           | The decoders, the request builders, `replyClass`, `diagnosticLines`                  |
+|  [12]   | `roslyn.ts`   | `ROSLYN_READS`, `WATCHER_SETTLE_MS`                 | `isRoslynRead`, `settleWait`, `settleLine`, `filterEnvelope`, `droppedLines`         |
 
 ## [07]-[EVENTS]
 
-One file per engine event under `hooks/events/`, and a file with no rows is the slot for the event's first hook:
+`hooks/events/` holds one file per engine event, and a file with no rows is the slot for the event's first hook:
 
 | [INDEX] | [EVENT]            | [HOOK]                                                                                                       |
 | :-----: | :----------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `*`                | Audit line through `$.ui.log` for `tool.call`, `prompt.submit`, and `agent.spawn`, registered first          |
+|  [01]   | `*`                | No row                                                                                                       |
 |  [02]   | `engine.create`    | No row                                                                                                       |
 |  [03]   | `session.start`    | The session row and the prune, then under `dispatch` the status line, the served tool, and the timer         |
 |  [04]   | `prompt.submit`    | Redaction of secret values to their ids and the `prompt/<session>` row                                       |
 |  [05]   | `prompt.section`   | No row                                                                                                       |
-|  [06]   | `prompt.context`   | The open-question block from the `findings/` rows                                                            |
+|  [06]   | `prompt.context`   | The open-question block from the `summary` row                                                               |
 |  [07]   | `tool.describe`    | The skill's line and the `DESCRIBE` line, one per line, before the tool's own description                    |
 |  [08]   | `turn.start`       | No row                                                                                                       |
 |  [09]   | `tool.call`        | The rules folded in order and the decision mapped onto the result, then the arms after `next`                |
@@ -155,7 +158,7 @@ One file per engine event under `hooks/events/`, and a file with no rows is the 
 |  [13]   | `attribution.text` | No row                                                                                                       |
 |  [14]   | `turn.step`        | No row                                                                                                       |
 |  [15]   | `turn.complete`    | The summary and the classifier over each answered turn, each under its option, after `next`                  |
-|  [16]   | `ui.render`        | The `AbovePrompt` band on the terminal with no survey, the notice and the open count with a hide button      |
+|  [16]   | `ui.render`        | Under `dispatch`, the `AbovePrompt` band on the terminal with no survey, the notice and the `summary` count  |
 |  [17]   | `ui.resolve`       | No row                                                                                                       |
 |  [18]   | `ui.press`         | No row, the hide button's `onPress` sits in `ui-render.ts`                                                   |
 |  [19]   | `ui.input`         | No row                                                                                                       |
@@ -163,16 +166,16 @@ One file per engine event under `hooks/events/`, and a file with no rows is the 
 
 ## [08]-[CHECKS]
 
-The project targets run without the generated declarations, because the specs import `claude-code` as types alone and Vitest erases them, and the plugin typecheck is the one check that needs them:
+`function-hooks:check` includes typecheck and requires the generated declarations. Unit tests run without them because Vitest erases the type-only `claude-code` imports:
 
-| [INDEX] | [COMMAND]                                                       | [CHECK]                                                          |
-| :-----: | :-------------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `pnpm exec nx run function-hooks:check`                         | Lint (biome and the `claude-code` ast-grep family), format, test |
-|  [02]   | `pnpm exec tsc -p .claude/plugins/function-hooks/tsconfig.json` | Typecheck over `.claude/types/`                                  |
-|  [03]   | `claude plugin validate .claude/plugins/function-hooks`         | Lists the registered events and every `$` call the module makes  |
-|  [04]   | `nx run rasm:harness`                                           | Brings the declarations and the installed copy up to date        |
+| [INDEX] | [COMMAND]                                               | [CHECK]                                                         |
+| :-----: | :------------------------------------------------------ | :-------------------------------------------------------------- |
+|  [01]   | `pnpm exec nx run function-hooks:check`                 | Read-only lint, typecheck, and test                             |
+|  [02]   | `pnpm exec nx run function-hooks:typecheck`             | Typecheck over `.claude/types/`                                 |
+|  [03]   | `claude plugin validate .claude/plugins/function-hooks` | Lists the registered events and every `$` call the module makes |
+|  [04]   | `nx run rasm:harness`                                   | Brings the declarations and the installed copy up to date       |
 
-`.claude/types/` is gitignored, and the project has no `typecheck` target. The `test` target names the guidance files as inputs with `cache: false`, a guidance edit reruns it. The validator's `version` warning is accepted, because the version resolves from the commit of the source.
+`.claude/types/` is gitignored, and `typecheck` runs uncached because the declarations are no input. The `test` target names the guidance files as inputs and runs uncached, and a guidance edit reruns it. The validator's `version` warning is accepted, because the version resolves from the commit of the source.
 
 ## [09]-[PROOFS]
 
@@ -187,13 +190,16 @@ The prompt opens with `Run exactly this tool call and report its result verbatim
 - `hooks module function-hooks loaded (worker, environment 1); events: ...` — the module loaded with the registered set
 - `tool.call <Tool> <id>: resolved by a hooks module (deny: <reason>)` — the deny came from a hook and not from a permission rule
 - `hooks module function-hooks tool.call settled in <n>ms` — the hook settled, a rewrite's `context` line then sits in the transcript
-- The transcript's `tool_use` block holds the input the model wrote, so a rewrite of a field beside `command` (the Bash `timeout` the GNU prefix becomes) is read from the `context` line alone
 - `$.store.set (function-hooks@inline): <key>` — a store write with its key, the first call of a once row and no later one
-- `$.process.run (function-hooks): <argv[0]> with <n> args in <cwd> (pid <pid>)` — a child the scan arm ran with the session row's environment, the origin spelled without `@inline` on this line and on `$.mcp.call`
-- `$.mcp.call (function-hooks): mcp__roslyn-codelens__get_diagnostics (project, severity, includeAnalyzers)` then `... answered in <n>ms: <k> block(s)` — the roslyn arm's call and its reply
+- `$.process.run (function-hooks): <argv[0]> with <n> args in <cwd> (pid <pid>)` — the scan child
+- `$.mcp.call (function-hooks): mcp__roslyn-codelens__get_diagnostics (project, severity, includeAnalyzers)` — the Roslyn call
+- `... answered in <n>ms: <k> block(s)` — the Roslyn reply
 - `<argv[0]> exited <code> in <n>ms, <out> + <err> chars` — the child's exit, the second line of the pair
 - `prompt.submit: text rewritten by a hook (<n> -> <m> chars)` — a redaction rewrote the prompt
 - `hook failed: function-hooks: <error> (<event>; skipped; what is below it ran in its place)` — a failing hook is skipped and never fatal
+- `ui.render key=<component> settled in <n>ms` — one draw-path evaluation per component instance and version, absent while the hook is unregistered
+
+The transcript's `tool_use` block holds the input the model wrote, and a rewrite of a field beside `command` (the Bash `timeout` a GNU prefix becomes) is read from the `context` line alone. Scan children run with the session row's environment, and the `$.process.run` and `$.mcp.call` lines spell the origin without `@inline`.
 
 Once-per-session context lines reach every call of one parallel batch, because the calls read the store before any of them stamps its key. Redaction proofs seed `secrets` in the plugin's store file under `~/.claude/plugins/store/`, read the rewrite line in the debug file and the redacted text under `prompt/<session>`, and remove the seed.
 

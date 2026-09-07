@@ -3,13 +3,49 @@ id: no-exec-for-builtin-task
 language: xml
 severity: error
 rule:
+    pattern: _EXEC
     all:
         - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
         - matches:
-              msbuild-metadata:
-                  name: {regex: '^Command$'}
-                  value:
-                      regex: "^[\"']?\\s*(&quot;)?\\s*((mkdir|md|rmdir|rd|copy|cp|xcopy|robocopy|del|rm|move|mv|ren|rename|touch)\\b|\
-                          echo\\b[^\"]*(>|&gt;))"
+            msbuild-metadata:
+                name: {regex: '^Command$'}
+                value:
+                    regex: "^[\"']?\\s*(&quot;)?\\s*((mkdir|md|rmdir|rd|copy|cp|xcopy|robocopy|del|rm|move|mv|ren|rename|touch)\\b|echo\\b[^\"]*(>|&gt;))"
+transform:
+    # A task with a working directory keeps its Exec, the built-in tasks resolve paths from the project directory
+    KEPT: {replace: {source: $EXEC, replace: '(?s)^<Exec\b(.*\bWorkingDirectory\s*=)', by: '<ExecKeep${1}'}}
+    # One operand per command, a directory, a file, or an echo redirect, and a copy, move, or rename stays because its destination kind is unknown
+    MADE:
+        replace:
+            source: $KEPT
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*(?:mkdir|md)(?:\s+-p)?\s+([^"''\s]+)\s*["'']'
+            by: '<MakeDir${1}Directories="${2}"'
+    REMOVED:
+        replace:
+            source: $MADE
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*(?:rmdir|rd|rm\s+-rf|rm\s+-fr|rm\s+-r)\s+([^"''\s]+)\s*["'']'
+            by: '<RemoveDir${1}Directories="${2}"'
+    DELETED:
+        replace:
+            source: $REMOVED
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*(?:del|rm)\s+([^"''\s-][^"''\s]*)\s*["'']'
+            by: '<Delete${1}Files="${2}"'
+    TOUCHED:
+        replace:
+            source: $DELETED
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*touch\s+([^"''\s]+)\s*["'']'
+            by: '<Touch${1}Files="${2}" AlwaysCreate="true"'
+    APPENDED:
+        replace:
+            source: $TOUCHED
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*echo\s+(.*?)\s*(?:&gt;&gt;|>>)\s*([^"''\s]+)\s*["'']'
+            by: '<WriteLinesToFile${1}File="${3}" Lines="${2}"'
+    WRITTEN:
+        replace:
+            source: $APPENDED
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*echo\s+(.*?)\s*(?:&gt;|>)\s*([^"''\s]+)\s*["'']'
+            by: '<WriteLinesToFile${1}File="${3}" Lines="${2}" Overwrite="true" WriteOnlyWhenDifferent="true"'
+    RESTORED: {replace: {source: $WRITTEN, replace: '^<ExecKeep', by: '<Exec'}}
+fix: $RESTORED
 message: Exec runs a shell command a built-in task covers on every operating system
 note: Replace the command with MakeDir, Copy, Delete, RemoveDir, Move, Touch, or WriteLinesToFile

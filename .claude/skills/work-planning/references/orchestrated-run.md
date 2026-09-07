@@ -1,51 +1,43 @@
 # [ORCHESTRATED_RUN]
 
-When the plan runs by orchestration, by `main` or by one orchestrator per system, the plan's structure carries the decisions an orchestrator otherwise re-derives, and every brief points at a plan section. Use `work-execution` for the messaging mechanics and the brief templates.
+Record the decisions each coordinator needs to implement its assigned system, and link briefs to the relevant plan sections. Use `work-execution` for dispatch and coordination.
 
 ## [01]-[SYSTEMS]
 
-Each system is sized for one orchestrator to read whole and carries its own steps, checks, and done-when, and two systems that name one file between them split at the file or hand it to `main`.
+Group work into independently owned systems with their intended result, steps, checks, and completion criteria. Add a coordinator when the system has implementation decisions or dependencies to manage.
 
 ## [02]-[FILE_OWNERSHIP]
 
-The plan's Structure section places every file in scope under one system or under `main`:
-- `main` owns the manifests, the locks, and the shared references that more than one system edits
-- The plan names each `main` file with the reason it sits outside the systems
+Assign each file or shared configuration field to one active owner. Record shared manifests, locks, and references with their owner and affected systems. Keep shared edits with the main agent or an assigned specialist, and separate ownership before concurrent work begins.
 
 ## [03]-[SHARED_FILES]
 
-Changes to a `main` file land before the systems start or from a message, and the plan states which for each:
-- Changes known at planning time are pre-dispatch steps in the Build order, proven before the first dispatch
-- Changes a system discovers mid-run land from its orchestrator's message to `main`
-- The plan names each changes record entry that lands from a message
+Place known shared-file changes before the steps that consume them, with the requested checks. Independent work can start without waiting for an unrelated shared edit.
+
+Send newly discovered shared changes to the assigned owner with the evidence, proposed correction, and affected steps. Record the resulting plan correction and confirm the implemented change before updating consumers.
 
 ## [04]-[DEPENDENCIES]
 
-The plan states the cross-system dependencies as the complete list, and systems with no listed dependency wait for nothing:
-- Reports that start a system
-- Steps that read another system's output
-- Steps that wait for a sibling's report
+Name each cross-system dependency by its producer, required output or decision, consumer, and completion evidence. Reports start dependent work only when they supply a required fact. Run independent steps concurrently, and update the plan when implementation exposes another dependency.
 
 ## [05]-[MESSAGING_PATH]
 
-The plan's Structure section states the messaging path once, with the orchestrators named, as a destination per kind of finding:
+Name the coordinators and route findings by their affected ownership:
 
-| [INDEX] | [FINDING]                                          | [DESTINATION]                                                       |
-| :-----: | :------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | Outside an agent's step                            | Its orchestrator                                                    |
-|  [02]   | Outside an orchestrator's system                   | `main`, with the sibling system named, relayed to its orchestrator  |
-|  [03]   | In a file outside every system                     | `main`, which lands it in the file it owns                          |
-|  [04]   | Plan correction that touches a sibling's work      | `main`, in the same round                                           |
-|  [05]   | Question for the user                              | `main`, with the options the sender sees                            |
+| [INDEX] | [FINDING] | [DESTINATION] |
+| :-----: | :----- | :----- |
+| [01] | Outside an agent's step | Its coordinator |
+| [02] | Shared-file correction | Assigned owner and affected coordinators |
+| [03] | Unassigned file | Main agent for ownership assignment |
+| [04] | Cross-system plan correction | Main agent and affected coordinators |
+| [05] | Unresolved user intent | Planning session |
 
 ## [06]-[REPORT_CONTRACT]
 
-Every orchestrator reports under the contract `work-execution` names, and the plan states the bound in lines and that a report pastes no file content.
+Require the evidence that lets a consumer proceed: implemented behavior, changed contracts, completed checks, and unresolved dependencies. Link to the files or results that establish the claim. Include source excerpts only when they explain a decision the recipient needs.
 
 ## [07]-[COMPANION_ADJUSTMENTS]
 
-The companion files gain the columns and sections that let each orchestrator write its own part of a shared file:
-- Steps in the status record carry an owner column (`main` or the system letter) and a state column the run fills
-- The changes record opens with the pre-dispatch section and holds one section per system
-- The findings record holds the pre-dispatch findings first and one section per system
-- `main` fills the review frame at the close
+When the plan uses companion records, keep their identifiers and ownership consistent with the plan. Track each step's owner and completion state, and place shared prerequisites before their consumers. Record findings beside the affected system or shared operation.
+
+Assign shared records to an owner or disjoint sections before concurrent updates. Record review findings and their resolution when review occurs, without creating empty report frames.

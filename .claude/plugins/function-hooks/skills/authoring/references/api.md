@@ -34,7 +34,6 @@
 - `next.origin` is `engine` for a model's call (`Next` at `claude-code.d.ts:2150`), and `e.origin` exists on `prompt.submit` alone
 - `turn.start`, `turn.step`, and `turn.complete` fire for the main turn alone, a subagent's Bash appears in no `turn.step` line of the debug file
 - `next({ ...e, run_in_background: true })` on a Bash call runs it in the background, `BuiltinToolResults.Bash.backgroundTaskId` names the task
-- Proof of an event hook is the event's `settled` line in the debug file beside its result in the transcript, in the shapes the README holds
 
 ## [02]-[ENGINE_INTERFACE]
 
@@ -56,7 +55,6 @@
 |  [14]   | `$.process` | Host command, a path `$.fs` cannot reach   | argv, no shell, 30 s default, ten minutes cap, `env` from the session row |
 |  [15]   | `$.plugin`  | The plugin's own name or directory         | `name` and `root` are the `$` reads the loader accepts                    |
 
-- The calls line of `claude plugin validate` lists every `$` call the module makes, the proof of the section
 - `$.model.complete` answers 256 tokens by default, and `$.model.fork` answers `null` on a cold snapshot or an API error
 - `$.model.classify` answers one label, `undefined` when the reply names none, and rejects on a failed request
 - `$.session.messages()` rows are `{ role, text, toolUses }`, and `$.session.repo()` is `null` outside a repository

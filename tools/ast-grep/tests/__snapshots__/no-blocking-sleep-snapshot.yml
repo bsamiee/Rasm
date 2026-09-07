@@ -1,0 +1,41 @@
+id: no-blocking-sleep
+snapshots:
+  ? |
+    from time import perf_counter, sleep as pause
+  : labels:
+    - source: sleep
+      style: primary
+      start: 31
+      end: 36
+  ? |
+    from time import sleep
+  : labels:
+    - source: sleep
+      style: primary
+      start: 17
+      end: 22
+  ? |
+    import time
+    def wait(delay):
+        time.sleep(delay)
+  : labels:
+    - source: time.sleep
+      style: primary
+      start: 33
+      end: 43
+  ? |
+    import time
+    time.sleep(0)
+  : labels:
+    - source: time.sleep
+      style: primary
+      start: 12
+      end: 22
+  ? |
+    import time as t
+    t.sleep(1)
+  : labels:
+    - source: t.sleep
+      style: primary
+      start: 17
+      end: 24

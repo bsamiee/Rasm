@@ -6,29 +6,53 @@ rule:
     pattern: _REFERENCE
     all:
         - matches: {msbuild-element: {name: {regex: '^Reference$'}}}
-        - matches: {msbuild-metadata: {name: {regex: '^HintPath$'}, value: {matches: msbuild-value}}}
-        - not: {matches: {msbuild-metadata: {name: {regex: '^Private$'}, value: {regex: '(?i)^["'']?\s*false\s*["'']?$'}}}}
+        - has:
+            matches: msbuild-tag
+            has: {matches: {msbuild-attribute: {name: {regex: '^Include$'}, value: {regex: '^["''](RhinoCommon|Eto|@\(_RhinoHostAssembly\))["'']$'}}}}
+        - matches: {msbuild-metadata: {name: {regex: '^HintPath$'}, value: {any: [{kind: AttValue}, {kind: CharData}]}}}
+        - not:
+            any:
+                - all:
+                    - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Private$'}, value: {regex: '(?i)^["'']\s*false\s*["'']$'}}}}}
+                    - not:
+                        has:
+                            kind: content
+                            has:
+                                matches: {msbuild-element: {name: {regex: '^Private$'}}}
+                                not: {has: {kind: content, regex: '(?i)^\s*false\s*$'}}
+                - has:
+                    kind: content
+                    has:
+                        kind: element
+                        nthChild: {position: 1, reverse: true, ofRule: {matches: {msbuild-element: {name: {regex: '^Private$'}}}}}
+                        all:
+                            - has: {kind: content, regex: '(?i)^\s*false\s*$'}
+                            - not: {has: {kind: STag, has: {kind: Attribute}}}
 transform:
-    STRIPPED:
-        replace:
-            source: $REFERENCE
-            replace: '\s+Private=("[^"]*"|''[^'']*'')|\s*<Private(\s[^>]*)?>[^<]*</Private>'
-            by: ''
-    EMPTY_TAG:
-        replace:
-            source: $STRIPPED
-            replace: '^(<Reference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*/>'
-            by: '$1 Private="false" />'
-    START_TAG:
-        replace:
-            source: $EMPTY_TAG
-            replace: '^(<Reference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>'
-            by: '$1 Private="false">'
-    CLOSED:
-        replace:
-            source: $START_TAG
-            replace: '^(<Reference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>\s*</Reference>$'
-            by: '$1 />'
-fix: $CLOSED
+    FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
+fix: $FIXED
+rewriters:
+    - id: remove-metadata
+      rule:
+        any:
+            - kind: Attribute
+              has: {kind: Name, regex: '^Private$'}
+              inside: {matches: msbuild-tag, inside: {pattern: _REFERENCE}}
+            - matches: {msbuild-element: {name: {regex: '^Private$'}}}
+              inside: {kind: content, inside: {pattern: _REFERENCE}}
+      fix: ''
+    - id: add-metadata
+      rule:
+        matches: msbuild-tag
+        pattern: _TAG
+        has: {kind: Name, regex: '^Reference$'}
+      transform:
+        STRIPPED: rewrite($TAG, rewriters=[remove-metadata])
+        FIXED:
+            replace:
+                source: $STRIPPED
+                replace: '\s*(/?>)$'
+                by: ' Private="false"$1'
+      fix: $FIXED
 message: The Reference with a HintPath copies the host-supplied assembly into the output and the host loads that copy
 note: Add Private="false", and reference a package or project output through PackageReference or ProjectReference

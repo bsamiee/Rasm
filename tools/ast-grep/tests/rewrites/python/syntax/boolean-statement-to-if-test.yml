@@ -19,6 +19,20 @@ valid:
     # Assertion over a boolean operator, the value is tested
     - |
       assert ready and started(item)
+    # Semicolon before the expression cannot precede a compound statement
+    - |
+      before(); ready and start(item)
+    # Semicolon after the expression belongs to the original suite
+    - |
+      ready and start(item); after()
+    # One-line suite cannot contain a compound statement
+    - |
+      if outer: ready and start(item)
+    # Inline else suite must not inherit the earlier multiline branch
+    - |
+      if outer:
+          before()
+      else: ready and start(item)
 invalid:
     # The instance, the or form with a call on the right
     - |
@@ -40,3 +54,8 @@ invalid:
     - |
       async def run():
           ready or await start(item)
+    # Independent statements around the expression keep their lines
+    - |
+      before()
+      ready and start(item)
+      after()

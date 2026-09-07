@@ -1,0 +1,81 @@
+id: typescript-schema-member
+language: tsx
+role: member
+parentRuleIds: [tsx-export-const, tsx-export-const-typed, tsx-top-level-const, tsx-top-level-const-typed, tsx-export-let, tsx-export-let-typed, tsx-top-level-let, tsx-top-level-let-typed]
+symbolType: property
+utils:
+    schema-module:
+        kind: identifier
+        pattern: $MODULE
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                not: {has: {regex: '^type$'}}
+                any:
+                    - has: {field: source, regex: '^["'']effect(/index)?["'']$'}
+                      all:
+                        - has:
+                            stopBy: end
+                            kind: import_specifier
+                            has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^Schema$'}
+                            all:
+                                - has: {kind: identifier, pattern: $MODULE, nthChild: {position: 1, ofRule: {kind: identifier}, reverse: true}}
+                                - not: {has: {regex: '^type$'}}
+                    - has: {field: source, regex: '^["'']effect/Schema["'']$'}
+                      all:
+                        - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, pattern: $MODULE}}
+    struct-import:
+        kind: identifier
+        pattern: $STRUCT
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                has: {field: source, regex: '^["'']effect/Schema["'']$'}
+                not: {has: {regex: '^type$'}}
+                all:
+                    - has:
+                        stopBy: end
+                        kind: import_specifier
+                        has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^Struct$'}
+                        all:
+                            - has: {kind: identifier, pattern: $STRUCT, nthChild: {position: 1, ofRule: {kind: identifier}, reverse: true}}
+                            - not: {has: {regex: '^type$'}}
+rule:
+    any:
+        - kind: pair
+          has: {field: key, pattern: $NAME}
+        - kind: shorthand_property_identifier
+          pattern: $NAME
+    pattern: $DECLARATION
+    inside:
+        kind: object
+        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has:
+                    field: function
+                    any:
+                        - kind: member_expression
+                          has: {field: property, regex: '^Struct$'}
+                          all:
+                            - has: {field: object, matches: schema-module}
+                        - matches: struct-import
+                inside:
+                    kind: variable_declarator
+                    field: value
+                    inside:
+                        kind: lexical_declaration
+                        any:
+                            - inside: {kind: program}
+                            - inside: {kind: export_statement, inside: {kind: program}}
+                    stopBy:
+                        not: {any: [{kind: as_expression}, {kind: satisfies_expression}, {kind: parenthesized_expression}]}
+name: $NAME
+signature: $DECLARATION
+isPublic: true

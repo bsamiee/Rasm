@@ -6,11 +6,12 @@ rule:
     kind: tuple
     pattern: $TYPES
     inside: {kind: except_clause, field: value} # Tuples under an as clause sit under as_pattern and keep their parentheses
+    not: {has: {kind: list_splat}}
     has: {nthChild: 2} # Two types or more, a one-element tuple is ruff redundant-tuple-in-exception-handler
 constraints:
     TYPES: {not: {regex: '\n'}} # Tuple on one line, a wrapped tuple needs its parentheses
 transform:
-    MEMBERS: {substring: {source: $TYPES, startChar: 1, endChar: -1}}
+    MEMBERS: {replace: {source: $TYPES, replace: '^\(\s*(.*?)\s*,?\s*\)$', by: '$1'}}
 fix: $MEMBERS
 message: Except clause parenthesizes its exception types
-note: Write `except <A>, <B>:`, the parentheses stay with an `as` clause alone
+note: Write `except <A>, <B>:`, retain parentheses around multiline or starred tuples and with an `as` clause

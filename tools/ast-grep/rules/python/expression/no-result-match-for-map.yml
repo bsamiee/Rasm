@@ -3,158 +3,55 @@ id: no-result-match-for-map
 language: python
 severity: error
 utils:
-    # Class pattern over the Result union, plain or module-qualified, every capture sits under a case_pattern
-    result-pattern:
-        kind: class_pattern
-        has: {kind: dotted_name, regex: '^([A-Za-z_]\w*\.)*Result$'}
-    # The error keyword binding a name, the context form because a keyword pattern parses under a case alone
-    error-keyword:
-        kind: keyword_pattern
-        pattern:
-            context: |
-                match _:
-                    case Result(error=$E): pass
-            selector: keyword_pattern
-    # Error arm returning the error it bound, `case Result(tag="error", error=<e>): return Error(<e>)` in either keyword order and spelling
-    error-arm:
-        kind: case_clause
-        all:
-            - has:
-                  kind: case_pattern
-                  has:
-                      matches: result-pattern
-                      all:
-                          - has: {kind: case_pattern, has: {matches: error-keyword}}
-                          # Every sub-pattern is the error tag or the error keyword, another keyword or a positional stays
-                          - not: {has: {kind: case_pattern, not: {has: {kind: keyword_pattern, regex: '^(tag\s*=\s*["'']error["'']|error\s*=)'}}}}
-            - not: {has: {field: guard, kind: if_clause}} # Guarded arms select on more than the tag
-            - has:
-                  field: consequence
-                  kind: block
-                  all:
-                      # One return of the bound name through the module function or the static method, a mapped error stays
-                      - has:
-                            kind: return_statement
-                            has:
-                                kind: call
-                                all:
-                                    - has: {field: function, regex: '^(Result\.)?Error$'}
-                                    - has: {field: arguments, has: {kind: identifier, pattern: $E}}
-                      - not: {has: {nthChild: 2}}
-    # Ok pattern a lambda parameter states, `Result()`, `Result(tag="ok")`, `Result(ok=<name>)`, or `Result(ok=_)`, a tuple destructures and stays
+    # Simple success patterns bind or discard one payload; destructuring needs an explicit review
     ok-pattern:
         kind: class_pattern
-        matches: result-pattern
+        has: {kind: dotted_name, pattern: $RESULT_CLASS} # The error arm's class carries the Result regex, the ok arm repeats the spelling
         all:
             - any:
-                  # The value captured as a name, the closure leaves ok as the keyword with a name value, a dotted value compares against a constant
-                  - has: {kind: case_pattern, has: {kind: keyword_pattern, has: {kind: dotted_name, regex: '^[A-Za-z_]\w*$'}}}
-                  # The wildcard, the lambda parameter is `_`
-                  - has: {kind: case_pattern, has: {kind: keyword_pattern, regex: '^ok\s*=\s*_$'}}
-                  # Ok keyword absent, the arm reads no value
-                  - not: {has: {kind: case_pattern, has: {kind: keyword_pattern, regex: '^ok\s*='}}}
+                # The value captured as a name, the closure leaves ok as the keyword with a name value, a dotted value compares against a constant
+                - has: {kind: case_pattern, has: {kind: keyword_pattern, has: {kind: dotted_name, regex: '^[A-Za-z_]\w*$'}}}
+                # Wildcards discard the success value; callback parameter names require review
+                - has: {kind: case_pattern, has: {kind: keyword_pattern, regex: '^ok\s*=\s*_$'}}
+                # Ok keyword absent, the arm reads no value
+                - not: {has: {kind: case_pattern, has: {kind: keyword_pattern, regex: '^ok\s*='}}}
             # Every sub-pattern is the ok tag or the ok keyword
-            - not: {has: {kind: case_pattern, not: {has: {kind: keyword_pattern, regex: '^(tag\s*=\s*["'']ok["'']|ok\s*=)'}}}}
-    # Ok arm head, the pattern text names the lambda parameter and a guarded arm selects on more than the tag
+            - not: {has: {kind: case_pattern, not: {has: {kind: keyword_pattern, regex: '^(tag\s*=\s*["'']ok["'']$|ok\s*=)'}}}}
+    # An unguarded success arm binds or discards the payload
     ok-arm:
         kind: case_clause
         all:
-            - has: {kind: case_pattern, pattern: $OK_PATTERN, has: {matches: ok-pattern}}
+            - has: {kind: case_pattern, has: {matches: ok-pattern}}
             - not: {has: {field: guard, kind: if_clause}}
-    # The Ok call the map form lifts, its one argument is the lambda body, a walrus argument has no lambda body and takes the bind form
-    ok-call:
-        kind: call
-        all:
-            - has: {field: function, regex: '^(Result\.)?Ok$'}
-            - has: {field: arguments, all: [{not: {has: {kind: named_expression}}}, {has: {pattern: $INNER}}]}
-    # Return a lambda body states, a value with no await, an Ok call fills the map form and every other value the bind form
-    ok-return:
-        kind: return_statement
-        pattern: $RET
-        all:
-            - has: {pattern: $_}
-            - not: {has: {kind: await, stopBy: end}}
-    # Ok arm with the one return a lambda body states, a statement before the return keeps the arm
-    map-arm:
-        matches: ok-arm
-        has: {field: consequence, kind: block, all: [{has: {matches: ok-return}}, {not: {has: {nthChild: 2}}}]}
-    # Ok arm that binds the value and passes, the pass or an ellipsis alone, the return after the match is the lambda body
-    pass-arm:
-        matches: ok-arm
-        has:
-            field: consequence
-            kind: block
-            all:
-                - has: {any: [{kind: pass_statement}, {kind: expression_statement, has: {kind: ellipsis}}]}
-                - not: {has: {nthChild: 2}}
-    # Subject that takes a member access as written, a name, a call, a member, an index, or a parenthesized expression
-    plain-subject:
-        kind: match_statement
-        has:
-            field: subject
-            pattern: $PLAIN
-            any: [{kind: identifier}, {kind: call}, {kind: attribute}, {kind: subscript}, {kind: parenthesized_expression}]
-    # Every other subject (an await, an operator) takes parentheses before the member access
-    wrapped-subject:
-        kind: match_statement
-        has: {field: subject, pattern: $WRAPPED}
+            # A catch-all Result() is only the success arm after error propagation.
+            - any:
+                - has: {kind: case_pattern, has: {kind: class_pattern, has: {kind: case_pattern}}}
+                - follows: {matches: python-result-error-arm}
 rule:
     kind: match_statement
     all:
         - inside: {kind: function_definition, stopBy: end} # Under a function body at any depth, a return in an arm returns for the function
-        - not: {has: {kind: comment, stopBy: end}} # The fix keeps no comment inside the match
+        - not: {inside: {kind: try_statement, has: {kind: finally_clause}, stopBy: {kind: function_definition}}}
+        - not: {has: {kind: comment, stopBy: end}} # Commented dispatch needs an explicit review of its explanation
         - has:
-              field: body
-              kind: block
-              all:
-                  - has: {matches: error-arm}
-                  - not: {has: {kind: case_clause, nthChild: {position: 3, ofRule: {kind: case_clause}}}} # Two arms, a comment between them is no arm
+            field: body
+            kind: block
+            all:
+                # The error arm's class binds the spelling the ok arm repeats
+                - has: {matches: python-result-error-arm, has: {kind: case_pattern, has: {kind: class_pattern, has: {kind: dotted_name, pattern: $RESULT_CLASS}}}}
+                - not: {has: {kind: case_clause, nthChild: {position: 3, ofRule: {kind: case_clause}}}} # Two arms, a comment between them is no arm
         - has: {field: subject, pattern: $SUBJECT} # The subject the message names
-        - any: [{matches: plain-subject}, {matches: wrapped-subject}] # The receiver of the fix, local utils keep both captures declared
-        - any:
-              # The map form, the ok arm returns and the match is the last statement of its block, both arms return for the function
-              - all:
-                    - has: {field: body, has: {matches: map-arm}}
-                    - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}} # The last statement of its block
-              # The bind-by-statement form, the ok arm passes and the return the lambda body states follows the match, or the if the match closes
-              - all:
-                    - has: {field: body, has: {matches: pass-arm}}
-                    - any:
-                          - precedes: {matches: ok-return}
-                          - all:
-                                - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}} # The last statement of the branch block
-                                - inside:
-                                      kind: block
-                                      inside: # The walk climbs the elif and else clauses of one if statement and stops at any other owner
-                                          kind: if_statement
-                                          stopBy: {not: {any: [{kind: elif_clause}, {kind: else_clause}]}}
-                                          precedes: {matches: ok-return}
-rewriters:
-    # The value directly under the return, the Ok call and its argument for the map form, the whole value for the bind form
-    - id: map-method
-      rule: {matches: ok-call, inside: {kind: return_statement}}
-      fix: map
-    - id: bind-method
-      rule: {pattern: $VALUE, inside: {kind: return_statement}}
-      fix: bind
-    - id: map-body
-      rule: {matches: ok-call, inside: {kind: return_statement}}
-      fix: $INNER
-    - id: bind-body
-      rule: {pattern: $VALUE, inside: {kind: return_statement}}
-      fix: $VALUE
-transform:
-    OK_NAME: {replace: {source: $OK_PATTERN, replace: '(?s)^([A-Za-z_]\w*\.)*Result\(.*\bok\s*=\s*([A-Za-z_]\w*).*\)$', by: '$2'}}
-    PARAM: {replace: {source: $OK_NAME, replace: '^([A-Za-z_]\w*\.)*Result\(.*\)$', by: '_'}} # Patterns with no ok name read no value
-    PAREN: {replace: {source: $WRAPPED, replace: '(?s)^(.+)$', by: '($1)'}}
-    RETURNED_METHOD: rewrite($RET, rewriters=[map-method, bind-method]) # The first rewriter wins on the Ok call, the value keeps the rest
-    METHOD: replace($RETURNED_METHOD, replace='^return\s+', by='')
-    RETURNED_BODY: rewrite($RET, rewriters=[map-body, bind-body])
-    BODY: replace($RETURNED_BODY, replace='^return\s+', by='')
-fix:
-    template: 'return $PLAIN$PAREN.$METHOD(lambda $PARAM: $BODY)'
-    expandEnd: {kind: return_statement} # The return after a pass arm folds into the fix range, the snapshot keeps its line
-message: Match over `$SUBJECT` spells as statements what a `map` or `bind` return states
-note: >-
-    Return `<subject>.map(lambda <value>: <expr>)` for an `Ok(<expr>)` return,
-    `<subject>.bind(lambda <value>: <result>)` for a return of a Result
+        - has:
+            field: body
+            has:
+                matches: ok-arm
+                has:
+                    field: consequence
+                    kind: block
+                    has: {matches: python-result-ok-return}
+                    not: {has: {nthChild: 2}}
+        - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+labels:
+    SUBJECT: {style: primary, message: Result transformation}
+message: Match over `$SUBJECT` repeats error propagation around an Ok transformation
+note: Return `<subject>.map(<transformation>)` for a synchronous Ok value, and keep the match where it narrows the payload or maps the error

@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, a property placeholder for the root evaluated to HintPath=mytool/mytool.dll, a relative path to a file that does not exist
 id: no-absolute-path-in-item
 language: xml
 severity: error
@@ -6,8 +7,7 @@ rule:
     # Item, import, and task path parameters as attributes, and item metadata as child elements
     matches:
         msbuild-metadata:
-            name: {regex: "^(Include|Exclude|Update|Remove|Project|Path|HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|\
-                    Files|File|Inputs|Outputs|WorkingDirectory)$"}
+            name: {regex: "^(Include|Exclude|Update|Remove|Project|Path|HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|Inputs|Outputs|WorkingDirectory)$"}
             # Drive letter, home directory, or root directory opening the value
             value: {regex: '^["'']?([A-Za-z]:[\\/]|~[\\/]|/[A-Za-z0-9_.-])'}
     # Property groups hold no item, import, or task, a property named like a parameter stays a property

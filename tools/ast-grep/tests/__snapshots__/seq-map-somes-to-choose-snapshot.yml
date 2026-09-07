@@ -1,0 +1,79 @@
+id: seq-map-somes-to-choose
+snapshots:
+  class C { object F() => Read().Map(static value => Parse(value)).Somes(); }:
+    fixed: class C { object F() => Read().Choose(static value => Parse(value)); }
+    labels:
+    - source: Read().Map(static value => Parse(value)).Somes()
+      style: primary
+      start: 24
+      end: 72
+  class C { object F() => values.Map((Func<int, Option<int>>)(value => Parse(value))).Somes(); }:
+    fixed: class C { object F() => values.Choose((Func<int, Option<int>>)(value => Parse(value))); }
+    labels:
+    - source: values.Map((Func<int, Option<int>>)(value => Parse(value))).Somes()
+      style: primary
+      start: 24
+      end: 91
+  class C { object F() => values.Map((value) => Parse(value)).Somes(); }:
+    fixed: class C { object F() => values.Choose((value) => Parse(value)); }
+    labels:
+    - source: values.Map((value) => Parse(value)).Somes()
+      style: primary
+      start: 24
+      end: 67
+  class C { object F() => values.Map(Parse).Somes(); }:
+    fixed: class C { object F() => values.Choose(Parse); }
+    labels:
+    - source: values.Map(Parse).Somes()
+      style: primary
+      start: 24
+      end: 49
+  'class C { object F() => values.Map(f /* retain */ : Parse).Somes(); }':
+    fixed: 'class C { object F() => values.Choose(selector /* retain */ : Parse); }'
+    labels:
+    - source: 'values.Map(f /* retain */ : Parse).Somes()'
+      style: primary
+      start: 24
+      end: 66
+  'class C { object F() => values.Map(f: Parse).Somes(); }':
+    fixed: 'class C { object F() => values.Choose(selector: Parse); }'
+    labels:
+    - source: 'values.Map(f: Parse).Somes()'
+      style: primary
+      start: 24
+      end: 52
+  class C { object F() => values.Map(value => Parse((item, index) => item + index, value)).Somes(); }:
+    fixed: class C { object F() => values.Choose(value => Parse((item, index) => item + index, value)); }
+    labels:
+    - source: values.Map(value => Parse((item, index) => item + index, value)).Somes()
+      style: primary
+      start: 24
+      end: 96
+  'class C { object F() => values.Map(value => Parse(f: value)).Somes(); }':
+    fixed: 'class C { object F() => values.Choose(value => Parse(f: value)); }'
+    labels:
+    - source: 'values.Map(value => Parse(f: value)).Somes()'
+      style: primary
+      start: 24
+      end: 68
+  class C { object F() => values.Map(value => { Observe(value); return Parse(value); }).Somes(); }:
+    fixed: class C { object F() => values.Choose(value => { Observe(value); return Parse(value); }); }
+    labels:
+    - source: values.Map(value => { Observe(value); return Parse(value); }).Somes()
+      style: primary
+      start: 24
+      end: 93
+  class C { object F() => values.Select(Parse).Somes(); }:
+    fixed: class C { object F() => values.Choose(Parse); }
+    labels:
+    - source: values.Select(Parse).Somes()
+      style: primary
+      start: 24
+      end: 52
+  'class C { object F() => values.Select(f: Parse).Somes(); }':
+    fixed: 'class C { object F() => values.Choose(selector: Parse); }'
+    labels:
+    - source: 'values.Select(f: Parse).Somes()'
+      style: primary
+      start: 24
+      end: 55

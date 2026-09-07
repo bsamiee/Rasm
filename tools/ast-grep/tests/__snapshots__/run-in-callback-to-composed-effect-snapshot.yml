@@ -1,0 +1,319 @@
+id: run-in-callback-to-composed-effect
+snapshots:
+  import { Effect } from "effect"; const next = Effect.flatMap(load, (value) => Effect.sync(() => Effect.runSync(lookup(value))));:
+    fixed: import { Effect } from "effect"; const next = Effect.flatMap(load, (value) => Effect.suspend(() => lookup(value)));
+    labels:
+    - source: Effect.sync(() => Effect.runSync(lookup(value)))
+      style: primary
+      start: 78
+      end: 126
+    - source: Effect.sync
+      style: secondary
+      start: 78
+      end: 89
+    - source: Effect
+      style: secondary
+      start: 96
+      end: 102
+    - source: runSync
+      style: secondary
+      start: 103
+      end: 110
+    - source: Effect.runSync
+      style: secondary
+      start: 96
+      end: 110
+    - source: lookup(value)
+      style: secondary
+      start: 111
+      end: 124
+    - source: (lookup(value))
+      style: secondary
+      start: 110
+      end: 125
+    - source: Effect.runSync(lookup(value))
+      style: secondary
+      start: 96
+      end: 125
+    - source: () => Effect.runSync(lookup(value))
+      style: secondary
+      start: 90
+      end: 125
+    - source: () => Effect.runSync(lookup(value))
+      style: secondary
+      start: 90
+      end: 125
+  import { Effect } from "effect"; const next = Effect.map(load, (value) => Effect.runSync(lookup(value)));:
+    fixed: import { Effect } from "effect"; const next = Effect.flatMap(load, (value) => lookup(value));
+    labels:
+    - source: Effect.map(load, (value) => Effect.runSync(lookup(value)))
+      style: primary
+      start: 46
+      end: 104
+    - source: Effect.map
+      style: secondary
+      start: 46
+      end: 56
+    - source: Effect
+      style: secondary
+      start: 74
+      end: 80
+    - source: runSync
+      style: secondary
+      start: 81
+      end: 88
+    - source: Effect.runSync
+      style: secondary
+      start: 74
+      end: 88
+    - source: lookup(value)
+      style: secondary
+      start: 89
+      end: 102
+    - source: (lookup(value))
+      style: secondary
+      start: 88
+      end: 103
+    - source: Effect.runSync(lookup(value))
+      style: secondary
+      start: 74
+      end: 103
+    - source: (value) => Effect.runSync(lookup(value))
+      style: secondary
+      start: 63
+      end: 103
+    - source: (value) => Effect.runSync(lookup(value))
+      style: secondary
+      start: 63
+      end: 103
+  import { Effect } from "effect"; const next = Effect.map(load, function (value) { return Effect.runSync(lookup(value)); });:
+    fixed: import { Effect } from "effect"; const next = Effect.flatMap(load, function (value) { return lookup(value); });
+    labels:
+    - source: Effect.map(load, function (value) { return Effect.runSync(lookup(value)); })
+      style: primary
+      start: 46
+      end: 122
+    - source: Effect.map
+      style: secondary
+      start: 46
+      end: 56
+    - source: Effect
+      style: secondary
+      start: 89
+      end: 95
+    - source: runSync
+      style: secondary
+      start: 96
+      end: 103
+    - source: Effect.runSync
+      style: secondary
+      start: 89
+      end: 103
+    - source: lookup(value)
+      style: secondary
+      start: 104
+      end: 117
+    - source: (lookup(value))
+      style: secondary
+      start: 103
+      end: 118
+    - source: Effect.runSync(lookup(value))
+      style: secondary
+      start: 89
+      end: 118
+    - source: return Effect.runSync(lookup(value));
+      style: secondary
+      start: 82
+      end: 119
+    - source: '{ return Effect.runSync(lookup(value)); }'
+      style: secondary
+      start: 80
+      end: 121
+    - source: function (value) { return Effect.runSync(lookup(value)); }
+      style: secondary
+      start: 63
+      end: 121
+    - source: function (value) { return Effect.runSync(lookup(value)); }
+      style: secondary
+      start: 63
+      end: 121
+  import { Effect } from "effect"; const next = Effect.promise(() => Effect.runPromise(lookup(1)));:
+    fixed: import { Effect } from "effect"; const next = Effect.suspend(() => lookup(1));
+    labels:
+    - source: Effect.promise(() => Effect.runPromise(lookup(1)))
+      style: primary
+      start: 46
+      end: 96
+    - source: Effect.promise
+      style: secondary
+      start: 46
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 67
+      end: 73
+    - source: runPromise
+      style: secondary
+      start: 74
+      end: 84
+    - source: Effect.runPromise
+      style: secondary
+      start: 67
+      end: 84
+    - source: lookup(1)
+      style: secondary
+      start: 85
+      end: 94
+    - source: (lookup(1))
+      style: secondary
+      start: 84
+      end: 95
+    - source: Effect.runPromise(lookup(1))
+      style: secondary
+      start: 67
+      end: 95
+    - source: () => Effect.runPromise(lookup(1))
+      style: secondary
+      start: 61
+      end: 95
+    - source: () => Effect.runPromise(lookup(1))
+      style: secondary
+      start: 61
+      end: 95
+  import { Effect } from "effect"; const next = Effect.sync(() => Effect.runSync(lookup(1)));:
+    fixed: import { Effect } from "effect"; const next = Effect.suspend(() => lookup(1));
+    labels:
+    - source: Effect.sync(() => Effect.runSync(lookup(1)))
+      style: primary
+      start: 46
+      end: 90
+    - source: Effect.sync
+      style: secondary
+      start: 46
+      end: 57
+    - source: Effect
+      style: secondary
+      start: 64
+      end: 70
+    - source: runSync
+      style: secondary
+      start: 71
+      end: 78
+    - source: Effect.runSync
+      style: secondary
+      start: 64
+      end: 78
+    - source: lookup(1)
+      style: secondary
+      start: 79
+      end: 88
+    - source: (lookup(1))
+      style: secondary
+      start: 78
+      end: 89
+    - source: Effect.runSync(lookup(1))
+      style: secondary
+      start: 64
+      end: 89
+    - source: () => Effect.runSync(lookup(1))
+      style: secondary
+      start: 58
+      end: 89
+    - source: () => Effect.runSync(lookup(1))
+      style: secondary
+      start: 58
+      end: 89
+  import { Effect } from "effect"; const next = load.pipe(Effect.map((value) => { return Effect.runSync(lookup(value)); }));:
+    fixed: import { Effect } from "effect"; const next = load.pipe(Effect.flatMap((value) => { return lookup(value); }));
+    labels:
+    - source: Effect.map((value) => { return Effect.runSync(lookup(value)); })
+      style: primary
+      start: 56
+      end: 120
+    - source: Effect.map
+      style: secondary
+      start: 56
+      end: 66
+    - source: Effect
+      style: secondary
+      start: 87
+      end: 93
+    - source: runSync
+      style: secondary
+      start: 94
+      end: 101
+    - source: Effect.runSync
+      style: secondary
+      start: 87
+      end: 101
+    - source: lookup(value)
+      style: secondary
+      start: 102
+      end: 115
+    - source: (lookup(value))
+      style: secondary
+      start: 101
+      end: 116
+    - source: Effect.runSync(lookup(value))
+      style: secondary
+      start: 87
+      end: 116
+    - source: return Effect.runSync(lookup(value));
+      style: secondary
+      start: 80
+      end: 117
+    - source: '{ return Effect.runSync(lookup(value)); }'
+      style: secondary
+      start: 78
+      end: 119
+    - source: (value) => { return Effect.runSync(lookup(value)); }
+      style: secondary
+      start: 67
+      end: 119
+    - source: (value) => { return Effect.runSync(lookup(value)); }
+      style: secondary
+      start: 67
+      end: 119
+  import { Micro } from "effect"; const next = Micro.map(load, (value) => Micro.runSync(lookup(value)));:
+    fixed: import { Micro } from "effect"; const next = Micro.flatMap(load, (value) => lookup(value));
+    labels:
+    - source: Micro.map(load, (value) => Micro.runSync(lookup(value)))
+      style: primary
+      start: 45
+      end: 101
+    - source: Micro.map
+      style: secondary
+      start: 45
+      end: 54
+    - source: Micro
+      style: secondary
+      start: 72
+      end: 77
+    - source: runSync
+      style: secondary
+      start: 78
+      end: 85
+    - source: Micro.runSync
+      style: secondary
+      start: 72
+      end: 85
+    - source: lookup(value)
+      style: secondary
+      start: 86
+      end: 99
+    - source: (lookup(value))
+      style: secondary
+      start: 85
+      end: 100
+    - source: Micro.runSync(lookup(value))
+      style: secondary
+      start: 72
+      end: 100
+    - source: (value) => Micro.runSync(lookup(value))
+      style: secondary
+      start: 61
+      end: 100
+    - source: (value) => Micro.runSync(lookup(value))
+      style: secondary
+      start: 61
+      end: 100

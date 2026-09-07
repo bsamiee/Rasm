@@ -1,8 +1,11 @@
 {
     "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "outDir": ".cache/typescript/out/root",
-        "types": ["node"]
-    },
-    "include": ["*.config.ts", "tests/typescript/support/vitest.config.ts", "tools/nx/*.ts", "infra/*.ts"]
+    "compilerOptions": { "outDir": ".cache/typescript/out/root", "types": ["node"] },
+    "include": [
+        "*.config.ts",
+        "tests/typescript/support/vitest.config.ts",
+        "tools/nx/*.ts",
+        "tests/typescript/ast-grep/*.ts",
+        "infra/*.ts"
+    ]
 }

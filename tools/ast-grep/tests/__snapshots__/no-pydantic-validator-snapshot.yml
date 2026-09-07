@@ -7,6 +7,12 @@ snapshots:
       style: primary
       start: 21
       end: 35
+  from pydantic import validate_arguments:
+    labels:
+    - source: validate_arguments
+      style: primary
+      start: 21
+      end: 39
   ? |
     from pydantic import validator
   : labels:
@@ -14,6 +20,18 @@ snapshots:
       style: primary
       start: 21
       end: 30
+  from pydantic.deprecated.class_validators import validator:
+    labels:
+    - source: validator
+      style: primary
+      start: 49
+      end: 58
+  from pydantic.deprecated.decorator import validate_arguments as validated:
+    labels:
+    - source: validate_arguments
+      style: primary
+      start: 42
+      end: 60
   ? |
     import pydantic
 
@@ -36,3 +54,19 @@ snapshots:
       style: primary
       start: 24
       end: 41
+  ? |
+    import pydantic as pd
+    @pd.validate_arguments
+    def run(count: int) -> int:
+        return count
+  : labels:
+    - source: pd.validate_arguments
+      style: primary
+      start: 23
+      end: 44
+  pydantic.deprecated.class_validators.root_validator(pre=True):
+    labels:
+    - source: pydantic.deprecated.class_validators.root_validator
+      style: primary
+      start: 0
+      end: 51

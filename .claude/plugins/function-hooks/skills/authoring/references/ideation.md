@@ -68,5 +68,6 @@ Settle each before the row is written, in order:
 4. Which table holds the row, and whether the row type needs a field every consumer of the table then reads
 5. Which proof shows it: the spec over a literal event, the `--plugin-dir --debug -p` run, and the debug line it must print
 6. Whether the answer is cached, and which writer invalidates it
+7. Whether a person acts on what a surface shows, and which surface: the notice under the call, the band, the status line, or none
 7. Whether the work outlives the dispatch, and then whether it starts in `session.start`
 8. Whether the call reaches the plugin's own hooks, and whether a spawned agent's calls reach a served tool

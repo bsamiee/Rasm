@@ -2,7 +2,24 @@
 id: no-type-alias
 language: python
 severity: error
+utils:
+    alias-annotation:
+        any:
+            - matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^TypeAlias$'}}}
+            - matches: {python-imported-name: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^TypeAlias$'}}}
 rule:
-    matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^TypeAlias$', pattern: $NAME}}}
-message: '`$NAME` annotates an alias the type statement declares'
-note: Write `type <Name> = <expression>`
+    kind: assignment
+    all:
+        - has: {field: left, kind: identifier, pattern: $NAME}
+        - has: {field: type, kind: type, has: {matches: alias-annotation}}
+        - has: {field: right, pattern: $VALUE}
+transform:
+    # A quoted forward reference loses its quotes, the type statement evaluates its value lazily
+    UNQUOTED:
+        replace:
+            source: $VALUE
+            replace: '^"([^"]*)"$|^''([^'']*)''$'
+            by: '$1$2'
+fix: type $NAME = $UNQUOTED
+message: '`$NAME` is annotated as an alias the type statement declares'
+note: Write `type <Name> = <expression>`, and keep the annotation where the runtime reads the alias as its value

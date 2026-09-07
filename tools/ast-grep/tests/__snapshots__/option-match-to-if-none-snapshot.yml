@@ -1,0 +1,72 @@
+id: option-match-to-if-none
+snapshots:
+  'class C { int F() => Get().Match(Some: x => x, None: fallback); }':
+    fixed: class C { int F() => Get().IfNone(fallback); }
+    labels:
+    - source: 'Get().Match(Some: x => x, None: fallback)'
+      style: primary
+      start: 21
+      end: 62
+  'class C { int F() => value.Match(None: () => Compute(), Some: static x => x); }':
+    fixed: class C { int F() => value.IfNone(() => Compute()); }
+    labels:
+    - source: 'value.Match(None: () => Compute(), Some: static x => x)'
+      style: primary
+      start: 21
+      end: 76
+  'class C { int F() => value.Match(Some: (int x) => x, None: () => Compute()); }':
+    fixed: class C { int F() => value.IfNone(() => Compute()); }
+    labels:
+    - source: 'value.Match(Some: (int x) => x, None: () => Compute())'
+      style: primary
+      start: 21
+      end: 75
+  'class C { int F() => value.Match(Some: (x) => x, None: () => Compute()); }':
+    fixed: class C { int F() => value.IfNone(() => Compute()); }
+    labels:
+    - source: 'value.Match(Some: (x) => x, None: () => Compute())'
+      style: primary
+      start: 21
+      end: 71
+  'class C { int F() => value.Match(Some: static (int x) => { return x; }, None: () => Compute()); }':
+    fixed: class C { int F() => value.IfNone(() => Compute()); }
+    labels:
+    - source: 'value.Match(Some: static (int x) => { return x; }, None: () => Compute())'
+      style: primary
+      start: 21
+      end: 94
+  'class C { int F() => value.Match(Some: static (x) => { return x; }, None: () => Compute()); }':
+    fixed: class C { int F() => value.IfNone(() => Compute()); }
+    labels:
+    - source: 'value.Match(Some: static (x) => { return x; }, None: () => Compute())'
+      style: primary
+      start: 21
+      end: 90
+  'class C { int F() => value.Match(Some: x => x, None: () => Compute()); }':
+    fixed: class C { int F() => value.IfNone(() => Compute()); }
+    labels:
+    - source: 'value.Match(Some: x => x, None: () => Compute())'
+      style: primary
+      start: 21
+      end: 69
+  'class C { int F() => value.Match(Some: x => { return x; }, None: () => Compute()); }':
+    fixed: class C { int F() => value.IfNone(() => Compute()); }
+    labels:
+    - source: 'value.Match(Some: x => { return x; }, None: () => Compute())'
+      style: primary
+      start: 21
+      end: 81
+  class C { int F() => value.Match(static (x) => x, () => Compute()); }:
+    fixed: class C { int F() => value.IfNone(() => Compute()); }
+    labels:
+    - source: value.Match(static (x) => x, () => Compute())
+      style: primary
+      start: 21
+      end: 66
+  class C { int F() => value.Match(x => x, Compute()); }:
+    fixed: class C { int F() => value.IfNone(Compute()); }
+    labels:
+    - source: value.Match(x => x, Compute())
+      style: primary
+      start: 21
+      end: 51

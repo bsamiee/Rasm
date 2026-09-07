@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-blocking-sleep
+language: python
+severity: error
+# Report-only, the probed fix `time.sleep` to `anyio.sleep` in a sync def fails, `RuntimeWarning: coroutine 'sleep' was never awaited`
+rule:
+    pattern: $USE
+    matches: {python-module-member: {module: {regex: '^time$'}, name: {regex: '^sleep$'}}}
+message: '`$USE` blocks the current thread while waiting'
+note: Await the condition that completes the work, or `await anyio.sleep(<delay>)` when elapsed time is the condition

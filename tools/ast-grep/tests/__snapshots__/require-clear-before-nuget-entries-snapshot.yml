@@ -19,12 +19,20 @@ snapshots:
       start: 0
       end: 18
   ? |
+    <packageSources label="a > b"><add key="feed" value="https://example.com" /><clear /></packageSources>
+  : fixed: |
+      <packageSources label="a > b"><clear /><add key="feed" value="https://example.com" /></packageSources>
+    labels:
+    - source: <packageSources label="a > b"><add key="feed" value="https://example.com" /><clear /></packageSources>
+      style: primary
+      start: 0
+      end: 102
+  ? |
     <packageSources>
         <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
     </packageSources>
   : fixed: |
-      <packageSources>
-          <clear />
+      <packageSources><clear />
           <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
       </packageSources>
     labels:
@@ -35,6 +43,15 @@ snapshots:
       style: primary
       start: 0
       end: 106
+  ? |
+    <packageSources><!-- <clear /> --><add key="feed" value="https://example.com" /></packageSources>
+  : fixed: |
+      <packageSources><clear /><!-- <clear /> --><add key="feed" value="https://example.com" /></packageSources>
+    labels:
+    - source: <packageSources><!-- <clear /> --><add key="feed" value="https://example.com" /></packageSources>
+      style: primary
+      start: 0
+      end: 97
   ? |
     <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear /></packageSources>
   : fixed: |

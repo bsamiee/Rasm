@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, renaming leaves consumers in other files reading the public name, the probe consumer read Rhino.appContents without the separator
 id: require-private-normalized-property
 language: xml
 severity: error
@@ -8,9 +9,14 @@ rule:
             name: {regex: '^[A-Za-z]'}
             # The whole value is one normalizing function over one property, the form a global property from -p: silently skips
             text:
-                regex: "^\\s*\\$\\((\\[MSBuild\\]::(NormalizeDirectory|NormalizePath|EnsureTrailingSlash)|\
-                    \\[System\\.IO\\.Path\\]::(GetFullPath|TrimEndingDirectorySeparator))\\('\\$\\([A-Za-z_][A-Za-z0-9_]*\\)'\\)\\)\\s*$"
-message: >-
-    The public property re-assigns the normalized form of one property, a -p switch or an MSBuild task then supplies the name as a global
-    property and skips the assignment
+                regex: "^\\s*\\$\\((\\[MSBuild\\]::(NormalizeDirectory|NormalizePath|EnsureTrailingSlash)|\\[System\\.IO\\.Path\\]::(GetFullPath|TrimEndingDirectorySeparator))\\('\\$\\([A-Za-z_][A-Za-z0-9_]*\\)'\\)\\)\\s*$"
+    # A local-property declaration can permit reassignment; its expanded name list needs MSBuild evaluation.
+    not:
+        inside:
+            kind: element
+            stopBy: end
+            has:
+                matches: msbuild-tag
+                has: {matches: {msbuild-attribute: {name: {regex: '^TreatAsLocalProperty$'}, value: {regex: '[^"''\s]'}}}}
+message: The public property assigns its own normalized value, a -p switch or an MSBuild task supplies the name as a global property and skips it
 note: Derive the normalized value into a _ prefixed private property and read that

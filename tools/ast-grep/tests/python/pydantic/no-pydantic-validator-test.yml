@@ -1,22 +1,25 @@
 id: no-pydantic-validator
 valid:
-    # The corrected form, the field validator
+    # A declared field constraint replaces a validator that restates it.
     - |
-      from pydantic import BaseModel, field_validator
+      from pydantic import BaseModel, Field
 
       class Settings(BaseModel):
-          port: int
-
-          @field_validator("port")
-          @classmethod
-          def positive(cls, value: int) -> int:
-              return value
+          port: int = Field(gt=0)
+    # Modern decorators retain custom validation that a field constraint does not express.
+    - "from pydantic import field_validator"
     # The model validator
     - |
       from pydantic import model_validator
     # Attribute named like the decorator on another object
     - |
       check = schema.validator("port")
+    - "from pydantic import validate_call"
+    - 'pydantic.validate_call(config={"strict": True})(run)'
+    - "other.validate_arguments(run)"
+    # Deprecated submodules expose different APIs; do not form a module/member cross product.
+    - "pydantic.deprecated.decorator.validator(run)"
+    - "pydantic.deprecated.class_validators.validate_arguments(run)"
 invalid:
     # The instance, the decorator imported from pydantic
     - |
@@ -38,3 +41,13 @@ invalid:
       @pd.root_validator
       def whole(cls, values):
           return values
+    # The deprecated namespace exposes the same decorators
+    - "from pydantic.deprecated.class_validators import validator"
+    - "pydantic.deprecated.class_validators.root_validator(pre=True)"
+    - "from pydantic import validate_arguments"
+    - "from pydantic.deprecated.decorator import validate_arguments as validated"
+    - |
+      import pydantic as pd
+      @pd.validate_arguments
+      def run(count: int) -> int:
+          return count

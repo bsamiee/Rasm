@@ -1,0 +1,44 @@
+# The detection cases belong to no-control-flow-expression-statement, the cases here prove the loop form and the shapes edited by hand
+id: comprehension-statement-to-loop
+valid:
+    # The corrected form
+    - |
+      for item in items:
+          record(item)
+    # The comprehension as a value
+    - |
+      names = [item.name for item in items]
+    # A condition selects the elements
+    - |
+      [record(item) for item in items if item.ready]
+    # A nested clause
+    - |
+      [record(item) for group in groups for item in group]
+    # A dictionary comprehension evaluates a key and a value
+    - |
+      {item.name: record(item) for item in items}
+    # An asynchronous clause
+    - |
+      async def run():
+          [record(item) async for item in items]
+    # A comment inside the comprehension
+    - |
+      [
+          record(item)  # Each item once
+          for item in items
+      ]
+invalid:
+    # The instance, a list comprehension for its effect
+    - |
+      [record(item) for item in items]
+    # A set comprehension for its effect
+    - |
+      {record(item) for item in items}
+    # A tuple target
+    - |
+      [record(key, value) for key, value in pairs.items()]
+    # Under a function body, the loop takes the statement's column
+    - |
+      def run(items):
+          [record(item) for item in items]
+          return len(items)

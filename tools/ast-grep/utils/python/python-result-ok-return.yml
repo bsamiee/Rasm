@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# Return of one synchronous value under the Ok constructor, a consumer captures the value in its own clause
+id: python-result-ok-return
+language: python
+rule:
+    kind: return_statement
+    has:
+        kind: call
+        all:
+            - has: {field: function, regex: '^(Result\.)?Ok$'}
+            - has:
+                field: arguments
+                has: {pattern: $_}
+                not: {has: {nthChild: 2}}
+            - not: {has: {kind: "await, named_expression, yield", stopBy: end}}

@@ -61,6 +61,7 @@ const _CONTROL = [
     'trust_solution',
     'unload_solution',
 ];
+const _CONTROL_TOOLS = _CONTROL.map((name) => `mcp__roslyn-codelens__${name}`);
 const _READ_COUNT = 56;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -133,7 +134,7 @@ describe('ROSLYN_READS', () => {
     it('lists every server tool but the control tools and refines a read event alone', () => {
         expect(ROSLYN_READS).toHaveLength(_READ_COUNT);
         expect(ROSLYN_READS.every((tool) => tool.startsWith('mcp__roslyn-codelens__'))).toBe(true);
-        expect(ROSLYN_READS.filter((tool) => _CONTROL.some((name) => tool === `mcp__roslyn-codelens__${name}`))).toStrictEqual([]);
+        expect(ROSLYN_READS.filter((tool) => _CONTROL_TOOLS.includes(tool))).toStrictEqual([]);
         expect(isRoslynRead({ tool: 'mcp__roslyn-codelens__get_diagnostics', ['tool_use_id']: 'call', project: _PROJECT })).toBe(true);
         expect(isRoslynRead({ tool: 'mcp__roslyn-codelens__trust_solution', ['tool_use_id']: 'call', path: '/x/Other.slnx' })).toBe(false);
         expect(isRoslynRead({ tool: 'Bash', ['tool_use_id']: 'call', command: 'ls' })).toBe(false);

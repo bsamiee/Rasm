@@ -7,7 +7,7 @@ description: Use when a settled plan must run, the main agent orchestrates the s
 
 Runs a settled plan of scoped changes, and decides who reads, who writes, who reviews, and in what order. Use `work-planning` for writing the plan and the companion files the run reads.
 
-[REFERENCES]: the execution styles, each a way to run the plan's steps:
+[REFERENCES]:
 - [01]-[FORK_DISPATCH](references/fork-dispatch.md): One fresh orchestrator per system, a fork per step, fresh agents where bias is the risk
 
 ## [01]-[DECISION]

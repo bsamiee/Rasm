@@ -34,3 +34,23 @@ invalid:
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><AssemblyName>Exe</AssemblyName></PropertyGroup><ItemGroup>
         <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    # Windows executable output type, the text becomes Exe
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType></PropertyGroup><ItemGroup>
+        <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    # Conditioned output type, the fix keeps the attribute
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType Condition="'$(Host)' == 'true'">Library</OutputType></PropertyGroup><ItemGroup>
+        <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    # Another property beside the output type keeps its text
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Library</OutputType><LangVersion>latest</LangVersion></PropertyGroup><ItemGroup>
+        <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    # Another reference beside the framework, the collector joins the framework reference alone
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup>
+        <PackageReference Include="CsCheck" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    # Padded executable output type without the collector, the padding stays
+    - |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType> Exe </OutputType></PropertyGroup><ItemGroup>
+        <PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>

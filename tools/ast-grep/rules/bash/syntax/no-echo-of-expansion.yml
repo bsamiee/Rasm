@@ -1,67 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# The rewrite echo-expansion-to-printf fixes one quoted operand, printf '%s\n' $x over an unquoted one prints a line per word
 id: no-echo-of-expansion
 language: bash
 severity: error
+ignores: ["**/*.json"]
 utils:
-    # An option word echo reads, the first argument or one right after another option word
-    option-word:
-        kind: word
-        regex: '^-[neE]+$'
+    numeric-word:
         any:
-            - nthChild: 2
-            - follows: {matches: option-word}
-    # Every positional parameter or every array element, one echo argument that a format reads as many
-    list-expansion:
-        any:
-            - kind: special_variable_name
-              regex: '^[@*]$'
-            - kind: subscript
-              has: {field: index, regex: '^[@*]$'}
-              not: {inside: {kind: expansion, regex: '^\$\{#'}} # The element count is one word
-            # Every variable name with the prefix, ${!<prefix>@} and ${!<prefix>*}
+            - kind: arithmetic_expansion
+            - kind: simple_expansion
+              regex: '^\$[?#$!]$'
             - kind: expansion
-              regex: '^\$\{![A-Za-z_][A-Za-z0-9_]*[@*]\}$'
+              has:
+                field: operator
+                regex: '^#$'
+                precedes: {kind: 'variable_name, subscript, special_variable_name'}
+            - kind: string
+              has: {matches: numeric-word}
+              not: {has: {nthChild: 2}}
 rule:
     kind: command
     all:
-        - has: {matches: bash-expanding-word} # No field pin, has with a field tests the first argument alone
-        - not: {has: {has: {stopBy: end, matches: list-expansion}}}
-        - pattern: echo $$$ARGS
-rewriters:
-    - id: drop-flag
-      rule: {matches: option-word}
-      fix: ''
-    - id: keep-argument
-      rule: {pattern: $A}
-      fix: $A
-    - id: keep-flag
-      rule: {matches: option-word, pattern: $A}
-      fix: $A
-    # Under -e echo interprets backslash escapes, the %b directive does the same, and the last e or E among the option words
-    # decides, -eE and -e -E keep the backslashes
-    - id: escape-directive
-      rule:
-          pattern: $A
-          inside:
-              kind: command
-              has:
-                  matches: option-word
-                  regex: '^-[neE]*e[n]*$'
-                  not: {precedes: {stopBy: end, matches: option-word, regex: '^-[neE]*E[n]*$'}}
-      fix: '%b'
-    - id: string-directive
-      rule: {pattern: $A}
-      fix: '%s'
-transform:
-    REST: rewrite($$$ARGS, rewriters=[drop-flag, keep-argument], joinBy=' ')
-    ARGUMENTS: replace($REST, replace='^ +', by='')
-    DIRECTIVES: rewrite($$$ARGS, rewriters=[drop-flag, escape-directive, string-directive], joinBy=' ')
-    FORMAT: replace($DIRECTIVES, replace='^ +', by='')
-    # The trailing newline leaves under -n, N1 marks an n among the joined option words, N2 turns no n into the newline, N3 drops the mark
-    FLAGS: rewrite($$$ARGS, rewriters=[keep-flag], joinBy='')
-    N1: replace($FLAGS, replace='^[-eE]*n.*$', by='NONL')
-    N2: replace($N1, replace='^[-eE]*$', by='\n')
-    NEWLINE: replace($N2, replace='^NONL$', by='')
-fix: printf '$FORMAT$NEWLINE' $ARGUMENTS
-message: '`echo` prints an expansion with text that can begin with `-` or hold backslashes'
-note: Print through a format, `printf '%s\n' "<value>"`, `%b` for `echo -e` and no `\n` for `echo -n`, the option words in any count and order
+        - has: {field: name, regex: '^echo$'}
+        - has: {matches: bash-expanding-word, not: {matches: numeric-word}}
+message: echo interprets expanded data as options or escape sequences
+note: Print expanded data through printf with a literal format, `%s` for text and `%b` for escapes, with the separator chosen explicitly

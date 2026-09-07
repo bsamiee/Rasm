@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Registration call, on(event, hook) or on(event, matcher, hook), through the parameter named on or a parameter typed On under any name
 id: claude-code-registration
 language: tsx
 rule:
@@ -8,16 +7,15 @@ rule:
         field: function
         kind: identifier
         any:
-            - regex: '^on$'
+            - {regex: ^on$}
             - pattern: $ON
-              # The parameter typed On under any name, inline because a parameterized call under has fails random loads
               inside:
-                  stopBy: end
-                  matches: syntax-function-boundary
-                  has:
-                      field: parameters
-                      has:
-                          kind: required_parameter
-                          all:
-                              - has: {field: pattern, kind: identifier, pattern: $ON}
-                              - has: {field: type, kind: type_annotation, has: {kind: type_identifier, regex: '^On$'}}
+                stopBy: end
+                matches: syntax-function-boundary
+                has:
+                    field: parameters
+                    has:
+                        kind: required_parameter
+                        all:
+                            - {has: {field: pattern, kind: identifier, pattern: $ON}}
+                            - {has: {field: type, kind: type_annotation, has: {kind: type_identifier, regex: ^On$}}}

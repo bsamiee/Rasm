@@ -7,9 +7,9 @@ rule:
     any:
         - has: {matches: msbuild-tag, has: {kind: Attribute, all: [{has: {kind: Name, matches: name}}, {has: {kind: AttValue, matches: value}}]}}
         - has:
-              kind: content
-              has:
-                  kind: element
-                  all:
-                      - has: {kind: STag, has: {kind: Name, matches: name}}
-                      - has: {kind: content, has: {kind: CharData, matches: value}}
+            kind: content
+            has:
+                kind: element
+                all:
+                    - has: {kind: STag, has: {kind: Name, matches: name}}
+                    - has: {kind: content, has: {kind: CharData, matches: value}}

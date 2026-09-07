@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, the catch arm needs an error class the file lacks, the probe fails with TS2304 Cannot find name 'ParseError'
 id: require-catch-on-try
 language: tsx
 severity: error
@@ -6,10 +7,18 @@ rule:
     kind: call_expression
     all:
         # The overloads that take a bare thunk, Micro.try, Micro.tryPromise, and ParseResult.try take the options object alone
-        - has: {field: function, pattern: $TRY, regex: '^Effect\.(try|tryPromise)$|^(Either|STM)\.try$'}
+        - has:
+            field: function
+            kind: member_expression
+            pattern: $TRY
+            all:
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Either|STM)$'}}}}
+                - any:
+                    - has: {field: property, regex: '^try$'}
+                    - has: {field: property, regex: '^tryPromise$'}
+                      all:
+                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Effect$'}}}}
         # The thunk written in place, a name passed instead can hold the options object and the shape cannot tell
-        - has: {field: arguments, has: {any: [{kind: arrow_function}, {kind: function_expression}]}}
-message: '`$TRY` runs without a catch mapping and fails with `UnknownException`'
-note: >-
-    Pass the options object, `Effect.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) })`,
-    and map the cause to a tagged error consumers match
+        - has: {field: arguments, has: {stopBy: {not: {kind: parenthesized_expression}}, any: [{kind: arrow_function}, {kind: function_expression}]}}
+message: '`$TRY` runs without an explicit error mapping'
+note: 'Pass the options object, `Effect.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) })`, with a matchable error'

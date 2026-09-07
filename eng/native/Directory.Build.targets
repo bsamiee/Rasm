@@ -3,7 +3,7 @@
         <VersionManifest>$(MSBuildThisFileDirectory)$(NativeLibraryName)/$([MSBuild]::ValueOrDefault('$(VersionManifestFileName)', 'vcpkg.json'))</VersionManifest>
         <CentralPackagesPath>$(RepositoryRoot)Directory.Packages.props</CentralPackagesPath>
         <!-- The manifest owns the version, this file reads the project's VersionManifestFileName and imports before the SDK reads Version -->
-        <_ManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VersionManifest)')), '(?&lt;="version-string": ")[^"]+').Value)</_ManifestVersion>
+        <_ManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(VersionManifest)')), '"version-string"\s*:\s*"([^"]+)"').Groups[1].Value)</_ManifestVersion>
         <Version Condition="'$(_ManifestVersion)' != ''">$(_ManifestVersion)</Version>
     </PropertyGroup>
 

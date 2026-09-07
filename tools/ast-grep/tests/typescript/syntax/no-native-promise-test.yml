@@ -1,5 +1,17 @@
 id: no-native-promise
 valid:
+    # Local and imported bindings do not identify a native global.
+    - 'function create(Promise: { resolve(value: number): unknown }) { return Promise.resolve(1); }'
+    - 'import * as Promise from "./task"; Promise.resolve(1);'
+    # Named aliases and the JS implementation both preserve the Nx override contract.
+    - 'import { VersionActions as Base } from "nx/release"; abstract class Actions extends Base { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+    - 'import Base from "@nx/js/src/release/version-actions"; class Actions extends Base { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+    # A module constructor normalized from CommonJS retains the imported constructor type.
+    - 'import type Base from "@nx/js/src/release/version-actions"; const Resolved: typeof Base = resolveConstructor(); export class Actions extends Resolved { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+    # Statement bodies place the adapter owner beyond the call's immediate parent
+    - 'import { Effect } from "effect"; const value = Effect.promise(() => { return Promise.resolve(1); });'
+    # Nx owns this Promise boundary; an Effect roundtrip changes rejection identity.
+    - 'import { VersionActions } from "nx/release"; class Actions extends VersionActions { override readCurrentVersionFromRegistry(): Promise<null> { return Promise.resolve(null); } }'
     # The effects composed
     - "const rows = Effect.all([first, second], { concurrency: 'unbounded' });"
     # The race
@@ -14,7 +26,28 @@ valid:
     - 'const rows = Chunk.all(first, second);'
     # Constructor named like Promise on another path
     - 'const later = new host.Promise(run);'
+    # Promise creation in the imported adapter callback is the host conversion
+    - 'import { Effect } from "effect"; const value = Effect.promise(() => Promise.resolve(1));'
+    # A local callback computation inside the adapter preserves its Promise boundary
+    - 'import { Effect } from "effect"; const value = Effect.promise(() => { const load = () => Promise.resolve(1); return load(); });'
 invalid:
+    # Another exported constructor and an Object override carry no VersionActions contract.
+    - 'import { ReleaseClient as Base } from "nx/release"; class Actions extends Base { override valueOf(): Promise<object> { return Promise.resolve({}); } }'
+    # A synchronous Object override remains domain logic even on a VersionActions subclass.
+    - 'import { VersionActions } from "nx/release"; type Identity<T> = T; abstract class Actions extends VersionActions { override toString(): Identity<string> { Promise.resolve([]); return "actions"; } }'
+    # Imports from other hosts do not establish the Nx boundary.
+    - 'import { VersionActions } from "./host"; class Actions extends VersionActions { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+    - 'import Base from "./host"; class Actions extends Base { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+    # The original exported spelling is not the local binding after an alias.
+    - 'import { VersionActions as Base } from "nx/release"; import VersionActions from "./host"; class Actions extends VersionActions { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+    # A factory parameter shadows the import.
+    - 'import { VersionActions } from "nx/release"; function create(VersionActions: HostConstructor) { return class Actions extends VersionActions { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }; }'
+    # A nested constructor can shadow the normalized module constructor.
+    - 'import Base from "@nx/js/src/release/version-actions"; const Resolved: typeof Base = resolveConstructor(); function create(Resolved: HostConstructor) { return class Actions extends Resolved { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }; }'
+    # Error mapping is outside the try callback that adapts a host Promise
+    - 'import { Effect } from "effect"; const value = Effect.tryPromise({ try: load, catch: () => Promise.resolve(1) });'
+    # A same-spelled local object is not the Effect adapter
+    - 'const Effect = { promise: run }; Effect.promise(() => Promise.resolve(1));'
     # The instance, the constructor over an executor
     - 'const later = new Promise<number>((resolve) => resolve(1));'
     # The constructor without a type argument

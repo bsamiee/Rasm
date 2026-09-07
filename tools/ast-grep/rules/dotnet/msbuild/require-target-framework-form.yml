@@ -6,31 +6,27 @@ rule:
     pattern: _PROPERTY
     any:
         # List in the singular fails the SDK with NETSDK1046, the plural tag is the list form
-        - matches: {msbuild-property-value: {name: {regex: '^TargetFramework$'}, text: {regex: ';'}}}
+        - matches: {msbuild-property-value: {name: {regex: "^TargetFramework$"}, text: {regex: ";"}}}
         # One literal framework in the plural runs an outer build around one inner build
-        - matches: {msbuild-property-value: {name: {regex: '^TargetFrameworks$'}, text: {regex: '^\s*[A-Za-z][A-Za-z0-9.-]*\s*$'}}}
-    # Files holding both properties go to the sibling require-target-framework-form-by-hand, a rename there duplicates the kept one
+        - matches: {msbuild-property-value: {name: {regex: "^TargetFrameworks$"}, text: {regex: '^\s*[A-Za-z][A-Za-z0-9.-]*\s*$'}}}
+          not: {has: {kind: content, regex: ';'}}
+    # BuildCheck BC0107 handles both properties together, a rename would duplicate the retained property
     not:
         inside:
             kind: document
             stopBy: end
             all:
-                - has: {matches: {msbuild-property: {name: {regex: '^TargetFramework$'}}}, stopBy: end}
-                - has: {matches: {msbuild-property: {name: {regex: '^TargetFrameworks$'}}}, stopBy: end}
+                - has: {matches: {msbuild-property: {name: {regex: "^TargetFramework$"}}}, stopBy: end}
+                - has: {matches: {msbuild-property: {name: {regex: "^TargetFrameworks$"}}}, stopBy: end}
 transform:
-    # The plural tag takes the list, then the singular tag takes one framework, attributes, comments, and text stay
-    PLURAL:
-        replace:
-            source: $PROPERTY
-            replace: '^<TargetFramework(\s[^>]*)?>((?:[^<]|<!--[\s\S]*?-->)*)</TargetFramework>$'
-            by: '<TargetFrameworks$1>$2</TargetFrameworks>'
-    SINGULAR:
-        replace:
-            source: $PLURAL
-            replace: '^<TargetFrameworks(\s[^>]*)?>((?:\s|<!--[\s\S]*?-->)*[A-Za-z][A-Za-z0-9.-]*(?:\s|<!--[\s\S]*?-->)*)</TargetFrameworks>$'
-            by: '<TargetFramework$1>$2</TargetFramework>'
-fix: $SINGULAR
-message: >-
-    TargetFramework holds one framework and TargetFrameworks holds a semicolon list, a list in the singular fails with NETSDK1046 and one
-    framework in the plural adds an outer build
+    RENAMED: rewrite($PROPERTY, rewriters=[plural, singular])
+fix: $RENAMED
+rewriters:
+    - id: plural
+      rule: {kind: Name, regex: '^TargetFramework$', inside: {any: [{kind: STag}, {kind: ETag}]}}
+      fix: TargetFrameworks
+    - id: singular
+      rule: {kind: Name, inside: {any: [{kind: STag}, {kind: ETag}], inside: {pattern: _PROPERTY}}}
+      fix: TargetFramework
+message: The property name mismatches its value, a list in TargetFramework fails with NETSDK1046 and one framework in TargetFrameworks adds an outer build
 note: Name the property after its value, TargetFramework for one framework and TargetFrameworks for a semicolon list

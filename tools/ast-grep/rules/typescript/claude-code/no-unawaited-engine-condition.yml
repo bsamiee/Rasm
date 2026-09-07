@@ -1,32 +1,47 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Follow truthiness consumers, not every ancestor; Promise-valued logical operands remain valid outside conditions.
 id: no-unawaited-engine-condition
 language: tsx
 severity: error
-files: ['**/.claude/plugins/**']
+files:
+    - '**/.claude/plugins/**'
 rule:
-    pattern: $CALL
-    matches: claude-code-engine-condition
-    # The nearest function is async, a call in a synchronous function belongs to no-unawaited-engine-condition-by-hand
-    inside: {matches: syntax-function-boundary, stopBy: {matches: syntax-function-boundary}, has: {regex: '^async$'}}
-rewriters:
-    # Bare await where the call is the whole condition, parentheses beside an operator
-    - id: bare-await
-      rule:
-          pattern: $C
-          any:
-              - inside:
-                    kind: parenthesized_expression
-                    inside: {field: condition, any: [{kind: if_statement}, {kind: while_statement}, {kind: do_statement}]}
-              - inside: {kind: for_statement, field: condition}
-              - inside: {kind: ternary_expression, field: condition}
-              # The one argument slot the condition util admits is Boolean, its parentheses hold the await
-              - inside: {kind: arguments}
-      fix: await $C
-    - id: wrapped-await
-      rule: {pattern: $C}
-      fix: (await $C)
-transform:
-    AWAITED: rewrite($CALL, rewriters=[bare-await, wrapped-await])
-fix: $AWAITED
+    kind: call_expression
+    matches: {claude-code-engine-call: {noun: {pattern: $_}}}
+    all:
+        - {not: {has: {field: function, matches: synchronous-member}}}
+        - any:
+            - {matches: truthiness-use}
+            - {inside: {kind: binary_expression, field: left, matches: nullable-check}}
+    pattern: $MATCH
 message: The engine call answers a Promise and the condition reads the Promise, a truthy and defined value
-note: Await the call before the condition reads it, `if (await $.fs.exists(path))`, `(await $.store.get(key)) !== undefined`
+note: Await the engine result before testing it. When changing a synchronous callback, update its caller to consume the Promise.
+utils:
+    synchronous-member:
+        kind: member_expression
+        has: {field: property, regex: ^(notice|invalidate|log|toast|status|now|after|every)$}
+    truthiness-use:
+        any:
+            - inside:
+                field: condition
+                any:
+                    - {kind: if_statement}
+                    - {kind: while_statement}
+                    - {kind: do_statement}
+                    - {kind: for_statement}
+                    - {kind: ternary_expression}
+            - {inside: {kind: parenthesized_expression, matches: truthiness-use}}
+            - {inside: {kind: unary_expression, field: argument, has: {field: operator, regex: ^!$}}}
+            - {inside: {kind: binary_expression, field: left, has: {field: operator, regex: ^(&&|\|\|)$}}}
+            - inside:
+                kind: binary_expression
+                field: right
+                has: {field: operator, regex: '^(&&|\|\||\?\?)$'}
+                matches: truthiness-use
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: ^Boolean$}}}
+    nullable-check:
+        kind: binary_expression
+        all:
+            - {has: {field: operator, regex: ^(===|!==|==|!=)$}}
+            - {has: {field: right, any: [{kind: undefined}, {kind: 'null'}]}}
+labels: {MATCH: {style: primary}}

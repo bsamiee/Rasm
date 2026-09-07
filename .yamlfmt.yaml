@@ -1,0 +1,4 @@
+line_ending: lf
+formatter:
+    indent: 4
+    retain_line_breaks: true

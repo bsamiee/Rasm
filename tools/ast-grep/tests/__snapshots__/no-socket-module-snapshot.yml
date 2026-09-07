@@ -2,27 +2,38 @@ id: no-socket-module
 snapshots:
   ? |
     from socket import create_connection
+    connection = create_connection(("localhost", 80))
   : labels:
-    - source: create_connection
+    - source: create_connection(("localhost", 80))
       style: primary
-      start: 19
-      end: 36
+      start: 50
+      end: 86
+    - source: create_connection
+      style: secondary
+      start: 50
+      end: 67
   ? |
     import socket
-
-    async def serve(sock: socket.socket) -> None:
-        await run_server(sock)
+    connection = socket.socket()
   : labels:
-    - source: socket.socket
+    - source: socket.socket()
       style: primary
-      start: 37
-      end: 50
+      start: 27
+      end: 42
+    - source: socket.socket
+      style: secondary
+      start: 27
+      end: 40
   ? |
     import socket as sk
 
     listener = sk.create_server(("127.0.0.1", 0))
   : labels:
-    - source: sk.create_server
+    - source: sk.create_server(("127.0.0.1", 0))
       style: primary
+      start: 32
+      end: 66
+    - source: sk.create_server
+      style: secondary
       start: 32
       end: 48

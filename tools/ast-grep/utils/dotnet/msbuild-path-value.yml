@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-path-value
+language: xml
+rule:
+    any:
+        - kind: AttValue
+          not: {regex: 'RegularExpressions'}
+          inside:
+            kind: Attribute
+            has: {kind: Name, regex: '^(Include|Exclude|Remove|Update|Project|Path|HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|Inputs|Outputs|WorkingDirectory|PackagePath)$'}
+        - kind: CharData
+          inside:
+            kind: content
+            inside:
+                kind: element
+                has:
+                    kind: STag
+                    has: {kind: Name, regex: '^(HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|WorkingDirectory|PackagePath|([A-Za-z_][A-Za-z0-9_]*)?(Path|Paths|Dir|Directory|Root|Roots|Manifest))$'}
+            not: {has: {kind: CharData, regex: 'RegularExpressions'}}

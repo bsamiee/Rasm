@@ -36,6 +36,12 @@ const _pass = (command: string): Plain => ({ kind: 'rewrite', command, timeout: 
 
 const _timed = (command: string, timeout?: number): Plain => _plain(commandTimeout({ tool: 'Bash', command, timeout }));
 
+// Whether a reason holds every expected fragment
+const _holdsAll =
+    (fragments: readonly string[]) =>
+    (reason: string): boolean =>
+        fragments.every((fragment) => reason.includes(fragment));
+
 const _skip = (command: string, caches: NxCaches): Plain => _plain(skipNxCache(caches)(_call(command)));
 
 const _SCRATCHPAD = '/private/tmp/claude-501/slug/session/scratchpad';
@@ -110,6 +116,8 @@ const _PASSED: readonly string[] = [
     `${_GATE} gate xml`,
     _GATE,
     'rule-checks.sh gate',
+    `${_GATE} gate ts '^no-filter-over-lifted-value$'`,
+    `${_GATE} gate ts > gate.log`,
 ];
 
 const _INCLUDE_OFF_LINE = 'Ran ast-grep test --include-off, the severity: off rewrite rules under rewrites/ run only under that flag';
@@ -191,7 +199,13 @@ const _CONTEXT: readonly (readonly [string, string, string])[] = [
     ['rg Foo libs/dotnet/Bar.cs', 'dotnet-roslyn-codelens', 'dotnet-roslyn-codelens'],
     ['rg Foo Directory.Build.props', 'dotnet-msbuild-evaluation', 'dotnet-msbuild-evaluation'],
     ["rg Foo 'tools/**/*.ts'", 'ast-grep', 'ast-grep'],
+    ['grep -rn foo x', 'ast-grep', 'rg is for literals and comments'],
+    ['grep -r foo x', 'ast-grep', 'rg is for literals and comments'],
     ['grep -P foo x', 'ast-grep', 'rg is for literals and comments'],
+    ["grep 'a+' values.txt", 'ast-grep', 'rg is for literals and comments'],
+    ["grep -E 'a+' values.txt", 'ast-grep', 'rg is for literals and comments'],
+    ["grep -r --include='*.txt' needle .", 'ast-grep', 'rg is for literals and comments'],
+    ["grep -R --exclude='*.log' needle .", 'ast-grep', 'rg is for literals and comments'],
     ['gh pr merge 1', 'github', 'github MCP for gh pr merge'],
     ['dotnet build Workspace.slnx', 'dotnet-msbuild-diagnostics', 'Add -bl to dotnet build'],
 ];
@@ -213,7 +227,6 @@ const _TIMEOUT_DENIED: readonly (readonly [string, readonly string[]])[] = [
     ['echo $(timeout 5 echo ok)', ['timeout inside a compound command', 'run echo $(echo ok) with the Bash timeout parameter']],
     ['echo ok | timeout 5 cat', ['timeout inside a compound command', 'run echo ok | cat with the Bash timeout parameter']],
     ['timeout 30 echo ok && ls', ['timeout inside a compound command', 'run echo ok && ls with the Bash timeout parameter']],
-    ['gtimeout 5 echo ok', ['gtimeout is not installed', 'run echo ok with the Bash timeout parameter']],
     [
         'timeout 700 sleep 1',
         ['timeout 700 exceeds the Bash timeout maximum of 600000 ms', 'run sleep 1 with timeout: 600000 or run_in_background: true'],
@@ -239,30 +252,12 @@ describe('shellRule', () => {
     it.each(_DENIED)('denies %j', (command, fragments) => {
         expect(_fresh(command)).toStrictEqual({
             kind: 'deny',
-            reason: expect.toSatisfy((reason: string) => fragments.every((fragment) => reason.includes(fragment))),
+            reason: expect.toSatisfy(_holdsAll(fragments)),
         });
     });
 
     it.each(_PASSED)('passes %j', (command) => {
         expect(_fresh(command)).toStrictEqual(_pass(command));
-    });
-
-    it('rewrites a common grep to rg and drops the recursion letter', () => {
-        expect(_fresh('grep -rn "PackageVersion" eng/')).toStrictEqual({
-            kind: 'rewrite',
-            command: 'rg -n "PackageVersion" eng/',
-            timeout: undefined,
-            context: ['Ran rg in place of grep: rg -n "PackageVersion" eng/'],
-        });
-    });
-
-    it('rewrites a standalone -r into nothing', () => {
-        expect(_fresh('grep -r Foo libs')).toStrictEqual({
-            kind: 'rewrite',
-            command: 'rg Foo libs',
-            timeout: undefined,
-            context: ['Ran rg in place of grep: rg Foo libs'],
-        });
     });
 
     it.each(_REWRITTEN)('rewrites %j to %j and passes the rewrite unchanged', (command, rewritten, context) => {
@@ -290,14 +285,17 @@ describe('shellRule', () => {
         expect(_fresh("grep -P Foo 'tools/**/*.ts'")).toMatchObject({ context: ['Load the ast-grep skill, rg is for literals and comments'] });
     });
 
-    it.each(['ts', 'py', 'sh', 'yml', 'csproj'])('rewrites a direct gate %s run to the rasm:rules configuration of its language', (ext) => {
-        expect(_fresh(`${_GATE} gate ${ext}`)).toStrictEqual({
-            kind: 'rewrite',
-            command: `pnpm exec nx run rasm:rules:${ext}`,
-            timeout: undefined,
-            context: [`Ran the gate through nx run rasm:rules:${ext}, a rerun with no change under tools/ast-grep/ replays the cached result`],
-        });
-    });
+    it.each(['ts', 'py', 'sh', 'yml', 'csproj', 'cs', 'json'])(
+        'rewrites a direct gate %s run to the rasm:rules configuration of its language',
+        (ext) => {
+            expect(_fresh(`${_GATE} gate ${ext}`)).toStrictEqual({
+                kind: 'rewrite',
+                command: `pnpm exec nx run rasm:rules:${ext}`,
+                timeout: undefined,
+                context: [`Ran the gate through nx run rasm:rules:${ext}, a rerun with no change under tools/ast-grep/ replays the cached result`],
+            });
+        },
+    );
 });
 
 describe('skipNxCache', () => {
@@ -383,7 +381,7 @@ describe('commandTimeout', () => {
     it.each(_TIMEOUT_DENIED)('denies %j', (command, fragments) => {
         expect(_timed(command)).toStrictEqual({
             kind: 'deny',
-            reason: expect.toSatisfy((reason: string) => fragments.every((fragment) => reason.includes(fragment))),
+            reason: expect.toSatisfy(_holdsAll(fragments)),
         });
     });
 
@@ -391,12 +389,12 @@ describe('commandTimeout', () => {
         expect(_timed(command)).toStrictEqual(_pass(command));
     });
 
-    it('strips the prefix and sets the parameter to the duration in milliseconds', () => {
-        expect(_timed('timeout 30 sleep 1')).toStrictEqual({
+    it.each(['timeout', 'gtimeout'])('moves %s duration to the Bash parameter', (command) => {
+        expect(_timed(`${command} 30 sleep 1`)).toStrictEqual({
             kind: 'rewrite',
             command: 'sleep 1',
             timeout: _THIRTY_SECONDS,
-            context: ['Ran sleep 1 under the Bash timeout parameter at 30000 ms, GNU timeout is absent on macOS'],
+            context: ['Ran sleep 1 under the Bash timeout parameter at 30000 ms'],
         });
     });
 
@@ -414,7 +412,7 @@ describe('commandTimeout', () => {
             kind: 'rewrite',
             command: 'sleep 1',
             timeout: _TEN_SECONDS,
-            context: ['Ran sleep 1 under the Bash timeout parameter at 10000 ms, GNU timeout is absent on macOS'],
+            context: ['Ran sleep 1 under the Bash timeout parameter at 10000 ms'],
         });
     });
 

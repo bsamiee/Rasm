@@ -1,17 +1,29 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, Effect.delay(Effect.sync(f), ms) in place of setTimeout(f, ms) typechecks and never runs, the probe prints nothing
 id: no-native-timer
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, Effect.sleep and Schedule have no place there
+ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import
 rule:
     kind: call_expression
     has:
         field: function
         pattern: $NAME
-        # The global timers, the same names timers/promises exports, the scheduler of timers/promises, and the abort timer
-        regex: "^(globalThis\\.)?(setTimeout|setInterval|setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|\
-            scheduler\\.(wait|yield)|AbortSignal\\.timeout)$"
+        any:
+            - matches: syntax-global-reference
+              regex: '^(globalThis\.)?(setTimeout|setInterval|setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|AbortSignal\.timeout)$'
+            - matches:
+                syntax-import-reference:
+                    source: {regex: '^(node:)?timers(/promises)?$'}
+                    exported: {regex: '^(setTimeout|setInterval|setImmediate|clearTimeout|clearInterval|clearImmediate)$'}
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^(wait|yield)$'}
+                - has:
+                    field: object
+                    matches:
+                        syntax-import-reference:
+                            source: {regex: '^(node:)?timers/promises$'}
+                            exported: {regex: '^scheduler$'}
 message: '`$NAME` schedules work through the host timer outside the effect runtime'
-note: >-
-    Schedule through the runtime, `Effect.sleep(duration)`, `Effect.repeat(effect, Schedule.spaced(duration))`, `Effect.yieldNow()`,
-    `Effect.timeout(effect, duration)` to bound a step, and interrupt the fiber to cancel
+note: Schedule delays, repetition, yielding, and cancellation through the runtime, keeping the ordering the host timer gave

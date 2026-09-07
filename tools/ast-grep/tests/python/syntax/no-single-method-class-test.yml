@@ -75,6 +75,62 @@ valid:
           def __init__(self, prefix):
               self.prefix = prefix
               register(self)
+    # Special methods implement language protocols without requiring a base class
+    - |
+      class Empty:
+          def __bool__(self):
+              return False
+    - |
+      class Path:
+          def __fspath__(self):
+              return "file.txt"
+    - |
+      class Values:
+          def __iter__(self):
+              return iter((1, 2))
+    - |
+      class Field:
+          def __get__(self, instance, owner):
+              return 1
+    - |
+      class Values:
+          @classmethod
+          def __class_getitem__(cls, item):
+              return item
+    # Class method depends on class identity beside a static method
+    - |
+      class Tools:
+          @staticmethod
+          def render(item):
+              return item.name
+
+          @classmethod
+          def make(cls):
+              return cls()
+    # Class method receives the owning class
+    - |
+      class Tools:
+          @classmethod
+          def make(cls):
+              return cls()
+    # Class decorator can consume the class identity
+    - |
+      @register
+      class Renderer:
+          def render(self, item):
+              return item.name
+    # Static method reads its implicit class cell
+    - |
+      class Factory:
+          @staticmethod
+          def make():
+              return __class__()
+    # Static special method implements construction
+    - |
+      class Factory:
+          @staticmethod
+          def __new__(cls):
+              return object.__new__(cls)
 invalid:
     # The instance, one method with a docstring
     - |
@@ -92,16 +148,6 @@ invalid:
 
           def render(self, item):
               return self.prefix + item.name
-    # Static methods alone
-    - |
-      class Tools:
-          @staticmethod
-          def render(item):
-              return item.name
-
-          @classmethod
-          def make(cls):
-              return cls()
     # Static method under a docstring
     - |
       class Tools:
@@ -110,12 +156,6 @@ invalid:
           @staticmethod
           def render(item):
               return item.name
-    # One class method
-    - |
-      class Tools:
-          @classmethod
-          def make(cls):
-              return cls()
     # Comment after the one method, a comment is no member
     - |
       class Renderer:

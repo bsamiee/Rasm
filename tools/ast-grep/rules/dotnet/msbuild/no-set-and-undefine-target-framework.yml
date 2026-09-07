@@ -6,37 +6,34 @@ rule:
     pattern: _REFERENCE
     all:
         - matches: {msbuild-element: {name: {regex: '^ProjectReference$'}}}
-        - matches: {msbuild-metadata: {name: {regex: '^SetTargetFramework$'}, value: {matches: msbuild-value}}}
+        - matches: {msbuild-metadata: {name: {regex: '^SetTargetFramework$'}, value: {regex: '(^|[\s;"''])TargetFramework\s*='}}}
         # GlobalPropertiesToRemove reaches the MSBuild task as RemoveProperties and undefines the same way
         - matches:
-              msbuild-metadata:
-                  name: {regex: '^(UndefineProperties|GlobalPropertiesToRemove)$'}
-                  value: {regex: '(^|[\s;"''])TargetFramework([\s;"'']|$)'}
+            msbuild-metadata:
+                name: {regex: '^(UndefineProperties|GlobalPropertiesToRemove)$'}
+                value: {regex: '(^|[\s;"''])TargetFramework([\s;"'']|$)'}
+    # Conditional metadata need not coexist when evaluated; syntax cannot establish a conflict.
+    not:
+        has:
+            kind: content
+            has:
+                matches: {msbuild-element: {name: {regex: '^(SetTargetFramework|UndefineProperties|GlobalPropertiesToRemove)$'}}}
+                has:
+                    matches: msbuild-tag
+                    has: {kind: Attribute, has: {kind: Name, regex: '^Condition$'}}
 transform:
-    # The MSBuild task removes the undefined names after it overlays the set ones, the set value never reaches the reference
-    STRIPPED:
-        replace:
-            source: $REFERENCE
-            replace: "\\s+(SetTargetFramework|SkipGetTargetFrameworkProperties)=(\"[^\"]*\"|'[^']*')|\\s*<(SetTargetFramework|\
-                SkipGetTargetFrameworkProperties)(\\s[^>]*)?>[^<]*</[A-Za-z]+>"
-            by: ''
-    EMPTY_TAG:
-        replace:
-            source: $STRIPPED
-            replace: '^(<ProjectReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*/>'
-            by: '$1 SkipGetTargetFrameworkProperties="true" />'
-    START_TAG:
-        replace:
-            source: $EMPTY_TAG
-            replace: '^(<ProjectReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>'
-            by: '$1 SkipGetTargetFrameworkProperties="true">'
-    CLOSED:
-        replace:
-            source: $START_TAG
-            replace: '^(<ProjectReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>\s*</ProjectReference>$'
-            by: '$1 />'
-fix: $CLOSED
-message: >-
-    The ProjectReference sets and undefines the TargetFramework global property, the MSBuild task removes the undefined names after it
-    overlays the set one
-note: Delete SetTargetFramework and keep UndefineProperties="TargetFramework" beside SkipGetTargetFrameworkProperties="true"
+    # The set metadata leaves in the attribute and the child form, the probe showed the referenced project reads no framework either way
+    STRIPPED: rewrite($REFERENCE, rewriters=[remove-set])
+fix: $STRIPPED
+rewriters:
+    - id: remove-set
+      rule:
+        any:
+            - kind: Attribute
+              has: {kind: Name, regex: '^SetTargetFramework$'}
+              inside: {matches: msbuild-tag, inside: {pattern: _REFERENCE}}
+            - matches: {msbuild-element: {name: {regex: '^SetTargetFramework$'}}}
+              inside: {kind: content, inside: {pattern: _REFERENCE}}
+      fix: ''
+message: The ProjectReference sets and undefines TargetFramework, the MSBuild task removes the undefined name after it applies the set one
+note: Delete SetTargetFramework, or delete the undefine when the referenced project must receive the framework

@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, DateTime.unsafeMake(text) in place of new Date(text) fails at the consumer with TS2339 Property 'getTime' does not exist
 id: no-native-date
 language: tsx
 severity: error
@@ -8,12 +9,10 @@ rule:
         # Date built from an input, the constructor without an argument is the ambient clock read of no-ambient-read
         - kind: new_expression
           all:
-              - has: {field: constructor, regex: '^(globalThis\.)?Date$'}
-              - has: {field: arguments, has: {pattern: $_}}
+            - has: {field: constructor, regex: '^(globalThis\.)?Date$', matches: syntax-global-reference}
+            - has: {field: arguments, has: {pattern: $_}}
         # The parsing and the UTC statics, Date.now is the ambient clock read
         - kind: call_expression
-          has: {field: function, regex: '^(globalThis\.)?Date\.(parse|UTC)$'}
+          has: {field: function, regex: '^(globalThis\.)?Date\.(parse|UTC)$', matches: syntax-global-reference}
 message: The time value is built through the native Date
-note: >-
-    Build the value through the DateTime module, `DateTime.unsafeMake(input)` or `DateTime.make(input)`,
-    and compute with `DateTime.add` and `DateTime.toEpochMillis`
+note: Construct DateTime values with DateTime.make at the boundary, and DateTime.unsafeMake for an input with established validity

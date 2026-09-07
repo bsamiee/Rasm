@@ -13,7 +13,5 @@ rule:
                     - kind: set_comprehension
                     - kind: dictionary_comprehension
                     - kind: generator_expression
-message: Expression statement selects or iterates for an effect and drops the value it builds
-note: >-
-    Write the statement the expression spells, `if <condition>:`, `if not <condition>:`, or `for <target> in <items>:`,
-    with the effect as its body
+message: Expression statement drops the result of selection or iteration
+note: Select with `if`, iterate with a loop, `boolean-statement-to-if`, `conditional-statement-to-if`, and `comprehension-statement-to-loop` apply

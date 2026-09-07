@@ -1,200 +1,63 @@
 id: no-retry
 valid:
-    # The corrected form, one attempt with its failure as the error case
+    # One attempt returns the boundary failure
     - |
       async def transfer(client, url):
           try:
               return Ok(await client.get(url))
           except httpx.TransportError as error:
               return Error(DownloadFailed(url, str(error)))
-    # Loop over a count with an except clause that returns, no next attempt
-    - |
-      def read(paths):
-          for index in range(3):
-              try:
-                  return paths[index].read_text()
-              except OSError:
-                  return ""
-    # Loop over a count without a try
-    - |
-      def fill(size):
-          for index in range(size):
-              yield index
-    # Loop over a collection with an except clause that continues, each item its own operation
-    - |
-      def read(paths):
-          for path in paths:
-              try:
-                  yield path.read_text()
-              except OSError:
-                  continue
-    # Loop over a count with a try that never leaves the loop, each index its own operation and a failure skipped
-    - |
-      def read(paths):
-          for index in range(len(paths)):
-              try:
-                  print(paths[index].read_text())
-              except OSError:
-                  continue
     # Another member of stamina
     - |
       import stamina
-
       active = stamina.is_active()
-    # Member named like a retry on another module
+    # A different module owns the same member name
     - |
       from scheduler import retry_context
-    # Loop over candidates, the try body reads the counter and returns the first that reads
+    # An unused counter does not prove repeated input: next consumes candidates
     - |
-      def read(paths):
-          for index in range(len(paths)):
-              try:
-                  return paths[index].read_text()
-              except OSError:
-                  continue
-    # Return of a def inside the try body, the closure stopper of the return walk
-    - |
-      def read(path):
+      def read(candidates):
           for _ in range(3):
               try:
-                  def load():
-                      return path.read_text()
-                  register(load)
+                  return next(candidates).read_text()
               except OSError:
                   continue
-    # Break of an inner loop inside the try body, the loop stopper of the break walk
+    # State can change before the try without reading the loop counter
     - |
-      def read(paths):
+      def read(candidates):
           for _ in range(3):
-              try:
-                  for path in paths:
-                      if path.exists():
-                          break
-              except OSError:
-                  continue
-    # Break of an inner while loop inside the try body, the loop stopper of the break walk
-    - |
-      def read(paths):
-          for _ in range(3):
-              try:
-                  while paths:
-                      if paths.pop().exists():
-                          break
-              except OSError:
-                  continue
-    # Else clause that leaves nothing, the loop runs every count
-    - |
-      def read(path):
-          for _ in range(3):
-              try:
-                  text = path.read_text()
-              except OSError:
-                  continue
-              else:
-                  print(text)
-invalid:
-    # The instance, the retry decorator of stamina with a fixed count
-    - |
-      import stamina
-
-      @stamina.retry(on=httpx.TransportError, attempts=3)
-      async def transfer(client, url):
-          return await client.get(url)
-    # The decorator imported from the module
-    - |
-      from stamina import retry
-    # The retry context read through the alias the import binds
-    - |
-      import stamina as s
-
-      async def transfer(client, url):
-          async for attempt in s.retry_context(on=httpx.TransportError):
-              with attempt:
-                  return await client.get(url)
-    # The retrying caller
-    - |
-      import stamina
-
-      caller = stamina.AsyncRetryingCaller(attempts=3)
-    # The loop over a fixed count with an except clause that continues
-    - |
-      async def transfer(client, url):
-          for _ in range(3):
-              try:
-                  return await client.get(url)
-              except httpx.TransportError:
-                  continue
-    # The loop with an except clause that passes to the next attempt
-    - |
-      def read(path):
-          for _ in range(5):
+              path = candidates.pop()
               try:
                   return path.read_text()
               except OSError:
                   pass
-    # The loop a break leaves on success
+invalid:
+    # Decorator through the owning module
     - |
+      import stamina
+      @stamina.retry(on=OSError, attempts=3)
       def read(path):
-          text = ""
-          for _ in range(3):
-              try:
-                  text = path.read_text()
-                  break
-              except OSError:
-                  continue
-          return text
-    # The decorator imported under an alias
+          return path.read_text()
+    # Direct import
+    - |
+      from stamina import retry
+    # Renamed import
     - |
       from stamina import retry as again
-    # The return under a with statement in the try body
+    # Context through a module alias
     - |
-      def read(path):
-          for _ in range(3):
-              try:
-                  with path.open() as handle:
-                      return handle.read()
-              except OSError:
-                  continue
-    # The break in the else clause of the try
+      import stamina as s
+      contexts = s.retry_context(on=OSError)
+    # Synchronous caller
     - |
-      def read(path):
-          text = ""
-          for _ in range(3):
-              try:
-                  text = path.read_text()
-              except OSError:
-                  continue
-              else:
-                  break
-          return text
-    # The return in the else clause of the try
+      from stamina import RetryingCaller
+    # Asynchronous caller
     - |
-      def read(path):
-          for _ in range(3):
-              try:
-                  text = path.read_text()
-              except OSError:
-                  continue
-              else:
-                  return text
-    # The break under an if in the try body, the walk past the direct children
+      import stamina
+      caller = stamina.AsyncRetryingCaller(attempts=3)
+    # Bound synchronous caller
     - |
-      def read(path):
-          text = ""
-          for _ in range(3):
-              try:
-                  text = path.read_text()
-                  if text:
-                      break
-              except OSError:
-                  continue
-          return text
-    # The counter read in the except clause alone, the attempt logged
+      from stamina import BoundRetryingCaller
+    # Bound asynchronous caller
     - |
-      def read(path):
-          for attempt in range(3):
-              try:
-                  return path.read_text()
-              except OSError:
-                  print(attempt)
-                  continue
+      from stamina import BoundAsyncRetryingCaller

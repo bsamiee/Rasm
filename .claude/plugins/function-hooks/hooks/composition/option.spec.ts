@@ -38,6 +38,8 @@ const _NONE: Plain<unknown> = { kind: 'none' };
 
 const _plain = <A>(option: Option<A>): Plain<A> => option.match<Plain<A>>({ some: (value) => ({ kind: 'some', value }), none: () => _NONE });
 
+const _positive = liftPredicate<number>((n) => n > 0);
+
 const _isString = (value: unknown): value is string => typeof value === 'string';
 
 const _isNumber = (value: unknown): value is number => typeof value === 'number';
@@ -101,7 +103,7 @@ describe('refinements', () => {
 
 describe('asynchronous operations', () => {
     it('traverses in list order, drops the nones, and calls once per element', async () => {
-        const positive = vi.fn((value: number): Promise<Option<number>> => _after(2 - value, liftPredicate<number>((n) => n > 0)(value)));
+        const positive = vi.fn((value: number): Promise<Option<number>> => _after(2 - value, _positive(value)));
         await expect(traverse(positive)([0, 1, 2])).resolves.toStrictEqual([1, 2]);
         expect(positive.mock.calls.map(([value]) => value)).toStrictEqual([0, 1, 2]);
         await expect(traverse(positive)([])).resolves.toStrictEqual([]);

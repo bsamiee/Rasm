@@ -1,0 +1,358 @@
+id: pipeline-reader-to-process-substitution
+snapshots:
+  first x | second y | read -r value:
+    fixed: read -r value < <(first x | second y)
+    labels:
+    - source: first x | second y | read -r value
+      style: primary
+      start: 0
+      end: 34
+    - source: read
+      style: secondary
+      start: 21
+      end: 25
+    - source: read -r value
+      style: secondary
+      start: 21
+      end: 34
+    - source: '|'
+      style: secondary
+      start: 19
+      end: 20
+    - source: read -r value
+      style: secondary
+      start: 21
+      end: 34
+  if producer | read -r value; then consume "$value"; fi:
+    fixed: if read -r value < <(producer); then consume "$value"; fi
+    labels:
+    - source: producer | read -r value
+      style: primary
+      start: 3
+      end: 27
+    - source: read
+      style: secondary
+      start: 14
+      end: 18
+    - source: read -r value
+      style: secondary
+      start: 14
+      end: 27
+    - source: '|'
+      style: secondary
+      start: 12
+      end: 13
+    - source: read -r value
+      style: secondary
+      start: 14
+      end: 27
+  output=$(producer | read -r value; printf "%s" "$value"):
+    fixed: output=$(read -r value < <(producer); printf "%s" "$value")
+    labels:
+    - source: producer | read -r value
+      style: primary
+      start: 9
+      end: 33
+    - source: read
+      style: secondary
+      start: 20
+      end: 24
+    - source: read -r value
+      style: secondary
+      start: 20
+      end: 33
+    - source: '|'
+      style: secondary
+      start: 18
+      end: 19
+    - source: read -r value
+      style: secondary
+      start: 20
+      end: 33
+  printf "%s" "$(first | second)" | read -r value:
+    fixed: read -r value < <(printf "%s" "$(first | second)")
+    labels:
+    - source: printf "%s" "$(first | second)" | read -r value
+      style: primary
+      start: 0
+      end: 47
+    - source: read
+      style: secondary
+      start: 34
+      end: 38
+    - source: read -r value
+      style: secondary
+      start: 34
+      end: 47
+    - source: '|'
+      style: secondary
+      start: 32
+      end: 33
+    - source: read -r value
+      style: secondary
+      start: 34
+      end: 47
+  printf '%s' 'text | read -r field' | read -r value:
+    fixed: read -r value < <(printf '%s' 'text | read -r field')
+    labels:
+    - source: printf '%s' 'text | read -r field' | read -r value
+      style: primary
+      start: 0
+      end: 50
+    - source: read
+      style: secondary
+      start: 37
+      end: 41
+    - source: read -r value
+      style: secondary
+      start: 37
+      end: 50
+    - source: '|'
+      style: secondary
+      start: 35
+      end: 36
+    - source: read -r value
+      style: secondary
+      start: 37
+      end: 50
+  producer 2>&1 | read -r value:
+    fixed: read -r value < <(producer 2>&1)
+    labels:
+    - source: producer 2>&1 | read -r value
+      style: primary
+      start: 0
+      end: 29
+    - source: read
+      style: secondary
+      start: 16
+      end: 20
+    - source: read -r value
+      style: secondary
+      start: 16
+      end: 29
+    - source: '|'
+      style: secondary
+      start: 14
+      end: 15
+    - source: read -r value
+      style: secondary
+      start: 16
+      end: 29
+  producer | IFS= read -r value:
+    fixed: IFS= read -r value < <(producer)
+    labels:
+    - source: producer | IFS= read -r value
+      style: primary
+      start: 0
+      end: 29
+    - source: read
+      style: secondary
+      start: 16
+      end: 20
+    - source: IFS= read -r value
+      style: secondary
+      start: 11
+      end: 29
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: IFS= read -r value
+      style: secondary
+      start: 11
+      end: 29
+  producer | mapfile -t values:
+    fixed: mapfile -t values < <(producer)
+    labels:
+    - source: producer | mapfile -t values
+      style: primary
+      start: 0
+      end: 28
+    - source: mapfile
+      style: secondary
+      start: 11
+      end: 18
+    - source: mapfile -t values
+      style: secondary
+      start: 11
+      end: 28
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: mapfile -t values
+      style: secondary
+      start: 11
+      end: 28
+  producer | read -r value:
+    fixed: read -r value < <(producer)
+    labels:
+    - source: producer | read -r value
+      style: primary
+      start: 0
+      end: 24
+    - source: read
+      style: secondary
+      start: 11
+      end: 15
+    - source: read -r value
+      style: secondary
+      start: 11
+      end: 24
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: read -r value
+      style: secondary
+      start: 11
+      end: 24
+  producer | read -r value 2>/dev/null:
+    fixed: read -r value < <(producer) 2>/dev/null
+    labels:
+    - source: producer | read -r value
+      style: primary
+      start: 0
+      end: 24
+    - source: read
+      style: secondary
+      start: 11
+      end: 15
+    - source: read -r value
+      style: secondary
+      start: 11
+      end: 24
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: read -r value
+      style: secondary
+      start: 11
+      end: 24
+  producer | readarray -t values:
+    fixed: readarray -t values < <(producer)
+    labels:
+    - source: producer | readarray -t values
+      style: primary
+      start: 0
+      end: 30
+    - source: readarray
+      style: secondary
+      start: 11
+      end: 20
+    - source: readarray -t values
+      style: secondary
+      start: 11
+      end: 30
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: readarray -t values
+      style: secondary
+      start: 11
+      end: 30
+  producer | until read -r line; do count=1; done:
+    fixed: until read -r line; do count=1; done < <(producer)
+    labels:
+    - source: producer | until read -r line; do count=1; done
+      style: primary
+      start: 0
+      end: 47
+    - source: until read -r line; do count=1; done
+      style: secondary
+      start: 11
+      end: 47
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: until read -r line; do count=1; done
+      style: secondary
+      start: 11
+      end: 47
+  producer | while IFS= read -r line; do count=1; done:
+    fixed: while IFS= read -r line; do count=1; done < <(producer)
+    labels:
+    - source: producer | while IFS= read -r line; do count=1; done
+      style: primary
+      start: 0
+      end: 52
+    - source: while IFS= read -r line; do count=1; done
+      style: secondary
+      start: 11
+      end: 52
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: while IFS= read -r line; do count=1; done
+      style: secondary
+      start: 11
+      end: 52
+  producer | while true; do read -r line || break; count=1; done:
+    fixed: while true; do read -r line || break; count=1; done < <(producer)
+    labels:
+    - source: producer | while true; do read -r line || break; count=1; done
+      style: primary
+      start: 0
+      end: 62
+    - source: while true; do read -r line || break; count=1; done
+      style: secondary
+      start: 11
+      end: 62
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: while true; do read -r line || break; count=1; done
+      style: secondary
+      start: 11
+      end: 62
+  producer |& read -r value:
+    fixed: read -r value < <(producer 2>&1)
+    labels:
+    - source: producer |& read -r value
+      style: primary
+      start: 0
+      end: 25
+    - source: read
+      style: secondary
+      start: 12
+      end: 16
+    - source: read -r value
+      style: secondary
+      start: 12
+      end: 25
+    - source: '|&'
+      style: secondary
+      start: 9
+      end: 11
+    - source: read -r value
+      style: secondary
+      start: 12
+      end: 25
+  shopt -s lastpipe; producer | read -r value:
+    fixed: shopt -s lastpipe; read -r value < <(producer)
+    labels:
+    - source: producer | read -r value
+      style: primary
+      start: 19
+      end: 43
+    - source: read
+      style: secondary
+      start: 30
+      end: 34
+    - source: read -r value
+      style: secondary
+      start: 30
+      end: 43
+    - source: '|'
+      style: secondary
+      start: 28
+      end: 29
+    - source: read -r value
+      style: secondary
+      start: 30
+      end: 43

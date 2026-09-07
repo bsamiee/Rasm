@@ -1,11 +1,12 @@
 id: no-http-client-module
 valid:
-    # The corrected form, the httpx client under a timeout
+    # The corrected form, the httpx client with owned lifetime
     - |
       import httpx
 
-      async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
-          response = await client.get(url)
+      async def fetch(url):
+          async with httpx.AsyncClient() as client:
+              return await client.get(url)
     # Another module of the http package
     - |
       from http import HTTPStatus

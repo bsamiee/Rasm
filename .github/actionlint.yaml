@@ -1,0 +1,5 @@
+paths:
+    .github/workflows/release.yml:
+        ignore:
+            # GitHub queue support: https://github.com/rhysd/actionlint/issues/657
+            - '^unexpected key "queue" for "concurrency" section\. expected one of "cancel-in-progress", "group"$'

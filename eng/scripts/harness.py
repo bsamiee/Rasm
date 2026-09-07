@@ -164,12 +164,13 @@ async def _init(stdout: BufferedByteReceiveStream, argv: tuple[str, ...], requir
     """Read stream-json events up to the init event and check it reports every required server connected."""
     try:
         while True:
-            event = msgspec.json.decode(await stdout.receive_until(b"\n", _EVENT_BYTES), type=_Event)
-            if event.type == "system" and event.subtype == "init":
+            if (
+                event := msgspec.json.decode(await stdout.receive_until(b"\n", _EVENT_BYTES), type=_Event)
+            ).type == "system" and event.subtype == "init":
                 break
     except (anyio.IncompleteRead, anyio.DelimiterNotFound, msgspec.DecodeError) as error:
         return Error(CommandFailed(argv, f"sent no init event, {error!r}"))
-    match sorted(server.name for server in event.servers or [] if server.status != "connected" and server.name in required):
+    match sorted(required.difference(server.name for server in event.servers or () if server.status == "connected")):
         case []:
             return Ok(None)
         case pending:
@@ -349,12 +350,11 @@ async def _harness(start: Path) -> Result[Report, Failure]:
         case Result(ok=version):
             pass
     checks = (
-        ("pnpm", "exec", "tsc", "-p", str(plugin / "tsconfig.json")),
+        ("pnpm", "exec", "nx", "run", f"{_PLUGIN}:typecheck"),
         ("claude", "plugin", "validate", str(plugin)),
         # An installed plugin keeps its cached copy under the same version key, the uninstall makes the install copy the tree again
         ("claude", "plugin", "uninstall", _PLUGIN_ID, "--scope", "project"),
         ("claude", "plugin", "install", _PLUGIN_ID, "--scope", "project"),
-        ("pnpm", "exec", "biome", "format", "--write", str(Path(".claude") / "settings.json")),
     )
     match await run_each(checks, root):
         case Result(tag="error", error=check_error):

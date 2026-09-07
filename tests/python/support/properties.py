@@ -93,8 +93,7 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
         for py in sorted(Path(base).rglob("*.py")):
             parts = py.relative_to(base).with_suffix("").parts
             stem = parts[:-1] if parts[-1] == "__init__" else parts
-            mod_name = ".".join((package_name, *stem))
-            if mod_name == package_name or any(part.startswith("_") for part in stem):
+            if (mod_name := ".".join((package_name, *stem))) == package_name or any(part.startswith("_") for part in stem):
                 continue
             try:
                 modules.append(importlib.import_module(mod_name))

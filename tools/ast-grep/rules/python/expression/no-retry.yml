@@ -2,33 +2,11 @@
 id: no-retry
 language: python
 severity: error
-utils:
-    # Loop over a fixed count with a try that leaves the loop on success and goes on to the next attempt on failure, the retry written by hand
-    counted-retry-loop:
-        kind: for_statement
-        all:
-            - has: {field: left, kind: identifier, pattern: $INDEX}
-            - has: {field: right, pattern: range($$$_)}
-            - has:
-                  field: body
-                  has:
-                      kind: try_statement
-                      all:
-                          # The exit on success, a return under no def, a break under no inner loop, or either in the else clause
-                          - any:
-                                - has: {field: body, has: {kind: return_statement, stopBy: {kind: function_definition}}}
-                                - has: {field: body, has: {kind: break_statement, stopBy: {any: [{kind: for_statement}, {kind: while_statement}]}}}
-                                - has: {kind: else_clause, has: {field: body, has: {any: [{kind: return_statement}, {kind: break_statement}]}}}
-                          - has: {kind: except_clause, has: {kind: block, has: {any: [{kind: continue_statement}, {kind: pass_statement}]}}}
-                          # A try body that reads the counter runs another operation per index, a scan over candidates and no retry
-                          - not: {has: {field: body, has: {kind: identifier, pattern: $INDEX, stopBy: end}}}
+# A counted loop is no retry, each iteration can consume another candidate or changing state
 rule:
-    any:
-        # The retry decorators and callers of stamina, from-import or attribute
-        - matches:
-              python-module-member:
-                  module: {regex: '^stamina$'}
-                  name: {regex: '^(retry|retry_context|RetryingCaller|AsyncRetryingCaller|BoundRetryingCaller|BoundAsyncRetryingCaller)$'}
-        - matches: counted-retry-loop
-message: A retry with a fixed count reruns a failed operation in place of returning the failure
-note: Run the operation once and return its failure as the error case of the result, the caller holds the decision to run again
+    matches:
+        python-module-member:
+            module: {regex: '^stamina$'}
+            name: {regex: '^(retry|retry_context|RetryingCaller|AsyncRetryingCaller|BoundRetryingCaller|BoundAsyncRetryingCaller)$'}
+message: A stamina retry policy reruns a failed operation instead of returning its failure
+note: Run the operation once and return its failure as the error case of the result, the rewrite `retry-to-once` drops the retry forms

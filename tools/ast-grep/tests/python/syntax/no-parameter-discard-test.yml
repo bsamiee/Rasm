@@ -39,6 +39,12 @@ valid:
     - |
       class Reader:
           _ = log
+    # Deleting a consumed parameter releases its reference during the remaining work
+    - |
+      def process(buffer):
+          result = decode(buffer)
+          del buffer
+          return finish(result)
 invalid:
     # The instance, a typed parameter discarded in a method
     - |
@@ -88,7 +94,11 @@ invalid:
     - |
       async def bind(record, log):
           _ = log
-    # Parameter deleted, the del spelling of the discard
+    # Typed positional splat owns the discarded name
     - |
-      def bind(record, log):
-          del log
+      def bind(*records: Record):
+          _ = records
+    # Typed keyword splat owns the discarded name
+    - |
+      def bind(**records: Record):
+          _ = records

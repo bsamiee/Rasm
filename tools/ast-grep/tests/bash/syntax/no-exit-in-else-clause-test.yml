@@ -1,11 +1,12 @@
 id: no-exit-in-else-clause
 valid:
-    # The corrected form, the guard list
     - |
+      for s in a; do
       [[ -v count[keys,$id] ]] || {
           finding "no snapshot: $id"
           continue
       }
+      done
     # The then branch leaves too
     - |
       if [[ -f $s ]]; then
@@ -13,13 +14,14 @@ valid:
       else
           exit 1
       fi
-    # The then branch leaves and the else continues
     - |
+      f() {
       if [[ -f $s ]]; then
           return 1
       else
           printf '%s\n' b
       fi
+      }
     # An elif chain selects among cases
     - |
       if [[ -f $s ]]; then
@@ -44,6 +46,13 @@ valid:
           exit 1
           printf '%s\n' late
       fi
+    # A list of statements as the condition, the guard form needs a group around it
+    - |
+      if a; b; then
+          printf '%s\n' a
+      else
+          exit 1
+      fi
     # Both branches leave, statements separated by ;
     - if [[ -f $s ]]; then exit 2; else exit 1; fi
     # A comment on the line of the leaving command in the then branch
@@ -61,6 +70,16 @@ valid:
       else
           exit 1
       fi
+    # An unconditional exit leaves even when unreachable statements follow
+    - if [[ -f $s ]]; then exit 2; printf '%s\n' late; else exit 1; fi
+    # Dead statements after exit do not make the then branch continue
+    - |
+      if [[ -f $s ]]; then
+          exit 2
+          printf '%s\n' late
+      else
+          exit 1
+      fi
 invalid:
     # A comment line before the leaving command in the else clause
     - |
@@ -70,28 +89,36 @@ invalid:
           # explain
           exit 1
       fi
-    # The then branch continues after a leaving command, statements separated by ;
-    - if [[ -f $s ]]; then exit 2; printf '%s\n' late; else exit 1; fi
-    # The instance, continue at the end of the else clause
     - |
+      for s in a; do
       if [ -f "$s" ]; then
           diff a b
       else
           finding "no snapshot: $id"
           continue
       fi
+      done
+    # A nested block in the then branch and a comment beside a statement, both keep their text
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a # note
+          if [[ -d $s ]]; then
+              count=1
+          fi
+      else
+          exit 1
+      fi
+    # A negated pipeline as the condition binds tighter than the guard's or-list
+    - |
+      if ! grep -q x "$f" | sort; then
+          printf '%s\n' "$f"
+      else
+          exit 1
+      fi
     # exit alone in the else clause
     - |
       if [[ -f $s ]]; then
           printf '%s\n' a
-      else
-          exit 1
-      fi
-    # The then branch leaves before its last statement, so it continues
-    - |
-      if [[ -f $s ]]; then
-          exit 2
-          printf '%s\n' late
       else
           exit 1
       fi
@@ -104,11 +131,12 @@ invalid:
               break
           fi
       done
-    # A comment after the leaving command sits outside the else clause
     - |
+      f() {
       if [[ -f $s ]]; then
           printf '%s\n' a
       else
           return 1
           # nothing after
       fi
+      }

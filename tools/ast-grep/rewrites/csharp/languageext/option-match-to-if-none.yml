@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+id: option-match-to-if-none
+language: csharp
+severity: off
+rule:
+    any:
+        - pattern: {context: "class C { object F() => $OPTION.Match(Some: $IDENTITY, None: $FALLBACK); }", selector: invocation_expression, strictness: cst}
+        - pattern: {context: "class C { object F() => $OPTION.Match(None: $FALLBACK, Some: $IDENTITY); }", selector: invocation_expression, strictness: cst}
+        - all:
+            - pattern: {context: "class C { object F() => $OPTION.Match($IDENTITY, $FALLBACK); }", selector: invocation_expression, strictness: cst}
+            - not:
+                has:
+                    field: arguments
+                    kind: argument_list
+                    has:
+                        kind: argument
+                        has: {field: name, kind: identifier}
+constraints:
+    IDENTITY:
+        matches:
+            csharp-unary-callback:
+                parameter: {pattern: $VALUE}
+                body:
+                    any:
+                        - pattern: $VALUE
+                        - pattern:
+                            context: 'class C { object F() => M(x => { return $VALUE; }); }'
+                            selector: block
+                            strictness: cst
+fix: "$OPTION.IfNone($FALLBACK)"
+message: Use `IfNone` for an unchanged Some value and a fallback
+note: >-
+    Select LanguageExt Option<A> calls through Roslyn with Match result A. Confirm IfNone selects the A or Func<A> overload with the same fallback evaluation, not the Action overload for an Action payload. Keep wider result conversions with Match.

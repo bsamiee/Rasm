@@ -1,0 +1,76 @@
+id: no-json-codec
+snapshots:
+  from json import loads:
+    labels:
+    - source: loads
+      style: primary
+      start: 17
+      end: 22
+  from json.decoder import JSONDecoder:
+    labels:
+    - source: JSONDecoder
+      style: primary
+      start: 25
+      end: 36
+  from json.encoder import JSONEncoder:
+    labels:
+    - source: JSONEncoder
+      style: primary
+      start: 25
+      end: 36
+  ? |
+    import json as codec
+    codec.loads(raw)
+  : labels:
+    - source: codec.loads
+      style: primary
+      start: 21
+      end: 32
+  json.JSONDecoder():
+    labels:
+    - source: json.JSONDecoder
+      style: primary
+      start: 0
+      end: 16
+  json.JSONEncoder():
+    labels:
+    - source: json.JSONEncoder
+      style: primary
+      start: 0
+      end: 16
+  json.decoder.JSONDecoder():
+    labels:
+    - source: json.decoder.JSONDecoder
+      style: primary
+      start: 0
+      end: 24
+  json.dump(value, stream):
+    labels:
+    - source: json.dump
+      style: primary
+      start: 0
+      end: 9
+  json.dumps(value):
+    labels:
+    - source: json.dumps
+      style: primary
+      start: 0
+      end: 10
+  json.encoder.JSONEncoder():
+    labels:
+    - source: json.encoder.JSONEncoder
+      style: primary
+      start: 0
+      end: 24
+  json.load(stream):
+    labels:
+    - source: json.load
+      style: primary
+      start: 0
+      end: 9
+  json.loads(raw):
+    labels:
+    - source: json.loads
+      style: primary
+      start: 0
+      end: 10

@@ -27,8 +27,12 @@ valid:
     # Type literal member typed never, no function
     - |
       type Arms = { deny: never };
+    - |
+      const reason = decision.match<string>({ deny: (value?: never): string => String(value), rewrite: (input) => input.prompt });
+    # A defaulted never parameter is callable without an argument
+    - "const arms = { deny: (value: never = fail()): never => value };"
 invalid:
-    # The instance, the identity over never as the deny arm
+    # the identity over never as the deny arm
     - |
       const reason = decision.match<string>({ deny: (value: never): never => value, rewrite: (input) => input.prompt });
     # Function expression arm
@@ -52,12 +56,15 @@ invalid:
     # Case record bound to a name before the match
     - |
       const arms = { deny: (value: never): never => value, rewrite: (input) => input.prompt };
-    # Optional parameter typed never
-    - |
-      const reason = decision.match<string>({ deny: (value?: never): never => value, rewrite: (input) => input.prompt });
     # Generator method arm over never
     - |
       const reason = decision.match<string>({ *deny(value: never) { yield value; }, rewrite: (input) => input.prompt });
     # Async arrow arm over never
     - |
       const done = decision.match<Promise<void>>({ deny: async (_reason: never): Promise<void> => {}, rewrite: () => next(e) });
+    # Generator function arm over never
+    - |
+      const arms = { deny: function* (value: never) { yield value; }, rewrite: (input) => input.prompt };
+    # Async generator function arm over never
+    - |
+      const arms = { deny: async function* (value: never) { yield value; }, rewrite: (input) => input.prompt };

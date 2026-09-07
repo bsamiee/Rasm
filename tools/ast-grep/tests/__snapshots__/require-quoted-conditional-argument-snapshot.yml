@@ -1,0 +1,58 @@
+id: require-quoted-conditional-argument
+snapshots:
+  command ${SET+--option=$VALUE}:
+    fixed: command ${SET+--option="$VALUE"}
+    labels:
+    - source: $VALUE
+      style: primary
+      start: 23
+      end: 29
+  command ${SET:+--option=$FIRST/suffix}:
+    fixed: command ${SET:+--option="$FIRST"/suffix}
+    labels:
+    - source: $FIRST
+      style: primary
+      start: 24
+      end: 30
+  command ${SET:+--option=$VALUE}:
+    fixed: command ${SET:+--option="$VALUE"}
+    labels:
+    - source: $VALUE
+      style: primary
+      start: 24
+      end: 30
+  command ${SET:+--option=${VALUES[0]}}:
+    fixed: command ${SET:+--option="${VALUES[0]}"}
+    labels:
+    - source: ${VALUES[0]}
+      style: primary
+      start: 24
+      end: 36
+  command ${SET:+--option=${VALUE}}:
+    fixed: command ${SET:+--option="${VALUE}"}
+    labels:
+    - source: ${VALUE}
+      style: primary
+      start: 24
+      end: 32
+  command ${SET:+-o=$VALUE}:
+    fixed: command ${SET:+-o="$VALUE"}
+    labels:
+    - source: $VALUE
+      style: primary
+      start: 18
+      end: 24
+  output="$(command ${SET:+--option=$VALUE})":
+    fixed: output="$(command ${SET:+--option="$VALUE"})"
+    labels:
+    - source: $VALUE
+      style: primary
+      start: 34
+      end: 40
+  output=$(command ${SET:+--option=$VALUE}):
+    fixed: output=$(command ${SET:+--option="$VALUE"})
+    labels:
+    - source: $VALUE
+      style: primary
+      start: 33
+      end: 39

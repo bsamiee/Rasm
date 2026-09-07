@@ -2,24 +2,17 @@
 id: no-separator-after-directory-property
 language: xml
 severity: error
-utils:
-    # Names outside the MSBuild prefix end with a separator by convention, MSBuildThisFileDirectory alone among the reserved names does
-    doubled:
-        matches: msbuild-value
-        regex: "\\$\\((MSBuildThisFileDirectory(NoRoot)?|([A-LN-Za-z_]|M[A-RT-Za-z0-9_]|MS[AC-Za-z0-9_])[A-Za-z0-9_]*(Dir|Directory|Root)|\
-            (Base|BaseIntermediate|Intermediate|PackageOutput)?OutputPath|MSBuildProjectExtensionsPath|NuGetPackageRoot)\\)[\\\\/]"
 rule:
     pattern: _VALUE
-    matches: doubled
+    matches: msbuild-path-value
+    # These reserved properties include their separator; user-defined suffixes establish no value contract.
+    regex: '\$\(MSBuildThisFileDirectory(NoRoot)?\)[\\/]'
 transform:
-    # The directory reference without the separator run after it, the same name set the util spells
     JOINED:
         replace:
             source: $VALUE
-            replace: "(\\$\\((?:MSBuildThisFileDirectory(?:NoRoot)?|(?:[A-LN-Za-z_]|M[A-RT-Za-z0-9_]|MS[AC-Za-z0-9_])[A-Za-z0-9_]*\
-                (?:Dir|Directory|Root)|(?:Base|BaseIntermediate|Intermediate|PackageOutput)?OutputPath|MSBuildProjectExtensionsPath|\
-                NuGetPackageRoot)\\))[\\\\/]+"
+            replace: '(\$\(MSBuildThisFileDirectory(?:NoRoot)?\))[\\/]+'
             by: '$1'
 fix: $JOINED
-message: The separator follows a directory property that ends with one, the path holds a doubled separator
+message: The separator follows a reserved property that already ends with one
 note: Concatenate the segment directly after the property

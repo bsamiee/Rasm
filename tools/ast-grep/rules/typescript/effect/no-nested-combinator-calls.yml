@@ -1,34 +1,50 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# The rewrite nested-module-calls-to-pipe applies the fix in files that import pipe from effect
 id: no-nested-combinator-calls
 language: tsx
 severity: error
 utils:
-    # Module call that pipes over its first argument, a Schema or FastCheck call has no data-last form and nests as a declaration
+    module-call:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?[A-Z]\w*$'}}}}
+    # Imported module operations with a data-last or unary pipeline form
     step:
-        matches: effect-module-call
-        not: {has: {field: function, has: {field: object, regex: '^(Schema|FastCheck)$'}}}
-    # Step over any module call (the origin, FastCheck.sample included) with a second argument, a one-argument call wraps a value
+        matches: module-call
+        all:
+            - has:
+                field: function
+                has:
+                    field: property
+                    regex: "^(map|flatMap|filter|filterMap|getOrElse|orElse|mapError|flatten|provide|merge|mapOut|filterInput|fromIterable)$"
+            - not: {has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Schema$"}}}}}}
+    # A unary transform consumes its first argument; dual operations require the data-first arity.
     data-first-step:
         matches: step
         has:
             field: arguments
-            all:
-                - has: {nthChild: 1, matches: effect-module-call}
-                - has: {nthChild: 2}
+            has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: module-call}
+        any:
+            - has: {field: function, has: {field: property, regex: "^(flatten|fromIterable)$"}}
+            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 rule:
+    pattern: $CALL
     all:
-        - matches: step
+        - matches: data-first-step
         - has:
-              field: arguments
-              has:
-                  nthChild: 1
-                  matches: data-first-step
+            field: arguments
+            has:
+                nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                matches: data-first-step
+                has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: data-first-step}}
         # The outermost call of a chain reports once, an inner call sits as the first argument of another step
         - not:
-              all:
-                  - nthChild: 1
-                  - inside: {kind: arguments, inside: {matches: step}}
-message: Module calls nest three deep as data-first arguments and read from the inside out
-note: >-
-    Start the chain from the value and pipe each step in order, `value.pipe(Module.step(rest), Module.next(rest))`
-    or `pipe(value, Module.step(rest), Module.next(rest))`
+            all:
+                - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                - inside: {kind: arguments, inside: {matches: data-first-step}}
+message: Module calls nest four deep as data-first arguments and read from the inside out
+note: Keep at most three nested data-first calls and pipe deeper compositions in evaluation order, `pipe(value, Array.map(project), Array.flatten)`
+labels:
+    CALL: {style: primary}

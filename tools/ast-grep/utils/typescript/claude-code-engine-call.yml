@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Call on the engine interface, $.<noun>.<verb>(...), the noun slot binds and a read of $.<noun>.<verb> without a call stays out
 id: claude-code-engine-call
 language: tsx
-arguments: [noun]
+arguments:
+    - noun
 rule:
     kind: call_expression
     has:
@@ -12,5 +12,5 @@ rule:
             field: object
             kind: member_expression
             all:
-                - has: {field: object, kind: identifier, regex: '^\$$'}
-                - has: {field: property, matches: noun}
+                - {has: {field: object, kind: identifier, regex: ^\$$}}
+                - {has: {field: property, matches: noun}}

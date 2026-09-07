@@ -1,5 +1,55 @@
 id: no-native-collection
 snapshots:
+  class Captured implements Disposable { dispose() { return new Map(); } }:
+    labels:
+    - source: new Map()
+      style: primary
+      start: 58
+      end: 67
+    - source: Map
+      style: secondary
+      start: 62
+      end: 65
+  class Captured implements Tracer.Span { readonly attributes = new Map<string, unknown>(); }:
+    labels:
+    - source: new Map<string, unknown>()
+      style: primary
+      start: 62
+      end: 88
+    - source: Map
+      style: secondary
+      start: 66
+      end: 69
+  'class Captured { readonly attributes: ReadonlyMap<string, unknown>; build() { return new Map(); } }':
+    labels:
+    - source: new Map()
+      style: primary
+      start: 85
+      end: 94
+    - source: Map
+      style: secondary
+      start: 89
+      end: 92
+  'class Captured { readonly entries: Iterable<[string, Row]> = new Map(); }':
+    labels:
+    - source: new Map()
+      style: primary
+      start: 61
+      end: 70
+    - source: Map
+      style: secondary
+      start: 65
+      end: 68
+  'class Captured { readonly names: ReadonlyMap<string, Row> = new Map(new Map()); }':
+    labels:
+    - source: new Map()
+      style: primary
+      start: 68
+      end: 77
+    - source: Map
+      style: secondary
+      start: 72
+      end: 75
   class Table extends Base { readonly index = new Map<string, Row>(); }:
     labels:
     - source: new Map<string, Row>()
@@ -20,16 +70,16 @@ snapshots:
       style: secondary
       start: 35
       end: 38
-  const cache = new WeakMap<object, Row>();:
+  'const attributes: ReadonlyMap<string, unknown> = new Map(new Map());':
     labels:
-    - source: new WeakMap<object, Row>()
+    - source: new Map()
       style: primary
-      start: 14
-      end: 40
-    - source: WeakMap
+      start: 57
+      end: 66
+    - source: Map
       style: secondary
-      start: 18
-      end: 25
+      start: 61
+      end: 64
   const groups = Map.groupBy(rows, (row) => row.kind);:
     labels:
     - source: Map.groupBy(rows, (row) => row.kind)
@@ -100,13 +150,63 @@ snapshots:
       style: secondary
       start: 18
       end: 21
-  const seen = new WeakSet<object>();:
+  'const names: Iterable<string> = new Set();':
     labels:
-    - source: new WeakSet<object>()
+    - source: new Set()
       style: primary
-      start: 13
-      end: 34
-    - source: WeakSet
+      start: 32
+      end: 41
+    - source: Set
       style: secondary
-      start: 17
-      end: 24
+      start: 36
+      end: 39
+  'const { [Map.name]: table } = source; new Map();':
+    labels:
+    - source: new Map()
+      style: primary
+      start: 38
+      end: 47
+    - source: Map
+      style: secondary
+      start: 42
+      end: 45
+  const { table = Map } = source; new Map();:
+    labels:
+    - source: new Map()
+      style: primary
+      start: 32
+      end: 41
+    - source: Map
+      style: secondary
+      start: 36
+      end: 39
+  function create() { const child = () => { var Map = Constructor; }; return new Map(); }:
+    labels:
+    - source: new Map()
+      style: primary
+      start: 75
+      end: 84
+    - source: Map
+      style: secondary
+      start: 79
+      end: 82
+  function run({ table = Set }) { return new Set(); }:
+    labels:
+    - source: new Set()
+      style: primary
+      start: 39
+      end: 48
+    - source: Set
+      style: secondary
+      start: 43
+      end: 46
+  import { Map as Table } from "./domain"; const table = new Map();:
+    labels:
+    - source: new Map()
+      style: primary
+      start: 55
+      end: 64
+    - source: Map
+      style: secondary
+      start: 59
+      end: 62

@@ -2,11 +2,20 @@
 id: no-future-annotations
 language: python
 severity: error
+utils:
+    annotations-feature: {kind: dotted_name, regex: '^annotations$', inside: {kind: future_import_statement}}
 rule:
     kind: future_import_statement
-    all:
-        - has: {field: name, kind: dotted_name, regex: '^annotations$'} # The annotations feature, ruff removes every other name
-        - not: {has: {nthChild: 2}} # The deletion drops a second name with the statement, ruff unnecessary-future-import reports it
-fix: ''
-message: Future import of annotations, Python 3.15 evaluates annotations lazily without it
-note: Delete the import, `requires-python` of the root pyproject.toml is 3.15 and its annotations evaluate lazily
+    pattern: $IMPORT
+    has: {matches: annotations-feature} # A direct child, the name field relation reads the first feature alone
+rewriters:
+    - id: kept
+      rule: {kind: dotted_name, pattern: $FEATURE, not: {matches: annotations-feature}}
+      fix: $FEATURE
+transform:
+    # The other features joined, and the statement leaves when none remains
+    KEPT: rewrite($IMPORT, rewriters=[kept], joinBy=', ')
+    OUT: replace($KEPT, replace='^.+$', by='from __future__ import ${0}')
+fix: $OUT
+message: Future annotations use string storage instead of Python 3.15 deferred evaluation
+note: Delete the import, and resolve every name a consumer reads through `__annotations__`, because deferred evaluation resolves it

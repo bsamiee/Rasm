@@ -3,23 +3,23 @@ id: no-boolean-by-match
 language: tsx
 severity: error
 utils:
-    # Arm answering one boolean literal, a thunk, a block with the one return, or the Function constants passed point-free
+    # Both arms ignore a plain parameter and return a boolean without evaluating defaults or destructuring.
     true-arm:
         any:
-            - {kind: arrow_function, has: {field: body, kind: 'true'}}
-            - {kind: arrow_function, has: {field: body, kind: statement_block, has: {kind: return_statement, has: {kind: 'true'}}, not: {has: {nthChild: 2}}}}
-            - pattern: constTrue
+            - matches: {effect-constant-handler: {answer: {kind: 'true'}}}
             - pattern: Function.constTrue
+              has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Function$"}}}}
     false-arm:
         any:
-            - {kind: arrow_function, has: {field: body, kind: 'false'}}
-            - {kind: arrow_function, has: {field: body, kind: statement_block, has: {kind: return_statement, has: {kind: 'false'}}, not: {has: {nthChild: 2}}}}
-            - pattern: constFalse
+            - matches: {effect-constant-handler: {answer: {kind: 'false'}}}
             - pattern: Function.constFalse
+              has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Function$"}}}}
     # Case record with one arm answering true and the other false
     boolean-cases:
         kind: object
         all:
+            - not: {has: {nthChild: 3}}
+            - not: {has: {kind: pair, has: {field: key, not: {kind: property_identifier}}}}
             - has: {kind: pair, has: {field: value, matches: true-arm}}
             - has: {kind: pair, has: {field: value, matches: false-arm}}
     # Pair holding the true arm, the rewriters read its key as the case the predicate names
@@ -34,8 +34,8 @@ utils:
             field: function
             kind: member_expression
             all:
-                - has: {field: object, regex: '^(Boolean|Option|Either|Exit|Effect)$'}
-                - has: {field: property, regex: '^(match|matchCause)$'}
+                - has: {field: object, pattern: $M}
+                - has: {field: property, regex: "^match$"}
 rule:
     matches: boolean-match
     pattern: $CALL
@@ -43,6 +43,16 @@ rule:
         - has: {field: arguments, has: {matches: boolean-cases}}
         # The data-last boolean match is the identity step of a pipe, no predicate names it
         - not: {pattern: Boolean.match($_)}
+        # Replacing a match must retain comments and explicit generic arguments.
+        - not: {has: {field: type_arguments, kind: type_arguments}}
+        - not: {has: {kind: comment, stopBy: end}}
+constraints:
+    M:
+        any:
+            - pattern: Boolean
+              matches: {effect-module-reference: {module: {regex: '^(effect/)?Boolean$'}}}
+            - not: {pattern: Boolean}
+              matches: {effect-module-reference: {module: {regex: '^(effect/)?(Option|Either|Exit|Effect)$'}}}
 rewriters:
     - id: true-key
       rule: {matches: true-pair}
@@ -50,34 +60,28 @@ rewriters:
     # Boolean matched to itself is the boolean, or its negation under the operand rules of the not operator
     - id: flag
       rule:
-          pattern: 'Boolean.match($V, $_)'
-          has: {field: arguments, has: {kind: object, has: {matches: true-pair}}}
-      constraints: {KEY: {regex: '^onTrue$'}}
-      fix: $V
-    - id: flag-not-operand
-      rule: {pattern: 'Boolean.match($V, $_)'}
-      constraints: {V: {matches: syntax-negation-operand}}
-      fix: '!$V'
-    - id: flag-not-compound
-      rule: {pattern: 'Boolean.match($V, $_)'}
-      fix: '!($V)'
-    # The match and matchCause spellings share the key that names the predicate
+        pattern: "Boolean.match($V, $_)"
+        has: {field: arguments, has: {kind: object, has: {matches: true-pair}}}
+      constraints: {KEY: {regex: "^onTrue$"}}
+      fix: ($V)
+    - id: flag-not
+      rule: {pattern: "Boolean.match($V, $_)"}
+      fix: "(!($V))"
+    # Each case key names the corresponding predicate
     - id: carrier-first
-      rule: {pattern: '$M.$_($V, $C)'}
+      rule: {pattern: "$M.$_($V, $C)"}
       transform:
-          CASE: {rewrite: {source: $C, rewriters: [true-key], joinBy: ''}}
-          PRED: replace($CASE, replace='^on(\w+)$', by='is$1')
+        CASE: {rewrite: {source: $C, rewriters: [true-key], joinBy: ""}}
+        PRED: replace($CASE, replace='^on(\w+)$', by='is$1')
       fix: $M.$PRED($V)
     - id: carrier-last
       rule: {pattern: $M.$_($C)}
       transform:
-          CASE: {rewrite: {source: $C, rewriters: [true-key], joinBy: ''}}
-          PRED: replace($CASE, replace='^on(\w+)$', by='is$1')
+        CASE: {rewrite: {source: $C, rewriters: [true-key], joinBy: ""}}
+        PRED: replace($CASE, replace='^on(\w+)$', by='is$1')
       fix: $M.$PRED
 transform:
-    PREDICATE: rewrite($CALL, rewriters=[flag, flag-not-operand, flag-not-compound, carrier-first, carrier-last])
+    PREDICATE: rewrite($CALL, rewriters=[flag, flag-not, carrier-first, carrier-last])
 fix: $PREDICATE
-message: The match answers a boolean the carrier's own predicate states
-note: >-
-    Read the case through its predicate, `Option.isSome(option)`, `Either.isRight(either)`, `Exit.isSuccess(exit)`,
-    `Effect.isSuccess(effect)`, and a boolean matched to itself is the boolean
+message: The match returns the result of an existing case predicate
+note: Read the case through the module's predicate, `Option.isSome` or `Effect.isSuccess`, and a boolean matched to itself is the boolean

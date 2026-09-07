@@ -14,9 +14,9 @@ Covers the review catalog for project and build files. Each entry names the smel
 - Use `manage-repo` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 
 [REFERENCES]:
-- [01]-[WORKED_EXAMPLES](references/worked-examples.md): Full files for the catalog entries with a fix that spans more than one element
+- [01]-[WORKED_EXAMPLES](references/worked-examples.md): Corrections that span multiple elements
 
-Delete the output directories and run `dotnet build <solution> -check` before reading the files. `BC0101`, `BC0102`, `BC0107`, and `BC0302` report shared output paths, double writes, both framework properties, and `Exec` builds. No check reports a property override or a misplaced property, read the files for both.
+Use the `dotnet-msbuild-diagnostics` BuildCheck workflow for the review baseline. Its `-t:Rebuild` capture reruns build work through MSBuild without manually deleting output directories. `BC0101`, `BC0102`, `BC0107`, and `BC0302` report shared output paths, double writes, both framework properties, and `Exec` builds. No check reports a property override or a misplaced property, read the files for both.
 
 [AGENTS]: Use `msbuild-fixer` when the scope exceeds the context window, it reviews one scope and returns fixes with proof.
 
@@ -279,9 +279,9 @@ Target smells run at the wrong time, run every build, or leave a value unseen. P
 
 ### [AP-18]-[STYLE]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
 
-- SMELL: Targets that write files without `Inputs` and `Outputs`, or a `Target` of 50 or more lines that does unrelated work
+- SMELL: Targets that write files without `Inputs` and `Outputs`, or a `Target` of 50 or more lines that combines unrelated work
 - WHY: MSBuild skips a target as a whole and only when every output is at least as new as every input, a target without both attributes runs on every build, and one stale input reruns every unrelated step in a large target
-- RULE: One target per output, `Inputs` lists every file that drives the output, `Outputs` lists every file written, and the written file joins `@(FileWrites)` from an `ItemGroup` inside the target
+- RULE: Group outputs that share a dependency and regeneration step in one target, `Inputs` lists every file that drives them, `Outputs` lists every file written, and the written file joins `@(FileWrites)` from an `ItemGroup` inside the target
 
 ```xml
 <!-- BAD: runs every build -->
@@ -448,7 +448,7 @@ Execution and path smells run a process or name a path that works on one machine
 
 ## [06]-[BUILD_GRAPH]
 
-Build graph smells build one project twice. Prove each with `binlog_evaluations` on a `-bl:{}` build, two evaluations of one project outside restore share the output paths.
+Build graph smells build one project twice. Prove each with `binlog_evaluations` on a `-bl:{}.binlog` build, two evaluations of one project outside restore share the output paths.
 
 ### [AP-28]-[ERROR]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 

@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# The engine child run `$.process.run(argv, init)`, with the argv, the init, and the promise chain the run rules read
-id: claude-code-process-run
-language: tsx
-rule:
-    kind: call_expression
-    matches: {claude-code-engine-call: {noun: {regex: '^process$'}}}
-    has: {field: function, has: {field: property, regex: '^run$'}}

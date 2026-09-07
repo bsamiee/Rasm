@@ -2,16 +2,24 @@
 id: no-forwarding-function
 language: python
 severity: error
+# Report-only, the probed fix deleting the def fails its caller, `NameError: name 'load' is not defined`
 utils:
     # Callee the point-free form names as written, a name or an attribute chain, a call or a subscript evaluates at each call
     named-callee:
         any:
             - kind: identifier
+              all:
+                - pattern: $ROOT
+                - not:
+                    inside:
+                        kind: function_definition
+                        stopBy: {matches: python-function-boundary}
+                        has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $ROOT}}}}}
             - kind: attribute
               has: {field: object, matches: named-callee}
-    # The one statement directly under a def body, a return or an expression, a statement under a branch or a loop forwards nothing
+    # The one statement directly under a def body, a return; dropping the call result changes the callable contract
     forwarding-statement:
-        any: [{kind: return_statement}, {kind: expression_statement}]
+        kind: return_statement
         inside: {kind: block, inside: {kind: function_definition}}
     # The call the statement forwards, direct under a plain def and awaited under an async def, the arms pin its arguments
     forwarded-call:
@@ -22,7 +30,7 @@ utils:
     # Body with no second statement after the docstring, a comment is no statement
     single-statement-body:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-docstring}, {kind: comment}]}}}}}
+        not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-inert-statement}}}}}
     # Parameters that keep their position as names, the earliest plain one binds first and a default or a keyword separator changes the call
     first-parameter:
         any: [{kind: identifier, pattern: $A}, {kind: typed_parameter, has: {kind: identifier, pattern: $A}}]
@@ -37,42 +45,49 @@ rule:
     all:
         # Plain defs forward the call, async defs forward the awaited call, and an async def returning the coroutine wraps it in another
         - any:
-              - not: {has: {regex: '^async$'}}
-              - has: {field: body, kind: block, has: {matches: forwarding-statement, has: {kind: await}}}
+            - not: {has: {regex: '^async$'}}
+            - has: {field: body, kind: block, has: {matches: forwarding-statement, has: {kind: await}}}
         - not: {inside: {kind: decorated_definition}} # Decorators register or transform the def, the callee alone loses it
         - any:
-              # Thunk with no parameter around a call with no argument, a thunk supplying an argument defers the call where the consumer runs it
-              - all:
-                    - not: {has: {field: parameters, has: {pattern: $_}}}
-                    - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: $F()}}
-              # The arity-pinned call re-matches each name in order and refuses a further argument or a keyword the point-free form drops
-              - all:
-                    - has: {field: parameters, has: {matches: first-parameter}, not: {has: {nthChild: 2}}}
-                    - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: $F($A)}}
-              - all:
-                    - has:
-                          field: parameters
-                          all: [{has: {matches: first-parameter}}, {has: {matches: second-parameter}}]
-                          not: {has: {nthChild: 3}}
-                    - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F($A, $B)'}}
-              - all:
-                    - has:
-                          field: parameters
-                          all: [{has: {matches: first-parameter}}, {has: {matches: second-parameter}}, {has: {matches: third-parameter}}]
-                          not: {has: {nthChild: 4}}
-                    - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F($A, $B, $C)'}}
-              # Splats forward the positional list, and the pair forwards both lists, in the order the call re-spreads them
-              - all:
-                    - has: {field: parameters, has: {kind: list_splat_pattern, has: {kind: identifier, pattern: $A}}, not: {has: {nthChild: 2}}}
-                    - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: $F(*$A)}}
-              - all:
-                    - has:
-                          field: parameters
-                          all:
-                              - has: {kind: list_splat_pattern, has: {kind: identifier, pattern: $A}}
-                              - has: {kind: dictionary_splat_pattern, has: {kind: identifier, pattern: $K}}
-                          not: {has: {nthChild: 3}} # The grammar orders the splats, the count bound pins them to their positions
-                    - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F(*$A, **$K)'}}
+            # Equal parameter and argument sequences cover every untyped arity, including thunks.
+            - all:
+                - any:
+                    - pattern: |-
+                        def $NAME($$$ARGS):
+                            return $F($$$ARGS)
+                    - pattern: |-
+                        async def $NAME($$$ARGS):
+                            return await $F($$$ARGS)
+                - has: {field: body, matches: single-statement-body}
+            # The arity-pinned call re-matches each name in order and refuses a further argument or a keyword the point-free form drops
+            - all:
+                - has: {field: parameters, has: {matches: first-parameter}, not: {has: {nthChild: 2}}}
+                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: $F($A)}}
+            - all:
+                - has:
+                    field: parameters
+                    all: [{has: {matches: first-parameter}}, {has: {matches: second-parameter}}]
+                    not: {has: {nthChild: 3}}
+                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F($A, $B)'}}
+            - all:
+                - has:
+                    field: parameters
+                    all: [{has: {matches: first-parameter}}, {has: {matches: second-parameter}}, {has: {matches: third-parameter}}]
+                    not: {has: {nthChild: 4}}
+                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F($A, $B, $C)'}}
+            # Splats forward the positional list, and the pair forwards both lists, in the order the call re-spreads them
+            - all:
+                - has: {field: parameters, has: {kind: list_splat_pattern, has: {kind: identifier, pattern: $A}}, not: {has: {nthChild: 2}}}
+                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: $F(*$A)}}
+            - all:
+                - has:
+                    field: parameters
+                    all:
+                        - has: {kind: list_splat_pattern, has: {kind: identifier, pattern: $A}}
+                        - has: {kind: dictionary_splat_pattern, has: {kind: identifier, pattern: $K}}
+                    not: {has: {nthChild: 3}} # The grammar orders the splats, the count bound pins them to their positions
+                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F(*$A, **$K)'}}
+        - not: {has: {field: name, pattern: $F}}
 constraints:
     F: {matches: named-callee}
 message: The def forwards its parameters unchanged to one call of `$F` and adds a name for the callee

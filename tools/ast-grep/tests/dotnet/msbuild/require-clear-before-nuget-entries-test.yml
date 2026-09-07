@@ -36,3 +36,9 @@ invalid:
     # Clear in the start-tag form after the first source, the fix removes it with the empty-tag form
     - |
       <packageSources><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /><clear></clear></packageSources>
+    # commented clear is retained
+    - |
+      <packageSources><!-- <clear /> --><add key="feed" value="https://example.com" /></packageSources>
+    # quoted greater-than in section attribute
+    - |
+      <packageSources label="a > b"><add key="feed" value="https://example.com" /><clear /></packageSources>

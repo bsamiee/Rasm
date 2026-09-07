@@ -1,0 +1,21 @@
+id: python-type-alias
+language: Python
+role: item
+symbolType: struct
+rule:
+    kind: type_alias_statement
+    pattern: $DECLARATION
+    not:
+        inside:
+            any: [{kind: function_definition}, {kind: class_definition}]
+            stopBy: end
+    has:
+        field: left
+        any:
+            - has: {kind: identifier, pattern: $NAME}
+            - has:
+                kind: generic_type
+                has: {kind: identifier, pattern: $NAME}
+name: $NAME
+signature: $DECLARATION
+isExported: true

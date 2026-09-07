@@ -12,23 +12,38 @@ utils:
             - has: {field: name, kind: dotted_name, matches: module}
             - has: {field: alias, kind: identifier, pattern: $ALIAS}
 rule:
+    all:
+        - not: {matches: python-shadowed-name}
+        - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: "^$"}}}}
     any:
         # The from-import naming the member, plain or under an alias
         - kind: dotted_name
           matches: name
           any:
-              # The plain name follows the module name past the import keyword and the commas, the module name follows no name
-              - inside: {kind: import_from_statement, has: {field: module_name, matches: module}}
-                follows: {kind: dotted_name, stopBy: end}
-              - inside: {kind: aliased_import, field: name, inside: {kind: import_from_statement, has: {field: module_name, matches: module}}}
+            # The plain name follows the module name past the import keyword and the commas, the module name follows no name
+            - inside: {kind: import_from_statement, has: {field: module_name, matches: module}}
+              follows: {kind: dotted_name, stopBy: end}
+            - inside: {kind: aliased_import, field: name, inside: {kind: import_from_statement, has: {field: module_name, matches: module}}}
         # The attribute read, its object the module as spelled or the alias its import binds
         - kind: attribute
           all:
-              - has: {field: attribute, kind: identifier, matches: name}
-              - has:
-                    field: object
-                    any:
-                        - matches: module
-                        - kind: identifier
-                          pattern: $ALIAS
-                          inside: {kind: module, stopBy: end, has: {stopBy: end, matches: alias-import}}
+            - has: {field: attribute, kind: identifier, matches: name}
+            - has:
+                field: object
+                any:
+                    - matches: module
+                    - kind: identifier
+                      pattern: $ALIAS
+                      any:
+                        - inside:
+                            kind: module, function_definition
+                            stopBy: end
+                            has:
+                                stopBy: {kind: "function_definition, class_definition, lambda"}
+                                matches: alias-import
+                        - inside:
+                            kind: class_definition
+                            stopBy: {kind: "function_definition, lambda"}
+                            has:
+                                stopBy: {kind: "function_definition, class_definition, lambda"}
+                                matches: alias-import

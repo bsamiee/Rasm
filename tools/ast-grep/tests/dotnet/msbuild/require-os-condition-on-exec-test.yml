@@ -1,5 +1,16 @@
 id: require-os-condition-on-exec
 valid:
+    - '<Exec Command="dotnet build" WorkingDirectory="chmod" />'
+    # The package tool selects its target platform through an argument
+    - |
+      <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac"
+        WorkingDirectory="$(YakPackageDirectory)" /></Target>
+    # The toolchain supplies the interpreter across operating systems
+    - |
+      <Target Name="Generate"><Exec Command="bash generate.sh" /></Target>
+    # PowerShell Core runs across operating systems
+    - |
+      <Target Name="Generate"><Exec Command="pwsh generate.ps1" /></Target>
     # The retarget targets of Directory.Build.targets, the condition sits on the target
     - |
       <Target Name="RetargetTorchLibompInstallName" AfterTargets="CopyFilesToOutputDirectory" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
@@ -28,10 +39,6 @@ invalid:
     # chmod with no condition, fails on Windows
     - |
       <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" /></Target>
-    # The macOS package tool that once ran with no platform guard
-    - |
-      <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac"
-        WorkingDirectory="$(YakPackageDirectory)" /></Target>
     # Windows shell, fails on macOS and Linux
     - |
       <Target Name="Stamp" AfterTargets="Build"><Exec Command="cmd /c echo stamped" /></Target>
@@ -44,3 +51,17 @@ invalid:
     # Environment variable passing the reserved OS property, no condition
     - |
       <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" /></Target>
+    # Existing condition, the platform joins it as a conjunct
+    - '<Exec Condition="true" Command="chmod +x tool" />'
+    # Linux package manager
+    - |
+      <Target Name="Deps" BeforeTargets="Build"><Exec Command="apt-get install -y libomp-dev" /></Target>
+    # Single-quoted existing condition, the platform name takes backticks
+    - |
+      <Exec Command="brew install libomp" Condition='$(Feature) == "deps"' />
+    # Condition after the command holding a comparison, the platform joins it
+    - |
+      <Exec Command="cmd /c echo stamped" Condition="'$(Count)' > '0'" />
+    # Naming an OS function as literal text does not call it
+    - |
+      <Exec Command="chmod +x tool" Condition="'$(Feature)' == 'IsOSPlatform'" />

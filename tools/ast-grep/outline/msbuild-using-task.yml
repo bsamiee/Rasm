@@ -1,0 +1,27 @@
+id: msbuild-using-task
+language: xml
+role: item
+symbolType: class
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _HEADER
+        all:
+            - has: {kind: Name, regex: '^UsingTask$'}
+            - has:
+                kind: Attribute
+                all:
+                    - has: {kind: Name, regex: '^TaskName$'}
+                    - has: {kind: AttValue, pattern: _NAME}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            inside: {kind: document}
+            has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
+transform:
+    TASK_NAME: substring($NAME, startChar=1, endChar=-1)
+name: $TASK_NAME
+signature: $HEADER
+isExported: true

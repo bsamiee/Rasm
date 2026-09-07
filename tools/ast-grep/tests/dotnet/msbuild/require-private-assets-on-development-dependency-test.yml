@@ -24,6 +24,18 @@ valid:
     # Single-quoted private assets
     - |
       <PackageReference Include='Riok.Mapperly' PrivateAssets='all' />
+    # Final unconditional metadata overrides an earlier value
+    - |
+      <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets><PrivateAssets>all</PrivateAssets></PackageReference>
+    # Unrelated metadata does not override the compliant attribute
+    - |
+      <PackageReference Include="MinVer" PrivateAssets="all"><Other>other</Other></PackageReference>
+    # A redundant conditional value does not weaken the compliant attribute
+    - |
+      <PackageReference Include="MinVer" PrivateAssets="all"><PrivateAssets Condition="false">all</PrivateAssets></PackageReference>
+    # Other metadata after the final value does not override it
+    - |
+      <PackageReference Include="MinVer"><PrivateAssets>all</PrivateAssets><Other>other</Other></PackageReference>
 invalid:
     # Single-quoted id, the fix keeps the Include quotes and writes the attribute in double quotes
     - |
@@ -52,3 +64,18 @@ invalid:
     # Conditioned private assets child narrowed to one class, the fix replaces it with the attribute
     - |
       <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">build</PrivateAssets></PackageReference>
+    # attribute spacing and quoted metadata lookalike
+    - |
+      <PackageReference Include = "MinVer" Note=' PrivateAssets="kept" >' PrivateAssets = "build" />
+    # conditional all is not unconditional privacy
+    - |
+      <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">all</PrivateAssets></PackageReference>
+    # later metadata overrides compliant attribute
+    - |
+      <PackageReference Include="MinVer" PrivateAssets="all"><PrivateAssets>build</PrivateAssets></PackageReference>
+    # A later conflicting value overrides an earlier compliant value
+    - |
+      <PackageReference Include="MinVer"><PrivateAssets>all</PrivateAssets><PrivateAssets>other</PrivateAssets></PackageReference>
+    # Unrelated metadata cannot supply the required value
+    - |
+      <PackageReference Include="MinVer"><Other>all</Other></PackageReference>

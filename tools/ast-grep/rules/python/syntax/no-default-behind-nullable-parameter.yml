@@ -2,18 +2,65 @@
 id: no-default-behind-nullable-parameter
 language: python
 severity: error
+# Report-only, the probed fix the default moved into the signature leaves `return limit if limit is not None else 10`, a second node
+utils:
+    local-binding:
+        any:
+            - matches: {python-parameter: {name: {pattern: $ROOT}}}
+              inside: {kind: "parameters, lambda_parameters"}
+            - kind: assignment, augmented_assignment, for_statement, for_in_clause
+              has: {field: left, kind: identifier, pattern: $ROOT}
+    local-shadow:
+        inside:
+            kind: function_definition, lambda
+            stopBy: end
+            has: {matches: local-binding, stopBy: {kind: "function_definition, lambda, class_definition"}}
+    # Module-level binding of the value's root name, an assignment, an import, a def, or a class
+    module-binding:
+        any:
+            - kind: expression_statement
+              has: {kind: assignment, has: {field: left, kind: identifier, pattern: $ROOT}}
+            - kind: import_statement
+              has: {kind: identifier, pattern: $ROOT, stopBy: end}
+            - kind: import_from_statement
+              has: {kind: identifier, pattern: $ROOT, stopBy: end}
+            - kind: function_definition
+              has: {field: name, pattern: $ROOT}
+            - kind: class_definition
+              has: {field: name, pattern: $ROOT}
+    signature-default:
+        any:
+            - kind: string
+              not: {has: {kind: interpolation}}
+            - kind: integer
+            - kind: float
+            - kind: 'true'
+            - kind: 'false'
+            - kind: unary_operator # Signed number
+              has: {any: [{kind: integer}, {kind: float}]}
+            - kind: tuple # The empty tuple, an immutable value
+              not: {has: {pattern: $_}}
+            - kind: identifier
+              pattern: $ROOT
+              not: {matches: local-shadow}
+              inside: {kind: module, stopBy: end, has: {matches: module-binding}}
+            - kind: attribute
+              all: # The leftmost name of the chain binds before the module search re-matches it, unordered keys run the search first
+                - has: {field: object, stopBy: end, kind: identifier, pattern: $ROOT}
+                - not: {matches: local-shadow}
+                - inside: {kind: module, stopBy: end, has: {matches: module-binding}}
 rule:
     any: # The parameter accepts None with a None default or through its annotation alone, the body's resolution proves it either way
         - kind: typed_default_parameter
           all:
-              - has: {field: name, pattern: $P}
-              - has: {field: value, kind: none}
+            - has: {field: name, pattern: $P}
+            - has: {field: value, kind: none}
         - kind: typed_parameter
           has: {kind: identifier, pattern: $P} # The name is the first child and carries no field
         - kind: default_parameter # Untyped parameter with a None default
           all:
-              - has: {field: name, pattern: $P}
-              - has: {field: value, kind: none}
+            - has: {field: name, pattern: $P}
+            - has: {field: value, kind: none}
     inside:
         kind: function_definition
         stopBy: {matches: python-function-boundary} # The def that declares the parameter
@@ -28,10 +75,10 @@ rule:
                     # The statement form, the None branch assigns the default alone and no else branch computes from the value
                     - kind: if_statement
                       all:
-                          - has: {field: condition, pattern: $P is None}
-                          - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}, not: {has: {nthChild: 2}}}
-                          - not: {has: {field: alternative, kind: else_clause}}
+                        - has: {field: condition, pattern: $P is None}
+                        - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}, not: {has: {nthChild: 2}}}
+                        - not: {has: {kind: "else_clause, elif_clause"}}
 constraints:
-    D: {matches: python-signature-default} # Default the signature can state, a literal or a module-level name
+    D: {matches: signature-default} # Default the signature can state, a literal or a module-level name
 message: Parameter `$P` accepts None and the body resolves None to `$D`
-note: 'State the default in the signature, `<parameter>: <type> = <default>`, and drop the None arm'
+note: Move the default into the signature and update callers that pass None, and keep a body default that reads a changing module value

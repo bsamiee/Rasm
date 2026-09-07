@@ -1,18 +1,21 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, Effect.all over promise operands fails with TS2740 Type 'Promise<number>' is missing the properties of type 'Effect'
 id: no-native-promise
 language: tsx
 severity: error
 # The plugin loader refuses the effect import, and a spec drives a promise-based host API (a FastCheck scheduler) as its boundary
-ignores: ['.claude/plugins/**', '**/*.spec.ts']
+ignores: ['.claude/plugins/**', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts', '**/*.config.ts']
 rule:
+    not:
+        any:
+            - inside: {matches: effect-promise-boundary, stopBy: {matches: syntax-function-boundary}}
+            - inside: {matches: nx-version-actions-method, stopBy: {matches: syntax-function-boundary}}
     any:
         # The constructor over an executor
         - kind: new_expression
-          has: {field: constructor, pattern: $NAME, regex: '^(globalThis\.)?Promise$'}
+          has: {field: constructor, pattern: $NAME, regex: '^(globalThis\.)?Promise$', matches: syntax-global-reference}
         # Every static, the combinators and the constructors of a settled promise
         - kind: call_expression
-          has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?Promise\.(all|allSettled|any|race|resolve|reject|withResolvers|try)$'}
+          has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?Promise\.(all|allSettled|any|race|resolve|reject|withResolvers|try)$', matches: syntax-global-reference}
 message: '`$NAME` builds a promise where the effect is the composed value'
-note: >-
-    Compose effects, `Effect.all(effects, { concurrency })`, `Effect.race`, `Effect.succeed`, `Effect.fail`,
-    `Effect.async(resume)` for a callback source, and `Deferred` for a resolver another fiber completes
+note: Compose effects and adapt the promise at the host boundary, keeping settlement order, rejection identity, concurrency, and cancellation

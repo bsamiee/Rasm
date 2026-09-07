@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# Enable on demand with ast-grep scan --filter '^npm-command-to-pnpm$' --error=npm-command-to-pnpm -U <paths>
+id: npm-command-to-pnpm
+language: bash
+severity: off
+files:
+    - .github/**
+    - .claude/**/*.json
+    - '**/*.sh'
+    - package.json
+    - '**/project.json'
+    - nx.json
+rule:
+    kind: command
+    pattern: $COMMAND
+    any:
+        # The subcommands pnpm spells the same way, and the install forms that read the pnpm lockfile
+        - all:
+            - has: {field: name, regex: '^npm$'}
+            - has: {field: argument, regex: '^(run|test|install|i|ci)$'}
+        # A local binary through npx, pnpm exec runs the installed one
+        - has: {field: name, regex: '^npx$'}
+rewriters:
+    - id: install
+      rule: {kind: word, regex: '^(install|i|ci)$', nthChild: 2, inside: {kind: command, pattern: $COMMAND}}
+      fix: install
+    - id: manager
+      rule: {kind: command_name, regex: '^npm$', inside: {kind: command, pattern: $COMMAND}}
+      fix: pnpm
+    # The manager rewriter takes npm first, the name left is npx
+    - id: runner
+      rule: {kind: command_name, inside: {kind: command, pattern: $COMMAND}}
+      fix: pnpm exec
+transform:
+    PNPM: rewrite($COMMAND, rewriters=[install, manager, runner])
+fix: $PNPM
+message: The command runs npm or npx where pnpm is the repository package manager
+note: Run the subcommand through pnpm, `pnpm run <script>`, `pnpm install` for every install form, and `pnpm exec <tool>` for an installed binary

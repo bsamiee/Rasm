@@ -1,0 +1,47 @@
+id: no-parallel-rule-gates
+valid:
+    # A root metadata map is not the targets map even with target-shaped members.
+    - '{"metadata":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}'
+    # The project can inherit parallel false from targetDefaults
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"]}}},"targetDefaults":{"rules":{"options":{"parallel":false}}}}'
+    # Corrected target keeps its language gates sequential
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":false}}}}'
+    # A single mutation pool can run beside an unrelated command
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts","node --test tests/typescript/ast-grep/*.test.ts"],"parallel":true}}}}'
+    # Other script operations do not own a mutation pool
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh pairing",".claude/skills/ast-grep/scripts/rule-checks.sh parse ts"],"parallel":true}}}}'
+    # Ordinary independent build commands retain concurrency
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":["build one","build two"],"parallel":true}}}}'
+    # Another executor defines its own parallel option
+    - '{"targets":{"rules":{"executor":"custom:run","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}'
+    # Descriptions containing commands are not executable command fields
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[{"command":"echo build","description":".claude/skills/ast-grep/scripts/rule-checks.sh gate ts"},{"command":"echo build","description":".claude/skills/ast-grep/scripts/rule-checks.sh gate py"}],"parallel":true}}}}'
+    # Gate arguments in a printed command do not execute the gate
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":["echo .claude/skills/ast-grep/scripts/rule-checks.sh gate ts","echo .claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}'
+    # Sibling command groups are not combined
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts"],"parallel":true},"metadata":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate py"]}}}}'
+    # A target-shaped metadata object is not an executable target
+    - '{"metadata":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}'
+    # A targets key inside metadata does not own Nx targets
+    - '{"metadata":{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}}'
+    # Configuration metadata does not inherit the target executor
+    - '{"targets":{"rules":{"executor":"nx:run-commands","metadata":{"options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}}'
+    # An executor cannot be inferred from the target name alone
+    - '{"targets":{"rules":{"options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}'
+invalid:
+    # Root target command strings reproduce the original concurrency defect
+    - '{"nx":{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}}'
+    # Command objects preserve their argument forwarding options
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"parallel":true,"commands":[{"command":".claude/skills/ast-grep/scripts/rule-checks.sh gate ts","forwardAllArgs":false},{"command":".claude/skills/ast-grep/scripts/rule-checks.sh gate py","forwardAllArgs":false}]}}}}'
+    # Count only gates across mixed commands and direct Bash invocation
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":["build",{"command":"bash ./.claude/skills/ast-grep/scripts/rule-checks.sh gate ts"},"node --test tests/typescript/ast-grep/*.test.ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj"],"parallel":true}}}}'
+    # Report a command list once even when it holds more gates
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py",".claude/skills/ast-grep/scripts/rule-checks.sh gate sh"],"parallel":true}}}}'
+    # Named configurations override the base command list and parallel setting
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":["build"],"parallel":false},"configurations":{"all":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}}'
+    # Filtered target defaults carry their own executor and options
+    - '{"targetDefaults":{"rules":[{"filter":{"projects":["rasm"]},"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}]}}'
+    # Object target defaults use the same sequential gate policy
+    - '{"targetDefaults":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}'
+    # readyWhen requires parallel execution, so this conflict needs a reviewed correction
+    - '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true,"readyWhen":"done"}}}}'

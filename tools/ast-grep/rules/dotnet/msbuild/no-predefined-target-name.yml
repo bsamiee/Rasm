@@ -5,11 +5,27 @@ severity: error
 # Project bodies and .props files import before the SDK targets defining the predefined targets
 files: ['**/*.csproj', '**/*.props']
 rule:
+    pattern: _TARGET
     all:
         - matches: {msbuild-element: {name: {regex: '^Target$'}}}
         - matches:
-              msbuild-metadata:
-                  name: {regex: '^Name$'}
-                  value: {regex: '^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
-message: The SDK import that follows the project body and the .props files redefines a target named after a predefined target, the target never runs
+            msbuild-metadata:
+                name: {regex: '^Name$'}
+                value: {regex: '^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
+transform:
+    # The predefined name gains a Step suffix, and a marker after it holds the attachment attribute the name implied
+    RENAMED:
+        replace:
+            source: $TARGET
+            replace: '(?s)^(<Target\b.*?\bName\s*=\s*)(["''])(Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)(["''])'
+            by: '${1}${2}${3}${4}Step${5}@@${3}Targets="${4}"@@'
+    # A tag attached already keeps its own attachment, the marker leaves without a trace
+    KEPT:
+        replace:
+            source: $RENAMED
+            replace: '(?s)^(<Target\b.*?\b(?:Before|After)Targets\s*=.*?)@@[^@]*@@|^(<Target\b[^@]*?)@@[^@]*@@([^>]*?\b(?:Before|After)Targets\s*=)'
+            by: '${1}${2}${3}'
+    ATTACHED: {replace: {source: $KEPT, replace: '@@([^@]*)@@', by: ' ${1}'}}
+fix: $ATTACHED
+message: The target takes a predefined name, the SDK import after the project body redefines it and the target never runs
 note: Give the target its own name and attach it with AfterTargets or BeforeTargets

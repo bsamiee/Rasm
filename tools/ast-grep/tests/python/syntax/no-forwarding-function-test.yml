@@ -86,10 +86,6 @@ valid:
     - |
       def doubled(a, b):
           return pair(b, b)
-    # Four parameters
-    - |
-      def four(a, b, c, d):
-          return combine(a, b, c, d)
     # Lambda, ruff unnecessary-lambda reports it
     - |
       run = lambda x: handle(x)
@@ -134,15 +130,40 @@ valid:
     - |
       def load(path, /):
           return read(path)
+    # Thunk running a call without arguments for its effect
+    - |
+      def stop():
+          server.stop()
+    # Call run for its effect
+    - |
+      def load(path):
+          read(path)
+    # Async thunk awaiting a call without arguments
+    - |
+      async def stop():
+          await server.stop()
+    # Self-recursion names no callee that can replace the function
+    - |
+      def repeat(value):
+          return repeat(value)
+    # The callee is supplied at each invocation and has no outer binding to substitute
+    - |
+      def apply(operation):
+          return operation(operation)
+    # A leading formatted string runs work and is not a docstring
+    - |
+      def load(path):
+          f"{record(path)}"
+          return read(path)
+    # The callee receiver is supplied by the invocation
+    - |
+      def apply(operation):
+          return operation.run(operation)
 invalid:
     # The instance, a thunk around a call without arguments
     - |
       def load():
           return read()
-    # Thunk running a call without arguments for its effect
-    - |
-      def stop():
-          server.stop()
     # One parameter forwarded
     - |
       def load(path):
@@ -175,10 +196,6 @@ invalid:
     - |
       def load(path):
           return package.module.read(path)
-    # Call run for its effect
-    - |
-      def load(path):
-          read(path)
     # Docstring before the call
     - |
       def load(path):
@@ -218,7 +235,25 @@ invalid:
     - |
       async def load(path):
           return await read(path)
-    # Async thunk awaiting a call without arguments
+    # Four parameters
     - |
-      async def stop():
-          await server.stop()
+      def four(a, b, c, d):
+          return combine(a, b, c, d)
+    # Mixed annotations keep untyped positions beside a typed parameter
+    - |
+      def combine(a: int, b, c):
+          return merge(a, b, c)
+    # Typed asynchronous forwarding uses the awaited-call predicate
+    - |
+      async def load(path: Path):
+          return await read(path)
+    # Arbitrary asynchronous arity is compared as one argument sequence
+    - |
+      async def combine(a, b, c, d):
+          return await merge(a, b, c, d)
+    # A standalone ordinary string after the docstring adds no execution behavior
+    - |
+      def load(path):
+          """Read the file."""
+          "Implementation note."
+          return read(path)

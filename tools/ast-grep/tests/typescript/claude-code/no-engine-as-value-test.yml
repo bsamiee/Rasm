@@ -40,7 +40,7 @@ valid:
       const line = `${$.plugin.root}/hooks`;
     # Engine call as a constructor argument
     - |
-      const seen = new Set($.store.keys());
+      const seen = new Set(await $.store.keys());
     # Optional call on the engine interface, the callee keeps the dotted spelling
     - |
       const saved = await $.store?.get(key);

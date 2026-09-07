@@ -2,7 +2,32 @@
 id: no-os-environ
 language: python
 severity: error
+# Report-only, the probed fix `os.environ["HOME"]` to `settings.home` fails, `Undefined name settings`, the settings class is a boundary declaration
+utils:
+    mapping:
+        any:
+            - matches: {python-module-member: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}
+            - matches: {python-imported-name: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}
 rule:
-    matches: {python-module-member: {module: {regex: '^os$'}, name: {regex: '^(environ|environb|getenv|getenvb)$', pattern: $NAME}}}
-message: '`os.$NAME` reads the process environment as untyped text'
-note: Declare the variables on `class Settings(BaseSettings)` with typed fields and read `Settings()` once at startup
+    any:
+        - kind: call
+          has:
+            field: function
+            any:
+                - matches: {python-module-member: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}
+                - matches: {python-imported-name: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}
+                - kind: attribute
+                  all:
+                    - has: {field: object, matches: mapping}
+                    - has: {field: attribute, regex: '^get$'}
+        - kind: subscript
+          has: {field: value, matches: mapping}
+          not:
+            any:
+                - inside:
+                    kind: 'assignment, augmented_assignment'
+                    field: left
+                    stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern'}}
+                - inside: {kind: delete_statement}
+message: 'Reading a process environment value bypasses typed settings'
+note: Declare the field on `BaseSettings`, load it at the application boundary, and pass the validated value to domain functions

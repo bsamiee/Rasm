@@ -1,0 +1,214 @@
+id: no-unused-artifact-input
+valid:
+    # A quote embedded in an unquoted scalar is data, not a matching quote pair.
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false', name: package, path: file}}]}}
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7', with: {archive: false, name: package, path: file}}]}}
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, compression-level: 9', path: file}}]}}
+    # Deleting compression could expose an invalid merged level that the action validates.
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, <<: {compression-level: 10}, compression-level: 3, path: file}}]}}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, name: &artifact package.tar, path: *artifact}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, &input name: package, path: package.tar}
+            - run: command
+              env: {KEY: *input}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {overwrite: false, name: package, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - name: actions/upload-artifact@v7
+              uses: another/action@main
+              with: {archive: false, name: package, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {name: package, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: true, name: package, compression-level: 0, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: '${{ inputs.archive }}', name: package, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: another/upload-artifact@main
+              with: {archive: false, name: package, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact/merge@v7
+              with: {archive: false, name: package, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, name: package, overwrite: true, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, name: package, overwrite: '${{ inputs.overwrite }}', path: package.tar}
+    - |
+      jobs:
+        build:
+          settings: &settings {overwrite: true}
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, name: package, <<: *settings, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, compression-level: 10, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, compression-level: '${{ inputs.compression }}', path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, path: package.tar, retention-days: 1, include-hidden-files: true}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              env: {archive: false, name: package}
+              with: {path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, path: package.tar}
+            - uses: another/action@main
+              with: {name: package}
+    - |
+      data: {uses: actions/upload-artifact@v7, with: {archive: false, name: package, path: package.tar}}
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v4, with: {archive: false, name: package, path: package.tar}}]}}
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v6, with: {archive: false, compression-level: 3, path: package.tar}}]}}
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {name: package # keep
+        , archive: false, path: package.tar}}]}}
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, compression-level: 3 # keep
+        , path: package.tar}}]}}
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: &shared {archive: false, name: custom, path: file}}, {uses: another/action@v1, with: *shared}]}}
+invalid:
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with:
+                archive: false
+                name: package
+                path: package.tar
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {name: package, archive: false, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, name: package, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, path: package.tar, name: package}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, path: package.tar, name: package,}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7.0.0
+              with: {archive: 'false', path: package.tar, name: package, overwrite: false}
+    - |
+      jobs:
+        build:
+          steps:
+            - 'uses': 'actions/upload-artifact@v7'
+              'with': {'archive': "FALSE", 'path': package.tar, 'name': package, 'overwrite': 'False'}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, compression-level: 0, path: package.tar}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: false, compression-level: '9', path: package.tar, overwrite: true, name: package}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with:
+                archive: false
+                # The upload uses the file name
+                name: package # The path remains unchanged
+                path: package.tar
+    - |
+      jobs:
+        build:
+          steps: [{uses: actions/upload-artifact@v7, with: {archive: false, compression-level: 3, path: package.tar}}]
+    - |
+      runs: {using: composite, steps: [{uses: actions/upload-artifact@v7, with: {archive: false, name: package, path: package.tar}}]}
+    - |
+      env: {LABEL: &label hello}
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, name: custom, path: file}}]}}
+    - |
+      jobs: {build: {steps: [{parallel: [{uses: actions/upload-artifact@v7, with: {archive: false, name: package, path: file}}]}]}}

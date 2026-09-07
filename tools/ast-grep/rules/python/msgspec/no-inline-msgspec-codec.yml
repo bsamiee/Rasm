@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-inline-msgspec-codec
+language: python
+severity: error
+rule:
+    all:
+        - any:
+            - pattern: $MODULE.Encoder().encode($VALUE)
+            - pattern: $MODULE.Decoder().decode($VALUE)
+        - has: {field: function, has: {field: attribute, pattern: $METHOD}}
+    not: {has: {kind: comment, stopBy: end}}
+constraints:
+    MODULE: {matches: python-msgspec-module}
+    VALUE: {not: {kind: "keyword_argument, list_splat, dictionary_splat"}}
+fix: "$MODULE.$METHOD($VALUE)"
+message: "Inline msgspec codec construction discards the codec after one operation"
+note: Call the module's `encode` or `decode` for the default configuration, and keep one `Encoder` or `Decoder` instance for repeated use
+labels: {MODULE: {style: primary, message: Codec module}}

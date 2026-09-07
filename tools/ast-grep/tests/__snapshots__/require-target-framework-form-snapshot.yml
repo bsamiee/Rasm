@@ -44,6 +44,15 @@ snapshots:
       start: 48
       end: 92
   ? |
+    <Project><PropertyGroup><TargetFramework Condition="'$(Count)' > '1'"><!-- </TargetFramework> -->net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
+  : fixed: |
+      <Project><PropertyGroup><TargetFrameworks Condition="'$(Count)' > '1'"><!-- </TargetFramework> -->net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    labels:
+    - source: <TargetFramework Condition="'$(Count)' > '1'"><!-- </TargetFramework> -->net10.0;netstandard2.0</TargetFramework>
+      style: primary
+      start: 24
+      end: 137
+  ? |
     <Project><PropertyGroup><TargetFramework Condition="'$(Multi)' == 'true'">net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
   : fixed: |
       <Project><PropertyGroup><TargetFrameworks Condition="'$(Multi)' == 'true'">net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>

@@ -1,554 +1,715 @@
 id: no-spawn-per-loop-item
 snapshots:
-  for ((i = 1; i <= n; i++)); do mapfile -t lines < <(ast-grep scan "$file"); done:
+  for f in "${files[@]}"; do actionlint "$f"; done:
     labels:
-    - source: ast-grep scan "$file"
-      style: primary
-      start: 52
-      end: 73
-    - source: ast-grep
-      style: secondary
-      start: 52
-      end: 60
-    - source: ast-grep
-      style: secondary
-      start: 52
-      end: 60
-    - source: for ((i = 1; i <= n; i++)); do mapfile -t lines < <(ast-grep scan "$file"); done
-      style: secondary
-      start: 0
-      end: 80
-    - source: do mapfile -t lines < <(ast-grep scan "$file"); done
-      style: secondary
-      start: 28
-      end: 80
-  for d in "${dirs[@]}"; do mkdir -p "${d%/*}"; done:
+      - source: actionlint "$f"
+        style: primary
+        start: 27
+        end: 42
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in "${files[@]}"; do actionlint "$f"; done
+        style: secondary
+        start: 0
+        end: 48
+      - source: do actionlint "$f"; done
+        style: secondary
+        start: 24
+        end: 48
+      - source: actionlint
+        style: secondary
+        start: 27
+        end: 37
+      - source: '"$f"'
+        style: secondary
+        start: 38
+        end: 42
+      - source: actionlint
+        style: secondary
+        start: 27
+        end: 37
+      - source: actionlint
+        style: secondary
+        start: 27
+        end: 37
+      - source: '"$f"'
+        style: secondary
+        start: 38
+        end: 42
+  for f in "${files[@]}"; do cat "$f"; done:
     labels:
-    - source: mkdir -p "${d%/*}"
-      style: primary
-      start: 26
-      end: 44
-    - source: mkdir
-      style: secondary
-      start: 26
-      end: 31
-    - source: mkdir
-      style: secondary
-      start: 26
-      end: 31
-    - source: for d in "${dirs[@]}"; do mkdir -p "${d%/*}"; done
-      style: secondary
-      start: 0
-      end: 50
-    - source: do mkdir -p "${d%/*}"; done
-      style: secondary
-      start: 23
-      end: 50
-  for d in "${dirs[@]}"; do rmdir "$root/$d"; done:
+      - source: cat "$f"
+        style: primary
+        start: 27
+        end: 35
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in "${files[@]}"; do cat "$f"; done
+        style: secondary
+        start: 0
+        end: 41
+      - source: do cat "$f"; done
+        style: secondary
+        start: 24
+        end: 41
+      - source: cat
+        style: secondary
+        start: 27
+        end: 30
+      - source: '"$f"'
+        style: secondary
+        start: 31
+        end: 35
+      - source: cat
+        style: secondary
+        start: 27
+        end: 30
+      - source: cat
+        style: secondary
+        start: 27
+        end: 30
+      - source: '"$f"'
+        style: secondary
+        start: 31
+        end: 35
+  for f in "${files[@]}"; do mkdir "$f"; done:
     labels:
-    - source: rmdir "$root/$d"
-      style: primary
-      start: 26
-      end: 42
-    - source: rmdir
-      style: secondary
-      start: 26
-      end: 31
-    - source: rmdir
-      style: secondary
-      start: 26
-      end: 31
-    - source: for d in "${dirs[@]}"; do rmdir "$root/$d"; done
-      style: secondary
-      start: 0
-      end: 48
-    - source: do rmdir "$root/$d"; done
-      style: secondary
-      start: 23
-      end: 48
-  for f in "${files[@]}"; do chmod +x "$f"; done:
+      - source: mkdir "$f"
+        style: primary
+        start: 27
+        end: 37
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in "${files[@]}"; do mkdir "$f"; done
+        style: secondary
+        start: 0
+        end: 43
+      - source: do mkdir "$f"; done
+        style: secondary
+        start: 24
+        end: 43
+      - source: mkdir
+        style: secondary
+        start: 27
+        end: 32
+      - source: '"$f"'
+        style: secondary
+        start: 33
+        end: 37
+      - source: mkdir
+        style: secondary
+        start: 27
+        end: 32
+      - source: mkdir
+        style: secondary
+        start: 27
+        end: 32
+      - source: '"$f"'
+        style: secondary
+        start: 33
+        end: 37
+  for f in "${files[@]}"; do rm "$f"; done:
     labels:
-    - source: chmod +x "$f"
-      style: primary
-      start: 27
-      end: 40
-    - source: chmod
-      style: secondary
-      start: 27
-      end: 32
-    - source: chmod
-      style: secondary
-      start: 27
-      end: 32
-    - source: for f in "${files[@]}"; do chmod +x "$f"; done
-      style: secondary
-      start: 0
-      end: 46
-    - source: do chmod +x "$f"; done
-      style: secondary
-      start: 24
-      end: 46
-  for f in "${files[@]}"; do chown "$user" "$f"; done:
+      - source: rm "$f"
+        style: primary
+        start: 27
+        end: 34
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in "${files[@]}"; do rm "$f"; done
+        style: secondary
+        start: 0
+        end: 40
+      - source: do rm "$f"; done
+        style: secondary
+        start: 24
+        end: 40
+      - source: rm
+        style: secondary
+        start: 27
+        end: 29
+      - source: '"$f"'
+        style: secondary
+        start: 30
+        end: 34
+      - source: rm
+        style: secondary
+        start: 27
+        end: 29
+      - source: rm
+        style: secondary
+        start: 27
+        end: 29
+      - source: '"$f"'
+        style: secondary
+        start: 30
+        end: 34
+  for f in "${files[@]}"; do rmdir "$f"; done:
     labels:
-    - source: chown "$user" "$f"
-      style: primary
-      start: 27
-      end: 45
-    - source: chown
-      style: secondary
-      start: 27
-      end: 32
-    - source: chown
-      style: secondary
-      start: 27
-      end: 32
-    - source: for f in "${files[@]}"; do chown "$user" "$f"; done
-      style: secondary
-      start: 0
-      end: 51
-    - source: do chown "$user" "$f"; done
-      style: secondary
-      start: 24
-      end: 51
-  for f in "${files[@]}"; do cp "$f" archive/; done:
-    labels:
-    - source: cp "$f" archive/
-      style: primary
-      start: 27
-      end: 43
-    - source: cp
-      style: secondary
-      start: 27
-      end: 29
-    - source: cp
-      style: secondary
-      start: 27
-      end: 29
-    - source: for f in "${files[@]}"; do cp "$f" archive/; done
-      style: secondary
-      start: 0
-      end: 49
-    - source: do cp "$f" archive/; done
-      style: secondary
-      start: 24
-      end: 49
-  for f in "${files[@]}"; do jq -r '.a' "$f"; done:
-    labels:
-    - source: jq -r '.a' "$f"
-      style: primary
-      start: 27
-      end: 42
-    - source: jq
-      style: secondary
-      start: 27
-      end: 29
-    - source: jq
-      style: secondary
-      start: 27
-      end: 29
-    - source: for f in "${files[@]}"; do jq -r '.a' "$f"; done
-      style: secondary
-      start: 0
-      end: 48
-    - source: do jq -r '.a' "$f"; done
-      style: secondary
-      start: 24
-      end: 48
-  for f in "${files[@]}"; do rm -f "$f"; done:
-    labels:
-    - source: rm -f "$f"
-      style: primary
-      start: 27
-      end: 37
-    - source: rm
-      style: secondary
-      start: 27
-      end: 29
-    - source: rm
-      style: secondary
-      start: 27
-      end: 29
-    - source: for f in "${files[@]}"; do rm -f "$f"; done
-      style: secondary
-      start: 0
-      end: 43
-    - source: do rm -f "$f"; done
-      style: secondary
-      start: 24
-      end: 43
-  for f in "${files[@]}"; do shellcheck "$f" 2>/dev/null; done:
-    labels:
-    - source: shellcheck "$f"
-      style: primary
-      start: 27
-      end: 42
-    - source: shellcheck
-      style: secondary
-      start: 27
-      end: 37
-    - source: shellcheck
-      style: secondary
-      start: 27
-      end: 37
-    - source: for f in "${files[@]}"; do shellcheck "$f" 2>/dev/null; done
-      style: secondary
-      start: 0
-      end: 60
-    - source: do shellcheck "$f" 2>/dev/null; done
-      style: secondary
-      start: 24
-      end: 60
+      - source: rmdir "$f"
+        style: primary
+        start: 27
+        end: 37
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in "${files[@]}"; do rmdir "$f"; done
+        style: secondary
+        start: 0
+        end: 43
+      - source: do rmdir "$f"; done
+        style: secondary
+        start: 24
+        end: 43
+      - source: rmdir
+        style: secondary
+        start: 27
+        end: 32
+      - source: '"$f"'
+        style: secondary
+        start: 33
+        end: 37
+      - source: rmdir
+        style: secondary
+        start: 27
+        end: 32
+      - source: rmdir
+        style: secondary
+        start: 27
+        end: 32
+      - source: '"$f"'
+        style: secondary
+        start: 33
+        end: 37
   for f in "${files[@]}"; do shellcheck "$f"; done:
     labels:
-    - source: shellcheck "$f"
-      style: primary
-      start: 27
-      end: 42
-    - source: shellcheck
-      style: secondary
-      start: 27
-      end: 37
-    - source: shellcheck
-      style: secondary
-      start: 27
-      end: 37
-    - source: for f in "${files[@]}"; do shellcheck "$f"; done
-      style: secondary
-      start: 0
-      end: 48
-    - source: do shellcheck "$f"; done
-      style: secondary
-      start: 24
-      end: 48
-  for f in "${files[@]}"; do uv run ruff check "$f"; done:
+      - source: shellcheck "$f"
+        style: primary
+        start: 27
+        end: 42
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in "${files[@]}"; do shellcheck "$f"; done
+        style: secondary
+        start: 0
+        end: 48
+      - source: do shellcheck "$f"; done
+        style: secondary
+        start: 24
+        end: 48
+      - source: shellcheck
+        style: secondary
+        start: 27
+        end: 37
+      - source: '"$f"'
+        style: secondary
+        start: 38
+        end: 42
+      - source: shellcheck
+        style: secondary
+        start: 27
+        end: 37
+      - source: shellcheck
+        style: secondary
+        start: 27
+        end: 37
+      - source: '"$f"'
+        style: secondary
+        start: 38
+        end: 42
+  for f in "${files[@]}"; do shfmt "$f"; done:
     labels:
-    - source: uv run ruff check "$f"
-      style: primary
-      start: 27
-      end: 49
-    - source: uv
-      style: secondary
-      start: 27
-      end: 29
-    - source: for f in "${files[@]}"; do uv run ruff check "$f"; done
-      style: secondary
-      start: 0
-      end: 55
-    - source: do uv run ruff check "$f"; done
-      style: secondary
-      start: 24
-      end: 55
-  for f in a b; do ast-grep test "$f"; printf '%s' "$text" >"$f"; done:
+      - source: shfmt "$f"
+        style: primary
+        start: 27
+        end: 37
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in "${files[@]}"; do shfmt "$f"; done
+        style: secondary
+        start: 0
+        end: 43
+      - source: do shfmt "$f"; done
+        style: secondary
+        start: 24
+        end: 43
+      - source: shfmt
+        style: secondary
+        start: 27
+        end: 32
+      - source: '"$f"'
+        style: secondary
+        start: 33
+        end: 37
+      - source: shfmt
+        style: secondary
+        start: 27
+        end: 32
+      - source: shfmt
+        style: secondary
+        start: 27
+        end: 32
+      - source: '"$f"'
+        style: secondary
+        start: 33
+        end: 37
+  for f in "${files[@]}"; do touch "$f"; done:
     labels:
-    - source: ast-grep test "$f"
-      style: primary
-      start: 17
-      end: 35
-    - source: ast-grep
-      style: secondary
-      start: 17
-      end: 25
-    - source: ast-grep
-      style: secondary
-      start: 17
-      end: 25
-    - source: for f in a b; do ast-grep test "$f"; printf '%s' "$text" >"$f"; done
-      style: secondary
-      start: 0
-      end: 68
-    - source: do ast-grep test "$f"; printf '%s' "$text" >"$f"; done
-      style: secondary
-      start: 14
-      end: 68
-  for f in a b; do if [[ -f $f ]]; then rm "$f"; fi; done:
+      - source: touch "$f"
+        style: primary
+        start: 27
+        end: 37
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in "${files[@]}"; do touch "$f"; done
+        style: secondary
+        start: 0
+        end: 43
+      - source: do touch "$f"; done
+        style: secondary
+        start: 24
+        end: 43
+      - source: touch
+        style: secondary
+        start: 27
+        end: 32
+      - source: '"$f"'
+        style: secondary
+        start: 33
+        end: 37
+      - source: touch
+        style: secondary
+        start: 27
+        end: 32
+      - source: touch
+        style: secondary
+        start: 27
+        end: 32
+      - source: '"$f"'
+        style: secondary
+        start: 33
+        end: 37
+  ? |-
+    for f in a b; do
+    # One synchronous operation.
+    cat "$f"
+    # End of operation.
+    done
+  : labels:
+      - source: cat "$f"
+        style: primary
+        start: 46
+        end: 54
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: |-
+          for f in a b; do
+          # One synchronous operation.
+          cat "$f"
+          # End of operation.
+          done
+        style: secondary
+        start: 0
+        end: 79
+      - source: |-
+          do
+          # One synchronous operation.
+          cat "$f"
+          # End of operation.
+          done
+        style: secondary
+        start: 14
+        end: 79
+      - source: cat
+        style: secondary
+        start: 46
+        end: 49
+      - source: '"$f"'
+        style: secondary
+        start: 50
+        end: 54
+      - source: cat
+        style: secondary
+        start: 46
+        end: 49
+      - source: cat
+        style: secondary
+        start: 46
+        end: 49
+      - source: '"$f"'
+        style: secondary
+        start: 50
+        end: 54
+  for f in a b; do ast-grep scan "$f"; done:
     labels:
-    - source: rm "$f"
-      style: primary
-      start: 38
-      end: 45
-    - source: rm
-      style: secondary
-      start: 38
-      end: 40
-    - source: rm
-      style: secondary
-      start: 38
-      end: 40
-    - source: for f in a b; do if [[ -f $f ]]; then rm "$f"; fi; done
-      style: secondary
-      start: 0
-      end: 55
-    - source: do if [[ -f $f ]]; then rm "$f"; fi; done
-      style: secondary
-      start: 14
-      end: 55
-  for f in a b; do ln -s "$f" out; done:
+      - source: ast-grep scan "$f"
+        style: primary
+        start: 17
+        end: 35
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in a b; do ast-grep scan "$f"; done
+        style: secondary
+        start: 0
+        end: 41
+      - source: do ast-grep scan "$f"; done
+        style: secondary
+        start: 14
+        end: 41
+      - source: ast-grep
+        style: secondary
+        start: 17
+        end: 25
+      - source: '"$f"'
+        style: secondary
+        start: 31
+        end: 35
+      - source: ast-grep
+        style: secondary
+        start: 17
+        end: 25
+      - source: scan
+        style: secondary
+        start: 26
+        end: 30
+      - source: ast-grep
+        style: secondary
+        start: 17
+        end: 25
+      - source: scan
+        style: secondary
+        start: 26
+        end: 30
+      - source: '"$f"'
+        style: secondary
+        start: 31
+        end: 35
+  for f in a b; do ast-grep scan -- "$f"; done:
     labels:
-    - source: ln -s "$f" out
-      style: primary
-      start: 17
-      end: 31
-    - source: ln
-      style: secondary
-      start: 17
-      end: 19
-    - source: ln
-      style: secondary
-      start: 17
-      end: 19
-    - source: for f in a b; do ln -s "$f" out; done
-      style: secondary
-      start: 0
-      end: 37
-    - source: do ln -s "$f" out; done
-      style: secondary
-      start: 14
-      end: 37
-  for f in a b; do read -r first <"$f"; rm -f "$f"; done:
+      - source: ast-grep scan -- "$f"
+        style: primary
+        start: 17
+        end: 38
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in a b; do ast-grep scan -- "$f"; done
+        style: secondary
+        start: 0
+        end: 44
+      - source: do ast-grep scan -- "$f"; done
+        style: secondary
+        start: 14
+        end: 44
+      - source: ast-grep
+        style: secondary
+        start: 17
+        end: 25
+      - source: '"$f"'
+        style: secondary
+        start: 34
+        end: 38
+      - source: ast-grep
+        style: secondary
+        start: 17
+        end: 25
+      - source: scan
+        style: secondary
+        start: 26
+        end: 30
+      - source: ast-grep
+        style: secondary
+        start: 17
+        end: 25
+      - source: scan
+        style: secondary
+        start: 26
+        end: 30
+      - source: --
+        style: secondary
+        start: 31
+        end: 33
+      - source: '"$f"'
+        style: secondary
+        start: 34
+        end: 38
+  for f in a b; do cat "$f"; done > all.txt:
     labels:
-    - source: rm -f "$f"
-      style: primary
-      start: 38
-      end: 48
-    - source: rm
-      style: secondary
-      start: 38
-      end: 40
-    - source: rm
-      style: secondary
-      start: 38
-      end: 40
-    - source: for f in a b; do read -r first <"$f"; rm -f "$f"; done
-      style: secondary
-      start: 0
-      end: 54
-    - source: do read -r first <"$f"; rm -f "$f"; done
-      style: secondary
-      start: 14
-      end: 54
-  for f in a b; do shellcheck "$f" 2>"$f.err"; done:
+      - source: cat "$f"
+        style: primary
+        start: 17
+        end: 25
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in a b; do cat "$f"; done
+        style: secondary
+        start: 0
+        end: 31
+      - source: do cat "$f"; done
+        style: secondary
+        start: 14
+        end: 31
+      - source: cat
+        style: secondary
+        start: 17
+        end: 20
+      - source: '"$f"'
+        style: secondary
+        start: 21
+        end: 25
+      - source: cat
+        style: secondary
+        start: 17
+        end: 20
+      - source: cat
+        style: secondary
+        start: 17
+        end: 20
+      - source: '"$f"'
+        style: secondary
+        start: 21
+        end: 25
+  for f in a b; do cat -- "${f}"; done:
     labels:
-    - source: shellcheck "$f"
-      style: primary
-      start: 17
-      end: 32
-    - source: shellcheck
-      style: secondary
-      start: 17
-      end: 27
-    - source: shellcheck
-      style: secondary
-      start: 17
-      end: 27
-    - source: for f in a b; do shellcheck "$f" 2>"$f.err"; done
-      style: secondary
-      start: 0
-      end: 49
-    - source: do shellcheck "$f" 2>"$f.err"; done
-      style: secondary
-      start: 14
-      end: 49
-  for f in a b; do yq '.x' "$f" > all.json; done:
+      - source: cat -- "${f}"
+        style: primary
+        start: 17
+        end: 30
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in a b; do cat -- "${f}"; done
+        style: secondary
+        start: 0
+        end: 36
+      - source: do cat -- "${f}"; done
+        style: secondary
+        start: 14
+        end: 36
+      - source: cat
+        style: secondary
+        start: 17
+        end: 20
+      - source: '"${f}"'
+        style: secondary
+        start: 24
+        end: 30
+      - source: cat
+        style: secondary
+        start: 17
+        end: 20
+      - source: cat
+        style: secondary
+        start: 17
+        end: 20
+      - source: --
+        style: secondary
+        start: 21
+        end: 23
+      - source: '"${f}"'
+        style: secondary
+        start: 24
+        end: 30
+  for f in a b; do git add "$f"; done:
     labels:
-    - source: yq '.x' "$f"
-      style: primary
-      start: 17
-      end: 29
-    - source: yq
-      style: secondary
-      start: 17
-      end: 19
-    - source: yq
-      style: secondary
-      start: 17
-      end: 19
-    - source: for f in a b; do yq '.x' "$f" > all.json; done
-      style: secondary
-      start: 0
-      end: 46
-    - source: do yq '.x' "$f" > all.json; done
-      style: secondary
-      start: 14
-      end: 46
-  for f in a b; do yq '.x' "$f"; done:
+      - source: git add "$f"
+        style: primary
+        start: 17
+        end: 29
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in a b; do git add "$f"; done
+        style: secondary
+        start: 0
+        end: 35
+      - source: do git add "$f"; done
+        style: secondary
+        start: 14
+        end: 35
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: '"$f"'
+        style: secondary
+        start: 25
+        end: 29
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: add
+        style: secondary
+        start: 21
+        end: 24
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: add
+        style: secondary
+        start: 21
+        end: 24
+      - source: '"$f"'
+        style: secondary
+        start: 25
+        end: 29
+  for f in a b; do git add -- "$f"; done:
     labels:
-    - source: yq '.x' "$f"
-      style: primary
-      start: 17
-      end: 29
-    - source: yq
-      style: secondary
-      start: 17
-      end: 19
-    - source: yq
-      style: secondary
-      start: 17
-      end: 19
-    - source: for f in a b; do yq '.x' "$f"; done
-      style: secondary
-      start: 0
-      end: 35
-    - source: do yq '.x' "$f"; done
-      style: secondary
-      start: 14
-      end: 35
-  for p in "${paths[@]}"; do git add "$p"; done:
+      - source: git add -- "$f"
+        style: primary
+        start: 17
+        end: 32
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in a b; do git add -- "$f"; done
+        style: secondary
+        start: 0
+        end: 38
+      - source: do git add -- "$f"; done
+        style: secondary
+        start: 14
+        end: 38
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: '"$f"'
+        style: secondary
+        start: 28
+        end: 32
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: add
+        style: secondary
+        start: 21
+        end: 24
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: add
+        style: secondary
+        start: 21
+        end: 24
+      - source: --
+        style: secondary
+        start: 25
+        end: 27
+      - source: '"$f"'
+        style: secondary
+        start: 28
+        end: 32
+  for f in a b; do git rm "$f"; done:
     labels:
-    - source: git add "$p"
-      style: primary
-      start: 27
-      end: 39
-    - source: git
-      style: secondary
-      start: 27
-      end: 30
-    - source: for p in "${paths[@]}"; do git add "$p"; done
-      style: secondary
-      start: 0
-      end: 45
-    - source: do git add "$p"; done
-      style: secondary
-      start: 24
-      end: 45
-  for p in "${projects[@]}"; do dotnet build "$p"; done:
+      - source: git rm "$f"
+        style: primary
+        start: 17
+        end: 28
+      - source: f
+        style: secondary
+        start: 4
+        end: 5
+      - source: for f in a b; do git rm "$f"; done
+        style: secondary
+        start: 0
+        end: 34
+      - source: do git rm "$f"; done
+        style: secondary
+        start: 14
+        end: 34
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: '"$f"'
+        style: secondary
+        start: 24
+        end: 28
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: rm
+        style: secondary
+        start: 21
+        end: 23
+      - source: git
+        style: secondary
+        start: 17
+        end: 20
+      - source: rm
+        style: secondary
+        start: 21
+        end: 23
+      - source: '"$f"'
+        style: secondary
+        start: 24
+        end: 28
+  result=$(for f in a b; do cat "$f"; done):
     labels:
-    - source: dotnet build "$p"
-      style: primary
-      start: 30
-      end: 47
-    - source: dotnet
-      style: secondary
-      start: 30
-      end: 36
-    - source: for p in "${projects[@]}"; do dotnet build "$p"; done
-      style: secondary
-      start: 0
-      end: 53
-    - source: do dotnet build "$p"; done
-      style: secondary
-      start: 27
-      end: 53
-  for p in "${projects[@]}"; do dotnet test "$p"; done:
-    labels:
-    - source: dotnet test "$p"
-      style: primary
-      start: 30
-      end: 46
-    - source: dotnet
-      style: secondary
-      start: 30
-      end: 36
-    - source: for p in "${projects[@]}"; do dotnet test "$p"; done
-      style: secondary
-      start: 0
-      end: 52
-    - source: do dotnet test "$p"; done
-      style: secondary
-      start: 27
-      end: 52
-  for p in "${projects[@]}"; do pnpm exec nx run "$p:build"; done:
-    labels:
-    - source: pnpm exec nx run "$p:build"
-      style: primary
-      start: 30
-      end: 57
-    - source: pnpm
-      style: secondary
-      start: 30
-      end: 34
-    - source: for p in "${projects[@]}"; do pnpm exec nx run "$p:build"; done
-      style: secondary
-      start: 0
-      end: 63
-    - source: do pnpm exec nx run "$p:build"; done
-      style: secondary
-      start: 27
-      end: 63
-  for w in "${workflows[@]}"; do actionlint "$w"; done:
-    labels:
-    - source: actionlint "$w"
-      style: primary
-      start: 31
-      end: 46
-    - source: actionlint
-      style: secondary
-      start: 31
-      end: 41
-    - source: actionlint
-      style: secondary
-      start: 31
-      end: 41
-    - source: for w in "${workflows[@]}"; do actionlint "$w"; done
-      style: secondary
-      start: 0
-      end: 52
-    - source: do actionlint "$w"; done
-      style: secondary
-      start: 28
-      end: 52
-  until [[ -f done ]]; do rm -f "$next"; done:
-    labels:
-    - source: rm -f "$next"
-      style: primary
-      start: 24
-      end: 37
-    - source: rm
-      style: secondary
-      start: 24
-      end: 26
-    - source: rm
-      style: secondary
-      start: 24
-      end: 26
-    - source: until [[ -f done ]]; do rm -f "$next"; done
-      style: secondary
-      start: 0
-      end: 43
-    - source: do rm -f "$next"; done
-      style: secondary
-      start: 21
-      end: 43
-  until [[ -f done ]]; do touch "$next"; done:
-    labels:
-    - source: touch "$next"
-      style: primary
-      start: 24
-      end: 37
-    - source: touch
-      style: secondary
-      start: 24
-      end: 29
-    - source: touch
-      style: secondary
-      start: 24
-      end: 29
-    - source: until [[ -f done ]]; do touch "$next"; done
-      style: secondary
-      start: 0
-      end: 43
-    - source: do touch "$next"; done
-      style: secondary
-      start: 21
-      end: 43
-  while IFS= read -r f; do cat "$f"; done < list:
-    labels:
-    - source: cat "$f"
-      style: primary
-      start: 25
-      end: 33
-    - source: cat
-      style: secondary
-      start: 25
-      end: 28
-    - source: cat
-      style: secondary
-      start: 25
-      end: 28
-    - source: while IFS= read -r f; do cat "$f"; done
-      style: secondary
-      start: 0
-      end: 39
-    - source: do cat "$f"; done
-      style: secondary
-      start: 22
-      end: 39
+      - source: cat "$f"
+        style: primary
+        start: 26
+        end: 34
+      - source: f
+        style: secondary
+        start: 13
+        end: 14
+      - source: for f in a b; do cat "$f"; done
+        style: secondary
+        start: 9
+        end: 40
+      - source: do cat "$f"; done
+        style: secondary
+        start: 23
+        end: 40
+      - source: cat
+        style: secondary
+        start: 26
+        end: 29
+      - source: '"$f"'
+        style: secondary
+        start: 30
+        end: 34
+      - source: cat
+        style: secondary
+        start: 26
+        end: 29
+      - source: cat
+        style: secondary
+        start: 26
+        end: 29
+      - source: '"$f"'
+        style: secondary
+        start: 30
+        end: 34

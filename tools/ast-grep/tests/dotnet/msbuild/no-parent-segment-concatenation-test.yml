@@ -1,5 +1,11 @@
 id: no-parent-segment-concatenation
 valid:
+    # A custom property can be a filename prefix rather than a directory with a slash
+    - '<PropertyGroup><ToolRoot>prefix</ToolRoot><ToolPath>$(ToolRoot)../file</ToolPath></PropertyGroup>'
+    # Display text and shell arguments can quote a path without declaring one
+    - '<Message Text="$(MSBuildThisFileDirectory)/../path" />'
+    - '<Exec Command="echo $(MSBuildThisFileDirectory)/../path" />'
+    - '<PropertyGroup Label="$(MSBuildThisFileDirectory)/../path"><Description>$(MSBuildThisFileDirectory)/../path</Description></PropertyGroup>'
     # Normalized repository root of eng/native/Directory.Build.props
     - |
       <PropertyGroup><RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..'))</RepositoryRoot></PropertyGroup>
@@ -8,22 +14,7 @@ valid:
       <ProjectReference Include="../../../../libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
     # File-above lookup taking the parent form, its result is normalized
     - |
-      <PropertyGroup><_Outer>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_Outer></PropertyGroup>
-    # List of two parent paths, the sibling no-parent-segment-concatenation-by-hand reports it
-    - |
-      <PropertyGroup><Roots>$(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b</Roots></PropertyGroup>
-    # Wildcard after the parent segment, the sibling reports it
-    - |
-      <Compile Include="$(MSBuildProjectDirectory)/../shared/**/*.cs" />
-    # Second reference inside the path, the sibling reports it
-    - |
-      <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe</ToolPath></PropertyGroup>
-    # Parent path as a function argument, the sibling reports it
-    - |
-      <PropertyGroup><ToolPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))</ToolPath></PropertyGroup>
-    # Item transform holding the parent path, the sibling reports it
-    - |
-      <None Include="@(Asset->'$(MSBuildThisFileDirectory)../%(Filename)%(Extension)')" />
+      <PropertyGroup><_OuterPath>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterPath></PropertyGroup>
 invalid:
     # Staging root a packaging project once composed by hand, the trailing separator selects NormalizeDirectory
     - |
@@ -48,3 +39,21 @@ invalid:
       <PropertyGroup><StageRoot>
         $(MSBuildThisFileDirectory)../.artifacts/native/stage/
       </StageRoot></PropertyGroup>
+    # List of two parent paths, each run composed and the separator kept
+    - |
+      <PropertyGroup><Roots>$(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b</Roots></PropertyGroup>
+    # Wildcard after the parent segment, the run ends before the glob and NormalizeDirectory supplies its separator
+    - |
+      <Compile Include="$(MSBuildProjectDirectory)/../shared/**/*.cs" />
+    # Second reference inside the path, the run ends before it
+    - |
+      <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe</ToolPath></PropertyGroup>
+    # Parent path as a function argument, the composed function nests inside the quoted argument
+    - |
+      <PropertyGroup><ToolPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))</ToolPath></PropertyGroup>
+    # Item transform holding the parent path, the composed function nests inside the transform
+    - |
+      <None Include="@(Asset->'$(MSBuildThisFileDirectory)../%(Filename)%(Extension)')" />
+    # Eleven segments, the eleventh appends to the composed directory
+    - |
+      <PropertyGroup><DeepRoot>$(MSBuildThisFileDirectory)../a/b/c/d/e/f/g/h/i/j/k</DeepRoot></PropertyGroup>

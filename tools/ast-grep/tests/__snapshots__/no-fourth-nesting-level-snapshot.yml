@@ -1,0 +1,200 @@
+id: no-fourth-nesting-level
+snapshots:
+  ? 'const arms = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.if(z, { onTrue: () => x, onFalse: fallback }))));'
+  : labels:
+    - source: () => x
+      style: primary
+      start: 99
+      end: 106
+  const deep = wrap(() => wrap(() => wrap(() => wrap(() => wrap(() => 1)))));:
+    labels:
+    - source: () => wrap(() => 1)
+      style: primary
+      start: 51
+      end: 70
+  const four = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (w) => w))));:
+    labels:
+    - source: (w) => w
+      style: primary
+      start: 90
+      end: 98
+  const lazy = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.sync(() => z))));:
+    labels:
+    - source: () => z
+      style: primary
+      start: 88
+      end: 95
+  const make = (a) => (b) => (c) => (d) => (e) => combine(a, b, c, d, e);:
+    labels:
+    - source: (e) => combine(a, b, c, d, e)
+      style: primary
+      start: 41
+      end: 70
+  const method = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => dispatch({ onTrue() { return z; } }))));:
+    labels:
+    - source: onTrue() { return z; }
+      style: primary
+      start: 89
+      end: 111
+  const nested = Effect.gen(function* () { return yield* Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => z))); });:
+    labels:
+    - source: (z) => z
+      style: primary
+      start: 111
+      end: 119
+  'const selected = a ? (b ? (c ? (d ? 1 : 2) : 3) : 4) : 5;':
+    labels:
+    - source: 'd ? 1 : 2'
+      style: primary
+      start: 32
+      end: 41
+  function outer(a) { function middle(b) { function inner(c) { function fourth(d) { function fifth(e) { return e; } } } } }:
+    labels:
+    - source: function fifth(e) { return e; }
+      style: primary
+      start: 82
+      end: 113
+  function run() { for (const row of rows) { do { try { if (row) work(); } finally { close(); } } while (ready); } }:
+    labels:
+    - source: if (row) work();
+      style: primary
+      start: 54
+      end: 70
+  'function run() { if (a) { for (;;) { while (b) { switch (c) { case 1: work(); } } } } }':
+    labels:
+    - source: 'switch (c) { case 1: work(); }'
+      style: primary
+      start: 49
+      end: 79
+  function run() { if (a) { if (b) { if (c) { if (d) { if (e) work(); } } } } }:
+    labels:
+    - source: if (d) { if (e) work(); }
+      style: primary
+      start: 44
+      end: 69
+  function run() { while (ready) { for (;;) { if (a) work(); else if (b) { if (c) work(); } } } }:
+    labels:
+    - source: if (c) work();
+      style: primary
+      start: 73
+      end: 87
+  import { Array } from "effect"; const run = Array.fn("run")(() => wrap(() => wrap(() => wrap(() => 1))));:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 93
+      end: 100
+  import { Array } from "effect"; const run = Array.fn(() => wrap(() => wrap(() => wrap(() => 1))));:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 86
+      end: 93
+  ? 'import { Effect } from "effect"; const Services = register({ create: Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }) });'
+  : labels:
+    - source: () => 1
+      style: primary
+      start: 143
+      end: 150
+  ? 'import { Effect } from "effect"; const Services = { create: Effect.fnUntraced(function* () { return 1; }, () => wrap(() => wrap(() => wrap(() => 1)))) };'
+  : labels:
+    - source: () => 1
+      style: primary
+      start: 139
+      end: 146
+  ? 'import { Effect } from "effect"; const Services = { create: Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => wrap(() => 1)))); }) };'
+  : labels:
+    - source: () => 1
+      style: primary
+      start: 145
+      end: 152
+  ? 'import { Effect } from "effect"; const build = () => ({ create: Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }) });'
+  : labels:
+    - source: () => 1
+      style: primary
+      start: 138
+      end: 145
+  ? import { Effect } from "effect"; const run = Effect.fn(function* () { return 1; }, ((() => wrap(() => wrap(() => wrap(() => 1))))));
+  : labels:
+    - source: () => 1
+      style: primary
+      start: 118
+      end: 125
+  import { Effect } from "effect"; const run = Effect.fn(function* () { return 1; }, () => wrap(() => wrap(() => wrap(() => 1))));:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 116
+      end: 123
+  ? import { Effect } from "effect"; const run = Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => wrap(() => 1)))); });
+  : labels:
+    - source: () => 1
+      style: primary
+      start: 130
+      end: 137
+  import { Effect } from "effect"; const run = Effect.gen(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 112
+      end: 119
+  import { Effect } from "effect"; const run = Effect.map(load())(() => wrap(() => wrap(() => wrap(() => 1))));:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 97
+      end: 104
+  ? import { Effect } from "other"; const run = Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });
+  : labels:
+    - source: () => 1
+      style: primary
+      start: 118
+      end: 125
+  run((() => wrap(() => wrap(() => wrap(() => 1)))) as Callback);:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 38
+      end: 45
+  run((() => wrap(() => wrap(() => wrap(() => 1)))) satisfies Callback);:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 38
+      end: 45
+  run((() => wrap(() => wrap(() => wrap(() => 1))))!);:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 38
+      end: 45
+  run((() => wrap(() => wrap(() => wrap(() => 1)))));:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 38
+      end: 45
+  run(...[() => wrap(() => wrap(() => wrap(() => 1)))]);:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 41
+      end: 48
+  run([() => wrap(() => wrap(() => wrap(() => 1)))]);:
+    labels:
+    - source: () => 1
+      style: primary
+      start: 38
+      end: 45
+  'run(flag ? () => wrap(() => wrap(() => wrap(() => 1))) : fallback);':
+    labels:
+    - source: () => 1
+      style: primary
+      start: 44
+      end: 51
+  'run({ callback: () => wrap(() => wrap(() => wrap(() => 1))) });':
+    labels:
+    - source: () => 1
+      style: primary
+      start: 49
+      end: 56

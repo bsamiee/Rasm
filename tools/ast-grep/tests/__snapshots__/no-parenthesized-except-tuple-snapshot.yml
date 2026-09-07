@@ -3,13 +3,38 @@ snapshots:
   ? |
     try:
         load(path)
+    except (OSError, ValueError,):
+        handle(failure)
+  : fixed: |
+      try:
+          load(path)
+      except OSError, ValueError:
+          handle(failure)
+    labels:
+    - source: (OSError, ValueError,)
+      style: primary
+      start: 27
+      end: 49
+    - source: |-
+        except (OSError, ValueError,):
+            handle(failure)
+      style: secondary
+      start: 20
+      end: 70
+    - source: ValueError
+      style: secondary
+      start: 37
+      end: 47
+  ? |
+    try:
+        load(path)
     except (OSError, msgspec.DecodeError):
-        return Error(failure)
+        handle(failure)
   : fixed: |
       try:
           load(path)
       except OSError, msgspec.DecodeError:
-          return Error(failure)
+          handle(failure)
     labels:
     - source: (OSError, msgspec.DecodeError)
       style: primary
@@ -17,10 +42,10 @@ snapshots:
       end: 57
     - source: |-
         except (OSError, msgspec.DecodeError):
-            return Error(failure)
+            handle(failure)
       style: secondary
       start: 20
-      end: 84
+      end: 78
     - source: msgspec.DecodeError
       style: secondary
       start: 37
@@ -29,12 +54,12 @@ snapshots:
     try:
         load(path)
     except (OSError, tarfile.TarError, zipfile.BadZipFile):
-        return Error(failure)
+        handle(failure)
   : fixed: |
       try:
           load(path)
       except OSError, tarfile.TarError, zipfile.BadZipFile:
-          return Error(failure)
+          handle(failure)
     labels:
     - source: (OSError, tarfile.TarError, zipfile.BadZipFile)
       style: primary
@@ -42,10 +67,10 @@ snapshots:
       end: 74
     - source: |-
         except (OSError, tarfile.TarError, zipfile.BadZipFile):
-            return Error(failure)
+            handle(failure)
       style: secondary
       start: 20
-      end: 101
+      end: 95
     - source: tarfile.TarError
       style: secondary
       start: 37
@@ -54,12 +79,12 @@ snapshots:
     try:
         load(path)
     except* (OSError, ValueError):
-        return Error(failure)
+        handle(failure)
   : fixed: |
       try:
           load(path)
       except* OSError, ValueError:
-          return Error(failure)
+          handle(failure)
     labels:
     - source: (OSError, ValueError)
       style: primary
@@ -67,10 +92,10 @@ snapshots:
       end: 49
     - source: |-
         except* (OSError, ValueError):
-            return Error(failure)
+            handle(failure)
       style: secondary
       start: 20
-      end: 76
+      end: 70
     - source: ValueError
       style: secondary
       start: 38

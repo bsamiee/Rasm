@@ -2,7 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
 import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, layer } from '@effect/vitest';
-import { Array, Effect, type Scope, String } from 'effect';
+import { Array, DateTime, Effect, type Scope, String } from 'effect';
 import { Benchmark, BenchmarkDirectory, BenchmarkError, type BenchmarkReport, type BenchmarkResult } from './bench.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -16,10 +16,22 @@ const _NAME = 'test support benchmarks::summarize';
 const _BASELINE = Array.replicate(_BASELINE_HZ, Benchmark.policy.minHistory);
 const _SLOW = Array.replicate(_SLOW_HZ, Benchmark.policy.window);
 const _LATEST = JSON.stringify({
-    files: [
+    startTime: DateTime.toEpochMillis(DateTime.unsafeMake('2026-02-01T00:00:00Z')),
+    testResults: [
         {
-            filepath: '/abs/support.bench.ts',
-            groups: [{ fullName: 'test support benchmarks', benchmarks: [{ name: 'summarize', hz: _LATEST_HZ, rme: 1 }] }],
+            assertionResults: [
+                {
+                    benchmarks: [
+                        {
+                            name: 'test support benchmarks',
+                            tasks: [
+                                { name: 'summarize', throughput: { mean: _LATEST_HZ, rme: 1 } },
+                                { name: 'stored baseline', throughput: { mean: _BASELINE_HZ, rme: 1 }, fromStore: true },
+                            ],
+                        },
+                    ],
+                },
+            ],
         },
     ],
 });
@@ -31,16 +43,16 @@ const _results = (name: string, hz: readonly number[], rme = 1): readonly Benchm
 
 const _benchmarkDirectory = (
     history: readonly BenchmarkResult[],
+    latest = _LATEST,
 ): Effect.Effect<string, PlatformError, FileSystem.FileSystem | Path.Path | Scope.Scope> =>
     Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const directory = yield* fs.makeTempDirectoryScoped();
         // Array.map passes the index into the optional replacer of JSON.stringify
-        // ast-grep-ignore: no-forwarding-arrow
         const lines = Array.map(history, (row) => JSON.stringify(row));
         yield* fs.writeFileString(path.join(directory, 'history.ndjson'), `${lines.join('\n')}\n`);
-        yield* fs.writeFileString(path.join(directory, 'latest.json'), _LATEST);
+        yield* fs.writeFileString(path.join(directory, 'latest.json'), latest);
         return directory;
     });
 
@@ -85,8 +97,9 @@ describe('sustained regression detection', () => {
 });
 
 layer(NodeContext.layer)('benchmark regression check', (test) => {
-    test.effect('the check returns a typed error for a sustained regression', () =>
-        Effect.gen(function* () {
+    test.effect(
+        'the check returns a typed error for a sustained regression',
+        Effect.fnUntraced(function* () {
             const error = yield* Effect.flip(_check([...Array.replicate(_BASELINE_HZ, Benchmark.policy.minHistory - 1), _SLOW_HZ, _SLOW_HZ]));
             expect(error).toBeInstanceOf(BenchmarkError);
             expect(error.reason).toBe('regression');
@@ -94,55 +107,113 @@ layer(NodeContext.layer)('benchmark regression check', (test) => {
         }),
     );
 
-    test.effect('the check returns every benchmark result for history without regressions', () =>
-        Effect.gen(function* () {
+    test.effect(
+        'the check returns every benchmark result for history without regressions',
+        Effect.fnUntraced(function* () {
             const report = yield* _check(Array.replicate(_SLOW_HZ, Benchmark.policy.minHistory + 1));
             expect(report.verdict).toBe('pass');
             expect(Array.map(report.benchmarks, (benchmark) => benchmark.name)).toEqual([_NAME]);
         }),
     );
 
-    test.effect('missing benchmark output files return a typed unreadable error', () =>
-        Effect.scoped(
-            Effect.gen(function* () {
-                const fs = yield* FileSystem.FileSystem;
-                const directory = yield* fs.makeTempDirectoryScoped();
-                const error = yield* Effect.flip(Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory));
-                expect(error.reason).toBe('unreadable');
-            }),
-        ),
+    test.scoped(
+        'missing benchmark output files return a typed unreadable error',
+        Effect.fnUntraced(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const directory = yield* fs.makeTempDirectoryScoped();
+            const error = yield* Effect.flip(Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory));
+            expect(error.reason).toBe('unreadable');
+        }),
     );
 });
 
 layer(NodeContext.layer)('benchmark history file', (test) => {
-    test.effect('reprocessing one benchmark output file leaves the history unchanged', () =>
-        Effect.scoped(
-            Effect.gen(function* () {
-                const fs = yield* FileSystem.FileSystem;
-                const path = yield* Path.Path;
-                const directory = yield* _benchmarkDirectory(_results(_NAME, [_SLOW_HZ, _SLOW_HZ]));
-                const check = Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory);
-                yield* check;
-                yield* check;
-                const raw = yield* fs.readFileString(path.join(directory, 'history.ndjson'));
-                const appended = Array.filter(String.split(raw, '\n'), (line) => line.includes(`"hz":${_LATEST_HZ}`));
-                expect(appended).toHaveLength(1);
-            }),
-        ),
+    test.scoped(
+        'reprocessing a benchmark report after its file timestamp changes leaves history unchanged',
+        Effect.fnUntraced(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const directory = yield* _benchmarkDirectory(_results(_NAME, [_SLOW_HZ, _SLOW_HZ]));
+            const check = Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory);
+            yield* check;
+            const modifiedAt = DateTime.toDateUtc(DateTime.unsafeMake('2030-01-01T00:00:00Z'));
+            yield* fs.utimes(path.join(directory, 'latest.json'), modifiedAt, modifiedAt);
+            yield* check;
+            const raw = yield* fs.readFileString(path.join(directory, 'history.ndjson'));
+            const appended = Array.filter(String.split(raw, '\n'), (line) => line.includes(`"hz":${_LATEST_HZ}`));
+            expect(appended).toHaveLength(1);
+            expect(raw).not.toContain('stored baseline');
+            expect(raw).toContain('2026-02-01T00:00:00.000Z');
+        }),
     );
 
-    test.effect('corrupted history lines return a typed malformed error', () =>
-        Effect.scoped(
-            Effect.gen(function* () {
-                const fs = yield* FileSystem.FileSystem;
-                const path = yield* Path.Path;
-                const directory = yield* fs.makeTempDirectoryScoped();
-                yield* fs.writeFileString(path.join(directory, 'history.ndjson'), 'not-a-benchmark-result\n');
-                yield* fs.writeFileString(path.join(directory, 'latest.json'), _LATEST);
-                const error = yield* Effect.flip(Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory));
-                expect(error).toBeInstanceOf(BenchmarkError);
-                expect(error.reason).toBe('malformed');
-            }),
-        ),
+    test.scoped(
+        'corrupted history lines return a typed malformed error',
+        Effect.fnUntraced(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const directory = yield* fs.makeTempDirectoryScoped();
+            yield* fs.writeFileString(path.join(directory, 'history.ndjson'), 'not-a-benchmark-result\n');
+            yield* fs.writeFileString(path.join(directory, 'latest.json'), _LATEST);
+            const error = yield* Effect.flip(Effect.provideService(Benchmark.checkRegression(), BenchmarkDirectory, directory));
+            expect(error).toBeInstanceOf(BenchmarkError);
+            expect(error.reason).toBe('malformed');
+        }),
+    );
+});
+
+layer(NodeContext.layer)('benchmark report projection', (test) => {
+    test.scoped(
+        'malformed reports never append a partially projected result',
+        Effect.fnUntraced(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            yield* Effect.forEach(
+                [
+                    `${_LATEST} invalid`,
+                    `${_LATEST} ${_LATEST}`,
+                    '{"startTime":0,"testResults":[{"assertionResults":[{"benchmarks":[{"name":"valid","tasks":[{"name":"task","throughput":{"mean":1,"rme":1}}]},{"name":"late invalid","tasks":{}}]}]}]}',
+                    '{"startTime":0,"testResults":{}}',
+                    '{"startTime":0,"testResults":[{"assertionResults":{}}]}',
+                    '{"startTime":0,"testResults":[{"assertionResults":[{"benchmarks":{}}]}]}',
+                    '{"startTime":0,"testResults":[{"assertionResults":[{"benchmarks":[{"name":null,"tasks":[]}]}]}]}',
+                    _LATEST.replace('"name":"summarize"', '"name":null'),
+                    _LATEST.replace('"fromStore":true', '"fromStore":null'),
+                    _LATEST.replace('"fromStore":true', '"fromStore":"true"'),
+                    _LATEST.replace('"mean":100', '"mean":"invalid"'),
+                ],
+                Effect.fnUntraced(function* (latest: string) {
+                    const directory = yield* _benchmarkDirectory([], latest);
+                    const before = yield* fs.readFileString(path.join(directory, 'history.ndjson'));
+                    const error = yield* Effect.flip(Effect.provideService(Benchmark.importLatestResults, BenchmarkDirectory, directory));
+                    expect(error.reason).toBe('malformed');
+                    expect(yield* fs.readFileString(path.join(directory, 'history.ndjson'))).toBe(before);
+                }),
+            );
+        }),
+    );
+    test.scoped(
+        'invalid measured and stored tasks report their independent errors together',
+        Effect.fnUntraced(function* () {
+            const directory = yield* _benchmarkDirectory(
+                [],
+                _LATEST.replace('"name":"summarize"', '"name":null').replace('"mean":100', '"mean":"invalid"'),
+            );
+            const error = yield* Effect.flip(Effect.provideService(Benchmark.importLatestResults, BenchmarkDirectory, directory));
+            expect(error.reason).toBe('malformed');
+            expect(error.detail).toContain('name');
+            expect(error.detail).toContain('mean');
+        }),
+    );
+    test.scoped(
+        'empty native reports return no rows and retain the append format',
+        Effect.fnUntraced(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const directory = yield* _benchmarkDirectory([], '{"startTime":0,"testResults":[]}');
+            const rows = yield* Effect.provideService(Benchmark.importLatestResults, BenchmarkDirectory, directory);
+            expect(rows).toEqual([]);
+            expect(yield* fs.readFileString(path.join(directory, 'history.ndjson'))).toBe('\n\n');
+        }),
     );
 });

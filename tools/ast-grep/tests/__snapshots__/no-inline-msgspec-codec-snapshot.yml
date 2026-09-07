@@ -1,0 +1,96 @@
+id: no-inline-msgspec-codec
+snapshots:
+  ? |
+    from msgspec import json
+    json.Decoder().decode(value)
+  : fixed: |
+      from msgspec import json
+      json.decode(value)
+    labels:
+    - source: json
+      message: Codec module
+      style: primary
+      start: 25
+      end: 29
+  ? |
+    from msgspec import json
+    target[json], other = values
+    json.Encoder().encode(value)
+  : fixed: |
+      from msgspec import json
+      target[json], other = values
+      json.encode(value)
+    labels:
+    - source: json
+      message: Codec module
+      style: primary
+      start: 54
+      end: 58
+  ? |
+    from msgspec import msgpack as packed
+    packed.Encoder().encode(load())
+  : fixed: |
+      from msgspec import msgpack as packed
+      packed.encode(load())
+    labels:
+    - source: packed
+      message: Codec module
+      style: primary
+      start: 38
+      end: 44
+  ? |
+    import msgspec as codec
+    codec.json.Encoder().encode(value)
+  : fixed: |
+      import msgspec as codec
+      codec.json.encode(value)
+    labels:
+    - source: codec.json
+      message: Codec module
+      style: primary
+      start: 24
+      end: 34
+  ? |
+    import msgspec.json as codec
+    codec.Encoder().encode(value)
+  : fixed: |
+      import msgspec.json as codec
+      codec.encode(value)
+    labels:
+    - source: codec
+      message: Codec module
+      style: primary
+      start: 29
+      end: 34
+  msgspec.json.Decoder().decode(value):
+    fixed: msgspec.json.decode(value)
+    labels:
+    - source: msgspec.json
+      message: Codec module
+      style: primary
+      start: 0
+      end: 12
+  msgspec.json.Encoder().encode(value):
+    fixed: msgspec.json.encode(value)
+    labels:
+    - source: msgspec.json
+      message: Codec module
+      style: primary
+      start: 0
+      end: 12
+  msgspec.msgpack.Decoder().decode(value):
+    fixed: msgspec.msgpack.decode(value)
+    labels:
+    - source: msgspec.msgpack
+      message: Codec module
+      style: primary
+      start: 0
+      end: 15
+  msgspec.msgpack.Encoder().encode(value):
+    fixed: msgspec.msgpack.encode(value)
+    labels:
+    - source: msgspec.msgpack
+      message: Codec module
+      style: primary
+      start: 0
+      end: 15

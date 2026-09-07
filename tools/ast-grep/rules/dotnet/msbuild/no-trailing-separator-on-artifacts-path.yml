@@ -3,21 +3,36 @@ id: no-trailing-separator-on-artifacts-path
 language: xml
 severity: error
 rule:
-    pattern: _PROPERTY
-    # Separator ending the value or the last NormalizePath argument, or a function appending one, the text slot binds the value for the message
-    matches:
-        msbuild-property-value:
-            name: {regex: '^ArtifactsPath$'}
-            text: {pattern: _TEXT, regex: '[\\/]\s*$|[\\/]''\s*\)\s*\)\s*$|NormalizeDirectory|EnsureTrailingSlash'}
+    kind: CharData
+    pattern: _VALUE
+    inside:
+        kind: content
+        # A split value needs XML-aware evaluation before a text edit can preserve it.
+        not: {has: {not: {kind: CharData}}}
+        inside: {matches: {msbuild-property: {name: {regex: '^ArtifactsPath$'}}}}
+    any:
+        # Literal paths and plain property references; function arguments are not path text.
+        - regex: '^\s*(?:[^$]|\$\([A-Za-z_][A-Za-z0-9_]*\))*[\\/]\s*$'
+        - regex: '^\s*\$\(\[MSBuild\]::(?:NormalizeDirectory|EnsureTrailingSlash)\(\s*''[^'']*''(?:\s*,\s*''[^'']*'')*\s*\)\)\s*$'
+        - regex: '^\s*\$\(\[MSBuild\]::NormalizePath\(\s*(?:''[^'']*''\s*,\s*)*''[^'']*[\\/]''\s*\)\)\s*$'
+    # Removing a filesystem root separator changes the path's meaning.
+    not: {regex: '^\s*(?:[\\/]+|[A-Za-z]:[\\/]+)\s*$|''(?:[\\/]+|[A-Za-z]:[\\/]+)''\s*\)\)\s*$'}
 transform:
-    # Padding around the value trims away, the message stays on one line
-    VALUE: {replace: {source: $TEXT, replace: '^\s+|\s+$', by: ''}}
-    # NormalizePath keeps a separator its last argument ends with, EnsureTrailingSlash over one property takes the BCL trim
-    TRIMMED: {replace: {source: $PROPERTY, replace: '[\\/](\s*</ArtifactsPath>|''\s*\)\s*\)\s*</ArtifactsPath>)$', by: '$1'}}
-    NORMALIZED: {replace: {source: $TRIMMED, replace: 'NormalizeDirectory\(', by: 'NormalizePath('}}
-    UNSLASHED: {replace: {source: $NORMALIZED, replace: '\[MSBuild\]::EnsureTrailingSlash\(', by: '[System.IO.Path]::TrimEndingDirectorySeparator('}}
+    TRIMMED:
+        replace:
+            source: $VALUE
+            replace: '[\\/]+(\s*$|''\s*\)\)\s*$)'
+            by: '$1'
+    NORMALIZED:
+        replace:
+            source: $TRIMMED
+            replace: '^(\s*\$\(\[MSBuild\]::)NormalizeDirectory\('
+            by: '$1NormalizePath('
+    UNSLASHED:
+        replace:
+            source: $NORMALIZED
+            replace: '^(\s*\$\()\[MSBuild\]::EnsureTrailingSlash\('
+            by: '$1[System.IO.Path]::TrimEndingDirectorySeparator('
 fix: $UNSLASHED
-message: >-
-    ArtifactsPath $VALUE ends with a separator and the SDK appends its own before bin, obj, publish, and package, every output path holds a
-    doubled separator
-note: Write the value without a trailing separator, NormalizePath for NormalizeDirectory and TrimEndingDirectorySeparator for EnsureTrailingSlash
+message: ArtifactsPath supplies a trailing separator before the SDK appends its output segments
+note: Write the path without a trailing separator, NormalizePath and TrimEndingDirectorySeparator keep the function's path operation

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-literal-glob-in-task-source
+language: xml
+severity: error
+rule:
+    pattern: _TASK
+    all:
+        - matches: {msbuild-element: {name: {regex: "^(Copy|Move)$"}}}
+        - matches: {msbuild-metadata: {name: {regex: "^SourceFiles$"}, value: {regex: "[*?]"}}}
+transform:
+    # The glob becomes an item the task reads, cleared first because every fixed task of the target shares the item name
+    ITEMIZED:
+        replace:
+            source: $TASK
+            replace: '(?s)^<(Copy|Move)\b(?P<a>[^<]*?)\bSourceFiles\s*=\s*["''](?P<g>[^"'']*)["'']'
+            by: '<ItemGroup><_${1}Source Remove="@(_${1}Source)" /><_${1}Source Include="${g}" /></ItemGroup><${1}${a}SourceFiles="@(_${1}Source)"'
+    # A recursive glob into a folder keeps its tree through a RecursiveDir transform, the probe copied source/x/f.txt to stage/x/f.txt
+    TREED:
+        replace:
+            source: $ITEMIZED
+            replace: '(?s)^(<ItemGroup>.*?Include="[^"]*\*\*[^"]*".*?<(Copy|Move)\b[^<]*?)\bDestinationFolder\s*=\s*["''](?P<d>[^"'']*?)/?["'']'
+            by: '${1}DestinationFiles="@(_${2}Source->''${d}/%(RecursiveDir)%(Filename)%(Extension)'')"'
+fix: $TREED
+message: Copy and Move treat a literal SourceFiles glob as a file name and cannot find the file
+note: Expand the glob in an item Include and pass the item list, with a RecursiveDir transform in DestinationFiles to keep the tree

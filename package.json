@@ -289,18 +289,30 @@
         "tags": [
             "language:typescript"
         ],
+        "namedInputs": {
+            "tooling": [
+                "sharedGlobals",
+                "typescript",
+                "{workspaceRoot}/*",
+                "{workspaceRoot}/{.vscode,infra,tools}/**/*",
+                "{workspaceRoot}/.claude/skills/ast-grep/scripts/**/*",
+                "{workspaceRoot}/tests/typescript/ast-grep/**/*"
+            ]
+        },
         "targets": {
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
                 "cache": true,
                 "inputs": [
                     "{workspaceRoot}/Workspace.slnx",
-                    "{workspaceRoot}/{libs,tests,tools}/**/*.csproj",
-                    "{workspaceRoot}/Directory.Build.props",
-                    "{workspaceRoot}/Directory.Build.targets",
-                    "{workspaceRoot}/Directory.Packages.props",
+                    "{workspaceRoot}/{apps,libs,tests,tools}/**/*.csproj",
+                    "{workspaceRoot}/Directory.{Build.props,Build.targets,Packages.props}",
                     "{workspaceRoot}/NuGet.config",
-                    "{workspaceRoot}/global.json"
+                    "{workspaceRoot}/global.json",
+                    "{workspaceRoot}/{apps,libs,tests,tools}/**/Directory.{Build,Packages}.{props,targets}",
+                    {
+                        "runtime": "dotnet --version"
+                    }
                 ],
                 "outputs": [
                     "{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json",
@@ -312,7 +324,11 @@
                 "command": "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",
                 "cache": true,
                 "inputs": [
-                    "{workspaceRoot}/node_modules/@tree-sitter-grammars/tree-sitter-xml/xml/src/**/*",
+                    {
+                        "externalDependencies": [
+                            "@tree-sitter-grammars/tree-sitter-xml"
+                        ]
+                    },
                     {
                         "runtime": "tree-sitter --version"
                     }
@@ -330,57 +346,46 @@
                 ],
                 "options": {
                     "commands": [
-                        "biome check --write --error-on-warnings {args}",
-                        {
-                            "command": "actionlint",
-                            "forwardAllArgs": false
-                        },
-                        {
-                            "command": "git ls-files -z -- '*.sh' | xargs -0 shellcheck",
-                            "forwardAllArgs": false
-                        },
-                        {
-                            "command": "ast-grep test --include-off",
-                            "forwardAllArgs": false
-                        },
-                        {
-                            "command": "ast-grep scan --no-ignore hidden *.ts *.props *.targets *.slnx NuGet.config nx.json package.json .claude/settings.json .claude/skills/ast-grep/scripts .github infra tools",
-                            "forwardAllArgs": false
-                        }
+                        "biome check --error-on-warnings {args}",
+                        "actionlint",
+                        "git ls-files --cached --others --exclude-standard -z -- '*.sh' | xargs -0 -r shellcheck",
+                        "ast-grep scan --no-ignore hidden *.ts *.props *.targets *.slnx NuGet.config nx.json package.json .claude/settings.json .claude/skills/ast-grep/scripts .github infra tools"
                     ],
-                    "args": "*.json *.ts .mcp.json .vscode infra tools",
+                    "args": "*.json *.ts .mcp.json .vscode infra tools tests/typescript/ast-grep",
+                    "forwardAllArgs": false,
                     "parallel": false
                 },
                 "inputs": [
-                    "{workspaceRoot}/*",
+                    "tooling",
                     "{workspaceRoot}/.github/**/*",
-                    "{workspaceRoot}/.vscode/**/*",
-                    "{workspaceRoot}/infra/**/*",
-                    "{workspaceRoot}/tools/**/*",
                     "{workspaceRoot}/.claude/settings.json",
-                    "{workspaceRoot}/.claude/skills/ast-grep/scripts/**/*"
+                    "{workspaceRoot}/.shellcheckrc",
+                    "{workspaceRoot}/**/*.sh",
+                    {
+                        "runtime": "actionlint --version && shellcheck --version"
+                    }
                 ]
             },
             "format": {
                 "executor": "nx:run-commands",
-                "cache": true,
+                "cache": false,
                 "options": {
                     "commands": [
-                        "biome format --write *.json *.ts .mcp.json .vscode infra tools",
-                        "git ls-files -z -- '*.sh' | xargs -0 shfmt -w"
+                        "biome check --write --error-on-warnings *.json *.ts .mcp.json .vscode infra tools tests/typescript/ast-grep",
+                        "git ls-files --cached --others --exclude-standard -z -- '*.sh' | xargs -0 -r shfmt -w",
+                        "fd --hidden --type f --extension yaml --extension yml --exclude __snapshots__ --exclude pnpm-lock.yaml --exec-batch yamlfmt"
                     ],
                     "parallel": false
                 },
                 "inputs": [
-                    "{workspaceRoot}/*",
-                    "{workspaceRoot}/.vscode/**/*",
-                    "{workspaceRoot}/infra/**/*",
-                    "{workspaceRoot}/tools/**/*",
-                    "{workspaceRoot}/.claude/skills/ast-grep/scripts/**/*"
+                    "tooling",
+                    {
+                        "runtime": "shfmt --version"
+                    }
                 ]
             },
             "rewrite": {
-                "command": "ast-grep scan --filter '^{args.id}$' --error={args.id} -U {args.paths}",
+                "command": "ast-grep scan -U",
                 "cache": false,
                 "parallelism": false,
                 "dependsOn": [
@@ -391,17 +396,20 @@
             "typecheck": {
                 "inputs": [
                     "{workspaceRoot}/*.config.ts",
-                    "{workspaceRoot}/tsconfig.json",
-                    "{workspaceRoot}/tsconfig.base.json",
+                    "{workspaceRoot}/{tsconfig.json,tsconfig.base.json}",
                     "{workspaceRoot}/package.json",
                     "{workspaceRoot}/pnpm-lock.yaml",
                     "{workspaceRoot}/tests/typescript/support/vitest.config.ts",
                     "{workspaceRoot}/tools/nx/**/*",
+                    "{workspaceRoot}/tests/typescript/ast-grep/*.ts",
                     "{workspaceRoot}/infra/**/*",
                     {
                         "externalDependencies": [
                             "typescript"
                         ]
+                    },
+                    {
+                        "runtime": "node --version"
                     }
                 ],
                 "outputs": [
@@ -440,7 +448,7 @@
                 }
             },
             "workflow": {
-                "command": "act push --container-daemon-socket unix:///var/run/docker.sock -P ubuntu-24.04=ghcr.io/catthehacker/ubuntu:full-24.04 -P ubuntu-24.04-arm=ghcr.io/catthehacker/ubuntu:full-24.04 --action-cache-path .cache/act/actions --cache-server-path .cache/act/cache --artifact-server-path .cache/act/artifacts",
+                "command": "act --workflows .github/workflows/ci.yml --container-architecture linux/amd64 -P ubuntu-24.04=ghcr.io/catthehacker/ubuntu:full-24.04 --action-cache-path .cache/act/actions --cache-server-path .cache/act/cache --artifact-server-path .cache/act/artifacts",
                 "cache": false,
                 "parallelism": false
             },
@@ -459,12 +467,6 @@
                         "projects": [
                             "function-hooks"
                         ],
-                        "target": "format"
-                    },
-                    {
-                        "projects": [
-                            "function-hooks"
-                        ],
                         "target": "test"
                     }
                 ]
@@ -477,19 +479,20 @@
                 ],
                 "inputs": [
                     "{workspaceRoot}/tools/ast-grep/**/*",
+                    "{workspaceRoot}/package.json",
+                    "{workspaceRoot}/pnpm-workspace.yaml",
+                    "{workspaceRoot}/pnpm-lock.yaml",
                     "{workspaceRoot}/sgconfig.yml",
+                    "{workspaceRoot}/.claude/skills/ast-grep/templates/**/*",
                     "{workspaceRoot}/.claude/skills/ast-grep/scripts/rule-checks.sh",
                     "{workspaceRoot}/.claude/plugins/**/*",
-                    "{workspaceRoot}/.cache/ast-grep/xml.so",
                     {
-                        "runtime": "ast-grep --version"
+                        "dependentTasksOutputFiles": "**/xml.so"
                     },
                     {
-                        "runtime": "yq --version"
+                        "runtime": "ast-grep --version && node --version && bash --version && yq --version && jq --version && rg --version"
                     },
-                    {
-                        "runtime": "jq --version"
-                    }
+                    "{workspaceRoot}/tests/typescript/ast-grep/**/*"
                 ],
                 "options": {
                     "commands": [
@@ -497,14 +500,18 @@
                         ".claude/skills/ast-grep/scripts/rule-checks.sh gate py",
                         ".claude/skills/ast-grep/scripts/rule-checks.sh gate sh",
                         ".claude/skills/ast-grep/scripts/rule-checks.sh gate yml",
-                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj"
+                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate cs",
+                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj",
+                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate json",
+                        "node --test tests/typescript/ast-grep/*.test.ts"
                     ],
-                    "parallel": true
+                    "parallel": false
                 },
                 "configurations": {
                     "ts": {
                         "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate ts"
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",
+                            "node --test tests/typescript/ast-grep/*.test.ts"
                         ]
                     },
                     "py": {
@@ -519,18 +526,37 @@
                     },
                     "yml": {
                         "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate yml"
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate yml",
+                            "node --test tests/typescript/ast-grep/yaml-*.test.ts tests/typescript/ast-grep/shell-injections.test.ts tests/typescript/ast-grep/outline.test.ts tests/typescript/ast-grep/rule-checks.test.ts"
                         ]
                     },
                     "csproj": {
                         "commands": [
                             ".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj"
                         ]
+                    },
+                    "json": {
+                        "commands": [
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate json",
+                            "node --test tests/typescript/ast-grep/shell-injections.test.ts"
+                        ]
+                    },
+                    "cs": {
+                        "commands": [
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate cs"
+                        ]
                     }
                 },
                 "metadata": {
-                    "description": "Mutation gate over every rule family, or one by extension: tests, pairing, width, arms, parse"
+                    "description": "Check ast-grep rules and integrations, optionally scoped by language configuration"
                 }
+            },
+            "outline": {
+                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/github-job.yml --outline-rules tools/ast-grep/outline/github-composite.yml --outline-rules tools/ast-grep/outline/github-step.yml --outline-rules tools/ast-grep/outline/bash-function.yml --outline-rules tools/ast-grep/outline/json-property.yml --outline-rules tools/ast-grep/outline/json-property-member.yml --outline-rules tools/ast-grep/outline/msbuild-task.yml --outline-rules tools/ast-grep/outline/msbuild-import.yml --outline-rules tools/ast-grep/outline/msbuild-group.yml --outline-rules tools/ast-grep/outline/msbuild-property.yml --outline-rules tools/ast-grep/outline/msbuild-item.yml --outline-rules tools/ast-grep/outline/python-type-alias.yml --outline-rules tools/ast-grep/outline/typescript-object-member.yml --outline-rules tools/ast-grep/outline/typescript-schema-member.yml --outline-rules tools/ast-grep/outline/msbuild-using-task.yml --outline-rules tools/ast-grep/outline/msbuild-task-parameter.yml",
+                "cache": false,
+                "dependsOn": [
+                    "grammar"
+                ]
             }
         }
     }

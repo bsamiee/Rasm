@@ -1,51 +1,23 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# The id differs from the Python rule no-forwarding-function because rule ids share one namespace across languages
+# Report only, deleting the function leaves its callers, the probe fails with run: command not found
 id: no-forwarding-shell-function
 language: bash
 severity: error
-utils:
-    # A positional parameter, a variable_name of digits, or the argument list, a special_variable_name
-    positional-name:
-        any:
-            - {kind: variable_name, regex: '^[0-9]+$'}
-            - {kind: special_variable_name, regex: '^[@*#]$'}
-    # Any read of one, $1, ${1}, ${1:-<default>}, "$@", "${@}"
-    positional-read:
-        any:
-            - kind: simple_expansion
-              has: {matches: positional-name}
-            - kind: expansion
-              has: {matches: positional-name}
-    # One bare or inside a string, the regex of the arm that reads it pins the whole text to the parameter alone
-    positional:
-        any:
-            - matches: positional-read
-            - kind: string
-              has: {matches: positional-read}
-    # The one command of the body, no second statement, no redirect, no pipeline
-    single-command:
-        kind: compound_statement
-        has: {kind: command, pattern: $CALL}
-        not: {has: {nthChild: 2}}
+ignores: ["**/*.json"]
 rule:
     kind: function_definition
     all:
         - has: {field: name, pattern: $NAME}
         - has:
-              field: body
-              matches: single-command
-              has:
-                  kind: command
-                  any:
-                      # The command with fixed words and no parameter read, a name for a command line
-                      - not: {has: {stopBy: end, matches: positional-read}}
-                      # The whole argument list forwarded alone
-                      - all:
-                            - has: {matches: positional, regex: '^"?\$\{?[@*]\}?"?$'}
-                            - not: {has: {nthChild: 3}}
-                      # The first parameter forwarded alone
-                      - all:
-                            - has: {matches: positional, regex: '^"?\$\{?1\}?"?$'}
-                            - not: {has: {nthChild: 3}}
-message: The function `$NAME` adds a name for one call of `$CALL`
-note: Call the command where the function was called, and bind a fixed argument list as an array, `<name>=(<command> <args>)` then `"${<name>[@]}"`
+            field: body
+            kind: compound_statement
+            matches: bash-single-command-body
+            has:
+                kind: command
+                pattern: $CALL
+                all:
+                    - has: {field: name, kind: command_name, regex: '^[A-Za-z_][A-Za-z0-9_-]*$'}
+                    - has: {field: argument, regex: '^"\$(\{@\}|@)"$'}
+                not: {has: {nthChild: 3}}
+message: 'The function `$NAME` forwards every argument unchanged to `$CALL`'
+note: Call the owning command directly, and keep adapters that select, join, reorder, default, or add arguments

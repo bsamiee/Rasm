@@ -1,5 +1,6 @@
 id: no-event-mutation
 valid:
+    - 'on("tool.call", ($, event, next) => { const seen = []; seen.push(event); return next(event); });'
     # The correction, a copy passed to the chain
     - "on('tool.call', ($, e, next) => next({ ...e, command: restore(e.command) }));"
     # Local copy mutated, the event stays as read
@@ -183,7 +184,7 @@ valid:
           }
           return next(e);
       });
-    # Nested block declaring the event's name through var
+    # Function-scoped var reassigns the parameter to a copy
     - |
       on('tool.call', ($, e, next) => {
           if (ready) {
@@ -214,8 +215,19 @@ valid:
           }
           return next(e);
       });
+    - 'on("tool.call", ($, e, next) => { rows.map(e => { e.count++; return e; }); return next(e); });'
+    - 'on("tool.call", ($, e, next) => { { const { e } = row; e.count++; } return next(e); });'
+    - 'function first() { const hook = ($,e,next)=>{e.count++; return next(e)}; return hook; } function second(on: On) { const hook = ($,e,next)=>next(e); on("tool.call",hook); }'
+    - 'on("tool.call", ($, e, next) => { e = {...e}; e.count++; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { e ||= {...e}; e.count++; return next(e); });'
+    - 'const hook = ($, e, next) => next(e); { const hook = ($, e, next) => { e.count++; return next(e); }; } on("tool.call", hook);'
+    - 'on("tool.call", ($, e, next) => { function* bump(e) { e.count++; yield e; } return next(e); });'
+    - 'on("tool.call", ($, e, next) => { const apply = (...e) => { e.count++; }; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { const apply = ({row: e = value}) => { e.count++; }; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { const apply = ({e = value}) => { e.count++; }; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { for (let e = row; ready;) { e.count++; } return next(e); });'
 invalid:
-    # The instance, an assignment into a member of the event
+    # an assignment into a member of the event
     - |
       on('tool.call', ($, e, next) => {
           e.command = restore(e.command);
@@ -453,3 +465,7 @@ invalid:
               return next(e);
           });
       };
+    - 'on("tool.call", ($, e, next) => { for (const { other: row = e } of rows) { e.count++; } return next(e); });'
+    - 'on("tool.call", ($, e, next) => { const apply = ({ row = e }) => { e.count++; }; return next(e); });'
+    - 'function hook($, e, next) { e.count++; return next(e); } on("tool.call", hook);'
+    - 'function register(on: On) { const hook = ($, e, next) => { e.count++; return next(e); }; on("tool.call", hook); }'

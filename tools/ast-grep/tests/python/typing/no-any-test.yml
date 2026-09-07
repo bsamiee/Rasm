@@ -10,6 +10,15 @@ valid:
     # Attribute named like the member on another object
     - |
       schema = registry.Any
+    # A parameter owns this object; the spelling alone does not make it typing
+    - |
+      def read(typing):
+          return typing.Any
+    # Module aliases also yield to lexical parameter bindings
+    - |
+      import typing as t
+      def read(t):
+          return t.Any
 invalid:
     # The instance, the member imported from typing
     - |

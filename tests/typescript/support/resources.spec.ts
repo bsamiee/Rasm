@@ -91,12 +91,14 @@ layer(TestDatabases.pglite(_DDL))('PGlite transactions', (it) => {
     it.effect('rollback-only transactions retain no database state across tests', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
-            yield* database.rollbackTransaction(
-                Effect.gen(function* () {
-                    yield* database.exec("INSERT INTO records VALUES ('<key-transaction>', 1);");
-                    expect(yield* database.rows("SELECT key FROM records WHERE key = '<key-transaction>'")).toHaveLength(1);
-                }),
+            // The rows read inside the transaction come out of it, the read after it sees the rollback
+            const inside = yield* database.rollbackTransaction(
+                Effect.andThen(
+                    database.exec("INSERT INTO records VALUES ('<key-transaction>', 1);"),
+                    database.rows("SELECT key FROM records WHERE key = '<key-transaction>'"),
+                ),
             );
+            expect(inside).toHaveLength(1);
             expect(yield* database.rows("SELECT key FROM records WHERE key = '<key-transaction>'")).toHaveLength(0);
         }),
     );

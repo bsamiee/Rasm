@@ -174,8 +174,7 @@ def _norm_mod(module: object) -> _Mod:
 
 def _load_definition(api_dir: Path) -> Result[tuple[_Mod, str], PinMismatch]:
     """Run the pinned gen.py with tagged factories and return the normalized module tree and the declared api version."""
-    spec = importlib.util.spec_from_file_location("GenApi", api_dir / "GenApi.py")
-    if spec is None or spec.loader is None:
+    if (spec := importlib.util.spec_from_file_location("GenApi", api_dir / "GenApi.py")) is None or spec.loader is None:
         return Error(PinMismatch("Gmsh api definition", f"cannot load GenApi.py under {api_dir}"))
     genapi = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(genapi)

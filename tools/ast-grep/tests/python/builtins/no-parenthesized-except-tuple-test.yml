@@ -5,19 +5,19 @@ valid:
       try:
           load(path)
       except OSError, msgspec.DecodeError:
-          return Error(failure)
+          handle(failure)
     # The as clause keeps the parentheses
     - |
       try:
           load(path)
       except (OSError, msgspec.DecodeError) as error:
-          return Error(str(error))
+          handle(str(error))
     # One-element tuple, ruff redundant-tuple-in-exception-handler reports it
     - |
       try:
           load(path)
       except (OSError,):
-          return Error(failure)
+          handle(failure)
     # Wrapped tuples keep their parentheses
     - |
       try:
@@ -26,26 +26,38 @@ valid:
           OSError,
           msgspec.DecodeError,
       ):
-          return Error(failure)
+          handle(failure)
     # Tuple outside an except clause
     - |
       errors = (OSError, ValueError)
+    # Starred exception expressions retain their tuple syntax
+    - |
+      try:
+          load(path)
+      except (*errors, ValueError):
+          handle(failure)
 invalid:
     # The instance, two types in parentheses
     - |
       try:
           load(path)
       except (OSError, msgspec.DecodeError):
-          return Error(failure)
+          handle(failure)
     # Three types
     - |
       try:
           load(path)
       except (OSError, tarfile.TarError, zipfile.BadZipFile):
-          return Error(failure)
+          handle(failure)
     # The exception group clause
     - |
       try:
           load(path)
       except* (OSError, ValueError):
-          return Error(failure)
+          handle(failure)
+    # A trailing tuple comma cannot survive without parentheses
+    - |
+      try:
+          load(path)
+      except (OSError, ValueError,):
+          handle(failure)

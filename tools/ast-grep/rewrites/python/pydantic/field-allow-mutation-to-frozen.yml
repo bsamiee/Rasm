@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: field-allow-mutation-to-frozen
+language: python
+severity: off
+rule:
+    kind: keyword_argument
+    has: {field: name, regex: "^allow_mutation$"}
+    all:
+        - has: {field: value, kind: "false"}
+        - not: {has: {kind: comment}}
+    inside:
+        kind: argument_list
+        inside: {matches: python-pydantic-field-call}
+        not:
+            has:
+                any:
+                    - kind: dictionary_splat
+                    - kind: keyword_argument
+                      has: {field: name, regex: "^frozen$"}
+fix: frozen=True
+message: "`allow_mutation=False` restates Pydantic field freezing through its deprecated name"
+note: Preserve the field's validation, serialization, schema, and assignment behavior with frozen=True

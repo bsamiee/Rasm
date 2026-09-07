@@ -1,0 +1,140 @@
+id: no-fourth-csharp-nesting-level
+snapshots:
+  'class C { int F() => a ? (b ? (c ? (d ? 1 : 2) : 3) : 4) : 5; }':
+    labels:
+    - source: 'd ? 1 : 2'
+      style: primary
+      start: 36
+      end: 45
+  'class C { int F() { if(a) while(b) foreach(var x in xs) return c ? 1 : 0; return 0; } }':
+    labels:
+    - source: 'c ? 1 : 0'
+      style: primary
+      start: 63
+      end: 72
+  class C { int F() { if(a) while(b) foreach(var x in xs) return x switch { 0 => 1, _ => 0 }; return 0; } }:
+    labels:
+    - source: x switch { 0 => 1, _ => 0 }
+      style: primary
+      start: 63
+      end: 90
+  class C { object F() => A(() => { object Local() { return B(delegate { return D(x => x); }); } return Local(); }); }:
+    labels:
+    - source: x => x
+      style: primary
+      start: 80
+      end: 86
+  class C { object F() => A(delegate { return B(delegate { return Cc(delegate { return D(delegate { return 1; }); }); }); }); }:
+    labels:
+    - source: delegate { return 1; }
+      style: primary
+      start: 87
+      end: 109
+  class C { object F() => A(x => B(y => Cc(z => D(w => E(v => v))))); }:
+    labels:
+    - source: w => E(v => v)
+      style: primary
+      start: 48
+      end: 62
+  class C { object F() => A(x => B(y => Cc(z => D(w => w)))); }:
+    labels:
+    - source: w => w
+      style: primary
+      start: 48
+      end: 54
+  class C { unsafe void F() { if(a) while(b) foreach(var x in xs) fixed(int* y=xs) Work(); } }:
+    labels:
+    - source: fixed(int* y=xs) Work();
+      style: primary
+      start: 64
+      end: 88
+  class C { void F() { if(a) A(); else if(b) while(c) foreach(var x in xs) if(d) Work(); } }:
+    labels:
+    - source: if(d) Work();
+      style: primary
+      start: 73
+      end: 86
+  class C { void F() { if(a) while(b) Run(() => { if(c) while(d) foreach(var x in xs) if(e) Work(); }); } }:
+    labels:
+    - source: if(e) Work();
+      style: primary
+      start: 84
+      end: 97
+  class C { void F() { if(a) while(b) foreach(var x in xs) do Work(); while(c); } }:
+    labels:
+    - source: do Work(); while(c);
+      style: primary
+      start: 57
+      end: 77
+  class C { void F() { if(a) while(b) foreach(var x in xs) for(;;) Work(); } }:
+    labels:
+    - source: for(;;) Work();
+      style: primary
+      start: 57
+      end: 72
+  class C { void F() { if(a) while(b) foreach(var x in xs) foreach(var y in ys) Work(); } }:
+    labels:
+    - source: foreach(var y in ys) Work();
+      style: primary
+      start: 57
+      end: 85
+  class C { void F() { if(a) while(b) foreach(var x in xs) if(c) Work(); } }:
+    labels:
+    - source: if(c) Work();
+      style: primary
+      start: 57
+      end: 70
+  class C { void F() { if(a) while(b) foreach(var x in xs) if(c) while(d) Work(); } }:
+    labels:
+    - source: if(c) while(d) Work();
+      style: primary
+      start: 57
+      end: 79
+  class C { void F() { if(a) while(b) foreach(var x in xs) lock(x) Work(); } }:
+    labels:
+    - source: lock(x) Work();
+      style: primary
+      start: 57
+      end: 72
+  'class C { void F() { if(a) while(b) foreach(var x in xs) switch(x) { case 0: Work(); break; } } }':
+    labels:
+    - source: 'switch(x) { case 0: Work(); break; }'
+      style: primary
+      start: 57
+      end: 93
+  class C { void F() { if(a) while(b) foreach(var x in xs) try { Work(); } finally { Close(); } } }:
+    labels:
+    - source: try { Work(); } finally { Close(); }
+      style: primary
+      start: 57
+      end: 93
+  class C { void F() { if(a) while(b) foreach(var x in xs) using(var y=Open()) Work(); } }:
+    labels:
+    - source: using(var y=Open()) Work();
+      style: primary
+      start: 57
+      end: 84
+  class C { void F() { if(a) while(b) foreach(var x in xs) while(c) Work(); } }:
+    labels:
+    - source: while(c) Work();
+      style: primary
+      start: 57
+      end: 73
+  class C { void F() { if(a) while(b) try { Work(); } catch(E e) { if(c) Work(); } } }:
+    labels:
+    - source: if(c) Work();
+      style: primary
+      start: 65
+      end: 78
+  class C { void F() { if(a) { while(b) { foreach(var x in xs) { if(c) { while(d) Work(); } } } } } }:
+    labels:
+    - source: if(c) { while(d) Work(); }
+      style: primary
+      start: 63
+      end: 89
+  class C { void F() { void A() { void B() { void D() { void E() { Work(); } } } } } }:
+    labels:
+    - source: void E() { Work(); }
+      style: primary
+      start: 54
+      end: 74

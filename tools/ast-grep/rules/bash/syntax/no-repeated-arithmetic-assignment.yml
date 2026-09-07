@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-repeated-arithmetic-assignment
+language: bash
+severity: error
+ignores: ["**/*.json"]
+utils:
+    counter:
+        kind: variable_name, word
+        pattern: $V
+    operation:
+        kind: binary_expression
+        any:
+            - all:
+                - has: {field: left, matches: counter}
+                - has: {field: operator, pattern: $$OP, regex: '^(\+|-|\*|/|%|<<|>>|&|\||\^)$'}
+                - has: {field: right, pattern: $VALUE}
+            - all:
+                - has: {field: left, kind: number, pattern: $VALUE}
+                - has: {field: operator, pattern: $$OP, regex: '^(\+|\*|&|\||\^)$'}
+                - has: {field: right, matches: counter}
+rule:
+    any:
+        - kind: binary_expression
+          all:
+            - has: {field: left, kind: variable_name, pattern: $V}
+            - has: {field: operator, regex: "^=$"}
+            - has: {field: right, matches: operation}
+        - kind: variable_assignment
+          inside: {kind: c_style_for_statement}
+          all:
+            - has: {field: name, kind: variable_name, pattern: $V}
+            - has: {field: value, matches: operation}
+fix: $V $OP= $VALUE
+message: "`$V` repeats its name in an arithmetic assignment"
+note: Use the compound operator inside the arithmetic command, and keep a shell assignment where its exit status is consumed

@@ -2,13 +2,14 @@ id: no-nested-conditional-expression
 valid:
     # The corrected form, a match statement with one case per arm
     - |
-      match schema:
-          case ByteArrayType():
-              return binary.map(bytearray)
-          case MemoryViewType():
-              return binary.map(memoryview)
-          case _:
-              return binary
+      def classify(schema):
+          match schema:
+              case ByteArrayType():
+                  return binary.map(bytearray)
+              case MemoryViewType():
+                  return binary.map(memoryview)
+              case _:
+                  return binary
     # One conditional expression
     - |
       value = left if flag else right
@@ -43,6 +44,6 @@ invalid:
     # Three levels report once at the outermost
     - |
       value = first if one else second if two else third if three else fourth
-    # Three levels through parentheses, the middle one reports again when the guard's stopper leaves
+    # Three levels through parentheses still report only the outermost
     - |
       value = left if flag else (inner if other else (deep if third else right))

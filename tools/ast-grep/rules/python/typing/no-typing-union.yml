@@ -5,4 +5,4 @@ severity: error
 rule:
     matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^(Optional|Union)$', pattern: $NAME}}}
 message: '`$NAME` spells a union the `|` operator writes'
-note: Write `<a> | <b>`, `<type> | None` for absence, or `Option` and `Result` from expression for fallibility
+note: Write `<a> | <b>`, `<type> | None` for absence, or `Option` and `Result` from expression, the rewrite `optional-to-union` applies it

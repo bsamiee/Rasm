@@ -2,33 +2,177 @@ id: no-type-alias
 snapshots:
   ? |
     from typing import TypeAlias
-  : labels:
-    - source: TypeAlias
-      style: primary
-      start: 19
-      end: 28
-  ? |
-    from typing_extensions import TypeAlias
-  : labels:
-    - source: TypeAlias
+
+    Node: TypeAlias = "Tree[int]"
+  : fixed: |
+      from typing import TypeAlias
+
+      type Node = Tree[int]
+    labels:
+    - source: 'Node: TypeAlias = "Tree[int]"'
       style: primary
       start: 30
-      end: 39
+      end: 59
+    - source: Node
+      style: secondary
+      start: 30
+      end: 34
+    - source: TypeAlias
+      style: secondary
+      start: 36
+      end: 45
+    - source: TypeAlias
+      style: secondary
+      start: 36
+      end: 45
+    - source: '"Tree[int]"'
+      style: secondary
+      start: 48
+      end: 59
+  ? |
+    from typing import TypeAlias
+
+    Schema: TypeAlias = dict[str, object]
+  : fixed: |
+      from typing import TypeAlias
+
+      type Schema = dict[str, object]
+    labels:
+    - source: 'Schema: TypeAlias = dict[str, object]'
+      style: primary
+      start: 30
+      end: 67
+    - source: Schema
+      style: secondary
+      start: 30
+      end: 36
+    - source: TypeAlias
+      style: secondary
+      start: 38
+      end: 47
+    - source: TypeAlias
+      style: secondary
+      start: 38
+      end: 47
+    - source: dict[str, object]
+      style: secondary
+      start: 50
+      end: 67
+  ? |
+    from typing import TypeAlias
+
+    class Config:
+        Mode: TypeAlias = Literal["fast", "slow"]
+  : fixed: |
+      from typing import TypeAlias
+
+      class Config:
+          type Mode = Literal["fast", "slow"]
+    labels:
+    - source: 'Mode: TypeAlias = Literal["fast", "slow"]'
+      style: primary
+      start: 48
+      end: 89
+    - source: Mode
+      style: secondary
+      start: 48
+      end: 52
+    - source: TypeAlias
+      style: secondary
+      start: 54
+      end: 63
+    - source: TypeAlias
+      style: secondary
+      start: 54
+      end: 63
+    - source: Literal["fast", "slow"]
+      style: secondary
+      start: 66
+      end: 89
+  ? |
+    from typing_extensions import TypeAlias
+
+    Schema: TypeAlias = int | None
+  : fixed: |
+      from typing_extensions import TypeAlias
+
+      type Schema = int | None
+    labels:
+    - source: 'Schema: TypeAlias = int | None'
+      style: primary
+      start: 41
+      end: 71
+    - source: Schema
+      style: secondary
+      start: 41
+      end: 47
+    - source: TypeAlias
+      style: secondary
+      start: 49
+      end: 58
+    - source: TypeAlias
+      style: secondary
+      start: 49
+      end: 58
+    - source: int | None
+      style: secondary
+      start: 61
+      end: 71
   ? |
     import typing
 
     Schema: typing.TypeAlias = dict[str, object]
-  : labels:
-    - source: typing.TypeAlias
+  : fixed: |
+      import typing
+
+      type Schema = dict[str, object]
+    labels:
+    - source: 'Schema: typing.TypeAlias = dict[str, object]'
       style: primary
+      start: 15
+      end: 59
+    - source: Schema
+      style: secondary
+      start: 15
+      end: 21
+    - source: typing.TypeAlias
+      style: secondary
       start: 23
       end: 39
+    - source: typing.TypeAlias
+      style: secondary
+      start: 23
+      end: 39
+    - source: dict[str, object]
+      style: secondary
+      start: 42
+      end: 59
   ? |
     import typing as t
 
     Schema: t.TypeAlias = dict[str, object]
-  : labels:
-    - source: t.TypeAlias
+  : fixed: |
+      import typing as t
+
+      type Schema = dict[str, object]
+    labels:
+    - source: 'Schema: t.TypeAlias = dict[str, object]'
       style: primary
+      start: 20
+      end: 59
+    - source: Schema
+      style: secondary
+      start: 20
+      end: 26
+    - source: t.TypeAlias
+      style: secondary
       start: 28
       end: 39
+    - source: t.TypeAlias
+      style: secondary
+      start: 28
+      end: 39
+    - source: dict[str, object]
+      style: secondary
+      start: 42
+      end: 59

@@ -140,11 +140,20 @@ Run the tools in order: `binlog_overview`, then `binlog_diagnose` on a failed bu
 
 ### [02.2]-[LARGE_LOGS]
 
-For a log above about 200 MB, which exceeds what one server instance holds, extract the subtree first:
-1. Run `binlog_extract_preview` with `selector` set to `errors`, `warnings` with a `warning_code`, `project` with a `project_filter`, or `project_context_id`
-2. Run `binlog_extract` with the same selection, an `output_file`, and the `plan_token` from the preview, which is valid for ten minutes in the same server process
-3. Query the extract with the same tools, and read its `skippedUnsupportedRecords` count as the records the extract omits
-4. Add `include_descendants=true` to keep every project the selection built, and `include_ancestors=true` to keep the full contents of its callers
+Start with `binlog_overview`, `binlog_errors`, `binlog_warnings`, and `binlog_projects` on the original log. Their streaming index can answer whole-build queries without loading the structured tree. Read each response's scope notice: a query can still use a substituted subtree when the index cannot answer it. An extract supplied as input already limits the scope even when no notice appears.
+
+The default 200 MB threshold selects automatic subtree extraction for tree queries, not a fixed server memory limit. `BINLOG_MCP_AUTO_EXTRACT_MB` controls the threshold, and available process memory determines whether a load or streaming pass fits.
+
+For a targeted investigation:
+1. Select projects from the original log's diagnostics before extracting
+2. Run `binlog_extract_preview` with the relevant error, warning, project, or project-context selection
+3. Run `binlog_extract` with the same selection, an `output_file`, and the returned `plan_token`
+4. Add `include_descendants=true` for referenced projects and `include_ancestors=true` for callers the question needs
+5. Read `skippedUnsupportedRecords` and state the selected scope when interpreting results
+
+The preview token is valid for ten minutes in the same server process. A reported defect in an extract is evidence for its selected projects, while an empty result does not exclude the defect elsewhere. Keep every participant when investigating a cross-project relationship.
+
+Use the original log for `binlog_files`, `binlog_search_files`, `binlog_preprocess`, and `binlog_assets`. Extracts omit the embedded source archive, so their missing-file results say nothing about the original capture. If the original query cannot run, report its exact refusal and available evidence rather than substituting an extract's empty result.
 
 ## [03]-[FAILED_BUILD_TRIAGE]
 

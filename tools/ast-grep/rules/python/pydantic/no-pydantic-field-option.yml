@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-pydantic-field-option
+language: python
+severity: error
+rule:
+    kind: keyword_argument
+    has: {field: name, regex: "^((min|max)_items|allow_mutation)$", pattern: $NAME}
+    inside: {kind: argument_list, inside: {matches: python-pydantic-field-call}}
+message: "`$NAME` uses a deprecated Pydantic field option"
+note: Write `min_length`, `max_length`, and `frozen=True`, the rewrites `field-items-to-length` and `field-allow-mutation-to-frozen` apply them
+labels: {NAME: {style: primary, message: Field option}}

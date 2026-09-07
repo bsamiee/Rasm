@@ -1,0 +1,19 @@
+id: no-suspended-generator
+valid:
+    - 'import { Effect } from "effect"; Effect.suspend(() => Effect.gen(function* named() { return named; }));'
+    - 'import { STM as Effect } from "effect"; Effect.suspend(() => Effect.gen(function* () { return 1; }));'
+    - 'import { Effect } from "effect"; Effect.suspend<number | string>(() => Effect.gen(function* () { return 1; }));'
+    - 'import { Effect } from "effect"; Effect.suspend((): Effect.Effect<number | string> => Effect.gen(function* () { return 1; }));'
+    - 'import { Effect } from "effect"; Effect.suspend(async () => Effect.gen(function* () { return yield* read(); }));'
+    - 'import { Effect } from "effect"; Effect.suspend(() => /* keep */ Effect.gen(function* () { return yield* read(); }));'
+    - 'import { Effect } from "effect"; function f(Effect: Other) { return Effect.suspend(() => Effect.gen(function* () { return yield* read(); })); }'
+    - 'import { Effect } from "effect"; const program = Effect.gen(function* () { return yield* read(); });'
+    - 'import { Effect } from "effect"; const program = Effect.suspend(() => makeEffect());'
+    - 'import { Effect } from "effect"; const program = Effect.suspend(() => { record(); return Effect.gen(function* () { return yield* read(); }); });'
+    - 'import { Effect } from "effect"; const program = Effect.suspend(() => Effect.gen(makeGenerator()));'
+    - 'import { Effect } from "effect"; const program = Effect.suspend(() => Effect.gen(receiver(), function* () { return this.value; }));'
+    - 'import { Effect } from "another"; const program = Effect.suspend(() => Effect.gen(function* () { return yield* read(); }));'
+invalid:
+    - 'import { Effect } from "effect"; const program = Effect.suspend(() => Effect.gen(function* () { const one = yield* read(); return yield* write(one); }));'
+    - 'import { Effect as E } from "effect"; const program = E.suspend(() => E.gen(function* () { return yield* read(); }));'
+    - 'import * as E from "effect/Effect"; const program = E.suspend(() => E.gen(function* () { return yield* read(); }));'

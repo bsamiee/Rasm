@@ -2,10 +2,9 @@
 id: no-asyncio-module
 language: python
 severity: error
+# Report-only, the probed fix `asyncio` to `anyio` fails `anyio.run(main())`, `TypeError: 'coroutine' object is not callable`
 rule:
     pattern: $USE
     matches: {python-module-use: {module: {regex: '^asyncio(\.[\w.]+)?$'}}}
 message: '`$USE` uses asyncio, the backend anyio runs on'
-note: >-
-    Call the anyio member, `anyio.run`, `anyio.sleep`, `anyio.create_task_group`, `anyio.Lock`, `anyio.Event`,
-    `anyio.Semaphore`, or `anyio.create_memory_object_stream`
+note: Call the anyio member, `anyio.run`, `anyio.sleep`, `anyio.create_task_group`, `anyio.Lock`, or `anyio.create_memory_object_stream`

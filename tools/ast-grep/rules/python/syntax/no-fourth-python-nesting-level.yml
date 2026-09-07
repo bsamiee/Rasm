@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-fourth-python-nesting-level
+language: python
+severity: error
+# Report-only, the probed fix unwrapping the innermost callback fails, `NameError: name 'd' is not defined`, the composition is the operation's
+utils:
+    callback: # The role, a lambda under an argument list that declares a parameter, a chain over the kind alone counts every lambda
+        kind: lambda
+        all:
+            - any: # Positional or keyword argument, a dictionary value and a default parameter value sit in neither position
+                - inside: {kind: argument_list}
+                - inside: {kind: keyword_argument, inside: {kind: argument_list}}
+            - has: {field: parameters, kind: lambda_parameters} # Thunks declare none, and a field with no rule key beside it fails the parse
+    # Elif, case, except, finally, and loop-else arms belong to their statement, and a with of several resources is one level
+    control: {kind: 'if_statement, for_statement, while_statement, match_statement, try_statement, with_statement'}
+    boundary: {any: [{matches: control}, {kind: 'function_definition, lambda'}]}
+rule:
+    any:
+        - matches: callback
+          all:
+            - inside:
+                matches: callback
+                stopBy: end
+                inside:
+                    matches: callback
+                    stopBy: end
+                    inside: {matches: callback, stopBy: end}
+            - not: # The innermost callback of a chain reports once, a callback holding a deeper one is an outer level
+                has: {matches: callback, stopBy: end}
+        - matches: control
+          inside:
+            matches: control
+            stopBy: {matches: boundary}
+            inside:
+                matches: control
+                stopBy: {matches: boundary}
+                inside:
+                    matches: control
+                    stopBy: {matches: boundary}
+                    not: {inside: {matches: control, stopBy: {kind: 'function_definition, lambda'}}}
+message: Python execution exceeds three nested callback or control levels
+note: Reduce the operation through guards, pattern matching, comprehensions, or the owning composition operation, and keep dependent evaluation

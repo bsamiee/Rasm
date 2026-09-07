@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: syntax-shadowed-import
+language: tsx
+utils:
+    binding:
+        any:
+            - kind: identifier, shorthand_property_identifier_pattern
+              pattern: $NAME
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: binding}
+            - kind: pair_pattern
+              has: {field: value, matches: binding}
+    declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: binding}}
+            - kind: function_declaration, class_declaration, abstract_class_declaration, internal_module
+              has: {field: name, pattern: $NAME}
+            - kind: expression_statement
+              has: {kind: internal_module, has: {field: name, pattern: $NAME}}
+            - kind: export_statement
+              has: {matches: declaration}
+rule:
+    kind: identifier
+    pattern: $NAME
+    inside:
+        stopBy: end
+        any:
+            - matches: syntax-function-boundary
+              any:
+                - has: {field: name, pattern: $NAME}
+                - has: {field: parameter, kind: identifier, pattern: $NAME}
+                - has:
+                    field: parameters
+                    has:
+                        has:
+                            field: pattern
+                            matches: binding
+                - has:
+                    field: body
+                    has:
+                        stopBy: {matches: syntax-function-boundary}
+                        kind: variable_declaration
+                        has:
+                            kind: variable_declarator
+                            has: {field: name, matches: binding}
+            - kind: class
+              has: {field: name, pattern: $NAME}
+            - kind: for_in_statement
+              has: {field: left, matches: binding}
+            - kind: for_statement
+              has:
+                field: initializer
+                has:
+                    kind: variable_declarator
+                    has: {field: name, matches: binding}
+            - kind: catch_clause
+              has: {field: parameter, matches: binding}
+            - kind: statement_block, program
+              has: {matches: declaration}

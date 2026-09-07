@@ -1,0 +1,23 @@
+id: no-suspended-generator
+snapshots:
+  import * as E from "effect/Effect"; const program = E.suspend(() => E.gen(function* () { return yield* read(); }));:
+    fixed: import * as E from "effect/Effect"; const program = E.gen(function* () { return yield* read(); });
+    labels:
+    - source: E.gen(function* () { return yield* read(); })
+      style: primary
+      start: 68
+      end: 113
+  import { Effect as E } from "effect"; const program = E.suspend(() => E.gen(function* () { return yield* read(); }));:
+    fixed: import { Effect as E } from "effect"; const program = E.gen(function* () { return yield* read(); });
+    labels:
+    - source: E.gen(function* () { return yield* read(); })
+      style: primary
+      start: 70
+      end: 115
+  ? import { Effect } from "effect"; const program = Effect.suspend(() => Effect.gen(function* () { const one = yield* read(); return yield* write(one); }));
+  : fixed: import { Effect } from "effect"; const program = Effect.gen(function* () { const one = yield* read(); return yield* write(one); });
+    labels:
+    - source: Effect.gen(function* () { const one = yield* read(); return yield* write(one); })
+      style: primary
+      start: 70
+      end: 151

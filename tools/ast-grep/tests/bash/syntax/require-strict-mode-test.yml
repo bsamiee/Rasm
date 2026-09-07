@@ -31,19 +31,49 @@ valid:
       #!/usr/bin/env bash
       set -o pipefail -eu
       printf '%s\n' hello
-invalid:
-    # A later set + turns errexit off for the rest of the script
+    # Option changes do not disprove that explicit setup exists.
     - |
-      #!/usr/bin/env bash
-      set -euxo pipefail
-      set +e
-      printf '%s\n' hello
-    # A set + inside a function, the option is process-wide
-    - |
-      #!/usr/bin/env bash
       set -euo pipefail
-      run() { set +u; printf '%s\n' "$1"; }
+      (set +e; false)
+    # local - restores shell options when a function returns.
+    - |
+      set -euo pipefail
+      run() { local -; set +u; printf '%s\n' done; }
       run
+    # Quoted literal options are still flags.
+    - |
+      set '-eu' "-o" 'pipefail'
+    # A combined -o option can precede other short flags.
+    - |
+      set -oeu pipefail
+invalid:
+    # An option-name suffix is not a short flag.
+    - |
+      set -o nonsense-e -u -o pipefail
+    # The nounset spelling also needs a complete option lexeme.
+    - |
+      set -e -o nonsense-u -o pipefail
+    # A would-be option name starting with - is not another option group.
+    - |
+      set -o -e -u -o pipefail
+    # Positional arguments after -- cannot enable shell options.
+    - |
+      set -- -euo pipefail
+    # The first nonoption ends option processing.
+    - |
+      set data -euo pipefail
+    # Quoted data containing apparent options cannot enable them.
+    - |
+      set 'data -euo pipefail'
+    # A positional operand after an actual option remains data.
+    - |
+      set -e data -uo pipefail
+    # A long option name without -o is a positional operand.
+    - |
+      set errexit nounset -o pipefail
+    # A disabled option is not explicit enabling setup.
+    - |
+      set +e -uo pipefail
     # Strict mode inside a branch is no top-level statement
     - |
       #!/usr/bin/env bash
@@ -78,7 +108,7 @@ invalid:
       #!/usr/bin/env bash
       set -eu
       printf '%s\n' hello
-    # Strict mode inside a function scopes the function
+    # A function body does not establish file-level setup at definition time
     - |
       #!/usr/bin/env bash
       run() {

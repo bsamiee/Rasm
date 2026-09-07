@@ -1,0 +1,32 @@
+id: msbuild-task
+language: xml
+role: member
+parentRuleIds: [msbuild-target]
+symbolType: method
+rule:
+    kind: element
+    all:
+        - has:
+            all:
+                - kind: STag, EmptyElemTag
+                - pattern: _TAG
+                - has:
+                    kind: Name
+                    pattern: _NAME
+                    not: {regex: "^(PropertyGroup|ItemGroup|OnError)$"}
+        - inside:
+            kind: content
+            inside:
+                kind: element
+                has:
+                    kind: STag
+                    has: {kind: Name, regex: "^Target$"}
+                inside:
+                    kind: content
+                    inside:
+                        kind: element
+                        inside: {kind: document}
+                        has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
+name: $NAME
+signature: $TAG
+isPublic: true

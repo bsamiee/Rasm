@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-write-lines-when-different
+language: xml
+severity: error
+rule:
+    matches: msbuild-tag
+    pattern: _TAG
+    all:
+        - has: {kind: Name, regex: '^WriteLinesToFile$'}
+        - has: {matches: {msbuild-attribute: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^["'']true["'']$'}}}}
+        - not: {has: {kind: Attribute, has: {kind: Name, regex: '^WriteOnlyWhenDifferent$'}}}
+transform:
+    RESULT: replace($TAG, replace='(/?>)$', by=' WriteOnlyWhenDifferent="true"$1')
+fix: $RESULT
+message: A replacement write without WriteOnlyWhenDifferent updates the timestamp when its content is unchanged
+note: Set WriteOnlyWhenDifferent="true" on a content write, an explicit append or timestamp policy stays

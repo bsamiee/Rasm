@@ -1,5 +1,7 @@
 id: require-list-property-append
 valid:
+    # Extension data can resemble property groups without assigning MSBuild properties
+    - '<Project><ProjectExtensions><PropertyGroup><NoWarn>opaque</NoWarn></PropertyGroup></ProjectExtensions></Project>'
     # The append form the correction produced
     - |
       <PropertyGroup><MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
@@ -18,7 +20,22 @@ valid:
     # Restore code on one reference, metadata and no list property
     - |
       <ItemGroup><PackageReference Include="EPPlus"><NoWarn>NU1603</NoWarn></PackageReference></ItemGroup>
+    # Every list preserves its own inherited value
+    - "<PropertyGroup><NoWarn>$(NoWarn);LOCAL</NoWarn></PropertyGroup>"
+    - "<PropertyGroup><WarningsAsErrors>$(WarningsAsErrors);LOCAL</WarningsAsErrors></PropertyGroup>"
+    - "<PropertyGroup><WarningsNotAsErrors>$(WarningsNotAsErrors);LOCAL</WarningsNotAsErrors></PropertyGroup>"
+    - "<PropertyGroup><WarningsAsMessages>$(WarningsAsMessages);LOCAL</WarningsAsMessages></PropertyGroup>"
+    - "<PropertyGroup><MSBuildWarningsAsErrors>$(MSBuildWarningsAsErrors);LOCAL</MSBuildWarningsAsErrors></PropertyGroup>"
+    - "<PropertyGroup><MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);LOCAL</MSBuildWarningsNotAsErrors></PropertyGroup>"
+    - "<PropertyGroup><MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);LOCAL</MSBuildWarningsAsMessages></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(DefineConstants);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><DefaultItemExcludes>$(DefaultItemExcludes);LOCAL</DefaultItemExcludes></PropertyGroup>"
+    - "<PropertyGroup><InterceptorsNamespaces>$(InterceptorsNamespaces);LOCAL</InterceptorsNamespaces></PropertyGroup>"
+    - "<PropertyGroup><InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);LOCAL</InterceptorsPreviewNamespaces></PropertyGroup>"
 invalid:
+    # Another list property's value does not preserve DefineConstants
+    - |
+      <PropertyGroup><DefineConstants>$(NoWarn);FEATURE</DefineConstants></PropertyGroup>
     # The instance, the inherited list was discarded
     - |
       <PropertyGroup><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
@@ -40,3 +57,32 @@ invalid:
     # Conditioned assignment, the fix keeps the attribute
     - |
       <PropertyGroup><NoWarn Condition="'$(ContinuousIntegrationBuild)' == 'true'">CS1591</NoWarn></PropertyGroup>
+    # A greater-than comparison remains inside the attribute
+    - |
+      <PropertyGroup><NoWarn Condition="'$(Level)' > '0'">CS1591</NoWarn></PropertyGroup>
+    # Empty conditioned assignments preserve the attribute
+    - |-
+      <PropertyGroup><NoWarn Condition="'$(Level)' > '0'" /></PropertyGroup>
+    # Literal assignments and other list references replace inherited entries
+    - "<PropertyGroup><NoWarn>LOCAL</NoWarn></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(NoWarn);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><WarningsAsErrors>LOCAL</WarningsAsErrors></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(WarningsAsErrors);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><WarningsNotAsErrors>LOCAL</WarningsNotAsErrors></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(WarningsNotAsErrors);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><WarningsAsMessages>LOCAL</WarningsAsMessages></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(WarningsAsMessages);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><MSBuildWarningsAsErrors>LOCAL</MSBuildWarningsAsErrors></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(MSBuildWarningsAsErrors);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><MSBuildWarningsNotAsErrors>LOCAL</MSBuildWarningsNotAsErrors></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(MSBuildWarningsNotAsErrors);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><MSBuildWarningsAsMessages>LOCAL</MSBuildWarningsAsMessages></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(MSBuildWarningsAsMessages);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><NoWarn>$(DefineConstants);LOCAL</NoWarn></PropertyGroup>"
+    - "<PropertyGroup><DefaultItemExcludes>LOCAL</DefaultItemExcludes></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(DefaultItemExcludes);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><InterceptorsNamespaces>LOCAL</InterceptorsNamespaces></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(InterceptorsNamespaces);LOCAL</DefineConstants></PropertyGroup>"
+    - "<PropertyGroup><InterceptorsPreviewNamespaces>LOCAL</InterceptorsPreviewNamespaces></PropertyGroup>"
+    - "<PropertyGroup><DefineConstants>$(InterceptorsPreviewNamespaces);LOCAL</DefineConstants></PropertyGroup>"

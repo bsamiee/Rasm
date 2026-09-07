@@ -1,0 +1,128 @@
+id: github-step
+language: yaml
+role: member
+parentRuleIds:
+    - github-job
+    - github-composite
+symbolType: function
+utils:
+    root-pair:
+        kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping) > :is(block_mapping_pair, flow_pair)
+    job:
+        kind: block_mapping_pair, flow_pair
+        inside:
+            kind: block_mapping, flow_mapping
+            inside:
+                kind: block_node, flow_node
+                inside:
+                    matches: root-pair
+                    has:
+                        field: key
+                        regex: ^(jobs|"jobs"|'jobs')$
+    composite:
+        matches: root-pair
+        has:
+            field: key
+            regex: ^(runs|"runs"|'runs')$
+        all:
+            - has:
+                field: value
+                has:
+                    kind: block_mapping, flow_mapping
+                    has:
+                        kind: block_mapping_pair, flow_pair
+                        all:
+                            - has:
+                                field: key
+                                regex: ^(using|"using"|'using')$
+                            - has:
+                                field: value
+                                regex: ^(composite|"composite"|'composite')$
+    steps:
+        kind: block_mapping_pair, flow_pair
+        any:
+            - has:
+                field: key
+                regex: ^(steps|"steps"|'steps')$
+              inside:
+                kind: block_mapping, flow_mapping
+                inside:
+                    kind: block_node, flow_node
+                    inside:
+                        any:
+                            - matches: job
+                            - matches: composite
+            - has:
+                field: key
+                regex: ^(parallel|"parallel"|'parallel')$
+              inside:
+                matches: step
+                inside:
+                    matches: job
+                    stopBy: end
+    step:
+        kind: block_mapping, flow_mapping
+        inside:
+            kind: block_node, flow_node
+            any:
+                - inside:
+                    kind: block_sequence_item
+                    inside:
+                        kind: block_sequence
+                        inside:
+                            kind: block_node
+                            inside:
+                                matches: steps
+                - inside:
+                    kind: flow_sequence
+                    inside:
+                        kind: flow_node
+                        inside:
+                            matches: steps
+rule:
+    kind: block_mapping, flow_mapping
+    all:
+        - has:
+            kind: block_mapping_pair, flow_pair
+            pattern: $CALL
+            has:
+                field: key
+                regex: ^(run|uses|wait|wait-all|cancel|"run"|"uses"|"wait"|"wait-all"|"cancel"|'run'|'uses'|'wait'|'wait-all'|'cancel')$
+        - any:
+            - has:
+                kind: block_mapping_pair, flow_pair
+                all:
+                    - has:
+                        field: key
+                        regex: ^(name|"name"|'name')$
+                    - has:
+                        field: value
+                        pattern: $NAME
+            - has:
+                kind: block_mapping_pair, flow_pair
+                all:
+                    - has:
+                        field: key
+                        regex: ^(id|"id"|'id')$
+                    - has:
+                        field: value
+                        pattern: $NAME
+            - has:
+                kind: block_mapping_pair, flow_pair
+                all:
+                    - has:
+                        field: key
+                        regex: ^(run|uses|wait|wait-all|cancel|"run"|"uses"|"wait"|"wait-all"|"cancel"|'run'|'uses'|'wait'|'wait-all'|'cancel')$
+                    - has:
+                        field: value
+                        pattern: $NAME
+            - has:
+                kind: block_mapping_pair, flow_pair
+                has:
+                    field: key
+                    pattern: $NAME
+                    regex: ^(wait-all|"wait-all"|'wait-all')$
+    matches: step
+name: $NAME
+signature: $CALL
+isPublic: true

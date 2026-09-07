@@ -27,8 +27,7 @@ const _TREE = 1;
 const _UTILS = 2;
 const _PAIRING = 3;
 const _GRAPH = 4;
-// The env prefix skips the plugin workers the affected locator starts for its deleted-file glob, the row's measured 1.1 s to 160 ms
-const _GRAPH_PREFIX = ['env', 'NX_FORCE_REUSE_CACHED_GRAPH=true', 'pnpm', 'exec', 'nx', 'show', 'projects', '--affected'];
+const _GRAPH_PREFIX = ['pnpm', 'exec', 'nx', 'show', 'projects', '--affected', '--json'];
 const _GRAMMAR_EXIT = 79;
 const _UNKNOWN_EXIT = 3;
 const _FAIL_EXIT = 4;
@@ -121,20 +120,28 @@ const _run = (exitCode: number, stdout: string, stderr = ''): Run => ({ exitCode
 
 const _lines = (index: number, run: Run, path: string): readonly string[] => _ROWS[index]?.lines(run, path, _NO_IDS) ?? [];
 
+// The replacement of a hit as a nullable value for comparison
+const _orNull = getOrElse((): string | null => null);
+
 // --- [TESTS] ---------------------------------------------------------------------------
 
 describe('scanRows', () => {
     it('matches the family extensions and names, the rule tree, the utils, and the task graph', () => {
         expect(scanRows('libs/x/a.ts', _NO_IDS)).toStrictEqual([SCAN[_FAMILY]]);
         expect(scanRows('eng/scripts/a.py', _NO_IDS)).toStrictEqual([SCAN[_FAMILY]]);
+        for (const path of ['script.sh', 'script.bash', 'view.tsx', '.github/workflows/test.yml', 'config.yaml']) {
+            expect(scanRows(path, _NO_IDS)).toStrictEqual([SCAN[_FAMILY]]);
+        }
         expect(scanRows('libs/dotnet/a/A.csproj', _NO_IDS)).toStrictEqual([SCAN[_FAMILY]]);
         expect(scanRows('NuGet.config', _NO_IDS)).toStrictEqual([SCAN[_FAMILY]]);
         expect(scanRows('tools/ast-grep/rules/typescript/syntax/no-x.yml', _NO_IDS)).toStrictEqual([SCAN[_TREE], SCAN[_PAIRING]]);
         expect(scanRows('tools/ast-grep/tests/__snapshots__/no-x-snapshot.yml', _IDS)).toStrictEqual([SCAN[_TREE], SCAN[_PAIRING]]);
         expect(scanRows(_PYTHON_UTIL, _IDS)).toStrictEqual([SCAN[_UTILS], SCAN[_PAIRING]]);
         expect(scanRows(_BASH_UTIL, _NO_IDS)).toStrictEqual([SCAN[_UTILS], SCAN[_PAIRING]]);
-        expect(scanRows('nx.json', _NO_IDS)).toStrictEqual([SCAN[_GRAPH]]);
-        expect(scanRows('eng/project.json', _NO_IDS)).toStrictEqual([SCAN[_GRAPH]]);
+        expect(scanRows('nx.json', _NO_IDS)).toStrictEqual([SCAN[_FAMILY], SCAN[_GRAPH]]);
+        expect(scanRows('package.json', _NO_IDS)).toStrictEqual([SCAN[_FAMILY], SCAN[_GRAPH]]);
+        expect(scanRows('libs/typescript/item/package.json', _NO_IDS)).toStrictEqual([SCAN[_FAMILY], SCAN[_GRAPH]]);
+        expect(scanRows('eng/project.json', _NO_IDS)).toStrictEqual([SCAN[_FAMILY], SCAN[_GRAPH]]);
         expect(scanRows('tools/nx/workspace.ts', _NO_IDS)).toStrictEqual([SCAN[_FAMILY], SCAN[_GRAPH]]);
         expect(scanRows('README.md', _NO_IDS)).toStrictEqual([]);
         expect(scanRows('tools/ast-grep/rules/README.md', _NO_IDS)).toStrictEqual([]);
@@ -184,7 +191,7 @@ describe('family scan lines', () => {
         expect(_lines(_FAMILY, _run(0, '[]'), 'a.ts')).toStrictEqual(['ast-grep scan: no hit in a.ts']);
         expect(_lines(_FAMILY, _run(1, _HITS), 'tools/nx/workspace.ts')).toStrictEqual([
             `tools/nx/workspace.ts:2 no-return-by-branch: ${_NOTE}`,
-            "tools/nx/workspace.ts:8 no-fold-by-loop: Fold with reduce, fix: ast-grep scan --filter '^no-fold-by-loop$' -U tools/nx/workspace.ts",
+            "tools/nx/workspace.ts:8 no-fold-by-loop: Fold with reduce, fix: nx run rasm:rewrite -- --filter='^no-fold-by-loop$' --error='no-fold-by-loop' 'tools/nx/workspace.ts'",
         ]);
         expect(_lines(_FAMILY, _run(_GRAMMAR_EXIT, '', _GRAMMAR_STDERR), 'a.csproj')).toStrictEqual([
             'ast-grep scan exited 79: Error: Cannot load custom language library, run pnpm exec nx run rasm:grammar',
@@ -194,9 +201,23 @@ describe('family scan lines', () => {
         ]);
     });
 
+    it('reports warnings from a successful scan', () => {
+        expect(_lines(_FAMILY, _run(0, _HITS), _FILE)).toStrictEqual(_lines(_FAMILY, _run(1, _HITS), _FILE));
+    });
+
+    it.each([undefined, null])('keeps a diagnostic with note %s', (note) => {
+        const hit = { ..._compact(0, 'no-x', _NOTE), note };
+        expect(_lines(_FAMILY, _run(1, JSON.stringify([hit])), _FILE)).toStrictEqual([`${_FILE}:1 no-x: The shape`]);
+    });
+
+    it('quotes fix arguments without evaluating file names', () => {
+        const hit = { ..._compact(0, 'no-x', _NOTE, 'value'), file: "dir/a' b$(echo x).ts" };
+        expect(_lines(_FAMILY, _run(1, JSON.stringify([hit])), _FILE)[0]).toContain(` 'dir/a'"'"' b$(echo x).ts'`);
+    });
+
     it('decodes the hits and reads a malformed stdout as none', () => {
         const hits = scanHits(_run(1, _HITS));
-        expect(hits.map((hit) => [hit.ruleId, hit.file, hit.line, getOrElse(() => null)(hit.replacement)])).toStrictEqual([
+        expect(hits.map((hit) => [hit.ruleId, hit.file, hit.line, _orNull(hit.replacement)])).toStrictEqual([
             ['no-return-by-branch', _FILE, _BRANCH_LINE + 1, null],
             ['no-fold-by-loop', _FILE, _LOOP_LINE + 1, 'xs.reduce(f, 0)'],
         ]);

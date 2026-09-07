@@ -28,3 +28,12 @@ invalid:
     # Conditioned version child, the fix strips it with its attributes
     - |
       <ItemGroup><PackageReference Include="CsCheck"><Version Condition="'$(Pin)' == 'true'">4.8.0</Version></PackageReference></ItemGroup>
+    # spacing and quoted version lookalike
+    - |
+      <PackageReference Include = "CsCheck" Note=' Version="kept" >' Version = "4.8.0" />
+    # comments containing version markup stay
+    - |
+      <PackageReference Include="CsCheck"><!-- <Version>keep</Version> --><Version Condition="'$(Pin)' > '0'">4.8.0</Version></PackageReference>
+    # Empty version metadata still declares the prohibited metadata
+    - |
+      <PackageReference Include="CsCheck"><Version /></PackageReference>

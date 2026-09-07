@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: nx-version-actions-method
+language: tsx
+utils:
+    imported-version-actions:
+        kind: identifier
+        pattern: $BASE
+        not: {matches: syntax-shadowed-import}
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                any:
+                    - all:
+                        - has: {field: source, regex: '^["'']nx/release["'']$'}
+                        - has:
+                            stopBy: end
+                            kind: import_specifier
+                            all:
+                                - has: {field: name, regex: '^VersionActions$'}
+                                - has: {kind: identifier, pattern: $BASE, nthChild: {position: 1, reverse: true}}
+                    - all:
+                        - has: {field: source, regex: '^["'']@nx/js/src/release/version-actions["'']$'}
+                        - has: {kind: import_clause, has: {kind: identifier, pattern: $BASE}}
+    version-actions-base:
+        any:
+            - matches: imported-version-actions
+            - kind: identifier
+              pattern: $RESOLVED
+              # The module-owned constructor's annotation carries the Nx contract.
+              # A nested scope can shadow it; its own declaration is not shadowing.
+              not: {inside: {kind: statement_block, stopBy: end}}
+              inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: lexical_declaration
+                    has:
+                        kind: variable_declarator
+                        all:
+                            - has: {field: name, pattern: $RESOLVED}
+                            - has:
+                                field: type
+                                has: {kind: type_query, has: {matches: imported-version-actions}}
+rule:
+    kind: method_definition
+    all:
+        - has: {kind: override_modifier}
+        - has:
+            field: return_type
+            has: {kind: generic_type, has: {field: name, regex: '^Promise$'}}
+        - inside:
+            kind: class_body
+            inside:
+                kind: class_declaration, abstract_class_declaration, class
+                has:
+                    kind: class_heritage
+                    has: {kind: extends_clause, has: {field: value, matches: version-actions-base}}

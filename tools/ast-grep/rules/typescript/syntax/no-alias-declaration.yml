@@ -1,32 +1,47 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, a fix that deletes the alias leaves its references, the probe fails with TS2304 Cannot find name 'alias'
 id: no-alias-declaration
 language: tsx
 severity: error
+utils:
+    module-constant:
+        kind: lexical_declaration
+        has: {field: kind, regex: '^const$'}
+        inside: {any: [{kind: program}, {kind: export_statement, inside: {kind: program}}]}
+    stable-target:
+        matches: module-constant
+        has: {kind: variable_declarator, has: {field: name, kind: identifier, pattern: $TARGET}}
 rule:
     any:
-        # Module-level binding whose whole value is another name, an annotation adds a type and a local rebinding narrows a scope
+        # Module constants can forward a stable same-module constant; mutable or imported values can be snapshots
         - kind: variable_declarator
           all:
-              - has: {field: name, kind: identifier, pattern: $ALIAS}
-              - has: {field: value, kind: identifier, pattern: $TARGET}
-              - not: {has: {field: type, kind: type_annotation}}
-              - inside: {kind: lexical_declaration, inside: {any: [{kind: program}, {kind: export_statement, inside: {kind: program}}]}}
+            - has: {field: name, kind: identifier, pattern: $ALIAS}
+            - has: {field: value, kind: identifier, pattern: $TARGET}
+            - not: {has: {field: type, kind: type_annotation}}
+            - inside: {matches: module-constant}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    any:
+                        - matches: stable-target
+                        - kind: export_statement
+                          has: {matches: stable-target}
         # Type alias whose whole value is another type name, a qualified name resolves a collision between two namespaces
         - kind: type_alias_declaration
           all:
-              - has: {field: name, pattern: $ALIAS}
-              - has: {field: value, kind: type_identifier, pattern: $TARGET}
-              # Generic alias over its own parameter is the identity type, no other type owns the name
-              - not: {has: {field: type_parameters, kind: type_parameters}}
+            - has: {field: name, pattern: $ALIAS}
+            - has: {field: value, kind: type_identifier, pattern: $TARGET}
+            # Generic alias over its own parameter is the identity type, no other type owns the name
+            - not: {has: {field: type_parameters, kind: type_parameters}}
         # Export specifier renaming a binding of the module, a re-export from another module is a boundary of that module's names
         - kind: export_specifier
           all:
-              - has: {field: alias, kind: identifier, pattern: $ALIAS}
-              - has: {field: name, kind: identifier, pattern: $TARGET}
-              - inside: {kind: export_clause, inside: {kind: export_statement, not: {has: {field: source, kind: string}}}}
+            - has: {field: alias, kind: identifier, pattern: $ALIAS}
+            - has: {field: name, kind: identifier, pattern: $TARGET}
+            - inside: {kind: export_clause, inside: {kind: export_statement, not: {has: {field: source, kind: string}}}}
 constraints:
-    # The global constants are values under their own names
-    TARGET: {not: {regex: '^(NaN|Infinity|globalThis)$'}}
     # The default export names no binding
     ALIAS: {not: {regex: '^default$'}}
 message: '`$ALIAS` is another name for `$TARGET`'

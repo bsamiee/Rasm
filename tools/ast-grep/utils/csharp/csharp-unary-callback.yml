@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+id: csharp-unary-callback
+language: csharp
+arguments: [parameter, body]
+utils:
+    lambda:
+        all:
+            - kind: lambda_expression
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                      matches: parameter
+                    - kind: parameter_list
+                      has:
+                        kind: parameter
+                        has: {field: name, matches: parameter}
+                        not:
+                            has:
+                                any:
+                                    - kind: "modifier, attribute_list, ref_type"
+                                    - regex: "^=$"
+                      not: {has: {kind: parameter, nthChild: 2}}
+            - has: {field: body, matches: body}
+            - not: {has: {field: type, pattern: $_}}
+            - not:
+                has:
+                    any:
+                        - kind: modifier
+                          regex: "^async$"
+                        - kind: attribute_list
+                        - kind: comment
+                    stopBy: end
+rule:
+    any:
+        - matches: lambda
+        - kind: argument
+          has: {matches: lambda}

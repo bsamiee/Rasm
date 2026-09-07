@@ -11,6 +11,10 @@ valid:
       f() { local -n out=$1; out=value; }
     # The lookup of the builtin, -v is the first argument
     - command -v eval
+    - command -V eval
+    - command tool eval
+    - runner -p eval "$cmd"
+    - builtin printf eval
     # The type lookup, the word as the first argument of another name
     - type eval
     # The word as an argument of another command
@@ -27,6 +31,9 @@ valid:
     - grep -c "$pattern" file
     # A double-quoted literal program
     - bash -c "ls -la"
+    - bash script.sh -c "$arg"
+    - sh script.sh -xc "$arg"
+    - bash -- -c "$arg"
 invalid:
     # The -c option joined to another flag
     - bash -ec "$cmd"
@@ -39,7 +46,7 @@ invalid:
     # The name behind a backslash
     - \eval "$cmd"
     # The name single-quoted
-    - "'eval' \"$cmd\""
+    - '''eval'' "$cmd"'
     # A shell over a string built at run time
     - bash -c "$cmd"
     # The program holding an expansion beside literal text
@@ -54,6 +61,9 @@ invalid:
     - builtin eval "$cmd"
     # The command prefix
     - command eval "$cmd"
+    - command -p eval "$cmd"
+    - command -p -- 'eval' "$cmd"
+    - builtin -- "eval" "$cmd"
     # Inside a command substitution
     - x=$(eval "$cmd")
     # Inside a function body
@@ -63,3 +73,4 @@ invalid:
     - a && eval "$b"
     # First stage of a pipeline
     - eval "$cmd" | tee log
+    - bash -x -c "$arg"

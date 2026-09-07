@@ -1,0 +1,563 @@
+id: no-fourth-python-nesting-level
+snapshots:
+  ? |
+    async def consume():
+        async with resource():
+            async for row in rows:
+                try:
+                    while ready:
+                        pass
+                finally:
+                    pass
+  : labels:
+    - source: |-
+        while ready:
+                            pass
+      style: primary
+      start: 112
+      end: 149
+    - source: |-
+        async with resource():
+                async for row in rows:
+                    try:
+                        while ready:
+                            pass
+                    finally:
+                        pass
+      style: secondary
+      start: 25
+      end: 191
+    - source: |-
+        async for row in rows:
+                    try:
+                        while ready:
+                            pass
+                    finally:
+                        pass
+      style: secondary
+      start: 56
+      end: 191
+    - source: |-
+        try:
+                        while ready:
+                            pass
+                    finally:
+                        pass
+      style: secondary
+      start: 91
+      end: 191
+  ? |
+    def build():
+        return outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)
+  : labels:
+    - source: 'lambda d: d + c'
+      style: primary
+      start: 78
+      end: 93
+    - source: '(lambda c: last(lambda d: d + c, a), a)'
+      style: secondary
+      start: 62
+      end: 101
+    - source: c
+      style: secondary
+      start: 70
+      end: 71
+    - source: '(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a)'
+      style: secondary
+      start: 46
+      end: 105
+    - source: b
+      style: secondary
+      start: 54
+      end: 55
+    - source: '(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)'
+      style: secondary
+      start: 29
+      end: 113
+    - source: a
+      style: secondary
+      start: 37
+      end: 38
+    - source: 'lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a)'
+      style: secondary
+      start: 30
+      end: 105
+    - source: 'lambda b: inner(lambda c: last(lambda d: d + c, a), a)'
+      style: secondary
+      start: 47
+      end: 101
+    - source: 'lambda c: last(lambda d: d + c, a)'
+      style: secondary
+      start: 63
+      end: 97
+    - source: '(lambda d: d + c, a)'
+      style: secondary
+      start: 77
+      end: 97
+    - source: d
+      style: secondary
+      start: 85
+      end: 86
+  ? |
+    if a:
+        for row in rows:
+            while ready:
+                if b:
+                    with resource():
+                        pass
+  : labels:
+    - source: |-
+        if b:
+                        with resource():
+                            pass
+      style: primary
+      start: 60
+      end: 123
+    - source: |-
+        if a:
+            for row in rows:
+                while ready:
+                    if b:
+                        with resource():
+                            pass
+      style: secondary
+      start: 0
+      end: 123
+    - source: |-
+        for row in rows:
+                while ready:
+                    if b:
+                        with resource():
+                            pass
+      style: secondary
+      start: 10
+      end: 123
+    - source: |-
+        while ready:
+                    if b:
+                        with resource():
+                            pass
+      style: secondary
+      start: 35
+      end: 123
+  ? |
+    if a:
+        for row in rows:
+            while ready:
+                with resource():
+                    pass
+  : labels:
+    - source: |-
+        with resource():
+                        pass
+      style: primary
+      start: 60
+      end: 97
+    - source: |-
+        if a:
+            for row in rows:
+                while ready:
+                    with resource():
+                        pass
+      style: secondary
+      start: 0
+      end: 97
+    - source: |-
+        for row in rows:
+                while ready:
+                    with resource():
+                        pass
+      style: secondary
+      start: 10
+      end: 97
+    - source: |-
+        while ready:
+                    with resource():
+                        pass
+      style: secondary
+      start: 35
+      end: 97
+  ? |
+    if ready:
+        for row in rows:
+            with resource():
+                try:
+                    consume(row)
+                finally:
+                    finish()
+  : labels:
+    - source: |-
+        try:
+                        consume(row)
+                    finally:
+                        finish()
+      style: primary
+      start: 68
+      end: 147
+    - source: |-
+        if ready:
+            for row in rows:
+                with resource():
+                    try:
+                        consume(row)
+                    finally:
+                        finish()
+      style: secondary
+      start: 0
+      end: 147
+    - source: |-
+        for row in rows:
+                with resource():
+                    try:
+                        consume(row)
+                    finally:
+                        finish()
+      style: secondary
+      start: 14
+      end: 147
+    - source: |-
+        with resource():
+                    try:
+                        consume(row)
+                    finally:
+                        finish()
+      style: secondary
+      start: 39
+      end: 147
+  ? |
+    rows = outer(lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a), items)
+  : labels:
+    - source: 'lambda d: d + c'
+      style: primary
+      start: 65
+      end: 80
+    - source: '(lambda c: last(key=lambda d: d + c), a)'
+      style: secondary
+      start: 45
+      end: 85
+    - source: c
+      style: secondary
+      start: 53
+      end: 54
+    - source: '(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a)'
+      style: secondary
+      start: 29
+      end: 89
+    - source: b
+      style: secondary
+      start: 37
+      end: 38
+    - source: '(lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a), items)'
+      style: secondary
+      start: 12
+      end: 97
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: 'lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a)'
+      style: secondary
+      start: 13
+      end: 89
+    - source: 'lambda b: inner(lambda c: last(key=lambda d: d + c), a)'
+      style: secondary
+      start: 30
+      end: 85
+    - source: 'lambda c: last(key=lambda d: d + c)'
+      style: secondary
+      start: 46
+      end: 81
+    - source: '(key=lambda d: d + c)'
+      style: secondary
+      start: 60
+      end: 81
+    - source: 'key=lambda d: d + c'
+      style: secondary
+      start: 61
+      end: 80
+    - source: d
+      style: secondary
+      start: 72
+      end: 73
+  ? |
+    rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)
+  : labels:
+    - source: 'lambda d: d + c'
+      style: primary
+      start: 61
+      end: 76
+    - source: '(lambda c: last(lambda d: d + c, a), a)'
+      style: secondary
+      start: 45
+      end: 84
+    - source: c
+      style: secondary
+      start: 53
+      end: 54
+    - source: '(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a)'
+      style: secondary
+      start: 29
+      end: 88
+    - source: b
+      style: secondary
+      start: 37
+      end: 38
+    - source: '(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)'
+      style: secondary
+      start: 12
+      end: 96
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: 'lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a)'
+      style: secondary
+      start: 13
+      end: 88
+    - source: 'lambda b: inner(lambda c: last(lambda d: d + c, a), a)'
+      style: secondary
+      start: 30
+      end: 84
+    - source: 'lambda c: last(lambda d: d + c, a)'
+      style: secondary
+      start: 46
+      end: 80
+    - source: '(lambda d: d + c, a)'
+      style: secondary
+      start: 60
+      end: 80
+    - source: d
+      style: secondary
+      start: 68
+      end: 69
+  ? |
+    rows = outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: end(lambda e: e + d, a), a), a), a), items)
+  : labels:
+    - source: 'lambda e: e + d'
+      style: primary
+      start: 75
+      end: 90
+    - source: '(lambda d: end(lambda e: e + d, a), a)'
+      style: secondary
+      start: 60
+      end: 98
+    - source: d
+      style: secondary
+      start: 68
+      end: 69
+    - source: '(lambda c: last(lambda d: end(lambda e: e + d, a), a), a)'
+      style: secondary
+      start: 45
+      end: 102
+    - source: c
+      style: secondary
+      start: 53
+      end: 54
+    - source: '(lambda b: inner(lambda c: last(lambda d: end(lambda e: e + d, a), a), a), a)'
+      style: secondary
+      start: 29
+      end: 106
+    - source: b
+      style: secondary
+      start: 37
+      end: 38
+    - source: 'lambda b: inner(lambda c: last(lambda d: end(lambda e: e + d, a), a), a)'
+      style: secondary
+      start: 30
+      end: 102
+    - source: 'lambda c: last(lambda d: end(lambda e: e + d, a), a)'
+      style: secondary
+      start: 46
+      end: 98
+    - source: 'lambda d: end(lambda e: e + d, a)'
+      style: secondary
+      start: 61
+      end: 94
+    - source: '(lambda e: e + d, a)'
+      style: secondary
+      start: 74
+      end: 94
+    - source: e
+      style: secondary
+      start: 82
+      end: 83
+  ? |
+    rows = outer(lambda a: middle(lambda b: inner(lambda c: st.deferred(lambda d: d + c), a), a), items)
+  : labels:
+    - source: 'lambda d: d + c'
+      style: primary
+      start: 68
+      end: 83
+    - source: '(lambda c: st.deferred(lambda d: d + c), a)'
+      style: secondary
+      start: 45
+      end: 88
+    - source: c
+      style: secondary
+      start: 53
+      end: 54
+    - source: '(lambda b: inner(lambda c: st.deferred(lambda d: d + c), a), a)'
+      style: secondary
+      start: 29
+      end: 92
+    - source: b
+      style: secondary
+      start: 37
+      end: 38
+    - source: '(lambda a: middle(lambda b: inner(lambda c: st.deferred(lambda d: d + c), a), a), items)'
+      style: secondary
+      start: 12
+      end: 100
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: 'lambda a: middle(lambda b: inner(lambda c: st.deferred(lambda d: d + c), a), a)'
+      style: secondary
+      start: 13
+      end: 92
+    - source: 'lambda b: inner(lambda c: st.deferred(lambda d: d + c), a)'
+      style: secondary
+      start: 30
+      end: 88
+    - source: 'lambda c: st.deferred(lambda d: d + c)'
+      style: secondary
+      start: 46
+      end: 84
+    - source: '(lambda d: d + c)'
+      style: secondary
+      start: 67
+      end: 84
+    - source: d
+      style: secondary
+      start: 75
+      end: 76
+  ? |
+    try:
+        pass
+    except Error:
+        for row in rows:
+            while ready:
+                match row:
+                    case 1: pass
+  : labels:
+    - source: |-
+        match row:
+                        case 1: pass
+      style: primary
+      start: 82
+      end: 121
+    - source: |-
+        try:
+            pass
+        except Error:
+            for row in rows:
+                while ready:
+                    match row:
+                        case 1: pass
+      style: secondary
+      start: 0
+      end: 121
+    - source: |-
+        for row in rows:
+                while ready:
+                    match row:
+                        case 1: pass
+      style: secondary
+      start: 32
+      end: 121
+    - source: |-
+        while ready:
+                    match row:
+                        case 1: pass
+      style: secondary
+      start: 57
+      end: 121
+  ? |
+    try:
+        pass
+    finally:
+        if ready:
+            with resource():
+                for row in rows:
+                    consume(row)
+  : labels:
+    - source: |-
+        for row in rows:
+                        consume(row)
+      style: primary
+      start: 74
+      end: 119
+    - source: |-
+        try:
+            pass
+        finally:
+            if ready:
+                with resource():
+                    for row in rows:
+                        consume(row)
+      style: secondary
+      start: 0
+      end: 119
+    - source: |-
+        if ready:
+                with resource():
+                    for row in rows:
+                        consume(row)
+      style: secondary
+      start: 27
+      end: 119
+    - source: |-
+        with resource():
+                    for row in rows:
+                        consume(row)
+      style: secondary
+      start: 45
+      end: 119
+  ? |
+    with resource():
+        try:
+            match value:
+                case 1:
+                    if ready:
+                        pass
+        except Error:
+            pass
+  : labels:
+    - source: |-
+        if ready:
+                            pass
+      style: primary
+      start: 83
+      end: 117
+    - source: |-
+        with resource():
+            try:
+                match value:
+                    case 1:
+                        if ready:
+                            pass
+            except Error:
+                pass
+      style: secondary
+      start: 0
+      end: 148
+    - source: |-
+        try:
+                match value:
+                    case 1:
+                        if ready:
+                            pass
+            except Error:
+                pass
+      style: secondary
+      start: 21
+      end: 148
+    - source: |-
+        match value:
+                    case 1:
+                        if ready:
+                            pass
+      style: secondary
+      start: 34
+      end: 117

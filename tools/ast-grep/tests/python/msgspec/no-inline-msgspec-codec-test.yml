@@ -1,0 +1,124 @@
+id: no-inline-msgspec-codec
+valid:
+    - |
+      import msgspec.json as codec
+      from msgspec.json import Encoder as codec
+      codec.Encoder().encode(value)
+    # A later import owns the alias, so its codec contract is unknown.
+    - |
+      import msgspec.json as codec
+      from custom import codec
+      codec.Encoder().encode(value)
+    - |
+      import msgspec.msgpack as codec
+      import custom as codec
+      codec.Decoder().decode(value)
+    - |
+      def unrelated():
+          from msgspec import json
+      def build():
+          return json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      for json in factories:
+          json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      for json, other in factories:
+          json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      json, other = factories
+      json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      [json.Encoder().encode(value) for json in factories]
+    - |
+      from msgspec import json
+      with factory() as json:
+          json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      try: work()
+      except Error as json:
+          json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      if json := factory():
+          json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      def json(**kwargs): return kwargs
+      json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      class json: pass
+      json.Encoder().encode(value)
+    - "msgspec.json.encode(value)"
+    - "msgspec.msgpack.decode(value)"
+    - 'msgspec.json.Encoder(order="sorted").encode(value)'
+    - "msgspec.json.Decoder(User).decode(value)"
+    - "msgspec.msgpack.Decoder(strict=False).decode(value)"
+    - |
+      encoder = msgspec.json.Encoder()
+      encoder.encode(value)
+    - "other.json.Encoder().encode(value)"
+    - "msgspec.toml.Encoder().encode(value)"
+    - "msgspec.json.Encoder().encode_into(value, buffer)"
+    - "msgspec.json.Encoder().decode(value)"
+    - "msgspec.json.Decoder().encode(value)"
+    - "msgspec.json.Encoder().encode(*values)"
+    - "msgspec.json.Decoder().decode(**values)"
+    - |
+      msgspec.json.Encoder(  # Keep the codec comment
+      ).encode(value)
+    - |
+      def encode(msgspec):
+          return msgspec.json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      def decode(json):
+          return json.Decoder().decode(value)
+    - |
+      import msgspec as codec
+      def encode():
+          codec = other
+          return codec.msgpack.Encoder().encode(value)
+    - |
+      from other import json
+      json.Decoder().decode(value)
+    - |
+      from msgspec import toml
+      toml.Encoder().encode(value)
+    - "msgspec.json.Encoder().encode_lines(values)"
+    - "msgspec.json.Decoder().decode_lines(value)"
+    - |
+      import other.json as codec
+      codec.Encoder().encode(value)
+    # The dotted-module alias branch also observes local bindings.
+    - |
+      import msgspec.json as codec
+      def encode(codec):
+          return codec.Encoder().encode(value)
+invalid:
+    # Attribute and subscript targets evaluate names without rebinding them.
+    - |
+      from msgspec import json
+      target[json], other = values
+      json.Encoder().encode(value)
+    - "msgspec.json.Encoder().encode(value)"
+    - "msgspec.json.Decoder().decode(value)"
+    - "msgspec.msgpack.Encoder().encode(value)"
+    - "msgspec.msgpack.Decoder().decode(value)"
+    - |
+      import msgspec as codec
+      codec.json.Encoder().encode(value)
+    - |
+      from msgspec import json
+      json.Decoder().decode(value)
+    - |
+      from msgspec import msgpack as packed
+      packed.Encoder().encode(load())
+    - |
+      import msgspec.json as codec
+      codec.Encoder().encode(value)

@@ -1,6 +1,6 @@
 # [RASM]
 
-Rasm is a polyglot monorepo. Development targets macOS first, and all code and tooling stay portable to Linux and Windows. Dependencies, tools, and hosts must run on macOS. The root manifests hold every dependency version.
+Rasm is a polyglot monorepo with macOS-first development and portable code and tooling for Linux and Windows. Dependencies, tools, and hosts must run on macOS. Root manifests hold every dependency version.
 
 ## [01]-[LAYOUT]
 
@@ -22,8 +22,8 @@ Rasm/
 │   └── scripts/              # Python automation that Nx targets invoke
 ├── infra/                    # Pulumi program for repository settings and the Doppler project
 ├── tools/                    # Tools the repository builds for its checks
-│   ├── ast-grep/             # Structural rules, on-demand rewrites, utilities, and rule tests per language
-│   ├── dotnet/               # Roslyn analyzers executables and plugin hosts reference
+│   ├── ast-grep/             # Structural outlines, rules, rewrites, utilities, and tests per language
+│   ├── dotnet/               # Roslyn analyzers for executables and plugin hosts
 │   └── nx/                   # Nx plugin for language tags and packaging projects
 ├── mise.toml                 # Toolchain, its resolution settings, and the process environment
 ├── nx.json                   # Task graph, caching, and change detection across the workspace
@@ -35,9 +35,9 @@ Rasm/
 ├── pnpm-workspace.yaml       # TypeScript workspace and dependency catalog
 ├── package.json              # Root package with development dependencies and root Nx targets
 ├── tsconfig.base.json        # Base TypeScript compiler options for workspace projects
-├── tsconfig.json             # Root TypeScript project over the config files, tools/nx, and infra
-├── biome.json                # TypeScript and JSON lint and formatting rules
-├── sgconfig.yml              # ast-grep rule, utility, and test directories
+├── tsconfig.json             # Root TypeScript project over configuration, tooling, and infrastructure
+├── biome.json                # TypeScript formatting and TypeScript/JSON lint rules
+├── sgconfig.yml              # ast-grep rules, parsers, and embedded languages
 ├── vite.config.ts            # Vite configuration that app and library configs import
 ├── vitest.config.ts          # Vitest configuration each project config imports
 ├── stryker.config.json       # TypeScript mutation testing
@@ -50,6 +50,7 @@ Rasm/
 ├── .mcp.json                 # MCP servers for the agent harness
 ├── .editorconfig             # Editor and analyzer settings per path
 ├── .shellcheckrc             # Shellcheck shell and check set
+├── .yamlfmt.yaml             # YAML formatting settings
 ├── .gitattributes
 ├── .gitignore
 ├── CLAUDE.md                 # Agent standards
@@ -62,13 +63,13 @@ Rasm/
 
 [REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`. Work directories a tool cannot relocate are ignored and hold no durable output.
 
-Nx is the task runner, `nx.json` and the root `package.json` `nx` field are the one entry point, and every developer command is a target:
+Nx runs every developer command as a target configured through `nx.json` and the root `package.json` `nx` field:
 - `nx run-many -t <target> -p tag:language:<language>` runs one target across one language, and `nx run <project>:<target>` runs one project
-- `check` depends on `lint`, `format`, `typecheck`, and `test`, and the rewriting targets fix what their tool can fix and fail on the rest
-- `nx run rasm:rewrite --id=<id> --paths=<paths>` applies one rewrite rule across the paths, re-run until it applies nothing
+- `check` runs `lint`, `typecheck`, and `test` without changing source files
+- `format` applies automatic lint corrections and formatting and reports remaining findings
+- `nx run rasm:rewrite -- --filter='^<id>$' --error=<id> <path>` applies the fixes of one rewrite rule across the path
 - Root targets hold the operations with no owning project, and plugins infer every other target from the manifests and the packaging projects
 - Repository settings and secrets are infrastructure code under `infra/`, applied through a root target and read from the secret store at run time
-- `mise.toml` owns the machine setup, every tool at its newest release, and the language lock files are the only pins
 
 ## [03]-[QUALITY]
 
@@ -79,28 +80,24 @@ Checker configuration is centralized, and each language area must pass its confi
 - `Thinktecture.Runtime.Extensions.Analyzers` validates generated-type declarations and generated `Switch`/`Map` usage across every .NET project
 - Python: `ruff`, `ty`, and `mypy` pass with zero warnings
 - TypeScript: `biome check` passes and `tsc --build` compiles under strict settings
-- Formatting: `dotnet format`, `ruff format`, and `biome format`
+- Formatting: `dotnet format`, `ruff format`, Biome, shfmt, and yamlfmt
+- YAML formatting covers authored files, excluding ast-grep snapshots and the pnpm lockfile to preserve their generators' format
 - Coverage and mutation score are reported, and no threshold gates a merge
 - Fix a failing check in code, or in the rule when the rule is demonstrably invalid, and leave checker severity as configured
 
 ## [04]-[HARNESS]
 
-Every agent behavior an engine event can observe is a hook, every other behavior has one owning file, and a weakness in either becomes a finding the automation lands.
+Hooks enforce behavior observable by engine events. Settings, skills, and prose govern other behavior, and automation records weaknesses as findings.
 
-- Behavior an event observes is a row in the event's table, or an arm of its event file when no table states it, each with its spec and its form
-- Policies are pure decisions folded in table order, event files adapt them to the engine, and the store is the one state, one key per row
-- Behavior no event observes is a setting when the harness reads it, a skill when an agent follows it, and prose when it is judgment
-- Judgment that holds only under a `paths` glob is a `.claude/rules/` file, and a hook takes the mechanical half of the same fact
-- `.claude/settings.json` holds the allow list, one entry per tool or server and no deny glob, and the `mise env` hook that feeds the agent shell
-- Skills hold understanding and approach, agents are their workers with steps, commands, and a gate, and memory holds what no file owns
-- Memory holds one fact per file under one shape, and the editor creates, narrows, merges, deletes, and indexes it
-- Every skill, agent, and hook belongs to a plugin under the one marketplace `.claude/plugins/`, and a new one joins the plugin of its subject
-- Subjects with no owning plugin take a new directory at the marketplace root, one manifest entry, and one `enabledPlugins` line under `@rasm`
-- Rule families named for the package they read gate the code at `lint`, and a fix proven across the code becomes a rule with its siblings and test
-- Rules and code widen each other until neither yields a move, the family scans, a hit lands as a fix, and a move beyond the rules derives a rule
-- `nx run rasm:harness` regenerates the declarations every hook is typed against, and each regenerate is read for a capability a plugin hand-rolls
-- Hooks are proven by their own decision in a transcript and debug file, `-p` for a call and an interactive session for a timer
-- Findings come from every source an event observes, and the editor lands a batch of them or a due guidance part by one `manage-repo-guidance` move
+- Use settings for harness configuration, skills for agent procedures, and prose for judgment
+- Put path-specific judgment in `.claude/rules/` with a `paths` glob and enforce its mechanical requirements with hooks
+- `.claude/settings.json` holds the allow list with one entry per tool or server, no deny glob, and `mise env` hooks for the agent shell
+- Skills explain approach, agents execute steps and commands with an acceptance check, and memory records facts no file covers
+- Memory uses one format and one fact per file, and the editor creates, narrows, merges, deletes, and indexes records
+- Every skill, agent, and hook belongs to a plugin under the `.claude/plugins/` marketplace, and a new one joins the plugin of its subject
+- Subjects with no owning plugin take a new directory at the marketplace root, a manifest entry, and an `enabledPlugins` line with the `@rasm` suffix
+- Name rule families after the package they read and enforce them at `lint`
+- Findings come from every observable source, and the editor resolves a batch or a due guidance section
 
 ## [05]-[LIBRARIES]
 
@@ -109,7 +106,6 @@ Every `libs/` package is independently consumable and publishes a stable API.
 - Packages reference sibling packages through declared package dependencies
 - Every dependency points to a lower-level package, and the dependency graph stays acyclic
 - Python and TypeScript files declare their exports at the end
-- Workflow assembly, configuration loading, and dependency composition belong to the application
 - Sibling packages share naming, result type, and boundary types
 
 ## [06]-[LANGUAGE_AREAS]
@@ -126,7 +122,7 @@ Each `apps/<name>/` is one product with its own host, lifecycle, and release.
 
 - Each application depends on `libs/` and third-party packages
 - One application spans as many languages and projects as its host requires
-- Applications hold the composition root for configuration, dependencies, effect execution, and telemetry
+- Applications assemble workflows and compose configuration loading, dependencies, effect execution, and telemetry
 - Host APIs stay inside the package named for that host or inside the application
 
 ## [08]-[CHANGE]

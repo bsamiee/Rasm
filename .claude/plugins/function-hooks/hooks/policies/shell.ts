@@ -84,10 +84,6 @@ const _GH_WRITES: readonly string[] = ['api', 'issue', 'release create', 'run re
 const _CATALOG = 'catalog:';
 const _UV_PIN = /^(?<name>[^=]+)==/u;
 const _PNPM_PIN = /^(?<name>@?[^@]+)@(?<version>.+)$/u;
-const _GREP_LONG = /^--(?:include|exclude)(?:=.*)?$/u;
-const _GREP_SHORT = /^-[nilwcveEFhHoqsABCrR]+\d*$/u;
-const _RECURSIVE = /[rR]/gu;
-const _HAS_RECURSIVE = /[rR]/u;
 const _RECURSIVE_LS = /^-[A-Za-z]*R|^--recursive$/u;
 const _CSHARP = /\.cs$/u;
 const _MSBUILD = /\.(?:csproj|props|targets)$/u;
@@ -111,7 +107,7 @@ const _OWN_TREE: readonly string[] = ['-c', '--config', '-t', '--test-dir'];
 const _TEST_UPDATE_DENY =
     "ast-grep test -U with no --filter rewrites every changed snapshot in the shared tree, run ast-grep test -U --filter '^<id>$' for the rule whose snapshot changed";
 // The configurations of the rasm:rules target, package.json nx.targets.rules.configurations, each one rule-checks.sh gate <ext>
-const _GATE_EXTENSIONS: readonly string[] = ['ts', 'py', 'sh', 'yml', 'csproj'];
+const _GATE_EXTENSIONS: readonly string[] = ['ts', 'py', 'sh', 'yml', 'csproj', 'cs', 'json'];
 const _NX_TARGET = /^(?<project>[^:]+):(?<target>[^:]+)/u;
 const _SKIP_CACHE: readonly string[] = ['--skip-nx-cache', '--skipNxCache'];
 const _AST_GREP = 'ast-grep';
@@ -138,8 +134,6 @@ const _texts = (leaf: Leaf): readonly string[] => leaf.map((word) => word.text);
 const _word = (leaf: Leaf, index: number): string => leaf[index]?.text ?? '';
 
 const _head = (leaf: Leaf): string => basename(_word(leaf, 0));
-
-const _flags = (leaf: Leaf): readonly Word[] => leaf.slice(1).filter((word) => word.text.startsWith('-'));
 
 const _has = (leaf: Leaf, pattern: RegExp): boolean => leaf.slice(1).some((word) => pattern.test(word.text));
 
@@ -200,25 +194,6 @@ const _packageName = (leaf: Leaf): string =>
 
 const _redirected = (leaf: Leaf, command: string): boolean =>
     command.includes('op://') && (leaf.some((word) => _REDIRECTS.includes(word.text)) || command.includes('<<'));
-
-const _commonGrep = (leaf: Leaf): boolean => _flags(leaf).every((word) => _GREP_LONG.test(word.text) || _GREP_SHORT.test(word.text));
-
-// The r letter goes because rg is recursive and its -r means replace, a cluster left as - goes whole
-const _recursion = (word: Word): Splice => {
-    const kept = word.text.replace(_RECURSIVE, '');
-    return fromBoolean(kept === '-').match<Splice>({ some: () => _removal(word), none: () => ({ start: word.start, end: word.end, text: kept }) });
-};
-
-const _grepRewrite = (leaf: Leaf, command: string): Rewritten => {
-    const splices = [
-        ...leaf.slice(0, 1).map((word): Splice => ({ start: word.start, end: word.end, text: 'rg' })),
-        ..._flags(leaf)
-            .filter((word) => _GREP_SHORT.test(word.text) && _HAS_RECURSIVE.test(word.text))
-            .map(_recursion),
-    ];
-    const next = _splice(command, splices);
-    return { command: next, context: `Ran rg in place of grep: ${next}` };
-};
 
 const _buildsWithoutBinlog = (leaf: Leaf): boolean =>
     _word(leaf, 1) === 'build' && !leaf.some((word) => _BINLOG_SWITCH.test(word.text) || _BINLOG.test(word.text));
@@ -399,10 +374,6 @@ const _advice = (prefix: Prefix, command: string): string =>
 // The refusals in the order the first holding one decides, and a prefix past every row rewrites
 const _TIMEOUT = [
     {
-        when: (prefix: Prefix): boolean => basename(prefix.head.text) === 'gtimeout',
-        deny: (prefix: Prefix, command: string): string => `gtimeout is not installed, ${_advice(prefix, command)}`,
-    },
-    {
         when: (prefix: Prefix): boolean => !prefix.whole,
         deny: (prefix: Prefix, command: string): string => `timeout inside a compound command has no exact Bash form, ${_advice(prefix, command)}`,
     },
@@ -436,9 +407,7 @@ const _exact = <E extends Timed>(e: E, prefix: Prefix): Decision<E, unknown, str
     const ms = _milliseconds(prefix);
     const bound = Math.min(ms, getOrElse(() => ms)(fromNullable(e.timeout)));
     const command = _unwrapped(prefix, e.command);
-    return rewrite({ ...e, command, timeout: bound }, [
-        `Ran ${command} under the Bash timeout parameter at ${bound} ms, GNU timeout is absent on macOS`,
-    ]);
+    return rewrite({ ...e, command, timeout: bound }, [`Ran ${command} under the Bash timeout parameter at ${bound} ms`]);
 };
 
 const _timed = <E extends Timed>(e: E, prefix: Prefix): Decision<E, unknown, string> =>
@@ -506,13 +475,8 @@ const SHELL = [
     },
     {
         word: ['rule-checks.sh'],
-        when: (leaf: Leaf): boolean => _word(leaf, 1) === 'gate' && _GATE_EXTENSIONS.includes(_word(leaf, 2)),
+        when: (leaf: Leaf): boolean => leaf.slice(2).length === 1 && _word(leaf, 1) === 'gate' && _GATE_EXTENSIONS.includes(_word(leaf, 2)),
         rewrite: _gateRewrite,
-    },
-    {
-        word: ['grep'],
-        when: _commonGrep,
-        rewrite: _grepRewrite,
     },
     {
         word: ['ast-grep', 'pnpm', 'npx'],
@@ -541,7 +505,7 @@ const SHELL = [
     },
     {
         word: ['grep'],
-        when: (leaf: Leaf): boolean => !_commonGrep(leaf),
+        when: (): boolean => true,
         context: (): string => 'Load the ast-grep skill, rg is for literals and comments',
         once: 'ast-grep',
     },
@@ -670,7 +634,7 @@ const packageManager =
         });
     };
 
-// GNU timeout is absent on macOS, the first leaf it heads decides, and a leading timeout word with no leaf is refused by the text
+// The first timeout prefix determines whether its duration can move to the Bash parameter
 const commandTimeout = <E extends Timed>(e: E): Decision<E, unknown, string> => {
     const parsed = _leaves(e.command);
     return fromNullable(parsed.flatMap((leaf) => toArray(_prefix(leaf, e.command, parsed.length)))[0]).match<Decision<E, unknown, string>>({

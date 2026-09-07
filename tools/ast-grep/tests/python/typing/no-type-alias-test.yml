@@ -9,13 +9,46 @@ valid:
     # Attribute named like the member on another object
     - |
       kind = node.TypeAlias
+    # The import alone, ruff unused-import reports it
+    - |
+      from typing import TypeAlias
+    # The annotation from another module
+    - |
+      from other import TypeAlias
+
+      Schema: TypeAlias = dict[str, object]
+    # The name shadowed by a parameter
+    - |
+      from typing import TypeAlias
+
+      def declare(TypeAlias):
+          Schema: TypeAlias = dict[str, object]
+    # The attribute from another module
+    - |
+      import other
+
+      Schema: other.TypeAlias = dict[str, object]
+    # Another annotation of typing on an assignment
+    - |
+      import typing
+
+      LIMIT: typing.Final = 3
+    # Another name imported from typing on an assignment
+    - |
+      from typing import Final
+
+      LIMIT: Final = 3
 invalid:
     # The instance, the annotation imported from typing
     - |
       from typing import TypeAlias
+
+      Schema: TypeAlias = dict[str, object]
     # The annotation imported from typing_extensions
     - |
       from typing_extensions import TypeAlias
+
+      Schema: TypeAlias = int | None
     # The attribute read as spelled
     - |
       import typing
@@ -26,3 +59,14 @@ invalid:
       import typing as t
 
       Schema: t.TypeAlias = dict[str, object]
+    # A quoted forward reference, the type statement resolves the name lazily
+    - |
+      from typing import TypeAlias
+
+      Node: TypeAlias = "Tree[int]"
+    # The alias declared in a class body
+    - |
+      from typing import TypeAlias
+
+      class Config:
+          Mode: TypeAlias = Literal["fast", "slow"]

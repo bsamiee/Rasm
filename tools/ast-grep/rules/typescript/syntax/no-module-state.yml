@@ -1,54 +1,15 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, const in place of let fails at the assignment with TS2588 Cannot assign to 'count' because it is a constant
 id: no-module-state
 language: tsx
 severity: error
-utils:
-    # Containers a const binding leaves mutable, the effect Mutable modules and the unsafe Ref and Deferred constructors among them
-    mutable-container:
-        any:
-            - kind: new_expression
-              has: {field: constructor, regex: '^(Map|Set|WeakMap|WeakSet|Array)$'}
-            - kind: array
-              not: {has: {pattern: $_}}
-            - kind: object
-              not: {has: {pattern: $_}}
-            - kind: call_expression
-              has: {field: function, regex: '^Mutable(Ref|HashMap|HashSet|List|Queue)\.\w+$|^(\w*Ref|Deferred)\.unsafeMake\w*$'}
-            # satisfies keeps the expression's own type and a readonly type under it freezes nothing
-            - kind: satisfies_expression
-              has: {matches: mutable-container}
-            # A cast to a mutable type keeps every write, as const freezes the literal and a readonly type freezes the binding
-            - kind: as_expression
-              has: {matches: mutable-container}
-              not: {any: [{regex: '\bas\s+const$'}, {has: {matches: readonly-annotation}}]}
-    # Readonly utility and collection types, and the readonly array modifier, anchored names leave ReadonlyThing a mutable annotation
-    readonly-annotation:
-        any:
-            - kind: generic_type
-              has: {field: name, regex: '^(ReadonlySet|ReadonlyMap|ReadonlyArray)$'}
-            # Readonly over a Map or a Set marks the properties and leaves set, add, and delete callable, ReadonlyMap and ReadonlySet drop them
-            - kind: generic_type
-              all:
-                  - has: {field: name, regex: '^Readonly$'}
-                  - not: {has: {field: type_arguments, has: {kind: generic_type, has: {field: name, regex: '^(Map|Set|WeakMap|WeakSet)$'}}}}
-            - kind: readonly_type
 rule:
-    # Biome noVar reports every var, the arms read let and the const bindings over a mutable container
-    any:
-        - kind: lexical_declaration
-          regex: '^let\b'
-        - kind: lexical_declaration
-          has:
-              kind: variable_declarator
-              has: {field: value, matches: mutable-container}
-              # Readonly annotations freeze the binding under the type checker
-              not: {has: {field: type, has: {matches: readonly-annotation}}}
+    kind: lexical_declaration
+    has: {field: kind, regex: '^let$'}
     inside:
         any:
             - kind: program
             - kind: export_statement
               inside: {kind: program}
-message: The module-level binding holds mutable state and every function of the module reads and writes it as ambient state
-note: >-
-    Hold the changing value where one scope owns it, a local the producing function returns, a Ref inside the effect that needs it,
-    or an ordinal the caller passes in, and declare module bindings with `const` over an immutable value
+message: The module-level let binding permits shared reassignment
+note: Declare module values with const and keep a changing binding in the scope that owns its updates

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Pass a module predicate that accepts its export and subpath, for example ^(effect/)?Option$
+id: effect-module-reference
+language: tsx
+arguments: [module]
+rule:
+    kind: identifier
+    pattern: $MODULE
+    all:
+        - not: {matches: syntax-shadowed-import}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                all:
+                    - not: {has: {regex: "^type$"}}
+                    - any:
+                        - all:
+                            - any:
+                                - has: {field: source, regex: '^["'']effect(/index)?["'']$'}
+                                - has: {field: source, regex: '^["'']effect/Function["'']$'}
+                                  all:
+                                    - has:
+                                        stopBy: end
+                                        kind: import_specifier
+                                        has: {kind: identifier, nthChild: 1, regex: "^pipe$"}
+                            - has:
+                                stopBy: end
+                                kind: import_specifier
+                                all:
+                                    - has: {kind: identifier, nthChild: 1, matches: module}
+                                    - has: {kind: identifier, pattern: $MODULE, nthChild: {position: 1, reverse: true}}
+                                    - not: {has: {regex: "^type$"}}
+                        - all:
+                            - has:
+                                field: source
+                                not: {has: {kind: escape_sequence}}
+                                has: {kind: string_fragment, regex: "^effect/", matches: module}
+                            - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, pattern: $MODULE}}

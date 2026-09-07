@@ -2,19 +2,22 @@
 id: no-import-outside-plugin
 language: tsx
 severity: error
-files: ['**/.claude/plugins/**/hooks/**'] # The loader reads hooks/register.ts and its imports alone, the plugin root holds workspace files
-ignores: ['**/*.spec.ts'] # The specs import vitest and run under Vitest alone
+files:
+    - '**/.claude/plugins/**/hooks/**'
+ignores:
+    - '**/*.spec.ts'
 rule:
     kind: string
-    pattern: $SOURCE
+    pattern: $MATCH
     any:
-        - inside: {kind: import_statement, field: source}
-        - inside: {kind: export_statement, field: source}
-        - inside: {kind: import_require_clause, field: source}
-        # require(source) and the dynamic import(source), the string as the first argument
+        - {inside: {kind: import_statement, field: source}}
+        - {inside: {kind: export_statement, field: source}}
+        - {inside: {kind: import_require_clause, field: source}}
         - nthChild: 1
-          inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^(require|import)$'}}}
-    # The loader accepts the plugin API module and a relative path ending in .ts, a .d.ts path ends in .ts and passes
-    not: {regex: "^['\"](claude-code|\\.\\.?/.*\\.ts)['\"]$"}
-message: The module imports `$SOURCE` and the loader accepts `claude-code` and relative `.ts` paths alone
+          inside:
+            kind: arguments
+            inside: {kind: call_expression, has: {field: function, regex: ^(require|import)$}}
+    not: {regex: '^[''"](claude-code|\.\.?/.*\.ts)[''"]$'}
+message: The module imports `$MATCH` and the loader accepts `claude-code` and relative `.ts` paths alone
 note: Import the plugin API from `claude-code` and every other module by its relative `.ts` path, `import { fold } from './decision.ts'`
+labels: {MATCH: {style: primary}}

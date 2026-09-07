@@ -31,3 +31,7 @@ invalid:
     - |
       <ItemGroup Label="Mathematics"><PackageVersion Include="CSparse" Version="4.4.1" /><!-- Sparse LU,
           Cholesky, and QR factorization --></ItemGroup>
+    # Empty comment gives no purpose
+    - '<ItemGroup><PackageVersion Include="Example" Version="1.0.0" /> <!-- --></ItemGroup>'
+    # Adjacent empty comment gives no purpose either
+    - '<ItemGroup><PackageVersion Include="Example" Version="1.0.0" /><!-- --></ItemGroup>'

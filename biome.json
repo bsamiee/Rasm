@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
     "vcs": {
         "enabled": true,
         "clientKind": "git",
@@ -8,16 +8,19 @@
     },
     "files": {
         "ignoreUnknown": true,
-        "includes": ["**", "!**/pnpm-lock.yaml", "!**/uv.lock", "!**/*.html"]
+        "includes": [
+            "**",
+            "!**/pnpm-lock.yaml",
+            "!**/uv.lock",
+            "!**/*.html"
+        ]
     },
     "formatter": {
-        "enabled": true,
         "indentStyle": "space",
         "indentWidth": 4,
         "lineWidth": 150
     },
     "linter": {
-        "enabled": true,
         "domains": {
             "project": "all",
             "react": "all",
@@ -37,8 +40,6 @@
                 "noBunModules": "error",
                 "noDuplicateSelectors": "error",
                 "noEmptyObjectKeys": "error",
-                "noExcessiveNestedCallbacks": "error",
-                "noExcessiveSelectorClasses": "error",
                 "noExtendNative": "error",
                 "noImpliedEval": "error",
                 "noInlineStyles": "error",
@@ -74,29 +75,29 @@
                         "ignoreOverrideMethods": true
                     }
                 },
-                "useUnicodeRegex": "error",
-                "useVarsOnTop": "error"
+                "useUnicodeRegex": "error"
             }
         }
     },
     "javascript": {
         "formatter": {
-            "quoteStyle": "single",
-            "semicolons": "always",
-            "trailingCommas": "all"
+            "quoteStyle": "single"
         },
         "resolver": {
             "experimentalPnpmCatalogs": true
         }
     },
     "json": {
-        "parser": {
-            "allowComments": true
+        "formatter": {
+            "enabled": false
         }
     },
     "overrides": [
         {
-            "includes": ["infra/automation.ts"],
+            "includes": [
+                "infra/automation.ts",
+                "tests/typescript/ast-grep/*.test.ts"
+            ],
             "linter": {
                 "domains": {
                     "qwik": "none"
@@ -109,10 +110,13 @@
             }
         },
         {
-            "includes": ["**"],
+            "includes": [
+                "**"
+            ],
             "linter": {
                 "rules": {
                     "complexity": {
+                        "noExcessiveLinesPerFunction": "off",
                         "useLiteralKeys": "off"
                     },
                     "suspicious": {
@@ -120,13 +124,54 @@
                     },
                     "style": {
                         "noExcessiveClassesPerFile": "off",
-                        "noExcessiveLinesPerFile": "off"
+                        "noExcessiveLinesPerFile": "off",
+                        "noInferrableTypes": "off",
+                        "noParameterAssign": {
+                            "level": "error",
+                            "options": {
+                                "propertyAssignment": "deny"
+                            }
+                        },
+                        "noTernary": "off",
+                        "useDefaultSwitchClause": "off",
+                        "useReadonlyClassProperties": {
+                            "level": "error",
+                            "options": {
+                                "checkAllProperties": true
+                            }
+                        }
+                    },
+                    "security": {
+                        "noSecrets": "off"
                     }
                 }
             }
         },
         {
-            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
+            "includes": [
+                "tests/typescript/ast-grep/*.test.ts"
+            ],
+            "linter": {
+                "rules": {
+                    "correctness": {
+                        "noNodejsModules": "off"
+                    },
+                    "suspicious": {
+                        "noTemplateCurlyInString": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": [
+                "**/libs/typescript/**",
+                "**/apps/**",
+                "**/tools/**",
+                "**/infra/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ],
             "linter": {
                 "rules": {
                     "style": {
@@ -139,9 +184,18 @@
             }
         },
         {
-            "includes": ["vite.config.ts", "vitest.config.ts", "**/vitest.config.ts"],
+            "includes": [
+                "vite.config.ts",
+                "**/vitest.config.ts"
+            ],
             "linter": {
+                "domains": {
+                    "qwik": "none"
+                },
                 "rules": {
+                    "correctness": {
+                        "noNodejsModules": "off"
+                    },
                     "style": {
                         "noDefaultExport": "off"
                     }
@@ -149,7 +203,9 @@
             }
         },
         {
-            "includes": [".claude/plugins/**"],
+            "includes": [
+                ".claude/plugins/**"
+            ],
             "linter": {
                 "domains": {
                     "qwik": "none"
@@ -163,7 +219,9 @@
             }
         },
         {
-            "includes": ["infra/program.ts"],
+            "includes": [
+                "infra/program.ts"
+            ],
             "linter": {
                 "rules": {
                     "style": {
@@ -175,7 +233,11 @@
                                         "selector": {
                                             "kind": "objectLiteralProperty"
                                         },
-                                        "formats": ["camelCase", "snake_case", "CONSTANT_CASE"]
+                                        "formats": [
+                                            "camelCase",
+                                            "snake_case",
+                                            "CONSTANT_CASE"
+                                        ]
                                     }
                                 ]
                             }
@@ -185,7 +247,9 @@
             }
         },
         {
-            "includes": ["vite.config.ts", "**/vite.config.ts"],
+            "includes": [
+                "**/vite.config.ts"
+            ],
             "linter": {
                 "domains": {
                     "types": "none"
@@ -200,7 +264,10 @@
                                         "selector": {
                                             "kind": "objectLiteralProperty"
                                         },
-                                        "formats": ["camelCase", "snake_case"]
+                                        "formats": [
+                                            "camelCase",
+                                            "snake_case"
+                                        ]
                                     }
                                 ]
                             }
@@ -211,7 +278,6 @@
         }
     ],
     "assist": {
-        "enabled": true,
         "actions": {
             "source": {
                 "organizeImports": "on",

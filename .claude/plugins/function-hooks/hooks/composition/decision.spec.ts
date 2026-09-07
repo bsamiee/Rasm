@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { describe, expect, it } from 'vitest';
-import { absurd, answer, type Decision, deny, fold, type Rule, rewrite, when } from './decision.ts';
+import { absurd, answer, bind, type Decision, deny, fold, type Rule, rewrite, when } from './decision.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -69,6 +69,18 @@ describe('fold', () => {
             e: { tool: 'Read', command: '' },
             context: ['seen'],
         });
+    });
+});
+
+describe('bind', () => {
+    it('applies the rule under a rewrite with the context accumulated and keeps a deny or an answer', () => {
+        expect(_plain(bind(_suffix)(rewrite<Call, string, string>({ tool: 'Bash', command: 'ls' }, ['upper'])))).toStrictEqual({
+            kind: 'rewrite',
+            e: { tool: 'Bash', command: 'ls!' },
+            context: ['upper', 'suffix'],
+        });
+        expect(_plain(bind(_suffix)(deny<Call, string, string>('refused')))).toStrictEqual({ kind: 'deny', reason: 'refused' });
+        expect(_plain(bind(_suffix)(answer<Call, string, string>('ran')))).toStrictEqual({ kind: 'answer', result: 'ran' });
     });
 });
 

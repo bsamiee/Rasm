@@ -34,6 +34,9 @@ public sealed class PropertiesTests {
 public sealed class TestAssertionsTests {
     [Fact]
     public void ResultAssertionsRejectTheOppositeCase() {
+        Assert.Equal(1, TestAssertions.SuccValue(Fin.Succ(1), "result"));
+        XunitException failure = Assert.Throws<XunitException>(static () => TestAssertions.SuccValue(Fin.Fail<int>(Error.New("failed")), "result"));
+        Assert.Equal("result: expected Succ, got Fail: failed", failure.Message);
         TestAssertions.Succ(Fin.Succ(1), static value => Assert.Equal(1, value));
         TestAssertions.Fail(Fin.Fail<int>(Error.New("failed")));
         TestAssertions.Some(Some(1));

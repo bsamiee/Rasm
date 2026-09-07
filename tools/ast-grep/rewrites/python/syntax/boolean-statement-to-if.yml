@@ -3,7 +3,7 @@ id: boolean-statement-to-if
 language: python
 severity: off
 rule:
-    kind: expression_statement
+    all: [{matches: python-block-statement}]
     pattern: $STMT
     matches:
         python-discarded-expression:
@@ -17,20 +17,20 @@ rewriters:
     - id: and-statement
       rule: {kind: boolean_operator, pattern: $TEST and $EFFECT}
       fix: |-
-          if $TEST:
-              $EFFECT
+        if $TEST:
+            $EFFECT
     # The or form runs the effect when the test fails, a boolean test takes parentheses under the negation
     - id: or-boolean-statement
       rule: {kind: boolean_operator, pattern: $TEST or $EFFECT}
       constraints: {TEST: {kind: boolean_operator}}
       fix: |-
-          if not ($TEST):
-              $EFFECT
+        if not ($TEST):
+            $EFFECT
     - id: or-statement
       rule: {kind: boolean_operator, pattern: $TEST or $EFFECT}
       fix: |-
-          if not $TEST:
-              $EFFECT
+        if not $TEST:
+            $EFFECT
 transform:
     OUT: rewrite($STMT, rewriters=[and-statement, or-boolean-statement, or-statement], joinBy='')
 fix: $OUT

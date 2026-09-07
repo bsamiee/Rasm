@@ -2,13 +2,21 @@
 id: no-logging-call
 language: python
 severity: error
+# Report-only, the probed fix `logging.getLogger` to `structlog.get_logger` fails, `Undefined name structlog`, a template adds no import
+utils:
+    event-method: {regex: "^(log|debug|info|warning|error|critical|fatal|exception)$"}
+    logger-factory:
+        any:
+            - matches: {python-module-member: {module: {regex: "^logging$"}, name: {regex: "^(getLogger|Logger|RootLogger|LoggerAdapter)$"}}}
+            - matches: {python-imported-name: {module: {regex: "^logging$"}, name: {regex: "^(getLogger|Logger|RootLogger|LoggerAdapter)$"}}}
 rule:
-    # The configuration, factory, and root-logger members, a level constant or the Handler type feeds the structlog stdlib integration
-    matches:
-        python-module-member:
-            module: {regex: '^logging$'}
-            name: {regex: '^(basicConfig|getLogger|log|debug|info|warning|error|critical|fatal|exception)$', pattern: $NAME}
-message: '`logging.$NAME` runs the stdlib logging pipeline outside the structured one structlog owns'
-note: >-
-    Log through `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`, configured once at the composition root by
-    `structlog.configure(processors=[...])` with the OpenTelemetry processor
+    pattern: $USE
+    any:
+        - matches: {python-module-member: {module: {regex: "^logging$"}, name: {matches: event-method}}}
+        - kind: attribute
+          all:
+            - has: {field: attribute, matches: event-method}
+            - has: {field: object, kind: call, has: {field: function, matches: logger-factory}}
+message: "`$USE` emits an event through the stdlib logging API"
+note: Emit events through `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)` with structlog configured at the composition root
+labels: {USE: {style: primary, message: Event method}}

@@ -1,0 +1,23 @@
+# Test document under testDir, bound to its rule by id
+id: <rule-id>
+valid:
+    # The required form
+    - |
+      <corrected snippet>
+    # Near miss for an exclusion, capture constraint, or traversal boundary
+    - |
+      <near-miss snippet>
+invalid:
+    # Representative violation from code, a diff, or the policy being encoded
+    - |
+      <violating snippet>
+    # Another spelling, overload, container, or position with the same correction
+    - |
+      <variant snippet>
+
+# Keep one intended diagnostic per invalid case, and prove multiple findings with real-path counts
+# A fixed text that emits siblings parses as one document inside its owner alone, wrap such cases in the owning element
+# Injections load from no testDir, their cases are a Node test over a scratch sgconfig.yml, one per owner and one per excluded form
+# Derive classifications from behavior, retain distinct boundaries, and remove duplicate cases
+# A rewrite test sits under tests/rewrites/<language>/ and runs under --include-off
+# Generate snapshots with ast-grep test -U --filter '^<rule-id>$', and delete the snapshot file first when a case changed, -U removes no key

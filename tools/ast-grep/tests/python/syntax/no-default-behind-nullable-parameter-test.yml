@@ -100,6 +100,37 @@ valid:
           first = read()
           second = read()
           return items if items is not None else (first, second)
+    # A same-named parameter shadows the module default
+    - |
+      LIMIT = 3
+
+      def run(count: int | None, LIMIT: int):
+          return count if count is not None else LIMIT
+    # A local assignment shadows the module default
+    - |
+      LIMIT = 3
+
+      def run(count: int | None):
+          LIMIT = read()
+          return count if count is not None else LIMIT
+    # Interpolated string is computed at call time
+    - |
+      def run(path: str | None, root: str):
+          return path if path is not None else f"{root}/file"
+    # An elif branch transforms present values
+    - |
+      def run(count: int | None):
+          if count is None:
+              count = 3
+          elif count < 0:
+              count = -count
+          return count
+    # An attribute default is rooted at a local parameter rather than the imported module
+    - |
+      import settings
+
+      def run(value: str | None, settings: Settings):
+          return value if value is not None else settings.profile
 invalid:
     # The instance, the parameter tested against None and replaced by an imported constant
     - |

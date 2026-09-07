@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: require-quoted-conditional-argument
+language: bash
+severity: error
+ignores: ["**/*.json"]
+rule:
+    kind: simple_expansion, expansion
+    pattern: $VALUE
+    matches: {bash-parameter: {name: {any: [{kind: variable_name}, {kind: subscript}]}}}
+    inside:
+        kind: concatenation
+        has: {kind: word, regex: "^--?[A-Za-z][A-Za-z0-9-]*=$", nthChild: 1}
+        inside:
+            kind: expansion
+            has: {field: operator, regex: '^:?\+$'}
+            inside: {kind: command, field: argument}
+labels: {VALUE: {style: primary}}
+fix: '"$VALUE"'
+message: "The conditional option value `$VALUE` undergoes word splitting and filename expansion"
+note: 'Quote the value inside the alternative, `${<condition>:+--option="$<value>"}`, to pass no argument when absent and one when present'

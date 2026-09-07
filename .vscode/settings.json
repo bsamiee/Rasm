@@ -1,4 +1,8 @@
 {
+    // --- [INDENTATION] ------------------------------------------------------------------
+    "indentRainbow.ignoreErrorLanguages": ["markdown", "yaml"],
+    "indentRainbow.colorOnWhiteSpaceOnly": true,
+
     // --- [EXPLORER_VISIBILITY] ---------------------------------------------------------
     "explorer.compactFolders": false, // Single-child folder chains render as their own rows
     "files.exclude": {
@@ -10,12 +14,8 @@
         "**/.venv": true,
         "**/dist": true
     },
-    "search.exclude": {
-        "**/.claude/types": true
-    },
-    "files.watcherExclude": {
-        "**/.claude/types/**": true
-    },
+    "search.exclude": { "**/.claude/types": true },
+    "files.watcherExclude": { "**/.claude/types/**": true },
 
     // --- [FILE_NESTING] ----------------------------------------------------------------
     "explorer.fileNesting.enabled": true,
@@ -33,39 +33,26 @@
         ".gitignore": ".gitattributes",
         "buf.gen.yaml": "buf.yaml, buf.lock",
         "pyproject.toml": "uv.lock",
-        "nx.json": ".editorconfig, .shellcheckrc, mise.toml, sgconfig.yml",
+        "nx.json": ".editorconfig, .shellcheckrc, .yamlfmt.yaml, mise.toml, sgconfig.yml",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, stryker.config.json, tsconfig.json, vite.config.ts, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },
 
     // --- [PYTHON] ----------------------------------------------------------------------
-    // The extension finds .venv and the Ruff and ty extensions read the uv.lock copies from it, the mypy extension bundles its own copy by default
+    // Ruff and ty prefer the Python environment by default, mypy requires an explicit override
     "mypy-type-checker.importStrategy": "fromEnvironment",
-    "[python]": {
-        "editor.defaultFormatter": "charliermarsh.ruff"
-    },
+    "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
-    // The workspace copy of Biome from node_modules formats every file type biome.json covers beside the bundled TS service
-    "biome.lsp.bin": {
-        "darwin-arm64": "./node_modules/.bin/biome",
-        "linux-x64": "./node_modules/.bin/biome",
-        "linux-arm64": "./node_modules/.bin/biome",
-        "win32-x64": "./node_modules/.bin/biome.cmd"
-    },
-    "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": {
-        "editor.defaultFormatter": "biomejs.biome"
-    },
+    // TypeScript 7 prompts for workspace SDK selection, Biome resolves the workspace package before global installations
+    "js/ts.experimental.useTsgo": true,
+    "js/ts.tsdk.path": "./node_modules/typescript",
+    "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },
 
     // --- [MARKDOWN] --------------------------------------------------------------------
     // SKILL.md and agent files have their own VS Code language ids, the mapping back to markdown restores the formatter
-    "files.associations": {
-        "SKILL.md": "markdown",
-        "**/.claude/agents/*.md": "markdown"
-    },
-    "[markdown]": {
-        "editor.defaultFormatter": "yzhang.markdown-all-in-one"
-    },
+    "files.associations": { "SKILL.md": "markdown", "**/.claude/agents/*.md": "markdown" },
+    "[markdown]": { "editor.defaultFormatter": "yzhang.markdown-all-in-one" },
 
     // --- [DOTNET] ----------------------------------------------------------------------
     "csharp.suppressBuildAssetsNotification": true

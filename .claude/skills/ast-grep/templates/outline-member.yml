@@ -1,0 +1,23 @@
+# parentRuleIds references loaded item extractors, and the selector limits direct members
+id: <member-extractor-id>
+language: <language>
+role: member
+parentRuleIds: [<item-extractor-id>]
+symbolType: <lsp-symbol-kind>
+rule:
+    kind: <member-kind>
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        kind: <container-kind>
+        inside: {kind: <item-kind>} # Repeat the item extractor's scope when nested owners share its syntax
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[omit-body])
+    SIGNATURE: replace($HEADER, replace='[\s;]+$', by='')
+rewriters:
+    - id: omit-body
+      rule: {kind: <body-kind>, inside: {pattern: $DECLARATION}}
+      fix: ''
+name: $NAME
+signature: $SIGNATURE
+isPublic: {has: {kind: <visibility-kind>, regex: '<public-marker>'}} # Encode default visibility when the modifier is absent

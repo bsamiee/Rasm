@@ -38,26 +38,24 @@ const when =
     (e: E): Decision<E, R, D> =>
         fromPredicate(refinement)(e).match<Decision<E, R, D>>({ some: rule, none: () => rewrite(e, []) });
 
+// The rule applied under the rewrite with the context accumulated, a deny or an answer stays, the dependent step of a Decision chain
+const bind =
+    <E, R, D>(rule: Rule<E, R, D>): ((decision: Decision<E, R, D>) => Decision<E, R, D>) =>
+    (decision: Decision<E, R, D>): Decision<E, R, D> =>
+        decision.match<Decision<E, R, D>>({
+            rewrite: (current, context) =>
+                rule(current).match<Decision<E, R, D>>({ rewrite: (next, more) => rewrite(next, [...context, ...more]), deny, answer }),
+            deny,
+            answer,
+        });
+
 // Runs the rules in table order, a rewrite feeds the next rule and accumulates context, a deny or an answer ends the fold
 const fold =
     <E, R, D>(rules: readonly Rule<E, R, D>[]): Rule<E, R, D> =>
     (e: E): Decision<E, R, D> =>
-        rules.reduce<Decision<E, R, D>>(
-            (decision, rule) =>
-                decision.match<Decision<E, R, D>>({
-                    rewrite: (current, context) =>
-                        rule(current).match<Decision<E, R, D>>({
-                            rewrite: (next, more) => rewrite(next, [...context, ...more]),
-                            deny,
-                            answer,
-                        }),
-                    deny,
-                    answer,
-                }),
-            rewrite(e, []),
-        );
+        rules.reduce<Decision<E, R, D>>((decision, rule) => bind(rule)(decision), rewrite(e, []));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Decision, Rule };
-export { absurd, answer, deny, fold, rewrite, when };
+export { absurd, answer, bind, deny, fold, rewrite, when };

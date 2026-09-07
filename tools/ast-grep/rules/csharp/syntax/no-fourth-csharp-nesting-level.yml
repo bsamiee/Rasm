@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+# Report only, the match is the fourth scope and its replacement depends on the three enclosing scopes, no template
+id: no-fourth-csharp-nesting-level
+language: csharp
+severity: error
+utils:
+    function:
+        kind: method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration, local_function_statement, lambda_expression, anonymous_method_expression
+    nested-function:
+        kind: local_function_statement, lambda_expression, anonymous_method_expression
+    fourth-function:
+        matches: nested-function
+        inside:
+            matches: nested-function
+            stopBy: end
+            inside:
+                matches: nested-function
+                stopBy: end
+                inside: {matches: nested-function, stopBy: end}
+    control:
+        any:
+            - kind: for_statement, foreach_statement, while_statement, do_statement, switch_statement, switch_expression, try_statement, using_statement, lock_statement, fixed_statement
+            - kind: if_statement
+              not: {inside: {kind: if_statement, field: alternative}}
+            - kind: conditional_expression
+              not: {inside: {kind: conditional_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}}
+    boundary: {any: [{matches: control}, {matches: function}]}
+rule:
+    pattern: $SCOPE
+    any:
+        - matches: fourth-function
+          not: {inside: {matches: fourth-function, stopBy: end}}
+        - matches: control
+          inside:
+            matches: control
+            stopBy: {matches: boundary}
+            inside:
+                matches: control
+                stopBy: {matches: boundary}
+                inside:
+                    matches: control
+                    stopBy: {matches: boundary}
+                    not: {inside: {matches: control, stopBy: {matches: function}}}
+message: C# execution exceeds three nested function or control levels
+note: Reduce the operation through guards, pattern matching, queries, and the owning combinator, at most three nested functions or control levels
+labels:
+    SCOPE: {style: primary}

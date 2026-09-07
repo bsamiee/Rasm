@@ -23,6 +23,20 @@ snapshots:
       start: 21
       end: 47
   ? |
+    before()
+    ready and start(item)
+    after()
+  : fixed: |
+      before()
+      if ready:
+          start(item)
+      after()
+    labels:
+    - source: ready and start(item)
+      style: primary
+      start: 9
+      end: 30
+  ? |
     def dispatch(item, ready):
         ready and start(item)
   : fixed: |

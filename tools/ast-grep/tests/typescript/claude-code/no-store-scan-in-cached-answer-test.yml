@@ -1,0 +1,102 @@
+id: no-store-scan-in-cached-answer
+valid:
+    # Two fixed reads in a render hook
+    - |
+      on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+          const [notice, summary] = await Promise.all([$.store.get(key('notice')), $.store.get(key('summary'))]);
+          return next(e);
+      });
+    # One fixed read in a context hook
+    - "on('prompt.context', async ($, e, next) => next(questions(summaryOf(await $.store.get(key('summary'))))));"
+    # The tick scan under session.start
+    - |
+      on('session.start', { interactive: true }, async ($, e, next) => {
+          const all = await $.store.keys();
+          const values = await Promise.all(keys('findings')(all).map((name) => $.store.get(name)));
+          return next(e);
+      });
+    # The close tool's scan under tool.call
+    - |
+      on('tool.call', { tool: 'mcp__function-hooks__close' }, async ($, e, next) => {
+          const all = await $.store.keys();
+          const rows = await Promise.all(keys('findings')(all).map(async (name) => ({ key: name, value: await $.store.get(name) })));
+          return { result: rows };
+      });
+    # A mapped read outside Promise.all in a cached hook, one value at a time
+    - |
+      on('tool.describe', async ($, e, next) => {
+          const values = keys('findings')(all).map((name) => $.store.get(name));
+          return next(e);
+      });
+    # Another object's keys in a cached hook
+    - "on('ui.render', async ($, e, next) => next(await other.store.keys() ? e : e));"
+    # Another noun's keys in a cached hook
+    - "on('ui.render', async ($, e, next) => next(await $.cache.keys() ? e : e));"
+    # Reads of another noun per key under Promise.all in a cached hook
+    - |
+      on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+          const values = await Promise.all(names.map((name) => $.cache.get(name)));
+          return next(e);
+      });
+    # Deletes per key under Promise.all in a cached hook, the hide button's form
+    - |
+      on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+          await Promise.all(names.map((name) => $.store.delete(name)));
+          return next(e);
+      });
+    # A named hook registered on an uncached event
+    - |
+      const scan = async ($, e, next) => {
+          const all = await $.store.keys();
+          return next(e);
+      };
+      on('turn.complete', scan);
+invalid:
+    # The key list read in a render hook
+    - |
+      on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+          const all = await $.store.keys();
+          return next(e);
+      });
+    # The key list read in a context hook
+    - |
+      on('prompt.context', async ($, e, next) => {
+          const all = await $.store.keys();
+          return next(e);
+      });
+    # The key list read in a section hook
+    - "on('prompt.section', async ($, e, next) => next(await $.store.keys() ? e : e));"
+    # The key list read in a describe hook
+    - "on('tool.describe', async ($, e, next) => next(await $.store.keys() ? e : e));"
+    # A read per key under Promise.all in a render hook
+    - |
+      on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+          const values = await Promise.all(keys('findings')(all).map((name) => $.store.get(name)));
+          return next(e);
+      });
+    # A read per key under Promise.all beside a fixed read
+    - |
+      on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+          const [notice, ...values] = await Promise.all([$.store.get(key('notice')), ...keys('findings')(all).map((name) => $.store.get(name))]);
+          return next(e);
+      });
+    # A read per key inside an async map callback under Promise.all in a context hook
+    - |
+      on('prompt.context', async ($, e, next) => {
+          const rows = await Promise.all(keys('findings')(all).map(async (name) => ({ key: name, value: await $.store.get(name) })));
+          return next(e);
+      });
+    # A named hook registered on a cached event
+    - |
+      const band = async ($, e, next) => {
+          const all = await $.store.keys();
+          return next(e);
+      };
+      on('ui.render', band);
+    # A declared hook registered on a cached event
+    - |
+      async function band($, e, next) {
+          const all = await $.store.keys();
+          return next(e);
+      }
+      on('prompt.context', band);

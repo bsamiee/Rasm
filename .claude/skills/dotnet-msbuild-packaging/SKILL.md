@@ -14,7 +14,7 @@ Covers the package and project files of a repository, from the project set to th
 - Use `manage-repo` for the `eng/` directory, task runner targets, and the isolation of a packaging subtree from the root build files
 
 [REFERENCES]:
-- [01]-[NUGET_CODES](references/nuget-codes.md): `NU1xxx` restore codes and `NU5xxx` pack codes with the cause and the fix of each
+- [01]-[NUGET_CODES](references/nuget-codes.md): `NU1xxx` restore and `NU5xxx` pack causes and corrections
 
 ## [01]-[PROJECT_SET]
 
@@ -299,7 +299,7 @@ Every CI property sits in one `PropertyGroup` in the root `Directory.Build.props
 
 ```bash
 dotnet restore Product.slnx -p:CI=true
-dotnet build Product.slnx --no-restore -p:CI=true -warnaserror -tl:off -nodeReuse:false -bl:.artifacts/logs/build-{}
+dotnet build Product.slnx --no-restore -p:CI=true -warnaserror -tl:off -nodeReuse:false -bl:.artifacts/logs/build-{}.binlog
 dotnet test --solution Product.slnx --no-build --report-trx --results-directory .artifacts/test-results
 ```
 
@@ -312,7 +312,7 @@ dotnet test --solution Product.slnx --no-build --report-trx --results-directory 
 |  [05]   | `-m`, `-maxCpuCount`            | One node per processor, `dotnet build` passes it                                       |
 |  [06]   | `-nodeReuse:false`              | Worker nodes exit with the build, an idle node otherwise lives 15 minutes              |
 |  [07]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise lives 10 minutes after the last build |
-|  [08]   | `-bl:<dir>/build-{}`            | Binary log per invocation, kept as a failure artifact                                  |
+|  [08]   | `-bl:<dir>/build-{}.binlog`            | Binary log per invocation, kept as a failure artifact                                  |
 
 | [INDEX] | [VARIABLE]                             | [EFFECT]                                                                  |
 | :-----: | :------------------------------------- | :------------------------------------------------------------------------ |

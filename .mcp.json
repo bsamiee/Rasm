@@ -2,18 +2,18 @@
     "mcpServers": {
         "roslyn-codelens": {
             "type": "stdio",
-            "command": "dotnet",
-            "args": ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
+            "command": "mise",
+            "args": ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
         },
         "binlog": {
             "type": "stdio",
-            "command": "dotnet",
-            "args": ["dnx", "Microsoft.AITools.BinlogMcp"]
+            "command": "mise",
+            "args": ["exec", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"]
         },
         "nuget": {
             "type": "stdio",
-            "command": "dotnet",
-            "args": ["dnx", "NuGet.Mcp.Server"]
+            "command": "mise",
+            "args": ["exec", "--", "dotnet", "dnx", "NuGet.Mcp.Server"]
         },
         "ast-grep": {
             "type": "stdio",

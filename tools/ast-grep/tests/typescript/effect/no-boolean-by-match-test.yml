@@ -1,55 +1,166 @@
 id: no-boolean-by-match
 valid:
+    - |-
+      import { Option } from "effect";
+      Option.match<number, boolean, boolean>(found, { onNone: () => false, onSome: () => true })
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { onNone: () => false, onSome: () => /* preserve explanation */ true })
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { onNone: () => false, onSome: async () => true })
+    # Unqualified names do not establish the Function constants.
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { onNone: constFalse, onSome: constTrue })
+    # Parameter initialization can run code even when the body is constant.
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { onNone: () => false, onSome: (value = read()) => true })
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { onNone: () => false, onSome: ({ value }) => true })
+    # Extra properties are evaluated when constructing the case object.
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { onNone: () => false, onSome: () => true, extra: log() })
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { onNone: () => false, onSome: () => true, ...handlers })
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { onNone: () => false, onSome: () => true /* retain explanation */ })
+    - |-
+      import { Option } from "effect";
+      Option.match(found, { 'onNone': () => false, 'onSome': () => true })
     # The predicate
-    - 'const held = Option.isSome(found);'
+    - |-
+      import { Option } from "effect";
+      const held = Option.isSome(found);
     # One literal arm beside a value arm, a fold
-    - 'const same = Effect.match(work, { onFailure: () => false, onSuccess: (back) => equivalence(value, back) });'
+    - |-
+      import { Effect } from "effect";
+      const same = Effect.match(work, { onFailure: () => false, onSuccess: (back) => equivalence(value, back) });
     # Both arms true, a constant
-    - 'const held = Option.match(found, { onNone: () => true, onSome: () => true });'
+    - |-
+      import { Option } from "effect";
+      const held = Option.match(found, { onNone: () => true, onSome: () => true });
     # Boolean arms as values, no literal
-    - 'const held = Option.match(found, { onNone: () => missing, onSome: () => present });'
+    - |-
+      import { Option } from "effect";
+      const held = Option.match(found, { onNone: () => missing, onSome: () => present });
     # Number arms
-    - 'const count = Boolean.match(flag, { onTrue: () => 1, onFalse: () => 0 });'
+    - |-
+      import { Boolean } from "effect";
+      const count = Boolean.match(flag, { onTrue: () => 1, onFalse: () => 0 });
     # Micro match, the Micro module exports no success predicate
-    - 'const passed = Micro.match(work, { onFailure: () => false, onSuccess: () => true });'
+    - |-
+      import { Micro } from "effect";
+      const passed = Micro.match(work, { onFailure: () => false, onSuccess: () => true });
     # Match on a module outside the carrier set
-    - 'const leaf = Item.match(item, { onLeaf: () => true, onNode: () => false });'
+    - |-
+      const leaf = Item.match(item, { onLeaf: () => true, onNode: () => false });
     # Match on a module outside the carrier set with three arms
-    - 'const ended = Take.match(take, { onEnd: () => true, onFailure: () => false, onSuccess: () => false });'
+    - |-
+      import { Take } from "effect";
+      const ended = Take.match(take, { onEnd: () => true, onFailure: () => false, onSuccess: () => false });
     # Method other than match on the carrier
-    - 'const held = Option.map(found, { onNone: () => false, onSome: () => true });'
+    - |-
+      import { Option } from "effect";
+      const held = Option.map(found, { onNone: () => false, onSome: () => true });
     # Block false arm with a statement before the return
-    - 'const held = Option.match(found, { onNone: () => { log(); return false; }, onSome: () => true });'
+    - |-
+      import { Option } from "effect";
+      const held = Option.match(found, { onNone: () => { log(); return false; }, onSome: () => true });
     # Data-last boolean match, the identity step of a pipe
-    - 'const held = flag.pipe(Boolean.match({ onTrue: () => true, onFalse: () => false }));'
+    - |-
+      import { Boolean } from "effect";
+      const held = flag.pipe(Boolean.match({ onTrue: () => true, onFalse: () => false }));
     # Block arm with a statement before the return
-    - 'const held = Option.match(found, { onNone: () => false, onSome: () => { log(); return true; } });'
+    - |-
+      import { Option } from "effect";
+      const held = Option.match(found, { onNone: () => false, onSome: () => { log(); return true; } });
+    # Cause matching handles defects too; Effect predicates propagate them
+    - |-
+      import { Effect } from "effect";
+      const passed = Effect.matchCause(work, { onFailure: () => false, onSuccess: () => true });
+    - 'import { Option } from "other"; Option.match(found, { onNone: () => false, onSome: () => true })'
+    - 'import { Option } from "effect"; import { Function } from "other"; Option.match(found, { onNone: Function.constFalse, onSome: Function.constTrue })'
+    - 'import { Option as Boolean } from "effect"; Boolean.match(found, {onNone: () => false, onSome: () => true})'
+    - 'import { Boolean as Option } from "effect"; Option.match(flag, {onTrue: () => true, onFalse: () => false})'
+    - 'import { Option, Predicate as Function } from "effect"; Option.match(found, {onNone: Function.constFalse, onSome: () => true})'
+    - 'import { Option, Predicate as Function } from "effect"; Option.match(found, {onNone: () => false, onSome: Function.constTrue})'
 invalid:
-    # The instance, an Effect matched into its success
-    - 'const passed = Effect.match(work, { onFailure: () => false, onSuccess: () => true });'
-    # Effect matched into its success through the cause spelling
-    - 'const passed = Effect.matchCause(work, { onFailure: () => false, onSuccess: () => true });'
+    # The complete replacement stays the member receiver, not only its operand.
+    - |-
+      import { Boolean } from "effect";
+      Boolean.match(false, { onFalse: () => true, onTrue: () => false }).toString()
+    - |-
+      import { Boolean } from "effect";
+      Boolean.match(flag, { onFalse: () => true, onTrue: () => false })[property]
+    - |-
+      import { Boolean } from "effect";
+      Boolean.match((flag), { onFalse: () => true, onTrue: () => false })
+    # Negation preserves each operand and the surrounding expression.
+    - |-
+      import { Boolean } from "effect";
+      const result = Boolean.match(item.ready, { onFalse: () => true, onTrue: () => false });
+    - |-
+      import { Boolean } from "effect";
+      const result = Boolean.match(ready(), { onFalse: () => true, onTrue: () => false });
+    - |-
+      import { Boolean } from "effect";
+      const result = Boolean.match(flags[0], { onFalse: () => true, onTrue: () => false });
+    - |-
+      import { Boolean } from "effect";
+      const result = Boolean.match(ready!, { onFalse: () => true, onTrue: () => false });
+    # The predicate uses the same typed-failure semantics
+    - |-
+      import { Effect } from "effect";
+      const passed = Effect.match(work, { onFailure: () => false, onSuccess: () => true });
     # Option matched into its presence
-    - 'const held = Option.match(found, { onNone: () => false, onSome: () => true });'
+    - |-
+      import { Option } from "effect";
+      const held = Option.match(found, { onNone: () => false, onSome: () => true });
     # Option matched into its absence, the parameter ignored
-    - 'const missing = Option.match(found, { onNone: () => true, onSome: (_) => false });'
+    - |-
+      import { Option } from "effect";
+      const missing = Option.match(found, { onNone: () => true, onSome: (_) => false });
     # Either matched into its right
-    - 'const decoded = Either.match(result, { onLeft: () => false, onRight: () => true });'
+    - |-
+      import { Either } from "effect";
+      const decoded = Either.match(result, { onLeft: () => false, onRight: () => true });
     # Exit matched into its failure
-    - 'const failed = Exit.match(exit, { onFailure: () => true, onSuccess: () => false });'
+    - |-
+      import { Exit } from "effect";
+      const failed = Exit.match(exit, { onFailure: () => true, onSuccess: () => false });
     # Data-last match as a pipe step
-    - 'const held = found.pipe(Option.match({ onNone: () => false, onSome: () => true }));'
+    - |-
+      import { Option } from "effect";
+      const held = found.pipe(Option.match({ onNone: () => false, onSome: () => true }));
     # Data-last match applied to the carrier directly
-    - 'const held = Option.match({ onNone: () => false, onSome: () => true })(found);'
-    # Function constants passed point-free
-    - 'const held = Option.match(found, { onNone: constFalse, onSome: constTrue });'
+    - |-
+      import { Option } from "effect";
+      const held = Option.match({ onNone: () => false, onSome: () => true })(found);
+
     # Qualified Function constants
-    - 'const held = Option.match(found, { onNone: Function.constFalse, onSome: Function.constTrue });'
+    - |-
+      import { Option, Function } from "effect";
+      const held = Option.match(found, { onNone: Function.constFalse, onSome: Function.constTrue });
     # Block arms with the one return
-    - 'const held = Option.match(found, { onNone: () => { return false; }, onSome: () => { return true; } });'
+    - |-
+      import { Option } from "effect";
+      const held = Option.match(found, { onNone: () => { return false; }, onSome: () => { return true; } });
     # Boolean matched to itself
-    - 'const held = Boolean.match(flag, { onTrue: () => true, onFalse: () => false });'
-    # Boolean matched to its negation, a name negates without parentheses
-    - 'const quiet = Boolean.match(flag, { onFalse: () => true, onTrue: () => false });'
+    - |-
+      import { Boolean } from "effect";
+      const held = Boolean.match(flag, { onTrue: () => true, onFalse: () => false });
+    # Boolean matched to its negation
+    - |-
+      import { Boolean } from "effect";
+      const quiet = Boolean.match(flag, { onFalse: () => true, onTrue: () => false });
     # Boolean matched to its negation, a comparison negates in parentheses
-    - 'const small = Boolean.match(size > limit, { onTrue: () => false, onFalse: () => true });'
+    - |-
+      import { Boolean } from "effect";
+      const small = Boolean.match(size > limit, { onTrue: () => false, onFalse: () => true });
+    - 'import * as O from "effect/Option"; O.match(found, { onNone: () => false, onSome: () => true })'

@@ -1,5 +1,9 @@
 id: no-separator-after-directory-property
 valid:
+    # Display text and shell arguments can quote a path without declaring one
+    - '<Message Text="$(MSBuildThisFileDirectory)/../path" />'
+    - '<Exec Command="echo $(MSBuildThisFileDirectory)/../path" />'
+    - '<PropertyGroup Label="$(MSBuildThisFileDirectory)/../path"><Description>$(MSBuildThisFileDirectory)/../path</Description></PropertyGroup>'
     # Direct concatenation after a directory property
     - |
       <PropertyGroup>
@@ -22,14 +26,10 @@ valid:
       <PropertyGroup>
         <RhinoResourcesPath>$(RhinoAppPath)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
       </PropertyGroup>
-invalid:
-    # Reserved directory beside a doubled reference in one value, the fix leaves the reserved one alone
+    # Project and output directories have no reserved trailing-separator contract
     - |
       <PropertyGroup><Sources>$(MSBuildProjectDirectory)/shared;$(OutDir)/gen</Sources></PropertyGroup>
-    # Reserved directory with a trailing separator
-    - |
-      <Compile Include="$(MSBuildThisFileDirectoryNoRoot)/*.cs" />
-    # The instance under its corrected name, the app directory already ends with a separator
+    # Custom directory suffix establishes no trailing-separator contract
     - |
       <PropertyGroup>
         <RhinoResourcesPath>$(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
@@ -40,12 +40,22 @@ invalid:
     # The staging root in an attribute
     - |
       <None Include="$(StageRoot)/runtimes/**" Pack="true" PackagePath="runtimes/" />
-    # The SDK output path ends with a separator
+    # Output properties can be assigned before SDK normalization
     - |
       <Copy SourceFiles="@(Asset)" DestinationFolder="$(OutputPath)/assets/" />
-    # The intermediate path ends with a separator
+    # Intermediate output properties can be assigned before SDK normalization
     - |
       <WriteLinesToFile File="$(IntermediateOutputPath)\version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-    # Separator run after the reference, the fix removes the whole run
+    # A separator run still requires proof of the custom property value
     - |
       <PropertyGroup><GeneratedRoot>$(OutDir)//gen</GeneratedRoot></PropertyGroup>
+    # A directory-like name does not guarantee a trailing separator
+    - |
+      <Project><PropertyGroup><StageRoot>stage</StageRoot><File>$(StageRoot)/one.txt</File></PropertyGroup></Project>
+invalid:
+    # Reserved directory with a trailing separator
+    - |
+      <Compile Include="$(MSBuildThisFileDirectoryNoRoot)/*.cs" />
+    # Separator run after the reserved reference
+    - |
+      <Compile Include="$(MSBuildThisFileDirectory)//generated/*.cs" />

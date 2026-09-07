@@ -14,9 +14,9 @@ rule:
             any:
                 - has: {kind: comment}
                 - has:
-                      kind: string
-                      matches: python-restated-default-argument
-                      precedes: {pattern: $_, not: {any: [{kind: keyword_argument}, {kind: dictionary_splat}]}, stopBy: end}
+                    kind: string
+                    matches: python-restated-default-argument
+                    precedes: {pattern: $_, not: {kind: keyword_argument}, stopBy: end}
 rewriters:
     # Every argument but the restated default survives, the join rebuilds the list, and the level pin keeps a dropped node's children out
     - id: kept
@@ -27,5 +27,4 @@ transform:
 fix: $FN($KEPT)
 message: '`$FN` is called with an argument its documented default holds'
 note: >-
-    The call keeps every other argument in order and drops the restated default, and a list with a comment or with a positional
-    argument after the dropped one is edited by hand
+    The call keeps every other argument in order and drops the restated default, and a list with a comment or with a positional argument after the dropped one is edited by hand

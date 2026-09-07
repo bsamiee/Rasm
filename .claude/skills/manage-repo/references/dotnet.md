@@ -1,24 +1,26 @@
 # [DOTNET]
 
-The .NET build, packaging, and test configuration of a language area is one chain of directory files, central versions, and project files that the task runner infers targets from and the pipeline runs unchanged. Every .NET file type is scanned for scattering, duplication, and misplaced declarations, a manifest exists only where one belongs, and the root holds the central versions.
+Configure .NET through shared directory files, central package versions, and project declarations. Nx infers the targets that local commands and CI execute.
 
 ## [01]-[INFERENCE]
 
 The .NET plugin globs every project file and every ancestor `Directory.Build.*` and `Directory.Packages.props`, and its registration options and the tag-filtered defaults decide what each inferred target runs:
 
-| [INDEX] | [PLUGIN_FACT]                                   | [CONSEQUENCE]                                                                        |
-| :-----: | :---------------------------------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `restore: false` and `build --no-restore`       | `build` depends on the root `restore` target, the one restore of the solution        |
-|  [02]   | `build` depends on `^build`                     | `ProjectReference` edges order builds, `--no-dependencies` skips referenced ones     |
-|  [03]   | Outputs derive from `ArtifactsPath`             | One `ArtifactsPath` under `.artifacts/` makes every output cacheable                 |
-|  [04]   | `pack: false`, `publish: false`, `clean: false` | Inferred `pack` over a shared feed caches every sibling, the publish script packs    |
-|  [05]   | `exclude` is a registration property            | Packaging subtrees leave the inferred graph without `project.json`                   |
-|  [06]   | Directory files are per-target inputs           | Named input `dotnet` lists them, and the filtered defaults add it per target         |
+| [INDEX] | [PLUGIN_FACT]                                   | [CONSEQUENCE]                                                                     |
+| :-----: | :---------------------------------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `restore: false` and `build --no-restore`       | `build` depends on the root `restore` target, the one restore of the solution     |
+|  [02]   | `build` depends on `^build`                     | `ProjectReference` edges order builds, `--no-dependencies` skips referenced ones  |
+|  [03]   | Outputs derive from `ArtifactsPath`             | One `ArtifactsPath` under `.artifacts/` makes every output cacheable              |
+|  [04]   | `pack: false`, `publish: false`, `clean: false` | Inferred `pack` over a shared feed caches every sibling, the publish script packs |
+|  [05]   | `exclude` is a registration property            | The .NET plugin skips packaging subtrees without `project.json`                   |
+|  [06]   | Directory files are per-target inputs           | Named input `dotnet` lists them, and the filtered defaults add it per target      |
 
 `nx affected` is correct when every edge exists in the graph:
 - `ProjectReference` edges come from the .NET plugin
 - `PackageReference` edges from a consumer to a packaging project come from the local plugin's `createDependencies`, one static edge per reference
 - `implicitDependencies` from a managed binding to its native package come from the local plugin, which pairs the projects by library name
+
+Each `test` target writes its Cobertura report under `.artifacts/dotnet/coverage/<project>`, and the root `coverage` target merges the reports through `dotnet dnx dotnet-reportgenerator-globaltool` into Cobertura, lcov, and a markdown summary.
 
 ## [02]-[PACKAGING]
 
@@ -36,6 +38,8 @@ Give a library with a generated binding a managed packaging project, `Item` besi
 The local feed is a folder source in `NuGet.config` under `.artifacts/`, package source mapping pins every workspace id pattern to that source and every other id to the registry, and `globalPackagesFolder` places the one restore folder every client shares under `.cache/`.
 
 Reference the native package beside the binding, and an `Error` task in the root `Directory.Build.targets` fails a project that references one without the other, because the binding package holds no native asset. The same target fails a binding referenced without the companion project that holds its runtime initialization.
+
+Read `NuGetPackOutput` from the same `dotnet pack -getItem:NuGetPackOutput` invocation that creates the package. Use its `FullPath` for publication, with the main `.nupkg` distinguished from symbol packages. Package identity, normalized version, and output path come from the SDK, not filename reconstruction or the newest file in a shared feed.
 
 Local feeds need no `nx release` configuration. The local plugin emits `nx-release-publish` for each library with a release tag, the .NET default runs the publish script, and the script pushes with `--skip-duplicate`.
 
@@ -60,9 +64,7 @@ Take a packaging subtree out of the root `Directory.Build.props` chain when the 
 
 Pair the stop form with a minimal `Directory.Build.targets` and a `Directory.Packages.props` that sets `ManagePackageVersionsCentrally` to `false`, because MSBuild finds every directory file in the subtree and searches no further up. The native packaging subtree takes the stop form, with its own `ArtifactsPath` and the `PackageOutputPath` set to the local feed. `dotnet msbuild <project> -getProperty:<RootProperty>` proves the choice: the chain returns the root value and the stop returns empty.
 
-Packaging projects stay out of the solution file and out of the inferred graph:
-- The solution lists the projects a developer builds and tests, and a packaging project builds through its own target
-- The .NET plugin registration excludes the subtree, and the local plugin infers it with its own target names
+Exclude packaging projects from the solution and the .NET plugin. The solution lists projects developers build and test, while packaging projects use their own targets inferred by the local plugin.
 
 ## [04]-[BUILD_FILES]
 
@@ -75,11 +77,11 @@ The root directory files derive every project-level fact from the project's role
 
 ## [05]-[ANTI_PATTERNS]
 
-| [INDEX] | [SMELL]                                                     | [CORRECT_FORM]                                                      |
-| :-----: | :---------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | Packaging projects inside the solution file                 | Project excluded from the solution and the plugin, packed by target |
-|  [02]   | Subtree `Directory.Build.props` files repeating root values | `Import` through `GetPathOfFileAbove` and the overrides alone       |
-|  [03]   | `ArtifactsPath` from `NormalizeDirectory`                   | `NormalizePath`, the SDK appends the separator itself               |
-|  [04]   | Tool manifest that pins a one-shot tool package             | `dotnet dnx <tool>` on the command                                  |
+| [INDEX] | [SMELL]                                                     | [CORRECT_FORM]                                                       |
+| :-----: | :---------------------------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | Packaging projects inside the solution file                 | Project excluded from the solution and .NET plugin, packed by target |
+|  [02]   | Subtree `Directory.Build.props` files repeating root values | `Import` through `GetPathOfFileAbove` and the overrides alone        |
+|  [03]   | `ArtifactsPath` from `NormalizeDirectory`                   | `NormalizePath`, the SDK appends the separator itself                |
+|  [04]   | Tool manifest for a package run through `dnx`               | `dotnet dnx <tool>` on the command                                   |
 
 Use `dotnet-msbuild-packaging` for the package layout, the source list and its mapping, the dotnet-outdated command line, and the MSBuild switches the pipeline passes.

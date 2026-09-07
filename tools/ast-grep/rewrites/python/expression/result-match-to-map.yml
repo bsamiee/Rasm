@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# On demand, nx run rasm:rewrite -- --filter='^result-match-to-map$' --error=result-match-to-map <path>
+id: result-match-to-map
+language: python
+severity: off
+utils:
+    # The ok arm binding the value as a name, the mapper's parameter, a wildcard or a tag-only arm names none and stays with no-result-match-for-map
+    named-ok-arm:
+        kind: case_clause
+        all:
+            - has:
+                kind: case_pattern
+                has:
+                    kind: class_pattern
+                    has: {kind: dotted_name, pattern: $RESULT_CLASS} # The error arm's class carries the Result regex
+                    all:
+                        # The keyword holding a name is the ok keyword, the tag keyword holds a string and every other keyword is refused
+                        - has: {kind: case_pattern, has: {kind: keyword_pattern, has: {kind: dotted_name, pattern: $V, regex: '^[A-Za-z_]\w*$'}}}
+                        - not: {has: {kind: case_pattern, not: {has: {kind: keyword_pattern, regex: '^(tag\s*=\s*["'']ok["'']$|ok\s*=)'}}}}
+            - not: {has: {field: guard, kind: if_clause}}
+            - has:
+                field: consequence
+                kind: block
+                not: {has: {nthChild: 2}}
+                has: {matches: python-result-ok-return, has: {kind: call, has: {field: arguments, has: {pattern: $VALUE}}}}
+rule:
+    kind: match_statement
+    all:
+        - inside: {kind: function_definition, stopBy: end}
+        - not: {inside: {kind: try_statement, has: {kind: finally_clause}, stopBy: {kind: function_definition}}}
+        - not: {has: {kind: comment, stopBy: end}}
+        # Subjects the member access binds to as written, an await takes parentheses and an operator expression is edited by hand
+        - has: {field: subject, pattern: $SUBJECT, kind: "identifier, attribute, call, subscript, parenthesized_expression, await"}
+        - has:
+            field: body
+            kind: block
+            all:
+                - has: {matches: python-result-error-arm, has: {kind: case_pattern, has: {kind: class_pattern, has: {kind: dotted_name, pattern: $RESULT_CLASS}}}}
+                - has: {matches: named-ok-arm}
+                - not: {has: {kind: case_clause, nthChild: {position: 3, ofRule: {kind: case_clause}}}}
+        - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+rewriters:
+    - id: awaited
+      rule: {kind: await, pattern: $AWAITED, inside: {kind: match_statement}}
+      fix: ($AWAITED)
+    # A body of one call over the name is the callee itself, every other body becomes the lambda over the name
+    - id: point-free
+      rule: {kind: call, pattern: $F($V), has: {field: function, kind: "identifier, attribute"}}
+      fix: $F
+    - id: mapper
+      rule: {pattern: $BODY}
+      fix: 'lambda $V: $BODY'
+transform:
+    HEAD: rewrite($SUBJECT, rewriters=[awaited])
+    MAPPER: rewrite($VALUE, rewriters=[point-free, mapper])
+fix: return $HEAD.map($MAPPER)
+labels: {SUBJECT: {style: primary, message: Result transformation}}
+message: Match over `$SUBJECT` repeats error propagation around an Ok transformation
+note: The match becomes `return <subject>.map(<mapper>)`, with the callee itself for a body of one call over the bound name

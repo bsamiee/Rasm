@@ -1,5 +1,15 @@
 id: no-trailing-separator-on-artifacts-path
 valid:
+    # An element outside a property group does not declare an MSBuild property
+    - '<ProjectExtensions><ArtifactsPath>artifacts/</ArtifactsPath></ProjectExtensions>'
+    # A function-like filename is literal path text
+    - '<PropertyGroup><ArtifactsPath>artifacts/NormalizeDirectory(cache)</ArtifactsPath></PropertyGroup>'
+    # Root separators cannot be removed without changing path meaning
+    - '<PropertyGroup><ArtifactsPath>/</ArtifactsPath></PropertyGroup>'
+    - '<PropertyGroup><ArtifactsPath>C:/</ArtifactsPath></PropertyGroup>'
+    - "<PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('/'))</ArtifactsPath></PropertyGroup>"
+    # Comments split the value; a node-local edit must not guess its evaluated text
+    - '<PropertyGroup><ArtifactsPath>artifacts/<!-- retain -->cache</ArtifactsPath></PropertyGroup>'
     # Root form, the last NormalizePath argument ends without a separator
     - |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
@@ -38,3 +48,10 @@ invalid:
           $(RepoRoot)artifacts/
         </ArtifactsPath>
       </PropertyGroup>
+    # Function spelling inside the path argument and attributes remains literal
+    - |
+      <PropertyGroup><ArtifactsPath Label="NormalizeDirectory(cache)">$([MSBuild]::NormalizeDirectory('artifacts/NormalizeDirectory(cache)'))</ArtifactsPath></PropertyGroup>
+    # The same text in a literal path keeps its name when only the separator is removed
+    - '<PropertyGroup><ArtifactsPath>artifacts/NormalizeDirectory(cache)/</ArtifactsPath></PropertyGroup>'
+    # Remove the complete separator run in one edit
+    - '<PropertyGroup><ArtifactsPath>artifacts///</ArtifactsPath></PropertyGroup>'

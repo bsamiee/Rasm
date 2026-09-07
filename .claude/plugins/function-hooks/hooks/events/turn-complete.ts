@@ -1,12 +1,12 @@
-// The matched hook over each answered turn, the spoken summary and the finding classifier each under its option
+// The matched hooks over each answered turn, the spoken summary and the finding classifier each registered under its option
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { On } from 'claude-code';
-import { forEach, fromBoolean, fromPredicate, getOrElse, map, none, type Option } from '../composition/option.ts';
-import type { Options } from '../host/options.ts';
-import { isKind, type Kind } from '../host/store.ts';
-import { FINDING_VIEWS, type FindingInput, finding } from '../policies/findings.ts';
+import type { ModelForkReply, On } from 'claude-code';
+import { flatMap, forEach, fromBoolean, fromPredicate, liftPredicate, map, none, type Option } from '../composition/option.ts';
+import { type Options, whenEnabled } from '../host/options.ts';
+import { isKind, type Kind, key, summaryOf } from '../host/store.ts';
+import { FINDING_VIEWS, type FindingInput, finding, withFinding } from '../policies/findings.ts';
 import { CLASSIFIER_PROMPT, type Fields, fieldsOf, LABELS } from '../policies/kinds.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -19,56 +19,59 @@ const _CONFIDENCE = 1;
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 
-const turnComplete = (on: On, options: Options): void => {
-    // The matcher pins the answered turns, the body tests the answer's text alone
+// Each step holds its own catch, a failed call drops the line and never the turn
+const _speak = (on: On): void => {
     on('turn.complete', { reason: 'answer' }, async ($, e, next) => {
         const result = await next(e);
-        const answered = e.answer !== '';
-        // Both arms read the answer alone, each inside its own catch, a failed call drops the line or the row and never the turn
-        await Promise.all([
-            forEach(async (): Promise<void> => {
-                // Failed completions speak nothing, and the answer is data under the system line
-                const line = await $.model
-                    .complete({ model: _MODEL, system: _SUMMARY_SYSTEM, prompt: e.answer, maxTokens: _SUMMARY_TOKENS })
-                    .catch(() => '');
-                fromBoolean(line !== '').match<void>({
-                    some: () => {
-                        $.audio.speak(line).catch(() => undefined);
-                    },
-                    none: () => undefined,
-                });
-            })(fromBoolean(options.speak && answered)),
-            forEach(() =>
-                (async (): Promise<void> => {
-                    // The none label and an undefined answer end the arm here, the fork runs for a kind alone
-                    const label = await $.model.classify(e.answer, LABELS, { model: _MODEL });
-                    const input = getOrElse<Option<FindingInput>>(none)(
-                        await forEach(async (kind: Kind): Promise<Option<FindingInput>> => {
-                            // The fork reads the session's own transcript, and fieldsOf reads a row from a grounded reply alone
-                            const reply = await $.model.fork({ prompt: CLASSIFIER_PROMPT(kind, e.answer) });
-                            const session = await $.session.id();
-                            return map(
-                                (fields: Fields): FindingInput => ({
-                                    session,
-                                    kind,
-                                    fields,
-                                    confidence: _CONFIDENCE,
-                                    now: $.clock.now(),
-                                    random: crypto.randomUUID(),
-                                }),
-                            )(fieldsOf(reply));
-                        })(fromPredicate(isKind)(label)),
-                    );
-                    await forEach(async (row: FindingInput): Promise<void> => {
-                        const keyed = finding(row);
-                        await $.store.set(keyed.key, keyed.row);
-                        FINDING_VIEWS.map((view) => $.ui.invalidate(view));
-                    })(input);
-                })().catch(() => undefined),
-            )(fromBoolean(options.classify && answered)),
-        ]);
+        // Failed completions speak nothing, and the answer is data under the system line
+        const line = await forEach(() => $.model.complete({ model: _MODEL, system: _SUMMARY_SYSTEM, prompt: e.answer, maxTokens: _SUMMARY_TOKENS }))(
+            fromBoolean(e.answer !== ''),
+        ).catch((): Option<string> => none());
+        await forEach((spoken: string) => $.audio.speak(spoken))(flatMap(liftPredicate<string>((text) => text !== ''))(line)).catch(() => undefined);
         return result;
     });
+};
+
+// Each step holds its own catch, a failed call drops the row and never the turn
+const _classify = (on: On): void => {
+    on('turn.complete', { reason: 'answer' }, async ($, e, next) => {
+        const result = await next(e);
+        // The none label and a failed call end the classification here, the fork runs for a kind alone
+        const label = await forEach(() => $.model.classify(e.answer, LABELS, { model: _MODEL }))(fromBoolean(e.answer !== '')).catch(
+            (): Option<string | undefined> => none(),
+        );
+        const kind = flatMap(fromPredicate(isKind))(label);
+        // The fork reads the session's own transcript, and fieldsOf reads a row from a grounded reply alone
+        const reply = await forEach((named: Kind) => $.model.fork({ prompt: CLASSIFIER_PROMPT(named, e.answer) }))(kind).catch(
+            (): Option<ModelForkReply | null> => none(),
+        );
+        const session = await $.session.id();
+        const input = flatMap((fields: Fields) =>
+            map(
+                (named: Kind): FindingInput => ({
+                    session,
+                    kind: named,
+                    fields,
+                    confidence: _CONFIDENCE,
+                    now: $.clock.now(),
+                    random: crypto.randomUUID(),
+                }),
+            )(kind),
+        )(flatMap(fieldsOf)(reply));
+        // The summary row is read and rewritten beside the findings row, the band and the block read the summary alone
+        await forEach(async (row: FindingInput): Promise<void> => {
+            const keyed = finding(row);
+            const summary = summaryOf(await $.store.get(key('summary')));
+            await Promise.all([$.store.set(keyed.key, keyed.row), $.store.set(key('summary'), withFinding(summary, keyed.row))]);
+            FINDING_VIEWS.map((view) => $.ui.invalidate(view));
+        })(input).catch(() => undefined);
+        return result;
+    });
+};
+
+const turnComplete = (on: On, options: Options): void => {
+    whenEnabled(options.speak, () => _speak(on));
+    whenEnabled(options.classify, () => _classify(on));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

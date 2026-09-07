@@ -1,54 +1,99 @@
 id: require-os-condition-on-exec
 snapshots:
   ? |
+    <Exec Command="brew install libomp" Condition='$(Feature) == "deps"' />
+  : fixed: |
+      <Exec Command="brew install libomp" Condition='($(Feature) == "deps") and $([MSBuild]::IsOSPlatform(`OSX`))' />
+    labels:
+    - source: <Exec Command="brew install libomp" Condition='$(Feature) == "deps"' />
+      style: primary
+      start: 0
+      end: 71
+  ? |
+    <Exec Command="chmod +x tool" Condition="'$(Feature)' == 'IsOSPlatform'" />
+  : fixed: |
+      <Exec Command="chmod +x tool" Condition="('$(Feature)' == 'IsOSPlatform') and !$([MSBuild]::IsOSPlatform('Windows'))" />
+    labels:
+    - source: <Exec Command="chmod +x tool" Condition="'$(Feature)' == 'IsOSPlatform'" />
+      style: primary
+      start: 0
+      end: 75
+  ? |
+    <Exec Command="cmd /c echo stamped" Condition="'$(Count)' > '0'" />
+  : fixed: |
+      <Exec Command="cmd /c echo stamped" Condition="('$(Count)' > '0') and $([MSBuild]::IsOSPlatform('Windows'))" />
+    labels:
+    - source: <Exec Command="cmd /c echo stamped" Condition="'$(Count)' > '0'" />
+      style: primary
+      start: 0
+      end: 67
+  <Exec Condition="true" Command="chmod +x tool" />:
+    fixed: <Exec Condition="(true) and !$([MSBuild]::IsOSPlatform('Windows'))" Command="chmod +x tool" />
+    labels:
+    - source: <Exec Condition="true" Command="chmod +x tool" />
+      style: primary
+      start: 0
+      end: 49
+  ? |
+    <Target Name="Deps" BeforeTargets="Build"><Exec Command="apt-get install -y libomp-dev" /></Target>
+  : fixed: |
+      <Target Name="Deps" BeforeTargets="Build"><Exec Condition="$([MSBuild]::IsOSPlatform('Linux'))" Command="apt-get install -y libomp-dev" /></Target>
+    labels:
+    - source: <Exec Command="apt-get install -y libomp-dev" />
+      style: primary
+      start: 42
+      end: 90
+  ? |
     <Target Name="Deps" BeforeTargets="Build"><Exec Command="brew install libomp" /></Target>
-  : labels:
+  : fixed: |
+      <Target Name="Deps" BeforeTargets="Build"><Exec Condition="$([MSBuild]::IsOSPlatform('OSX'))" Command="brew install libomp" /></Target>
+    labels:
     - source: <Exec Command="brew install libomp" />
       style: primary
       start: 42
       end: 80
   ? |
     <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" /></Target>
-  : labels:
+  : fixed: |
+      <Target Name="MakeExecutable" AfterTargets="Build"><Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))" Command="chmod +x $(OutDir)mytool" /></Target>
+    labels:
     - source: <Exec Command="chmod +x $(OutDir)mytool" />
       style: primary
       start: 51
       end: 94
   ? |
     <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" /></Target>
-  : labels:
+  : fixed: |
+      <Target Name="MakeExecutable" AfterTargets="Build"><Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))" Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" /></Target>
+    labels:
     - source: <Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" />
       style: primary
       start: 51
       end: 131
   ? |
     <Target Name="Perms" AfterTargets="Build"><Exec Command='chmod +x $(OutDir)mytool' /></Target>
-  : labels:
+  : fixed: |
+      <Target Name="Perms" AfterTargets="Build"><Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))" Command='chmod +x $(OutDir)mytool' /></Target>
+    labels:
     - source: <Exec Command='chmod +x $(OutDir)mytool' />
       style: primary
       start: 42
       end: 85
   ? |
     <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
-  : labels:
+  : fixed: |
+      <Target Name="Sign" AfterTargets="Build"><Exec Condition="$([MSBuild]::IsOSPlatform('OSX'))" Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
+    labels:
     - source: <Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" />
       style: primary
       start: 41
       end: 108
   ? |
     <Target Name="Stamp" AfterTargets="Build"><Exec Command="cmd /c echo stamped" /></Target>
-  : labels:
+  : fixed: |
+      <Target Name="Stamp" AfterTargets="Build"><Exec Condition="$([MSBuild]::IsOSPlatform('Windows'))" Command="cmd /c echo stamped" /></Target>
+    labels:
     - source: <Exec Command="cmd /c echo stamped" />
       style: primary
       start: 42
       end: 80
-  ? |
-    <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac"
-      WorkingDirectory="$(YakPackageDirectory)" /></Target>
-  : labels:
-    - source: |-
-        <Exec Command="yak build --platform mac"
-          WorkingDirectory="$(YakPackageDirectory)" />
-      style: primary
-      start: 90
-      end: 177

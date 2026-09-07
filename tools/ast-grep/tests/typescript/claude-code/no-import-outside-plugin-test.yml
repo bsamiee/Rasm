@@ -13,7 +13,7 @@ valid:
     # Re-export from a relative .ts path
     - "export { fold } from './decision.ts';"
     # Export block without a source
-    - 'export { fold, when };'
+    - "export { fold, when };"
     # Dynamic import of a relative .ts path
     - "const m = await import('./lazy.ts');"
     # Declaration file path ends in .ts
@@ -29,7 +29,7 @@ valid:
     # Import attribute on a relative .ts path
     - "import { rows } from './rows.ts' with { type: 'json' };"
 invalid:
-    # The instance, a package the loader refuses
+    # a package the loader refuses
     - "import { Effect } from 'effect';"
     # Node built-in with the node prefix
     - "import { readFile } from 'node:fs';"

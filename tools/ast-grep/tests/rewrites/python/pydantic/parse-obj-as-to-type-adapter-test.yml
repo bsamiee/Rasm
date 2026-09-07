@@ -1,0 +1,77 @@
+id: parse-obj-as-to-type-adapter
+valid:
+    - "pydantic.TypeAdapter(list[int]).validate_python(values)"
+    - "custom.parse_obj_as(list[int], values)"
+    - "pydantic.parse_obj_as(list[int], values, type_name=label())"
+    - "pydantic.parse_obj_as(obj=read(), type_=make_type())"
+    - "parse_obj_as(list[int], values)"
+    - "pydantic.parse_obj_as(*args)"
+    - |
+      pydantic.parse_obj_as(
+          list[int],
+          # Preserve the input explanation
+          values,
+      )
+    - "pydantic.parse_obj_as(list[int], type_name=label())"
+    - |
+      import custom as pd
+      pd.parse_obj_as(list[int], values)
+    # Imports in other functions cannot bind the caller's parameter
+    - |
+      def configure():
+          import pydantic as pd
+      def validate(pd, values):
+          return pd.parse_obj_as(list[int], values)
+    # Class attributes are not unqualified module aliases inside methods
+    - |
+      class Validator:
+          import pydantic as pd
+          def validate(self, pd, values):
+              return pd.parse_obj_as(list[int], values)
+    # Function parameters shadow imported module aliases
+    - |
+      import pydantic as pd
+      def validate(pd, values):
+          return pd.parse_obj_as(list[int], values)
+    # Local assignments replace imported module aliases
+    - |
+      import pydantic as pd
+      def validate(values):
+          pd = Custom()
+          return pd.parse_obj_as(list[int], values)
+    # Parameters can shadow the module's unaliased name
+    - |
+      def validate(pydantic, values):
+          return pydantic.parse_obj_as(list[int], values)
+    # Lambda parameters shadow enclosing imports
+    - |
+      import pydantic as pd
+      validate = lambda pd: pd.parse_obj_as(int, "2")
+    # A loop binding replaces the imported module alias
+    - |
+      import pydantic as pd
+      for pd in validators:
+          pd.parse_obj_as(int, value)
+invalid:
+    - "pydantic.parse_obj_as(list[int], values)"
+    - "pydantic.parse_obj_as(type_=list[int], obj=values)"
+    - "pydantic.parse_obj_as(list[int], obj=values)"
+    - |
+      import pydantic as pd
+      pd.parse_obj_as(list[int], values)
+    - |
+      def validate(values):
+          import pydantic as pd
+          return pd.parse_obj_as(list[int], values)
+    # Class-body calls read the class-body import
+    - |
+      class Validator:
+          import pydantic as pd
+          value = pd.parse_obj_as(int, "2")
+    # Nested closures can read an enclosing function's import
+    - |
+      def make_validator():
+          import pydantic as pd
+          def validate(values):
+              return pd.parse_obj_as(list[int], values)
+          return validate

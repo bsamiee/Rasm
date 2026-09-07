@@ -1,9 +1,99 @@
 id: no-call-target
 snapshots:
   ? |
-    <Target Name="Report"><CallTarget Targets="Compute" /><Message Text="$(Computed)" /></Target>
-  : labels:
-    - source: <CallTarget Targets="Compute" />
+    <Target Name="Report" AfterTargets="Build">
+      <CallTarget Targets="Compute" />
+      <Message Text="$(Computed)" />
+    </Target>
+  : fixed: |
+      <Target Name="Report" AfterTargets="Build" DependsOnTargets="Compute">
+        <Message Text="$(Computed)" />
+      </Target>
+    labels:
+    - source: |-
+        <Target Name="Report" AfterTargets="Build">
+          <CallTarget Targets="Compute" />
+          <Message Text="$(Computed)" />
+        </Target>
       style: primary
+      start: 0
+      end: 121
+    - source: <CallTarget Targets="Compute" />
+      style: secondary
+      start: 46
+      end: 78
+    - source: |2
+
+          <CallTarget Targets="Compute" />
+          <Message Text="$(Computed)" />
+      style: secondary
+      start: 43
+      end: 112
+  ? |
+    <Target Name="Report" DependsOnTargets="Prepare"><CallTarget Targets="Compute;Check" /><Message Text="$(Computed)" /></Target>
+  : fixed: |
+      <Target Name="Report" DependsOnTargets="Prepare;Compute;Check"><Message Text="$(Computed)" /></Target>
+    labels:
+    - source: <Target Name="Report" DependsOnTargets="Prepare"><CallTarget Targets="Compute;Check" /><Message Text="$(Computed)" /></Target>
+      style: primary
+      start: 0
+      end: 126
+    - source: <CallTarget Targets="Compute;Check" />
+      style: secondary
+      start: 49
+      end: 87
+    - source: <CallTarget Targets="Compute;Check" /><Message Text="$(Computed)" />
+      style: secondary
+      start: 49
+      end: 117
+  ? |
+    <Target Name="Report"><CallTarget Targets="Compute" /><Message Text="$(Computed)" /></Target>
+  : fixed: |
+      <Target Name="Report" DependsOnTargets="Compute"><Message Text="$(Computed)" /></Target>
+    labels:
+    - source: <Target Name="Report"><CallTarget Targets="Compute" /><Message Text="$(Computed)" /></Target>
+      style: primary
+      start: 0
+      end: 93
+    - source: <CallTarget Targets="Compute" />
+      style: secondary
       start: 22
       end: 54
+    - source: <CallTarget Targets="Compute" /><Message Text="$(Computed)" />
+      style: secondary
+      start: 22
+      end: 84
+  ? |
+    <Target Name="Report"><CallTarget Targets="Compute" Condition="'$(Skip)' != 'true'" /><Message Text="$(Computed)" /></Target>
+  : fixed: |
+      <Target Name="Report"><CallTarget Targets="Compute" Condition="'$(Skip)' != 'true'" /><Message Text="$(Computed)" /></Target>
+    labels:
+    - source: <Target Name="Report"><CallTarget Targets="Compute" Condition="'$(Skip)' != 'true'" /><Message Text="$(Computed)" /></Target>
+      style: primary
+      start: 0
+      end: 125
+    - source: <CallTarget Targets="Compute" Condition="'$(Skip)' != 'true'" />
+      style: secondary
+      start: 22
+      end: 86
+    - source: <CallTarget Targets="Compute" Condition="'$(Skip)' != 'true'" /><Message Text="$(Computed)" />
+      style: secondary
+      start: 22
+      end: 116
+  ? |
+    <Target Name="Report"><Message Text="start" /><CallTarget Targets="Compute" /></Target>
+  : fixed: |
+      <Target Name="Report"><Message Text="start" /><CallTarget Targets="Compute" /></Target>
+    labels:
+    - source: <Target Name="Report"><Message Text="start" /><CallTarget Targets="Compute" /></Target>
+      style: primary
+      start: 0
+      end: 87
+    - source: <CallTarget Targets="Compute" />
+      style: secondary
+      start: 46
+      end: 78
+    - source: <Message Text="start" /><CallTarget Targets="Compute" />
+      style: secondary
+      start: 22
+      end: 78

@@ -1,5 +1,5 @@
 import { Array } from 'effect';
-import { bench, describe } from 'vitest';
+import { test } from 'vitest';
 import { Benchmark, type BenchmarkResult } from './bench.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -20,8 +20,8 @@ const _HISTORY: readonly BenchmarkResult[] = Array.flatMap(Array.range(0, _RUNS 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('test support benchmarks', () => {
-    bench('summarize sustained regressions over 500 results', () => {
+test('test support benchmarks', async ({ bench }) => {
+    await bench('summarize sustained regressions over 500 results', () => {
         Benchmark.summarize(_HISTORY);
-    });
+    }).run();
 });

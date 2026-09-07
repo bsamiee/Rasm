@@ -2,38 +2,63 @@
 id: no-init-only-class
 language: python
 severity: error
+# Report-only, the probed fix fields typed `object` fail `Point(1, 2).x + 1`, `Operator + is not supported between object and Literal[1]`
 utils:
-    # Assignment of a constructor argument or a literal to an attribute of self, plain, annotated, or unpacked into attributes
+    # Construction only binds fields; reading attributes or invoking a call adds behavior.
+    field-value:
+        any:
+            - kind: identifier, integer, float, true, false, none
+            - kind: string
+              not: {has: {kind: interpolation}}
+            - kind: list, tuple, set, dictionary, expression_list, pair
+              not: {has: {pattern: $_, not: {matches: field-value}}}
+    self-field:
+        kind: attribute
+        has: {field: object, kind: identifier, regex: '^self$'}
     self-assignment:
         kind: expression_statement
         has:
             kind: assignment
-            has:
-                field: left
-                any:
-                    - kind: attribute
-                      has: {field: object, regex: '^self$'}
-                    - kind: pattern_list
-                      has: {kind: attribute, has: {field: object, regex: '^self$'}}
+            all:
+                - has:
+                    field: left
+                    any:
+                        - matches: self-field
+                        - kind: pattern_list
+                          has: {matches: self-field}
+                          not: {has: {pattern: $_, not: {matches: self-field}}}
+                - has: {field: right, matches: field-value}
 rule:
     kind: class_definition
     all:
         - has: {field: name, pattern: $NAME}
-        # Plain names or no base, a base under a package path is a Struct or a model that declares its fields
-        - not: {has: {field: superclasses, has: {pattern: $_, not: {kind: identifier}}}}
-        # Exception hierarchies and protocols keep the class, and a Struct, a model, or an enum under a plain name declares its fields
-        - not: {has: {field: superclasses, has: {kind: identifier, regex: '(Error|Exception|Protocol|Struct|Model|Enum)$'}}}
+        # A base or class decorator can define descriptors, registration, or construction semantics.
+        - not: {has: {field: superclasses, kind: argument_list}}
+        - not: {inside: {kind: decorated_definition}}
+        # Attribute writes may invoke class-defined descriptors or construction hooks.
+        - not:
+            has:
+                field: body
+                any:
+                    - has: {kind: function_definition, stopBy: {not: {kind: decorated_definition}}, has: {field: name, regex: '^(__new__|__setattr__)$'}}
+                    - has: {kind: decorated_definition, has: {kind: function_definition, not: {has: {field: name, regex: '^__.*__$'}}}}
+                    - has:
+                        kind: expression_statement
+                        has:
+                            kind: assignment
+                            has: {field: right, not: {kind: "integer, float, string, true, false, none"}}
+
         - has:
-              field: body
-              has:
-                  kind: function_definition
-                  all:
-                      - has: {field: name, regex: '^__init__$'}
-                      - has:
-                            field: body
-                            all: # Every statement after the docstring assigns an attribute of self, a call or a branch is behavior
-                                - has: {matches: self-assignment}
-                                - not: {has: {not: {any: [{matches: python-docstring}, {matches: self-assignment}, {kind: comment}]}}}
+            field: body
+            has:
+                kind: function_definition
+                all:
+                    - has: {field: name, regex: '^__init__$'}
+                    - has:
+                        field: body
+                        all: # Every statement after the docstring assigns an attribute of self, a call or a branch is behavior
+                            - has: {matches: self-assignment}
+                            - not: {has: {not: {any: [{matches: python-inert-statement}, {matches: self-assignment}]}}}
 message: '`__init__` of `$NAME` assigns attributes of self alone, a record spelled as a class'
 note: Declare the fields on a `msgspec.Struct`, `frozen=True` where the value never changes, and drop `__init__`
 labels:

@@ -1,9 +1,10 @@
 id: no-init-only-class
 snapshots:
   ? |
-    class Recorder(Base):
-        def __init__(self, token):
-            self.token = token
+    class Recorder:
+        def __init__(self) -> None:
+            self.labels: list[str] = []
+            self.failures: list[str] = []
   : labels:
     - source: Recorder
       message: The class with an init that assigns fields alone
@@ -12,9 +13,8 @@ snapshots:
       end: 14
   ? |
     class Recorder:
-        def __init__(self) -> None:
-            self.labels: list[str] = []
-            self.failures: list[str] = []
+        def __init__(self):
+            self.label = "record"
   : labels:
     - source: Recorder
       message: The class with an init that assigns fields alone

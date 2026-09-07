@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: chain-to-comprehension
+language: python
+severity: off
+rule:
+    kind: call
+    pattern: $CALL
+    not:
+        any:
+            - matches: python-shadowed-name
+            - has: {kind: comment, stopBy: end}
+    any:
+        - pattern: list($INNER)
+          has:
+            field: arguments
+            has:
+                kind: call
+                all:
+                    - has: {field: function, pattern: $F}
+                    - has: {field: arguments, kind: generator_expression, pattern: $GENERATOR}
+        - pattern: list($F.from_iterable($ITERABLES))
+        - pattern: list($F($$$ARGS))
+          has:
+            field: arguments
+            has:
+                kind: call
+                has:
+                    field: arguments
+                    all:
+                        - has: {pattern: $_}
+                        - not: {has: {any: [{kind: keyword_argument}, {kind: dictionary_splat}]}}
+constraints:
+    F: {matches: python-chain-callee}
+transform:
+    ITER: {replace: {source: $ITERABLES, replace: "(?s)^(.+)$", by: "($1)"}}
+    # Tuple construction evaluates every argument and splat before any element is consumed
+    GROUP: {replace: {source: $$$ARGS, replace: '(?s)^(.+?)(?:,\s*)?$', by: "($1,)"}}
+    GENERATOR_GROUP: {replace: {source: $GENERATOR, replace: "(?s)^(.+)$", by: "($1,)"}}
+fix: "[item for iterable in $ITER$GROUP$GENERATOR_GROUP for item in iterable]"
+message: "`$CALL` collects itertools.chain into a list"
+note: Flatten with a nested comprehension, retaining argument evaluation order without invoking iterable length hints

@@ -3,17 +3,23 @@ id: no-unquoted-condition-operand
 language: xml
 severity: error
 rule:
+    kind: Attribute
     pattern: _CONDITION
-    matches: msbuild-unquoted-comparison
-    # Operands the fix cannot wrap as one token, the sibling no-unquoted-condition-operand-by-hand reports them
-    not: {has: {matches: msbuild-composite-operand}}
+    # Complete simple comparisons only: operators inside quoted values remain data.
+    any:
+        - regex: "^(Condition\\s*=\\s*\"\\s*)((?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))(\\s*(?:==|!=)\\s*(?:'[^'\\\"]*'|(?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))\\s*\")$"
+        - regex: "^(Condition\\s*=\\s*\"\\s*'[^'\\\"]*'\\s*(?:==|!=)\\s*)((?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))(\\s*\")$"
 transform:
-    # Every quote becomes a single quote, the attribute delimiters included, then the attribute delimiters return as double quotes
-    SINGLE: {replace: {source: $CONDITION, replace: '"|&quot;|`', by: ''''}}
-    DOUBLED: {replace: {source: $SINGLE, replace: '(?s)^(Condition\s*=\s*)''(.*)''$', by: '$1"$2"'}}
-    # The unquoted token before an operator, after the opening quote or whitespace, then the unquoted token after an operator
-    LEFT: {replace: {source: $DOUBLED, replace: '(^|[\s"])([^\s''"=!]+)\s*(==|!=)', by: '$1''$2'' $3'}}
-    QUOTED: {replace: {source: $LEFT, replace: '(==|!=)\s*([^\s''"=!]+)', by: '$1 ''$2'''}}
-fix: $QUOTED
-message: The condition compares an operand outside single quotes, MSBuild tokenizes an unquoted literal before it expands the property
-note: Quote both sides as '$(Name)' == 'value'
+    LEFT:
+        replace:
+            source: $CONDITION
+            replace: "^(Condition\\s*=\\s*\"\\s*)((?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))(\\s*(?:==|!=)\\s*(?:'[^'\\\"]*'|(?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))\\s*\")$"
+            by: "$1'$2'$3"
+    RIGHT:
+        replace:
+            source: $LEFT
+            replace: "^(Condition\\s*=\\s*\"\\s*'[^'\\\"]*'\\s*(?:==|!=)\\s*)((?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))(\\s*\")$"
+            by: "$1'$2'$3"
+fix: $RIGHT
+message: The simple condition compares an operand without quotes
+note: Quote the operand without changing literals, function arguments, or boolean grouping

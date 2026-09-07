@@ -1,7 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# Report only, renaming the function leaves its callers on the command, the probe prints nothing where the original prints mine
 id: no-shadowed-tool-function
 language: bash
 severity: error
+ignores: ["**/*.json"]
 rule:
     kind: function_definition
     has:

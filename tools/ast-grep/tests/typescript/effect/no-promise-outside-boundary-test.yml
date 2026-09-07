@@ -1,39 +1,43 @@
 id: no-promise-outside-boundary
 valid:
-    # The boundary, the promise converted once
-    - 'const loaded = Effect.tryPromise({ try: () => load(path), catch: (cause) => new LoadError({ cause }) });'
-    # Await inside the thunk of the boundary
-    - 'const loaded = Effect.promise(async () => { const raw = await load(path); return decode(raw); });'
-    # Chain inside the thunk of the boundary
-    - 'const loaded = Effect.promise(() => load(path).then(decode));'
-    # Await inside the try option of the mapping boundary
-    - 'const loaded = Effect.tryMapPromise(work, { try: async (item) => await load(item), catch: (cause) => new LoadError({ cause }) });'
-    # Await under the Micro boundary
-    - 'const loaded = Micro.tryPromise({ try: async () => await load(path), catch: (cause) => new LoadError({ cause }) });'
-    # For-await inside the iterable boundary
-    - 'const rows = Stream.fromAsyncIterable((async function* () { for await (const row of source) { yield row; } })(), (cause) => new LoadError({ cause }));'
-    # Plain loop, no await
-    - 'for (const row of rows) { use(row); }'
-    # Method named outside the settlement set
-    - 'const rows = Array.map(items, decode).filter(present);'
-    # Effect combinators named catch on another module, the property regex reads then, catch, and finally alone
-    - 'const recovered = Effect.catchAll(work, () => Effect.succeed(fallback));'
-    # Yield of an effect inside a generator, no promise
-    - 'const loaded = Effect.gen(function* () { return yield* load(path); });'
+    # A typed mutable constructor retains the same Nx instance contract.
+    - 'import Base from "@nx/js/src/release/version-actions"; let Resolved: typeof Base = normalize(Base); class Actions extends Resolved { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - 'import { Effect } from "effect"; const loaded = Effect.tryPromise({ try: () => load(path), catch: (cause) => new LoadError({ cause }) });'
+    - import { Effect } from "effect"; const loaded = Effect.promise(async () => { const raw = await load(path); return decode(raw); });
+    - import { Effect } from "effect"; const loaded = Effect.promise(() => load(path).then(decode));
+    - 'import { Effect } from "effect"; const loaded = Effect.tryMapPromise(work, { try: async (item) => await load(item), catch: (cause) => new LoadError({ cause }) });'
+    - 'import { Micro } from "effect"; const loaded = Micro.tryPromise({ try: async () => await load(path), catch: (cause) => new LoadError({ cause }) });'
+    - import { Stream } from "effect"; const rows = Stream.fromAsyncIterable((async function* () { for await (const row of source) { yield row; } })(), (cause) => new LoadError({ cause }));
+    - for (const row of rows) { use(row); }
+    - const rows = Array.map(items, decode).filter(present);
+    - import { Effect } from "effect"; const recovered = Effect.catchAll(work, () => Effect.succeed(fallback));
+    - import { Effect } from "effect"; const loaded = Effect.gen(function* () { return yield* load(path); });
+    - const loaded = load(path).then(decode);
+    - const loaded = load(path).catch(report);
+    - const loaded = load(path).finally(close);
+    - import { Effect } from "effect"; const done = Effect.runPromise(work).then(report);
+    - const result = parser.then(next).catch(problem).finally(close);
+    - import { Effect as E } from "effect"; E.promise(async () => await load());
+    - 'import * as E from "effect/Effect"; E.tryPromise({ try: async () => await load(), catch: mapError });'
+    - 'import { Effect } from "effect"; Effect.tryPromise({ async try() { return await load(); }, catch: mapError });'
+    - import { Effect } from "effect"; Effect.promise(() => (async () => await load())());
+    - 'import { Effect } from "effect"; Effect.tryPromise({ try: (async () => await load()), catch: mapError });'
+    - import { Effect } from "effect"; Effect.promise(() => { return async () => await load(); });
+    - 'import { VersionActions } from "nx/release"; class Actions extends VersionActions { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - 'import { VersionActions as Base } from "nx/release"; class Actions extends Base { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - 'import Base from "@nx/js/src/release/version-actions"; class Actions extends Base { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - 'import Base from "@nx/js/src/release/version-actions"; const Resolved: typeof Base = normalize(Base); class Actions extends Resolved { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
 invalid:
-    # The instance, an await in domain code
-    - 'const loaded = async () => { const raw = await load(path); return decode(raw); };'
-    # For-await over an async iterable
-    - 'const drain = async () => { for await (const row of source) { use(row); } };'
-    # Then chain
-    - 'const loaded = load(path).then(decode);'
-    # Catch chain
-    - 'const loaded = load(path).catch(report);'
-    # Finally chain
-    - 'const loaded = load(path).finally(close);'
-    # Await inside a callback owned outside the boundary
-    - 'const rows = Array.map(items, async (item) => await load(item));'
-    # Await inside a nested function the boundary does not hold
-    - 'const loaded = Effect.sync(async () => await load(path));'
-    # Chain on a run, the promise of the run consumed in place
-    - 'const done = Effect.runPromise(work).then(report);'
+    - const loaded = async () => { const raw = await load(path); return decode(raw); };
+    - const drain = async () => { for await (const row of source) { use(row); } };
+    - const rows = Array.map(items, async (item) => await load(item));
+    - import { Effect } from "effect"; const loaded = Effect.sync(async () => await load(path));
+    - 'import { Effect } from "effect"; Effect.tryPromise({ try: () => load(), catch: async () => await load() });'
+    - const Effect = adapter; Effect.promise(async () => await load());
+    - 'import Base from "other/version-actions"; class Actions extends Base { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - 'import { VersionActions } from "nx/release"; function build(VersionActions) { class Actions extends VersionActions { override async updateProjectVersion(): Promise<string[]> { return await load(); } } return Actions; }'
+    - 'import Base from "@nx/js/src/release/version-actions"; const Resolved: typeof Base = normalize(Base); function build(Resolved) { class Actions extends Resolved { override async updateProjectVersion(): Promise<string[]> { return await load(); } } return Actions; }'
+    - 'class Actions extends VersionActions { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - 'import { VersionActions } from "other"; class Actions extends VersionActions { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - 'import { VersionActions } from "nx/release"; class Actions extends VersionActions { async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - 'import { VersionActions } from "nx/release"; class Actions extends VersionActions { override async updateProjectVersion(): Promise<string[]> { const run = async () => await load(); return run(); } }'

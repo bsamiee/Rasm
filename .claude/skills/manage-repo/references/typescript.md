@@ -1,6 +1,6 @@
 # [TYPESCRIPT]
 
-The TypeScript package, compiler, lint, and test tooling of a language area is one workspace catalog, one base compiler configuration, and one root configuration per tool, and each package adds the entries that name it alone. Every TypeScript file type is scanned for scattering, duplication, and misplaced declarations, a manifest exists only where one belongs, and the root holds the catalog entries.
+Keep shared TypeScript dependencies in the workspace catalog and shared compiler, lint, and test settings at the root. Package manifests and configuration add the identity, file set, and overrides their project requires.
 
 ## [01]-[PACKAGES]
 
@@ -10,6 +10,8 @@ The TypeScript package, compiler, lint, and test tooling of a language area is o
 - `workspace:` dependencies make a project edge in the task graph, and `catalog:` entries make none
 - `linkWorkspacePackages: deep` links a workspace package into every dependent in place of a registry copy
 - `overrides` and `peerDependencyRules.allowedVersions` hold one row per conflict, and a row that removes a declared dependency (`'-'`) states why
+- An `overrides` row for a catalog package states `catalog:`, and the version stays in the catalog alone
+- The catalog groups its entries under one comment per responsibility, and the file holds no fetch retry or cooldown setting
 - `allowBuilds` decides per package whether its install script runs, and `false` marks a package the workspace reads as source alone
 - `minimumReleaseAge: 0` takes a release the day it appears, and the store and cache sit under `.cache/pnpm/`
 - pnpm detects CI and turns frozen mode on, and `pnpm install` fails on lock drift
@@ -18,23 +20,39 @@ The `upgrade` target moves the catalog to the newest release of every package wi
 
 ## [02]-[MANIFESTS]
 
-Each package manifest holds the fields the package manager and the bundler read, and no manifest holds a `scripts` field:
-- `name`, `private`, `type: "module"`, an `exports` map from each subpath to its `.ts` source, and dependencies as `catalog:` or `workspace:`
-- No source manifest holds a `version`, the build writes the manifest under `dist` and the release writes the tag version into that copy
-- The root manifest holds the development dependencies, the `browserslist` query, and the `nx` field with the root project's tag and targets
-- The local plugin infers a project from each `tsconfig.json` under the library, application, and test directories, tagged by language
+Each manifest holds the fields the package manager and the bundler read, and the build writes the manifest under `dist` with the tag version:
+
+| [INDEX] | [FILE]                      | [HOLDS]                                             | [NEVER_HOLDS]                                    |
+| :-----: | :-------------------------- | :-------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | Root `package.json`         | `devDependencies`, `browserslist`, the `nx` field   | `version`, `scripts`, a version string           |
+|  [02]   | Package `package.json`      | `name`, `private`, `type`, `exports`, dependencies  | `version`, `scripts`, `nx` under the plugin glob |
+|  [03]   | `nx` field outside the glob | Tag, empty `lint`, `format`, `check`, overrides     | A body a tag-filtered default supplies           |
+
+- Dependencies state `catalog:` or `workspace:`, and `exports` maps each subpath to its `.ts` source
+- The local plugin infers a project from each `tsconfig.json` under `apps/`, `libs/`, and `tests/`, tagged by language
+- Packages outside that glob (`.claude/plugins/*`) declare the language tag and the empty targets in the `nx` field
+- Target overrides in the `nx` field hold the fields that differ from the default, `cache` or inputs after `"..."`
 - Library packages with a manifest that is not `private` gain the release tag, and their `nx-release-publish` target publishes from `dist`
 
 ## [03]-[COMPILER]
 
-`tsconfig.base.json` holds every compiler option, each project `tsconfig.json` extends it with its `outDir`, `types`, and file set, and `tsc --build` checks the projects in dependency order:
-- `composite`, `declaration`, `declarationMap`, and `emitDeclarationOnly` make each project a build unit that emits declarations and build info alone
+`tsconfig.base.json` holds every compiler option, and each project `tsconfig.json` adds the paths and the file set of its own root:
+
+| [INDEX] | [FILE]                  | [HOLDS]                                                   | [NEVER_HOLDS]                                  |
+| :-----: | :---------------------- | :-------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `tsconfig.base.json`    | Every compiler option, `include` of `${configDir}/*.ts`   | `outDir`, `types`, an implied option           |
+|  [02]   | Package `tsconfig.json` | `extends`, `outDir`, `types`, its file set                | An option the base sets, `references`          |
+|  [03]   | Root `tsconfig.json`    | `outDir`, `types`, the root, tool, and integration files  | `references`, a `tsconfig.json` under `tools/` |
+
+- `composite`, `declarationMap`, and `emitDeclarationOnly` make each project a build unit that emits declarations and build info alone
+- `composite` implies `declaration` and the compiler defaults to `strict`, and neither option appears in the file
+- Files under `tools/nx/`, `infra/`, and `tests/typescript/ast-grep/` compile under the root `tsconfig.json`
+- A package's `vitest.config.ts` compiles under the root `tsconfig.json`, and the package `tsconfig.json` excludes it
+- The function-hooks `tsconfig.json` extends nothing and holds the harness contract, `../../types`, `jsx` with `h`, and `noEmit`
 - `isolatedDeclarations`, `isolatedModules`, `erasableSyntaxOnly`, and `verbatimModuleSyntax` keep every file checkable and strippable on its own
 - `module: "preserve"` with `allowImportingTsExtensions` keeps import specifiers as written, and `moduleDetection: "force"` makes every file a module
 - `noEmitOnError` and the `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, and unused checks are on
-- `strict` stays out of the file because the compiler defaults to it, and `include` of `${configDir}/*.ts` reads each project's own root
 - Each project's `outDir` is `.cache/typescript/out/<root>`, holds the build info beside the declarations, and is the `typecheck` output
-- The root `tsconfig.json` includes the root configuration files, the test support Vitest config, the plugin files, and the infrastructure program
 
 The `typecheck` default runs `tsc --build --pretty false` in the project root and depends on `^typecheck`:
 - Its inputs are the `default`, `^production`, and `typescript` named inputs, with the `typescript` package as an external dependency
@@ -43,21 +61,40 @@ The `typecheck` default runs `tsc --build --pretty false` in the project root an
 
 ## [04]-[LINT]
 
-`biome.json` at the root is the one linter and formatter configuration, the `lint` default runs `biome check --write --error-on-warnings` per project root, and the `format` default runs `biome format --write`:
+Configure Biome in the root `biome.json`. The `format` target runs `biome check --write --error-on-warnings` to apply corrections and formatting together. The `lint` target checks the result without writing:
 - `vcs` reads the git ignore file, `files.includes` covers everything but the lock files and HTML, and `ignoreUnknown` skips file types Biome lacks
-- The formatter sets four-space indentation and a 150-column width, single quotes, semicolons always, and trailing commas everywhere
-- The linter enables every group at `error` under the `all` preset with four domains at `all`, and each nursery rule is named, the preset skips them
+- `$schema` points at the installed `configuration_schema.json`, and no version appears in the file
+- The formatter sets four-space indentation, a 150-column width, and single quotes
+- Options at the Biome default (`enabled`, `semicolons`, `trailingCommas`) stay out of the file
+- JSON formatting is off, and JSON lint and manifest sorting stay on
+- The linter enables every group at `error` under the `all` preset, with nursery rules selected explicitly or through configured domains
 - `overrides` hold the per-path exceptions: a rule off for one or every file, a naming convention for a program file, a domain off for a config file
-- The structural rules under `tools/ast-grep/rules/typescript/` scan every TypeScript root at `lint` through `ast-grep scan`
-- A rule whose correction needs the effect package ignores `.claude/plugins/**` and the spec, test, and bench globs, with the reason in its comment
-- `assist` actions sort imports, attributes, manifest fields, and object properties on every check
+- An override glob is `**/<file>` once, and the root copy of the file needs no second entry
+- The structural rules under `tools/ast-grep/rules/typescript/` scan every TypeScript root at `lint`, and the file holds no `plugins` list
+- Rules with a correction that needs the effect package ignore `.claude/plugins/**` and the spec, test, and bench globs, the reason in a comment
+- `assist` actions sort imports, attributes, manifest fields, and CSS properties on every check
 - `javascript.resolver.experimentalPnpmCatalogs` resolves `catalog:` entries when a rule reads a manifest
 
-The tag-filtered `lint` default runs Biome then `ast-grep scan` over each project root, and the root project's own `lint` target covers the root files.
+The tag-filtered `lint` default runs Biome and `ast-grep scan` over each project root. Root `lint` covers shared configuration and tooling.
 
-## [05]-[TESTS]
+## [05]-[BUILD]
+
+The root `vite.config.ts` exports `createViteConfig`, one configuration per kind (`app`, `library`, `server`) decoded from a schema that holds the defaults:
+- Default lists come from the `vite` exports (`defaultClientConditions`, `defaultServerConditions`), and the file states no option at its default
+- Server bundles target the Node runtime `process.versions.node` names, and browsers and libraries keep their own targets
+- The root default export omits the build block, and the `@nx/vite/plugin` entry excludes the root file from inference
+
+## [06]-[TESTS]
 
 The root `vitest.config.ts` exports a function that builds one project configuration from a directory, and each package's `vitest.config.ts` calls it with its own directory:
+
+| [INDEX] | [FILE]                     | [HOLDS]                                            | [NEVER_HOLDS]                                  |
+| :-----: | :------------------------- | :------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | Root `vitest.config.ts`    | `createVitestConfig`, the projects from the globs  | `configDefaults` items, `retry`, a bench path  |
+|  [02]   | Package `vitest.config.ts` | One `createVitestConfig(import.meta.dirname)` call | An option                                      |
+|  [03]   | `stryker.config.json`      | Runner, `mutate` globs, state and report paths     | A path outside `.cache/` and `.artifacts/`     |
+
+- The exclude list spreads `configDefaults.exclude` and adds the output directories, and tests run once with no `retry`
 - Every `vitest.config.ts` beside a manifest is its own root, and the Vitest plugin infers one `test` target per file, the root config excluded
 - The project name comes from the manifest, and the reports, coverage, and benchmark output sit under `.artifacts/typescript/<kind>/<name>`
 - Coverage runs on every test run through the V8 provider, and the root configuration merges the per-project reports without cleaning them
@@ -69,9 +106,9 @@ The root `vitest.config.ts` exports a function that builds one project configura
 - `mutate` names the library sources and excludes generated, built, test, config, and declaration files
 - The temporary directory and the incremental state sit under `.cache/stryker/`, and the HTML and JSON reports under `.artifacts/typescript/stryker/`
 
-## [06]-[RELEASE]
+## [07]-[RELEASE]
 
-The `typescript` release group in `nx.json` versions every package tagged for release from its git tag and publishes the built manifest:
+The `typescript` release group in `nx.json` versions every package tagged for release from its git tag and publishes the built manifest. Its version and publish actions consume `{projectRoot}/dist`, keep that build directory ignored and aligned with the configured release paths:
 - `versionActions` is `tools/nx/typescript-version-actions.ts`, the JS actions with a `0.0.0` fallback for a source manifest with no version
 - `manifestRootsToUpdate` names `{projectRoot}/dist` alone, and `groupPreVersionCommand` builds the group before the version step
 - The `nx-release-publish` default for the group sets `packageRoot` to `{projectRoot}/dist`

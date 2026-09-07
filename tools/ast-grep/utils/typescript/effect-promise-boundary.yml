@@ -1,11 +1,80 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Constructor that takes a promise or an async iterable into an effect, the one place a promise is consumed
+# Lexical conversion body; callback invocation and escape require semantic analysis.
 id: effect-promise-boundary
 language: tsx
+utils:
+    promise-module:
+        matches:
+            effect-module-reference:
+                module: {regex: '^(effect/)?(Effect|Micro)$'}
+    stream-module:
+        matches:
+            effect-module-reference:
+                module: {regex: '^(effect/)?Stream$'}
+    promise-call:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: object, matches: promise-module}
+                - any:
+                    - has: {field: property, regex: ^(promise|tryPromise)$}
+                    - has: {field: property, regex: ^tryMapPromise$}
+                      all:
+                        - has:
+                            field: object
+                            matches:
+                                effect-module-reference:
+                                    module: {regex: '^(effect/)?Effect$'}
 rule:
-    kind: call_expression
-    has:
-        field: function
-        kind: member_expression
-        # Effect.tryMapPromise takes the promise thunk as its try option, Stream.fromAsyncIterable takes the iterable whole
-        regex: '^(Effect|Micro)\.(promise|tryPromise|tryMapPromise)$|^Stream\.fromAsyncIterable$'
+    any:
+        - kind: arrow_function, function_expression
+          any:
+            - inside:
+                stopBy:
+                    not: {kind: parenthesized_expression}
+                kind: arguments
+                inside:
+                    matches: promise-call
+                    has:
+                        field: function
+                        has: {field: property, regex: ^(promise|tryPromise)$}
+            - inside:
+                stopBy:
+                    not: {kind: parenthesized_expression}
+                kind: pair
+                field: value
+                has: {field: key, regex: ^(try|"try"|'try')$}
+                inside:
+                    kind: object
+                    inside:
+                        kind: arguments
+                        inside: {matches: promise-call}
+        - kind: method_definition
+          has: {field: name, regex: ^(try|"try"|'try')$}
+          inside:
+            kind: object
+            inside:
+                kind: arguments
+                inside: {matches: promise-call}
+        - matches: syntax-function-boundary
+          inside:
+            matches: effect-promise-boundary
+            stopBy: {matches: syntax-function-boundary}
+        - kind: generator_function
+          inside:
+            kind: parenthesized_expression
+            inside:
+                kind: call_expression
+                field: function
+                inside:
+                    kind: arguments
+                    inside:
+                        kind: call_expression
+                        has:
+                            field: function
+                            kind: member_expression
+                            all:
+                                - has: {field: object, matches: stream-module}
+                                - has: {field: property, regex: ^fromAsyncIterable$}

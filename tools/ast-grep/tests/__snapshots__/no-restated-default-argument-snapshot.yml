@@ -11,6 +11,14 @@ snapshots:
       start: 71
       end: 84
   ? |
+    from gzip import open as decompress
+    decompress(archive, mode="rb")
+  : labels:
+    - source: mode="rb"
+      style: primary
+      start: 56
+      end: 65
+  ? |
     from httpx import AsyncClient
 
     client = AsyncClient(timeout=5.0)
@@ -20,6 +28,30 @@ snapshots:
       start: 52
       end: 63
   ? |
+    from httpx import get as fetch
+    fetch(url, follow_redirects=False)
+  : labels:
+    - source: follow_redirects=False
+      style: primary
+      start: 42
+      end: 64
+  ? |
+    from msgspec import msgpack as packed
+    packed.Encoder(order=None)
+  : labels:
+    - source: order=None
+      style: primary
+      start: 53
+      end: 63
+  ? |
+    from psutil import Process as process
+    process(pid).cpu_percent(interval=None)
+  : labels:
+    - source: interval=None
+      style: primary
+      start: 63
+      end: 76
+  ? |
     from psutil import cpu_percent
 
     load = cpu_percent(interval=None)
@@ -28,6 +60,14 @@ snapshots:
       style: primary
       start: 51
       end: 64
+  ? |
+    from psutil import cpu_percent as load
+    load(interval=None)
+  : labels:
+    - source: interval=None
+      style: primary
+      start: 44
+      end: 57
   ? |
     gzip.open(archive, "rb")
   : labels:
@@ -92,19 +132,59 @@ snapshots:
       start: 25
       end: 36
   ? |
+    import httpx as client
+    client.get(url, timeout=5.0)
+  : labels:
+    - source: timeout=5.0
+      style: primary
+      start: 39
+      end: 50
+  ? |
+    import msgspec as codec
+    codec.json.decode(value, strict=True)
+  : labels:
+    - source: strict=True
+      style: primary
+      start: 49
+      end: 60
+  ? |
     load = psutil.Process(pid).cpu_percent(interval=None)
   : labels:
     - source: interval=None
       style: primary
       start: 39
       end: 52
+  msgspec.json.Decoder(strict=True):
+    labels:
+    - source: strict=True
+      style: primary
+      start: 21
+      end: 32
+  msgspec.json.encode(value, enc_hook=None):
+    labels:
+    - source: enc_hook=None
+      style: primary
+      start: 27
+      end: 40
+  msgspec.msgpack.Encoder(order=None):
+    labels:
+    - source: order=None
+      style: primary
+      start: 24
+      end: 34
+  msgspec.msgpack.decode(value, dec_hook=None):
+    labels:
+    - source: dec_hook=None
+      style: primary
+      start: 30
+      end: 43
   ? |
-    process.cpu_percent(interval=None)
+    psutil.Process(pid).cpu_percent(interval=None)
   : labels:
     - source: interval=None
       style: primary
-      start: 20
-      end: 33
+      start: 32
+      end: 45
   ? |
     psutil.cpu_percent(interval=None)
   : labels:
@@ -112,18 +192,6 @@ snapshots:
       style: primary
       start: 19
       end: 32
-  ? |
-    try:
-        from httpx import AsyncClient
-    except ImportError:
-        AsyncClient = None
-
-    client = AsyncClient(timeout=5.0)
-  : labels:
-    - source: timeout=5.0
-      style: primary
-      start: 104
-      end: 115
   ? |
     with gzip.open(
         archive,  # the archive

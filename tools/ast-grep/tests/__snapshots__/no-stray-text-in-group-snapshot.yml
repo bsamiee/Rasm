@@ -44,30 +44,30 @@ snapshots:
       start: 11
       end: 42
   ? |
-    <ItemGroup><PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
+    <Project><ItemGroup><PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup></Project>
   : fixed: |
-      <ItemGroup><PackageReference Include="CsCheck"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
+      <Project><ItemGroup><PackageReference Include="CsCheck"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup></Project>
     labels:
     - source: stale
       style: primary
-      start: 47
-      end: 52
+      start: 56
+      end: 61
     - source: <ItemGroup><PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
       style: secondary
-      start: 0
-      end: 117
+      start: 9
+      end: 126
     - source: <PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference>
       style: secondary
-      start: 11
-      end: 105
+      start: 20
+      end: 114
     - source: <PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference>
       style: secondary
-      start: 11
-      end: 105
+      start: 20
+      end: 114
     - source: stale<PrivateAssets>all</PrivateAssets>
       style: secondary
-      start: 47
-      end: 86
+      start: 56
+      end: 95
   ? |
     <PropertyGroup>&amp;<Nullable>enable</Nullable></PropertyGroup>
   : fixed: |

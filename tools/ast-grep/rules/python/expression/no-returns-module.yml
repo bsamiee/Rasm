@@ -2,6 +2,7 @@
 id: no-returns-module
 language: python
 severity: error
+# Report-only, the probed fix `returns` to `expression` fails, `ImportError: cannot import name 'Success' from 'expression'`
 rule:
     pattern: $USE
     matches: {python-module-use: {module: {regex: '^returns(\.[\w.]+)?$'}}}

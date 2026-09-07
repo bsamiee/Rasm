@@ -1,221 +1,85 @@
 id: no-dirname-substitution
 snapshots:
-  ? |
-    cd "$(dirname "$f")" || exit 1
-  : fixed: |
-      cd "${f%/*}" || exit 1
+  name=$(basename "a/b"):
+    fixed: name=b
     labels:
-    - source: $(dirname "$f")
-      style: primary
-      start: 4
-      end: 19
-    - source: dirname
-      style: secondary
-      start: 6
-      end: 13
-    - source: '"$f"'
-      style: secondary
-      start: 14
-      end: 18
-    - source: dirname "$f"
-      style: secondary
-      start: 6
-      end: 18
-  ? |
-    here=$(dirname "$0")
-  : fixed: |
-      here=${0%/*}
-    labels:
-    - source: $(dirname "$0")
+    - source: $(basename "a/b")
       style: primary
       start: 5
-      end: 20
-    - source: dirname
-      style: secondary
-      start: 7
-      end: 14
-    - source: '"$0"'
-      style: secondary
-      start: 15
-      end: 19
-    - source: dirname "$0"
-      style: secondary
-      start: 7
-      end: 19
-  ? |
-    here=$(dirname "${BASH_SOURCE[0]}")
-  : fixed: |
-      here=${BASH_SOURCE[0]%/*}
-    labels:
-    - source: $(dirname "${BASH_SOURCE[0]}")
-      style: primary
-      start: 5
-      end: 35
-    - source: dirname
-      style: secondary
-      start: 7
-      end: 14
-    - source: '"${BASH_SOURCE[0]}"'
-      style: secondary
-      start: 15
-      end: 34
-    - source: dirname "${BASH_SOURCE[0]}"
-      style: secondary
-      start: 7
-      end: 34
-  ? |
-    here=$(dirname $0)
-  : fixed: |
-      here=${0%/*}
-    labels:
-    - source: $(dirname $0)
-      style: primary
-      start: 5
-      end: 18
-    - source: dirname
-      style: secondary
-      start: 7
-      end: 14
-    - source: $0
-      style: secondary
-      start: 15
-      end: 17
-    - source: dirname $0
-      style: secondary
-      start: 7
-      end: 17
-  ? |
-    mkdir -p "$scratch/$(dirname "$d")"
-  : fixed: |
-      mkdir -p "$scratch/${d%/*}"
-    labels:
-    - source: $(dirname "$d")
-      style: primary
-      start: 19
-      end: 34
-    - source: dirname
-      style: secondary
-      start: 21
-      end: 28
-    - source: '"$d"'
-      style: secondary
-      start: 29
-      end: 33
-    - source: dirname "$d"
-      style: secondary
-      start: 21
-      end: 33
-  ? |
-    name=$(basename "$file")
-  : fixed: |
-      name=${file##*/}
-    labels:
-    - source: $(basename "$file")
-      style: primary
-      start: 5
-      end: 24
+      end: 22
     - source: basename
       style: secondary
       start: 7
       end: 15
-    - source: '"$file"'
+    - source: '"a/b"'
       style: secondary
       start: 16
+      end: 21
+    - source: basename "a/b"
+      style: secondary
+      start: 7
+      end: 21
+  name=$(basename /a/b/c):
+    fixed: name=c
+    labels:
+    - source: $(basename /a/b/c)
+      style: primary
+      start: 5
       end: 23
-    - source: basename "$file"
-      style: secondary
-      start: 7
-      end: 23
-  ? |
-    name=$(basename "${paths[$i]}")
-  : fixed: |
-      name=${paths[$i]##*/}
-    labels:
-    - source: $(basename "${paths[$i]}")
-      style: primary
-      start: 5
-      end: 31
     - source: basename
       style: secondary
       start: 7
       end: 15
-    - source: '"${paths[$i]}"'
+    - source: /a/b/c
       style: secondary
       start: 16
-      end: 30
-    - source: basename "${paths[$i]}"
+      end: 22
+    - source: basename /a/b/c
       style: secondary
       start: 7
-      end: 30
-  ? |
-    name=$(basename "${paths[-1]}")
-  : fixed: |
-      name=${paths[-1]##*/}
+      end: 22
+  name=$(basename file.txt):
+    fixed: name=file.txt
     labels:
-    - source: $(basename "${paths[-1]}")
-      style: primary
-      start: 5
-      end: 31
-    - source: basename
-      style: secondary
-      start: 7
-      end: 15
-    - source: '"${paths[-1]}"'
-      style: secondary
-      start: 16
-      end: 30
-    - source: basename "${paths[-1]}"
-      style: secondary
-      start: 7
-      end: 30
-  ? |
-    name=$(basename "${paths[i]}")
-  : fixed: |
-      name=${paths[i]##*/}
-    labels:
-    - source: $(basename "${paths[i]}")
-      style: primary
-      start: 5
-      end: 30
-    - source: basename
-      style: secondary
-      start: 7
-      end: 15
-    - source: '"${paths[i]}"'
-      style: secondary
-      start: 16
-      end: 29
-    - source: basename "${paths[i]}"
-      style: secondary
-      start: 7
-      end: 29
-  ? |
-    root=$(dirname "${file}")
-  : fixed: |
-      root=${file%/*}
-    labels:
-    - source: $(dirname "${file}")
+    - source: $(basename file.txt)
       style: primary
       start: 5
       end: 25
-    - source: dirname
+    - source: basename
       style: secondary
       start: 7
+      end: 15
+    - source: file.txt
+      style: secondary
+      start: 16
+      end: 24
+    - source: basename file.txt
+      style: secondary
+      start: 7
+      end: 24
+  name=`basename a/b`:
+    fixed: name=b
+    labels:
+    - source: '`basename a/b`'
+      style: primary
+      start: 5
+      end: 19
+    - source: basename
+      style: secondary
+      start: 6
       end: 14
-    - source: '"${file}"'
+    - source: a/b
       style: secondary
       start: 15
-      end: 24
-    - source: dirname "${file}"
+      end: 18
+    - source: basename a/b
       style: secondary
-      start: 7
-      end: 24
-  ? |
-    root=$(dirname $file)
-  : fixed: |
-      root=${file%/*}
+      start: 6
+      end: 18
+  root=$(dirname 'a/b'):
+    fixed: root=a
     labels:
-    - source: $(dirname $file)
+    - source: $(dirname 'a/b')
       style: primary
       start: 5
       end: 21
@@ -223,53 +87,87 @@ snapshots:
       style: secondary
       start: 7
       end: 14
-    - source: $file
+    - source: '''a/b'''
       style: secondary
       start: 15
       end: 20
-    - source: dirname $file
+    - source: dirname 'a/b'
       style: secondary
       start: 7
       end: 20
-  ? |
-    root=$(dirname ${file})
-  : fixed: |
-      root=${file%/*}
+  root=$(dirname ./file):
+    fixed: root=.
     labels:
-    - source: $(dirname ${file})
+    - source: $(dirname ./file)
       style: primary
       start: 5
+      end: 22
+    - source: dirname
+      style: secondary
+      start: 7
+      end: 14
+    - source: ./file
+      style: secondary
+      start: 15
+      end: 21
+    - source: dirname ./file
+      style: secondary
+      start: 7
+      end: 21
+  root=$(dirname /a/b/c):
+    fixed: root=/a/b
+    labels:
+    - source: $(dirname /a/b/c)
+      style: primary
+      start: 5
+      end: 22
+    - source: dirname
+      style: secondary
+      start: 7
+      end: 14
+    - source: /a/b/c
+      style: secondary
+      start: 15
+      end: 21
+    - source: dirname /a/b/c
+      style: secondary
+      start: 7
+      end: 21
+  root=$(dirname /file):
+    fixed: root=/
+    labels:
+    - source: $(dirname /file)
+      style: primary
+      start: 5
+      end: 21
+    - source: dirname
+      style: secondary
+      start: 7
+      end: 14
+    - source: /file
+      style: secondary
+      start: 15
+      end: 20
+    - source: dirname /file
+      style: secondary
+      start: 7
+      end: 20
+  root=$(dirname file.txt):
+    fixed: root=.
+    labels:
+    - source: $(dirname file.txt)
+      style: primary
+      start: 5
+      end: 24
+    - source: dirname
+      style: secondary
+      start: 7
+      end: 14
+    - source: file.txt
+      style: secondary
+      start: 15
       end: 23
-    - source: dirname
+    - source: dirname file.txt
       style: secondary
       start: 7
-      end: 14
-    - source: ${file}
-      style: secondary
-      start: 15
-      end: 22
-    - source: dirname ${file}
-      style: secondary
-      start: 7
-      end: 22
-  ? |
-    root=`dirname "$file"`
-  : fixed: |
-      root=${file%/*}
-    labels:
-    - source: '`dirname "$file"`'
-      style: primary
-      start: 5
-      end: 22
-    - source: dirname
-      style: secondary
-      start: 6
-      end: 13
-    - source: '"$file"'
-      style: secondary
-      start: 14
-      end: 21
-    - source: dirname "$file"
-      style: secondary
-      start: 6
-      end: 21
+      end: 23

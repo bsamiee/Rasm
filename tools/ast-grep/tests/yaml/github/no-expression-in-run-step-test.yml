@@ -1,105 +1,232 @@
 id: no-expression-in-run-step
 valid:
+    # A run entry under another collection is not a workflow step
+    - |
+      jobs:
+        build:
+          tasks:
+            - run: echo ${{ inputs.command }}
     # The correction, the expression under env and the variable read in the run text
     - |
-      steps:
-        - env:
-            PROJECTS: ${{ inputs.projects }}
-          run: pnpm exec nx release ${PROJECTS:+--projects=$PROJECTS}
+      jobs:
+        build:
+          steps:
+            - env:
+                PROJECTS: ${{ inputs.projects }}
+              run: pnpm exec nx release ${PROJECTS:+--projects="$PROJECTS"}
     # Shell expansions with no expression delimiter
     - |
-      steps:
-        - run: echo "$VAR" "${VAR}" $((1 + 2))
+      jobs:
+        build:
+          steps:
+            - run: echo "$VAR" "${VAR}" $((1 + 2))
     # Expression under with, the action takes it as an argument
     - |
-      steps:
-        - uses: fakeaction/checktitle@v3
-          with:
-            title: ${{ github.event.pull_request.title }}
+      jobs:
+        build:
+          steps:
+            - uses: fakeaction/checktitle@v3
+              with:
+                title: ${{ github.event.pull_request.title }}
     # Expression under if, name, and working-directory beside a plain run
     - |
-      steps:
-        - if: ${{ always() }}
-          name: ${{ matrix.rid }}
-          working-directory: ${{ runner.temp }}
-          run: pnpm exec nx run-many -t stage
+      jobs:
+        build:
+          steps:
+            - if: ${{ always() }}
+              name: ${{ matrix.rid }}
+              working-directory: ${{ runner.temp }}
+              run: pnpm exec nx run-many -t stage
     # The defaults shell entry, a mapping under run
     - |
-      defaults:
-        run:
-          shell: bash
+      jobs:
+        build:
+          defaults:
+            run:
+              shell: bash
     # Block scalar with no expression
     - |
-      steps:
-        - run: |
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      jobs:
+        build:
+          steps:
+            - run: |
+                git config user.name "github-actions[bot]"
+                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
     # An action input named run under with, the action takes it as an argument
     - |
-      steps:
-        - uses: some/action@v1
-          with:
-            run: ${{ inputs.command }}
+      jobs:
+        build:
+          steps:
+            - uses: some/action@v1
+              with:
+                run: ${{ inputs.command }}
+    # An environment variable named run
+    - |
+      jobs:
+        build:
+          steps:
+            - env: {run: "${{ inputs.command }}"}
+              run: echo "$run"
+    # A quoted input map
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: some/action@v1
+              "with": {run: "${{ inputs.command }}"}
+    # A run key outside steps
+    - |
+      jobs:
+        build:
+          run: "${{ inputs.command }}"
+    - |
+      metadata: {steps: [{run: "echo ${{ inputs.x }}"}]}
+    - |
+      jobs: {build: {steps: [{uses: local/action, with: {data: {steps: [{run: "echo ${{ inputs.x }}"}]}}}]}}
+    - |
+      runs: {using: node24, steps: [{run: "echo ${{ inputs.x }}"}]}
+    - |
+      jobs: {build: {steps: [{run: echo ok, env: {run: "${{ inputs.x }}"}}]}}
+    - |
+      jobs": {build: {steps: [{run: "echo ${{ inputs.x }}"}]}}
+    # A composite-looking body must be owned by the root runs key
+    - |
+      config: {using: composite, steps: [{run: "echo ${{ inputs.x }}"}]}
+    # A nested runs mapping is action data even with the correct using value
+    - |
+      metadata: {runs: {using: composite, steps: [{run: "echo ${{ inputs.x }}"}]}}
+    # A using-like property cannot establish a composite action
+    - |
+      runs: {engine: composite, steps: [{run: "echo ${{ inputs.x }}"}]}
+    # Docker action metadata does not contain composite steps
+    - |
+      runs: {using: docker, steps: [{run: "echo ${{ inputs.x }}"}]}
+    # A mismatched quote is part of a plain key, not a quoted runs key
+    - |
+      runs": {using: composite, steps: [{run: "echo ${{ inputs.x }}"}]}
+    - |
+      runs: {using: composite, steps: [{parallel: [{run: "echo ${{ inputs.x }}"}]}]}
+    - |
+      jobs: {build: {steps: [{uses: local/action, with: {parallel: [{run: "echo ${{ inputs.x }}"}]}}]}}
+    # Composite execution uses steps, not a similarly shaped list under another key
+    - |
+      runs: {using: composite, tasks: [{run: "echo ${{ inputs.x }}"}]}
+    # A nested list in an ordinary workflow step is not a parallel group
+    - |
+      jobs: {build: {steps: [{examples: [{run: "echo ${{ inputs.x }}"}]}]}}
 invalid:
+    # A flow sequence under a flow mapping
+    - |
+      jobs:
+        build:
+          {steps: [{run: "echo ${{ inputs.command }}"}]}
     # A flow mapping step, the value quoted
     - |
-      steps:
-        - {run: "echo ${{ inputs.command }}"}
+      jobs:
+        build:
+          steps:
+            - {run: "echo ${{ inputs.command }}"}
     # A stripped block scalar
     - |
-      steps:
-        - run: |-
-            echo ${{ inputs.command }}
+      jobs:
+        build:
+          steps:
+            - run: |-
+                echo ${{ inputs.command }}
     # A stripped folded scalar
     - |
-      steps:
-        - run: >-
-            echo ${{ inputs.command }}
+      jobs:
+        build:
+          steps:
+            - run: >-
+                echo ${{ inputs.command }}
     # The run key between other step keys
     - |
-      steps:
-        - name: a
-          run: "echo ${{ inputs.command }}"
-          shell: bash
+      jobs:
+        build:
+          steps:
+            - name: a
+              run: "echo ${{ inputs.command }}"
+              shell: bash
     # The instance, an input expression in a plain scalar
     - |
-      steps:
-        - run: uv sync --locked ${{ inputs.python }}
+      jobs:
+        build:
+          steps:
+            - run: uv sync --locked ${{ inputs.python }}
     # A format call in the middle of the text
     - |
-      steps:
-        - run: pnpm exec nx release --skip-publish ${{ inputs.projects != '' && format('--projects={0}', inputs.projects) || '' }}
+      jobs:
+        build:
+          steps:
+            - run: pnpm exec nx release --skip-publish ${{ inputs.projects != '' && format('--projects={0}', inputs.projects) || '' }}
     # Double-quoted scalar
     - |
-      steps:
-        - run: "tar -czf $RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz native/*/stage"
+      jobs:
+        build:
+          steps:
+            - run: "tar -czf $RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz native/*/stage"
     # Single-quoted scalar
     - |
-      steps:
-        - run: 'echo ${{ steps.cache.outputs.vcpkg-key }}'
+      jobs:
+        build:
+          steps:
+            - run: 'echo ${{ steps.cache.outputs.vcpkg-key }}'
     # Block scalar with the expression on a later line
     - |
-      steps:
-        - run: |
-            echo start
-            echo ${{ github.event.pull_request.title }}
+      jobs:
+        build:
+          steps:
+            - run: |
+                echo start
+                echo ${{ github.event.pull_request.title }}
     # Folded scalar
     - |
-      steps:
-        - run: >
-            echo
-            ${{ runner.temp }}
+      jobs:
+        build:
+          steps:
+            - run: >
+                echo
+                ${{ runner.temp }}
     # Expression on a comment line of a block scalar, substituted before the shell reads the comment, a newline in the value leaves it
     - |
-      steps:
-        - run: |
-            # ${{ github.event.issue.title }}
-            echo start
+      jobs:
+        build:
+          steps:
+            - run: |
+                # ${{ github.event.issue.title }}
+                echo start
     # Expression at the start of the text
     - |
-      steps:
-        - run: ${{ inputs.command }} --version
+      jobs:
+        build:
+          steps:
+            - run: ${{ inputs.command }} --version
     # The key quoted
     - |
-      steps:
-        - "run": echo ${{ inputs.command }}
+      jobs:
+        build:
+          steps:
+            - "run": echo ${{ inputs.command }}
+    - |
+      runs: {using: composite, steps: [{shell: bash, run: "echo ${{ inputs.x }}"}]}
+    - |
+      "jobs": {build: {"steps": [{"run": "echo ${{ inputs.x }}"}]}}
+    # Quoted composite structural keys keep the same step ownership
+    - |
+      'runs': {"using": 'composite', 'steps': [{shell: bash, 'run': "echo ${{ inputs.x }}"}]}
+    # Block composite steps retain direct ownership across mapping wrappers
+    - |
+      runs:
+        using: composite
+        steps:
+          - shell: bash
+            run: |
+              echo ${{ inputs.x }}
+    - |
+      jobs: {build: {steps: [{parallel: [{run: "echo ${{ inputs.x }}"}]}]}}
+    - |
+      jobs: {build: {steps: [{parallel: [{parallel: [{run: "echo ${{ inputs.x }}"}]}]}]}}
+    # Host substitution also precedes non-shell interpreters.
+    - |
+      jobs: {build: {steps: [{shell: python, run: "print('${{ inputs.value }}')"}]}}

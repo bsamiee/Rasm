@@ -1,0 +1,261 @@
+id: chain-to-comprehension
+snapshots:
+  ? |
+    from itertools import chain
+    class Rows:
+        def __iter__(self):
+            yield 1
+        def __len__(self):
+            raise RuntimeError("length must not be requested")
+    flat = list(chain(Rows()))
+  : fixed: |
+      from itertools import chain
+      class Rows:
+          def __iter__(self):
+              yield 1
+          def __len__(self):
+              raise RuntimeError("length must not be requested")
+      flat = [item for iterable in (Rows(),) for item in iterable]
+    labels:
+    - source: list(chain(Rows()))
+      style: primary
+      start: 169
+      end: 188
+    - source: Rows()
+      style: secondary
+      start: 180
+      end: 186
+    - source: (Rows())
+      style: secondary
+      start: 179
+      end: 187
+    - source: chain(Rows())
+      style: secondary
+      start: 174
+      end: 187
+    - source: chain(Rows())
+      style: secondary
+      start: 174
+      end: 187
+  ? |
+    from itertools import chain
+    flat = list(chain(*rows))
+  : fixed: |
+      from itertools import chain
+      flat = [item for iterable in (*rows,) for item in iterable]
+    labels:
+    - source: list(chain(*rows))
+      style: primary
+      start: 35
+      end: 53
+    - source: '*rows'
+      style: secondary
+      start: 46
+      end: 51
+    - source: (*rows)
+      style: secondary
+      start: 45
+      end: 52
+    - source: chain(*rows)
+      style: secondary
+      start: 40
+      end: 52
+    - source: chain(*rows)
+      style: secondary
+      start: 40
+      end: 52
+  ? |
+    from itertools import chain
+    flat = list(chain(first, second))
+  : fixed: |
+      from itertools import chain
+      flat = [item for iterable in (first, second,) for item in iterable]
+    labels:
+    - source: list(chain(first, second))
+      style: primary
+      start: 35
+      end: 61
+    - source: first
+      style: secondary
+      start: 46
+      end: 51
+    - source: (first, second)
+      style: secondary
+      start: 45
+      end: 60
+    - source: chain(first, second)
+      style: secondary
+      start: 40
+      end: 60
+    - source: chain(first, second)
+      style: secondary
+      start: 40
+      end: 60
+  ? |
+    from itertools import chain
+    flat = list(chain(first, second,))
+  : fixed: |
+      from itertools import chain
+      flat = [item for iterable in (first, second,) for item in iterable]
+    labels:
+    - source: list(chain(first, second,))
+      style: primary
+      start: 35
+      end: 62
+    - source: first
+      style: secondary
+      start: 46
+      end: 51
+    - source: (first, second,)
+      style: secondary
+      start: 45
+      end: 61
+    - source: chain(first, second,)
+      style: secondary
+      start: 40
+      end: 61
+    - source: chain(first, second,)
+      style: secondary
+      start: 40
+      end: 61
+  ? |
+    from itertools import chain
+    flat = list(chain(read_first(), read_second()))
+  : fixed: |
+      from itertools import chain
+      flat = [item for iterable in (read_first(), read_second(),) for item in iterable]
+    labels:
+    - source: list(chain(read_first(), read_second()))
+      style: primary
+      start: 35
+      end: 75
+    - source: read_first()
+      style: secondary
+      start: 46
+      end: 58
+    - source: (read_first(), read_second())
+      style: secondary
+      start: 45
+      end: 74
+    - source: chain(read_first(), read_second())
+      style: secondary
+      start: 40
+      end: 74
+    - source: chain(read_first(), read_second())
+      style: secondary
+      start: 40
+      end: 74
+  ? |
+    from itertools import chain
+    flat = list(chain(row for row in rows))
+  : fixed: |
+      from itertools import chain
+      flat = [item for iterable in ((row for row in rows),) for item in iterable]
+    labels:
+    - source: list(chain(row for row in rows))
+      style: primary
+      start: 35
+      end: 67
+    - source: chain
+      style: secondary
+      start: 40
+      end: 45
+    - source: (row for row in rows)
+      style: secondary
+      start: 45
+      end: 66
+    - source: chain(row for row in rows)
+      style: secondary
+      start: 40
+      end: 66
+    - source: chain(row for row in rows)
+      style: secondary
+      start: 40
+      end: 66
+  ? |
+    from itertools import chain
+    flat = list(chain.from_iterable(first if selected else second))
+  : fixed: |
+      from itertools import chain
+      flat = [item for iterable in (first if selected else second) for item in iterable]
+    labels:
+    - source: list(chain.from_iterable(first if selected else second))
+      style: primary
+      start: 35
+      end: 91
+  ? |
+    from itertools import chain
+    flat = list(chain.from_iterable(rows))
+  : fixed: |
+      from itertools import chain
+      flat = [item for iterable in (rows) for item in iterable]
+    labels:
+    - source: list(chain.from_iterable(rows))
+      style: primary
+      start: 35
+      end: 66
+  ? |
+    from itertools import chain as link
+    flat = list(link(*rows))
+  : fixed: |
+      from itertools import chain as link
+      flat = [item for iterable in (*rows,) for item in iterable]
+    labels:
+    - source: list(link(*rows))
+      style: primary
+      start: 43
+      end: 60
+    - source: '*rows'
+      style: secondary
+      start: 53
+      end: 58
+    - source: (*rows)
+      style: secondary
+      start: 52
+      end: 59
+    - source: link(*rows)
+      style: secondary
+      start: 48
+      end: 59
+    - source: link(*rows)
+      style: secondary
+      start: 48
+      end: 59
+  ? |
+    from itertools import starmap, chain
+    flat = list(chain(first, *rest))
+  : fixed: |
+      from itertools import starmap, chain
+      flat = [item for iterable in (first, *rest,) for item in iterable]
+    labels:
+    - source: list(chain(first, *rest))
+      style: primary
+      start: 44
+      end: 69
+    - source: first
+      style: secondary
+      start: 55
+      end: 60
+    - source: (first, *rest)
+      style: secondary
+      start: 54
+      end: 68
+    - source: chain(first, *rest)
+      style: secondary
+      start: 49
+      end: 68
+    - source: chain(first, *rest)
+      style: secondary
+      start: 49
+      end: 68
+  ? |
+    import itertools as it
+    flat = list(it.chain.from_iterable(rows))
+  : fixed: |
+      import itertools as it
+      flat = [item for iterable in (rows) for item in iterable]
+    labels:
+    - source: list(it.chain.from_iterable(rows))
+      style: primary
+      start: 30
+      end: 64

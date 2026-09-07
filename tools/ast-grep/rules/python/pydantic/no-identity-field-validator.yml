@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-identity-field-validator
+language: python
+severity: error
+utils:
+    model-base:
+        any:
+            - matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
+            - matches: {python-imported-name: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
+            - matches: {python-module-member: {module: {regex: '^pydantic_settings$'}, name: {regex: '^BaseSettings$'}}}
+            - matches: {python-imported-name: {module: {regex: '^pydantic_settings$'}, name: {regex: '^BaseSettings$'}}}
+    validator-function:
+        any:
+            - matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: '^field_validator$'}}}
+            - matches: {python-imported-name: {module: {regex: '^pydantic$'}, name: {regex: '^field_validator$'}}}
+    validator:
+        kind: decorator
+        has:
+            kind: call
+            all:
+                - has: {field: function, matches: validator-function}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {kind: string}
+                        - not:
+                            has:
+                                pattern: $_
+                                not:
+                                    any:
+                                        - kind: string
+                                          not: {has: {kind: interpolation}}
+                                        - kind: keyword_argument
+                                          all:
+                                            - has: {field: name, regex: '^mode$'}
+                                            - has: {field: value, kind: string, regex: '^["''](before|after)["'']$'}
+                                        - kind: comment
+    classmethod: {kind: decorator, regex: '^@classmethod$'}
+rule:
+    kind: decorated_definition
+    all:
+        - has: {matches: validator}
+        - has: {matches: classmethod}
+        - not: {has: {kind: decorator, not: {any: [{matches: validator}, {matches: classmethod}]}}}
+        - has:
+            kind: function_definition
+            all:
+                - has: {field: name, pattern: $METHOD}
+                - not: {has: {regex: '^async$'}}
+                - has:
+                    field: parameters
+                    all:
+                        - has: {kind: "identifier, typed_parameter", nthChild: 1}
+                        - has: {kind: "identifier, typed_parameter", nthChild: 2, matches: {python-parameter: {name: {pattern: $VALUE}}}}
+                        - not: {has: {nthChild: 3}}
+                - has:
+                    field: body
+                    all:
+                        - has: {kind: return_statement, pattern: 'return $VALUE'}
+                        - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-inert-statement}}}}}
+        - inside:
+            kind: block
+            inside:
+                kind: class_definition
+                has:
+                    field: superclasses
+                    all:
+                        - has: {matches: model-base}
+                        - not: {has: {nthChild: 2}}
+        - inside:
+            kind: block
+            not:
+                has:
+                    nthChild:
+                        position: 2
+                        ofRule:
+                            any:
+                                - kind: function_definition
+                                  has: {field: name, pattern: $METHOD}
+                                - kind: decorated_definition
+                                  has: {kind: function_definition, has: {field: name, pattern: $METHOD}}
+        # Another member keeps the class body once the validator leaves, a sole validator over an inherited field is read by hand
+        - inside: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+fix: ''
+message: '`$METHOD` returns the field value without validating or changing it'
+note: Delete the validator, the field keeps its type and constraints, and a plain or wrap validator or an override of a base validator stays
+labels: {METHOD: {style: primary, message: Identity validator}}

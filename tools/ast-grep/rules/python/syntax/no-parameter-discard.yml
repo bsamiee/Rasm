@@ -2,16 +2,14 @@
 id: no-parameter-discard
 language: python
 severity: error
+# Report-only, the probed fix deleting the discard leaves `ARG001 Unused function argument: extra`, the rename touches the keyword callers
 rule:
     all:
-        - any: # The discard as an assignment to the underscore or a deletion, a name alone since a call or an attribute read is a use
-              - kind: expression_statement
-                has: {kind: assignment, pattern: _ = $P, has: {field: right, kind: identifier}}
-              - kind: delete_statement
-                has: {kind: identifier, pattern: $P} # The one deleted name, a name list sits under an expression_list and deletes locals beside it
+        - kind: expression_statement
+          has: {kind: assignment, pattern: _ = $P, has: {field: right, kind: identifier}}
         - inside:
-              kind: function_definition
-              stopBy: {matches: python-function-boundary} # The def that declares the parameter the statement discards
-              has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $P}}}}}
-message: The body discards parameter `$P` to silence the unused-argument report
-note: Name the parameter with a leading underscore, `_<name>`, ruff reads it as unused by design
+            kind: function_definition
+            stopBy: {matches: python-function-boundary} # The def that declares the parameter the statement discards
+            has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $P}}}}}
+message: The body discards parameter `$P`
+note: Name an unused parameter with a leading underscore and update its keyword callers, or keep the name an external callable contract requires

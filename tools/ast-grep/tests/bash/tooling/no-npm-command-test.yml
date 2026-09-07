@@ -1,0 +1,33 @@
+id: no-npm-command
+valid:
+    - pnpm install
+    - nx run rasm:check
+    - echo npm
+    - printf '%s' npx
+    - '# npm install'
+    - command -v npm
+    - env -u npm node
+    - exec -a npm node
+    - env NAME=npm node
+    - env tool npm
+    - command tool npm
+    - exec tool npm
+    - '"/opt/my tools/npm-helper" install'
+invalid:
+    - npm install
+    - npx nx run rasm:check
+    - cd app && npm ci
+    - if true; then npm test; fi
+    - '"npm" install'
+    - '''npx'' nx --version'
+    - /usr/bin/npm install
+    - npx.cmd nx --version
+    - '"/usr/bin/npm" install'
+    - command npm install
+    - command -p npm install
+    - exec -- npx nx lint
+    - env npm install
+    - env -i NODE_ENV=test npm install
+    - '"/opt/my tools/npm" install'
+    - '''/opt/my tools/npx'' nx lint'
+    - env -- "/opt/my tools/npm" install

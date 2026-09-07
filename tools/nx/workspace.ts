@@ -85,24 +85,22 @@ const _PackageJson = Schema.parseJson(Schema.Struct({ private: Schema.optional(S
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _read =
-    <A>(schema: Schema.Schema<A, string>) =>
-    (file: string): Effect.Effect<A, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
-        Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            const path = yield* Path.Path;
-            const text = yield* Effect.mapError(
-                fs.readFileString(path.join(workspaceRoot, file)),
-                (error) => new WorkspaceError({ message: `Reading ${file} failed, ${error.message}, check that the file exists and is readable` }),
-            );
-            return yield* Effect.mapError(
-                Schema.decode(schema)(text),
-                (error) =>
-                    new WorkspaceError({
-                        message: `Decoding ${file} failed, ${error.message}, repair the file so the named element holds the expected text`,
-                    }),
-            );
-        });
+const _read = <A>(schema: Schema.Schema<A, string>, file: string): Effect.Effect<A, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
+    Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const text = yield* Effect.mapError(
+            fs.readFileString(path.join(workspaceRoot, file)),
+            (error) => new WorkspaceError({ message: `Reading ${file} failed, ${error.message}, check that the file exists and is readable` }),
+        );
+        return yield* Effect.mapError(
+            Schema.decode(schema)(text),
+            (error) =>
+                new WorkspaceError({
+                    message: `Decoding ${file} failed, ${error.message}, repair the file so the named element holds the expected text`,
+                }),
+        );
+    });
 
 // MSBuild keeps the last declaration of a property, the lookup follows that order
 const _property = (project: typeof _ProjectFile.Type, name: keyof typeof _PropertyGroup.Type): Option.Option<string> =>
@@ -112,7 +110,7 @@ const _library = (name: string): string => String.toLowerCase(Array.lastNonEmpty
 
 const _isNative = (file: string): boolean => String.startsWith(_NATIVE_ROOT)(file) && String.endsWith('.csproj')(file);
 
-const _localSource: Effect.Effect<string, WorkspaceError, FileSystem.FileSystem | Path.Path> = _read(_NuGetConfig)('NuGet.config').pipe(
+const _localSource: Effect.Effect<string, WorkspaceError, FileSystem.FileSystem | Path.Path> = _read(_NuGetConfig, 'NuGet.config').pipe(
     Effect.flatMap((config) => Array.findFirst(config.configuration.packageSources.add, (entry) => entry.key === 'local')),
     Effect.map((entry) => entry.value),
     Effect.catchTag(
@@ -126,101 +124,101 @@ const _localSource: Effect.Effect<string, WorkspaceError, FileSystem.FileSystem 
 );
 
 // A managed binding packs beside the native packaging project of the same library, a native project stages for itself
-const _packagingNode = (
+const _packagingNode = Effect.fnUntraced(function* (
     localSource: Effect.Effect<string, WorkspaceError, FileSystem.FileSystem | Path.Path>,
     files: readonly string[],
     file: string,
-): Effect.Effect<CreateNodesResult, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
-    Effect.gen(function* () {
-        const source = yield* localSource;
-        const path = yield* Path.Path;
-        const name = path.basename(file, '.csproj');
-        const root = path.dirname(file);
-        const library = _library(name);
-        const project = yield* _read(_ProjectFile)(file);
-        const manifest = Option.getOrElse(_property(project, 'versionManifestFileName'), () => 'vcpkg.json');
-        const { 'version-string': version } = yield* _read(_VersionManifest)(`${_NATIVE_ROOT}${library}/${manifest}`);
-        const managed = Option.contains(_property(project, 'includeBuildOutput'), 'true');
-        const sibling = Array.findFirst(
-            files,
-            (other) => _isNative(other) && other !== file && _library(path.basename(other, '.csproj')) === library,
-        );
-        const native = yield* Option.liftPredicate(name, () => !managed).pipe(
-            Option.orElse(() => Option.map(sibling, (other) => path.basename(other, '.csproj'))),
-            Effect.mapError(
-                () =>
-                    new WorkspaceError({ message: `${file} has no native packaging project for ${library}, add one beside it for the stage target` }),
-            ),
-        );
-        const stage: TargetConfiguration = {
-            command: `uv run --only-group eng python -m eng.scripts.stage ${library}`,
-            cache: false,
-            parallelism: false,
-            dependsOn: [{ projects: ['eng'], target: 'provision' }],
-            outputs: [`{workspaceRoot}/${_ARTIFACTS_ROOT}/${library}/stage`],
-            metadata: { description: `Stage the ${library} files for a runtime identifier`, technologies: ['python', 'vcpkg'] },
-        };
-        const pack: TargetConfiguration = {
-            command: `dotnet pack ${root} --configuration Release --output ${source}`,
-            cache: true,
-            dependsOn: [{ projects: [native], target: 'stage' }],
-            inputs: [
-                '{projectRoot}/**/*',
-                `{workspaceRoot}/${_NATIVE_ROOT}{Directory.Build.props,Directory.Build.targets,Directory.Packages.props,_._}`,
-                `{workspaceRoot}/${_NATIVE_ROOT}${library}/**/*`,
-                '{workspaceRoot}/global.json',
-                { dependentTasksOutputFiles: '**/*' },
-            ],
-            outputs: [`{workspaceRoot}/${source}/${name}.${version}.nupkg`, `{workspaceRoot}/${_ARTIFACTS_ROOT}/msbuild/{bin,obj}/${name}`],
-            metadata: { description: `Pack ${name} ${version} into ${source}`, technologies: ['dotnet', 'nuget'] },
-        };
-        const configuration: ProjectConfiguration = {
-            name,
-            root,
-            projectType: 'library',
-            tags: [_NATIVE_TAG],
-            implicitDependencies: Option.toArray(Option.liftPredicate(native, () => managed)),
-            targets: { pack, ...Record.getSomes({ stage: Option.liftPredicate(stage, () => !managed) }) },
-            metadata: { technologies: ['dotnet', 'nuget'] },
-        };
-        return { projects: { [root]: configuration } };
-    });
+): Effect.fn.Return<CreateNodesResult, WorkspaceError, FileSystem.FileSystem | Path.Path> {
+    const source = yield* localSource;
+    const path = yield* Path.Path;
+    const name = path.basename(file, '.csproj');
+    const root = path.dirname(file);
+    const library = _library(name);
+    const project = yield* _read(_ProjectFile, file);
+    const manifest = Option.getOrElse(_property(project, 'versionManifestFileName'), () => 'vcpkg.json');
+    const { 'version-string': version } = yield* _read(_VersionManifest, `${_NATIVE_ROOT}${library}/${manifest}`);
+    const managed: boolean = Option.contains(_property(project, 'includeBuildOutput'), 'true');
+    const native = yield* (
+        managed
+            ? Array.findFirst(files, (other) => _isNative(other) && other !== file && _library(path.basename(other, '.csproj')) === library)
+            : Option.some(file)
+    ).pipe(
+        Effect.map((other) => path.basename(other, '.csproj')),
+        Effect.mapError(
+            () => new WorkspaceError({ message: `${file} has no native packaging project for ${library}, add one beside it for the stage target` }),
+        ),
+    );
+    const stage: TargetConfiguration = {
+        command: `uv run --only-group eng python -m eng.scripts.stage ${library}`,
+        cache: false,
+        parallelism: false,
+        dependsOn: [{ projects: ['eng'], target: 'provision' }],
+        outputs: [`{workspaceRoot}/${_ARTIFACTS_ROOT}/${library}/stage`],
+        metadata: { description: `Stage the ${library} files for a runtime identifier`, technologies: ['python', 'vcpkg'] },
+    };
+    const pack: TargetConfiguration = {
+        command: `dotnet pack ${root} --configuration Release --output ${source}`,
+        cache: true,
+        dependsOn: [{ projects: [native], target: 'stage' }],
+        inputs: [
+            '{projectRoot}/**/*',
+            `{workspaceRoot}/${_NATIVE_ROOT}{Directory.Build.props,Directory.Build.targets,Directory.Packages.props,_._}`,
+            `{workspaceRoot}/${_NATIVE_ROOT}${library}/**/*`,
+            '{workspaceRoot}/global.json',
+            '{workspaceRoot}/NuGet.config',
+            '{workspaceRoot}/Directory.Packages.props',
+            { runtime: 'dotnet --version' },
+            { dependentTasksOutputFiles: '**/*' },
+        ],
+        outputs: [`{workspaceRoot}/${source}/${name}.${version}.nupkg`, `{workspaceRoot}/${_ARTIFACTS_ROOT}/msbuild/{bin,obj}/${name}`],
+        metadata: { description: `Pack ${name} ${version} into ${source}`, technologies: ['dotnet', 'nuget'] },
+    };
+    const configuration: ProjectConfiguration = {
+        name,
+        root,
+        projectType: 'library',
+        tags: [_NATIVE_TAG],
+        implicitDependencies: managed ? [native] : [],
+        targets: managed ? { pack } : { pack, stage },
+        metadata: { technologies: ['dotnet', 'nuget'] },
+    };
+    return { projects: { [root]: configuration } };
+});
 
 // A .NET library names its release group in the project file, every other library joins the group of its language
 const _releaseGroup = (root: string, file: string): Effect.Effect<Option.Option<string>, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
     Match.value(file).pipe(
         Match.when(String.endsWith('.csproj'), () =>
-            Effect.map(_read(_ProjectFile)(file), (project) =>
+            Effect.map(_read(_ProjectFile, file), (project) =>
                 Option.some(`release:${Option.getOrElse(_property(project, 'releaseGroup'), () => 'dotnet')}`),
             ),
         ),
         Match.when(String.endsWith('tsconfig.json'), () =>
-            Effect.map(_read(_PackageJson)(`${root}/package.json`), (manifest) =>
+            Effect.map(_read(_PackageJson, `${root}/package.json`), (manifest) =>
                 Option.liftPredicate('release:typescript', () => manifest.private !== true),
             ),
         ),
         Match.orElse(() => Effect.succeedSome('release:python')),
     );
 
-const _languageNode = (
+const _languageNode = Effect.fnUntraced(function* (
     file: string,
     language: 'dotnet' | 'python' | 'typescript',
-): Effect.Effect<CreateNodesResult, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
-    Effect.gen(function* () {
-        const path = yield* Path.Path;
-        const root = path.dirname(file);
-        const release = yield* Effect.if(String.startsWith(_LIBRARY_ROOT)(root), {
-            onTrue: () => _releaseGroup(root, file),
-            onFalse: () => Effect.succeedNone,
-        });
-        const configuration: ProjectConfiguration = {
-            root,
-            ...Record.getSomes({ name: Option.liftPredicate(path.basename(root), () => language === 'python') }),
-            tags: [`language:${language}`, ...Option.toArray(release)],
-            targets: { lint: {}, format: {}, typecheck: {}, check: {}, ...Record.getSomes({ 'nx-release-publish': Option.as(release, {}) }) },
-        };
-        return { projects: { [root]: configuration } };
+): Effect.fn.Return<CreateNodesResult, WorkspaceError, FileSystem.FileSystem | Path.Path> {
+    const path = yield* Path.Path;
+    const root = path.dirname(file);
+    const release = yield* Effect.if(String.startsWith(_LIBRARY_ROOT)(root), {
+        onTrue: () => _releaseGroup(root, file),
+        onFalse: () => Effect.succeedNone,
     });
+    const configuration: ProjectConfiguration = {
+        root,
+        ...(language === 'python' ? { name: path.basename(root) } : {}),
+        tags: [`language:${language}`, ...Option.toArray(release)],
+        targets: { lint: {}, format: {}, typecheck: {}, check: {}, ...(Option.isSome(release) ? { 'nx-release-publish': {} } : {}) },
+    };
+    return { projects: { [root]: configuration } };
+});
 
 const _node = (
     localSource: Effect.Effect<string, WorkspaceError, FileSystem.FileSystem | Path.Path>,
@@ -235,30 +233,29 @@ const _node = (
     );
 
 // Nx keeps the cached edges of every file outside filesToProcess and validates each edge as the graph builder adds it
-const _packageReferenceEdges = (
+const _packageReferenceEdges = Effect.fnUntraced(function* (
     context: CreateDependenciesContext,
-): Effect.Effect<RawProjectGraphDependency[], WorkspaceError, FileSystem.FileSystem | Path.Path> =>
-    Effect.gen(function* () {
-        const packaging = Record.filter(context.projects, (project) => Array.contains(project.tags ?? [], _NATIVE_TAG));
-        const changed = Array.flatMap(Record.toEntries(context.filesToProcess.projectFileMap), ([source, files]) =>
-            Array.filterMap(files, ({ file }) => Option.liftPredicate({ source, file }, () => String.endsWith('.csproj')(file))),
-        );
-        const edges = yield* Effect.forEach(
-            changed,
-            ({ source, file }) =>
-                _read(_ProjectFile)(file).pipe(
-                    Effect.map((project) => Array.flatMap(project.project.itemGroup, (group) => group.packageReference)),
-                    Effect.map(
-                        Array.filterMap(({ include }) =>
-                            Option.filter(Option.fromNullable(include), (target) => target !== source && Record.has(packaging, target)),
-                        ),
-                    ),
-                    Effect.map(Array.map((target): RawProjectGraphDependency => ({ source, target, type: DependencyType.static, sourceFile: file }))),
-                ),
-            { concurrency: 'unbounded' },
-        );
-        return Array.flatten(edges);
-    });
+): Effect.fn.Return<RawProjectGraphDependency[], Array.NonEmptyArray<WorkspaceError>, FileSystem.FileSystem | Path.Path> {
+    const packaging = Record.filter(context.projects, (project) => Array.contains(project.tags ?? [], _NATIVE_TAG));
+    const changed = Array.flatMap(Record.toEntries(context.filesToProcess.projectFileMap), ([source, files]) =>
+        Array.filterMap(files, ({ file }) => (String.endsWith('.csproj')(file) ? Option.some({ source, file }) : Option.none())),
+    );
+    const edges = yield* Effect.validateAll(
+        changed,
+        Effect.fnUntraced(function* ({ source, file }) {
+            const project = yield* _read(_ProjectFile, file);
+            return Array.filterMap(
+                Array.flatMap(project.project.itemGroup, (group) => group.packageReference),
+                ({ include }): Option.Option<RawProjectGraphDependency> =>
+                    include !== undefined && include !== source && Record.has(packaging, include)
+                        ? Option.some({ source, target: include, type: DependencyType.static, sourceFile: file })
+                        : Option.none(),
+            );
+        }),
+        { concurrency: 'unbounded' },
+    );
+    return Array.flatten(edges);
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

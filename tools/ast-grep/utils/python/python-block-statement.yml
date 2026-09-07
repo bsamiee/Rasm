@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# Statement position that can expand into a compound statement without joining an inline suite.
+id: python-block-statement
+language: python
+rule:
+    kind: expression_statement
+    all:
+        - not: {follows: {regex: '^;$'}}
+        - not: {precedes: {regex: '^;$'}}
+        - any:
+            - inside: {kind: module}
+            - inside:
+                kind: block
+                inside: {regex: '^[^\n]*:[ \t]*(#[^\n]*)?\n'}

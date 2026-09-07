@@ -2,15 +2,14 @@
 id: no-concurrent-module
 language: python
 severity: error
+# Report-only, the probed fix `concurrent.futures` to `anyio.to_thread` fails, `Module anyio.to_thread has no member ThreadPoolExecutor`
 rule:
     pattern: $USE
     any:
         # The pools and the subinterpreters, each with the submodules under it
         - matches: {python-module-use: {module: {regex: '^concurrent\.(futures|interpreters)(\.[\w.]+)?$'}}}
-        # Submodule imported from its package, `from concurrent import futures`, the package holds no other module
+        # The two concurrency submodules imported from their package.
         - kind: dotted_name
-          matches: {python-module-member: {module: {regex: '^concurrent$'}, name: {kind: dotted_name}}}
+          matches: {python-module-member: {module: {regex: '^concurrent$'}, name: {regex: "^(futures|interpreters)$"}}}
 message: '`$USE` runs work on a concurrent pool or subinterpreter outside structured concurrency'
-note: >-
-    Run blocking work through `await anyio.to_thread.run_sync(<fn>, limiter=<limiter>)`, a process through
-    `anyio.to_process.run_sync(<fn>)`, and a subinterpreter through `anyio.to_interpreter.run_sync(<fn>)`
+note: Run blocking work through `anyio.to_thread.run_sync`, a process through `anyio.to_process`, a subinterpreter through `anyio.to_interpreter`

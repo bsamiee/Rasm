@@ -2,35 +2,99 @@ id: no-exec-for-builtin-task
 snapshots:
   ? |
     <Exec Command="cp $(StageRoot)manifest.yml $(OutDir)" />
-  : labels:
+  : fixed: |
+      <Exec Command="cp $(StageRoot)manifest.yml $(OutDir)" />
+    labels:
     - source: <Exec Command="cp $(StageRoot)manifest.yml $(OutDir)" />
       style: primary
       start: 0
       end: 56
   ? |
     <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
-  : labels:
+  : fixed: |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    labels:
     - source: <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
       style: primary
       start: 0
       end: 76
   ? |
+    <Exec Command="echo $(Version) &gt;&gt; $(IntermediateOutputPath)log.txt" />
+  : fixed: |
+      <WriteLinesToFile File="$(IntermediateOutputPath)log.txt" Lines="$(Version)" />
+    labels:
+    - source: <Exec Command="echo $(Version) &gt;&gt; $(IntermediateOutputPath)log.txt" />
+      style: primary
+      start: 0
+      end: 76
+  ? |
     <Exec Command="mkdir $(OutDir)logs" />
-  : labels:
+  : fixed: |
+      <MakeDir Directories="$(OutDir)logs" />
+    labels:
     - source: <Exec Command="mkdir $(OutDir)logs" />
       style: primary
       start: 0
       end: 38
   ? |
+    <Exec Command="mkdir -p $(OutDir)logs" Condition="'$(Configuration)' == 'Release'" />
+  : fixed: |
+      <MakeDir Directories="$(OutDir)logs" Condition="'$(Configuration)' == 'Release'" />
+    labels:
+    - source: <Exec Command="mkdir -p $(OutDir)logs" Condition="'$(Configuration)' == 'Release'" />
+      style: primary
+      start: 0
+      end: 85
+  ? |
+    <Exec Command="mkdir a b" />
+  : fixed: |
+      <Exec Command="mkdir a b" />
+    labels:
+    - source: <Exec Command="mkdir a b" />
+      style: primary
+      start: 0
+      end: 28
+  ? |
+    <Exec Command="mkdir logs" WorkingDirectory="$(OutDir)" />
+  : fixed: |
+      <Exec Command="mkdir logs" WorkingDirectory="$(OutDir)" />
+    labels:
+    - source: <Exec Command="mkdir logs" WorkingDirectory="$(OutDir)" />
+      style: primary
+      start: 0
+      end: 58
+  ? |
+    <Exec Command="rm $(OutDir)stale.txt" />
+  : fixed: |
+      <Delete Files="$(OutDir)stale.txt" />
+    labels:
+    - source: <Exec Command="rm $(OutDir)stale.txt" />
+      style: primary
+      start: 0
+      end: 40
+  ? |
     <Exec Command="rm -rf $(OutDir)stage" />
-  : labels:
+  : fixed: |
+      <RemoveDir Directories="$(OutDir)stage" />
+    labels:
     - source: <Exec Command="rm -rf $(OutDir)stage" />
       style: primary
       start: 0
       end: 40
   ? |
+    <Exec Command="touch $(IntermediateOutputPath)stamp" />
+  : fixed: |
+      <Touch Files="$(IntermediateOutputPath)stamp" AlwaysCreate="true" />
+    labels:
+    - source: <Exec Command="touch $(IntermediateOutputPath)stamp" />
+      style: primary
+      start: 0
+      end: 55
+  ? |
     <Exec Command='mkdir $(OutDir)logs' />
-  : labels:
+  : fixed: |
+      <MakeDir Directories="$(OutDir)logs" />
+    labels:
     - source: <Exec Command='mkdir $(OutDir)logs' />
       style: primary
       start: 0

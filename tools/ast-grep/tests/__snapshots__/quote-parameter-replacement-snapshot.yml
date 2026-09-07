@@ -1,0 +1,72 @@
+id: quote-parameter-replacement
+snapshots:
+  result="${value//pattern/$replacement}":
+    fixed: result="${value//pattern/"$replacement"}"
+    labels:
+    - source: $replacement
+      style: primary
+      start: 25
+      end: 37
+  result=${value/#pattern/$replacement}:
+    fixed: result=${value/#pattern/"$replacement"}
+    labels:
+    - source: $replacement
+      style: primary
+      start: 24
+      end: 36
+  result=${value/%pattern/$replacement}:
+    fixed: result=${value/%pattern/"$replacement"}
+    labels:
+    - source: $replacement
+      style: primary
+      start: 24
+      end: 36
+  result=${value//@JOB@/${root}}:
+    fixed: result=${value//@JOB@/"${root}"}
+    labels:
+    - source: ${root}
+      style: primary
+      start: 22
+      end: 29
+  result=${value//pattern/$replacement}:
+    fixed: result=${value//pattern/"$replacement"}
+    labels:
+    - source: $replacement
+      style: primary
+      start: 24
+      end: 36
+  result=${value//pattern/${replacements[0]}}:
+    fixed: result=${value//pattern/"${replacements[0]}"}
+    labels:
+    - source: ${replacements[0]}
+      style: primary
+      start: 24
+      end: 42
+  result=${value//pattern/&$suffix}:
+    fixed: result=${value//pattern/&"$suffix"}
+    labels:
+    - source: $suffix
+      style: primary
+      start: 25
+      end: 32
+  result=${value//pattern/prefix$replacement}:
+    fixed: result=${value//pattern/prefix"$replacement"}
+    labels:
+    - source: $replacement
+      style: primary
+      start: 30
+      end: 42
+  result=${value/pattern/$replacement}:
+    fixed: result=${value/pattern/"$replacement"}
+    labels:
+    - source: $replacement
+      style: primary
+      start: 23
+      end: 35
+  result=${values[@]/#/$root/}:
+    fixed: result=${values[@]/#/"$root"/}
+    labels:
+    - source: $root
+      style: primary
+      start: 21
+      end: 26

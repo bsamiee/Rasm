@@ -1,0 +1,20 @@
+id: github-composite
+language: yaml
+role: item
+symbolType: module
+rule:
+    kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping) > :is(block_mapping_pair, flow_pair)
+    has: {field: key, pattern: $NAME, regex: '^(runs|"runs"|''runs'')$'}
+    all:
+        - has:
+            field: value
+            has:
+                kind: block_mapping, flow_mapping
+                has:
+                    kind: block_mapping_pair, flow_pair
+                    all:
+                        - has: {field: key, regex: '^(using|"using"|''using'')$'}
+                        - has: {field: value, regex: '^(composite|"composite"|''composite'')$'}
+name: $NAME
+signature: $NAME
+isExported: true

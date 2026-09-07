@@ -1,11 +1,20 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
+import process from 'node:process';
 import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { Array, Boolean, Config, DateTime, Effect, Match, Option, Record, Schema } from 'effect';
 import { visualizer } from 'rollup-plugin-visualizer';
-import { type Plugin, type PluginOption, perEnvironmentPlugin, type UserConfig, type ViteBuilder } from 'vite';
+import {
+    defaultClientConditions,
+    defaultServerConditions,
+    type Plugin,
+    type PluginOption,
+    perEnvironmentPlugin,
+    type UserConfig,
+    type ViteBuilder,
+} from 'vite';
 import { compression } from 'vite-plugin-compression2';
 import csp from 'vite-plugin-csp-guard';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
@@ -110,10 +119,6 @@ const _Server = Schema.Struct({
 
 const _ViteConfig = Schema.Union(_App, _Library, _Server);
 
-type AppConfig = typeof _App.Type;
-type LibraryConfig = typeof _Library.Type;
-type ServerConfig = typeof _Server.Type;
-
 // --- [CONFIGURATION] -------------------------------------------------------------------
 
 // The version falls back to 0.0.0 outside a package script
@@ -141,7 +146,7 @@ const _outputFileNames = (prefix: string, entries: string): { assetFileNames: st
 });
 
 const _resolve = (browser: boolean): NonNullable<UserConfig['resolve']> => ({
-    conditions: Boolean.match(browser, { onFalse: () => ['import', 'module', 'default'], onTrue: () => ['import', 'module', 'browser', 'default'] }),
+    conditions: Boolean.match(browser, { onFalse: () => [...defaultServerConditions], onTrue: () => [...defaultClientConditions] }),
     ...Record.getSomes({
         dedupe: Option.liftPredicate(['react', 'react-dom'], () => browser),
         extensions: Option.liftPredicate(_EXTENSIONS, () => browser),
@@ -155,7 +160,7 @@ const _runtimeCache = (handler: 'CacheFirst' | 'NetworkFirst', cacheName: string
     urlPattern,
 });
 
-const _pwa = (config: AppConfig, pwa: NonNullable<AppConfig['pwa']>): Plugin[] =>
+const _pwa = (config: typeof _App.Type, pwa: NonNullable<typeof _App.Type.pwa>): Plugin[] =>
     Array.map(
         VitePWA({
             devOptions: { enabled: false },
@@ -194,7 +199,7 @@ const _pwa = (config: AppConfig, pwa: NonNullable<AppConfig['pwa']>): Plugin[] =
     );
 
 // Compression and Inspect apply to production builds alone, HMR restarts can produce an EEXIST race under Inspect
-const _appPlugins = (config: AppConfig, production: boolean): PluginOption[] => [
+const _appPlugins = (config: typeof _App.Type, production: boolean): PluginOption[] => [
     ..._reactPlugins(),
     tailwindcss({ optimize: { minify: true } }),
     ...Array.flatMap(Array.fromNullable(config.pwa), (pwa) => _pwa(config, pwa)),
@@ -235,7 +240,7 @@ const _appPlugins = (config: AppConfig, production: boolean): PluginOption[] => 
 ];
 
 // `strictPort` keeps preview on the URL the end-to-end tests expect
-const _appServer = (config: AppConfig): Pick<UserConfig, 'preview' | 'server' | 'ssr' | 'worker'> => ({
+const _appServer = (config: typeof _App.Type): Pick<UserConfig, 'preview' | 'server' | 'ssr' | 'worker'> => ({
     preview: { port: config.port, strictPort: true },
     server: {
         cors: true,
@@ -255,14 +260,11 @@ const _appServer = (config: AppConfig): Pick<UserConfig, 'preview' | 'server' | 
         external: _SSR.external,
         noExternal: _SSR.noExternal,
         optimizeDeps: { include: ['@effect/platform'] },
-        resolve: { conditions: ['node', 'import', 'module', 'default'], externalConditions: ['node'] },
-        target: 'node',
     },
     worker: { format: 'es', plugins: _reactPlugins, rolldownOptions: { output: _outputFileNames('workers/', '') } },
 });
 
-const _app = (config: AppConfig, env: Effect.Effect.Success<typeof _buildEnv>): UserConfig => ({
-    appType: 'spa',
+const _app = (config: typeof _App.Type, env: Effect.Effect.Success<typeof _buildEnv>): UserConfig => ({
     assetsInclude: Array.map(config.assetExtensions, (extension) => `**/*.${extension}`),
     ...Record.getSomes({ root: Option.fromNullable(config.root) }),
     build: {
@@ -287,13 +289,12 @@ const _app = (config: AppConfig, env: Effect.Effect.Success<typeof _buildEnv>): 
         sourcemap: true,
     },
     builder: {
+        ...config.builder,
         buildApp: async ({ build, environments: { client } }: ViteBuilder): Promise<void> => {
             if (client) {
                 await build(client);
             }
         },
-        sharedConfigBuild: config.builder.sharedConfigBuild,
-        sharedPlugins: config.builder.sharedPlugins,
     },
     cacheDir: Option.match(Option.fromNullable(config.root), {
         onNone: () => `${_ROOT}/.cache/vite`,
@@ -314,7 +315,7 @@ const _app = (config: AppConfig, env: Effect.Effect.Success<typeof _buildEnv>): 
     ..._appServer(config),
 });
 
-const _library = (config: LibraryConfig): UserConfig => ({
+const _library = (config: typeof _Library.Type): UserConfig => ({
     build: {
         lib: {
             entry: config.entry,
@@ -337,10 +338,9 @@ const _library = (config: LibraryConfig): UserConfig => ({
         ...Array.map(Array.fromNullable(config.css), () => tailwindcss({ optimize: { minify: true } })),
     ],
     resolve: _resolve(config.react),
-    ssr: { target: 'node' },
 });
 
-const _server = (config: ServerConfig): UserConfig => ({
+const _server = (config: typeof _Server.Type): UserConfig => ({
     build: {
         lib: { entry: config.entry, fileName: 'main', formats: ['es'], name: config.name },
         rolldownOptions: {
@@ -353,12 +353,10 @@ const _server = (config: ServerConfig): UserConfig => ({
             output: { exports: 'named' },
         },
         sourcemap: true,
-        target: 'node24',
+        target: `node${process.versions.node}`,
     },
     future: 'warn',
-    plugins: [],
     resolve: _resolve(false),
-    ssr: { target: 'node' },
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -369,9 +367,10 @@ const createViteConfig = (input: unknown): Effect.Effect<UserConfig> =>
     );
 
 // The root configuration omits the build block, app and library configs alone emit output
-const rootConfig: Promise<UserConfig> = Effect.runPromise(
-    Effect.map(createViteConfig({ entry: './vite.config.ts', kind: 'library', name: 'workspace' }), ({ build: _, ...options }) => options),
-);
+const rootConfig = (): Promise<UserConfig> =>
+    Effect.runPromise(
+        Effect.map(createViteConfig({ entry: './vite.config.ts', kind: 'library', name: 'workspace' }), ({ build: _, ...options }) => options),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

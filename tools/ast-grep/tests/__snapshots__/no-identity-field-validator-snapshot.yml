@@ -1,0 +1,128 @@
+id: no-identity-field-validator
+snapshots:
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value):
+            # Preserve the value
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 142
+      end: 151
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value):
+            return value
+            # No transformation
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 142
+      end: 151
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value: int) -> int:
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 142
+      end: 151
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(klass, value):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 142
+      end: 151
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value",  # Target field
+            mode="after")
+        @classmethod
+        def unchanged(cls, value):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 180
+      end: 189
+  ? |
+    from pydantic import field_validator
+    from pydantic_settings import BaseSettings
+    class Settings(BaseSettings):
+        value: int
+        @field_validator("value", mode="after")
+        @classmethod
+        def unchanged(cls, value):
+            """Return the value."""
+            return value
+  : fixed: "from pydantic import field_validator\nfrom pydantic_settings import BaseSettings\nclass Settings(BaseSettings):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 194
+      end: 203
+  ? |
+    from pydantic import field_validator
+    import pydantic_settings
+    class Model(pydantic_settings.BaseSettings):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value):
+            return value
+  : fixed: "from pydantic import field_validator\nimport pydantic_settings\nclass Model(pydantic_settings.BaseSettings):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 177
+      end: 186
+  ? |
+    import pydantic as pd
+    class Model(pd.BaseModel):
+        value: int
+        @pd.field_validator("value", mode="before")
+        @classmethod
+        def unchanged(cls, value):
+            return value
+  : fixed: "import pydantic as pd\nclass Model(pd.BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 137
+      end: 146

@@ -158,18 +158,12 @@ const _verdict =
     (head: Head): Option<string> => {
         const row = _rows[head.key];
         const safe = fromNullable(head.args[0]).match<boolean>({ some: (first) => row.safe.includes(first), none: () => false });
-        return flatMap(() =>
-            _hit(row, head.args).match<Option<string>>({
-                some: (hit) =>
-                    some(
-                        fromBoolean(head.key === INTERPRETER).match<string>({
-                            some: () => row.why,
-                            none: () => ['git', head.key, hit, row.why].filter((word) => word !== '').join(' '),
-                        }),
-                    ),
-                none: () => row.refine(head.args, existing),
-            }),
-        )(fromBoolean(!safe));
+        const named = (hit: string): string => ['git', head.key, hit, row.why].filter((word) => word !== '').join(' ');
+        const why = map((hit: string) => fromBoolean(head.key === INTERPRETER).match<string>({ some: () => row.why, none: () => named(hit) }))(
+            _hit(row, head.args),
+        );
+        const refined = why.match<Option<string>>({ some, none: () => row.refine(head.args, existing) });
+        return flatMap(() => refined)(fromBoolean(!safe));
     };
 
 // The reason a git argv is destructive under the table, none when it can run
@@ -209,16 +203,10 @@ const _refusal =
 
 // The paths the reset and checkout refinements can test, for the hook body's $.fs.exists calls
 const gitPaths = (command: string): readonly string[] =>
-    _heads(command).flatMap((argv) =>
-        _lookup(argv.slice(_skip(argv, 1))).match<readonly string[]>({
-            some: (head) =>
-                fromBoolean(_REFINED.includes(head.key)).match<readonly string[]>({
-                    some: () => head.args.filter((word) => !_isFlag(word)),
-                    none: () => [],
-                }),
-            none: () => [],
-        }),
-    );
+    _heads(command).flatMap((argv) => {
+        const head = flatMap(liftPredicate<Head>((candidate) => _REFINED.includes(candidate.key)))(_lookup(argv.slice(_skip(argv, 1))));
+        return toArray(head).flatMap((refined) => refined.args.filter((word) => !_isFlag(word)));
+    });
 
 const gitGuard =
     (existing: ReadonlySet<string>): (<E extends { readonly command: string }>(e: E) => Decision<E, unknown, string>) =>

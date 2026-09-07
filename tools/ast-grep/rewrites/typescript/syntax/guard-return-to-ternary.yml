@@ -8,33 +8,32 @@ utils:
         any: [{kind: sequence_expression}, {kind: assignment_expression}, {kind: augmented_assignment_expression}]
 rule:
     kind: if_statement
-    matches: syntax-guard-return
-    # The one branch no-return-by-branch accepts in the plugin keeps its statement form, the walk stops at the nearest binding
     not:
-        inside:
-            stopBy: {any: [{kind: variable_declarator}, {kind: function_declaration}]}
-            matches: claude-code-from-predicate-binding
+        any:
+            - has: {kind: comment}
+            - has: {field: alternative, kind: else_clause}
     all:
-        # Ternaries as the condition parse as the alternate of the outer ternary
+        # Keep conditions whose unwrapped ternary or yield changes the expression grouping
         - has:
-              field: condition
-              kind: parenthesized_expression
-              has: {pattern: $C, not: {any: [{matches: low-precedence}, {kind: ternary_expression}]}}
+            field: condition
+            kind: parenthesized_expression
+            not: {has: {kind: comment}}
+            has: {pattern: $C, not: {any: [{matches: low-precedence}, {kind: ternary_expression}, {kind: yield_expression}]}}
         # The guard's value, bare or as the block's one return, an object literal parses as a ternary arm without parentheses
         - has:
-              field: consequence
-              any:
-                  - kind: return_statement
-                    has: {pattern: $A, not: {matches: low-precedence}}
-                  - kind: statement_block
-                    not: {has: {kind: comment}} # The join drops a comment in the block
-                    has: {kind: return_statement, has: {pattern: $A, not: {matches: low-precedence}}}
+            field: consequence
+            any:
+                - kind: return_statement
+                  not: {has: {kind: comment}}
+                  has: {pattern: $A, not: {matches: low-precedence}}
+                - kind: statement_block
+                  not: {has: {nthChild: 2}} # The required return is the only named child
+                  has: {kind: return_statement, not: {has: {kind: comment}}, has: {pattern: $A, not: {matches: low-precedence}}}
         # The neighbor default refuses a comment between the guard and the return, the join drops it
-        - precedes: {kind: return_statement, has: {pattern: $B, not: {matches: low-precedence}}}
+        - precedes: {kind: return_statement, not: {has: {kind: comment}}, has: {pattern: $B, not: {matches: low-precedence}}}
 fix:
     template: 'return $C ? $A : $B;'
     expandEnd: {kind: return_statement}
 message: The guard and the return after it choose one value through two statements
 note: >-
-    Return the choice as one expression, `return condition ? value : other`, then lift it through the ternary rewrites,
-    a chain of guards rewrites one guard per run and its nested ternary ends as `Match.value`
+    Return the choice as one expression, `return condition ? value : other`. Keep direct guards when they state the control flow clearly; this rewrite is an optional expression conversion

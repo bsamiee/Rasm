@@ -1,6 +1,9 @@
 id: no-native-date
 valid:
-    # The DateTime built from an input
+    # Local and imported bindings do not identify a native global.
+    - 'function create(Date: { new (value: string): unknown }) { return new Date("x"); }'
+    - 'import Date from "./calendar"; Date.parse(text);'
+    # A known valid literal can use the unsafe constructor
     - "const cutoff = DateTime.unsafeMake('2026-01-01');"
     # The DateTime built as an Option
     - "const cutoff = DateTime.make('2026-01-01');"

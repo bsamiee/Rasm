@@ -1,0 +1,58 @@
+id: no-parallel-rule-gates
+snapshots:
+  ? '{"nx":{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}}'
+  : fixed: '{"nx":{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel": false}}}}}'
+    labels:
+    - source: '"parallel":true'
+      style: primary
+      start: 194
+      end: 209
+  ? '{"targetDefaults":{"rules":[{"filter":{"projects":["rasm"]},"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}]}}'
+  : fixed: '{"targetDefaults":{"rules":[{"filter":{"projects":["rasm"]},"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel": false}}]}}'
+    labels:
+    - source: '"parallel":true'
+      style: primary
+      start: 227
+      end: 242
+  ? '{"targetDefaults":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}'
+  : fixed: '{"targetDefaults":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel": false}}}}'
+    labels:
+    - source: '"parallel":true'
+      style: primary
+      start: 195
+      end: 210
+  ? '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py",".claude/skills/ast-grep/scripts/rule-checks.sh gate sh"],"parallel":true}}}}'
+  : fixed: '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py",".claude/skills/ast-grep/scripts/rule-checks.sh gate sh"],"parallel": false}}}}'
+    labels:
+    - source: '"parallel":true'
+      style: primary
+      start: 245
+      end: 260
+  ? '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true,"readyWhen":"done"}}}}'
+  : fixed: '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel": false,"readyWhen":"done"}}}}'
+    labels:
+    - source: '"parallel":true'
+      style: primary
+      start: 188
+      end: 203
+  ? '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":["build",{"command":"bash ./.claude/skills/ast-grep/scripts/rule-checks.sh gate ts"},"node --test tests/typescript/ast-grep/*.test.ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj"],"parallel":true}}}}'
+  : fixed: '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":["build",{"command":"bash ./.claude/skills/ast-grep/scripts/rule-checks.sh gate ts"},"node --test tests/typescript/ast-grep/*.test.ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj"],"parallel": false}}}}'
+    labels:
+    - source: '"parallel":true'
+      style: primary
+      start: 269
+      end: 284
+  ? '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":["build"],"parallel":false},"configurations":{"all":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel":true}}}}}'
+  : fixed: '{"targets":{"rules":{"executor":"nx:run-commands","options":{"commands":["build"],"parallel":false},"configurations":{"all":{"commands":[".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",".claude/skills/ast-grep/scripts/rule-checks.sh gate py"],"parallel": false}}}}}'
+    labels:
+    - source: '"parallel":true'
+      style: primary
+      start: 252
+      end: 267
+  ? '{"targets":{"rules":{"executor":"nx:run-commands","options":{"parallel":true,"commands":[{"command":".claude/skills/ast-grep/scripts/rule-checks.sh gate ts","forwardAllArgs":false},{"command":".claude/skills/ast-grep/scripts/rule-checks.sh gate py","forwardAllArgs":false}]}}}}'
+  : fixed: '{"targets":{"rules":{"executor":"nx:run-commands","options":{"parallel": false,"commands":[{"command":".claude/skills/ast-grep/scripts/rule-checks.sh gate ts","forwardAllArgs":false},{"command":".claude/skills/ast-grep/scripts/rule-checks.sh gate py","forwardAllArgs":false}]}}}}'
+    labels:
+    - source: '"parallel":true'
+      style: primary
+      start: 61
+      end: 76

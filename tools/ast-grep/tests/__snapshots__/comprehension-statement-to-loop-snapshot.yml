@@ -1,0 +1,62 @@
+id: comprehension-statement-to-loop
+snapshots:
+  ? |
+    [record(item) for item in items]
+  : fixed: |
+      for item in items:
+          record(item)
+    labels:
+    - source: '[record(item) for item in items]'
+      style: primary
+      start: 0
+      end: 32
+    - source: '[record(item) for item in items]'
+      style: secondary
+      start: 0
+      end: 32
+  ? |
+    [record(key, value) for key, value in pairs.items()]
+  : fixed: |
+      for key, value in pairs.items():
+          record(key, value)
+    labels:
+    - source: '[record(key, value) for key, value in pairs.items()]'
+      style: primary
+      start: 0
+      end: 52
+    - source: '[record(key, value) for key, value in pairs.items()]'
+      style: secondary
+      start: 0
+      end: 52
+  ? |
+    def run(items):
+        [record(item) for item in items]
+        return len(items)
+  : fixed: |
+      def run(items):
+          for item in items:
+              record(item)
+          return len(items)
+    labels:
+    - source: '[record(item) for item in items]'
+      style: primary
+      start: 20
+      end: 52
+    - source: '[record(item) for item in items]'
+      style: secondary
+      start: 20
+      end: 52
+  ? |
+    {record(item) for item in items}
+  : fixed: |
+      for item in items:
+          record(item)
+    labels:
+    - source: '{record(item) for item in items}'
+      style: primary
+      start: 0
+      end: 32
+    - source: '{record(item) for item in items}'
+      style: secondary
+      start: 0
+      end: 32

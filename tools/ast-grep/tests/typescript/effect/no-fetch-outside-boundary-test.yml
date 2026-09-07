@@ -1,25 +1,43 @@
 id: no-fetch-outside-boundary
 valid:
-    # The client from the context
-    - 'const response = Effect.flatMap(HttpClient.HttpClient, (client) => client.get(url));'
-    # Platform fetch inside the boundary
-    - 'const response = Effect.tryPromise({ try: () => fetch(url), catch: (cause) => new LoadError({ cause }) });'
-    # Platform fetch under the global object inside the boundary
-    - 'const response = Effect.promise(() => globalThis.fetch(url));'
-    # Method named fetch on a value, no global
-    - 'const rows = client.fetch(url);'
-    # The global named without a call
-    - 'const run = fetch;'
+    - import { Effect } from "effect"; const response = Effect.flatMap(HttpClient.HttpClient, (client) => client.get(url));
+    - 'import { Effect } from "effect"; const response = Effect.tryPromise({ try: () => fetch(url), catch: (cause) => new LoadError({ cause }) });'
+    - import { Effect } from "effect"; const response = Effect.promise(() => globalThis.fetch(url));
+    - const rows = client.fetch(url);
+    - const run = fetch;
+    - function load(fetch) { return fetch(url); }
+    - const fetch = client.load; fetch(url);
+    - import { fetch } from "client"; fetch(url);
+    - function load(window) { return window.fetch(url); }
+    - import { Effect as E } from "effect"; E.promise(() => fetch(url));
+    - 'import * as E from "effect/Effect"; E.tryPromise({ try: () => fetch(url), catch: mapError });'
+    - 'import { Effect } from "effect"; Effect.tryPromise({ async try() { return fetch(url); }, catch: mapError });'
+    - import { Effect } from "effect"; Effect.promise(() => (() => fetch(url))());
+    - import { Effect } from "effect"; Effect.promise((() => fetch(url)));
+    - import { Effect } from "effect"; Effect.promise(() => { return () => fetch(url); });
+    - import { Effect } from "effect"; Effect.promise(async () => Promise.all(urls.map(url => fetch(url))));
+    - const id = Number(raw);
+    - window.alert(message);
+    - var fetch = client.load; fetch(url);
+    - import fetch from "client"; fetch(url);
+    - import * as window from "client"; window.fetch(url);
 invalid:
-    # The instance, the global called in domain code
-    - 'const response = fetch(url);'
-    # The global through globalThis
-    - 'const response = globalThis.fetch(url);'
-    # The global through window
-    - 'const response = window.fetch(url);'
-    # The global through self
-    - 'const response = self.fetch(url);'
-    # Fetch inside a callback the boundary does not hold
-    - 'const response = Effect.sync(() => fetch(url));'
-    # Fetch with an init object
-    - "const response = fetch(url, { method: 'POST' });"
+    - const response = fetch(url);
+    - const response = globalThis.fetch(url);
+    - const response = window.fetch(url);
+    - const response = self.fetch(url);
+    - import { Effect } from "effect"; const response = Effect.sync(() => fetch(url));
+    - 'const response = fetch(url, { method: ''POST'' });'
+    - 'import { Effect } from "effect"; Effect.tryPromise({ try: () => load(), catch: () => fetch(url) });'
+    - const Effect = adapter; Effect.promise(() => fetch(url));
+    - import { fetch as clientFetch } from "client"; fetch(url);
+    - 'import { Effect } from "effect"; Effect.tryPromise({ try: load, async catch(cause) { return fetch(url); } });'
+    - import { Stream } from "effect"; Stream.fromIterable((async function* () { yield fetch(url); })());
+    # Missing member or unsupported overload belongs to the compiler; it establishes no conversion boundary.
+    - 'import { Micro } from "effect"; Micro.tryMapPromise(work, { try: () => fetch(url), catch: mapError });'
+    # Missing member or unsupported overload belongs to the compiler; it establishes no conversion boundary.
+    - import { Either } from "effect"; Either.tryPromise(() => fetch(url));
+    - 'import { Effect } from "effect"; Effect.tryMapPromise(() => fetch(url), { try: load, catch: mapError });'
+    - 'import { Effect } from "effect"; Effect.tryMap(work, { try: () => fetch(url), catch: mapError });'
+    # Missing member or unsupported overload belongs to the compiler; it establishes no conversion boundary.
+    - import { Effect } from "effect"; Effect.fromAsyncIterable((async function* () { yield fetch(url); })(), mapError);

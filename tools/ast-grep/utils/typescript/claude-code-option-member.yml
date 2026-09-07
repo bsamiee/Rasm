@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Read of one option off the narrowed options object, a member or an index of the object claude-code-options-object names
-id: claude-code-option-member
-language: tsx
-rule:
-    any: [{kind: member_expression}, {kind: subscript_expression}]
-    has: {field: object, matches: claude-code-options-object}

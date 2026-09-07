@@ -15,18 +15,39 @@ valid:
     # Comparison inside a message, text
     - |
       <Message Text="expected == $(Expected)" />
-    # Function call glued to the operand before the operator, the sibling no-unquoted-condition-operand-by-hand reports it
+    # General condition syntax is outside the complete simple-comparison fix
     - |
       <IsMac Condition="$([MSBuild]::IsOSPlatform('OSX')) == true">true</IsMac>
-    # Function call glued to the operand after the operator, the sibling reports it
+    # General condition syntax is outside the complete simple-comparison fix
     - |
       <IsMac Condition="'$(HostIsMac)' == $([MSBuild]::IsOSPlatform('OSX'))">true</IsMac>
-    # Group opening glued to the operand before the operator, the sibling reports it
+    # General condition syntax is outside the complete simple-comparison fix
     - |
       <Trim Condition="($(OutputType) == 'Exe') and '$(SelfContained)' == 'true'">true</Trim>
-    # Group close glued to the operand after the operator, the sibling reports it
+    # General condition syntax is outside the complete simple-comparison fix
     - |
       <Trim Condition="'$(OutputType)' == 'Exe' and (Exists('bin') or '$(Configuration)' == Release)">true</Trim>
+    # General condition syntax is outside the complete simple-comparison fix
+    - |
+      <Trim Condition="'$(OutputType)' == 'Exe' and $(SelfContained) != true">true</Trim>
+    # General condition syntax is outside the complete simple-comparison fix
+    - |
+      <Optimize Condition="`$(Configuration)` == `Release`">true</Optimize>
+    # General condition syntax is outside the complete simple-comparison fix
+    - |
+      <Optimize Condition="&quot;$(Configuration)&quot; == Release">true</Optimize>
+    # General condition syntax is outside the complete simple-comparison fix
+    - |
+      <Optimize Condition='$(Configuration) == "Release"'>true</Optimize>
+    # General condition syntax is outside the complete simple-comparison fix
+    - |
+      <Trim Condition="$(OutputType) == Exe
+        and $(SelfContained) != true">true</Trim>
+    # Operators inside quoted strings are data
+    - |
+      <P Condition="'a==b' == 'a==b'">true</P>
+    - |
+      <P Condition="'a!=b' != 'c'">true</P>
 invalid:
     # Both operands unquoted, the literal splits at the dot with MSB4092
     - |
@@ -40,22 +61,9 @@ invalid:
     # Unquoted operands without whitespace around the operator
     - |
       <Optimize Condition="$(Configuration)==Release">true</Optimize>
-    # Unquoted operand inside a chain, the quoted comparisons stay
-    - |
-      <Trim Condition="'$(OutputType)' == 'Exe' and $(SelfContained) != true">true</Trim>
-    # Backtick quotes, the fix rewrites them as single quotes
-    - |
-      <Optimize Condition="`$(Configuration)` == `Release`">true</Optimize>
-    # Entity quotes, the fix rewrites them as single quotes
-    - |
-      <Optimize Condition="&quot;$(Configuration)&quot; == Release">true</Optimize>
-    # Single-quoted attribute, the fix writes the attribute in double quotes and the operands in single quotes
-    - |
-      <Optimize Condition='$(Configuration) == "Release"'>true</Optimize>
     # Quoted operand holding whitespace beside an unquoted one, the quoted operand stays
     - |
       <Optimize Condition="'$(Configuration) $(Platform)' == Release">true</Optimize>
-    # Condition spanning lines, the delimiters return as double quotes across the break
+    # The fix quotes only the bare operand and preserves the quoted operator
     - |
-      <Trim Condition="$(OutputType) == Exe
-        and $(SelfContained) != true">true</Trim>
+      <P Condition="'a==b' == value">true</P>

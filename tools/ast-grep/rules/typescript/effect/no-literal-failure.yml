@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, the tagged error needs a class the file lacks, the probe fails with TS2304 Cannot find name 'LoadError'
 id: no-literal-failure
 language: tsx
 severity: error
@@ -8,13 +9,16 @@ utils:
     # Failure value no tag names, a literal in any spelling, a cast over one, or an untagged Error
     untagged-error:
         any:
-            - matches: syntax-literal-value
+            - kind: string, number, true, false, null, undefined, regex
+            - kind: unary_expression
+              regex: '^[+-]'
+              has: {field: argument, kind: number}
             - kind: template_string
             - kind: as_expression
               has: {matches: untagged-error}
             - kind: new_expression
-              has: {field: constructor, regex: '^(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
-    # The lazy spelling, a thunk or a mapper answering the literal as an expression body or a block with the one return
+              has: {field: constructor, matches: syntax-global-reference, regex: '^(globalThis\.)?(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
+    # A returned error belongs to this callback; nested callbacks do not supply its result.
     untagged-thunk:
         any: [{kind: arrow_function}, {kind: function_expression}]
         has:
@@ -23,33 +27,46 @@ utils:
                 - matches: untagged-error
                   pattern: $ERROR
                 - kind: statement_block
-                  has: {kind: return_statement, has: {matches: untagged-error, pattern: $ERROR}}
-                  not: {has: {nthChild: 2}}
+                  has:
+                    kind: return_statement
+                    has: {matches: untagged-error, pattern: $ERROR}
+                    stopBy: {kind: 'arrow_function, function_expression, generator_function, function_declaration, generator_function_declaration, method_definition'}
 rule:
     kind: call_expression
     any:
-        # Constructors of the failed case on every carrier, Either.left builds the left value the same way, Deferred and Request complete
-        # a value data-first and the literal sits second, Config.fail takes a message by contract
+        # Strict constructors receive the error value; Config.fail receives a message instead.
         - all:
-              - has:
-                    field: function
-                    pattern: $FAIL
-                    regex: "^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take)\\.(fail|failSync)$|\
-                        ^Either\\.left$"
-              - has:
-                    field: arguments
-                    any:
-                        - has: {matches: untagged-error, pattern: $ERROR}
-                        - has: {matches: untagged-thunk}
-        # Members that replace the failure through their one function argument, a thunk on orElseFail and fromOption, a mapper on mapError
-        # and mapLeft
+            - has:
+                field: function
+                kind: member_expression
+                pattern: $FAIL
+                any:
+                    - all:
+                        - has: {field: property, regex: '^fail$'}
+                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take)$'}}}}
+                    - all:
+                        - has: {field: property, regex: '^left$'}
+                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Either$'}}}}
+            - has: {field: arguments, has: {matches: untagged-error, pattern: $ERROR}}
+        # Lazy constructors and error mappers receive a callback that returns the error.
         - all:
-              - has:
-                    field: function
-                    pattern: $FAIL
-                    regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit)\.(orElseFail|mapError)$|^Either\.(mapLeft|fromOption)$'
-              - has: {field: arguments, has: {matches: untagged-thunk}}
+            - has:
+                field: function
+                kind: member_expression
+                pattern: $FAIL
+                any:
+                    - all:
+                        - has: {field: property, regex: '^failSync$'}
+                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Deferred)$'}}}}
+                    - all:
+                        - has: {field: property, regex: '^orElseFail$'}
+                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}
+                    - all:
+                        - has: {field: property, regex: '^mapError$'}
+                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit)$'}}}}
+                    - all:
+                        - has: {field: property, regex: '^(mapLeft|fromOption)$'}
+                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Either$'}}}}
+            - has: {field: arguments, has: {matches: untagged-thunk}}
 message: '`$FAIL` fails with `$ERROR`, a value no tag names'
-note: >-
-    Fail with a tagged error, `Effect.fail(new LoadError({ path }))` over
-    `class LoadError extends Data.TaggedError("LoadError")<{ path: string }> {}`, and recover it by its tag with `Effect.catchTag`
+note: Fail with a tagged error, `Effect.fail(new LoadError({ path }))` over a `Data.TaggedError` class, and recover it by tag with `Effect.catchTag`

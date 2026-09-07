@@ -7,16 +7,12 @@ snapshots:
   : fixed: |
       from typing import Any, Union
 
-      value = cast(int | str, raw)
+      value = cast((int | str), raw)
     labels:
     - source: Union[int, str]
       style: primary
       start: 44
       end: 59
-    - source: Union
-      style: secondary
-      start: 44
-      end: 49
   ? |
     from typing import Optional
 
@@ -25,17 +21,67 @@ snapshots:
   : fixed: |
       from typing import Optional
 
-      def read(path: Path | None = None) -> str:
+      def read(path: (Path | None) = None) -> str:
           return ""
     labels:
     - source: Optional[Path]
       style: primary
       start: 44
       end: 58
-    - source: Optional
-      style: secondary
-      start: 44
-      end: 52
+  ? |
+    from typing import Optional
+    def build(value):
+        match value:
+            case constants.Optional:
+                return Optional[int]
+  : fixed: |
+      from typing import Optional
+      def build(value):
+          match value:
+              case constants.Optional:
+                  return (int | None)
+    labels:
+    - source: Optional[int]
+      style: primary
+      start: 115
+      end: 128
+  ? |
+    from typing import Optional
+    from typing import *
+    value = Optional[int]
+  : fixed: |
+      from typing import Optional
+      from typing import *
+      value = (int | None)
+    labels:
+    - source: Optional[int]
+      style: primary
+      start: 57
+      end: 70
+  ? |
+    from typing import Optional as Maybe
+    def read(value: Maybe[int]) -> int:
+        return 0
+  : fixed: |
+      from typing import Optional as Maybe
+      def read(value: (int | None)) -> int:
+          return 0
+    labels:
+    - source: Maybe[int]
+      style: primary
+      start: 53
+      end: 63
+  ? |
+    from typing import Optional as Maybe, Union as Either
+    value: Maybe[Either[int, Maybe[str]]]
+  : fixed: |
+      from typing import Optional as Maybe, Union as Either
+      value: ((int | (str | None)) | None)
+    labels:
+    - source: Maybe[Either[int, Maybe[str]]]
+      style: primary
+      start: 61
+      end: 91
   ? |
     from typing import Optional, Union
 
@@ -44,17 +90,35 @@ snapshots:
   : fixed: |
       from typing import Optional, Union
 
-      def read(path: Optional[Path] | str) -> str:
+      def read(path: ((Path | None) | str)) -> str:
           return ""
     labels:
     - source: Union[Optional[Path], str]
       style: primary
       start: 51
       end: 77
-    - source: Union
-      style: secondary
-      start: 51
-      end: 56
+  ? |
+    from typing import Optional, Union
+    value: Optional[Union[list[Union[int, str]], bytes]]
+  : fixed: |
+      from typing import Optional, Union
+      value: ((list[(int | str)] | bytes) | None)
+    labels:
+    - source: Optional[Union[list[Union[int, str]], bytes]]
+      style: primary
+      start: 42
+      end: 87
+  ? |
+    from typing import Optional, Union
+    value: Union[Optional["Item"], int]
+  : fixed: |
+      from typing import Optional, Union
+      value: (Optional["Item"] | int)
+    labels:
+    - source: Union[Optional["Item"], int]
+      style: primary
+      start: 42
+      end: 70
   ? |
     from typing import Optional, cast
 
@@ -62,16 +126,12 @@ snapshots:
   : fixed: |
       from typing import Optional, cast
 
-      value = cast(int | None, raw)
+      value = cast((int | None), raw)
     labels:
     - source: Optional[int]
       style: primary
       start: 48
       end: 61
-    - source: Optional
-      style: secondary
-      start: 48
-      end: 56
   ? |
     from typing import Union
 
@@ -80,17 +140,13 @@ snapshots:
   : fixed: |
       from typing import Union
 
-      def read(path: Path | dict[str, int] | None) -> str:
+      def read(path: (Path | dict[str, int] | None)) -> str:
           return ""
     labels:
     - source: Union[Path, dict[str, int], None]
       style: primary
       start: 41
       end: 74
-    - source: Union
-      style: secondary
-      start: 41
-      end: 46
   ? |
     from typing import Union
 
@@ -99,17 +155,24 @@ snapshots:
   : fixed: |
       from typing import Union
 
-      def read(path: Path | str) -> str:
+      def read(path: (Path | str)) -> str:
           return ""
     labels:
     - source: Union[Path, str]
       style: primary
       start: 41
       end: 57
-    - source: Union
-      style: secondary
-      start: 41
-      end: 46
+  ? |
+    from typing import Union
+    members = Union[int, str].__args__
+  : fixed: |
+      from typing import Union
+      members = (int | str).__args__
+    labels:
+    - source: Union[int, str]
+      style: primary
+      start: 35
+      end: 50
   ? |
     from typing_extensions import Optional
 
@@ -118,17 +181,13 @@ snapshots:
   : fixed: |
       from typing_extensions import Optional
 
-      def read(path: Path | None = None) -> str:
+      def read(path: (Path | None) = None) -> str:
           return ""
     labels:
     - source: Optional[Path]
       style: primary
       start: 55
       end: 69
-    - source: Optional
-      style: secondary
-      start: 55
-      end: 63
   ? |
     import typing
 
@@ -137,17 +196,26 @@ snapshots:
   : fixed: |
       import typing
 
-      def read(path: Path | None = None) -> str:
+      def read(path: (Path | None) = None) -> str:
           return ""
     labels:
     - source: typing.Optional[Path]
       style: primary
       start: 30
       end: 51
-    - source: typing.Optional
-      style: secondary
-      start: 30
-      end: 45
+  ? |
+    import typing as schema
+    from schema import Field
+    value = schema.Optional[int]
+  : fixed: |
+      import typing as schema
+      from schema import Field
+      value = (int | None)
+    labels:
+    - source: schema.Optional[int]
+      style: primary
+      start: 57
+      end: 77
   ? |
     import typing as t
 
@@ -156,14 +224,21 @@ snapshots:
   : fixed: |
       import typing as t
 
-      def read(path: Path | str) -> str:
+      def read(path: (Path | str)) -> str:
           return ""
     labels:
     - source: t.Union[Path, str]
       style: primary
       start: 35
       end: 53
-    - source: t.Union
-      style: secondary
-      start: 35
-      end: 42
+  ? |
+    import typing as t
+    value = t.Optional[t.Union[int, t.Optional[str]]]
+  : fixed: |
+      import typing as t
+      value = ((int | (str | None)) | None)
+    labels:
+    - source: t.Optional[t.Union[int, t.Optional[str]]]
+      style: primary
+      start: 27
+      end: 68

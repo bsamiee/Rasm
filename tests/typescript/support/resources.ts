@@ -6,15 +6,14 @@ import {
     Context,
     Data,
     Effect,
+    flow,
     HashMap,
     Layer,
     Mailbox,
-    Match,
     Option,
     Order,
     type ParseResult,
     Predicate,
-    pipe,
     Ref,
     Schema,
     type Scope,
@@ -94,8 +93,11 @@ const _database = <A>(run: () => Promise<A>): Effect.Effect<A, TestResourceError
 // S3 lists keys in UTF-8 byte order, and UTF-16 code unit order differs past the basic multilingual plane
 const _byUtf8Bytes: Order.Order<string> = Order.mapInput(Order.array(Order.number), (key: string) => Array.fromIterable(_utf8.encode(key)));
 
-const _pglite = (configuration: PgliteOptions): Effect.Effect<TestDatabaseService, TestResourceError, Scope.Scope> =>
-    Effect.gen(function* () {
+const TestDatabases: {
+    readonly pglite: (options?: string | PgliteOptions) => Layer.Layer<TestDatabaseService, TestResourceError>;
+} = {
+    pglite: Effect.fnUntraced(function* (options?: string | PgliteOptions) {
+        const configuration = typeof options === 'string' ? { seed: options } : (options ?? {});
         const db = yield* Effect.acquireRelease(
             _database(() => PGlite.create({ relaxedDurability: true, ...Struct.pick(configuration, 'extensions') })),
             (live) => Effect.promise(() => live.close()),
@@ -114,44 +116,30 @@ const _pglite = (configuration: PgliteOptions): Effect.Effect<TestDatabaseServic
                 const decode = Schema.decodeUnknown(Schema.Array(schema));
                 return (statement, params) => Effect.flatMap(rows(statement, params), decode);
             },
-            listen: (channel) =>
-                Effect.gen(function* () {
-                    const mailbox = yield* Mailbox.make<string, TestResourceError>();
-                    yield* Effect.acquireRelease(
-                        _database(() =>
-                            db.listen(channel, (payload) => {
-                                if (!payload.startsWith(_CONTROL_NOTIFICATION_PREFIX)) {
-                                    mailbox.unsafeOffer(payload);
-                                }
-                            }),
-                        ),
-                        // Effect.promise passes the AbortSignal into the optional transaction parameter of the PGlite unlisten
-                        // ast-grep-ignore: no-forwarding-arrow
-                        (dispose) => Effect.ignore(Effect.promise(() => dispose())),
-                    );
-                    return mailbox;
-                }),
+            listen: Effect.fnUntraced(function* (channel: string) {
+                const mailbox = yield* Mailbox.make<string, TestResourceError>();
+                yield* Effect.acquireRelease(
+                    _database(() =>
+                        db.listen(channel, (payload) => {
+                            if (!payload.startsWith(_CONTROL_NOTIFICATION_PREFIX)) {
+                                mailbox.unsafeOffer(payload);
+                            }
+                        }),
+                    ),
+                    // Effect.promise passes the AbortSignal into the optional transaction parameter of the PGlite unlisten
+                    (dispose) => Effect.ignore(Effect.promise(() => dispose())),
+                );
+                return mailbox;
+            }),
             rollbackTransaction: (work) =>
                 Effect.acquireUseRelease(
                     exec('BEGIN'),
                     () => work,
                     () => Effect.orDie(exec('ROLLBACK')),
                 ),
-        };
-    });
-
-const TestDatabases = {
-    pglite: (options?: string | PgliteOptions): Layer.Layer<TestDatabaseService, TestResourceError> =>
-        Layer.scoped(
-            TestDatabase,
-            _pglite(
-                Match.value(options).pipe(
-                    Match.when(Match.string, (seed) => ({ seed })),
-                    Match.orElse((configuration) => configuration ?? {}),
-                ),
-            ),
-        ),
-} as const;
+        } satisfies TestDatabaseService;
+    }, Layer.scoped(TestDatabase)),
+};
 
 const ObjectStoreDoubles: ObjectStoreDoubles = {
     memory: Layer.effect(
@@ -160,10 +148,11 @@ const ObjectStoreDoubles: ObjectStoreDoubles = {
             put: (key, bytes) => Ref.update(cell, HashMap.set(key, bytes)),
             get: (key) => Effect.map(Ref.get(cell), HashMap.get(key)),
             list: (prefix) =>
-                Effect.map(Ref.get(cell), (held) =>
-                    pipe(
-                        HashMap.keys(held),
-                        Array.filter((key) => key.startsWith(prefix)),
+                Effect.map(
+                    Ref.get(cell),
+                    flow(
+                        HashMap.keys,
+                        Array.filter((key: string) => key.startsWith(prefix)),
                         Array.sort(_byUtf8Bytes),
                     ),
                 ),

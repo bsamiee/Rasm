@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: bash-single-command-body
+language: bash
+rule:
+    kind: compound_statement, do_group
+    has: {kind: command}
+    not:
+        any:
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}
+            - has: {regex: '^&$'}

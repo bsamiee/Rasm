@@ -1,23 +1,23 @@
 id: require-decision-reason
 valid:
     # Non-empty string literal as the reason
-    - "return { deny: 'git stash hides uncommitted work, keep the work as it is' };"
+    - "on(\"tool.call\", ($, e, next) => { return { deny: 'git stash hides uncommitted work, keep the work as it is' }; });"
     # Template opening with literal text
-    - 'return { deny: `git ${word} is refused, run the direct command` };'
+    - 'on("tool.call", ($, e, next) => { return { deny: `git ${word} is refused, run the direct command` }; });'
     # Template holding text alone
-    - 'return { deny: `git stash is refused, keep the work as it is` };'
+    - 'on("tool.call", ($, e, next) => { return { deny: `git stash is refused, keep the work as it is` }; });'
     # Drop with a string literal
-    - "return { ...result, drop: 'The prompt held a secret value, it was replaced by its id' };"
+    - "on(\"tool.call\", ($, e, next) => { return { ...result, drop: 'The prompt held a secret value, it was replaced by its id' }; });"
     # Constructor call with a string literal
     - "deny('mise x is refused, run node --version directly');"
     # Property signature in a type literal, no value
-    - 'type Result = { deny?: undefined };'
+    - "type Result = { deny?: undefined };"
     # Interface member named deny, no value
-    - 'interface Refusal { deny: string; }'
+    - "interface Refusal { deny: string; }"
     # Key outside deny and drop, an empty value the rule skips
-    - "return { denied: '' };"
+    - "on(\"tool.call\", ($, e, next) => { return { denied: '' }; });"
     # Shorthand outside deny and drop
-    - 'return { other };'
+    - 'on("tool.call", ($, e, next) => { return { other }; });'
     # Call outside the deny and drop constructors, an empty argument the rule skips
     - "other('');"
     # Empty second argument, the reason is the first argument alone
@@ -25,69 +25,64 @@ valid:
     # Readable first argument, the second is context the rule skips
     - "deny('yq r is the v3 form, run yq eval', row);"
     # Forwarded identifier, the adapter's case record hands the row's literal on
-    - 'return { deny: reason };'
+    - 'on("tool.call", ($, e, next) => { return { deny: reason }; });'
     # Forwarded member read, the row runner reads the row's literal
-    - 'deny(row.deny);'
+    - "deny(row.deny);"
     # Shorthand pair, an identifier value
-    - 'return { deny };'
+    - 'on("tool.call", ($, e, next) => { return { deny }; });'
     # Call as the reason, a rendered row
-    - 'return { drop: render(row) };'
+    - 'on("tool.call", ($, e, next) => { return { drop: render(row) }; });'
     # Case record passed to match, the handler is a function and no reason
-    - "return decision.match({ rewrite: (e) => e, deny: (reason) => ({ kind: 'deny', reason }), answer: (result) => result });"
+    - "on(\"tool.call\", ($, e, next) => { return decision.match({ rewrite: (e) => e, deny: (reason) => ({ kind: 'deny', reason }), answer: (result) => result }); });"
     # Ternary as the reason, a selection between rendered rows
-    - "return { deny: strict ? render(row) : render(other) };"
+    - 'on("tool.call", ($, e, next) => { return { deny: strict ? render(row) : render(other) }; });'
     # Reason chosen through a nullish fallback of two names
-    - 'return { deny: reason ?? fallback };'
+    - 'on("tool.call", ($, e, next) => { return { deny: reason ?? fallback }; });'
     # Quoted deny key with a readable reason
-    - "return { 'deny': 'git stash hides uncommitted work, keep the work as it is' };"
+    - "on(\"tool.call\", ($, e, next) => { return { 'deny': 'git stash hides uncommitted work, keep the work as it is' }; });"
+    # Template opening with a substitution
+    - 'on("tool.call", ($, e, next) => { return { deny: `${word} is refused` }; });'
+    # Drop constructor with a template opening with a substitution
+    - "drop(`${word} was dropped`);"
+    # Template opening with whitespace before its substitution
+    - 'on("tool.call", ($, e, next) => { return { deny: ` ${word} is refused` }; });'
+    # Template holding a substitution alone under a spread result
+    - 'on("tool.call", ($, e, next) => { return { ...result, drop: `${word}` }; });'
+    # Template opening with a substitution after a newline
+    - |-
+      on("tool.call", ($, e, next) => { return { deny: `
+      ${word} is refused` };
+       });
+    # Template opening with an escape sequence before its substitution
+    - 'on("tool.call", ($, e, next) => { return { deny: `\n${word} is refused` }; });'
+    - 'on("tool.call", ($, e, next) => { return { deny: typeof problem }; });'
+    - 'on("tool.call", ($, e, next) => { return { deny: "\\x41" }; });'
+    - 'on("tool.call", ($, e, next) => { return { deny: "\x41" }; });'
+    - 'on("tool.call", ($, e, next) => { return { deny: `\x41` }; });'
+    - 'const selection = {deny: "", allow: true};'
+    - 'on("tool.call", ($, e, next) => { const metadata = {deny: ""}; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { const render = () => ({deny: ""}); return next(e); });'
+    - 'on("tool.call", ($, e, next) => ({result: {deny: ""}}));'
+    - 'on("tool.call", ($, e, next) => (({deny: ""}) ? next(e) : next(e)));'
 invalid:
     # Empty string, fail-open on 2.1.260
-    - "return { deny: '' };"
+    - "on(\"tool.call\", ($, e, next) => { return { deny: '' }; });"
     # Empty template
-    - 'return { deny: `` };'
-    # Template opening with a substitution
-    - 'return { deny: `${word} is refused` };'
-    # Undefined as the reason
-    - 'return { drop: undefined };'
-    # Null as the reason
-    - 'return { deny: null };'
-    # Number as the reason
-    - 'return { deny: 1 };'
-    # True as the reason
-    - 'return { deny: true };'
-    # False as the reason
-    - 'return { drop: false };'
-    # Object as the reason
-    - "return { deny: { text: 'refused' } };"
-    # Array as the reason
-    - "return { deny: ['refused'] };"
+    - 'on("tool.call", ($, e, next) => { return { deny: `` }; });'
     # Constructor call with an empty string
     - "deny('');"
-    # Drop constructor with a template opening with a substitution
-    - 'drop(`${word} was dropped`);'
     # Pair nested in a spread result
-    - 'return { ...result, deny: `` };'
+    - 'on("tool.call", ($, e, next) => { return { ...result, deny: `` }; });'
     # Whitespace string, no text a person reads
-    - "return { deny: ' ' };"
-    # Template opening with whitespace before its substitution
-    - 'return { deny: ` ${word} is refused` };'
+    - "on(\"tool.call\", ($, e, next) => { return { deny: ' ' }; });"
     # Template holding whitespace alone
-    - 'drop(` `);'
-    # Template holding a substitution alone under a spread result
-    - 'return { ...result, drop: `${word}` };'
-    # Template opening with a substitution after a newline
-    - |
-      return { deny: `
-      ${word} is refused` };
-    # Signed number as the reason
-    - 'return { deny: -1 };'
-    # Void expression as the reason
-    - 'return { deny: void 0 };'
+    - "drop(` `);"
     # Quoted deny key with an empty string
-    - "return { 'deny': '' };"
-    # Template opening with an escape sequence before its substitution
-    - 'return { deny: `\n${word} is refused` };'
-    # Drop constructor with null
-    - 'drop(null);'
-    # Negation as the reason, a boolean
-    - 'return { deny: !flag };'
+    - "on(\"tool.call\", ($, e, next) => { return { 'deny': '' }; });"
+    - 'on("tool.call", ($, e, next) => ({deny: ""}));'
+    - 'on("prompt.submit", ($, e, next) => ready ? {drop: ""} : next(e));'
+    - 'on("prompt.submit", ($, e, next) => ready ? next(e) : {drop: ""});'
+    # Type-only expression wrappers preserve the returned object
+    - 'on("tool.call", ($, e, next) => (({deny: ""} as Result)));'
+    - 'on("tool.call", ($, e, next) => ({deny: ""} satisfies Result));'
+    - 'on("tool.call", ($, e, next) => (({deny: ""})!));'

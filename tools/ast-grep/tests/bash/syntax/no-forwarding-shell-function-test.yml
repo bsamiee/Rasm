@@ -1,125 +1,35 @@
 id: no-forwarding-shell-function
 valid:
-    # The corrected form, the command at the call site and the fixed arguments as an array
-    - |
-      rule_files=("$d"/**/*.yml)
-      yq -r '.id' "${rule_files[@]}"
-    # A second statement
-    - |
-      finding() {
-          printf '%s\n' "$*"
-          findings=1
-      }
-    # A local bound before the call
-    - |
-      run() {
-          local name=$1
-          handle "$name"
-      }
-    # A forwarded call followed by an assignment
-    - |
-      run() {
-          handle "$@"
-          ran=1
-      }
-    # An argument after the forwarded list
-    - |
-      wrap() { handle "$@" --end; }
-    # The argument count read
-    - |
-      count() { handle "$#"; }
-    # An option beside the forwarded list
-    - |
-      quiet() { handle -q "$@"; }
-    # Parameters reordered
-    - |
-      swap() { pair "$2" "$1"; }
-    # A parameter repeated
-    - |
-      twice() { pair "$1" "$1"; }
-    # The second parameter alone
-    - |
-      second() { handle "$2"; }
-    # A pipeline body
-    - |
-      ids() { yq -r '.id' "$@" | sort; }
-    # A redirect on the call
-    - |
-      quiet() { handle "$@" >/dev/null; }
-    # A list body
-    - |
-      guarded() { handle "$@" || exit 1; }
-    # A parameter inside a longer word
-    - |
-      here() { printf '%s\n' "$PWD/$1"; }
-    # A parameter inside a nested substitution
-    - |
-      here() { handle "$(realpath "$1")"; }
-    # A format beside the forwarded list
-    - |
-      log() { printf '%s\n' "$@"; }
-    # A format beside the first parameter
-    - |
-      show() { printf '%s\n' "$1"; }
-    # The script name read beside a format
-    - |
-      usage() {
-          printf 'usage: %s\n' "$0"
-      }
-    # A default beside the parameter
-    - |
-      show() { handle "${1:-x}"; }
-    # An empty default beside the parameter
-    - |
-      run() { handle "${1:-}"; }
-    # The argument list as the command itself
-    - |
-      run() { "$@"; }
-    # exec before the command, a second word beside the forwarded list
-    - |
-      run() { exec handle "$@"; }
-    # A list body with a global read
-    - |
-      cleanup() { rm -rf "$tmp" || true; }
+    # Argument selection, joining, defaulting, and reordering are adapters.
+    - first() { handle "$1"; }
+    - joined() { handle "$*"; }
+    - defaulted() { handle "${1:-x}"; }
+    - reordered() { handle "$2" "$1"; }
+    - configured() { handle -q "$@"; }
+    - appended() { handle "$@" --end; }
+    # Splitting is a distinct defect owned by ShellCheck.
+    - split() { handle $@; }
+    # Deferred reads and callback effects cannot be replaced by a fixed array.
+    - cleanup() { rm -rf "$tmp"; }
+    - last() { handle "$?"; }
+    - stop() { server_stop --now; }
+    # Redirection, process replacement, and a command supplied as data add behavior.
+    - quiet() { handle "$@" >/dev/null; }
+    - replace() { exec handle "$@"; }
+    - run() { "$@"; }
+    - dynamic() { "$handler" "$@"; }
+    # More than one command and compound bodies are not forwarding wrappers.
+    - run() { handle "$@"; ran=1; }
+    - ids() { query "$@" | sort; }
+    - guarded() { handle "$@" || exit 1; }
+    - forward() { handle "$@" & }
 invalid:
-    # Fixed words and a global read, the trap target form
+    - forward() { handle "$@"; }
+    - forward() { handle "${@}"; }
+    - function forward { handle "$@"; }
+    # Comments do not add an operation.
     - |
-      cleanup() { rm -rf "$tmp"; }
-    # The instance, fixed words and a global read
-    - |
-      rule_files() { fd -e yml . $rule_dirs; }
-    # No arguments
-    - |
-      stop() { server_stop; }
-    # The last exit status read, the caller's state
-    - |
-      last() { handle "$?"; }
-    # The argument list forwarded
-    - |
-      log() { handle "$@"; }
-    # The argument list forwarded bare
-    - |
-      log() { handle $@; }
-    # The first parameter forwarded
-    - |
-      show() { handle "$1"; }
-    # The function keyword form
-    - |
-      function show { handle "$1"; }
-    # A multi-line body of one command
-    - |
-      stop() {
-          server_stop --now
+      forward() {
+          # The complete argument list.
+          handle "$@"
       }
-    # The braced argument list forwarded
-    - |
-      log() { handle "${@}"; }
-    # The braced first parameter forwarded
-    - |
-      show() { handle "${1}"; }
-    # The braced first parameter forwarded bare
-    - |
-      show() { handle ${1}; }
-    # The argument list forwarded as one word
-    - |
-      all() { handle "$*"; }

@@ -1,5 +1,34 @@
 id: no-os-environ
 valid:
+    # Neither another module nor another member establishes an environment read.
+    - 'custom.getenv("PORT")'
+    - 'os.getpid()'
+    - 'custom.environ["PORT"]'
+    - 'os.__dict__["__name__"]'
+    - |
+      from custom import getenv
+      getenv("PORT")
+    - |
+      from os import getpid
+      getpid()
+    - |
+      from custom import environ
+      environ["PORT"]
+    - |
+      from os import __dict__ as namespace
+      namespace["__name__"]
+    # Writes and child-process mappings are boundary effects, not configuration decoding.
+    - 'os.environ["PORT"] = "8080"'
+    - 'os.environ["PORT"], other = values'
+    - 'del os.environ["PORT"]'
+    - 'os.environ["PATH"] += suffix'
+    - 'os.environ.update(overrides)'
+    - 'anyio.run_process(command, env=os.environ)'
+    - 'from os import environ'
+    - |
+      from os import getenv
+      def configure(getenv):
+          return getenv("PORT")
     # The corrected form, the typed settings read once
     - |
       from pydantic_settings import BaseSettings
@@ -17,6 +46,8 @@ valid:
     - |
       variables = process.environ
 invalid:
+    # A name evaluated in another assignment target remains a read.
+    - 'other[os.environ["PORT"]] = value'
     # The instance, the mapping read as spelled
     - |
       import os
@@ -27,9 +58,15 @@ invalid:
       import os
 
       home = os.getenv("HOME")
-    # The member imported from the module
+    # The imported mapping is diagnosed at its read, not its import.
     - |
       from os import environ
+      port = environ["PORT"]
+    - |
+      from os import getenv
+      port = getenv("PORT")
+    - 'os.environb.get(b"PORT")'
+    - 'os.getenvb(b"PORT")'
     # The attribute read through the alias the import binds
     - |
       import os as system

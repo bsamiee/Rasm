@@ -1,5 +1,7 @@
 id: no-duplicate-project-instance
 valid:
+    # The importing file can differ from the project being built
+    - '<MSBuild Projects="$(MSBuildThisFileFullPath)" Targets="Build" Properties="Configuration=Release" />'
     # The DependsOnTargets form, one instance
     - |
       <Target Name="PublishOnBuild" AfterTargets="Build" DependsOnTargets="Publish" Condition="'$(_IsPublishing)' != 'true'" />

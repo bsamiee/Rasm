@@ -8,31 +8,50 @@ rule:
     matches:
         msbuild-package-reference:
             id:
-                regex: "(?i)^[\"']([A-Za-z0-9.]+\\.(Analyzers?|SourceGenerators?|Generators?)|Riok\\.Mapperly|Grpc\\.Tools|MessagePackAnalyzer|\
-                    Microsoft\\.CodeAnalysis\\.CSharp|Microsoft\\.CodeAnalysis\\.Analyzers|MinVer|Generator\\.Equals)[\"']$"
-    not: {matches: {msbuild-metadata: {name: {regex: '^PrivateAssets$'}, value: {regex: '(?i)^["'']?\s*all\s*["'']?$'}}}}
+                regex: "(?i)^[\"']([A-Za-z0-9.]+\\.(Analyzers?|SourceGenerators?|Generators?)|Riok\\.Mapperly|Grpc\\.Tools|MessagePackAnalyzer|Microsoft\\.CodeAnalysis\\.CSharp|Microsoft\\.CodeAnalysis\\.Analyzers|MinVer|Generator\\.Equals)[\"']$"
+    not:
+        any:
+            - all:
+                - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^PrivateAssets$'}, value: {regex: '(?i)^["'']\s*all\s*["'']$'}}}}}
+                - not:
+                    has:
+                        kind: content
+                        has:
+                            matches: {msbuild-element: {name: {regex: '^PrivateAssets$'}}}
+                            not: {has: {kind: content, regex: '(?i)^\s*all\s*$'}}
+            - has:
+                kind: content
+                has:
+                    kind: element
+                    nthChild: {position: 1, reverse: true, ofRule: {matches: {msbuild-element: {name: {regex: '^PrivateAssets$'}}}}}
+                    all:
+                        - has: {kind: content, regex: '(?i)^\s*all\s*$'}
+                        - not: {has: {kind: STag, has: {kind: Attribute}}}
 transform:
-    # Both metadata forms leave before the attribute returns, and an element left with no children closes itself
-    STRIPPED:
-        replace:
-            source: $REFERENCE
-            replace: '\s+PrivateAssets=("[^"]*"|''[^'']*'')|\s*<PrivateAssets(\s[^>]*)?>[^<]*</PrivateAssets>'
-            by: ''
-    EMPTY_TAG:
-        replace:
-            source: $STRIPPED
-            replace: '^(<PackageReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*/>'
-            by: '$1 PrivateAssets="all" />'
-    START_TAG:
-        replace:
-            source: $EMPTY_TAG
-            replace: '^(<PackageReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>'
-            by: '$1 PrivateAssets="all">'
-    CLOSED:
-        replace:
-            source: $START_TAG
-            replace: '^(<PackageReference(\s+[A-Za-z_:][-A-Za-z0-9_.:]*=("[^"]*"|''[^'']*''))*)\s*>\s*</PackageReference>$'
-            by: '$1 />'
-fix: $CLOSED
+    FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
+fix: $FIXED
+rewriters:
+    - id: remove-metadata
+      rule:
+        any:
+            - kind: Attribute
+              has: {kind: Name, regex: '^PrivateAssets$'}
+              inside: {matches: msbuild-tag, inside: {pattern: _REFERENCE}}
+            - matches: {msbuild-element: {name: {regex: '^PrivateAssets$'}}}
+              inside: {kind: content, inside: {pattern: _REFERENCE}}
+      fix: ''
+    - id: add-metadata
+      rule:
+        matches: msbuild-tag
+        pattern: _TAG
+        has: {kind: Name, regex: '^PackageReference$'}
+      transform:
+        STRIPPED: rewrite($TAG, rewriters=[remove-metadata])
+        FIXED:
+            replace:
+                source: $STRIPPED
+                replace: '\s*(/?>)$'
+                by: ' PrivateAssets="all"$1'
+      fix: $FIXED
 message: The analyzer, generator, or build tool is a development dependency and flows to every consumer without PrivateAssets
 note: Add PrivateAssets="all", the package stays in the compiling project

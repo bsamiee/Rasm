@@ -3,86 +3,29 @@ valid:
     # Immutable module binding
     - const fixed = 1;
     # Mutable local inside the scope that owns it
-    - |
-      const next = () => {
-          let local = 0;
-          local += 1;
-          return local;
-      };
-    # Container built inside the function that owns it
-    - |
-      const collect = (items) => {
-          const seen = new Map();
-          return seen;
-      };
+    - 'const next = () => { let local = 0; local += 1; return local; };'
     # Exported immutable binding
     - export const held = 2;
-    # Object literal table under as const, a value the module reads
-    - 'const targets = { lint: "lint", format: "format" } as const;'
-    # Object literal with pairs, a data table
-    - 'const commands = { lint: "lint", format: "format" };'
-    # Array literal with rows, a data table
-    - const rows = [1, 2];
-    # Constructed value outside the container grammar
-    - const client = new Client(settings);
-    # Frozen value from a call outside the mutable module grammar
-    - 'const frozen = Object.freeze({ retries: 3 });'
-    # Empty array under as const, an immutable tuple
-    - const none = [] as const;
-    # Empty array under as const and a satisfies, the tuple stays immutable
-    - 'const none = [] as const satisfies readonly string[];'
-    # Immutable HashMap outside the mutable module grammar
-    - const table = HashMap.empty();
-    # Ref.make describes the Ref inside an effect, nothing is held at load
-    - const described = Ref.make(0);
-    # Var declaration, biome noVar reports it
+    # Ambient declarations describe a host binding rather than creating module state
+    - 'declare let supplied: number;'
+    # Var declarations belong to Biome noVar
     - var legacy;
-    # ReadonlySet annotation, the type checker refuses every write
-    - 'const held: ReadonlySet<string> = new Set();'
-    # ReadonlyMap annotation
-    - 'const index: ReadonlyMap<string, number> = new Map();'
-    # ReadonlyArray annotation over an empty array
-    - 'const rows: ReadonlyArray<string> = [];'
-    # Readonly array modifier
-    - 'const names: readonly string[] = [];'
-    # Readonly utility over an empty object
-    - 'const table: Readonly<Record<string, number>> = {};'
-    # Readonly utility over an Array type, the utility is the readonly array
-    - 'const rows: Readonly<Array<string>> = [];'
-    # Empty array cast to a readonly array, the cast freezes the binding
-    - 'const rows = [] as readonly string[];'
-invalid:
-    # The instance, a counter every constructor increments
-    - let nextSpanId = 0;
-    # Binding declared for later assignment
-    - let pending;
-    # Mutable binding the module exports
-    - export let shared = [];
-    # Const over a Map constructor
+    # Empty and populated literals establish neither writes nor escape
+    - 'const empty = []; const populated = [1, 2];'
+    - 'const empty = {}; const populated = { lint: "lint" };'
+    # Native and library allocations need ownership analysis before calling them ambient writes
     - const registry = new Map<string, Item>();
-    # Const over an empty array literal, an accumulator
-    - const seen = [];
-    # Const over an empty object literal, a cache
-    - const cache = {};
-    # Const over an effect MutableRef
     - const counter = MutableRef.make(0);
-    # Const over an effect MutableHashMap
-    - const index = MutableHashMap.empty();
-    # Const over a Ref built outside an effect
-    - const current = Ref.unsafeMake(0);
-    # Const over a SynchronizedRef built outside an effect
-    - const guarded = SynchronizedRef.unsafeMake(0);
-    # Empty array under a satisfies, the binding keeps the mutable array type
-    - 'const seen = [] satisfies readonly string[];'
-    # Map constructor under a satisfies of a readonly type, the binding keeps the Map type
-    - 'const index = new Map() satisfies ReadonlyMap<string, number>;'
-    # Mutable annotation over a Set, the annotation freezes nothing
-    - 'const seen: Set<string> = new Set();'
-    # Annotation named like the utility, the anchored names read the exact type alone
-    - 'const held: ReadonlyThing = new Map();'
-    # Readonly utility over a Map, the utility marks the properties and set stays callable
-    - 'const index: Readonly<Map<string, number>> = new Map();'
-    # Readonly utility over a Set
-    - 'const seen: Readonly<Set<string>> = new Set();'
-    # Empty object cast to a mutable record type, the cast keeps every write
-    - 'const cache = {} as Record<string, number>;'
+    # Module reads can return immutable scalars, despite the owner's Mutable prefix
+    - const count = MutableRef.get(counter);
+    - const present = MutableHashMap.has(index, key);
+    # Readonly changes static write access; it does not freeze the runtime object
+    - 'const rows: readonly string[] = [];'
+    - 'const names = [] as const;'
+invalid:
+    # A module counter can be reassigned by every consumer in the module
+    - let nextSpanId = 0;
+    # A binding declared for later assignment
+    - let pending;
+    # Exporting does not give a mutable binding a local owner
+    - export let shared = [];

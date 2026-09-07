@@ -1,16 +1,34 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Optional and defaulted never parameters remain callable without an argument, and the fix leaves the absurd import to the checker.
 id: no-never-arm
 language: tsx
 severity: error
-files: ['**/.claude/plugins/**']
+files:
+    - '**/.claude/plugins/function-hooks/hooks/**'
+utils:
+    never-parameter:
+        has:
+            field: parameters
+            has:
+                kind: required_parameter
+                has: {field: type, has: {kind: predefined_type, regex: ^never$}}
+                not: {has: {field: value, pattern: $_}}
 rule:
     any:
-        # An arm of a case record, the definition of absurd sits under a declarator and stays out
-        - any: [{kind: arrow_function}, {kind: function_expression}]
-          inside: {kind: pair, field: value}
-        # The method spelling of an arm
+        - kind: pair
+          all:
+            - {has: {field: key, pattern: $KEY}}
+            - has:
+                field: value
+                any: [{kind: arrow_function}, {kind: function_expression}, {kind: generator_function}]
+                matches: never-parameter
         - kind: method_definition
           inside: {kind: object}
-    has: {field: parameters, has: {any: [{kind: required_parameter}, {kind: optional_parameter}], has: {field: type, has: {kind: predefined_type, regex: '^never$'}}}}
+          all:
+            - {has: {field: name, pattern: $KEY}}
+            - {matches: never-parameter}
+    pattern: $MATCH
+fix: '$KEY: absurd'
 message: The arm over `never` is written inline, and `absurd` is the one arm a type rules out
 note: 'Name `absurd` from composition/decision.ts as the arm, `{ deny: absurd, answer: absurd }`'
+labels: {MATCH: {style: primary}}

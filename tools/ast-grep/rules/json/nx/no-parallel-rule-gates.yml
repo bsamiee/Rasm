@@ -1,0 +1,73 @@
+id: no-parallel-rule-gates
+language: json
+severity: error
+message: Rule gates run in parallel while each gate already parallelizes its mutations
+note: Set parallel to false for a command list with two or more gates, and drop readyWhen, which requires parallel execution
+files:
+    - "**/package.json"
+    - "**/project.json"
+    - "**/nx.json"
+utils:
+    nx-target:
+        kind: object
+        has: {pattern: {context: '{"executor": "nx:run-commands"}', selector: pair}}
+        inside:
+            kind: pair
+            stopBy: {not: {kind: array}}
+            inside:
+                kind: object
+                inside:
+                    kind: pair
+                    has: {field: key, regex: '^"(targets|targetDefaults)"$'}
+                    inside:
+                        kind: object
+                        any:
+                            - inside: {kind: document}
+                            - inside:
+                                kind: pair
+                                has: {field: key, pattern: '"nx"'}
+                                inside: {kind: object, inside: {kind: document}}
+    gate-script:
+        kind: string
+        regex: '^"(?:bash[ \t]+)?(?:\./)?\.claude/skills/ast-grep/scripts/rule-checks\.sh[ \t]+gate[ \t]+[a-z][a-z0-9]*(?:[ \t]+[^"\r\n]*)?"$'
+    gate-command:
+        any:
+            - matches: gate-script
+            - kind: object
+              has:
+                kind: pair
+                all:
+                    - has: {field: key, pattern: '"command"'}
+                    - has: {field: value, matches: gate-script}
+rule:
+    all:
+        - pattern: {context: '{"parallel": true}', selector: pair}
+        - pattern: $OPTION
+    inside:
+        kind: object
+        any:
+            - inside:
+                kind: pair
+                has: {field: key, pattern: '"options"'}
+                inside: {matches: nx-target}
+            - inside:
+                kind: pair
+                inside:
+                    kind: object
+                    inside:
+                        kind: pair
+                        has: {field: key, pattern: '"configurations"'}
+                        inside: {matches: nx-target}
+        has:
+            kind: pair
+            has: {field: key, pattern: '"commands"'}
+            all:
+                - has:
+                    field: value
+                    kind: array
+                    has:
+                        matches: gate-command
+                        nthChild: {position: 2, ofRule: {matches: gate-command}}
+labels:
+    OPTION: {style: primary}
+fix: '"parallel": false'

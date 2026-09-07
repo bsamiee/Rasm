@@ -1,0 +1,86 @@
+id: no-store-scan-in-cached-answer
+snapshots:
+  ? |
+    async function band($, e, next) {
+        const all = await $.store.keys();
+        return next(e);
+    }
+    on('prompt.context', band);
+  : labels:
+    - source: $.store.keys()
+      style: primary
+      start: 56
+      end: 70
+  ? |
+    const band = async ($, e, next) => {
+        const all = await $.store.keys();
+        return next(e);
+    };
+    on('ui.render', band);
+  : labels:
+    - source: $.store.keys()
+      style: primary
+      start: 59
+      end: 73
+  ? |
+    on('prompt.context', async ($, e, next) => {
+        const all = await $.store.keys();
+        return next(e);
+    });
+  : labels:
+    - source: $.store.keys()
+      style: primary
+      start: 67
+      end: 81
+  ? |
+    on('prompt.context', async ($, e, next) => {
+        const rows = await Promise.all(keys('findings')(all).map(async (name) => ({ key: name, value: await $.store.get(name) })));
+        return next(e);
+    });
+  : labels:
+    - source: $.store.get(name)
+      style: primary
+      start: 149
+      end: 166
+  'on(''prompt.section'', async ($, e, next) => next(await $.store.keys() ? e : e));':
+    labels:
+    - source: $.store.keys()
+      style: primary
+      start: 54
+      end: 68
+  'on(''tool.describe'', async ($, e, next) => next(await $.store.keys() ? e : e));':
+    labels:
+    - source: $.store.keys()
+      style: primary
+      start: 53
+      end: 67
+  ? |
+    on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+        const [notice, ...values] = await Promise.all([$.store.get(key('notice')), ...keys('findings')(all).map((name) => $.store.get(name))]);
+        return next(e);
+    });
+  : labels:
+    - source: $.store.get(name)
+      style: primary
+      start: 188
+      end: 205
+  ? |
+    on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+        const all = await $.store.keys();
+        return next(e);
+    });
+  : labels:
+    - source: $.store.keys()
+      style: primary
+      start: 92
+      end: 106
+  ? |
+    on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+        const values = await Promise.all(keys('findings')(all).map((name) => $.store.get(name)));
+        return next(e);
+    });
+  : labels:
+    - source: $.store.get(name)
+      style: primary
+      start: 143
+      end: 160

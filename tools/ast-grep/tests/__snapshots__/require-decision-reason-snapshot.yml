@@ -14,161 +14,80 @@ snapshots:
       style: primary
       start: 5
       end: 8
-  drop(`${word} was dropped`);:
+  'on("prompt.submit", ($, e, next) => ready ? next(e) : {drop: ""});':
     labels:
-    - source: '`${word} was dropped`'
+    - source: '""'
       message: The reason value
       style: primary
-      start: 5
-      end: 26
-  drop(null);:
+      start: 61
+      end: 63
+  'on("prompt.submit", ($, e, next) => ready ? {drop: ""} : next(e));':
     labels:
-    - source: 'null'
+    - source: '""'
       message: The reason value
       style: primary
-      start: 5
-      end: 9
-  'return { ''deny'': '''' };':
+      start: 51
+      end: 53
+  'on("tool.call", ($, e, next) => (({deny: ""} as Result)));':
+    labels:
+    - source: '""'
+      message: The reason value
+      style: primary
+      start: 41
+      end: 43
+  'on("tool.call", ($, e, next) => (({deny: ""})!));':
+    labels:
+    - source: '""'
+      message: The reason value
+      style: primary
+      start: 41
+      end: 43
+  'on("tool.call", ($, e, next) => ({deny: ""} satisfies Result));':
+    labels:
+    - source: '""'
+      message: The reason value
+      style: primary
+      start: 40
+      end: 42
+  'on("tool.call", ($, e, next) => ({deny: ""}));':
+    labels:
+    - source: '""'
+      message: The reason value
+      style: primary
+      start: 40
+      end: 42
+  'on("tool.call", ($, e, next) => { return { ''deny'': '''' }; });':
     labels:
     - source: ''''''
       message: The reason value
       style: primary
-      start: 17
-      end: 19
-  'return { ...result, deny: `` };':
+      start: 51
+      end: 53
+  'on("tool.call", ($, e, next) => { return { ...result, deny: `` }; });':
     labels:
     - source: '``'
       message: The reason value
       style: primary
-      start: 26
-      end: 28
-  'return { ...result, drop: `${word}` };':
-    labels:
-    - source: '`${word}`'
-      message: The reason value
-      style: primary
-      start: 26
-      end: 35
-  'return { deny: !flag };':
-    labels:
-    - source: '!flag'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 20
-  'return { deny: '' '' };':
+      start: 60
+      end: 62
+  'on("tool.call", ($, e, next) => { return { deny: '' '' }; });':
     labels:
     - source: ''' '''
       message: The reason value
       style: primary
-      start: 15
-      end: 18
-  'return { deny: '''' };':
+      start: 49
+      end: 52
+  'on("tool.call", ($, e, next) => { return { deny: '''' }; });':
     labels:
     - source: ''''''
       message: The reason value
       style: primary
-      start: 15
-      end: 17
-  'return { deny: -1 };':
-    labels:
-    - source: '-1'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 17
-  'return { deny: 1 };':
-    labels:
-    - source: '1'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 16
-  'return { deny: [''refused''] };':
-    labels:
-    - source: '[''refused'']'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 26
-  ? |
-    return { deny: `
-    ${word} is refused` };
-  : labels:
-    - source: |-
-        `
-        ${word} is refused`
-      message: The reason value
-      style: primary
-      start: 15
-      end: 36
-  'return { deny: ` ${word} is refused` };':
-    labels:
-    - source: '` ${word} is refused`'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 36
-  'return { deny: `${word} is refused` };':
-    labels:
-    - source: '`${word} is refused`'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 35
-  'return { deny: `\n${word} is refused` };':
-    labels:
-    - source: '`\n${word} is refused`'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 37
-  'return { deny: `` };':
+      start: 49
+      end: 51
+  'on("tool.call", ($, e, next) => { return { deny: `` }; });':
     labels:
     - source: '``'
       message: The reason value
       style: primary
-      start: 15
-      end: 17
-  'return { deny: null };':
-    labels:
-    - source: 'null'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 19
-  'return { deny: true };':
-    labels:
-    - source: 'true'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 19
-  'return { deny: void 0 };':
-    labels:
-    - source: void 0
-      message: The reason value
-      style: primary
-      start: 15
-      end: 21
-  'return { deny: { text: ''refused'' } };':
-    labels:
-    - source: '{ text: ''refused'' }'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 34
-  'return { drop: false };':
-    labels:
-    - source: 'false'
-      message: The reason value
-      style: primary
-      start: 15
-      end: 20
-  'return { drop: undefined };':
-    labels:
-    - source: undefined
-      message: The reason value
-      style: primary
-      start: 15
-      end: 24
+      start: 49
+      end: 51

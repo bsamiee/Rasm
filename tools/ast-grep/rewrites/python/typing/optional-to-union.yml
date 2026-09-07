@@ -3,46 +3,92 @@ id: optional-to-union
 language: python
 severity: off
 utils:
-    # The typing member as spelled, a bare name the module's from-import binds or the attribute read off the module or its alias
+    # The union predicate establishes the package, the import spelling distinguishes Optional from Union
+    optional-name:
+        any:
+            - matches: {python-imported-name: {module: {kind: ":is(identifier, dotted_name)"}, name: {regex: "^Optional$"}}}
+            - matches: {python-module-member: {module: {kind: ":is(identifier, dotted_name)"}, name: {regex: "^Optional$"}}}
     typing-member:
         any:
-            - matches: {python-imported-name: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^(Optional|Union)$'}}}
-            - matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^(Optional|Union)$'}}}
-    # Member of the reported node, a child of a subscript beside its value or a type under the type parameter of a generic type
+            - matches: {python-imported-name: {module: {regex: "^(typing|typing_extensions)$"}, name: {regex: "^(Optional|Union)$"}}}
+            - matches: {python-module-member: {module: {regex: "^(typing|typing_extensions)$"}, name: {regex: "^(Optional|Union)$"}}}
     member:
         any:
-            - pattern: $M
-              inside: {pattern: $SUB, kind: subscript}
+            - pattern: $MEMBER
+              inside: {kind: subscript, matches: union-head}
               not: {inside: {kind: subscript, field: value}}
             - kind: type
-              pattern: $M
-              inside: {kind: type_parameter, inside: {pattern: $SUB}}
-    # The node headed by the typing member, a subscript in a value position or under an attribute head, or the generic type of an annotation
+              pattern: $MEMBER
+              inside: {kind: type_parameter, inside: {matches: union-head}}
     union-head:
         any:
             - kind: subscript
-              has: {field: value, matches: typing-member, pattern: $HEAD}
+              has: {field: value, matches: typing-member}
             - kind: generic_type
-              has: {kind: identifier, matches: typing-member, pattern: $HEAD} # The members are type nodes, the head is the one identifier child
+              has: {kind: identifier, matches: typing-member}
+    optional-head:
+        any:
+            - kind: subscript
+              has: {field: value, matches: optional-name}
+            - kind: generic_type
+              has: {kind: identifier, matches: optional-name}
+    type-member:
+        pattern: $_
+        any:
+            - inside: {kind: subscript}
+              not: {inside: {kind: subscript, field: value}}
+            - kind: type
+              inside: {kind: type_parameter}
+        not: {any: [{kind: none}, {kind: type, has: {kind: none}}]}
+    union:
+        matches: union-head
+        # The operator needs an actual type: None | None raises at runtime.
+        any:
+            - has: {matches: type-member}
+            - has: {kind: type_parameter, has: {matches: type-member}}
+        # Reconstructing members must preserve comments; forward references stay strings.
+        not:
+            any:
+                - has: {kind: comment, stopBy: end}
+                - has: {kind: string}
+                - has: {kind: type_parameter, has: {kind: type, has: {kind: string}}}
 rule:
-    pattern: $SUB
-    matches: union-head
-    all:
-        # String members are forward references the operator cannot join at run time, the value of a subscript is never one
-        - not: {any: [{has: {kind: string}}, {has: {kind: type_parameter, has: {kind: type, has: {kind: string}}}}]}
-        # The outermost of nested unions reports once, the inner one is the next pass
-        - not: {inside: {matches: union-head, stopBy: end}}
+    pattern: $ROOT
+    matches: union
+    not: {inside: {matches: union-head, stopBy: end}}
 rewriters:
-    # The one member of Optional joined with None, the head re-matches the node the rule bound
-    - id: optional-member
-      rule: {matches: member, inside: {stopBy: end, pattern: $SUB, has: {pattern: $HEAD, regex: '(^|\.)Optional$'}}}
-      fix: $M | None
-    # Each member of Union in order, the head is no member and leaves under the join
-    - id: union-member
-      rule: {matches: member}
-      fix: $M
+    - id: optional
+      rule:
+        all:
+            - matches: union
+            - matches: optional-head
+            - any:
+                - has: {matches: member}
+                - has: {kind: type_parameter, has: {matches: member}}
+      transform:
+        INNER: rewrite($MEMBER, rewriters=[optional, union])
+      fix: ($INNER | None)
+    - id: union
+      rule:
+        matches: union
+        any:
+            - pattern: $HEAD[$$$TYPES]
+            - pattern:
+                context: "value: $HEAD[$$$TYPES]"
+                selector: generic_type
+      transform:
+        MEMBERS: rewrite($$$TYPES, rewriters=[member], joinBy=' | ')
+      fix: ($MEMBERS)
+    - id: member
+      rule: {pattern: $TYPE}
+      transform:
+        INNER: rewrite($TYPE, rewriters=[optional, union])
+      fix: $INNER
+
 transform:
-    OUT: rewrite($SUB, rewriters=[optional-member, union-member], joinBy=' | ')
+    OUT: rewrite($ROOT, rewriters=[optional, union])
 fix: $OUT
-message: '`$SUB` spells a union the `|` operator writes'
-note: Write `<a> | <b>`, `<type> | None` for absence
+labels: {ROOT: {style: primary}}
+message: "`$ROOT` spells a union the `|` operator writes"
+note: >-
+    Review operand types before applying this rewrite: a metaclass can override `|`, and runtime annotation consumers must accept the resulting union. Keep typing wrappers when that contract differs. Use `<a> | <b>` and `<type> | None` when the operator has the intended type-union semantics.

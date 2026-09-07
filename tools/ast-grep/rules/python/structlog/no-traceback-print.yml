@@ -2,7 +2,8 @@
 id: no-traceback-print
 language: python
 severity: error
+# Report-only, the probed fix `print_exc()` to `logger.exception()` fails, `TypeError: exception() missing 1 required positional argument: 'event'`
 rule:
-    matches: {python-module-member: {module: {regex: '^traceback$'}, name: {regex: '^print_(exc|exception|stack|last|tb)$', pattern: $NAME}}}
-message: '`traceback.$NAME` writes the traceback to stderr, outside the structured pipeline'
-note: Log the exception through `structlog.get_logger(__name__).exception(<event>)` inside the handler
+    matches: {python-module-member: {module: {regex: "^traceback$"}, name: {regex: "^print_(exc|exception|stack|last|tb)$", pattern: $NAME}}}
+message: "`traceback.$NAME` writes the traceback to stderr, outside the structured pipeline"
+note: Log the active exception with `logger.exception(<event>)`, `exc_info=<exception>` outside its handler, or the stack with `stack_info=True`

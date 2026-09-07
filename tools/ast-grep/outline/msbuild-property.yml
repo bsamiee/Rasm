@@ -1,0 +1,21 @@
+id: msbuild-property
+language: xml
+role: member
+parentRuleIds: [msbuild-group]
+symbolType: property
+rule:
+    kind: element
+    pattern: _PROPERTY
+    has:
+        kind: STag, EmptyElemTag
+        has: {kind: Name, pattern: _NAME}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            has:
+                kind: STag
+                has: {kind: Name, regex: "^PropertyGroup$"}
+name: $NAME
+signature: $PROPERTY
+isPublic: true

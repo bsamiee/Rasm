@@ -1,5 +1,10 @@
 id: restated-default-argument-to-omitted
 valid:
+    # A conflicting dotted-module alias cannot establish the callee's default.
+    - |
+      import msgspec.json as codec
+      from custom import codec
+      codec.decode(value, strict=True)
     # The corrected form, the default omitted
     - |
       httpx.get(url)
@@ -15,6 +20,56 @@ valid:
     # A positional argument after the dropped positional, it takes the mode's place
     - |
       gzip.open(archive, "rb", 9)
+    - |
+      process.cpu_percent(interval=None)
+    - "msgspec.json.Decoder(strict=False)"
+    - 'msgspec.msgpack.encode(value, order="sorted")'
+    - "other.json.decode(value, strict=True)"
+    - "msgspec.json.Decoder(dec_hook=convert)"
+    - "msgspec.json.Encoder(enc_hook=convert)"
+    - 'msgspec.json.Encoder(uuid_format="hex")'
+    # Type None means the null schema, and unsupported arguments retain their errors
+    - "msgspec.json.Decoder(type=None)"
+    - "msgspec.json.Decoder(type=True)"
+    - "msgspec.json.Encoder(uuid_format=None)"
+    - "msgspec.json.format(data, strict=True)"
+    - "msgspec.json.format(data, order=None)"
+    # Splats kept around the dropped keyword
+    - |
+      httpx.get(*args, timeout=5.0, **kwargs)
+    # A dictionary splat after the dropped positional, its place fixed by its names
+    - |
+      gzip.open(archive, "rb", **options)
+    # Keyword expansion can supply the explicit argument and must retain duplicate-key rejection
+    - |
+      httpx.get(url, timeout=5.0, **options)
+    # Positional expansion can supply the mode and change argument binding
+    - |
+      gzip.open(*arguments, mode="rb")
+    # Positional and keyword mode must retain the duplicate-argument error
+    - |
+      gzip.open(archive, "wb", mode="rb")
+    # Two default spellings still conflict rather than cancel
+    - |
+      gzip.open(archive, "rb", mode="rb")
+    # The sampling interval already occupies its positional parameter
+    - |
+      psutil.cpu_percent(0, interval=None)
+    # A process method has the same positional interval binding
+    - |
+      psutil.Process(pid).cpu_percent(0, interval=None)
+    # Fallback rebinding makes the callee identity uncertain
+    - |
+      try:
+          from httpx import AsyncClient
+      except ImportError:
+          AsyncClient = None
+
+      client = AsyncClient(timeout=5.0)
+    # Comments do not shift the conflicting positional mode
+    - |
+      gzip.open(archive,  # source
+                "wb", mode="rb")
 invalid:
     # The instance, the restated default last
     - |
@@ -36,7 +91,7 @@ invalid:
       gzip.open(archive, mode="rb")
     # The only argument dropped, the list left empty
     - |
-      process.cpu_percent(interval=None)
+      psutil.Process(pid).cpu_percent(interval=None)
     # The integer timeout
     - |
       httpx.post(url, timeout=5)
@@ -48,23 +103,31 @@ invalid:
     # The interval default on a Process the call constructs
     - |
       load = psutil.Process(pid).cpu_percent(interval=None)
-    # Splats kept around the dropped keyword
-    - |
-      httpx.get(*args, timeout=5.0, **kwargs)
     # A keyword after the dropped positional, its place fixed by its name
     - |
       gzip.open(archive, "rb", compresslevel=9)
-    # A dictionary splat after the dropped positional, its place fixed by its names
-    - |
-      gzip.open(archive, "rb", **options)
-    # The client constructor a from-import under a try binds, the import search past the module's direct children
-    - |
-      try:
-          from httpx import AsyncClient
-      except ImportError:
-          AsyncClient = None
-
-      client = AsyncClient(timeout=5.0)
     # The redirect default between two kept arguments
     - |
       httpx.get(url, follow_redirects=False, timeout=2.0)
+    - |
+      import httpx as client
+      client.get(url, timeout=5.0)
+    - |
+      from httpx import get as fetch
+      fetch(url, follow_redirects=False)
+    - |
+      from gzip import open as decompress
+      decompress(archive, mode="rb")
+    - |
+      from psutil import cpu_percent as load
+      load(interval=None)
+    - "msgspec.json.Decoder(strict=True)"
+    - "msgspec.msgpack.decode(value, dec_hook=None)"
+    - "msgspec.json.encode(value, enc_hook=None)"
+    - "msgspec.msgpack.Encoder(order=None)"
+    - |
+      import msgspec as codec
+      codec.json.decode(value, strict=True)
+    - |
+      from msgspec import msgpack as packed
+      packed.Encoder(order=None)

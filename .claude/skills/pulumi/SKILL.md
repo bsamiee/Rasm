@@ -24,7 +24,7 @@ Single-bucket requests in a directory with no Pulumi project are L1 tasks, no pr
 
 Level choice requires knowing what is already on disk: inspect the filesystem first, and in a restricted context ask before any Pulumi command runs, a command requiring a login silently provisions a new agent account parallel to one the operator already owns.
 
-Uncertain CLI flags, command shapes, or resource properties are looked up: `npx pulumi <command> --help` documents every flag from the CLI itself, the full reference, provider catalog, and concept docs are at https://www.pulumi.com/docs and https://www.pulumi.com/registry/.
+Uncertain CLI flags, command shapes, or resource properties are looked up: `pulumi <command> --help` documents every flag from the CLI itself, the full reference, provider catalog, and concept docs are at https://www.pulumi.com/docs and https://www.pulumi.com/registry/.
 
 [REFERENCES]:
 - [01]-[CLI_OPERATIONS](references/cli-operations.md): Driving one-off resource work from the CLI, and graduating it into a program
@@ -34,7 +34,7 @@ Uncertain CLI flags, command shapes, or resource properties are looked up: `npx 
 
 ## [01]-[ONE_SHOT_OPERATIONS]
 
-`pulumi do` runs one-shot, stateless resource operations against any provider: no project files, no `${...}` wiring, no Pulumi state. `npx pulumi <command>` is the canonical invocation, the PATH `pulumi` lacks the resource subcommands. `npx pulumi version` confirms availability without touching Pulumi Cloud.
+`pulumi do` runs one-shot, stateless resource operations against any provider: no project files, no `${...}` wiring, no Pulumi state. `mise.toml` supplies the Pulumi CLI; use `mise exec -- pulumi <command>` outside the configured environment. `pulumi version` confirms availability without touching Pulumi Cloud.
 
 ```text
 pulumi do <pkg:mod:type> create [flags]
@@ -57,10 +57,10 @@ When a `Pulumi.yaml` project already manages a resource, changes go through the 
 Pulumi projects are code in Python, TypeScript, Go, C#, or Java describing related resources and their dependencies. Match the codebase language when one is present, default to TypeScript otherwise.
 
 ```bash
-npx pulumi new aws-typescript      # Template list: npx pulumi template list
-npx pulumi preview                 # Show the pending change, before every up
-npx pulumi up                      # Apply
-npx pulumi refresh                 # Reconcile state with cloud reality
+pulumi new aws-typescript      # Template list: pulumi template list
+pulumi preview                 # Show the pending change, before every up
+pulumi up                      # Apply
+pulumi refresh                 # Reconcile state with cloud reality
 ```
 
 `pulumi destroy` tears down every resource in the stack and is irreversible, explicit operator confirmation of the stack name precedes it. Stacks only touch resources tracked in their state, removing a resource from the program deletes it from the cloud on the next `up`, `protect: true` guards anything unaffordable to lose.
@@ -68,9 +68,9 @@ npx pulumi refresh                 # Reconcile state with cloud reality
 Stacks isolate instances of a project, one per environment (`dev`, `staging`, `prod`) is the standard pattern:
 
 ```bash
-npx pulumi stack init dev
-npx pulumi config set aws:region us-west-2
-npx pulumi config set --secret dbPassword "..."
+pulumi stack init dev
+pulumi config set aws:region us-west-2
+pulumi config set --secret dbPassword "..."
 ```
 
 ## [03]-[CLOUD_GOVERNANCE]
@@ -78,12 +78,12 @@ npx pulumi config set --secret dbPassword "..."
 Pulumi Cloud layers governance onto a project: ESC composes secrets and configuration from cloud secret managers, OIDC-vended credentials, and other environments into a resolved bundle, policy packs run against the resource graph before any cloud API call, deployments run operations server-side, schedules automate drift detection and rotation.
 
 ```bash
-npx pulumi env init my_org/aws/prod
-npx pulumi env run my_org/aws/prod -- aws s3 ls     # Injects credentials, `env open` output stays out of captures
-npx pulumi policy new aws-typescript
-npx pulumi deployment run update --stack my_org/proj/prod
-npx pulumi refresh --preview-only                    # Ad-hoc local drift check
-npx pulumi stack schedule new --kind drift --cron "0 0 * * *"
+pulumi env init my_org/aws/prod
+pulumi env run my_org/aws/prod -- aws s3 ls     # Injects credentials, `env open` output stays out of captures
+pulumi policy new aws-typescript
+pulumi deployment run update --stack my_org/proj/prod
+pulumi refresh --preview-only                    # Ad-hoc local drift check
+pulumi stack schedule new --kind drift --cron "0 0 * * *"
 ```
 
 Providers with OIDC federation vend cloud credentials through it rather than static keys in environment YAML. Schedules are standing automation outliving the session: confirm operation, cadence, and stack with the operator first, and default to detection-only (`--kind drift --auto-remediate` and `--kind ttl` act without a human in the loop).

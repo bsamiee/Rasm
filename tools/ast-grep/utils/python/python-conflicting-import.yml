@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# A different import binds the read name; syntax cannot choose its runtime owner.
+id: python-conflicting-import
+language: python
+arguments: [module, name]
+rule:
+    all:
+        - any:
+            - kind: identifier
+              pattern: $BOUND
+            - kind: attribute
+              has: {field: object, kind: identifier, pattern: $BOUND}
+        - inside:
+            kind: module, function_definition, class_definition
+            stopBy: end
+            has:
+                stopBy: {kind: "function_definition, class_definition, lambda"}
+                any:
+                    - kind: dotted_name
+                      pattern: $BOUND
+                      inside: {kind: import_statement}
+                      not: {matches: module}
+                    - kind: aliased_import
+                      inside: {kind: import_statement}
+                      all:
+                        - has: {field: alias, pattern: $BOUND}
+                        - has: {field: name, not: {matches: module}}
+                    - kind: import_from_statement
+                      has: {kind: wildcard_import}
+                      not: {has: {field: module_name, matches: module}}
+                    - kind: import_from_statement
+                      all:
+                        - any:
+                            - has: {kind: dotted_name, pattern: $BOUND, not: {inside: {field: module_name, kind: import_from_statement}}}
+                            - has: {kind: aliased_import, has: {field: alias, pattern: $BOUND}}
+                        - not:
+                            all:
+                                - has: {field: module_name, matches: module}
+                                - any:
+                                    - has: {kind: dotted_name, pattern: $BOUND, matches: name}
+                                    - has:
+                                        kind: aliased_import
+                                        all:
+                                            - has: {field: alias, pattern: $BOUND}
+                                            - has: {field: name, matches: name}

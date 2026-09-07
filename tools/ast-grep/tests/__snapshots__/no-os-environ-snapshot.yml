@@ -2,27 +2,60 @@ id: no-os-environ
 snapshots:
   ? |
     from os import environ
+    port = environ["PORT"]
   : labels:
-    - source: environ
+    - source: environ["PORT"]
       style: primary
-      start: 15
-      end: 22
+      start: 30
+      end: 45
+    - source: environ
+      style: secondary
+      start: 30
+      end: 37
+  ? |
+    from os import getenv
+    port = getenv("PORT")
+  : labels:
+    - source: getenv("PORT")
+      style: primary
+      start: 29
+      end: 43
+    - source: getenv
+      style: secondary
+      start: 29
+      end: 35
   ? |
     import os
 
     home = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")
   : labels:
-    - source: os.environ
+    - source: os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")
       style: primary
       start: 18
+      end: 64
+    - source: os.environ
+      style: secondary
+      start: 18
       end: 28
+    - source: get
+      style: secondary
+      start: 29
+      end: 32
+    - source: os.environ.get
+      style: secondary
+      start: 18
+      end: 32
   ? |
     import os
 
     home = os.getenv("HOME")
   : labels:
-    - source: os.getenv
+    - source: os.getenv("HOME")
       style: primary
+      start: 18
+      end: 35
+    - source: os.getenv
+      style: secondary
       start: 18
       end: 27
   ? |
@@ -30,7 +63,49 @@ snapshots:
 
     home = system.environ["HOME"]
   : labels:
-    - source: system.environ
+    - source: system.environ["HOME"]
       style: primary
       start: 28
+      end: 50
+    - source: system.environ
+      style: secondary
+      start: 28
       end: 42
+  os.environb.get(b"PORT"):
+    labels:
+    - source: os.environb.get(b"PORT")
+      style: primary
+      start: 0
+      end: 24
+    - source: os.environb
+      style: secondary
+      start: 0
+      end: 11
+    - source: get
+      style: secondary
+      start: 12
+      end: 15
+    - source: os.environb.get
+      style: secondary
+      start: 0
+      end: 15
+  os.getenvb(b"PORT"):
+    labels:
+    - source: os.getenvb(b"PORT")
+      style: primary
+      start: 0
+      end: 19
+    - source: os.getenvb
+      style: secondary
+      start: 0
+      end: 10
+  other[os.environ["PORT"]] = value:
+    labels:
+    - source: os.environ["PORT"]
+      style: primary
+      start: 6
+      end: 24
+    - source: os.environ
+      style: secondary
+      start: 6
+      end: 16

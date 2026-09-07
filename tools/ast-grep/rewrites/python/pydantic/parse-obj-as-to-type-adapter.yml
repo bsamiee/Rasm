@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: parse-obj-as-to-type-adapter
+language: python
+severity: off
+rule:
+    kind: call
+    pattern: $CALL
+    any:
+        - pattern: $MODULE.parse_obj_as(type_=$TYPE, obj=$VALUE)
+        - pattern: $MODULE.parse_obj_as($TYPE, obj=$VALUE)
+        - pattern: $MODULE.parse_obj_as($TYPE, $VALUE)
+    has:
+        field: function
+        matches:
+            python-module-member:
+                module: {regex: "^pydantic$"}
+                name: {pattern: $_}
+    not: {has: {field: arguments, has: {kind: comment}}}
+constraints:
+    VALUE: {not: {kind: keyword_argument}}
+fix: "$MODULE.TypeAdapter($TYPE).validate_python($VALUE)"
+message: "`parse_obj_as` forwards to TypeAdapter validation"
+note: >-
+    Apply when constructing the type adapter can precede evaluating the input without changing behavior. Direct TypeAdapter construction resolves forward references in the caller namespace. Reuse the adapter when validation repeats. Calls with an imported helper need the corresponding TypeAdapter import.
+labels: {CALL: {style: primary, message: Validation call}}

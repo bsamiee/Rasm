@@ -5,15 +5,18 @@ description: "Use when adding, changing, or judging a hook of the function-hooks
 
 # [FUNCTION_HOOKS]
 
-The `function-hooks` plugin at `.claude/plugins/function-hooks/` is one hooks module that refuses, rewrites, and annotates tool calls, redacts prompts, routes skills, briefs agents, and records findings from policy tables. Dispatch the plugin's own `function-hooks:hook-builder` agent for every edit under the folder, one scope per dispatch, and read `.claude/types/claude-code.d.ts` for every event input, result, and `$` method before judging a hook, since the declarations are the API and the harness regenerates them, and the bundled `plugin-authoring` skill is the engine's own orientation to such a plugin, preloaded by the agent. The plugin's own skills sit at `skills/<name>/SKILL.md` and its agents at `agents/<name>.md`, each loaded as `function-hooks:<name>`, and a new component of the plugin takes one such file.
+Build hooks in `.claude/plugins/function-hooks/` from pure policy rules and typed event adapters. The module refuses, rewrites, and annotates tool calls, routes skills, briefs agents, and records findings.
+
+Read `.claude/types/claude-code.d.ts` for each event, result, and `$` method in scope, and use `plugin-authoring` for the engine orientation.
+
+Plugin skills belong at `skills/<name>/SKILL.md` and agents at `agents/<name>.md`, loaded as `function-hooks:<name>`.
 
 [REFERENCES]:
-- [01]-[API](references/api.md): The declarations read by category, with the runtime fact and the proof form of each category
-- [02]-[BUILDING_BLOCKS](references/building-blocks.md): Carriers, tables, adapter, store, text operations, when a block or a rule earns its place
-- [03]-[IDEATION](references/ideation.md): The moves, the potentialities the declarations open, the compositions, the questions that settle a design
+- [01]-[API](references/api.md): Event contracts and runtime proof
+- [02]-[BUILDING_BLOCKS](references/building-blocks.md): Policy composition and module design
+- [03]-[IDEATION](references/ideation.md): Choosing behavior from the declared capabilities
 
-[AGENTS]: Each agent is this skill's worker with `plugin-authoring` preloaded, and proves its result by the checks and a `-p` run:
-- [01]-[HOOK_BUILDER](../../agents/hook-builder.md): One scope of the plugin from design to proof, the sources, the ownership, the procedure, and the gate
+Delegate every edit under the folder to [HOOK_BUILDER](../../agents/hook-builder.md), one bounded scope with its runtime proof per dispatch.
 
 ## [01]-[RUNTIME]
 
@@ -35,7 +38,7 @@ The `function-hooks` plugin at `.claude/plugins/function-hooks/` is one hooks mo
 Every hook is an adapter over pure rules, and the adapter is the one place a `$` call or a `next` call appears:
 - Rules are `(e) => Decision`, a `rewrite`, a `deny(reason)`, or an `answer(result)`, and `fold` runs a table of rules in order
 - `$.store` is the one state, read in the hook body of the event that needs it, and no module binding changes after load
-- Each fact has one owner: a key one writer, a reason one row, a decoder one export, and a second copy moves into the owning module
+- Give each fact one owner: a key one writer, a reason one row, and a decoder one export
 - Deny reasons name the correct form (the command, the tool, the skill), and the model retries from the reason alone
 - Rewrites add a `context` line naming what changed, because the model reads the command it wrote and not the rewritten one
 - Rows replacing a prose rule, a deny glob, or a settings hook land with their runtime proof, and the old form leaves in the same change
@@ -48,29 +51,30 @@ Every hook is an adapter over pure rules, and the adapter is the one place a `$`
 - Constructors build one case each, operations are data-last functions over a carrier, and the one two-way `if` lifts a refinement
 - Every other branch is a `match` with its result type written, because the compiler binds the type argument to the first arm
 - Reach for a carrier when a value is absent, refined, or decided, and for an operation when a `match` rebuilds the carrier it read
-- Operations join the folder when two files repeat one `match` shape, and an arm joins a carrier with its first consumer
+- Share operations that express the same carrier transformation across consumers, and add an arm with its first consumer
 - Specs fold the operations over literal values and read the result through one case record into plain data
 
 [TEXT]: Operations from text to data or to text, with no engine type and no policy row, that a policy calls on a field it reads
-- Modules export one operation over one text form (a command, a value list, a document), with its types and its spec beside it
+- Group operations by text form (a command, a value list, a document), with their types and specs beside the module
 - Positions survive as spans, a policy rewrites by splicing a span and its context line names what changed
-- Reach for the folder when two policies read one text form, and keep an operation one policy uses inside that policy under a `_` name
-- Text forms no module reads take a new module, and operations over a read form join that form's module
+- Share text operations when policies need the same interpretation, and keep operations used by one policy local under a `_` name
+- Add operations to the module for their text form, creating a module when a shared form has no owner
 - Reasons, skill names, and rows stay in the policies, the folder knows no table
 
 [HOST]: The boundary to the engine, the store's keys and decoders, the options narrowed once, and the input of every served tool
 - Store facts are namespaces with one key per row, a key builder with filters over the key list, and one decoder per row type
 - Decoders lift a refinement over an unknown value into the carrier, and the events read every store value through them
 - Options derive from a row table that matches the manifest, narrowed once at load with no default restated
-- Facts that outlive a call take a namespace, an interface, a refinement, a decoder, and a spec case for the valid, wrong, and missing row
-- Options take a manifest row and a table row, and served tools take an input declaration, a handler in a policy file, and a spec
+- Reuse the namespace and row shape that express a stored fact
+- Add a shape when readers need new data, with its namespace, interface, refinement, decoder, and spec cases for the valid, wrong, and missing row
 
 [POLICIES]: One file per subject, its table `as const satisfies` a row type, and the rules that compute a decision from the rows
 - Rows are data, the predicate that selects them and one move, a deny with its reason, a rewrite with its context, a context line, or an answer
 - Rules read the event and the facts the adapter gathered, compute the hits, and return the first deny, else the rewrite with every context line
 - Files export the table, the rule, and the once keys the adapter stamps, and no policy calls `$` or `next`
-- Behavior is a row before it is a branch, a fact every row needs is a field on the row type, and a subject with no table is a new file
-- New files hold the table, its row type, the rule, and a spec that folds the rule over literal events and compares decisions as data
+- Use a row for another case of an existing policy and keep one-off logic in its owning module
+- Add a file for a subject with no table, and a moved expression alone earns none
+- Keep table-driven rules with their table and row type, and compare every rule's decisions over literal events in its spec
 
 [EVENTS]: One adapter per engine event, the file that turns a pure decision into the engine's result
 - The hook body reads the session and the store keys its rules need, then gathers the `$` facts a rule takes as arguments
@@ -92,34 +96,32 @@ Every hook is an adapter over pure rules, and the adapter is the one place a `$`
 
 Each addition lands in its owning table or module, and the plugin's `README.md` names the file that holds each:
 
-| [INDEX] | [ADDITION]                                      | [OWNER]                                                                                      |
-| :-----: | :---------------------------------------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | Bash leaf refusal, rewrite, or context          | Row in `SHELL`                                                                               |
-|  [02]   | Destructive git form                            | Row in `GIT`                                                                                 |
-|  [03]   | File tool path or content rule                  | Row in `PATHS`                                                                               |
-|  [04]   | Tool deny, route, guard, or description         | Row in `TOOLS`, `SERVERS`, `FETCH`, `FAMILIES`, or `DESCRIBE`                                |
-|  [05]   | Agent brief, or a withheld agent type           | Row in `AGENTS` or `OFFERS`                                                                  |
-|  [06]   | Weakness kind the classifier names              | Row in `KINDS`                                                                               |
-|  [07]   | Fact that outlives a call                       | Namespace in `NAMESPACES` with its decoder in the store module                               |
-|  [08]   | Hook on an event with no rows                   | Registration in the event's file                                                             |
-|  [09]   | Option the person sets                          | Row in `userConfig` and in `OPTIONS`                                                         |
-|  [10]   | Tool the model calls                            | `$.tool.register` in `session.start`, a matched `tool.call` hook, the tool input declaration |
-|  [11]   | Text operation two policies share               | Module under `text/` with its spec                                                           |
-|  [12]   | Shape the plugin code keeps                     | Rule in the `claude-code` family with its test                                               |
-|  [13]   | Command run after an edit, its lines as context | Row in `SCAN`                                                                                |
-|  [14]   | Diagnostic id the roslyn server reports wrongly | Row in `WRONG_DIAGNOSTICS` with its retirement in the README                                 |
+| [INDEX] | [ADDITION]                    | [OWNER]                                                          |
+| :-----: | :---------------------------- | :--------------------------------------------------------------- |
+|  [01]   | Shell or git behavior         | `SHELL` or `GIT`                                                 |
+|  [02]   | File path or content behavior | `PATHS`                                                          |
+|  [03]   | Tool routing or description   | `TOOLS`, `SERVERS`, `FETCH`, `FAMILIES`, or `DESCRIBE`           |
+|  [04]   | Agent brief or availability   | `AGENTS` or `OFFERS`                                             |
+|  [05]   | Classifier kind               | `KINDS`                                                          |
+|  [06]   | Stored fact                   | `NAMESPACES` and the store decoder                               |
+|  [07]   | Hook on an event with no rows | Registration in the event's file                                 |
+|  [08]   | User option                   | Manifest `userConfig` and `OPTIONS`                              |
+|  [09]   | Served tool                   | Registration, matched handler, and input declaration             |
+|  [10]   | Shared text operation         | Its module under `text/`                                         |
+|  [11]   | Recurring structural defect   | Existing or new rule in the `claude-code` family                 |
+|  [12]   | Command after an edit         | `SCAN`                                                           |
+|  [13]   | Incorrect Roslyn diagnostic   | `WRONG_DIAGNOSTICS`, with its retirement condition in the README |
 
 ## [05]-[CHECKS]
 
 Static checks run at zero findings before a runtime proof, and the plugin's `README.md` holds the commands and the debug lines:
 - Specs sit beside their modules and fold rules over literal events
-- Runtime proof is one `-p` call per row, read in the transcript's result block and in the debug line the move prints
 - Timers and served tools are proven in an interactive session, because a `-p` run exits before either matters
 
 ## [06]-[HARNESS]
 
 `nx run rasm:harness` runs `eng/scripts/harness.py`, the one route to the declarations under `.claude/types/` and to the installed copy under `~/.claude/plugins/cache/`, after a Claude Code update, an MCP server change, or a plugin edit:
-- The target depends on the plugin's `lint`, `format`, and `test`
+- The target depends on the plugin's `lint` and `test`
 - Failures name the fix: a configured server absent from `claude-code-mcp.d.ts`, or a version line other than `claude --version`
 - The installed copy proves its load in a debug file under `.artifacts/`, and a copy that fails to load fails the run
 - `computer-use` never appears in the declarations a `-p` session writes

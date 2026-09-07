@@ -58,6 +58,13 @@ valid:
       const arm = (on: On): void => {
           EVENTS.forEach((event) => on(event, ($, e, next) => next(e)));
       };
+    - "on(nextEvent(), first); on(nextEvent(), second);"
+    - 'on(EVENT, first); EVENT = "other"; on(EVENT, second);'
+    # Second plain registration on an event held in a constant
+    - |
+      on(EVENT, ($, e, next) => next(e));
+      on(EVENT, ($, e, next) => next(e));
+    - 'on("tool.\u0063all", first); on("tool.\u0064escribe", second);'
 invalid:
     # Registration inside a session.start hook, it runs at dispatch time
     - |
@@ -120,10 +127,6 @@ invalid:
     - |
       on('tool.call', first);
       on('tool.call', second);
-    # Second plain registration on an event held in a constant
-    - |
-      on(EVENT, ($, e, next) => next(e));
-      on(EVENT, ($, e, next) => next(e));
     # Registration inside a hook bound to a name before the registration
     - |
       const hook = ($, e, next) => {
@@ -138,3 +141,4 @@ invalid:
           return next(e);
       };
       on('tool.call', { tool: 'Bash' }, hook);
+    - "on(\"tool.call\", first); on('tool.call', second);"

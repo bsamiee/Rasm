@@ -2,298 +2,109 @@ id: no-never-arm
 snapshots:
   ? |
     const arms = { deny: (value: never): never => value, rewrite: (input) => input.prompt };
-  : labels:
-    - source: '(value: never): never => value'
-      style: primary
-      start: 21
-      end: 51
+  : fixed: |
+      const arms = { deny: absurd, rewrite: (input) => input.prompt };
+    labels:
     - source: 'deny: (value: never): never => value'
-      style: secondary
+      style: primary
       start: 15
       end: 51
-    - source: never
-      style: secondary
-      start: 29
-      end: 34
-    - source: never
-      style: secondary
-      start: 29
-      end: 34
-    - source: 'value: never'
-      style: secondary
-      start: 22
-      end: 34
-    - source: 'value: never'
-      style: secondary
-      start: 22
-      end: 34
+  ? |
+    const arms = { deny: async function* (value: never) { yield value; }, rewrite: (input) => input.prompt };
+  : fixed: |
+      const arms = { deny: absurd, rewrite: (input) => input.prompt };
+    labels:
+    - source: 'deny: async function* (value: never) { yield value; }'
+      style: primary
+      start: 15
+      end: 68
+  ? |
+    const arms = { deny: function* (value: never) { yield value; }, rewrite: (input) => input.prompt };
+  : fixed: |
+      const arms = { deny: absurd, rewrite: (input) => input.prompt };
+    labels:
+    - source: 'deny: function* (value: never) { yield value; }'
+      style: primary
+      start: 15
+      end: 62
   ? |
     const done = decision.match<Promise<void>>({ async deny(_reason: never): Promise<void> { return; }, rewrite: () => next(e) });
-  : labels:
+  : fixed: |
+      const done = decision.match<Promise<void>>({ deny: absurd, rewrite: () => next(e) });
+    labels:
     - source: 'async deny(_reason: never): Promise<void> { return; }'
       style: primary
       start: 45
       end: 98
-    - source: '{ async deny(_reason: never): Promise<void> { return; }, rewrite: () => next(e) }'
-      style: secondary
-      start: 43
-      end: 124
-    - source: never
-      style: secondary
-      start: 65
-      end: 70
-    - source: never
-      style: secondary
-      start: 65
-      end: 70
-    - source: '_reason: never'
-      style: secondary
-      start: 56
-      end: 70
-    - source: '_reason: never'
-      style: secondary
-      start: 56
-      end: 70
   ? |
     const done = decision.match<Promise<void>>({ deny: (_reason: never): Promise<void> => Promise.resolve(), rewrite: () => next(e) });
-  : labels:
-    - source: '(_reason: never): Promise<void> => Promise.resolve()'
-      style: primary
-      start: 51
-      end: 103
+  : fixed: |
+      const done = decision.match<Promise<void>>({ deny: absurd, rewrite: () => next(e) });
+    labels:
     - source: 'deny: (_reason: never): Promise<void> => Promise.resolve()'
-      style: secondary
+      style: primary
       start: 45
       end: 103
-    - source: never
-      style: secondary
-      start: 61
-      end: 66
-    - source: never
-      style: secondary
-      start: 61
-      end: 66
-    - source: '_reason: never'
-      style: secondary
-      start: 52
-      end: 66
-    - source: '_reason: never'
-      style: secondary
-      start: 52
-      end: 66
   ? |
     const done = decision.match<Promise<void>>({ deny: async (_reason: never): Promise<void> => {}, rewrite: () => next(e) });
-  : labels:
-    - source: 'async (_reason: never): Promise<void> => {}'
-      style: primary
-      start: 51
-      end: 94
+  : fixed: |
+      const done = decision.match<Promise<void>>({ deny: absurd, rewrite: () => next(e) });
+    labels:
     - source: 'deny: async (_reason: never): Promise<void> => {}'
-      style: secondary
+      style: primary
       start: 45
       end: 94
-    - source: never
-      style: secondary
-      start: 67
-      end: 72
-    - source: never
-      style: secondary
-      start: 67
-      end: 72
-    - source: '_reason: never'
-      style: secondary
-      start: 58
-      end: 72
-    - source: '_reason: never'
-      style: secondary
-      start: 58
-      end: 72
   ? |
     const reason = decision.match<string>({ *deny(value: never) { yield value; }, rewrite: (input) => input.prompt });
-  : labels:
+  : fixed: |
+      const reason = decision.match<string>({ deny: absurd, rewrite: (input) => input.prompt });
+    labels:
     - source: '*deny(value: never) { yield value; }'
       style: primary
       start: 40
       end: 76
-    - source: '{ *deny(value: never) { yield value; }, rewrite: (input) => input.prompt }'
-      style: secondary
-      start: 38
-      end: 112
-    - source: never
-      style: secondary
-      start: 53
-      end: 58
-    - source: never
-      style: secondary
-      start: 53
-      end: 58
-    - source: 'value: never'
-      style: secondary
-      start: 46
-      end: 58
-    - source: 'value: never'
-      style: secondary
-      start: 46
-      end: 58
   ? |
     const reason = decision.match<string>({ answer: (_result: never): never => { throw new Error('unreachable'); }, rewrite: (input) => input.prompt });
-  : labels:
-    - source: '(_result: never): never => { throw new Error(''unreachable''); }'
-      style: primary
-      start: 48
-      end: 110
+  : fixed: |
+      const reason = decision.match<string>({ answer: absurd, rewrite: (input) => input.prompt });
+    labels:
     - source: 'answer: (_result: never): never => { throw new Error(''unreachable''); }'
-      style: secondary
+      style: primary
       start: 40
       end: 110
-    - source: never
-      style: secondary
-      start: 58
-      end: 63
-    - source: never
-      style: secondary
-      start: 58
-      end: 63
-    - source: '_result: never'
-      style: secondary
-      start: 49
-      end: 63
-    - source: '_result: never'
-      style: secondary
-      start: 49
-      end: 63
   ? |
     const reason = decision.match<string>({ deny(value: never): never { return value; }, rewrite: (input) => input.prompt });
-  : labels:
+  : fixed: |
+      const reason = decision.match<string>({ deny: absurd, rewrite: (input) => input.prompt });
+    labels:
     - source: 'deny(value: never): never { return value; }'
       style: primary
       start: 40
       end: 83
-    - source: '{ deny(value: never): never { return value; }, rewrite: (input) => input.prompt }'
-      style: secondary
-      start: 38
-      end: 119
-    - source: never
-      style: secondary
-      start: 52
-      end: 57
-    - source: never
-      style: secondary
-      start: 52
-      end: 57
-    - source: 'value: never'
-      style: secondary
-      start: 45
-      end: 57
-    - source: 'value: never'
-      style: secondary
-      start: 45
-      end: 57
   ? |
     const reason = decision.match<string>({ deny: (_: never): never => absurd(_), rewrite: (input) => input.prompt });
-  : labels:
-    - source: '(_: never): never => absurd(_)'
-      style: primary
-      start: 46
-      end: 76
+  : fixed: |
+      const reason = decision.match<string>({ deny: absurd, rewrite: (input) => input.prompt });
+    labels:
     - source: 'deny: (_: never): never => absurd(_)'
-      style: secondary
+      style: primary
       start: 40
       end: 76
-    - source: never
-      style: secondary
-      start: 50
-      end: 55
-    - source: never
-      style: secondary
-      start: 50
-      end: 55
-    - source: '_: never'
-      style: secondary
-      start: 47
-      end: 55
-    - source: '_: never'
-      style: secondary
-      start: 47
-      end: 55
   ? |
     const reason = decision.match<string>({ deny: (value: never): never => value, rewrite: (input) => input.prompt });
-  : labels:
-    - source: '(value: never): never => value'
-      style: primary
-      start: 46
-      end: 76
+  : fixed: |
+      const reason = decision.match<string>({ deny: absurd, rewrite: (input) => input.prompt });
+    labels:
     - source: 'deny: (value: never): never => value'
-      style: secondary
+      style: primary
       start: 40
       end: 76
-    - source: never
-      style: secondary
-      start: 54
-      end: 59
-    - source: never
-      style: secondary
-      start: 54
-      end: 59
-    - source: 'value: never'
-      style: secondary
-      start: 47
-      end: 59
-    - source: 'value: never'
-      style: secondary
-      start: 47
-      end: 59
-  ? |
-    const reason = decision.match<string>({ deny: (value?: never): never => value, rewrite: (input) => input.prompt });
-  : labels:
-    - source: '(value?: never): never => value'
-      style: primary
-      start: 46
-      end: 77
-    - source: 'deny: (value?: never): never => value'
-      style: secondary
-      start: 40
-      end: 77
-    - source: never
-      style: secondary
-      start: 55
-      end: 60
-    - source: never
-      style: secondary
-      start: 55
-      end: 60
-    - source: 'value?: never'
-      style: secondary
-      start: 47
-      end: 60
-    - source: 'value?: never'
-      style: secondary
-      start: 47
-      end: 60
   ? |
     const reason = decision.match<string>({ deny: function (value: never): never { return value; }, rewrite: (input) => input.prompt });
-  : labels:
-    - source: 'function (value: never): never { return value; }'
-      style: primary
-      start: 46
-      end: 94
+  : fixed: |
+      const reason = decision.match<string>({ deny: absurd, rewrite: (input) => input.prompt });
+    labels:
     - source: 'deny: function (value: never): never { return value; }'
-      style: secondary
+      style: primary
       start: 40
       end: 94
-    - source: never
-      style: secondary
-      start: 63
-      end: 68
-    - source: never
-      style: secondary
-      start: 63
-      end: 68
-    - source: 'value: never'
-      style: secondary
-      start: 56
-      end: 68
-    - source: 'value: never'
-      style: secondary
-      start: 56
-      end: 68

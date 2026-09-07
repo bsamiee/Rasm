@@ -2,41 +2,81 @@
 id: no-extra-package-source
 language: xml
 severity: error
-files: ['NuGet.config'] # The root NuGet.config alone, the one config of the workspace
+files: ["NuGet.config"]
 utils:
-    # The restore sources of the mapping, each tag read as one row
-    nuget-org-source: {kind: element, has: {matches: msbuild-tag, regex: '^<packageSource\s+key=["'']nuget\.org["'']\s*/?>$'}}
-    local-feed-source: {kind: element, has: {matches: msbuild-tag, regex: '^<packageSource\s+key=["'']local["'']\s*/?>$'}}
+    nuget-org-source:
+        all:
+            - matches: {msbuild-element: {name: {regex: "^packageSource$"}}}
+            - matches: {msbuild-metadata: {name: {regex: "^key$"}, value: {regex: '^["'']nuget\.org["'']$'}}}
+    local-feed-source:
+        all:
+            - matches: {msbuild-element: {name: {regex: "^packageSource$"}}}
+            - matches: {msbuild-metadata: {name: {regex: "^key$"}, value: {regex: '^["'']local["'']$'}}}
 rule:
     pattern: _ENTRY
     any:
-        # Restore source outside nuget.org and the local feed, each row read as one tag
-        - matches: {msbuild-element: {name: {regex: '^add$'}}}
-          inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^packageSources$'}}}}}
+        - matches: {msbuild-element: {name: {regex: "^add$"}}}
+          inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: "^packageSources$"}}}}}
           not:
-              has:
-                  matches: msbuild-tag
-                  any:
-                      - regex: '^<add\s+key=["'']nuget\.org["'']\s+value=["'']https://api\.nuget\.org/v3/index\.json["'']\s*/?>$'
-                      - regex: '^<add\s+key=["'']local["'']\s+value=["'']\.artifacts/nuget["'']\s*/?>$'
-        # Mapping source outside the restore sources, the tag utils pin the key of each row
-        - matches: {msbuild-element: {name: {regex: '^packageSource$'}}}
+            any:
+                - all:
+                    - matches: {msbuild-metadata: {name: {regex: "^key$"}, value: {regex: '^["'']nuget\.org["'']$'}}}
+                    - matches: {msbuild-metadata: {name: {regex: "^value$"}, value: {regex: '^["'']https://api\.nuget\.org/v3/index\.json["'']$'}}}
+                - all:
+                    - matches: {msbuild-metadata: {name: {regex: "^key$"}, value: {regex: '^["'']local["'']$'}}}
+                    - matches: {msbuild-metadata: {name: {regex: "^value$"}, value: {regex: '^["'']\.artifacts/nuget["'']$'}}}
+        - matches: {msbuild-element: {name: {regex: "^packageSource$"}}}
+          inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: "^packageSourceMapping$"}}}}}
           not: {any: [{matches: nuget-org-source}, {matches: local-feed-source}]}
-        # Entry under a known source outside the pattern it owns, the wildcard for nuget.org and the Rasm.* prefix for the local feed
-        - kind: element
+        - matches: {msbuild-element: {name: {regex: "^package$"}}}
           inside: {kind: content, inside: {any: [{matches: nuget-org-source}, {matches: local-feed-source}]}}
           not:
-              any:
-                  - all:
-                        - inside: {kind: content, inside: {matches: nuget-org-source}}
-                        - has: {matches: msbuild-tag, regex: '^<package\s+pattern=["'']\*["'']\s*/?>$'}
-                  - all:
-                        - inside: {kind: content, inside: {matches: local-feed-source}}
-                        - has: {matches: msbuild-tag, regex: '^<package\s+pattern=["'']Rasm\.\*["'']\s*/?>$'}
-fix:
-    template: ''
-    expandEnd: {kind: CharData, regex: '^\s*$'}
-message: >-
-    NuGet.config holds a source, mapping, or pattern outside the pairs nuget.org at https://api.nuget.org/v3/index.json mapped to * and local at
-    .artifacts/nuget mapped to Rasm.*
-note: Delete the source, mapping, or pattern outside the pairs
+            any:
+                - all:
+                    - inside: {kind: content, inside: {matches: nuget-org-source}}
+                    - matches: {msbuild-metadata: {name: {regex: "^pattern$"}, value: {regex: '^["'']\*["'']$'}}}
+                - all:
+                    - inside: {kind: content, inside: {matches: local-feed-source}}
+                    - matches: {msbuild-metadata: {name: {regex: "^pattern$"}, value: {regex: '^["'']Rasm\.\*["'']$'}}}
+transform:
+    CORRECTED: rewrite($ENTRY, rewriters=[nuget-source, local-source, nuget-package, local-package, drop])
+fix: $CORRECTED
+rewriters:
+    # A source row naming nuget.org by key or by address takes the pair, one naming the local feed takes its pair, the entry decides the element
+    - id: nuget-source
+      rule:
+        pattern: _ENTRY
+        any:
+            - matches: {msbuild-metadata: {name: {regex: "^key$"}, value: {regex: '^["'']nuget\.org["'']$'}}}
+            - matches: {msbuild-metadata: {name: {regex: "^value$"}, value: {regex: '^["'']https://api\.nuget\.org/v3/index\.json["'']$'}}}
+      fix: <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+    - id: local-source
+      rule:
+        pattern: _ENTRY
+        any:
+            - matches: {msbuild-metadata: {name: {regex: "^key$"}, value: {regex: '^["'']local["'']$'}}}
+            - matches: {msbuild-metadata: {name: {regex: "^value$"}, value: {regex: '^["'']\.artifacts/nuget["'']$'}}}
+      fix: <add key="local" value=".artifacts/nuget" />
+    # A package row under a source of the pair takes the source's pattern while the source lacks it
+    - id: nuget-package
+      rule:
+        pattern: _ENTRY
+        inside:
+            kind: content
+            inside: {matches: nuget-org-source}
+            not: {has: {matches: {msbuild-metadata: {name: {regex: "^pattern$"}, value: {regex: '^["'']\*["'']$'}}}}}
+      fix: <package pattern="*" />
+    - id: local-package
+      rule:
+        pattern: _ENTRY
+        inside:
+            kind: content
+            inside: {matches: local-feed-source}
+            not: {has: {matches: {msbuild-metadata: {name: {regex: "^pattern$"}, value: {regex: '^["'']Rasm\.\*["'']$'}}}}}
+      fix: <package pattern="Rasm.*" />
+    # Every other source, mapping, or package row leaves
+    - id: drop
+      rule: {pattern: _ENTRY}
+      fix: ''
+message: The NuGet source or mapping differs from the repository's source pairs
+note: Keep nuget.org at https://api.nuget.org/v3/index.json mapped to * and local at .artifacts/nuget mapped to Rasm.*

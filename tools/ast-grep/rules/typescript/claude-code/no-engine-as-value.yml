@@ -2,31 +2,26 @@
 id: no-engine-as-value
 language: tsx
 severity: error
-files: ['**/.claude/plugins/**']
+files:
+    - '**/.claude/plugins/**'
 utils:
-    # $.<noun>.<verb>(...), the $ identifier as the innermost object of a callee, the one spelling the loader's source scan accepts
     engine-call-site:
         inside:
             kind: member_expression
             field: object
-            inside:
-                kind: member_expression
-                field: object
-                inside: {kind: call_expression, field: function}
-    # $.plugin.name and $.plugin.root, the property reads CoreEngineInterface declares, proven to load in a hook body
+            inside: {kind: member_expression, field: object, inside: {kind: call_expression, field: function}}
     plugin-read:
         inside:
             kind: member_expression
             field: object
             inside: {any: [{pattern: $.plugin.name}, {pattern: $.plugin.root}]}
 rule:
-    # Computed members ($['store']) and bound methods ($.fs.exists.bind) leave the dotted call-site spelling and report
-    any: [{kind: identifier}, {kind: shorthand_property_identifier}]
-    regex: '^\$$'
-    not:
-        any:
-            - matches: engine-call-site
-            - matches: plugin-read
-            - inside: {kind: required_parameter}
+    any:
+        - {kind: identifier}
+        - {kind: shorthand_property_identifier}
+    regex: ^\$$
+    not: {any: [{matches: engine-call-site}, {matches: plugin-read}, {inside: {kind: required_parameter}}]}
+    pattern: $MATCH
 message: '`$` is read as a value and the loader refuses the module at load'
 note: Spell the engine interface as `$.<noun>.<verb>(...)` at each call site, `$.plugin.name` and `$.plugin.root` are its property reads
+labels: {MATCH: {style: primary}}

@@ -4,12 +4,16 @@ language: xml
 severity: error
 files: ['Directory.Packages.props'] # The root file alone, eng/native/Directory.Packages.props opts out of central package management
 rule:
+    pattern: _ROW
     matches: {msbuild-element: {name: {regex: '^(PackageVersion|GlobalPackageReference)$'}}}
     any:
         - not: {matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {regex: '^["''][^"'']+["'']$'}}}}
         # One version, plain or as the exact range in brackets, no wildcard and no open range
         - not: {matches: {msbuild-metadata: {name: {regex: '^Version$'}, value: {regex: '^["''](\[[^"''*,\[\]()]+\]|[^"''*,\[\]()]+)["'']$'}}}}
-message: >-
-    The central package version row lacks Include or an exact Version, dotnet-outdated moves the pin on an Include row and a floating or open
-    version reads the feed state at restore
+transform:
+    # An Update row in the root file declares with Include, -getItem:PackageVersion answered no item for the Update row and the row for Include
+    # A floating, open, or absent version stays as written, the pinned version is a feed lookup the file does not hold
+    DECLARED: {replace: {source: $ROW, replace: '^(<(?:PackageVersion|GlobalPackageReference)\b[^<]*?\s)Update(\s*=)', by: '${1}Include${2}'}}
+fix: $DECLARED
+message: The central package version row lacks Include or an exact Version, a floating or open version reads the feed state at restore
 note: Write the row as <PackageVersion Include="<Id>" Version="<exact>" />

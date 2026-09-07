@@ -27,9 +27,9 @@ NEVER use `Grep` or `Glob` to navigate code, languages have specialized skills a
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex usage, config, harness work, and understanding
 
-The policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and rewrite tool calls, and a denied call names the correct form.
+Policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and rewrite tool calls. Denials name the correct form.
 
-[CLI_TOOLING]: All tools are available from `Parametric_Forge`, prefer them to standard Unix tools where applicable
+[CLI_TOOLING]:
 
 | [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                  |
 | :-----: | :-------- | :---------------------------------------------------------------------------------------------------------- |

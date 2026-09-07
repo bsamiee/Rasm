@@ -36,8 +36,12 @@ valid:
     # Refinement returning the test inside parentheses beside a second condition
     - |
       const _hasCommand = (e: ToolCallInput): e is Commanded => (e.tool === 'Bash' || e.tool === 'Monitor') && typeof e.command === 'string';
+    - 'const isBash = (e: ToolCallInput, other = effect()): e is Bash => e.tool === "Bash";'
+    - 'const isBash = (e: ToolCallInput): e is Bash => /* retain */ e.tool === "Bash";'
+    - 'const isBash = (e: ToolCallInput = input): e is Bash => e.tool === "Bash";'
+    - 'const isBash = (e: ToolCallInput): e is Bash => e.tool /* retain */ === "Bash";'
 invalid:
-    # The instance, the refinement by hand
+    # the refinement by hand
     - |
       const _isBash = (e: ToolCallInput): e is Bash => e.tool === 'Bash';
     # Double-quoted tool name

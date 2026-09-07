@@ -34,6 +34,7 @@ import {
     PART_NAMES,
     type Part,
     type Status,
+    type Summary,
     suffix,
 } from '../host/store.ts';
 import type { Batch } from './agents.ts';
@@ -111,8 +112,6 @@ const _isOpen = (row: Finding): boolean => _OPEN.includes(row.status);
 
 const _idOf = suffix('findings');
 
-const _nonEmpty = fromPredicate((rows: readonly Finding[]): rows is readonly [Finding, ...Finding[]] => rows.length > 0);
-
 const _isRow = struct(_ROW);
 
 const _isRows = (value: unknown): value is NonNullable<CloseInput['rows']> => Array.isArray(value) && value.every(_isRow);
@@ -147,17 +146,28 @@ const finding = (input: FindingInput): KeyedFinding => {
     };
 };
 
-// The prompt.context block over the open-question rows, none when there is none
-const questions = (rows: readonly Finding[]): Option<Question> =>
-    map(
-        (asked: readonly Finding[]): Question => ({
-            name: 'openQuestions',
-            text: [_QUESTION_HEADER, ...asked.map((row) => `- ${row.file} ${row.section}: ${row.change}`)].join('\n'),
-        }),
-    )(_nonEmpty(rows.filter((row) => row.status === 'open-question')));
-
 // Open-question rows wait for the person, the count and the batches read the open rows alone
 const open = (rows: readonly Finding[]): number => rows.filter((row) => row.status === 'open').length;
+
+const _questionLine = (row: Finding): string => `- ${row.file} ${row.section}: ${row.change}`;
+
+// The summary row over every findings row, the snapshot the band and the open-question block read in place of a scan
+const summarize = (rows: readonly Finding[]): Summary => ({
+    open: open(rows),
+    questions: rows.filter((row) => row.status === 'open-question').map(_questionLine),
+});
+
+// The summary after one new row, the classifier's write beside its findings row
+const withFinding = (summary: Summary, row: Finding): Summary => {
+    const added = summarize([row]);
+    return { open: summary.open + added.open, questions: [...summary.questions, ...added.questions] };
+};
+
+// The prompt.context block over the summary's question lines, none when there is none
+const questions = (summary: Summary): Option<Question> =>
+    map((asked: readonly string[]): Question => ({ name: 'openQuestions', text: [_QUESTION_HEADER, ...asked].join('\n') }))(
+        liftPredicate<readonly string[]>((lines) => lines.length > 0)(summary.questions),
+    );
 
 // The findings/ keys of landed or closed rows older than the due window, the prune that keeps one window of closed history
 const expiredFindings = (entries: readonly Entry[], now: number): readonly string[] =>
@@ -237,9 +247,12 @@ const close = (input: CloseInput, rows: readonly KeyedFinding[], cleaned: Cleane
         }),
         none: () => {
             const closed = _closedRows(input, rows, now);
+            const closedKeys = closed.map((keyed) => keyed.key);
+            const after = [...rows.filter((keyed) => !closedKeys.includes(keyed.key)), ...closed];
             return {
                 writes: [
                     ...closed.map((keyed): Entry => ({ key: keyed.key, value: keyed.row })),
+                    { key: key('summary'), value: summarize(after.map((keyed) => keyed.row)) },
                     { key: key('cleaned'), value: _stamps(input, cleaned) },
                 ],
                 result: { closed: closed.length },
@@ -266,4 +279,6 @@ export {
     openLine,
     questions,
     status,
+    summarize,
+    withFinding,
 };

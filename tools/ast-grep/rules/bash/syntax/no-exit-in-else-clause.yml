@@ -2,23 +2,45 @@
 id: no-exit-in-else-clause
 language: bash
 severity: error
+ignores: ["**/*.json"]
 utils:
     leaving-command:
         kind: command
         has: {field: name, regex: '^(exit|return|continue|break)$'}
 rule:
     kind: if_statement
+    pattern: $IF
     all:
         - not: {has: {kind: elif_clause}} # An elif chain selects among cases and takes case or one guard per arm
+        # One condition node before then, a list of statements as the condition needs a group the guard form does not state
+        - has: {field: condition, pattern: $COND, precedes: {regex: '^then$', stopBy: {not: {regex: '^;$'}}}}
         - has:
-              kind: else_clause
-              has: {matches: leaving-command, nthChild: {position: 1, reverse: true}} # A comment after the body sits outside the clause
-        # The then branch ends in no leaving command, its last statement is the one that precedes else with no statement between,
-        # a comment after it is no statement
+            kind: else_clause
+            pattern: $ELSE
+            has: {matches: leaving-command, nthChild: {position: 1, reverse: true}} # A comment after the body sits outside the clause
+        # Any unconditional leaving command makes later then-statements unreachable.
         - not:
-              has:
-                  matches: leaving-command
-                  precedes: {stopBy: end, kind: else_clause}
-                  not: {precedes: {stopBy: end, pattern: $_, not: {kind: comment}, precedes: {stopBy: end, kind: else_clause}}}
+            has:
+                matches: leaving-command
+                precedes: {stopBy: end, kind: else_clause}
+rewriters:
+    # The statements and comments between then and the else clause
+    - id: then-statement
+      rule:
+        pattern: $STATEMENT
+        inside: {kind: if_statement, pattern: $IF}
+        follows: {regex: '^then$', stopBy: end}
+        not: {kind: else_clause}
+      fix: $STATEMENT
+transform:
+    THEN: {rewrite: {source: $IF, rewriters: [then-statement], joinBy: "\n"}}
+    # The else body without its keyword, trailing space, and line indentation, the template indents every line once
+    BODY: {replace: {source: $ELSE, replace: '(?s)^else\s*|\s*$', by: ''}}
+    LEAVING: {replace: {source: $BODY, replace: '\n[ \t]+', by: "\n"}}
+fix: |-
+    $COND || {
+        $LEAVING
+    }
+    $THEN
 message: The else clause leaves the enclosing scope while the then branch continues
 note: 'Guard first, `<test> || { <else body>; }`, and keep the then branch unnested'

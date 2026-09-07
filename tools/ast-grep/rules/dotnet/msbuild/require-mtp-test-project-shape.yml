@@ -5,11 +5,36 @@ severity: error
 files: ['**/*.csproj']
 rule:
     kind: document
+    pattern: _DOC
     has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^["'']xunit\.v3\.mtp-v2["'']$'}}}, stopBy: end}
     any:
         - not: {has: {matches: {msbuild-property-value: {name: {regex: '^OutputType$'}, text: {regex: '(?i)^\s*Exe\s*$'}}}, stopBy: end}}
         - not: {has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^["'']coverlet\.MTP["'']$'}}}, stopBy: end}}
-message: >-
-    The test project referencing xunit.v3.mtp-v2 lacks <OutputType>Exe</OutputType> or the coverlet.MTP reference, the Microsoft Testing
-    Platform host is an executable and every test run collects coverage
-note: Declare <OutputType>Exe</OutputType> and reference coverlet.MTP
+transform:
+    SHAPED: rewrite($DOC, rewriters=[exe, group, coverage])
+fix: $SHAPED
+rewriters:
+    # Another output type becomes Exe, the text of the property alone
+    - id: exe
+      rule:
+        kind: CharData
+        inside: {kind: content, inside: {matches: {msbuild-property: {name: {regex: '^OutputType$'}}}}}
+        not: {regex: '(?i)^\s*Exe\s*$'}
+      fix: Exe
+    # A project with no OutputType property opens with a group setting it, the root element's start tag is the position
+    - id: group
+      rule:
+        kind: STag
+        pattern: _TAG
+        inside: {kind: element, inside: {kind: document}}
+        not: {inside: {kind: document, stopBy: end, has: {matches: {msbuild-property: {name: {regex: '^OutputType$'}}}, stopBy: end}}}
+      fix: $TAG<PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+    # The coverage collector joins the framework reference when the project lacks it
+    - id: coverage
+      rule:
+        pattern: _REF
+        matches: {msbuild-package-reference: {id: {regex: '(?i)^["'']xunit\.v3\.mtp-v2["'']$'}}}
+        not: {inside: {kind: document, stopBy: end, has: {matches: {msbuild-package-reference: {id: {regex: '(?i)^["'']coverlet\.MTP["'']$'}}}, stopBy: end}}}
+      fix: <PackageReference Include="coverlet.MTP" />$REF
+message: The test project references xunit.v3.mtp-v2 without OutputType Exe or the coverlet.MTP reference
+note: Declare <OutputType>Exe</OutputType> and reference coverlet.MTP, the testing platform host is an executable that collects coverage

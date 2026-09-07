@@ -1,0 +1,113 @@
+id: echo-expansion-to-printf
+snapshots:
+  echo "$(date)":
+    fixed: printf '%s\n' "$(date)"
+    labels:
+    - source: echo "$(date)"
+      style: primary
+      start: 0
+      end: 14
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"$(date)"'
+      style: secondary
+      start: 5
+      end: 14
+  echo "$x":
+    fixed: printf '%s\n' "$x"
+    labels:
+    - source: echo "$x"
+      style: primary
+      start: 0
+      end: 9
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"$x"'
+      style: secondary
+      start: 5
+      end: 9
+  echo "$x" >&2:
+    fixed: printf '%s\n' "$x" >&2
+    labels:
+    - source: echo "$x"
+      style: primary
+      start: 0
+      end: 9
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"$x"'
+      style: secondary
+      start: 5
+      end: 9
+  'echo "value: ${count}"':
+    fixed: 'printf ''%s\n'' "value: ${count}"'
+    labels:
+    - source: 'echo "value: ${count}"'
+      style: primary
+      start: 0
+      end: 22
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"value: ${count}"'
+      style: secondary
+      start: 5
+      end: 22
+  echo -e "$x\n$y":
+    fixed: printf '%b\n' "$x\n$y"
+    labels:
+    - source: echo -e "$x\n$y"
+      style: primary
+      start: 0
+      end: 16
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"$x\n$y"'
+      style: secondary
+      start: 8
+      end: 16
+  echo -n "$x":
+    fixed: printf '%s' "$x"
+    labels:
+    - source: echo -n "$x"
+      style: primary
+      start: 0
+      end: 12
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"$x"'
+      style: secondary
+      start: 8
+      end: 12
+  ? |
+    report() {
+        echo "$1" | sort
+    }
+  : fixed: |
+      report() {
+          printf '%s\n' "$1" | sort
+      }
+    labels:
+    - source: echo "$1"
+      style: primary
+      start: 15
+      end: 24
+    - source: echo
+      style: secondary
+      start: 15
+      end: 19
+    - source: '"$1"'
+      style: secondary
+      start: 20
+      end: 24

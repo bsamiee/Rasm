@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Option } from '../composition/option.ts';
 import { type Cleaned, type Entry, type Finding, id, PART_NAMES } from '../host/store.ts';
-import { batch, close, decodeClose, due, expiredFindings, finding, MS_PER_DAY, open, questions, status } from './findings.ts';
+import { batch, close, decodeClose, due, expiredFindings, finding, MS_PER_DAY, open, questions, status, summarize, withFinding } from './findings.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,6 +31,7 @@ const _FINDING: Finding = {
     ts: _NOW,
 };
 const _QUESTION: Finding = { ..._FINDING, status: 'open-question', change: 'keep the row?' };
+const _QUESTION_LINE = '- CLAUDE.md [01]: keep the row?';
 
 // Stamp the given number of days before now
 const _stamp = (days: number): string => new Date(_NOW - days * MS_PER_DAY).toISOString();
@@ -40,6 +41,10 @@ const _FRESH: Cleaned = Object.fromEntries(PART_NAMES.map((part) => [part, _stam
 
 // Open rows of one kind under findings/<n>, one over the threshold
 const _ENTRIES: readonly Entry[] = Array.from({ length: _THRESHOLD + 1 }, (_row, index): Entry => ({ key: `findings/${index}`, value: _FINDING }));
+
+// Open rows of the given kinds under findings/<n>
+const _rowsOf = (kinds: readonly Finding['kind'][]): readonly Entry[] =>
+    kinds.map((kind, index): Entry => ({ key: `findings/${index}`, value: { ..._FINDING, kind } }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -112,13 +117,22 @@ describe('finding', () => {
     });
 });
 
+describe('summarize', () => {
+    it('counts the open rows and lists one line per open question, and appends one row to a summary', () => {
+        expect(summarize([_FINDING, _QUESTION, { ..._FINDING, status: 'landed' }])).toStrictEqual({ open: 1, questions: [_QUESTION_LINE] });
+        expect(summarize([])).toStrictEqual({ open: 0, questions: [] });
+        expect(withFinding({ open: 1, questions: [] }, _FINDING)).toStrictEqual({ open: 2, questions: [] });
+        expect(withFinding({ open: 1, questions: [] }, _QUESTION)).toStrictEqual({ open: 1, questions: [_QUESTION_LINE] });
+    });
+});
+
 describe('questions', () => {
-    it('builds the block from the open-question rows and none without one', () => {
-        expect(_plain(questions([_FINDING, _QUESTION]))).toStrictEqual({
+    it('builds the block from the summary lines and none without one', () => {
+        expect(_plain(questions({ open: 1, questions: [_QUESTION_LINE] }))).toStrictEqual({
             kind: 'some',
-            value: { name: 'openQuestions', text: 'Open questions from earlier findings, answer the ones you can:\n- CLAUDE.md [01]: keep the row?' },
+            value: { name: 'openQuestions', text: `Open questions from earlier findings, answer the ones you can:\n${_QUESTION_LINE}` },
         });
-        expect(_plain(questions([_FINDING]))).toStrictEqual(_NONE);
+        expect(_plain(questions({ open: 1, questions: [] }))).toStrictEqual(_NONE);
     });
 });
 
@@ -163,6 +177,7 @@ describe('close', () => {
             writes: [
                 { key: 'findings/a', value: { ..._FINDING, status: 'landed', proof: 'test' } },
                 { key: 'findings/b', value: { ..._FINDING, status: 'closed', proof: 'none' } },
+                { key: 'summary', value: { open: 0, questions: [] } },
                 { key: 'cleaned', value: _FRESH },
             ],
             result: { closed: 2 },
@@ -170,8 +185,11 @@ describe('close', () => {
     });
 
     it('writes the stamps under the cleaned key over the stored ones', () => {
-        expect(close({ batchId: 'b', cleaned: { memory: null } }, [], _FRESH, _NOW)).toStrictEqual({
-            writes: [{ key: 'cleaned', value: { ..._FRESH, memory: null } }],
+        expect(close({ batchId: 'b', cleaned: { memory: null } }, [{ key: 'findings/q', row: _QUESTION }], _FRESH, _NOW)).toStrictEqual({
+            writes: [
+                { key: 'summary', value: { open: 0, questions: [_QUESTION_LINE] } },
+                { key: 'cleaned', value: { ..._FRESH, memory: null } },
+            ],
             result: { closed: 0 },
         });
     });
@@ -189,14 +207,12 @@ describe('batch', () => {
     });
 
     it('names the most frequent open kind, and the first seen of a tie', () => {
-        const rows = (kinds: readonly Finding['kind'][]): readonly Entry[] =>
-            kinds.map((kind, index): Entry => ({ key: `findings/${index}`, value: { ..._FINDING, kind } }));
         const keys = _ENTRIES.map((entry) => entry.key);
-        expect(_plain(batch(rows(['wrong', 'stale', 'wrong', 'stale', 'stale', 'wrong']), _FRESH, _NOW, _RANDOM))).toStrictEqual({
+        expect(_plain(batch(_rowsOf(['wrong', 'stale', 'wrong', 'stale', 'stale', 'wrong']), _FRESH, _NOW, _RANDOM))).toStrictEqual({
             kind: 'some',
             value: { batchId: id(_NOW, _RANDOM), dispatch: { rows: keys, spawnedAt: _NOW, kind: 'wrong' } },
         });
-        expect(_plain(batch(rows(['wrong', 'stale', 'stale', 'wrong', 'stale', 'coined']), _FRESH, _NOW, _RANDOM))).toStrictEqual({
+        expect(_plain(batch(_rowsOf(['wrong', 'stale', 'stale', 'wrong', 'stale', 'coined']), _FRESH, _NOW, _RANDOM))).toStrictEqual({
             kind: 'some',
             value: { batchId: id(_NOW, _RANDOM), dispatch: { rows: keys, spawnedAt: _NOW, kind: 'stale' } },
         });

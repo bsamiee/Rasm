@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+id: lift-fin-bind-to-lift
+language: csharp
+severity: off
+rule:
+    pattern:
+        context: 'class C { object F() => $IO.lift<$FIN>($THUNK).Bind($BIND); }'
+        selector: invocation_expression
+        strictness: cst
+constraints:
+    IO: {regex: '^(global::)?(LanguageExt\.)?IO$'}
+    FIN: {regex: '(?s)^(global::)?(LanguageExt\.)?Fin\s*<.+>$'}
+    BIND:
+        matches:
+            csharp-unary-callback:
+                parameter: {pattern: $VALUE}
+                body:
+                    pattern:
+                        context: 'class C { object F() => $IO.lift($VALUE); }'
+                        selector: invocation_expression
+                        strictness: cst
+fix: '$IO.lift($THUNK)'
+message: Let the result-returning lift overload put Fin failure on the IO channel
+note: >-
+    Select LanguageExt.IO and Fin<A> symbols through Roslyn. The argument must be Func<Fin<A>>, and the replacement must resolve to IO<A>. The result-returning lift defers the same thunk, captures its exceptions, and folds Fin failure onto the IO channel without an extra Bind. Keep intentional FinT inputs, other callback overloads, and aliases until their symbols and overloads are resolved.

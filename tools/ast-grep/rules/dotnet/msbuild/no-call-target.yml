@@ -3,6 +3,23 @@ id: no-call-target
 language: xml
 severity: error
 rule:
-    matches: {msbuild-element: {name: {regex: '^CallTarget$'}}}
+    pattern: _TARGET
+    matches: {msbuild-element: {name: {regex: '^Target$'}}}
+    has: {kind: content, has: {matches: {msbuild-element: {name: {regex: '^CallTarget$'}}}}}
+transform:
+    # The first task of the target, a CallTarget with Targets alone, moves its targets into a marker on the start tag, a later call stays
+    MOVED:
+        replace:
+            source: $TARGET
+            replace: '(?s)^<Target\b(?P<attrs>[^<]*?)>(?P<ws>\s*)<CallTarget\s+Targets\s*=\s*"(?P<t>[^"]*)"\s*/>\s*'
+            by: '<Target${attrs}@@${t}@@>${ws}'
+    # An existing DependsOnTargets list takes the called targets after its own
+    APPENDED:
+        replace:
+            source: $MOVED
+            replace: '(?s)^(<Target\b[^<]*?\bDependsOnTargets\s*=\s*")([^"]*)("[^@<]*)@@([^@]*)@@'
+            by: '${1}${2};${4}${3}'
+    ATTACHED: {replace: {source: $APPENDED, replace: '@@([^@]*)@@', by: ' DependsOnTargets="${1}"'}}
+fix: $ATTACHED
 message: CallTarget runs the target in a new scope, its properties and items reach the caller after the calling target finishes
 note: Name the dependency in DependsOnTargets

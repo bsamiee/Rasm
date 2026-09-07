@@ -1,6 +1,15 @@
 id: no-parent-segment-concatenation
 snapshots:
   ? |
+    <Compile Include="$(MSBuildProjectDirectory)/../shared/**/*.cs" />
+  : fixed: |
+      <Compile Include="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', 'shared'))**/*.cs" />
+    labels:
+    - source: '"$(MSBuildProjectDirectory)/../shared/**/*.cs"'
+      style: primary
+      start: 17
+      end: 63
+  ? |
     <Import Project="$(MSBuildThisFileDirectory)../../build/common.props" />
   : fixed: |
       <Import Project="$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', 'build', 'common.props'))" />
@@ -28,6 +37,15 @@ snapshots:
       start: 16
       end: 69
   ? |
+    <None Include="@(Asset->'$(MSBuildThisFileDirectory)../%(Filename)%(Extension)')" />
+  : fixed: |
+      <None Include="@(Asset->'$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))%(Filename)%(Extension)')" />
+    labels:
+    - source: '"@(Asset->''$(MSBuildThisFileDirectory)../%(Filename)%(Extension)'')"'
+      style: primary
+      start: 14
+      end: 81
+  ? |
     <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory)../../.artifacts/native/msbuild</ArtifactsPath></PropertyGroup>
   : fixed: |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '.artifacts', 'native', 'msbuild'))</ArtifactsPath></PropertyGroup>
@@ -36,6 +54,24 @@ snapshots:
       style: primary
       start: 30
       end: 88
+  ? |
+    <PropertyGroup><DeepRoot>$(MSBuildThisFileDirectory)../a/b/c/d/e/f/g/h/i/j/k</DeepRoot></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><DeepRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'))k</DeepRoot></PropertyGroup>
+    labels:
+    - source: $(MSBuildThisFileDirectory)../a/b/c/d/e/f/g/h/i/j/k
+      style: primary
+      start: 25
+      end: 76
+  ? |
+    <PropertyGroup><Roots>$(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b</Roots></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><Roots>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'a'));$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'b'))</Roots></PropertyGroup>
+    labels:
+    - source: $(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b
+      style: primary
+      start: 22
+      end: 85
   ? |
     <PropertyGroup><StageRoot>
       $(MSBuildThisFileDirectory)../.artifacts/native/stage/
@@ -60,6 +96,24 @@ snapshots:
       style: primary
       start: 26
       end: 92
+  ? |
+    <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe</ToolPath></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><ToolPath>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'tools'))$(ToolName)/tool.exe</ToolPath></PropertyGroup>
+    labels:
+    - source: $(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe
+      style: primary
+      start: 25
+      end: 81
+  ? |
+    <PropertyGroup><ToolPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))</ToolPath></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><ToolPath>$([System.IO.Path]::Combine('$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'tools'))', 'tool.exe'))</ToolPath></PropertyGroup>
+    labels:
+    - source: $([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))
+      style: primary
+      start: 25
+      end: 104
   ? |
     <PropertyGroup><VcpkgManifest>$(MSBuildProjectDirectory)/../duckdbextensions/extensions.json</VcpkgManifest></PropertyGroup>
   : fixed: |

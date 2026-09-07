@@ -57,12 +57,11 @@ interface _Range {
 interface _CompactHit {
     readonly ruleId: string;
     readonly file: string;
-    readonly note: string;
+    readonly message: string;
+    readonly note?: string | null;
     readonly range: _Range;
     readonly replacement?: string;
 }
-
-type ScanClass = 'clean' | 'hits' | 'abort';
 
 // One rule file under tools/ast-grep/rules/<language>/<package>/<id>.yml with the modification time $.fs.stat reads
 interface RuleFile {
@@ -129,7 +128,25 @@ const _TELEMETRY_HEADING = `Rule hits from edit-time scans in the last ${_WINDOW
 const _EVERY_RULE_FIRED = 'Every rule landed before the window fired at least once';
 const _GRAMMAR_TARGET = 'pnpm exec nx run rasm:grammar';
 // The extensions the rule families' languages read, tsx from languageGlobs, python from its built-in glob, xml from customLanguages
-const _FAMILY_EXTENSIONS: readonly string[] = ['.ts', '.mts', '.cts', '.py', '.csproj', '.props', '.targets', '.slnx', '.nuspec', '.pubxml', '.proj'];
+const _FAMILY_EXTENSIONS: readonly string[] = [
+    '.ts',
+    '.tsx',
+    '.mts',
+    '.cts',
+    '.py',
+    '.sh',
+    '.bash',
+    '.yml',
+    '.yaml',
+    '.json',
+    '.csproj',
+    '.props',
+    '.targets',
+    '.slnx',
+    '.nuspec',
+    '.pubxml',
+    '.proj',
+];
 const _FAMILY_NAMES: readonly string[] = ['NuGet.config'];
 // The rule tree, one directory per kind, the rows and the skill prompt's tree facts read it
 const TREE = {
@@ -139,7 +156,7 @@ const TREE = {
     utils: 'tools/ast-grep/utils',
 } as const;
 const _TREE_DIRECTORIES: readonly string[] = [TREE.rules, TREE.rewrites, TREE.tests];
-const _TASK_GRAPH_NAMES: readonly string[] = ['nx.json', 'project.json'];
+const _TASK_GRAPH_NAMES: readonly string[] = ['nx.json', 'package.json', 'project.json'];
 const _TASK_GRAPH_DIRECTORY = 'tools/nx';
 // The stem of a test or snapshot file is its rule id
 const _TEST_SUFFIX = /-(?:test|snapshot)\.yml$/u;
@@ -208,7 +225,8 @@ const _isRange: (value: unknown) => value is _Range = struct({ start: struct({ l
 const _isCompactHit: (value: unknown) => value is _CompactHit = struct({
     ruleId: isString,
     file: isString,
-    note: isString,
+    message: isString,
+    note: optional((value): value is string | null => value === null || isString(value)),
     range: _isRange,
     replacement: optional(isString),
 });
@@ -217,7 +235,7 @@ const _hit = (compact: _CompactHit): Hit => ({
     ruleId: compact.ruleId,
     file: compact.file,
     line: compact.range.start.line + 1,
-    note: compact.note,
+    note: getOrElse(() => compact.message)(fromNullable(compact.note)),
     replacement: fromPredicate(isString)(compact.replacement),
 });
 
@@ -228,26 +246,17 @@ const _array = (stdout: string): readonly unknown[] =>
 // The hits of a scan's stdout, one per element that holds the compact fields
 const scanHits = (run: Run): readonly Hit[] => _array(run.stdout).flatMap((value) => toArray(map(_hit)(fromPredicate(_isCompactHit)(value))));
 
+const _quote = (value: string): string => `'${value.replaceAll("'", "'\"'\"'")}'`;
+
 const _hitLine = (hit: Hit): string =>
     `${hit.file}:${hit.line} ${hit.ruleId}: ${hit.note}${getOrElse(() => '')(
-        map(() => `, fix: ast-grep scan --filter '^${hit.ruleId}$' -U ${hit.file}`)(hit.replacement),
+        map(() => `, fix: nx run rasm:rewrite -- --filter=${_quote(`^${hit.ruleId}$`)} --error=${_quote(hit.ruleId)} ${_quote(hit.file)}`)(
+            hit.replacement,
+        ),
     )}`;
 
 // The run of a child that did not start, the rejection of $.process.run read as an exit -1 with the error as stderr
 const abort = (error: unknown): Run => ({ exitCode: -1, stdout: '', stderr: String(error) });
-
-const _scanClass = (run: Run): ScanClass => (run.exitCode === 0 && 'clean') || (run.exitCode === 1 && 'hits') || 'abort';
-
-// Exit 0 is no hit, 1 a hit list, and every other code an abort with the cause in stderr
-const _SCAN_LINES: Readonly<Record<ScanClass, (run: Run, path: string) => readonly string[]>> = {
-    clean: (_run, path): readonly string[] => [`ast-grep scan: no hit in ${path}`],
-    hits: (run): readonly string[] => scanHits(run).map(_hitLine),
-    abort: (run): readonly string[] => [
-        `ast-grep scan exited ${run.exitCode}: ${first(run.stderr)}${getOrElse(() => '')(
-            liftPredicate<string>(() => _GRAMMAR_ABORT.test(run.stderr))(`, run ${_GRAMMAR_TARGET}`),
-        )}`,
-    ],
-};
 
 // The verdict lines of a test run under a prefix, stdout then stderr, the Error line of an unknown id among them
 const _testLines = (run: Run, prefix: string): readonly string[] =>
@@ -367,9 +376,22 @@ const factsBlock = (facts: Facts): string =>
 
 const SCAN = [
     {
-        match: (path): boolean => _FAMILY_EXTENSIONS.includes(extension(path)) || _FAMILY_NAMES.includes(basename(path)),
+        match: (path): boolean =>
+            !(_isTree(path) || _isUtil(path)) && (_FAMILY_EXTENSIONS.includes(extension(path)) || _FAMILY_NAMES.includes(basename(path))),
         argv: (path): readonly string[] => ['ast-grep', 'scan', '--json=compact', path],
-        lines: (run, path): readonly string[] => _SCAN_LINES[_scanClass(run)](run, path),
+        // Successful scans can report warnings on exit 0 or errors on exit 1
+        lines: (run, path): readonly string[] =>
+            fromBoolean(run.exitCode === 0 || run.exitCode === 1).match<readonly string[]>({
+                some: () =>
+                    getOrElse(() => [`ast-grep scan: no hit in ${path}`])(
+                        map((hits: readonly Hit[]) => hits.map(_hitLine))(liftPredicate<readonly Hit[]>((hits) => hits.length > 0)(scanHits(run))),
+                    ),
+                none: () => [
+                    `ast-grep scan exited ${run.exitCode}: ${first(run.stderr)}${getOrElse(() => '')(
+                        liftPredicate<string>(() => _GRAMMAR_ABORT.test(run.stderr))(`, run ${_GRAMMAR_TARGET}`),
+                    )}`,
+                ],
+            }),
     },
     {
         match: _isTree,
@@ -393,21 +415,7 @@ const SCAN = [
     },
     {
         match: (path): boolean => _TASK_GRAPH_NAMES.includes(basename(path)) || under(path, _TASK_GRAPH_DIRECTORY),
-        // The affected locator starts every plugin worker to read the project-file globs it tests a deleted file against, the tools/nx
-        // plugin transpiles for ~525 ms of the ~1.1 s, and under NX_FORCE_REUSE_CACHED_GRAPH Nx takes the four standard globs and the
-        // daemon's cached graph instead (nx/src/project-graph/affected/locators/project-glob-changes.js), ~160 ms; a landed edit exists,
-        // so the deletion test is a no-op either way, and a project.json a Write creates lists itself once the daemon rewrites the cache
-        argv: (path): readonly string[] => [
-            'env',
-            'NX_FORCE_REUSE_CACHED_GRAPH=true',
-            'pnpm',
-            'exec',
-            'nx',
-            'show',
-            'projects',
-            '--affected',
-            `--files=${path}`,
-        ],
+        argv: (path): readonly string[] => ['pnpm', 'exec', 'nx', 'show', 'projects', '--affected', '--json', `--files=${path}`],
         lines: (run): readonly string[] =>
             getOrElse((): readonly string[] => [`nx show projects exited ${run.exitCode}: ${first(run.stderr)}`])(
                 map((names: readonly string[]) => [`Affected projects (${names.length}): ${names.join(', ')}`])(

@@ -17,6 +17,7 @@ import {
     decodeSession,
     decodeSkill,
     decodeStamp,
+    decodeSummary,
     id,
     ids,
     isNumber,
@@ -28,6 +29,7 @@ import {
     stamp,
     stampOf,
     suffix,
+    summaryOf,
 } from './store.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -69,6 +71,7 @@ const _FINDING = {
     ts: _TS,
 };
 const _DISPATCH = { rows: ['findings/a'], spawnedAt: _TS, kind: 'stale' };
+const _SUMMARY = { open: 1, questions: ['- CLAUDE.md [01]: keep the row?'] };
 const _PART_DISPATCH = { rows: [], spawnedAt: _TS, part: 'memory' };
 const _SKILL = { loadedAt: _TS, session: 's' };
 const _SCAN = { ruleId: 'no-return-by-branch', file: 'tools/nx/workspace.ts' };
@@ -161,6 +164,14 @@ describe('decoders', () => {
         expect(secretsOf('row')).toStrictEqual({});
         expect(cleanedOf({ memory: null })).toStrictEqual({ memory: null });
         expect(cleanedOf({ stale: null })).toStrictEqual({});
+    });
+
+    it('reads a summary row, and a wrong or missing one as zero open rows with no question', () => {
+        expect(_plain(decodeSummary(_SUMMARY))).toStrictEqual({ kind: 'some', value: _SUMMARY });
+        expect(_plain(decodeSummary({ ..._SUMMARY, questions: [1] }))).toStrictEqual(_NONE);
+        expect(summaryOf(_SUMMARY)).toStrictEqual(_SUMMARY);
+        expect(summaryOf({ open: '1' })).toStrictEqual({ open: 0, questions: [] });
+        expect(summaryOf(undefined)).toStrictEqual({ open: 0, questions: [] });
     });
 
     it('keeps the rows of a list that decode and pairs each with its key', () => {

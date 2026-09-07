@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-suspended-generator
+language: tsx
+severity: error
+rule:
+    pattern: $M.suspend(() => $GENERATOR)
+    not: {has: {stopBy: end, kind: comment}}
+constraints:
+    M: {matches: {effect-module-reference: {module: {regex: "^(effect/)?Effect$"}}}}
+    GENERATOR:
+        pattern: $M.gen($BODY)
+        has:
+            field: arguments
+            has:
+                kind: generator_function
+                pattern: $BODY
+                not: {has: {field: name, kind: identifier}}
+fix: $GENERATOR
+message: Effect.gen already suspends the generator body until execution
+note: Return the generator effect directly, and keep Effect.suspend for a thunk that works or selects an effect before constructing it
+labels:
+    GENERATOR: {style: primary}

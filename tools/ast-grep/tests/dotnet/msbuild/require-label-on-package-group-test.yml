@@ -1,5 +1,10 @@
 id: require-label-on-package-group
 valid:
+    # Identical children under another container do not make an ItemGroup
+    - '<Project><Group><PackageVersion Include="Example" Version="1.0.0" /></Group></Project>'
+    # The policy labels dependency groups, not unrelated or empty item groups
+    - '<Project><ItemGroup /></Project>'
+    - '<Project><ItemGroup><None Include="readme.md" /></ItemGroup></Project>'
     # Labeled group
     - |
       <Project><ItemGroup Label="Testing"><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>

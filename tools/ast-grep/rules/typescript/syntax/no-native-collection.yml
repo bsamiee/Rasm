@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, HashMap.empty() in place of new Map() fails at the consumers with TS2339 Property 'set' does not exist on 'HashMap'
 id: no-native-collection
 language: tsx
 severity: error
@@ -7,17 +8,18 @@ rule:
     any:
         - kind: new_expression
           all:
-              - has: {field: constructor, pattern: $NAME, regex: '^(globalThis\.)?(Map|Set|WeakMap|WeakSet)$'}
-              # Class implementing a package interface that names the native type holds it, Tracer.Span declares attributes as a ReadonlyMap
-              - not:
-                    inside:
-                        kind: class_body
-                        stopBy: end
-                        inside: {kind: class_declaration, has: {kind: class_heritage, has: {kind: implements_clause}}}
+            - has: {field: constructor, pattern: $NAME, regex: '^(globalThis\.)?(Map|Set)$', matches: syntax-global-reference}
+            # An explicit annotation states the native representation independently of its declaration form
+            - not:
+                inside:
+                    kind: public_field_definition, variable_declarator
+                    field: value
+                    stopBy: {not: {kind: parenthesized_expression}}
+                    has:
+                        field: type
+                        has: {kind: generic_type, has: {field: name, regex: '^(Readonly)?(Map|Set)$'}}
         # The grouping statics answer a native Map or a plain object
         - kind: call_expression
-          has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?(Map|Object)\.groupBy$'}
+          has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?(Map|Object)\.groupBy$', matches: syntax-global-reference}
 message: 'The collection is built through the native `$NAME`, and the effect package owns the immutable and the mutable form'
-note: >-
-    Build the collection through `HashMap.empty()`, `HashMap.fromIterable(entries)`, `HashSet.fromIterable(values)`, `Array.groupBy(rows, key)`,
-    or `MutableHashMap.empty()` and `MutableHashSet.empty()` where one scope owns the writes
+note: Build the collection through HashMap, HashSet, or Array.groupBy, or MutableHashMap and MutableHashSet where one scope owns the writes

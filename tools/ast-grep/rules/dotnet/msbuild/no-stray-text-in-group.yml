@@ -8,19 +8,36 @@ utils:
 rule:
     pattern: _TEXT
     matches: stray
+    # Container names can also name properties or metadata, where text is the value
+    not:
+        any:
+            - inside:
+                kind: content
+                inside:
+                    kind: element
+                    inside:
+                        kind: content
+                        inside:
+                            any:
+                                - matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}
+                                - kind: element
+                                  inside:
+                                    kind: content
+                                    inside: {matches: {msbuild-element: {name: {regex: '^(ItemGroup|ItemDefinitionGroup)$'}}}}
+            - inside:
+                matches: {msbuild-element: {name: {regex: '^ProjectExtensions$'}}}
+                stopBy: end
     any:
         # Containers of MSBuild, solution, and NuGet configuration files hold elements alone
-        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: "^(Project|PropertyGroup|ItemGroup|ItemDefinitionGroup|Target|\
-                Choose|When|Otherwise|Solution|Folder|configuration|packageSources|disabledPackageSources|packageSourceMapping|packageSource|\
-                config)$"}}}}}
+        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: "^(Project|PropertyGroup|ItemGroup|ItemDefinitionGroup|Target|Choose|When|Otherwise|Solution|Folder|configuration|packageSources|disabledPackageSources|packageSourceMapping|packageSource|config)$"}}}}}
         # Items hold metadata elements and no text, an item under ItemGroup is the second container level
         - inside:
-              kind: content
-              inside:
-                  kind: element
-                  inside:
-                      kind: content
-                      inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}
+            kind: content
+            inside:
+                kind: element
+                inside:
+                    kind: content
+                    inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}
 transform:
     # The text up to its last non-whitespace character, the whitespace before the next node stays
     STRIPPED: {replace: {source: $TEXT, replace: '(?s)^.*\S', by: ''}}

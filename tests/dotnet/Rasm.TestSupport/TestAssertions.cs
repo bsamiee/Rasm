@@ -123,7 +123,7 @@ public static partial class TestAssertions {
     // --- [RESULT_ASSERTIONS] -----------------------------------------------------------
     public static T SuccValue<T>(Fin<T> result, string label) {
         ArgumentNullException.ThrowIfNull(result);
-        return result.Match(Succ: static value => value, Fail: error => throw new XunitException($"{label}: expected Succ, got Fail: {error.Message}"));
+        return result.IfFail(error => throw new XunitException($"{label}: expected Succ, got Fail: {error.Message}"));
     }
     public static void Succ<T>(Fin<T> result, Action<T>? then = null) {
         ArgumentNullException.ThrowIfNull(result);

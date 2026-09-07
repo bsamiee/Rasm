@@ -1,40 +1,53 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# Report only, the batch runs every operand after a failure under errexit and runs the tool with no operand on an empty set
 id: no-spawn-per-loop-item
 language: bash
 severity: error
+ignores: ["**/*.json"]
 utils:
-    # Tools with one invocation over every operand, by name or by name and subcommand
-    batch-command:
-        kind: command
+    # Extra literal operands would be repeated per item; option values are not paths.
+    operand-tail:
         any:
-            - has: {field: name, regex: '^(ast-grep|shellcheck|shfmt|actionlint|biome|yq|jq|rm|rmdir|cp|mv|ln|mkdir|chmod|chown|chgrp|touch|cat)$'}
-            - regex: '(^|\s)(git\s+(add|rm)|dotnet\s+(build|test|pack)|pnpm\s+exec\s+nx\s+run|uv\s+run\s+ruff\s+(check|format))\s'
-    loop-body:
-        kind: do_group
-        inside: {any: [{kind: for_statement}, {kind: c_style_for_statement}, {kind: while_statement}]}
-    # A statement writing a file by redirect, the state a later command reads changes per item
-    file-writer:
-        kind: redirected_statement
-        has: {field: redirect, kind: file_redirect, regex: '^(1?>|&>)'}
+            - follows: {kind: command_name}
+            - follows:
+                kind: word
+                regex: '^--$'
+                follows: {kind: command_name}
+    subcommand-tail:
+        any:
+            - follows: {kind: word, follows: {kind: command_name}}
+            - follows:
+                kind: word
+                regex: '^--$'
+                follows: {kind: word, follows: {kind: command_name}}
 rule:
+    kind: command
+    not: {has: {kind: variable_assignment}}
     all:
-        - matches: batch-command
+        - inside:
+            kind: do_group
+            matches: bash-single-command-body
+            inside:
+                kind: for_statement
+                has: {field: variable, pattern: $ITEM}
         - has: {field: name, pattern: $NAME}
-        - inside: {matches: loop-body, stopBy: {kind: function_definition}}
-        # A per-item destination stays one call per item, the last operand of cp, mv, and ln reads the item
-        - not: {all: [{has: {field: name, regex: '^(cp|mv|ln)$'}}, {has: {nthChild: {position: 1, reverse: true}, matches: bash-expanding-word}}]}
-        # A per-item program or option value stays one call per item, an operand before the last reads the item
-        - not: {all: [{has: {field: name, regex: '^(yq|jq)$'}}, {has: {matches: bash-expanding-word, not: {nthChild: {position: 1, reverse: true}}}}]}
-        # A per-item output file stays one call per item, the command under a redirect of its output holding an expansion
-        - not:
-              inside:
-                  kind: redirected_statement
-                  field: body
-                  has: {field: redirect, kind: file_redirect, regex: '^(1?>|&>)', has: {matches: bash-expanding-word}}
-        # A file written earlier in the same body is per-item input, the command or its enclosing statement follows the writer
-        - not:
-              any:
-                  - follows: {stopBy: end, matches: file-writer}
-                  - inside: {stopBy: {kind: do_group}, follows: {stopBy: end, matches: file-writer}}
-message: The loop spawns `$NAME` once per item where one invocation takes the operand set
-note: Collect the operands and run the tool once, `<tool> "${items[@]}"`, `printf '%s\0' "${items[@]}" | xargs -0 <tool>`, or `nx run-many`
+        - has:
+            kind: string
+            pattern: $OPERAND
+            nthChild: {position: 1, reverse: true}
+            matches: {bash-parameter: {name: {pattern: $ITEM}}}
+        - any:
+            - all:
+                - has: {field: name, regex: '^(shellcheck|shfmt|actionlint|rm|rmdir|mkdir|touch|cat)$'}
+                - has: {pattern: $OPERAND, matches: operand-tail}
+            - all:
+                - any:
+                    - all:
+                        - has: {field: name, regex: '^git$'}
+                        - has: {field: argument, regex: '^(add|rm)$'}
+                    - all:
+                        - has: {field: name, regex: '^ast-grep$'}
+                        - has: {field: argument, regex: '^scan$'}
+                - has: {pattern: $OPERAND, matches: subcommand-tail}
+message: 'The loop invokes `$NAME` separately for each `$ITEM` operand'
+note: Pass independent operands together as one array, with `--` where the tool accepts it, and skip an empty set

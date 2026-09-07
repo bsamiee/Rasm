@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: python-inert-statement
+language: python
+rule:
+    any:
+        - kind: comment
+        - kind: expression_statement
+          has: {kind: string, regex: "^(?i:r|u)?[\"']"}

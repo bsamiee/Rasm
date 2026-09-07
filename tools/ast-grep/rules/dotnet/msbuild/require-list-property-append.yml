@@ -4,16 +4,26 @@ language: xml
 severity: error
 rule:
     pattern: _PROPERTY
-    # The name and the text regex hold one list of the semicolon-valued properties, an XML name binds no metavariable
-    matches: {msbuild-property: {name: {regex: "^(NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|DefaultItemExcludes|\
-            InterceptorsNamespaces|InterceptorsPreviewNamespaces)$"}}}
-    # No text opens with the property's own value, an empty element and a whitespace value drop the list the same way
-    not: {has: {kind: content, has: {kind: CharData, regex: "^\\s*\\$\\((NoWarn|(MSBuild)?Warnings(As|NotAs)(Errors|Messages)|DefineConstants|\
-            DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)[).]"}}}
+    # XML names cannot bind a metavariable, each inherited value is paired with its property name
+    matches: {msbuild-property: {name: {regex: "^(NoWarn|(MSBuild)?Warnings(AsErrors|NotAsErrors|AsMessages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)$"}}}
+    # Referencing another list property discards the property's inherited entries
+    not:
+        any:
+            - matches: {msbuild-property-value: {name: {regex: "^NoWarn$"}, text: {regex: '^\s*\$\(NoWarn[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^WarningsAsErrors$"}, text: {regex: '^\s*\$\(WarningsAsErrors[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^WarningsNotAsErrors$"}, text: {regex: '^\s*\$\(WarningsNotAsErrors[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^WarningsAsMessages$"}, text: {regex: '^\s*\$\(WarningsAsMessages[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^MSBuildWarningsAsErrors$"}, text: {regex: '^\s*\$\(MSBuildWarningsAsErrors[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^MSBuildWarningsNotAsErrors$"}, text: {regex: '^\s*\$\(MSBuildWarningsNotAsErrors[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^MSBuildWarningsAsMessages$"}, text: {regex: '^\s*\$\(MSBuildWarningsAsMessages[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^DefineConstants$"}, text: {regex: '^\s*\$\(DefineConstants[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^DefaultItemExcludes$"}, text: {regex: '^\s*\$\(DefaultItemExcludes[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^InterceptorsNamespaces$"}, text: {regex: '^\s*\$\(InterceptorsNamespaces[).]'}}}
+            - matches: {msbuild-property-value: {name: {regex: "^InterceptorsPreviewNamespaces$"}, text: {regex: '^\s*\$\(InterceptorsPreviewNamespaces[).]'}}}
 transform:
     # The own value after the start tag and the leading whitespace of the text, the tag name is the second group
-    APPENDED: {replace: {source: $PROPERTY, replace: '^(<([A-Za-z]+)(\s[^>]*[^/>])?>\s*)', by: '$1$$($2);'}}
-    FILLED: {replace: {source: $APPENDED, replace: '^<([A-Za-z]+)((\s[^>]*[^\s/>])?)\s*/>$', by: '<$1$2>$$($1);</$1>'}}
+    APPENDED: {replace: {source: $PROPERTY, replace: '^(<([A-Za-z]+)(?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|''[^'']*''))*\s*>\s*)', by: "$1$$($2);"}}
+    FILLED: {replace: {source: $APPENDED, replace: '^<([A-Za-z]+)((?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|''[^'']*''))*)\s*/>$', by: "<$1$2>$$($1);</$1>"}}
 fix: $FILLED
-message: The list-valued property assignment omits the property's own value and drops every entry the SDK and earlier files added
+message: The list property replaces earlier entries instead of appending to its value
 note: Start the value with $(Name); and keep the entries after it

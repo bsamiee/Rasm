@@ -1,43 +1,53 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# The rewrite run-in-callback-to-composed-effect fixes a run that is the whole answer of a map, sync, or promise callback
 id: no-run-in-effect-callback
 language: tsx
 severity: error
 utils:
-    # Call that runs an effect, a run method on Effect, Micro, a ManagedRuntime, or the function Runtime.runPromise(runtime) returns
-    runtime-run:
+    runtime-member:
+        kind: member_expression
+        all:
+            - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|Runtime)$'}}}}
+            - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
+    effect-owner:
         kind: call_expression
         any:
-            - all:
-                  - has:
-                        field: function
-                        kind: member_expression
-                        has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback|runMain)$'}
-                  # Runtime.runPromise(runtime) is the function of the run that follows, the outer call reports
-                  - not: {inside: {kind: call_expression, field: function}}
             - has:
-                  field: function
-                  kind: call_expression
-                  has:
-                      field: function
-                      kind: member_expression
-                      has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
-    # Owner of the callback, a module call, its curried application (Effect.fn(name)(body)), or a run, a run nested as an argument counts the same
-    effect-owner:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: "^(map|flatMap|sync|suspend|promise|try|tryPromise|gen|fn|fnUntraced|mapOut)$"}
+                    - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink)$'}}}}
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: "^(update|modify)$"}
+                    - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Ref$'}}}}
+            - has: {field: function, kind: call_expression, matches: effect-owner}
+    callback:
+        matches: syntax-function-boundary
         any:
-            - matches: effect-module-call
-            - {kind: call_expression, has: {field: function, matches: effect-module-call}}
-            - matches: runtime-run
+            - inside: {kind: arguments, inside: {matches: effect-owner}}
+            - inside: {kind: pair, field: value, inside: {kind: object, inside: {kind: arguments, inside: {matches: effect-owner}}}}
 rule:
+    kind: call_expression
+    pattern: $RUN
     all:
-        - matches: runtime-run
-        - inside: {stopBy: end, matches: effect-owner}
-        # Call outside the package between the run and the combinator owns the callback, the run there is the boundary
-        - not:
-              inside:
-                  kind: call_expression
-                  not: {matches: effect-owner}
-                  stopBy: {matches: effect-owner}
-message: The effect runs inside an argument of an effect combinator and crosses the boundary twice
-note: >-
-    Return the effect from the callback and compose it with Effect.flatMap or yield*,
-    a callback owned outside effect runs on the Runtime from Effect.runtime
+        - any:
+            - has: {field: function, matches: runtime-member}
+              any:
+                - has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro)$'}}}}}
+                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - has:
+                field: function
+                kind: call_expression
+                has:
+                    field: function
+                    matches: runtime-member
+                    has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Runtime$'}}}}
+        - inside: {matches: callback, stopBy: {matches: syntax-function-boundary}}
+message: An Effect callback starts a separate runtime instead of composing its computation
+note: Return the effect through the callback's combinator or yield it inside Effect.gen, and run effects at the host boundary alone
+labels:
+    RUN: {style: primary}

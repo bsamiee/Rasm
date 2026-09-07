@@ -104,6 +104,79 @@ valid:
       class Recorder(metaclass=Meta):
           def __init__(self, token):
               self.token = token
+    # Plain named base
+    - |
+      class Recorder(Base):
+          def __init__(self, token):
+              self.token = token
+    # Field initialization calls a factory and owns construction behavior
+    - |
+      class Recorder:
+          def __init__(self, token):
+              self.token = register(token)
+    # Unpacking also writes another object and is not field-only construction
+    - |
+      class Recorder:
+          def __init__(self, other, left, right):
+              self.left, other.right = left, right
+    # Class decorator can register the constructor
+    - |
+      @register
+      class Recorder:
+          def __init__(self, token):
+              self.token = token
+    # Property access in the initializer can invoke a descriptor
+    - |
+      class Recorder:
+          def __init__(self, source):
+              self.token = source.token
+    # Property writes execute the declared setter
+    - |
+      class Recorder:
+          def __init__(self, token):
+              self.token = token
+
+          @property
+          def token(self):
+              return self._token
+
+          @token.setter
+          def token(self, value):
+              record(value)
+    # A class field can install a descriptor
+    - |
+      class Recorder:
+          token = Descriptor()
+
+          def __init__(self, token):
+              self.token = token
+    # Attribute assignment hook owns mutation behavior
+    - |
+      class Recorder:
+          def __init__(self, token):
+              self.token = token
+
+          def __setattr__(self, name, value):
+              record(name, value)
+    # Interpolated initializer computes its field at construction
+    - |
+      class Recorder:
+          def __init__(self, value):
+              self.label = f"record {value}"
+    # Collection initializer invokes effects in its elements
+    - |
+      class Recorder:
+          def __init__(self):
+              self.labels = [record()]
+    # Decorated attribute hook still owns field writes
+    - |
+      class Recorder:
+          def __init__(self, value):
+              self.value = value
+
+          @trace
+          def __setattr__(self, name, value):
+              record(name, value)
 invalid:
     # The instance, a schema-opaque leaf with one field
     - |
@@ -127,11 +200,6 @@ invalid:
       class Recorder:
           def __init__(self, token):
               """Hold the token."""
-              self.token = token
-    # Plain named base
-    - |
-      class Recorder(Base):
-          def __init__(self, token):
               self.token = token
     # Tuple of attributes unpacked from the arguments
     - |
@@ -158,3 +226,8 @@ invalid:
                   self.token = token
 
           return Recorder
+    # Literal string field declares stored data
+    - |
+      class Recorder:
+          def __init__(self):
+              self.label = "record"

@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Binding named fromPredicate, the one branch of the plugin in composition/option.ts, every Option built from a value dispatches through it
-id: claude-code-from-predicate-binding
-language: tsx
-rule:
-    any: [{kind: variable_declarator}, {kind: function_declaration}]
-    has: {field: name, regex: '^fromPredicate$'}

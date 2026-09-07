@@ -1,0 +1,203 @@
+# The detection cases belong to no-retry, the cases here prove each shape's rewrite and the loops edited by hand
+id: retry-to-once
+valid:
+    # The corrected form, the def without the decorator
+    - |
+      import stamina
+
+      def fetch(value):
+          return value + 1
+    # A decorator of another package
+    - |
+      import other
+
+      @other.retry(on=ValueError)
+      def fetch(value):
+          return value + 1
+    # A loop body reading the attempt, its number selects the behavior
+    - |
+      import stamina
+
+      def fetch(value):
+          for attempt in stamina.retry_context(on=ValueError):
+              with attempt:
+                  return value + attempt.num
+    # A loop body leaving the loop
+    - |
+      import stamina
+
+      def fetch(values):
+          for attempt in stamina.retry_context(on=ValueError):
+              with attempt:
+                  if not values:
+                      break
+                  return values[0]
+    # A loop with a second statement beside the attempt scope
+    - |
+      import stamina
+
+      def fetch(value):
+          for attempt in stamina.retry_context(on=ValueError):
+              log(attempt)
+              with attempt:
+                  return value + 1
+    # A caller of another package
+    - |
+      import other
+
+      result = other.RetryingCaller(attempts=3)(load, 1)
+    # A decorator of another member of stamina
+    - |
+      import stamina
+
+      @stamina.other(on=ValueError)
+      def fetch(value):
+          return value + 1
+    # A from-imported decorator of another package
+    - |
+      from other import retry
+
+      @retry(on=ValueError)
+      def fetch(value):
+          return value + 1
+    # A from-imported other member of stamina as the decorator
+    - |
+      from stamina import other
+
+      @other(on=ValueError)
+      def fetch(value):
+          return value + 1
+    # A loop over another package's context
+    - |
+      import other
+
+      def fetch(value):
+          for attempt in other.retry_context(on=ValueError):
+              with attempt:
+                  return value + 1
+    # A loop over another member of stamina
+    - |
+      import stamina
+
+      def fetch(value):
+          for attempt in stamina.other_context(on=ValueError):
+              with attempt:
+                  return value + 1
+    # A loop over a from-imported context of another package
+    - |
+      from other import retry_context
+
+      def fetch(value):
+          for attempt in retry_context(on=ValueError):
+              with attempt:
+                  return value + 1
+    # A loop over a from-imported other member of stamina
+    - |
+      from stamina import other
+
+      def fetch(value):
+          for attempt in other(on=ValueError):
+              with attempt:
+                  return value + 1
+    # A from-imported other member of stamina called as a caller
+    - |
+      from stamina import retry
+
+      wrapped = retry(on=ValueError)(load, 1)
+    # A with clause holding a second item beside the attempt
+    - |
+      import stamina
+
+      def fetch(value, lock):
+          for attempt in stamina.retry_context(on=ValueError):
+              with attempt, lock:
+                  return value + 1
+    # A loop body continuing the loop
+    - |
+      import stamina
+
+      def fetch(values):
+          for attempt in stamina.retry_context(on=ValueError):
+              with attempt:
+                  if not values:
+                      continue
+                  return values[0]
+    # A loop with an else clause
+    - |
+      import stamina
+
+      def fetch(value):
+          for attempt in stamina.retry_context(on=ValueError):
+              with attempt:
+                  return value + 1
+          else:
+              return None
+    # Another member of stamina called as a caller
+    - |
+      import stamina
+
+      result = stamina.Other(attempts=3)(load, 1)
+    # A from-imported caller of another package
+    - |
+      from other import RetryingCaller
+
+      result = RetryingCaller(attempts=3)(load, 1)
+invalid:
+    # The instance, the decorator through the module
+    - |
+      import stamina
+
+      @stamina.retry(on=ValueError, attempts=3)
+      def fetch(value):
+          return value + 1
+    # The decorator through the from-import
+    - |
+      from stamina import retry
+
+      @retry(on=ValueError)
+      async def fetch(value):
+          return value + 1
+    # The decorator among other decorators
+    - |
+      import stamina
+
+      @stamina.retry(on=ValueError)
+      @functools.cache
+      def fetch(value):
+          return value + 1
+    # The loop, the body keeps its statements at the loop's column
+    - |
+      import stamina
+
+      def fetch(value):
+          total = 0
+          for attempt in stamina.retry_context(on=ValueError, attempts=3):
+              with attempt:
+                  total = value + 1
+                  print(total)
+          return total
+    # The loop through the from-import with a return in the body
+    - |
+      from stamina import retry_context
+
+      def fetch(value):
+          for attempt in retry_context(on=ValueError):
+              with attempt:
+                  return load(value)
+          return None
+    # The caller called directly
+    - |
+      import stamina
+
+      result = stamina.RetryingCaller(attempts=3)(load, 1, key="value")
+    # The caller bound through on()
+    - |
+      import stamina
+
+      result = stamina.RetryingCaller(attempts=3).on(ValueError)(load, 1)
+    # The asynchronous caller under await
+    - |
+      from stamina import AsyncRetryingCaller
+
+      async def fetch():
+          return await AsyncRetryingCaller(attempts=3)(load, 1)

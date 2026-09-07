@@ -4,8 +4,8 @@ valid:
     - |
       from typing import TypeIs
 
-      def is_schema(value: object) -> TypeIs[Schema]:
-          return isinstance(value, Mapping)
+      def is_integer(value: object) -> TypeIs[int]:
+          return isinstance(value, int)
     # Another member of typing
     - |
       from typing import assert_never

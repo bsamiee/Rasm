@@ -1,5 +1,15 @@
 id: no-native-promise
 snapshots:
+  'const Effect = { promise: run }; Effect.promise(() => Promise.resolve(1));':
+    labels:
+    - source: Promise.resolve(1)
+      style: primary
+      start: 54
+      end: 72
+    - source: Promise.resolve
+      style: secondary
+      start: 54
+      end: 69
   const first = Promise.any([first, second]);:
     labels:
     - source: Promise.any([first, second])
@@ -120,3 +130,83 @@ snapshots:
       style: secondary
       start: 29
       end: 50
+  ? 'import Base from "./host"; class Actions extends Base { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+  : labels:
+    - source: Promise.resolve([])
+      style: primary
+      start: 116
+      end: 135
+    - source: Promise.resolve
+      style: secondary
+      start: 116
+      end: 131
+  ? 'import Base from "@nx/js/src/release/version-actions"; const Resolved: typeof Base = resolveConstructor(); function create(Resolved: HostConstructor) { return class Actions extends Resolved { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }; }'
+  : labels:
+    - source: Promise.resolve([])
+      style: primary
+      start: 252
+      end: 271
+    - source: Promise.resolve
+      style: secondary
+      start: 252
+      end: 267
+  'import { Effect } from "effect"; const value = Effect.tryPromise({ try: load, catch: () => Promise.resolve(1) });':
+    labels:
+    - source: Promise.resolve(1)
+      style: primary
+      start: 91
+      end: 109
+    - source: Promise.resolve
+      style: secondary
+      start: 91
+      end: 106
+  ? 'import { ReleaseClient as Base } from "nx/release"; class Actions extends Base { override valueOf(): Promise<object> { return Promise.resolve({}); } }'
+  : labels:
+    - source: Promise.resolve({})
+      style: primary
+      start: 126
+      end: 145
+    - source: Promise.resolve
+      style: secondary
+      start: 126
+      end: 141
+  ? 'import { VersionActions as Base } from "nx/release"; import VersionActions from "./host"; class Actions extends VersionActions { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+  : labels:
+    - source: Promise.resolve([])
+      style: primary
+      start: 189
+      end: 208
+    - source: Promise.resolve
+      style: secondary
+      start: 189
+      end: 204
+  ? 'import { VersionActions } from "./host"; class Actions extends VersionActions { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }'
+  : labels:
+    - source: Promise.resolve([])
+      style: primary
+      start: 140
+      end: 159
+    - source: Promise.resolve
+      style: secondary
+      start: 140
+      end: 155
+  ? 'import { VersionActions } from "nx/release"; function create(VersionActions: HostConstructor) { return class Actions extends VersionActions { override updateProjectVersion(): Promise<string[]> { return Promise.resolve([]); } }; }'
+  : labels:
+    - source: Promise.resolve([])
+      style: primary
+      start: 202
+      end: 221
+    - source: Promise.resolve
+      style: secondary
+      start: 202
+      end: 217
+  ? 'import { VersionActions } from "nx/release"; type Identity<T> = T; abstract class Actions extends VersionActions { override toString(): Identity<string> { Promise.resolve([]); return "actions"; } }'
+  : labels:
+    - source: Promise.resolve([])
+      style: primary
+      start: 155
+      end: 174
+    - source: Promise.resolve
+      style: secondary
+      start: 155
+      end: 170

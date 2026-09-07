@@ -38,7 +38,7 @@ scp .env.production $SSH_USER@$SSH_HOST:~/app/.env
 ssh $SSH_USER@$SSH_HOST << 'DEPLOY'
 cd ~/app
 docker compose up -d db redis          # Dependencies first
-docker compose run --rm app npm run migrate
+docker compose run --rm app pnpm run migrate
 docker compose up -d                   # Application services
 docker compose ps && docker compose logs --tail=50
 DEPLOY

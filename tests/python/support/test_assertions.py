@@ -111,8 +111,7 @@ class _SubtestRecorder(msgspec.Struct):
     failures: list[str | None] = msgspec.field(default_factory=list)
 
     @contextmanager
-    def test(self, msg: str | None = None, **kwargs: object) -> Generator[None]:
-        _ = kwargs
+    def test(self, msg: str | None = None, **_kwargs: object) -> Generator[None]:
         self.labels.append(msg)
         try:
             yield

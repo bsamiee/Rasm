@@ -12,34 +12,6 @@ snapshots:
       style: primary
       start: 90
       end: 106
-    - source: e
-      style: secondary
-      start: 68
-      end: 69
-    - source: e
-      style: secondary
-      start: 68
-      end: 69
-    - source: e
-      style: secondary
-      start: 68
-      end: 69
-    - source: |-
-        ($, e, next) => {
-                e.command = 'ls';
-                return next(e);
-            }
-      style: secondary
-      start: 64
-      end: 137
-    - source: e
-      style: secondary
-      start: 90
-      end: 91
-    - source: e.command
-      style: secondary
-      start: 90
-      end: 99
   ? |
     const hook = ($, e, next) => {
         e.command = 'ls';
@@ -51,34 +23,6 @@ snapshots:
       style: primary
       start: 35
       end: 51
-    - source: e
-      style: secondary
-      start: 17
-      end: 18
-    - source: e
-      style: secondary
-      start: 17
-      end: 18
-    - source: e
-      style: secondary
-      start: 17
-      end: 18
-    - source: |-
-        ($, e, next) => {
-            e.command = 'ls';
-            return next(e);
-        }
-      style: secondary
-      start: 13
-      end: 74
-    - source: e
-      style: secondary
-      start: 35
-      end: 36
-    - source: e.command
-      style: secondary
-      start: 35
-      end: 44
   ? |
     const hook = ($, e, next) => {
         e.command = 'ls';
@@ -90,34 +34,30 @@ snapshots:
       style: primary
       start: 35
       end: 51
-    - source: e
-      style: secondary
-      start: 17
-      end: 18
-    - source: e
-      style: secondary
-      start: 17
-      end: 18
-    - source: e
-      style: secondary
-      start: 17
-      end: 18
-    - source: |-
-        ($, e, next) => {
-            e.command = 'ls';
-            return next(e);
-        }
-      style: secondary
-      start: 13
-      end: 74
-    - source: e
-      style: secondary
-      start: 35
-      end: 36
-    - source: e.command
-      style: secondary
-      start: 35
-      end: 44
+  function hook($, e, next) { e.count++; return next(e); } on("tool.call", hook);:
+    labels:
+    - source: e.count++
+      style: primary
+      start: 28
+      end: 37
+  'function register(on: On) { const hook = ($, e, next) => { e.count++; return next(e); }; on("tool.call", hook); }':
+    labels:
+    - source: e.count++
+      style: primary
+      start: 59
+      end: 68
+  on("tool.call", ($, e, next) => { const apply = ({ row = e }) => { e.count++; }; return next(e); });:
+    labels:
+    - source: e.count++
+      style: primary
+      start: 67
+      end: 76
+  'on("tool.call", ($, e, next) => { for (const { other: row = e } of rows) { e.count++; } return next(e); });':
+    labels:
+    - source: e.count++
+      style: primary
+      start: 75
+      end: 84
   ? |
     on('*', function ($, e, next) {
         e.text = '';
@@ -128,34 +68,6 @@ snapshots:
       style: primary
       start: 36
       end: 47
-    - source: e
-      style: secondary
-      start: 21
-      end: 22
-    - source: e
-      style: secondary
-      start: 21
-      end: 22
-    - source: e
-      style: secondary
-      start: 21
-      end: 22
-    - source: |-
-        function ($, e, next) {
-            e.text = '';
-            return next(e);
-        }
-      style: secondary
-      start: 8
-      end: 70
-    - source: e
-      style: secondary
-      start: 36
-      end: 37
-    - source: e.text
-      style: secondary
-      start: 36
-      end: 42
   ? |
     on('prompt.submit', ($, e, next) => {
         e.origin.text += ' redacted';
@@ -166,38 +78,6 @@ snapshots:
       style: primary
       start: 42
       end: 70
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: |-
-        ($, e, next) => {
-            e.origin.text += ' redacted';
-            return next(e);
-        }
-      style: secondary
-      start: 20
-      end: 93
-    - source: e
-      style: secondary
-      start: 42
-      end: 43
-    - source: e.origin
-      style: secondary
-      start: 42
-      end: 50
-    - source: e.origin.text
-      style: secondary
-      start: 42
-      end: 55
   ? |
     on('tool.call', ($, e, next) => {
         ({ command: e.command } = row);
@@ -208,38 +88,6 @@ snapshots:
       style: primary
       start: 39
       end: 67
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            ({ command: e.command } = row);
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 91
-    - source: e
-      style: secondary
-      start: 50
-      end: 51
-    - source: e.command
-      style: secondary
-      start: 50
-      end: 59
-    - source: '{ command: e.command }'
-      style: secondary
-      start: 39
-      end: 61
   ? |
     on('tool.call', ($, e, next) => {
         Object.assign(e, { command: 'ls' });
@@ -250,38 +98,6 @@ snapshots:
       style: primary
       start: 38
       end: 73
-    - source: Object.assign
-      style: secondary
-      start: 38
-      end: 51
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Object.assign(e, { command: 'ls' });
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 96
-    - source: e
-      style: secondary
-      start: 52
-      end: 53
-    - source: e
-      style: secondary
-      start: 52
-      end: 53
   ? |
     on('tool.call', ($, e, next) => {
         Object.assign(e.input, { command: 'ls' });
@@ -292,42 +108,6 @@ snapshots:
       style: primary
       start: 38
       end: 79
-    - source: Object.assign
-      style: secondary
-      start: 38
-      end: 51
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Object.assign(e.input, { command: 'ls' });
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 102
-    - source: e
-      style: secondary
-      start: 52
-      end: 53
-    - source: e.input
-      style: secondary
-      start: 52
-      end: 59
-    - source: e.input
-      style: secondary
-      start: 52
-      end: 59
   ? |
     on('tool.call', ($, e, next) => {
         Object.defineProperties(e.input, { command: { value: 'ls' } });
@@ -338,42 +118,6 @@ snapshots:
       style: primary
       start: 38
       end: 100
-    - source: Object.defineProperties
-      style: secondary
-      start: 38
-      end: 61
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Object.defineProperties(e.input, { command: { value: 'ls' } });
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 123
-    - source: e
-      style: secondary
-      start: 62
-      end: 63
-    - source: e.input
-      style: secondary
-      start: 62
-      end: 69
-    - source: e.input
-      style: secondary
-      start: 62
-      end: 69
   ? |
     on('tool.call', ($, e, next) => {
         Object.defineProperty(e, 'command', { value: 'ls' });
@@ -384,38 +128,6 @@ snapshots:
       style: primary
       start: 38
       end: 90
-    - source: Object.defineProperty
-      style: secondary
-      start: 38
-      end: 59
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Object.defineProperty(e, 'command', { value: 'ls' });
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 113
-    - source: e
-      style: secondary
-      start: 60
-      end: 61
-    - source: e
-      style: secondary
-      start: 60
-      end: 61
   ? |
     on('tool.call', ($, e, next) => {
         Object.setPrototypeOf(e, base);
@@ -426,38 +138,6 @@ snapshots:
       style: primary
       start: 38
       end: 68
-    - source: Object.setPrototypeOf
-      style: secondary
-      start: 38
-      end: 59
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Object.setPrototypeOf(e, base);
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 91
-    - source: e
-      style: secondary
-      start: 60
-      end: 61
-    - source: e
-      style: secondary
-      start: 60
-      end: 61
   ? |
     on('tool.call', ($, e, next) => {
         Reflect.defineProperty(e, 'command', { value: 'ls' });
@@ -468,38 +148,6 @@ snapshots:
       style: primary
       start: 38
       end: 91
-    - source: Reflect.defineProperty
-      style: secondary
-      start: 38
-      end: 60
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Reflect.defineProperty(e, 'command', { value: 'ls' });
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 114
-    - source: e
-      style: secondary
-      start: 61
-      end: 62
-    - source: e
-      style: secondary
-      start: 61
-      end: 62
   ? |
     on('tool.call', ($, e, next) => {
         Reflect.deleteProperty(e.input, 'command');
@@ -510,42 +158,6 @@ snapshots:
       style: primary
       start: 38
       end: 80
-    - source: Reflect.deleteProperty
-      style: secondary
-      start: 38
-      end: 60
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Reflect.deleteProperty(e.input, 'command');
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 103
-    - source: e
-      style: secondary
-      start: 61
-      end: 62
-    - source: e.input
-      style: secondary
-      start: 61
-      end: 68
-    - source: e.input
-      style: secondary
-      start: 61
-      end: 68
   ? |
     on('tool.call', ($, e, next) => {
         Reflect.set(e, 'command', 'ls');
@@ -556,38 +168,6 @@ snapshots:
       style: primary
       start: 38
       end: 69
-    - source: Reflect.set
-      style: secondary
-      start: 38
-      end: 49
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Reflect.set(e, 'command', 'ls');
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 92
-    - source: e
-      style: secondary
-      start: 50
-      end: 51
-    - source: e
-      style: secondary
-      start: 50
-      end: 51
   ? |
     on('tool.call', ($, e, next) => {
         Reflect.setPrototypeOf(e, base);
@@ -598,38 +178,6 @@ snapshots:
       style: primary
       start: 38
       end: 69
-    - source: Reflect.setPrototypeOf
-      style: secondary
-      start: 38
-      end: 60
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            Reflect.setPrototypeOf(e, base);
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 92
-    - source: e
-      style: secondary
-      start: 61
-      end: 62
-    - source: e
-      style: secondary
-      start: 61
-      end: 62
   ? |
     on('tool.call', ($, e, next) => {
         [...e.context] = parts;
@@ -640,38 +188,6 @@ snapshots:
       style: primary
       start: 38
       end: 60
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            [...e.context] = parts;
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 83
-    - source: e
-      style: secondary
-      start: 42
-      end: 43
-    - source: e.context
-      style: secondary
-      start: 42
-      end: 51
-    - source: '[...e.context]'
-      style: secondary
-      start: 38
-      end: 52
   ? |
     on('tool.call', ($, e, next) => {
         [[e.command]] = pairs;
@@ -682,38 +198,6 @@ snapshots:
       style: primary
       start: 38
       end: 59
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            [[e.command]] = pairs;
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 82
-    - source: e
-      style: secondary
-      start: 40
-      end: 41
-    - source: e.command
-      style: secondary
-      start: 40
-      end: 49
-    - source: '[[e.command]]'
-      style: secondary
-      start: 38
-      end: 51
   ? |
     on('tool.call', ($, e, next) => {
         [e.command] = parts;
@@ -724,38 +208,6 @@ snapshots:
       style: primary
       start: 38
       end: 57
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            [e.command] = parts;
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 80
-    - source: e
-      style: secondary
-      start: 39
-      end: 40
-    - source: e.command
-      style: secondary
-      start: 39
-      end: 48
-    - source: '[e.command]'
-      style: secondary
-      start: 38
-      end: 49
   ? |
     on('tool.call', ($, e, next) => {
         const actions = {
@@ -770,38 +222,6 @@ snapshots:
       style: primary
       start: 93
       end: 112
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            const actions = {
-                apply(command) {
-                    e.command = command;
-                },
-            };
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 153
-    - source: e
-      style: secondary
-      start: 93
-      end: 94
-    - source: e.command
-      style: secondary
-      start: 93
-      end: 102
   ? |
     on('tool.call', ($, e, next) => {
         const apply = (command = e.command) => {
@@ -815,37 +235,6 @@ snapshots:
       style: primary
       start: 87
       end: 106
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            const apply = (command = e.command) => {
-                e.command = command;
-            };
-            apply();
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 149
-    - source: e
-      style: secondary
-      start: 87
-      end: 88
-    - source: e.command
-      style: secondary
-      start: 87
-      end: 96
   ? |
     on('tool.call', ($, e, next) => {
         const apply = (command) => {
@@ -859,37 +248,6 @@ snapshots:
       style: primary
       start: 75
       end: 94
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            const apply = (command) => {
-                e.command = command;
-            };
-            apply('ls');
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 141
-    - source: e
-      style: secondary
-      start: 75
-      end: 76
-    - source: e.command
-      style: secondary
-      start: 75
-      end: 84
   ? |
     on('tool.call', ($, e, next) => {
         delete e.input.command;
@@ -899,42 +257,6 @@ snapshots:
     - source: delete e.input.command
       style: primary
       start: 38
-      end: 60
-    - source: delete
-      style: secondary
-      start: 38
-      end: 44
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            delete e.input.command;
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 83
-    - source: e
-      style: secondary
-      start: 45
-      end: 46
-    - source: e.input
-      style: secondary
-      start: 45
-      end: 52
-    - source: e.input.command
-      style: secondary
-      start: 45
       end: 60
   ? |
     on('tool.call', ($, e, next) => {
@@ -946,34 +268,6 @@ snapshots:
       style: primary
       start: 38
       end: 68
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            e.command = restore(e.command);
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 91
-    - source: e
-      style: secondary
-      start: 38
-      end: 39
-    - source: e.command
-      style: secondary
-      start: 38
-      end: 47
   ? |
     on('tool.call', ($, e, next) => {
         e.command ??= 'ls';
@@ -984,34 +278,6 @@ snapshots:
       style: primary
       start: 38
       end: 56
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            e.command ??= 'ls';
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 79
-    - source: e
-      style: secondary
-      start: 38
-      end: 39
-    - source: e.command
-      style: secondary
-      start: 38
-      end: 47
   ? |
     on('tool.call', ($, e, next) => {
         e.context.length = 0;
@@ -1022,38 +288,6 @@ snapshots:
       style: primary
       start: 38
       end: 58
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            e.context.length = 0;
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 81
-    - source: e
-      style: secondary
-      start: 38
-      end: 39
-    - source: e.context
-      style: secondary
-      start: 38
-      end: 47
-    - source: e.context.length
-      style: secondary
-      start: 38
-      end: 54
   ? |
     on('tool.call', ($, e, next) => {
         e.context.push('line');
@@ -1064,38 +298,6 @@ snapshots:
       style: primary
       start: 38
       end: 60
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            e.context.push('line');
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 83
-    - source: e
-      style: secondary
-      start: 38
-      end: 39
-    - source: e.context
-      style: secondary
-      start: 38
-      end: 47
-    - source: e.context
-      style: secondary
-      start: 38
-      end: 47
   ? |
     on('tool.call', ($, e, next) => {
         e.context[0] = 'line';
@@ -1106,38 +308,6 @@ snapshots:
       style: primary
       start: 38
       end: 59
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            e.context[0] = 'line';
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 82
-    - source: e
-      style: secondary
-      start: 38
-      end: 39
-    - source: e.context
-      style: secondary
-      start: 38
-      end: 47
-    - source: e.context[0]
-      style: secondary
-      start: 38
-      end: 50
   ? |
     on('tool.call', ($, e, next) => {
         e.input.args.splice(0, 1);
@@ -1148,42 +318,6 @@ snapshots:
       style: primary
       start: 38
       end: 63
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            e.input.args.splice(0, 1);
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 86
-    - source: e
-      style: secondary
-      start: 38
-      end: 39
-    - source: e.input
-      style: secondary
-      start: 38
-      end: 45
-    - source: e.input.args
-      style: secondary
-      start: 38
-      end: 50
-    - source: e.input.args
-      style: secondary
-      start: 38
-      end: 50
   ? |
     on('tool.call', ($, e, next) => {
         e['command'] = 'ls';
@@ -1194,34 +328,6 @@ snapshots:
       style: primary
       start: 38
       end: 57
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            e['command'] = 'ls';
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 80
-    - source: e
-      style: secondary
-      start: 38
-      end: 39
-    - source: e['command']
-      style: secondary
-      start: 38
-      end: 50
   ? |
     on('tool.call', ($, e, next) => {
         for (e.command of commands) {
@@ -1237,36 +343,6 @@ snapshots:
       style: primary
       start: 38
       end: 89
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            for (e.command of commands) {
-                log(e);
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 111
-    - source: e
-      style: secondary
-      start: 43
-      end: 44
-    - source: e.command
-      style: secondary
-      start: 43
-      end: 52
   ? |
     on('tool.call', ($, e, next) => {
         if (ready) {
@@ -1281,38 +357,6 @@ snapshots:
       style: primary
       start: 106
       end: 118
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            if (ready) {
-                const e = copy(row);
-                log(e);
-            }
-            e.count += 1;
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 141
-    - source: e
-      style: secondary
-      start: 106
-      end: 107
-    - source: e.count
-      style: secondary
-      start: 106
-      end: 113
   ? |
     on('tool.call', ($, e, next) => {
         list.forEach(function (row) {
@@ -1325,40 +369,6 @@ snapshots:
       style: primary
       start: 76
       end: 95
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: e
-      style: secondary
-      start: 20
-      end: 21
-    - source: |-
-        ($, e, next) => {
-            list.forEach(function (row) {
-                e.context.push(row);
-            });
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 126
-    - source: e
-      style: secondary
-      start: 76
-      end: 77
-    - source: e.context
-      style: secondary
-      start: 76
-      end: 85
-    - source: e.context
-      style: secondary
-      start: 76
-      end: 85
   ? |
     on('tool.call', ($, input, next) => {
         input.command = 'ls';
@@ -1369,34 +379,6 @@ snapshots:
       style: primary
       start: 42
       end: 62
-    - source: input
-      style: secondary
-      start: 20
-      end: 25
-    - source: input
-      style: secondary
-      start: 20
-      end: 25
-    - source: input
-      style: secondary
-      start: 20
-      end: 25
-    - source: |-
-        ($, input, next) => {
-            input.command = 'ls';
-            return next(input);
-        }
-      style: secondary
-      start: 16
-      end: 89
-    - source: input
-      style: secondary
-      start: 42
-      end: 47
-    - source: input.command
-      style: secondary
-      start: 42
-      end: 55
   ? |
     on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
         e.command = 'ls';
@@ -1407,34 +389,6 @@ snapshots:
       style: primary
       start: 62
       end: 78
-    - source: e
-      style: secondary
-      start: 44
-      end: 45
-    - source: e
-      style: secondary
-      start: 44
-      end: 45
-    - source: e
-      style: secondary
-      start: 44
-      end: 45
-    - source: |-
-        async ($, e, next) => {
-            e.command = 'ls';
-            return next(e);
-        }
-      style: secondary
-      start: 34
-      end: 101
-    - source: e
-      style: secondary
-      start: 62
-      end: 63
-    - source: e.command
-      style: secondary
-      start: 62
-      end: 71
   ? |
     on('turn.complete', ($, e, next) => {
         --e.usage.turns;
@@ -1444,38 +398,6 @@ snapshots:
     - source: --e.usage.turns
       style: primary
       start: 42
-      end: 57
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: |-
-        ($, e, next) => {
-            --e.usage.turns;
-            return next(e);
-        }
-      style: secondary
-      start: 20
-      end: 80
-    - source: e
-      style: secondary
-      start: 44
-      end: 45
-    - source: e.usage
-      style: secondary
-      start: 44
-      end: 51
-    - source: e.usage.turns
-      style: secondary
-      start: 44
       end: 57
   ? |
     on('turn.complete', ($, e, next) => {
@@ -1487,31 +409,3 @@ snapshots:
       style: primary
       start: 42
       end: 51
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: e
-      style: secondary
-      start: 24
-      end: 25
-    - source: |-
-        ($, e, next) => {
-            e.count++;
-            return next(e);
-        }
-      style: secondary
-      start: 20
-      end: 74
-    - source: e
-      style: secondary
-      start: 42
-      end: 43
-    - source: e.count
-      style: secondary
-      start: 42
-      end: 49

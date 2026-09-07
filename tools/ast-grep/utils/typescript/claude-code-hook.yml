@@ -1,31 +1,25 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Hook function registered on an event, inline or bound to a name, in on(event, hook) or on(event, matcher, hook), the event slot binds
+# Resolve named hooks within their lexical block and stop registration searches at nested functions.
 id: claude-code-hook
 language: tsx
-arguments: [event]
 rule:
-    any: [{kind: arrow_function}, {kind: function_expression}]
+    any:
+        - {kind: arrow_function}
+        - {kind: function_expression}
+        - {kind: function_declaration}
     all:
         - any:
-              # Matchers hold data alone, the one function among the arguments is the hook and needs no position pin
-              - inside:
-                    kind: arguments
-                    all:
-                        - inside: {matches: claude-code-registration}
-                        - has: {nthChild: 1, matches: event}
-              # The function bound to a name the registration passes, the event in the first slot
-              - inside:
-                    kind: variable_declarator
-                    all:
-                        - has: {field: name, pattern: $HOOK}
-                        - inside:
-                              kind: program
-                              stopBy: end
-                              has:
-                                  stopBy: end
-                                  matches: claude-code-registration
-                                  has:
-                                      field: arguments
-                                      all:
-                                          - has: {nthChild: 1, matches: event}
-                                          - has: {kind: identifier, pattern: $HOOK}
+            - {inside: {kind: arguments, inside: {matches: claude-code-registration}}}
+            - all:
+                - any:
+                    - {inside: {kind: variable_declarator, has: {field: name, pattern: $HOOK}}}
+                    - {kind: function_declaration, has: {field: name, pattern: $HOOK}}
+                - inside:
+                    stopBy: {kind: statement_block}
+                    has:
+                        stopBy: {matches: syntax-function-boundary}
+                        matches: claude-code-registration
+                        has: {field: arguments, has: {kind: identifier, pattern: $HOOK}}
+                    any:
+                        - {kind: program}
+                        - {kind: statement_block}

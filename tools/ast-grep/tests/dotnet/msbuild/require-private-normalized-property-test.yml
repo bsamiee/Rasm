@@ -10,6 +10,12 @@ valid:
     # Private trailing-slash guarantee
     - |
       <PropertyGroup><_NuGetPackageRoot>$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))</_NuGetPackageRoot></PropertyGroup>
+    # The project explicitly permits the property to be reassigned
+    - |
+      <Project TreatAsLocalProperty="ToolRoot"><PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup></Project>
+    # An expanded semicolon list requires evaluation to establish membership
+    - |
+      <Project TreatAsLocalProperty="Other;$(LocalProperties)"><PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup></Project>
 invalid:
     # The instance, -p:RhinoAppPath left the value without its slash
     - |
@@ -23,3 +29,9 @@ invalid:
     # The BCL path function normalizes the same way
     - |
       <PropertyGroup><ToolRoot>$([System.IO.Path]::GetFullPath('$(ToolRoot)'))</ToolRoot></PropertyGroup>
+    # Empty local-property lists cannot permit reassignment
+    - |
+      <Project TreatAsLocalProperty="  "><PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup></Project>
+    # A similarly shaped project attribute is not the local-property declaration
+    - |
+      <Project ToolsVersion="Current"><PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup></Project>

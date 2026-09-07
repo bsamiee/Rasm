@@ -1,28 +1,31 @@
 # [BUILDING_BLOCKS]
 
-The plugin composes in the style of Effect without Effect, because the loader refuses every package import.
+Compose policies with the local `Option` and `Decision` operations under the loader constraints.
 
 ## [01]-[OPTION]
 
-`hooks/composition/option.ts` holds `Option<A>` as `{ match: (cases: { some, none }) => B }`, and every operation is data-last, the function first and the option in the second call:
+`hooks/composition/option.ts` holds `Option<A>` as `{ match: (cases: { some, none }) => B }`. Callback-taking combinators are data-last, with the function first and the input in the returned call:
 
-| [INDEX] | [OPERATION]                 | [USE]                                                                                       |
-| :-----: | :-------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `some(value)`, `none()`     | Construct, `none<T>()` where the arm's type is not inferred                                 |
-|  [02]   | `fromPredicate(refinement)` | The one `if`, a value into the Option of its narrowed type, the form of every decoder       |
-|  [03]   | `fromNullable(value)`       | Optional fields and array indexes (`argv[0]`, `row.deny`, `.find(...)`) into an Option      |
-|  [04]   | `fromBoolean(condition)`    | Booleans into `Option<true>`, the two-way branch, `fromBoolean(c).match<T>({ some, none })` |
-|  [05]   | `getOrElse(fallback)(o)`    | The value or a literal fallback, the end of a chain (`getOrElse(() => '')(...)`)            |
-|  [06]   | `map(f)(o)`                 | Function applied under the some, the none stays                                             |
-|  [07]   | `flatMap(f)(o)`             | The dependent step, an Option-returning function under the some                             |
-|  [08]   | `toArray(o)`                | One element or none, the shape `flatMap` over a list consumes, `values.flatMap(decode)`     |
-|  [09]   | `liftPredicate<T>(p)(x)`    | The value as a some when the predicate holds, the one call for a value under a condition    |
+| [INDEX] | [OPERATION]                 | [USE]                                                                                            |
+| :-----: | :-------------------------- | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `some(value)`, `none()`     | Construct, `none<T>()` where the arm's type is not inferred                                      |
+|  [02]   | `fromPredicate(refinement)` | The one `if`, a value into the Option of its narrowed type, the form of every decoder            |
+|  [03]   | `fromNullable(value)`       | Optional fields and array indexes (`argv[0]`, `row.deny`, `.find(...)`) into an Option           |
+|  [04]   | `fromBoolean(condition)`    | Booleans into `Option<true>`, the two-way branch, `fromBoolean(c).match<T>({ some, none })`      |
+|  [05]   | `getOrElse(fallback)(o)`    | The value or a fallback evaluated only for none, the end of a chain (`getOrElse(() => '')(...)`) |
+|  [06]   | `map(f)(o)`                 | Function applied under the some, the none stays                                                  |
+|  [07]   | `flatMap(f)(o)`             | The dependent step, an Option-returning function under the some                                  |
+|  [08]   | `toArray(o)`                | One element or none, the shape `flatMap` over a list consumes, `values.flatMap(decode)`          |
+|  [09]   | `liftPredicate<T>(p)(x)`    | The value as a some when the predicate holds, the one call for a value under a condition         |
 
 - Independent conditions join in one refinement with `&&`, and a `fromBoolean` inside another `fromBoolean` is one refinement
 - Matches that rebuild the Option they read (`some: (v) => some(f(v))`, `none: () => none()`) are `map` or `flatMap`, a rule reports them
-- Values mapped over `fromBoolean` (`map(() => x)(fromBoolean(c))`) are `liftPredicate<T>(() => c)(x)`, and a rule reports the two-call form
+- Values mapped over `fromBoolean` (`map(() => x)(fromBoolean(c))`) are `liftPredicate<T>(() => c)(x)` when `x` is a plain value
+- Calls, allocations, and reads that stay conditional remain inside the callback
 - The type argument on `liftPredicate` is stated at the call, because a nullary predicate infers none
 - Chains of two matches are `.match<Option<T>>({ some, none }).match<R>(...)`, never a `some` arm that opens a second match
+- Gates in sequence (`fromPredicate` then `fromBoolean`) are one refinement joined with `&&`, the form the nesting rule accepts
+- Procedures under a `some` arm nest each callback one level deeper, and the flat form is one step per line with `forEach` over the Option
 
 ## [02]-[DECISION]
 
@@ -34,8 +37,9 @@ The plugin composes in the style of Effect without Effect, because the loader re
 |  [02]   | `deny(reason)`           | The refusal, `D` is `string` where the event refuses and `never` where it cannot                |
 |  [03]   | `answer(result)`         | The event's result without `next`, the description line of `tool.describe`                      |
 |  [04]   | `when(refinement, rule)` | Rule lifted over a narrower input, a non-matching input passes through unchanged                |
-|  [05]   | `fold(rules)`            | Table order, a rewrite feeds the next rule and accumulates context, a deny or an answer ends it |
-|  [06]   | `absurd(value)`          | The arm a rule's type rules out, `never` in and `never` out, so a case record stays total       |
+|  [05]   | `bind(rule)(decision)`   | The rule under a rewrite with the context accumulated, a deny or an answer stays, the fold step |
+|  [06]   | `fold(rules)`            | Table order, a rewrite feeds the next rule and accumulates context, a deny or an answer ends it |
+|  [07]   | `absurd(value)`          | The arm a rule's type rules out, `never` in and `never` out, so a case record stays total       |
 
 - Fold order inside one event is the policy: a rewrite later rules read runs first, guards before rows, a rewrite the model must see last
 - Rules that consult the person have no pure form, and a `Decision` arm for them lands with its first consumer
@@ -45,10 +49,10 @@ The plugin composes in the style of Effect without Effect, because the loader re
 
 Branches are refinements and case records, read from the declarations' own unions:
 - Refinements `(e: ToolCallInput): e is Bash` narrow the event union for `when`, `_isBash`, `_isPath`, `_hasCommand`, `_isTool(tool)` over `Named<T>`
-- Case records `Readonly<Record<Class, (…) => T>>` indexed by a computed class replace `switch`, `_SCAN_LINES[_scanClass(...)]`, `_LINES[_lineClass(...)]`, `_RECOVERY[replyClass(...)]`
+- Case records `Readonly<Record<Class, (…) => T>>` dispatch by computed class (`_LINES[_lineClass(...)]`, `_RECOVERY[replyClass(...)]`)
 - The API's result unions tag by `deny?: undefined`, read through `fromPredicate((r) => r.deny === undefined)` and a case record
 - Refinements over a store value are decoders, `_isFinding`, `_isSession`, and their `fromPredicate` is the exported `decodeX`
-- Type-level guards check a table against the generated file, `_Missing` in `hooks/policies/tools.ts` fails `tsc` when a tool family vanishes
+- Type-level guards check a table against the declarations, and `_Missing` in `hooks/policies/tools.ts` fails `typecheck` when a tool family vanishes
 
 ## [04]-[TABLES]
 
@@ -72,7 +76,7 @@ Tables are `as const satisfies readonly Row[]` or `Readonly<Record<Key, Row>>`, 
 - `once` keys name the skill or tool a context line routes to, and the adapter stamps `injected/<session>/<key>` before the call
 - `skill.prompt` stamps `loaded/<session>/<skill>`, and a once line with its key stamped under either namespace is not injected again
 - Row reasons and lines are a literal or a template opening with literal text, and the row runner forwards them to `deny`
-- The server union is `_ServerOf<keyof McpToolInputs>`, distributive over the keys, and a row over an absent server fails `tsc`
+- The server union `_ServerOf<keyof McpToolInputs>` distributes over the keys and rejects rows for absent servers during typecheck
 
 ## [05]-[ADAPTER]
 
@@ -87,7 +91,9 @@ Facts the adapter shape rests on, with `hooks/events/tool-call.ts` as the model:
 - Matched hooks narrow through their matcher, `{ interactive: true }` on `session.start` and `{ tool: 'mcp__function-hooks__close' }` on `tool.call`
 - The `ui.render` matcher `{ component: 'AbovePrompt', surface: 'terminal', props: { hasSurvey: false } }` pins the band and yields to a survey
 - Matched hooks register beside the plain one when their option is on, `whenEnabled(options.dispatch, () => register(on))` from the options module
-- The audit hook tests `next.event` against its audit table before any `$` call, because `$` is empty at `engine.create`
+- Hooks on a cached answer (`ui.render`, `prompt.context`, `prompt.section`, `tool.describe`) read fixed keys, the `summary` row in place of a scan
+- Arms after `next` are one `await` per step with its own `.catch`, and an IIFE with one `.catch` around a whole arm nests every step inside it
+- Steps of a timer body that need `$` are named functions at the hook level (`apply`, `settle`, `dispatch`, `tick`), one procedure each
 
 ## [06]-[STORE]
 
@@ -107,23 +113,22 @@ Facts the adapter shape rests on, with `hooks/events/tool-call.ts` as the model:
 - Guarded words inside interpreter code are leaves of their own, and a shell with no script runs nothing
 - Leaves stay raw, and `strip(argv)` removes env assignments, wrappers, and runners for the git guard's view
 - `basename(path)`, `extension(path)`, `under(path, directory)`, and `relative(cwd, path)` are the reads the path rows and the scan rows share
-- `lines(text)` answers the non-empty lines of a child's output or a reply and `first(text)` the first of them, the reads the scan and roslyn rows share
-- Spans let a rewrite splice a word in place, the form `packageManager` and the grep rewrite use, and a leaf after `&&` rewrites too
+- `lines(text)` reads non-empty output or reply lines and `first(text)` their first line, shared by the scan and roslyn rows
+- Spans let a rewrite splice a word in place, the form `packageManager` uses, and a leaf after `&&` rewrites too
 - `replace(pairs, direction)(text)` answers `{ text, applied }`, a string pair both ways and a RegExp pair forward
 - Function replacers apply each pair, and a `$` in a replacement value stays literal
 - `notes(replacement)` answers the distinct non-empty notes of the applied pairs, the context lines of a redaction
 
 ## [08]-[NEW_BLOCK]
 
-Blocks earn their place with a second copy in a second file. The first copy stays local under a `_` name, and the second moves both into the owning module with one export. Blocks one file calls stay in that file, and a forwarding arrow that renames a call is the call.
+Share an operation when consumers need the same transformation, and the shared form keeps their evaluation order and data distinctions. Keep operations used by one file local under a `_` name. Call the owning operation directly instead of adding a forwarding arrow.
 
 ## [09]-[RULES]
 
 A shape becomes a rule when a block sets it (a call spelling, a table form, a carrier operation) or a fix proved across the code sets it, and the rule keeps the shape at `lint`:
 - The `claude-code` family is named for the package the rules read, `files` scoped to the plugin, the specs ignored by the import rule
 - Utils are named `claude-code-<shape>` (the hook, the engine call, the option member), and tests mirror the rule path
-- `ls tools/ast-grep/rules/typescript/claude-code` lists the family, and the `syntax` and `effect` families read the plugin too
-- Use the `ast-grep` skill for the rule sequence
+- Inspect `tools/ast-grep/rules/typescript/claude-code/` with the `syntax` and `effect` families that read the plugin
 
 | [INDEX] | [SHAPE_KEPT]                     | [REPORTS]                                                                                          |
 | :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------- |
@@ -134,7 +139,8 @@ A shape becomes a rule when a block sets it (a call spelling, a table form, a ca
 |  [05]   | Invalidation discipline          | Literal invalidate in a loop over data or a render body, a map over the owning view list accepted  |
 |  [06]   | Timer discipline                 | Timer outside `session.start`                                                                      |
 |  [07]   | Matchers on data                 | Prose matcher beside a refusal                                                                     |
-|  [08]   | Options as the manifest declares | Option default or type restated with `??`, `\|\|`, or a boolean comparison                         |
+|  [08]   | Options as the manifest declares | Option default or type restated with `??`, `\                                                      |
 |  [09]   | Carrier discipline               | Value mapped over `fromBoolean`, re-lifted Option, return by branch, fold by loop                  |
 |  [10]   | One owner per fact               | Forwarding arrow, module state, fourth callback level                                              |
-|  [11]   | `-by-hand` siblings              | The forms of a rule no fix types, reported for the site to correct                                 |
+|  [11]   | `-by-hand` siblings              | Forms without a proven automatic fix, reported for a site-specific correction                      |
+|  [12]   | Cached-answer reads              | `$.store.keys()` or a mapped `$.store.get` inside a cached-answer hook                             |

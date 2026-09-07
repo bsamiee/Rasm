@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, a None item added inside the task's own target misses AssignTargetPaths, the probe build left bin without settings.ini
 id: no-copy-task-into-output
 language: xml
 severity: error
@@ -7,7 +8,5 @@ rule:
         # Copy and Move take the same destination parameters and reach the same output directory
         - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$'}}}
         - matches: {msbuild-metadata: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir)\)'}}}
-message: >-
-    The Copy or Move task into the output directory reaches the project's own bin alone, a referencing project and dotnet publish never receive
-    the file
+message: The Copy or Move task into the output directory reaches the project's own bin alone, referencing projects and publish never receive the file
 note: Declare the file as a None or Content item with CopyToOutputDirectory

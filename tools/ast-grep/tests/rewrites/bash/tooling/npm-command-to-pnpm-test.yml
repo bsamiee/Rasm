@@ -1,0 +1,28 @@
+id: npm-command-to-pnpm
+valid:
+    # A subcommand with pnpm options of its own
+    - npm publish
+    - npm audit fix
+    # A prefixed invocation
+    - command npm run build
+    # pnpm already
+    - pnpm run build
+    # npm named in data
+    - printf '%s\n' npm
+invalid:
+    # The instance, a script run
+    - npm run build
+    - npm test
+    # The install forms read the pnpm lockfile
+    - npm install
+    - npm i --save-dev vitest
+    - npm ci
+    # A script named like an install form keeps its name
+    - npm run ci
+    # A local binary through npx
+    - npx biome check .
+    # Inside a function under a pipeline
+    - |
+      build() {
+          npm run build | tee log
+      }

@@ -2,17 +2,14 @@
     "name": "function-hooks",
     "private": true,
     "type": "module",
-    "devDependencies": {
-        "vitest": "catalog:"
-    },
+    "devDependencies": { "vitest": "catalog:" },
     "nx": {
-        "tags": [
-            "language:typescript"
-        ],
+        "tags": ["language:typescript"],
         "targets": {
             "lint": {},
             "format": {},
             "check": {},
+            "typecheck": { "cache": false },
             "test": {
                 "cache": false,
                 "inputs": [

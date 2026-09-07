@@ -2,20 +2,42 @@
 id: no-dirname-substitution
 language: bash
 severity: error
+ignores: ["**/*.json"]
+utils:
+    literal-path:
+        kind: word, string, raw_string
+        regex: '^["'']?/?[A-Za-z0-9_.][A-Za-z0-9_.-]*(/[A-Za-z0-9_.-]+)*["'']?$'
 rule:
     kind: command_substitution
-    pattern: $SUB
     has:
         kind: command
         all:
-            - has: {field: name, regex: '^(dirname|basename)$', pattern: $CMD}
-            # The one argument is a parameter read whole, bare or double-quoted, $name, ${name}, or ${name[index]}
-            - has: {field: argument, matches: {bash-parameter: {name: {pattern: $NAME}}}}
-            - not: {has: {nthChild: 3}} # A suffix, an option, or a second path belongs to no-dirname-substitution-by-hand
+            - has: {field: name, regex: "^(dirname|basename)$", pattern: $CMD}
+            - has: {field: argument, pattern: $PATH, matches: literal-path}
+            - not: {has: {nthChild: 3}}
+    not:
+        any:
+            - has: {nthChild: 2}
+            - inside: {kind: command_name, stopBy: end}
+rewriters:
+    - id: basename
+      rule:
+        pattern: $PATH
+        inside: {kind: command, has: {field: name, regex: "^basename$"}}
+      transform:
+        TEXT: {replace: {source: $PATH, replace: '^["'']|["'']$', by: ""}}
+        COMPONENT: replace($TEXT, replace='^.*/', by='')
+      fix: $COMPONENT
+    - id: dirname
+      rule: {pattern: $PATH}
+      transform:
+        TEXT: {replace: {source: $PATH, replace: '^["'']|["'']$', by: ""}}
+        CURRENT: replace($TEXT, replace='^[^/]+$', by='.')
+        DIRECTORY: replace($CURRENT, replace='/[^/]+$', by='')
+        COMPONENT: replace($DIRECTORY, replace='^$', by='/')
+      fix: $COMPONENT
 transform:
-    HEAD: replace($CMD, replace='^dirname$', by='%/*')
-    OPERATOR: replace($HEAD, replace='^basename$', by='##*/')
-fix: '${$NAME$OPERATOR}'
-message: '`$SUB` forks a process for a path the shell derives by expansion'
-# A path with no / keeps itself under ${<name>%/*} where dirname prints ., a script run as bash <name> reads $0 without a /
-note: Strip the shortest trailing `/`-run with `${<name>%/*}` for the directory and the longest leading one with `${<name>##*/}` for the base name
+    RESULT: rewrite($PATH, rewriters=[basename, dirname])
+fix: $RESULT
+message: "`$CMD` computes a literal path component at runtime"
+note: Write the literal component directly. Variable paths require their own trailing-slash, root, and slash-free behavior

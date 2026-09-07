@@ -4,24 +4,23 @@ language: xml
 severity: error
 rule:
     pattern: _VALUE
-    all: [{matches: msbuild-parent-segment}, {matches: msbuild-composable-path}]
+    matches: msbuild-path-value
+    regex: '\$\([A-Za-z_][A-Za-z0-9_]*\)[\\/]\.\.[\\/]|\$\(MSBuildThisFileDirectory(NoRoot)?\)\.\.[\\/]'
+    # The file-above functions normalize their own result
+    not: {regex: '\$\(\[MSBuild\]::GetPathOfFileAbove\('}
 transform:
-    # Separator returns after the reference when the segment is glued to it, each separator run then becomes an argument boundary
-    SEPARATED: {replace: {source: $VALUE, replace: '^(\s*["'']?\$\([A-Za-z_][A-Za-z0-9_]*\))([^\\/])', by: '$1/$2'}}
-    SEGMENTS: {replace: {source: $SEPARATED, replace: '[\\/]+', by: ''', '''}}
-    # Trailing separator selects NormalizeDirectory, the rest NormalizePath, the wrapped value opens with a bracket and matches neither again
-    DIRECTORY:
+    # Every run of a property reference, a parent segment, and up to ten plain segments, the run ends at a wildcard, a reference, or a list separator
+    COMPOSED:
         replace:
-            source: $SEGMENTS
-            replace: '^(\s*["'']?)(\$\(.*)'', ''(["'']?\s*)$'
-            by: '$1$$([MSBuild]::NormalizeDirectory(''$2''))$3'
-    PATH:
-        replace:
-            source: $DIRECTORY
-            replace: '^(\s*["'']?)(\$\([A-Za-z_].*?)(["'']?\s*)$'
-            by: '$1$$([MSBuild]::NormalizePath(''$2''))$3'
+            source: $VALUE
+            replace: '\$\((?P<p>[A-Za-z_][A-Za-z0-9_]*)\)[\\/]?\.\.(?:[\\/](?P<s1>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s2>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s3>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s4>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s5>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s6>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s7>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s8>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s9>[A-Za-z0-9_. -]+))?(?:[\\/](?P<s10>[A-Za-z0-9_. -]+))?(?P<tail>[\\/]?)'
+            by: "$$([MSBuild]::Normalize@@${tail}@@('$$(${p})', '..', '${s1}', '${s2}', '${s3}', '${s4}', '${s5}', '${s6}', '${s7}', '${s8}', '${s9}', '${s10}'))"
+    # A trailing separator selects NormalizeDirectory, the rest NormalizePath, and the unmatched segment groups leave as empty arguments
+    DIRECTORY: {replace: {source: $COMPOSED, replace: 'Normalize@@[\\/]@@', by: NormalizeDirectory}}
+    PATH: {replace: {source: $DIRECTORY, replace: 'Normalize@@@@', by: NormalizePath}}
+    TRIMMED: {replace: {source: $PATH, replace: "(, '')+\\)", by: ')'}}
     # Single-quoted attribute delimiters become double quotes, the composed function holds single quotes and the value held none
-    FLIPPED: {replace: {source: $PATH, replace: '^''(\$\(\[MSBuild\]::Normalize(Directory|Path)\(.*\)\))''$', by: '"$1"'}}
-fix: $FLIPPED
-message: The value appends a parent segment to a directory property as text, the path keeps the .. and the hand-written separator
-note: Compose the path with NormalizeDirectory or NormalizePath over the property and each segment
+    DOUBLE_QUOTED: {replace: {source: $TRIMMED, replace: '(?s)^''(.*''.*)''$', by: '"$1"'}}
+fix: $DOUBLE_QUOTED
+message: The path appends a parent segment to a directory property as text
+note: Compose each path with NormalizeDirectory or NormalizePath over the property and its segments

@@ -67,6 +67,90 @@ valid:
     # The redirect and verify keywords over values other than the defaults
     - |
       httpx.get(url, follow_redirects=True, verify=False)
+    - |
+      process.cpu_percent(interval=None)
+    # The per-CPU selection is independent of the sampling interval
+    - |
+      psutil.cpu_percent(percpu=None)
+    # An unsupported keyword on another method must retain its argument
+    - |
+      psutil.Process(pid).as_dict(interval=None)
+    # The separate CPU-times API is outside the configured callee set
+    - |
+      psutil.cpu_times_percent(interval=None)
+    - |
+      from psutil import cpu_times_percent as sample
+      sample(interval=None)
+    # GzipFile can inherit a file object's mode, unlike gzip.open
+    - |
+      gzip.GzipFile(fileobj=writer, mode="rb")
+    - |
+      from gzip import GzipFile as stream
+      stream(fileobj=writer, mode="rb")
+    # Another package's open can define its own mode default
+    - |
+      from storage import open as read
+      read(archive, mode="rb")
+    # Timeout configuration stores the supplied value
+    - |
+      from httpx import Timeout as timeout
+      timeout(timeout=5.0)
+    # Another module's Process has its own sampling contract
+    - |
+      monitor.Process(pid).cpu_percent(interval=None)
+    - |
+      from monitor import Process as process
+      process(pid).cpu_percent(interval=None)
+    # Parent traversal returns a Process at runtime without a constructor proof
+    - |
+      psutil.Process(pid).parent().cpu_percent(interval=None)
+    - |
+      psutil.Popen(command).cpu_percent(interval=None)
+    - |
+      from psutil import Popen as process
+      process(command).cpu_percent(interval=None)
+    - "msgspec.json.Decoder(strict=False)"
+    - 'msgspec.msgpack.encode(value, order="sorted")'
+    - "other.json.decode(value, strict=True)"
+    - "msgspec.json.Decoder(dec_hook=convert)"
+    - "msgspec.json.Encoder(enc_hook=convert)"
+    - 'msgspec.json.Encoder(uuid_format="hex")'
+    # Type None means the null schema, and unsupported arguments retain their errors
+    - "msgspec.json.Decoder(type=None)"
+    - "msgspec.json.Decoder(type=True)"
+    - "msgspec.json.Encoder(uuid_format=None)"
+    - "msgspec.json.format(data, strict=True)"
+    - "msgspec.json.format(data, order=None)"
+    # Keyword expansion can supply the explicit argument and must retain duplicate-key rejection
+    - |
+      httpx.get(url, timeout=5.0, **options)
+    # Positional expansion can supply the mode and change argument binding
+    - |
+      gzip.open(*arguments, mode="rb")
+    # Positional and keyword mode must retain the duplicate-argument error
+    - |
+      gzip.open(archive, "wb", mode="rb")
+    # Two default spellings still conflict rather than cancel
+    - |
+      gzip.open(archive, "rb", mode="rb")
+    # The sampling interval already occupies its positional parameter
+    - |
+      psutil.cpu_percent(0, interval=None)
+    # A process method has the same positional interval binding
+    - |
+      psutil.Process(pid).cpu_percent(0, interval=None)
+    # Fallback rebinding makes the callee identity uncertain
+    - |
+      try:
+          from httpx import AsyncClient
+      except ImportError:
+          AsyncClient = None
+
+      client = AsyncClient(timeout=5.0)
+    # Comments do not shift the conflicting positional mode
+    - |
+      gzip.open(archive,  # source
+                "wb", mode="rb")
 invalid:
     # The instance, the httpx default timeout on a request function
     - |
@@ -88,7 +172,7 @@ invalid:
       gzip.open(archive, mode="rb")
     # The psutil Process interval default
     - |
-      process.cpu_percent(interval=None)
+      psutil.Process(pid).cpu_percent(interval=None)
     # The psutil module interval default
     - |
       psutil.cpu_percent(interval=None)
@@ -115,14 +199,6 @@ invalid:
     # The gzip mode default under single quotes
     - |
       gzip.open(archive, 'rb')
-    # The client constructor a from-import under a try binds, the import search past the module's direct children
-    - |
-      try:
-          from httpx import AsyncClient
-      except ImportError:
-          AsyncClient = None
-
-      client = AsyncClient(timeout=5.0)
     # The cpu_percent a from-import inside a function binds
     - |
       def load():
@@ -135,3 +211,29 @@ invalid:
     # The httpx verify default on a client
     - |
       httpx.Client(verify=True)
+    - |
+      import httpx as client
+      client.get(url, timeout=5.0)
+    - |
+      from httpx import get as fetch
+      fetch(url, follow_redirects=False)
+    - |
+      from gzip import open as decompress
+      decompress(archive, mode="rb")
+    - |
+      from psutil import cpu_percent as load
+      load(interval=None)
+    # Process constructors retain their imported alias
+    - |
+      from psutil import Process as process
+      process(pid).cpu_percent(interval=None)
+    - "msgspec.json.Decoder(strict=True)"
+    - "msgspec.msgpack.decode(value, dec_hook=None)"
+    - "msgspec.json.encode(value, enc_hook=None)"
+    - "msgspec.msgpack.Encoder(order=None)"
+    - |
+      import msgspec as codec
+      codec.json.decode(value, strict=True)
+    - |
+      from msgspec import msgpack as packed
+      packed.Encoder(order=None)

@@ -1,25 +1,5 @@
 id: no-native-timer
 snapshots:
-  await scheduler.wait(1000);:
-    labels:
-    - source: scheduler.wait(1000)
-      style: primary
-      start: 6
-      end: 26
-    - source: scheduler.wait
-      style: secondary
-      start: 6
-      end: 20
-  await scheduler.yield();:
-    labels:
-    - source: scheduler.yield()
-      style: primary
-      start: 6
-      end: 23
-    - source: scheduler.yield
-      style: secondary
-      start: 6
-      end: 21
   clearImmediate(handle);:
     labels:
     - source: clearImmediate(handle)
@@ -100,6 +80,130 @@ snapshots:
       style: secondary
       start: 15
       end: 34
+  import * as timers from "node:timers"; timers.setTimeout(tick, 1);:
+    labels:
+    - source: timers.setTimeout(tick, 1)
+      style: primary
+      start: 39
+      end: 65
+    - source: timers.setTimeout
+      style: secondary
+      start: 39
+      end: 56
+  import timers from "node:timers/promises"; await timers.scheduler.wait(1);:
+    labels:
+    - source: timers.scheduler.wait(1)
+      style: primary
+      start: 49
+      end: 73
+    - source: wait
+      style: secondary
+      start: 66
+      end: 70
+    - source: timers.scheduler
+      style: secondary
+      start: 49
+      end: 65
+    - source: timers.scheduler.wait
+      style: secondary
+      start: 49
+      end: 70
+  import { schedule as custom } from "./custom"; setTimeout(tick, 1);:
+    labels:
+    - source: setTimeout(tick, 1)
+      style: primary
+      start: 47
+      end: 66
+    - source: setTimeout
+      style: secondary
+      start: 47
+      end: 57
+  import { scheduler as host } from "timers/promises"; await host.yield();:
+    labels:
+    - source: host.yield()
+      style: primary
+      start: 59
+      end: 71
+    - source: yield
+      style: secondary
+      start: 64
+      end: 69
+    - source: host
+      style: secondary
+      start: 59
+      end: 63
+    - source: host.yield
+      style: secondary
+      start: 59
+      end: 69
+  import { scheduler } from "node:timers/promises"; await scheduler.wait(1000);:
+    labels:
+    - source: scheduler.wait(1000)
+      style: primary
+      start: 56
+      end: 76
+    - source: wait
+      style: secondary
+      start: 66
+      end: 70
+    - source: scheduler
+      style: secondary
+      start: 56
+      end: 65
+    - source: scheduler.wait
+      style: secondary
+      start: 56
+      end: 70
+  import { setTimeout as custom } from "./custom"; setTimeout(tick, 1);:
+    labels:
+    - source: setTimeout(tick, 1)
+      style: primary
+      start: 49
+      end: 68
+    - source: setTimeout
+      style: secondary
+      start: 49
+      end: 59
+  import { setTimeout as delay /* local */ } from "node:timers/promises"; await delay(1);:
+    labels:
+    - source: delay(1)
+      style: primary
+      start: 78
+      end: 86
+    - source: delay
+      style: secondary
+      start: 78
+      end: 83
+  import { setTimeout as delay } from "node:timers/promises"; await delay(1);:
+    labels:
+    - source: delay(1)
+      style: primary
+      start: 66
+      end: 74
+    - source: delay
+      style: secondary
+      start: 66
+      end: 71
+  import { setTimeout } from "node:timers"; setTimeout(tick, 1);:
+    labels:
+    - source: setTimeout(tick, 1)
+      style: primary
+      start: 42
+      end: 61
+    - source: setTimeout
+      style: secondary
+      start: 42
+      end: 52
+  import { setTimeout } from "timers/promises"; await setTimeout(1);:
+    labels:
+    - source: setTimeout(1)
+      style: primary
+      start: 52
+      end: 65
+    - source: setTimeout
+      style: secondary
+      start: 52
+      end: 62
   queueMicrotask(tick);:
     labels:
     - source: queueMicrotask(tick)

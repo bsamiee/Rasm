@@ -1,10 +1,54 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, Clock.currentTimeMillis in place of Date.now() fails with TS2322 Effect<number> is not assignable to number
 id: no-ambient-read
 language: tsx
 severity: error
 ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, the Clock and Random services have no place there
 rule:
-    matches: syntax-ambient-read
+    any:
+        # The current time as a Date, the constructor without an argument
+        - kind: new_expression
+          has: {field: constructor, regex: '^(globalThis\.)?Date$', matches: syntax-global-reference}
+          not: {has: {field: arguments, has: {pattern: $_}}}
+        # The clock, the high-resolution clock, the uptime, and the random source, spelled direct or through globalThis
+        - kind: call_expression
+          has:
+            field: function
+            any:
+                - matches: syntax-global-reference
+                  regex: '^(globalThis\.)?(Date|Date\.now|Temporal\.Now\.\w+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.now|process\.hrtime(\.bigint)?|process\.uptime)$'
+                - matches:
+                    syntax-import-reference:
+                        source: {regex: '^(node:)?crypto$'}
+                        exported: {regex: '^(randomUUID|randomUUIDv7|getRandomValues|randomBytes|randomInt|randomFill|randomFillSync)$'}
+                - matches:
+                    syntax-import-reference:
+                        source: {regex: '^(node:)?(os|process)$'}
+                        exported: {regex: '^uptime$'}
+                - matches:
+                    syntax-import-reference:
+                        source: {regex: '^(node:)?process$'}
+                        exported: {regex: '^hrtime$'}
+                - kind: member_expression
+                  all:
+                    - has: {field: property, regex: '^bigint$'}
+                    - has:
+                        field: object
+                        matches:
+                            syntax-import-reference:
+                                source: {regex: '^(node:)?process$'}
+                                exported: {regex: '^hrtime$'}
+                - kind: member_expression
+                  all:
+                    - has: {field: property, regex: '^now$'}
+                    - has:
+                        field: object
+                        matches:
+                            syntax-import-reference:
+                                source: {regex: '^(node:)?perf_hooks$'}
+                                exported: {regex: '^performance$'}
     pattern: $READ
 message: '`$READ` reads the clock or the random source of the host as an ambient value'
-note: Read the value through the service the context supplies, `Clock.currentTimeMillis`, `DateTime.now`, `Random.next`, or `Random.nextUUID`
+note: Take the clock or the random source from the owning service or an argument, keeping its origin, units, and cryptographic guarantee
+labels:
+    READ: {style: primary}

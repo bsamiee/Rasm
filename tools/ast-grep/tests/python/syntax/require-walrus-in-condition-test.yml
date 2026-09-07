@@ -6,13 +6,15 @@ valid:
           use(found)
     # Name read after the branch, the walrus keeps it bound
     - |
-      if found := load(path):
-          use(found)
-      return found
+      def run(path):
+          if found := load(path):
+              use(found)
+          return found
     # Walrus in parentheses under a negation
     - |
-      if not (found := load(path)):
-          return
+      def run(path):
+          if not (found := load(path)):
+              return
     # Another name tested
     - |
       found = load(path)
@@ -49,11 +51,6 @@ valid:
       found = load(path)
       if limit < found:
           use(found)
-    # Name as an operand of a boolean operator
-    - |
-      found = load(path)
-      if found and ready:
-          use(found)
     # Value spanning lines
     - |
       found = load(
@@ -71,11 +68,6 @@ valid:
       found = load(path)  # The read
       if found:
           use(found)
-    # Attribute of the name tested
-    - |
-      found = load(path)
-      if found.ok:
-          use(found)
     # Tuple value, a walrus binds the first element alone
     - |
       found = a, b
@@ -87,6 +79,32 @@ valid:
           found = yield
           if found:
               use(found)
+    # Right boolean operand can be skipped
+    - |
+      found = load(path)
+      if ready and found:
+          use(found)
+    # Earlier comparison operand can run effects
+    - |
+      found = load(path)
+      if other() < found:
+          use(found)
+    # The callable evaluates before its argument
+    - |
+      found = load(path)
+      if predicate(found):
+          use(found)
+    # Lambda creates another binding scope
+    - |
+      found = load(path)
+      if (lambda: found)():
+          use(found)
+    # Intervening comment stays with its statements
+    - |
+      found = load(path)
+      # Keep the explanation between statements
+      if found:
+          use(found)
 invalid:
     # The instance, the name as the whole condition
     - |
@@ -95,9 +113,10 @@ invalid:
           use(found)
     # Negated name
     - |
-      found = load(path)
-      if not found:
-          return
+      def run(path):
+          found = load(path)
+          if not found:
+              return
     # Name compared with None
     - |
       found = load(path)
@@ -110,9 +129,10 @@ invalid:
           use(count)
     # Value awaited
     - |
-      found = await load(path)
-      if found:
-          use(found)
+      async def run(path):
+          found = await load(path)
+          if found:
+              use(found)
     # Nested if testing the same name keeps its text, the outer reports once
     - |
       found = load(path)
@@ -156,3 +176,91 @@ invalid:
           found = load(path)
           if found:
               use(found)
+    # Name as an operand of a boolean operator
+    - |
+      found = load(path)
+      if found and ready:
+          use(found)
+    # Attribute of the name tested
+    - |
+      found = load(path)
+      if found.ok:
+          use(found)
+    # Repeated comparison operand reads the value without evaluating its initializer again
+    - |
+      found = load(path)
+      if found < found:
+          use(found)
+    # Repeated boolean operand keeps its later read
+    - |
+      found = load(path)
+      if found and found:
+          use(found)
+    # Or preserves the conditional evaluation of its right operand
+    - |
+      found = load(path)
+      if found or fallback():
+          use(found)
+    # Parenthesized condition
+    - |
+      found = load(path)
+      if (found):
+          use(found)
+    # Nested parentheses around a negation
+    - |
+      found = load(path)
+      if ((not found)):
+          use(found)
+    # Attribute receiver precedes subsequent operands
+    - |
+      found = load(path)
+      if found.ok and found.value:
+          use(found)
+    # Subscript receiver evaluates before its index
+    - |
+      found = load(path)
+      if found[read_key()]:
+          use(found)
+    # Method receiver evaluates before arguments
+    - |
+      found = load(path)
+      if found.method(other()):
+          use(found)
+    # Unary operand
+    - |
+      found = load(path)
+      if -found:
+          use(found)
+    # Left arithmetic operand
+    - |
+      found = load(path)
+      if found + other():
+          use(found)
+    # Chained comparison retains the later read
+    - |
+      found = load(path)
+      if found < next_limit() < found:
+          use(found)
+    # Grouped comparison as the left boolean operand
+    - |
+      found = load(path)
+      if ((found is not None) and ready()):
+          use(found)
+    # Await evaluates its operand in the containing async function
+    - |
+      async def run():
+          found = load()
+          if await found:
+              use(found)
+    # The right boolean operand remains lazy after an awaited initializer
+    - |
+      async def run():
+          found = await load()
+          if found and ready():
+              use(found)
+    # Comments inside the condition stay in the rewritten expression
+    - |
+      found = load(path)
+      if (found  # The loaded value
+          and ready):
+          use(found)

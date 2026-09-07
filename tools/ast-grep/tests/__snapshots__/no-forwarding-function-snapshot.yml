@@ -1,6 +1,42 @@
 id: no-forwarding-function
 snapshots:
   ? |
+    async def combine(a, b, c, d):
+        return await merge(a, b, c, d)
+  : labels:
+    - source: |-
+        async def combine(a, b, c, d):
+            return await merge(a, b, c, d)
+      style: primary
+      start: 0
+      end: 65
+    - source: |-
+        async def combine(a, b, c, d):
+            return await merge(a, b, c, d)
+      style: secondary
+      start: 0
+      end: 65
+    - source: return await merge(a, b, c, d)
+      style: secondary
+      start: 35
+      end: 65
+    - source: await merge(a, b, c, d)
+      style: secondary
+      start: 42
+      end: 65
+    - source: return await merge(a, b, c, d)
+      style: secondary
+      start: 35
+      end: 65
+    - source: return await merge(a, b, c, d)
+      style: secondary
+      start: 35
+      end: 65
+    - source: return await merge(a, b, c, d)
+      style: secondary
+      start: 35
+      end: 65
+  ? |
     async def load(path):
         return await read(path)
   : labels:
@@ -32,102 +68,80 @@ snapshots:
       style: secondary
       start: 26
       end: 49
-    - source: path
-      style: secondary
-      start: 15
-      end: 19
-    - source: (path)
-      style: secondary
-      start: 14
-      end: 20
-    - source: |-
-        async def load(path):
-            return await read(path)
-      style: secondary
-      start: 0
-      end: 49
-    - source: return await read(path)
-      style: secondary
-      start: 26
-      end: 49
-    - source: return await read(path)
-      style: secondary
-      start: 26
-      end: 49
-    - source: await read(path)
-      style: secondary
-      start: 33
-      end: 49
-    - source: read(path)
-      style: secondary
-      start: 39
-      end: 49
     - source: return await read(path)
       style: secondary
       start: 26
       end: 49
   ? |
-    async def stop():
-        await server.stop()
+    async def load(path: Path):
+        return await read(path)
   : labels:
     - source: |-
-        async def stop():
-            await server.stop()
+        async def load(path: Path):
+            return await read(path)
       style: primary
       start: 0
-      end: 41
+      end: 55
     - source: |-
-        async def stop():
-            await server.stop()
+        async def load(path: Path):
+            return await read(path)
       style: secondary
       start: 0
-      end: 41
-    - source: await server.stop()
+      end: 55
+    - source: return await read(path)
       style: secondary
-      start: 22
-      end: 41
-    - source: await server.stop()
+      start: 32
+      end: 55
+    - source: await read(path)
       style: secondary
-      start: 22
-      end: 41
-    - source: await server.stop()
+      start: 39
+      end: 55
+    - source: return await read(path)
       style: secondary
-      start: 22
-      end: 41
-    - source: await server.stop()
+      start: 32
+      end: 55
+    - source: return await read(path)
       style: secondary
-      start: 22
-      end: 41
+      start: 32
+      end: 55
+    - source: path
+      style: secondary
+      start: 15
+      end: 19
+    - source: 'path: Path'
+      style: secondary
+      start: 15
+      end: 25
+    - source: '(path: Path)'
+      style: secondary
+      start: 14
+      end: 26
     - source: |-
-        async def stop():
-            await server.stop()
+        async def load(path: Path):
+            return await read(path)
       style: secondary
       start: 0
-      end: 41
-    - source: await server.stop()
+      end: 55
+    - source: return await read(path)
       style: secondary
-      start: 22
-      end: 41
-    - source: await server.stop()
+      start: 32
+      end: 55
+    - source: return await read(path)
       style: secondary
-      start: 22
-      end: 41
-    - source: await server.stop()
+      start: 32
+      end: 55
+    - source: await read(path)
       style: secondary
-      start: 22
-      end: 41
-    - source: server.stop()
+      start: 39
+      end: 55
+    - source: read(path)
       style: secondary
-      start: 28
-      end: 41
-    - source: await server.stop()
+      start: 45
+      end: 55
+    - source: return await read(path)
       style: secondary
-      start: 22
-      end: 41
-    - source: server
-      style: secondary
-      start: 28
-      end: 34
+      start: 32
+      end: 55
   ? |
     class Reader:
         def load(self, path):
@@ -139,40 +153,76 @@ snapshots:
       style: primary
       start: 18
       end: 71
-    - source: self
+    - source: return read(self, path)
       style: secondary
-      start: 27
-      end: 31
-    - source: path
+      start: 48
+      end: 71
+  ? |
+    def combine(a: int, b, c):
+        return merge(a, b, c)
+  : labels:
+    - source: |-
+        def combine(a: int, b, c):
+            return merge(a, b, c)
+      style: primary
+      start: 0
+      end: 52
+    - source: a
       style: secondary
-      start: 33
-      end: 37
-    - source: (self, path)
+      start: 12
+      end: 13
+    - source: 'a: int'
+      style: secondary
+      start: 12
+      end: 18
+    - source: b
+      style: secondary
+      start: 20
+      end: 21
+    - source: c
+      style: secondary
+      start: 23
+      end: 24
+    - source: '(a: int, b, c)'
+      style: secondary
+      start: 11
+      end: 25
+    - source: |-
+        def combine(a: int, b, c):
+            return merge(a, b, c)
+      style: secondary
+      start: 0
+      end: 52
+    - source: return merge(a, b, c)
+      style: secondary
+      start: 31
+      end: 52
+    - source: return merge(a, b, c)
+      style: secondary
+      start: 31
+      end: 52
+    - source: merge(a, b, c)
+      style: secondary
+      start: 38
+      end: 52
+    - source: return merge(a, b, c)
+      style: secondary
+      start: 31
+      end: 52
+  ? |
+    def four(a, b, c, d):
+        return combine(a, b, c, d)
+  : labels:
+    - source: |-
+        def four(a, b, c, d):
+            return combine(a, b, c, d)
+      style: primary
+      start: 0
+      end: 52
+    - source: return combine(a, b, c, d)
       style: secondary
       start: 26
-      end: 38
-    - source: |-
-        def load(self, path):
-                return read(self, path)
-      style: secondary
-      start: 18
-      end: 71
-    - source: return read(self, path)
-      style: secondary
-      start: 48
-      end: 71
-    - source: return read(self, path)
-      style: secondary
-      start: 48
-      end: 71
-    - source: read(self, path)
-      style: secondary
-      start: 55
-      end: 71
-    - source: return read(self, path)
-      style: secondary
-      start: 48
-      end: 71
+      end: 52
   ? |
     def load():
         return read()
@@ -182,24 +232,6 @@ snapshots:
             return read()
       style: primary
       start: 0
-      end: 29
-    - source: |-
-        def load():
-            return read()
-      style: secondary
-      start: 0
-      end: 29
-    - source: return read()
-      style: secondary
-      start: 16
-      end: 29
-    - source: return read()
-      style: secondary
-      start: 16
-      end: 29
-    - source: read()
-      style: secondary
-      start: 23
       end: 29
     - source: return read()
       style: secondary
@@ -304,6 +336,58 @@ snapshots:
   ? |
     def load(path):
         """Read the file."""
+        "Implementation note."
+        return read(path)
+  : labels:
+    - source: |-
+        def load(path):
+            """Read the file."""
+            "Implementation note."
+            return read(path)
+      style: primary
+      start: 0
+      end: 89
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: (path)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def load(path):
+            """Read the file."""
+            "Implementation note."
+            return read(path)
+      style: secondary
+      start: 0
+      end: 89
+    - source: |-
+        """Read the file."""
+            "Implementation note."
+            return read(path)
+      style: secondary
+      start: 20
+      end: 89
+    - source: return read(path)
+      style: secondary
+      start: 72
+      end: 89
+    - source: read(path)
+      style: secondary
+      start: 79
+      end: 89
+    - source: |-
+        """Read the file."""
+            "Implementation note."
+            return read(path)
+      style: secondary
+      start: 20
+      end: 89
+  ? |
+    def load(path):
+        """Read the file."""
         # The one call
         return read(path)
   : labels:
@@ -402,46 +486,6 @@ snapshots:
       end: 62
   ? |
     def load(path):
-        read(path)
-  : labels:
-    - source: |-
-        def load(path):
-            read(path)
-      style: primary
-      start: 0
-      end: 30
-    - source: path
-      style: secondary
-      start: 9
-      end: 13
-    - source: (path)
-      style: secondary
-      start: 8
-      end: 14
-    - source: |-
-        def load(path):
-            read(path)
-      style: secondary
-      start: 0
-      end: 30
-    - source: read(path)
-      style: secondary
-      start: 20
-      end: 30
-    - source: read(path)
-      style: secondary
-      start: 20
-      end: 30
-    - source: read(path)
-      style: secondary
-      start: 20
-      end: 30
-    - source: read(path)
-      style: secondary
-      start: 20
-      end: 30
-  ? |
-    def load(path):
         return module.read(path)
   : labels:
     - source: |-
@@ -449,32 +493,6 @@ snapshots:
             return module.read(path)
       style: primary
       start: 0
-      end: 44
-    - source: path
-      style: secondary
-      start: 9
-      end: 13
-    - source: (path)
-      style: secondary
-      start: 8
-      end: 14
-    - source: |-
-        def load(path):
-            return module.read(path)
-      style: secondary
-      start: 0
-      end: 44
-    - source: return module.read(path)
-      style: secondary
-      start: 20
-      end: 44
-    - source: return module.read(path)
-      style: secondary
-      start: 20
-      end: 44
-    - source: module.read(path)
-      style: secondary
-      start: 27
       end: 44
     - source: return module.read(path)
       style: secondary
@@ -493,32 +511,6 @@ snapshots:
             return package.module.read(path)
       style: primary
       start: 0
-      end: 52
-    - source: path
-      style: secondary
-      start: 9
-      end: 13
-    - source: (path)
-      style: secondary
-      start: 8
-      end: 14
-    - source: |-
-        def load(path):
-            return package.module.read(path)
-      style: secondary
-      start: 0
-      end: 52
-    - source: return package.module.read(path)
-      style: secondary
-      start: 20
-      end: 52
-    - source: return package.module.read(path)
-      style: secondary
-      start: 20
-      end: 52
-    - source: package.module.read(path)
-      style: secondary
-      start: 27
       end: 52
     - source: return package.module.read(path)
       style: secondary
@@ -542,32 +534,6 @@ snapshots:
       style: primary
       start: 0
       end: 37
-    - source: path
-      style: secondary
-      start: 9
-      end: 13
-    - source: (path)
-      style: secondary
-      start: 8
-      end: 14
-    - source: |-
-        def load(path):
-            return read(path)
-      style: secondary
-      start: 0
-      end: 37
-    - source: return read(path)
-      style: secondary
-      start: 20
-      end: 37
-    - source: return read(path)
-      style: secondary
-      start: 20
-      end: 37
-    - source: read(path)
-      style: secondary
-      start: 27
-      end: 37
     - source: return read(path)
       style: secondary
       start: 20
@@ -582,32 +548,6 @@ snapshots:
       style: primary
       start: 0
       end: 53
-    - source: path
-      style: secondary
-      start: 9
-      end: 13
-    - source: (path)
-      style: secondary
-      start: 8
-      end: 14
-    - source: |-
-        def load(path):
-            return read(path)  # The one call
-      style: secondary
-      start: 0
-      end: 53
-    - source: 'return read(path)  # The one call'
-      style: secondary
-      start: 20
-      end: 53
-    - source: return read(path)
-      style: secondary
-      start: 20
-      end: 37
-    - source: read(path)
-      style: secondary
-      start: 27
-      end: 37
     - source: 'return read(path)  # The one call'
       style: secondary
       start: 20
@@ -669,32 +609,6 @@ snapshots:
       style: primary
       start: 17
       end: 58
-    - source: path
-      style: secondary
-      start: 26
-      end: 30
-    - source: (path)
-      style: secondary
-      start: 25
-      end: 31
-    - source: |-
-        def load(path):
-                return read(path)
-      style: secondary
-      start: 17
-      end: 58
-    - source: return read(path)
-      style: secondary
-      start: 41
-      end: 58
-    - source: return read(path)
-      style: secondary
-      start: 41
-      end: 58
-    - source: read(path)
-      style: secondary
-      start: 48
-      end: 58
     - source: return read(path)
       style: secondary
       start: 41
@@ -708,36 +622,6 @@ snapshots:
             return combine(a, b)
       style: primary
       start: 0
-      end: 40
-    - source: a
-      style: secondary
-      start: 9
-      end: 10
-    - source: b
-      style: secondary
-      start: 12
-      end: 13
-    - source: (a, b)
-      style: secondary
-      start: 8
-      end: 14
-    - source: |-
-        def pair(a, b):
-            return combine(a, b)
-      style: secondary
-      start: 0
-      end: 40
-    - source: return combine(a, b)
-      style: secondary
-      start: 20
-      end: 40
-    - source: return combine(a, b)
-      style: secondary
-      start: 20
-      end: 40
-    - source: combine(a, b)
-      style: secondary
-      start: 27
       end: 40
     - source: return combine(a, b)
       style: secondary
@@ -796,42 +680,6 @@ snapshots:
       start: 37
       end: 57
   ? |
-    def stop():
-        server.stop()
-  : labels:
-    - source: |-
-        def stop():
-            server.stop()
-      style: primary
-      start: 0
-      end: 29
-    - source: |-
-        def stop():
-            server.stop()
-      style: secondary
-      start: 0
-      end: 29
-    - source: server.stop()
-      style: secondary
-      start: 16
-      end: 29
-    - source: server.stop()
-      style: secondary
-      start: 16
-      end: 29
-    - source: server.stop()
-      style: secondary
-      start: 16
-      end: 29
-    - source: server.stop()
-      style: secondary
-      start: 16
-      end: 29
-    - source: server
-      style: secondary
-      start: 16
-      end: 22
-  ? |
     def triple(a, b, c):
         return combine(a, b, c)
   : labels:
@@ -840,40 +688,6 @@ snapshots:
             return combine(a, b, c)
       style: primary
       start: 0
-      end: 48
-    - source: a
-      style: secondary
-      start: 11
-      end: 12
-    - source: b
-      style: secondary
-      start: 14
-      end: 15
-    - source: c
-      style: secondary
-      start: 17
-      end: 18
-    - source: (a, b, c)
-      style: secondary
-      start: 10
-      end: 19
-    - source: |-
-        def triple(a, b, c):
-            return combine(a, b, c)
-      style: secondary
-      start: 0
-      end: 48
-    - source: return combine(a, b, c)
-      style: secondary
-      start: 25
-      end: 48
-    - source: return combine(a, b, c)
-      style: secondary
-      start: 25
-      end: 48
-    - source: combine(a, b, c)
-      style: secondary
-      start: 32
       end: 48
     - source: return combine(a, b, c)
       style: secondary

@@ -1,5 +1,7 @@
 id: require-target-framework-form
 valid:
+    # Comments can split a framework list into separate text nodes
+    - '<PropertyGroup><TargetFrameworks>net10.0<!-- targets -->;netstandard2.0</TargetFrameworks></PropertyGroup>'
     # One framework
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework></PropertyGroup></Project>
@@ -17,7 +19,7 @@ valid:
     - |
       <Project><ItemGroup><ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework>
         </ProjectReference></ItemGroup></Project>
-    # Both properties in one file, the sibling require-target-framework-form-by-hand reports it
+    # BuildCheck BC0107 reports both properties in one file
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework>
         <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
@@ -50,3 +52,6 @@ invalid:
     # Comment before one framework in the plural, the fix keeps the comment
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks><!-- one --> net10.0</TargetFrameworks></PropertyGroup></Project>
+    # greater-than in condition and embedded closing tag comment
+    - |
+      <Project><PropertyGroup><TargetFramework Condition="'$(Count)' > '1'"><!-- </TargetFramework> -->net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>

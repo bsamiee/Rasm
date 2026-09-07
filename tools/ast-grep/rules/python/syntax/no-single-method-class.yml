@@ -2,30 +2,34 @@
 id: no-single-method-class
 language: python
 severity: error
+# Report-only, the probed fix the method as a function fails its caller, `NameError: name 'Doubler' is not defined`
 utils:
     init: {kind: function_definition, has: {field: name, regex: '^__init__$'}}
-    # Method under @staticmethod or @classmethod, a function that reads no instance
+    # Method under @staticmethod; class methods depend on class identity
     static-method:
         kind: decorated_definition
-        has: {kind: decorator, regex: '^@(staticmethod|classmethod)$'}
+        has: {kind: decorator, regex: '^@staticmethod$'}
+        not: {has: {kind: function_definition, has: {field: name, regex: '^__.*__$'}}}
 rule:
     kind: class_definition
     all:
         - has: {field: name, pattern: $NAME}
+        - not: {inside: {kind: decorated_definition}}
+        - not: {has: {kind: identifier, regex: '^__class__$', stopBy: end}}
         - not: {has: {field: superclasses, kind: argument_list}} # Bases name a protocol, an exception, or a model the class extends
         - has:
-              field: body
-              any:
-                  # One plain method besides __init__ and the docstring, a decorated method names a role
-                  - all:
-                        - has: {kind: function_definition, not: {matches: init}}
-                        # One member beside the docstring, __init__, and comments, a class-level field or another method counts as a second
-                        - not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-docstring}, {matches: init}, {kind: comment}]}}}}}
-                  # Static or class methods alone, a module of functions spelled as a class
-                  - all:
-                        - has: {matches: static-method}
-                        - not: {has: {not: {any: [{matches: python-docstring}, {matches: static-method}, {kind: comment}]}}}
-message: '`$NAME` holds one method, a function spelled as a class'
+            field: body
+            any:
+                # One plain method besides __init__ and the docstring, a decorated method names a role
+                - all:
+                    - has: {kind: function_definition, not: {has: {field: name, regex: '^__.*__$'}}}
+                    # One member beside the docstring, __init__, and comments, a class-level field or another method counts as a second
+                    - not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-inert-statement}, {matches: init}]}}}}}
+                # Static methods alone, a module of functions spelled as a class
+                - all:
+                    - has: {matches: static-method}
+                    - not: {has: {not: {any: [{matches: python-inert-statement}, {matches: static-method}]}}}
+message: '`$NAME` holds one instance method or only static methods'
 note: Write the function, a `msgspec.Struct` with the state and the operation, or a dict of the values
 labels:
     NAME: {style: primary, message: The class with one method}

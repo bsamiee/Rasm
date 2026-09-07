@@ -41,7 +41,6 @@ workspace = [
     "pydantic",
     "pyroscope-io",                                       # Continuous-profiling agent feeding the pyroscope-otel span-link exporter
     "pyroscope-otel",                                     # Continuous-profiling span links beside the OTLP exporters
-    "ruamel-yaml",
     "tblib",                                              # Cross-process traceback fidelity for worker exceptions
     "tomlkit",
     "wasmtime",                                           # In-process WASM guest sandbox for sandboxed workers
@@ -305,6 +304,7 @@ eng = [
     "msgspec",
     "pydantic",
     "pydantic-settings",
+    "ruamel-yaml",
     "structlog",
 ]
 dev = [
@@ -349,7 +349,7 @@ dev = [
 connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }  # Published Connect pins protobuf-py 0.1.1, the upstream archive holds the runtime and generator pair on protobuf-py 0.3
 protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
 
-[tool.uv] # mise installs the interpreter, uv never downloads one, and the lock solves the four platforms alone and fails when one lacks a wheel
+[tool.uv] # Resolve the supported platforms and require wheels for packages without source distributions
 default-groups = "all"
 environments = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
@@ -445,7 +445,6 @@ provides-extras = ["extensions", "sql"]
 cache-dir = ".cache/ruff"
 preview = true
 line-length = 150
-target-version = "py315"
 src = [".", "libs/python"]  # Import roots, a package under libs/python imports by its directory name
 
 [tool.ruff.format]
@@ -480,6 +479,7 @@ ignore = [
     "unsorted-dunder-all",                        # Public API order follows domain semantics
     "unsorted-dunder-slots",                      # Slot order follows domain semantics
     # --- [WORKFLOW]
+    "suspicious-subprocess-import",               # subprocess.PIPE is the native process-stream selector
     "missing-todo-link",                          # TODO notes need no link
     "line-contains-todo",                         # TODO comments are accepted source markers
     "implicit-namespace-package",                 # Monorepo packages are implicit namespaces
@@ -506,7 +506,6 @@ ignore = [
 "tests/python/support/runtime.py" = ["module-import-not-at-top-of-file"]  # Hypothesis environment configuration must precede imports
 
 [tool.ruff.lint.flake8-annotations]
-allow-star-arg-any = false
 mypy-init-return = true
 suppress-dummy-args = true
 suppress-none-returning = true

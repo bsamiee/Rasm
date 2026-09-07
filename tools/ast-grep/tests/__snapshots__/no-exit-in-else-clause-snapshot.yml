@@ -1,6 +1,56 @@
 id: no-exit-in-else-clause
 snapshots:
   ? |
+    f() {
+    if [[ -f $s ]]; then
+        printf '%s\n' a
+    else
+        return 1
+        # nothing after
+    fi
+    }
+  : fixed: |
+      f() {
+      [[ -f $s ]] || {
+          return 1
+      }
+      printf '%s\n' a
+      # nothing after
+      }
+    labels:
+    - source: |-
+        if [[ -f $s ]]; then
+            printf '%s\n' a
+        else
+            return 1
+            # nothing after
+        fi
+      style: primary
+      start: 6
+      end: 87
+    - source: then
+      style: secondary
+      start: 22
+      end: 26
+    - source: '[[ -f $s ]]'
+      style: secondary
+      start: 9
+      end: 20
+    - source: return
+      style: secondary
+      start: 56
+      end: 62
+    - source: return 1
+      style: secondary
+      start: 56
+      end: 64
+    - source: |
+        else
+            return 1
+      style: secondary
+      start: 47
+      end: 65
+  ? |
     for f in "${files[@]}"; do
         if [[ -f $f ]]; then
             printf '%s\n' "$f"
@@ -8,7 +58,14 @@ snapshots:
             break
         fi
     done
-  : labels:
+  : fixed: |
+      for f in "${files[@]}"; do
+          [[ -f $f ]] || {
+              break
+          }
+          printf '%s\n' "$f"
+      done
+    labels:
     - source: |-
         if [[ -f $f ]]; then
                 printf '%s\n' "$f"
@@ -18,6 +75,14 @@ snapshots:
       style: primary
       start: 31
       end: 108
+    - source: then
+      style: secondary
+      start: 47
+      end: 51
+    - source: '[[ -f $f ]]'
+      style: secondary
+      start: 34
+      end: 45
     - source: break
       style: secondary
       start: 96
@@ -33,13 +98,23 @@ snapshots:
       start: 83
       end: 102
   ? |
+    for s in a; do
     if [ -f "$s" ]; then
         diff a b
     else
         finding "no snapshot: $id"
         continue
     fi
-  : labels:
+    done
+  : fixed: |
+      for s in a; do
+      [ -f "$s" ] || {
+          finding "no snapshot: $id"
+          continue
+      }
+      diff a b
+      done
+    labels:
     - source: |-
         if [ -f "$s" ]; then
             diff a b
@@ -48,55 +123,74 @@ snapshots:
             continue
         fi
       style: primary
-      start: 0
-      end: 85
+      start: 15
+      end: 100
+    - source: then
+      style: secondary
+      start: 31
+      end: 35
+    - source: '[ -f "$s" ]'
+      style: secondary
+      start: 18
+      end: 29
     - source: continue
       style: secondary
-      start: 74
-      end: 82
+      start: 89
+      end: 97
     - source: continue
       style: secondary
-      start: 74
-      end: 82
+      start: 89
+      end: 97
     - source: |
         else
             finding "no snapshot: $id"
             continue
       style: secondary
-      start: 34
-      end: 83
+      start: 49
+      end: 98
   ? |
-    if [[ -f $s ]]; then
-        exit 2
-        printf '%s\n' late
+    if ! grep -q x "$f" | sort; then
+        printf '%s\n' "$f"
     else
         exit 1
     fi
-  : labels:
+  : fixed: |
+      ! grep -q x "$f" | sort || {
+          exit 1
+      }
+      printf '%s\n' "$f"
+    labels:
     - source: |-
-        if [[ -f $s ]]; then
-            exit 2
-            printf '%s\n' late
+        if ! grep -q x "$f" | sort; then
+            printf '%s\n' "$f"
         else
             exit 1
         fi
       style: primary
       start: 0
-      end: 73
+      end: 74
+    - source: then
+      style: secondary
+      start: 28
+      end: 32
+    - source: '! grep -q x "$f" | sort'
+      style: secondary
+      start: 3
+      end: 26
     - source: exit
       style: secondary
-      start: 64
-      end: 68
+      start: 65
+      end: 69
     - source: exit 1
       style: secondary
-      start: 64
-      end: 70
+      start: 65
+      end: 71
     - source: |
         else
             exit 1
       style: secondary
-      start: 55
-      end: 71
+      start: 56
+      end: 72
   ? |
     if [[ -f $s ]]; then
         printf '%s\n' a
@@ -104,7 +198,13 @@ snapshots:
         # explain
         exit 1
     fi
-  : labels:
+  : fixed: |
+      [[ -f $s ]] || {
+          # explain
+          exit 1
+      }
+      printf '%s\n' a
+    labels:
     - source: |-
         if [[ -f $s ]]; then
             printf '%s\n' a
@@ -115,6 +215,14 @@ snapshots:
       style: primary
       start: 0
       end: 73
+    - source: then
+      style: secondary
+      start: 16
+      end: 20
+    - source: '[[ -f $s ]]'
+      style: secondary
+      start: 3
+      end: 14
     - source: exit
       style: secondary
       start: 64
@@ -136,7 +244,12 @@ snapshots:
     else
         exit 1
     fi
-  : labels:
+  : fixed: |
+      [[ -f $s ]] || {
+          exit 1
+      }
+      printf '%s\n' a
+    labels:
     - source: |-
         if [[ -f $s ]]; then
             printf '%s\n' a
@@ -146,6 +259,14 @@ snapshots:
       style: primary
       start: 0
       end: 59
+    - source: then
+      style: secondary
+      start: 16
+      end: 20
+    - source: '[[ -f $s ]]'
+      style: secondary
+      start: 3
+      end: 14
     - source: exit
       style: secondary
       start: 50
@@ -162,51 +283,54 @@ snapshots:
       end: 57
   ? |
     if [[ -f $s ]]; then
-        printf '%s\n' a
+        printf '%s\n' a # note
+        if [[ -d $s ]]; then
+            count=1
+        fi
     else
-        return 1
-        # nothing after
+        exit 1
     fi
-  : labels:
+  : fixed: |
+      [[ -f $s ]] || {
+          exit 1
+      }
+      printf '%s\n' a
+      # note
+      if [[ -d $s ]]; then
+              count=1
+          fi
+    labels:
     - source: |-
         if [[ -f $s ]]; then
-            printf '%s\n' a
+            printf '%s\n' a # note
+            if [[ -d $s ]]; then
+                count=1
+            fi
         else
-            return 1
-            # nothing after
+            exit 1
         fi
       style: primary
       start: 0
-      end: 81
-    - source: return
+      end: 114
+    - source: then
       style: secondary
-      start: 50
-      end: 56
-    - source: return 1
+      start: 16
+      end: 20
+    - source: '[[ -f $s ]]'
       style: secondary
-      start: 50
-      end: 58
-    - source: |
-        else
-            return 1
-      style: secondary
-      start: 41
-      end: 59
-  if [[ -f $s ]]; then exit 2; printf '%s\n' late; else exit 1; fi:
-    labels:
-    - source: if [[ -f $s ]]; then exit 2; printf '%s\n' late; else exit 1; fi
-      style: primary
-      start: 0
-      end: 64
+      start: 3
+      end: 14
     - source: exit
       style: secondary
-      start: 54
-      end: 58
+      start: 105
+      end: 109
     - source: exit 1
       style: secondary
-      start: 54
-      end: 60
-    - source: else exit 1;
+      start: 105
+      end: 111
+    - source: |
+        else
+            exit 1
       style: secondary
-      start: 49
-      end: 61
+      start: 96
+      end: 112

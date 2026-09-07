@@ -1,0 +1,55 @@
+id: no-redundant-input-required
+valid:
+    # Removing an explicit override would expose the merged required value.
+    - |
+      on: {workflow_dispatch: {inputs: {value: {<<: {required: true}, required: false, description: Value}}}}
+    - 'inputs: {value: {required: true}}'
+    - 'inputs: {value: {description: Value}}'
+    - 'config: {inputs: {value: {required: false}}}'
+    - 'on: {push: {inputs: {value: {required: false}}}}'
+    - |-
+      on: {workflow_dispatch: {inputs: {value: {required: false # keep
+       , description: Value}}}}
+    - |-
+      inputs: {value: &shared {required: false, description: Value}}
+      other: *shared
+    - |-
+      on:
+        workflow_dispatch:
+          inputs:
+            value:
+              required: false
+    - 'inputs: {value: {required: false}}'
+    - |-
+      inputs: {value: {required: false # keep
+       , description: Value}}
+      runs: {using: composite, steps: []}
+    - |-
+      inputs: {value: {required: true, description: Value}}
+      runs: {using: composite, steps: []}
+    - |-
+      inputs: {value: {description: false}}
+      runs: {using: composite, steps: []}
+    - |-
+      settings: {value: {required: false, description: Value}}
+      runs: {using: composite, steps: []}
+    - 'events: {workflow_dispatch: {inputs: {value: {required: false, description: Value}}}}'
+    - |-
+      inputs: {value: &shared {required: false, description: Value}}
+      runs: {using: composite, steps: []}
+      other: *shared
+invalid:
+    - |-
+      inputs: {value: {required: false, description: Value}}
+      runs: {using: composite, steps: []}
+    - 'on: {workflow_dispatch: {inputs: {value: {required: false, description: Value}}}}'
+    - 'on: {workflow_call: {inputs: {value: {type: string, required: false}}}}'
+    - '''on'': {''workflow_dispatch'': {''inputs'': {value: {''required'': false, description: Value}}}}'
+    - |-
+      on:
+        workflow_dispatch:
+          inputs:
+            value:
+              description: Value
+              required: false
+    - 'on: {workflow_dispatch: {inputs: {value: {required: false}}}}'

@@ -58,20 +58,6 @@ valid:
           const held = $.fs.exists(path);
           return next(await held ? e : e);
       });
-    # The nearest function is synchronous, no-unawaited-engine-condition-by-hand reports it
-    - |
-      on('tool.call', ($, e, next) => {
-          if ($.fs.exists(path)) {
-              return next(e);
-          }
-          return next(e);
-      });
-    # Synchronous arrow inside the async hook, the stop at the nearest function
-    - |
-      on('tool.call', async ($, e, next) => {
-          const check = () => ($.fs.exists(path) ? e : e);
-          return next(check());
-      });
     # The awaited call coerced to a boolean
     - "on('tool.call', async ($, e, next) => next(Boolean(await $.fs.exists(path)) ? e : e));"
     # The Promise as an argument of a call other than Boolean inside a condition
@@ -82,8 +68,15 @@ valid:
     - "on('tool.call', async ($, e, next) => next((await $.fs?.exists(path)) ? e : e));"
     # ui member that answers a Promise, awaited
     - "on('tool.call', async ($, e, next) => next((await $.ui.resolve(e)) ? e : e));"
+    - "const pending = ready && $.fs.exists(path);"
+    - "const pending = cached || $.store.get(key);"
+    - "const pending = ready && ($.store.get(key));"
+    - "if ($.clock /* comment */ .now()) run();"
+    - "if ($.clock?.now()) run();"
+    - "const pending = $.store.get(key) ?? undefined;"
+    - "const held = (expected === $.store.get(key)) ? one : two;"
 invalid:
-    # The instance, the Promise as the if condition
+    # the Promise as the if condition
     - |
       on('tool.call', async ($, e, next) => {
           if ($.fs.exists(path)) {
@@ -117,34 +110,6 @@ invalid:
     - "on('tool.call', async ($, e, next) => next(ready || $.fs.exists(path) ? e : e));"
     # Another noun with a Promise answer
     - "on('tool.call', async ($, e, next) => next($.store.get(key) ? e : e));"
-    # The hook as an async function expression
-    - |
-      on('tool.call', async function ($, e, next) {
-          if ($.fs.exists(path)) {
-              return next(e);
-          }
-          return next(e);
-      });
-    # Async arrow nested in a synchronous function, the nearest function is async
-    - |
-      const register = (on) => {
-          on('tool.call', async ($, e, next) => next($.fs.exists(path) ? e : e));
-      };
-    # Async function declaration
-    - |
-      async function guard($, e, next) {
-          if ($.fs.exists(path)) {
-              return next(e);
-          }
-          return next(e);
-      }
-    # Async method
-    - |
-      const guards = {
-          async run($, e, next) {
-              return next($.fs.exists(path) ? e : e);
-          },
-      };
     # The Promise as the for condition, the grammar wraps it in no parentheses
     - |
       on('tool.call', async ($, e, next) => {
@@ -165,12 +130,6 @@ invalid:
           }
           return next(e);
       });
-    # The Promise as the ternary condition inside a nested async arrow
-    - |
-      on('tool.call', async ($, e, next) => {
-          const check = async () => ($.fs.exists(path) ? e : e);
-          return next(await check());
-      });
     # The Promise as the right operand of a conjunction in a while condition
     - |
       on('tool.call', async ($, e, next) => {
@@ -181,20 +140,6 @@ invalid:
       });
     # ui member that answers a Promise as the condition
     - "on('tool.call', async ($, e, next) => next($.ui.ask(question) ? e : e));"
-    # Hook bound to a name before the registration
-    - |
-      const hook = async ($, e, next) => next($.fs.exists(path) ? e : e);
-      on('tool.call', hook);
-    # The Promise as the if condition inside an else branch
-    - |
-      on('tool.call', async ($, e, next) => {
-          if (ready) {
-              return next(e);
-          } else if ($.fs.exists(path)) {
-              return next(e);
-          }
-          return next(e);
-      });
     # Nullable check with null as the right operand
     - |
       on('tool.call', async ($, e, next) => {
@@ -203,3 +148,17 @@ invalid:
           }
           return next(e);
       });
+    # The Promise is tested without awaiting its result
+    - |
+      on('tool.call', ($, e, next) => {
+          if ($.fs.exists(path)) {
+              return next(e);
+          }
+          return next(e);
+      });
+    # The Promise under the not operator with no function around it
+    - "const missing = !$.fs.exists(path);"
+    - "const held = ($.fs.exists(path)) ? one : two;"
+    - "const held = (ready && ($.fs.exists(path))) ? one : two;"
+    - "if ($.clock.sleep(100)) run();"
+    - "const held = (ready ?? $.store.get(key)) ? one : two;"

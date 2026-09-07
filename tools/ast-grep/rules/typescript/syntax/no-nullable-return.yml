@@ -1,34 +1,52 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, Option.none() in place of null fails with TS2322 Type 'Option<never>' is not assignable to type 'number | null'
 id: no-nullable-return
 language: tsx
 severity: error
 # Spec translates the Option into the test host's representation at the assertion boundary, `getOrElse(() => null)` beside `toBe(null)`
 ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
-    # Return type annotation naming a value type, void, undefined, and a Promise of either return nothing
+    # Only the returned type slot establishes an explicit no-value contract.
+    no-value-type:
+        any:
+            - {kind: predefined_type, regex: '^void$'}
+            - {kind: literal_type, has: {kind: undefined}}
+    # Value annotations exclude void/undefined and the corresponding Promise or generator return slot.
     value-annotation:
         kind: type_annotation
         not:
             has:
                 any:
-                    - {kind: predefined_type, regex: '^void$'}
-                    - {kind: literal_type, has: {kind: undefined}}
+                    - matches: no-value-type
                     - kind: generic_type
                       all:
-                          - has: {field: name, regex: '^Promise$'}
-                          - has:
-                                field: type_arguments
-                                has: {any: [{kind: predefined_type, regex: '^void$'}, {kind: literal_type, has: {kind: undefined}}]}
+                        - has: {field: name, regex: '^Promise$'}
+                        - has:
+                            field: type_arguments
+                            has: {matches: no-value-type}
     # Function annotated with a value type, the nearest boundary of a return statement
     value-function:
         matches: syntax-function-boundary
         has: {field: return_type, matches: value-annotation}
-    # Undefined as written or as the void operator over a number, the two spellings of the same value
+        not:
+            kind: generator_function, generator_function_declaration, method_definition
+            all:
+                - has: {regex: '^\*$'}
+                - has:
+                    field: return_type
+                    has:
+                        kind: generic_type
+                        all:
+                            - has: {field: name, regex: '^(Async)?Generator$'}
+                            - has:
+                                field: type_arguments
+                                has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: no-value-type}
+    # Every void expression evaluates to undefined, including expressions with effects.
     nothing:
         any:
             - kind: undefined
             - kind: unary_expression
-              all: [{has: {field: operator, regex: '^void$'}}, {has: {field: argument, kind: number}}]
+              has: {field: operator, regex: '^void$'}
     # Expression answering null on one path, the literal, a ternary arm, the right operand of a logical operator, or one in parentheses
     null-answer:
         any:
@@ -39,6 +57,8 @@ utils:
               any: [{has: {field: consequence, matches: null-answer}}, {has: {field: alternative, matches: null-answer}}]
             - kind: binary_expression
               all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: null-answer}}]
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: null-answer}}]
     # The same paths answering undefined
     undefined-answer:
         any:
@@ -49,6 +69,8 @@ utils:
               any: [{has: {field: consequence, matches: undefined-answer}}, {has: {field: alternative, matches: undefined-answer}}]
             - kind: binary_expression
               all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: undefined-answer}}]
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: undefined-answer}}]
     # Thunk passed to getOrElse inside the arguments of a store write, the JSON row of the store holds null for absence at that boundary alone
     store-boundary-thunk:
         kind: arrow_function
@@ -57,7 +79,7 @@ utils:
             inside:
                 kind: call_expression
                 has: {field: function, regex: '^getOrElse$'}
-                inside: {kind: arguments, stopBy: end, inside: {kind: call_expression, has: {field: function, regex: '^\$\.store\.set$'}}}
+                inside: {kind: arguments, stopBy: {matches: syntax-function-boundary}, inside: {kind: call_expression, has: {field: function, regex: '^\$\.store\.set$'}}}
 rule:
     # The store boundary thunk itself, or a return in its own body, the walk stops at the nearest function
     not:
@@ -77,7 +99,7 @@ rule:
         # Undefined as the body of an arrow annotated with a value type, the type of an unannotated arrow comes from its site
         - kind: arrow_function
           all:
-              - has: {field: body, matches: undefined-answer}
-              - has: {field: return_type, matches: value-annotation}
+            - has: {field: body, matches: undefined-answer}
+            - has: {field: return_type, matches: value-annotation}
 message: The function returns `null` or `undefined` to stand for absence
 note: Represent absence as an Option, `Option.fromNullable(value)` at the boundary and `Option.none()` inside, and read it through `Option.match`

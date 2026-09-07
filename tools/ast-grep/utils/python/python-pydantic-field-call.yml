@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: python-pydantic-field-call
+language: python
+utils:
+    field-function:
+        any:
+            - matches: {python-module-member: {module: {regex: '^pydantic(\.fields)?$'}, name: {regex: "^Field$"}}}
+            - matches: {python-imported-name: {module: {regex: '^pydantic(\.fields)?$'}, name: {regex: "^Field$"}}}
+rule:
+    kind: call
+    has: {field: function, matches: field-function}

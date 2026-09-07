@@ -38,3 +38,15 @@ snapshots:
       style: primary
       start: 31
       end: 83
+  <ItemGroup><PackageVersion Include="Example" Version="1.0.0" /> <!-- --></ItemGroup>:
+    labels:
+    - source: <PackageVersion Include="Example" Version="1.0.0" />
+      style: primary
+      start: 11
+      end: 63
+  <ItemGroup><PackageVersion Include="Example" Version="1.0.0" /><!-- --></ItemGroup>:
+    labels:
+    - source: <PackageVersion Include="Example" Version="1.0.0" />
+      style: primary
+      start: 11
+      end: 63

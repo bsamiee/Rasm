@@ -3,13 +3,13 @@
 # --- [IMPORTS] --------------------------------------------------------------------------
 
 from collections.abc import Callable, Iterable, Sequence
-from functools import partial
 import hashlib
 import os
 from pathlib import Path
 import platform
 import re
 import shutil
+import subprocess
 import tarfile
 from typing import Literal
 import zipfile
@@ -183,11 +183,10 @@ def system(rid: Rid) -> str:
 
 def repository_root(start: Path) -> Result[Path, Failure]:
     """Return the nearest ancestor of the start path holding the root lock file."""
-    match [parent for parent in (start, *start.parents) if (parent / _LOCK_FILE).is_file()]:
-        case [root, *_]:
-            return Ok(root)
-        case _:
-            return Error(HostUnsupported(f"no ancestor of {start} holds {_LOCK_FILE}"))
+    return next(
+        (Ok(parent) for parent in (start, *start.parents) if (parent / _LOCK_FILE).is_file()),
+        Error(HostUnsupported(f"no ancestor of {start} holds {_LOCK_FILE}")),
+    )
 
 
 def workspace(start: Path, host_system: str, host_machine: str) -> Result[Workspace, Failure]:
@@ -221,9 +220,8 @@ def http_client() -> httpx.AsyncClient:
 
 async def run(args: Sequence[str], cwd: Path, *, capture: bool = False) -> Result[str, CommandFailed]:
     """Run a build tool to completion on the inherited console and environment and return its standard output when captured."""
-    process = partial(anyio.run_process, args, cwd=cwd, stderr=None, check=False)
     try:
-        completed = await (process() if capture else process(stdout=None))
+        completed = await anyio.run_process(args, cwd=cwd, stdout=subprocess.PIPE if capture else None, stderr=None, check=False)
     except OSError as error:
         return Error(CommandFailed(tuple(args), str(error)))
     if completed.returncode != 0:
@@ -338,8 +336,7 @@ async def pinned_tree(
     """Ensure the pinned asset of a library is downloaded, verified, and extracted for a rid, and return the pinned path inside the tree."""
     root = space.cache / library / manifest.version
     tree = root / rid
-    target = tree / asset.path
-    if target.exists():
+    if (target := tree / asset.path).exists():
         return Ok(target)
     match await pinned_file(client, manifest.url.format(version=manifest.version, asset=asset.name), asset.sha256, root / asset.name):
         case Result(tag="error", error=failure):

@@ -1,81 +1,37 @@
+# Distinguish runtime text from provably numeric output; option-order permutations belong to the removed automatic fixer.
 id: no-echo-of-expansion
 valid:
-    # The corrected form
-    - printf '%s\n' "no language owns .$ext"
-    # Plain words
+    - echo "${#value}"
+    - echo "${#@}"
+    - printf '%s\n' "$value"
     - echo plain text
-    # A quoted literal
     - echo "quoted literal"
-    # Every array element, one argument a format reads as many
-    - echo "${arr[@]}"
-    # Every positional parameter
-    - echo "$@"
-    # A slice of every element
-    - echo "${arr[@]:1}"
-    # Every key
-    - echo "${!arr[@]}"
-    # No argument
     - echo
-    # Every name with the prefix, a list
-    - echo "${!prefix@}"
-    # Every element joined as one word, the star spelling
-    - echo "${arr[*]}"
-    # Every positional parameter joined as one word
-    - echo "$*"
-invalid:
-    # An expansion joined to text in one word
-    - echo a$x
-    # A quoted expansion joined to text
-    - echo "$x"y
-    # e then E in one word, the E wins and %s keeps the backslashes
-    - echo -neE "$x"
-    # E then e in two words, the e wins
-    - echo -E -e "$x"
-    # e then E in one word without n
-    - echo -eE "$x"
-    # e then n in two words, the escapes stay on
-    - echo -e -n "$x"
-    # The -- word is text, echo reads no option end
-    - echo -- "$x"
-    # Two option words, both read
-    - echo -n -e "$x"
-    # Three option words, the last wins for escapes
-    - echo -e -n -E "$x"
-    # The element count, one word
-    - echo "${#arr[@]}"
-    # Under a redirect, the command alone rewrites
-    - echo "$x" >&2
-    # The instance, a literal holding an expansion
-    - echo "sgconfig.yml not found in $PWD"
-    # A bare expansion
-    - echo $x
-    # -n drops the trailing newline
-    - echo -n "$y"
-    # -e interprets escapes, %b does the same
-    - echo -e "$z"
-    # Two options in one word and two arguments
-    - echo -ne "$z" "$w"
-    # -E keeps escapes literal, %s does the same
-    - echo -E "$z"
-    # A command substitution
-    - echo "$(cmd)"
-    # An arithmetic expansion
+    - echo '$literal'
     - echo $((1 + 2))
-    # An option word after an argument is text
-    - echo "$a" -n
-    # A word after the option word is text
-    - echo -n text "$y"
-    # A first word that is no option
-    - echo text "$y"
-    # The parameter count, a special parameter that is no list
+    - echo "${#values[@]}"
     - echo "$#"
-    # One array element
-    - echo "${arr[0]}"
-    # A bare expansion with an operator
-    - echo ${x:-d}
-    # A bare command substitution
-    - echo $(cmd)
-    # A quoted expansion with an operator
-    - echo "${x:-none}"
-    # A quoted arithmetic expansion
+    - echo "$?"
+    - echo "$$"
+    - echo "$!"
     - echo "$((1 + 2))"
+invalid:
+    - echo "${!name}"
+    - echo "${value#$prefix}"
+    # Prefix removal uses # after the variable and does not produce a length.
+    - echo "${value#prefix}"
+    # Numeric fragments cannot certify a word with additional runtime text.
+    - echo "${#values[@]}$suffix"
+    - echo "${value}"
+    - echo $value
+    - echo "${value:-default}"
+    - echo "prefix$value"suffix
+    - echo "$(produce)"
+    - echo "$@"
+    - echo "${values[@]}"
+    - echo "${!prefix@}"
+    - echo "${values[0]}"
+    - echo -neE "$value"
+    - echo -- "$value"
+    - echo literal "$value"
+    - echo "$value" >&2

@@ -1,9 +1,17 @@
 id: no-alias-declaration
 valid:
+    # Capturing a mutable binding preserves its current value, replacing the snapshot changes behavior
+    - 'let current = 1; export const initial = current; current = 2; console.log(initial, current);'
+    # Imported bindings can be live; this module cannot establish their immutability
+    - 'import { current } from "./state"; export const initial = current;'
+    # A mutable alias owns an independently changing binding
+    - 'const table = load(); let rows = table; rows = reload();'
+    # A same-name constant in a nested function does not establish the module binding
+    - 'const rows = table; function read() { const table = load(); }'
     # The owner referenced under its own name
     - 'export const rows = load(table);'
     # Annotation adds a type to the binding
-    - 'const rows: Readonly<Record<string, Row>> = TABLE;'
+    - 'const TABLE = load(); const rows: Readonly<Record<string, Row>> = TABLE;'
     # Annotation adds a refinement type
     - 'const isSecrets: (value: unknown) => value is Secrets = isStringRecord;'
     # Local rebinding inside a function narrows a scope
@@ -48,11 +56,11 @@ invalid:
     # Type export specifier renaming a type of the module
     - 'export type { Row as Item };'
     # The instance, a module binding over another name
-    - 'const tick = MS_PER_HOUR;'
+    - 'const MS_PER_HOUR = 3600000; const tick = MS_PER_HOUR;'
     # Exported alias
-    - 'export const rows = table;'
-    # Let alias, no-module-state reports the let as well
-    - 'let rows = table;'
+    - 'const table = load(); export const rows = table;'
+    # An exported constant has the same stable binding
+    - 'export const table = load(); const rows = table;'
     # Type alias over a bare name
     - 'type Row = Item;'
     # Exported type alias over a bare name

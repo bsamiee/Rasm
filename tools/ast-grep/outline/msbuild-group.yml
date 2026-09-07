@@ -1,0 +1,27 @@
+id: msbuild-group
+language: xml
+role: item
+symbolType: object
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _TAG
+        has: {kind: Name, pattern: _NAME, regex: "^(PropertyGroup|ItemGroup)$"}
+    inside:
+        kind: element
+        inside: {kind: document}
+        has:
+            kind: STag
+            has: {kind: Name, regex: "^Project$"}
+        stopBy:
+            not:
+                any:
+                    - kind: content
+                    - kind: element
+                      has:
+                        kind: STag
+                        has: {kind: Name, regex: "^(Choose|When|Otherwise)$"}
+name: $NAME
+signature: $TAG
+isExported: false

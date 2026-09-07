@@ -1,16 +1,23 @@
 id: no-backslash-path
 valid:
+    # Regex escapes in an attribute path function are not path separators
+    - |
+      <Import Project="$([System.Text.RegularExpressions.Regex]::Replace('x1', 'x\d', 'file.props'))" />
+    # Display text and shell arguments can quote a path without declaring one
+    - '<Message Text="$(MSBuildThisFileDirectory)/../path" />'
+    - '<Exec Command="echo $(MSBuildThisFileDirectory)/../path" />'
+    - '<PropertyGroup Label="$(MSBuildThisFileDirectory)/../path"><Description>$(MSBuildThisFileDirectory)/../path</Description></PropertyGroup>'
     # Forward slashes throughout
     - |
       <PropertyGroup><StageRoot>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'native'))</StageRoot></PropertyGroup>
     # Regex escape after an entity reference inside a property function, the reference splits the text into nodes
     - |
       <PropertyGroup>
-        <_PackageVersion>$([System.Text.RegularExpressions.Regex]::Match('$(Manifest)', '(?&lt;=Version=")\s*[^"]+').Value)</_PackageVersion>
+        <_PackagePath>$([System.Text.RegularExpressions.Regex]::Match('$(Manifest)', '(?&lt;=Version=")\s*[^"]+').Value)</_PackagePath>
       </PropertyGroup>
     # Regex escape between two path characters inside a property function, no separator
     - |
-      <PropertyGroup><Major>$([System.Text.RegularExpressions.Regex]::Replace('$(Version)', '(\d+)\.(\d+).*', '$1'))</Major></PropertyGroup>
+      <PropertyGroup><MajorPath>$([System.Text.RegularExpressions.Regex]::Replace('$(Version)', '(\d+)\.(\d+).*', '$1'))</MajorPath></PropertyGroup>
     # Exec command with forward slashes
     - |
       <Exec Command="cat data/file.txt" />
@@ -22,10 +29,13 @@ valid:
       <PropertyGroup Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(Version)', 'v\d+'))">
         <IsPrerelease>true</IsPrerelease>
       </PropertyGroup>
-invalid:
-    # Backslash in an Exec command, sh reads datafile.txt
+    # Shell quoting and escapes belong to the command interpreter
     - |
-      <Exec Command="cat data\file.txt" />
+      <Exec Command="printf 'a\nb'" />
+    # Arbitrary property content is not a path
+    - |
+      <Project><PropertyGroup><Greeting>line\nbreak</Greeting></PropertyGroup></Project>
+invalid:
     # Import path with backslashes
     - |
       <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />

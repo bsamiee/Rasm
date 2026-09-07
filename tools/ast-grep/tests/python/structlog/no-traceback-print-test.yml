@@ -16,6 +16,8 @@ valid:
     # Attribute named like the member on another object
     - |
       reporter.print_exc()
+    - 'structlog.get_logger().error("failed", exc_info=error)'
+    - 'structlog.get_logger().info("stack", stack_info=True)'
 invalid:
     # The instance, the attribute read as spelled
     - |

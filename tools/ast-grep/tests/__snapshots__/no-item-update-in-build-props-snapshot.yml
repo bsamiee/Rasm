@@ -7,6 +7,22 @@ snapshots:
       style: primary
       start: 11
       end: 44
+    - source: Compile
+      style: secondary
+      start: 12
+      end: 19
+    - source: <Compile Remove="Generated/**" />
+      style: secondary
+      start: 11
+      end: 44
+    - source: <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
+      style: secondary
+      start: 0
+      end: 56
+    - source: <Compile Remove="Generated/**" />
+      style: secondary
+      start: 11
+      end: 44
   ? |
     <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   : labels:
@@ -14,10 +30,88 @@ snapshots:
       style: primary
       start: 11
       end: 84
-  ? |
-    <ItemGroup><PackageReference Update="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
-  : labels:
-    - source: <PackageReference Update="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference>
-      style: primary
+    - source: None
+      style: secondary
+      start: 12
+      end: 16
+    - source: <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+      style: secondary
       start: 11
-      end: 105
+      end: 84
+    - source: <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+      style: secondary
+      start: 0
+      end: 96
+    - source: <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+      style: secondary
+      start: 11
+      end: 84
+  ? |
+    <Project><ItemGroup><None Include="data.txt" /><Compile Remove="data.cs" /></ItemGroup></Project>
+  : labels:
+    - source: <Compile Remove="data.cs" />
+      style: primary
+      start: 47
+      end: 75
+    - source: Compile
+      style: secondary
+      start: 48
+      end: 55
+    - source: <Compile Remove="data.cs" />
+      style: secondary
+      start: 47
+      end: 75
+    - source: <ItemGroup><None Include="data.txt" /><Compile Remove="data.cs" /></ItemGroup>
+      style: secondary
+      start: 9
+      end: 87
+    - source: <None Include="data.txt" /><Compile Remove="data.cs" />
+      style: secondary
+      start: 20
+      end: 75
+  ? |
+    <Project><ItemGroup><None Update="data.txt" /></ItemGroup></Project>
+  : labels:
+    - source: <None Update="data.txt" />
+      style: primary
+      start: 20
+      end: 46
+    - source: None
+      style: secondary
+      start: 21
+      end: 25
+    - source: <None Update="data.txt" />
+      style: secondary
+      start: 20
+      end: 46
+    - source: <ItemGroup><None Update="data.txt" /></ItemGroup>
+      style: secondary
+      start: 9
+      end: 58
+    - source: <None Update="data.txt" />
+      style: secondary
+      start: 20
+      end: 46
+  ? |
+    <Project><PropertyGroup><Description>items.props</Description></PropertyGroup><ItemGroup><EmbeddedResource Remove="data.resx" /></ItemGroup></Project>
+  : labels:
+    - source: <EmbeddedResource Remove="data.resx" />
+      style: primary
+      start: 89
+      end: 128
+    - source: EmbeddedResource
+      style: secondary
+      start: 90
+      end: 106
+    - source: <EmbeddedResource Remove="data.resx" />
+      style: secondary
+      start: 89
+      end: 128
+    - source: <ItemGroup><EmbeddedResource Remove="data.resx" /></ItemGroup>
+      style: secondary
+      start: 78
+      end: 140
+    - source: <EmbeddedResource Remove="data.resx" />
+      style: secondary
+      start: 89
+      end: 128

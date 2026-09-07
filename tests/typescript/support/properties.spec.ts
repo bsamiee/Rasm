@@ -32,6 +32,13 @@ const _associativity: PropertyDefinition<Combine, typeof _ARGS, never, never> = 
     counterexample: { label: 'subtraction counterexample', implementation: (left, right) => left - right, args: { x: 1, y: 2, z: _FIRST } },
 };
 
+// The same property with a counterexample that satisfies it, the registration verification rejects
+const _validImplementation: PropertyDefinition<Combine, typeof _ARGS, never, never> = {
+    ..._associativity,
+    name: 'invalid counterexample registration',
+    counterexample: { label: 'valid implementation', implementation: Math.min, args: { x: 1, y: 2, z: _FIRST } },
+};
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const _VersionedRecord = Schema.Struct({ label: Schema.String, version: Schema.Int });
@@ -44,6 +51,7 @@ const _TruncatingLabelSchema = Schema.Struct({
 const _increment: FastCheck.Command<CounterModel, Counter> = {
     check: () => true,
     run: (model, real) => {
+        // biome-ignore lint/style/noParameterAssign: fast-check Command.run updates the shared model for subsequent commands.
         model.count += 1;
         if (real.increment() !== model.count) {
             throw new Error(`counter value differed from ${model.count}`);
@@ -55,6 +63,7 @@ const _increment: FastCheck.Command<CounterModel, Counter> = {
 const _incrementAsync: FastCheck.AsyncCommand<CounterModel, AsyncCounter> = {
     check: () => true,
     run: async (model, real) => {
+        // biome-ignore lint/style/noParameterAssign: fast-check AsyncCommand.run updates the shared model for subsequent commands.
         model.count += 1;
         if ((await real.increment()) !== model.count) {
             throw new Error(`counter value differed from ${model.count}`);
@@ -280,14 +289,7 @@ describe('counterexample verification', () => {
 
     it.effect('implementations satisfying the property are rejected as counterexamples', () =>
         Effect.gen(function* () {
-            const error = yield* Effect.flip(
-                Property.verifyCounterexample({
-                    name: 'invalid counterexample registration',
-                    arbitraries: _ARGS,
-                    predicate: (combine: Combine, { x, y, z }) => Effect.succeed(combine(combine(x, y), z) === combine(x, combine(y, z))),
-                    counterexample: { label: 'valid implementation', implementation: Math.min, args: { x: 1, y: 2, z: _FIRST } },
-                }),
-            );
+            const error = yield* Effect.flip(Property.verifyCounterexample(_validImplementation));
             expect(error).toBeInstanceOf(PropertyError);
             expect(error.reason).toBe('counterexample');
             expect(error.property).toBe('invalid counterexample registration');

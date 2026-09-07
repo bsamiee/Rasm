@@ -2,6 +2,7 @@
 id: no-abc
 language: python
 severity: error
+# Report-only, the probed fix `ABC` to `Protocol` fails, `TypeError: Instance and class checks can only be used with @runtime_checkable protocols`
 rule:
     matches:
         python-module-member:

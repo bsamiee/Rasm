@@ -6,6 +6,4 @@ rule:
     pattern: $ARG
     matches: python-restated-default-argument
 message: '`$ARG` restates the documented default of its callee'
-note: >-
-    Delete the argument, the callee holds the value, and `nx run rasm:rewrite --id=restated-default-argument-to-omitted` drops
-    every one that no comment sits beside and no positional argument follows
+note: Omit the argument the owning API supplies, the rewrite `restated-default-argument-to-omitted` keeps comments and positional binding

@@ -1,5 +1,5 @@
 import { FileSystem, Path } from '@effect/platform';
-import { Array, Context, Data, DateTime, Effect, Match, Option, Order, pipe, Record, Schema, String } from 'effect';
+import { Array, Context, Data, DateTime, Effect, Option, Order, pipe, Record, Schema, String } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -57,21 +57,6 @@ const BenchmarkResult: Schema.Schema<BenchmarkResult> = Schema.Struct({
     rme: Schema.Number,
 });
 
-// Shape Vitest writes through its outputJson benchmark option
-const _Latest = Schema.Struct({
-    files: Schema.Array(
-        Schema.Struct({
-            filepath: Schema.String,
-            groups: Schema.Array(
-                Schema.Struct({
-                    fullName: Schema.String,
-                    benchmarks: Schema.Array(Schema.Struct({ name: Schema.String, hz: Schema.Number, rme: Schema.Number })),
-                }),
-            ),
-        }),
-    ),
-});
-
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class BenchmarkError extends Data.Error<{
@@ -87,9 +72,18 @@ const BenchmarkDirectory: Context.Tag<BenchmarkDirectory, string> = Context.Gene
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _decodeLatest = Schema.decodeUnknown(Schema.parseJson(_Latest), { errors: 'all' });
+const _decodeLatest = Schema.Struct({
+    name: Schema.String,
+    throughput: Schema.Struct({ mean: Schema.Number, rme: Schema.Number }),
+    fromStore: Schema.optional(Schema.Boolean),
+}).pipe(
+    (task) => Schema.Struct({ name: Schema.String, tasks: Schema.Array(task) }),
+    (benchmark) => Schema.Struct({ benchmarks: Schema.Array(benchmark) }),
+    (assertion) => Schema.Struct({ assertionResults: Schema.Array(assertion) }),
+    (result) => Schema.Struct({ startTime: Schema.DateTimeUtcFromNumber, testResults: Schema.Array(result) }),
+    (report) => Schema.decodeUnknown(Schema.parseJson(report), { errors: 'all' }),
+);
 const _decodeResult = Schema.decodeUnknown(Schema.parseJson(BenchmarkResult));
-const _encodeResult = Schema.encode(Schema.parseJson(BenchmarkResult));
 const _byTimestamp = Order.mapInput(Order.string, (row: BenchmarkResult) => row.timestamp);
 const _bySeverity = Order.mapInput(Order.number, (verdict: BenchmarkVerdict) => _SEVERITY[verdict]);
 
@@ -105,13 +99,6 @@ const _median = (values: readonly number[]): number =>
         Option.getOrElse(() => 0),
     );
 
-const _verdict = (sustained: boolean, noisy: boolean): BenchmarkVerdict =>
-    Match.value({ sustained, noisy }).pipe(
-        Match.when({ sustained: true }, (): BenchmarkVerdict => 'regression'),
-        Match.when({ noisy: true }, (): BenchmarkVerdict => 'noisy'),
-        Match.orElse((): BenchmarkVerdict => 'pass'),
-    );
-
 const _readHistory: Effect.Effect<readonly BenchmarkResult[], BenchmarkError, BenchmarkFiles> = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -120,7 +107,6 @@ const _readHistory: Effect.Effect<readonly BenchmarkResult[], BenchmarkError, Be
     const lines = Array.filter(String.split(raw, '\n'), String.isNonEmpty);
     return yield* Effect.mapError(
         // Effect.forEach passes the index into the optional parse options of Schema.decodeUnknown
-        // ast-grep-ignore: no-forwarding-arrow
         Effect.forEach(lines, (line) => _decodeResult(line)),
         _fileError('malformed'),
     );
@@ -133,81 +119,73 @@ const _importLatestResults: Effect.Effect<readonly BenchmarkResult[], BenchmarkE
     const directory = yield* BenchmarkDirectory;
     const target = path.join(directory, _FILES.latest);
     const raw = yield* Effect.mapError(fs.readFileString(target), _fileError('unreadable'));
-    const info = yield* Effect.mapError(fs.stat(target), _fileError('unreadable'));
-    const timestamp = yield* Option.match(info.mtime, {
-        onNone: () => Effect.map(DateTime.now, DateTime.formatIso),
-        onSome: (modifiedAt) => Effect.succeed(DateTime.formatIso(DateTime.unsafeFromDate(modifiedAt))),
-    });
     const latest = yield* Effect.mapError(_decodeLatest(raw), _fileError('malformed'));
+    const timestamp = DateTime.formatIso(latest.startTime);
     const existing = yield* _readHistory;
-    const rows: readonly BenchmarkResult[] = Array.flatMap(latest.files, (file) =>
-        Array.flatMap(file.groups, (group) =>
-            Array.map(group.benchmarks, (entry) => ({ timestamp, name: `${group.fullName}::${entry.name}`, hz: entry.hz, rme: entry.rme })),
+    if (Array.some(existing, (row) => row.timestamp === timestamp)) {
+        return [];
+    }
+    const rows: readonly BenchmarkResult[] = pipe(
+        latest.testResults,
+        Array.flatMap((result) => result.assertionResults),
+        Array.flatMap((result) => result.benchmarks),
+        Array.flatMap((benchmark) =>
+            Array.filterMap(benchmark.tasks, (task) =>
+                task.fromStore
+                    ? Option.none()
+                    : Option.some({ timestamp, name: `${benchmark.name}::${task.name}`, hz: task.throughput.mean, rme: task.throughput.rme }),
+            ),
         ),
     );
-    return yield* Effect.if(
-        Array.some(existing, (row) => row.timestamp === timestamp),
-        {
-            onTrue: () => Effect.succeed([]),
-            onFalse: () =>
-                Effect.gen(function* () {
-                    // Effect.forEach passes the index into the optional parse options of Schema.encode
-                    // ast-grep-ignore: no-forwarding-arrow
-                    const lines = yield* Effect.orDie(Effect.forEach(rows, (row) => _encodeResult(row)));
-                    yield* Effect.orDie(fs.makeDirectory(directory, { recursive: true }));
-                    yield* Effect.mapError(
-                        fs.writeFileString(path.join(directory, _FILES.history), `${lines.join('\n')}\n`, { flag: 'a' }),
-                        _fileError('unreadable'),
-                    );
-                    return rows;
-                }),
-        },
+    // Array.map passes the index into the optional replacer of JSON.stringify
+    const lines = Array.map(rows, (row) => JSON.stringify(row));
+    yield* Effect.mapError(
+        fs.writeFileString(path.join(directory, _FILES.history), `${lines.join('\n')}\n`, { flag: 'a' }),
+        _fileError('unreadable'),
     );
+    return rows;
 });
-
-const _summarize = (name: string, run: readonly BenchmarkResult[], policy: BenchmarkPolicy): BenchmarkSummary => {
-    const history = Array.sort(run, _byTimestamp);
-    const recent = Array.takeRight(history, policy.window);
-    const baselineHz = _median(Array.map(Array.dropRight(history, policy.window), (row) => row.hz));
-    const noisy = _median(Array.map(recent, (row) => row.rme)) > policy.noiseCap;
-    const sustained =
-        history.length >= policy.minHistory && baselineHz > 0 && Array.every(recent, (row) => row.hz < baselineHz * (1 - policy.tolerance));
-    return { name, verdict: _verdict(sustained, noisy), baselineHz, recentHz: _median(Array.map(recent, (row) => row.hz)) };
-};
 
 const Benchmark: Benchmark = {
     policy: _POLICY,
-    summarize: (rows, policy = _POLICY) =>
-        pipe(
+    summarize: (rows, policy = _POLICY) => {
+        const benchmarks = Record.collect(
             Array.groupBy(rows, (row) => row.name),
-            Record.collect((name, run) => _summarize(name, run, policy)),
-            (benchmarks) => ({
-                benchmarks,
-                verdict: Array.match(benchmarks, {
-                    onEmpty: (): BenchmarkVerdict => 'pass',
-                    onNonEmpty: (summaries) =>
-                        Array.max(
-                            Array.map(summaries, (summary) => summary.verdict),
-                            _bySeverity,
-                        ),
-                }),
-            }),
-        ),
+            (name, run): BenchmarkSummary => {
+                const history = Array.sort(run, _byTimestamp);
+                const recent = Array.takeRight(history, policy.window);
+                const baselineHz = _median(Array.map(Array.dropRight(history, policy.window), (row) => row.hz));
+                const verdict: BenchmarkVerdict = _median(Array.map(recent, (row) => row.rme)) > policy.noiseCap ? 'noisy' : 'pass';
+                const sustained =
+                    history.length >= policy.minHistory &&
+                    baselineHz > 0 &&
+                    Array.every(recent, (row) => row.hz < baselineHz * (1 - policy.tolerance));
+                return {
+                    name,
+                    verdict: sustained ? 'regression' : verdict,
+                    baselineHz,
+                    recentHz: _median(Array.map(recent, (row) => row.hz)),
+                };
+            },
+        );
+        return {
+            benchmarks,
+            verdict: Array.reduce(benchmarks, 'pass' as BenchmarkVerdict, (verdict, summary) => Order.max(_bySeverity)(verdict, summary.verdict)),
+        };
+    },
     importLatestResults: _importLatestResults,
     history: _readHistory,
-    checkRegression: (policy = _POLICY) =>
-        Effect.gen(function* () {
-            yield* _importLatestResults;
-            const report = Benchmark.summarize(yield* _readHistory, policy);
-            const regressions = Array.filterMap(report.benchmarks, (summary) =>
-                Option.liftPredicate(summary.name, () => summary.verdict === 'regression'),
-            );
-            return yield* Effect.liftPredicate(
-                report,
-                (held) => held.verdict !== 'regression',
-                () => new BenchmarkError({ reason: 'regression', detail: Array.join(regressions, ', ') }),
-            );
-        }),
+    checkRegression: Effect.fnUntraced(function* (policy = _POLICY) {
+        yield* _importLatestResults;
+        const report = Benchmark.summarize(yield* _readHistory, policy);
+        if (report.verdict !== 'regression') {
+            return report;
+        }
+        const regressions = Array.filterMap(report.benchmarks, (summary) =>
+            summary.verdict === 'regression' ? Option.some(summary.name) : Option.none(),
+        );
+        return yield* new BenchmarkError({ reason: 'regression', detail: Array.join(regressions, ', ') });
+    }),
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

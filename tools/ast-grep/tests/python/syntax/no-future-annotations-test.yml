@@ -6,8 +6,6 @@ valid:
           return Item(path)
     # Another future feature, ruff unnecessary-future-import reports it
     - from __future__ import barry_as_FLUFL
-    # Annotations beside another feature, ruff removes the other name first and the sole form then reports
-    - from __future__ import annotations, barry_as_FLUFL
     # Import of a module named for the feature
     - from typing import annotations
 invalid:
@@ -18,7 +16,7 @@ invalid:
       import os
     # Parenthesized name
     - from __future__ import (annotations)
-    # Trailing comment on the import, the deletion keeps the comment
+    # Trailing comment does not change the annotation mode
     - |
       from __future__ import annotations  # Lazy
 
@@ -28,3 +26,19 @@ invalid:
       from __future__ import (
           annotations,
       )
+    # Combined future features retain their independent contract during migration
+    - from __future__ import annotations, barry_as_FLUFL
+    # The feature between other features, the statement keeps them in order
+    - from __future__ import barry_as_FLUFL, annotations, generator_stop
+    # Parenthesized features on their own lines
+    - |
+      from __future__ import (
+          annotations,
+          barry_as_FLUFL,
+      )
+    # Reading deferred annotations would resolve this missing name instead of returning its text
+    - |
+      from __future__ import annotations
+      def load(value: Missing):
+          return value
+      annotations = load.__annotations__

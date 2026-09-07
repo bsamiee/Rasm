@@ -1,11 +1,11 @@
-// Inline Pulumi program that declares the Doppler project and the GitHub repository settings, registers them, and adopts the live ones under --import
+// Pulumi resources for repository settings and Doppler configuration
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { ActionsSecret, Repository, type RepositoryArgs } from '@pulumi/github';
 import type { CustomResourceOptions } from '@pulumi/pulumi';
 import { BranchConfig, Environment, Project, type ProjectArgs, ServiceToken } from '@pulumiverse/doppler';
-import { Effect, Option, Record } from 'effect';
+import { Effect, Record } from 'effect';
 
 // --- [DOPPLER] -------------------------------------------------------------------------
 
@@ -49,26 +49,26 @@ const _ACTIONS_SECRETS = { DOPPLER_TOKEN: 'rasm-ci-readonly' } as const satisfie
 
 // --- [PROGRAM] -------------------------------------------------------------------------
 
-// The default providers read DOPPLER_TOKEN and GITHUB_TOKEN from the environment, and the GitHub provider detects the owner from its token
+// Default providers read DOPPLER_TOKEN and GITHUB_TOKEN, and GitHub detects the owner from its token
 const program = (adopt: boolean): Effect.Effect<Record<string, unknown>> =>
     Effect.sync(() => {
-        // Every row with a live counterpart adopts it under --import in place of creating one, tokens and secrets are created
-        const adoption = (id: string): CustomResourceOptions => Record.getSomes({ import: Option.liftPredicate(id, () => adopt) });
+        // Import existing projects, environments, configs, and repositories, and create tokens and secrets
+        const adoption = (id: string): CustomResourceOptions => (adopt ? { import: id } : {});
         const project = new Project(_PROJECT.name, _PROJECT, adoption(_PROJECT.name));
         const environments = Record.map(
             _ENVIRONMENTS,
-            (name, slug) => new Environment(slug, { project: project.name, slug, name }, adoption(`${_PROJECT.name}.${slug}`)),
+            (name, slug) => new Environment(slug, { project: project.name, slug, name }, adoption(`${_PROJECT.name}.${slug}`)).slug,
         );
         const branchConfigs = Record.map(
             _BRANCH_CONFIGS,
             (environment, name) =>
                 new BranchConfig(
                     name,
-                    { project: project.name, environment: environments[environment].slug, name },
+                    { project: project.name, environment: environments[environment], name },
                     adoption(`${_PROJECT.name}.${environment}.${name}`),
-                ),
+                ).name,
         );
-        const configs = { ...Record.map(environments, (environment) => environment.slug), ...Record.map(branchConfigs, (config) => config.name) };
+        const configs = { ...environments, ...branchConfigs };
         const serviceTokens = Record.map(
             _SERVICE_TOKENS,
             (row, name) =>

@@ -1,0 +1,17 @@
+id: github-job
+language: yaml
+role: item
+symbolType: function
+rule:
+    kind: block_mapping_pair, flow_pair
+    inside:
+        kind: block_mapping, flow_mapping
+        inside:
+            kind: block_node, flow_node
+            inside:
+                kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping) > :is(block_mapping_pair, flow_pair)
+                has: {field: key, regex: '^(jobs|"jobs"|''jobs'')$'}
+    has: {field: key, pattern: $NAME}
+name: $NAME
+signature: $NAME
+isExported: true

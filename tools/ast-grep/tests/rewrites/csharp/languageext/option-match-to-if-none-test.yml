@@ -1,0 +1,36 @@
+id: option-match-to-if-none
+valid:
+    - "class C { int F() => value.IfNone(() => Compute()); }"
+    - "class C { int F() => value.Match(Some: x => x + 1, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: x => other, None: () => Compute()); }"
+    - "class C { int F() => value.Match<int>(Some: x => x, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: x => { Observe(); return x; }, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: x => /* retain */ x, None: () => Compute()); }"
+    # Comments inside parenthesized parameters prevent removal
+    - "class C { int F() => value.Match(Some: (/* retain */ x) => x, None: () => Compute()); }"
+    # Async lambdas return a different value type
+    - "class C { object F() => value.Match(Some: async x => x, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: x => { return x; Observe(); }, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: x => { return other; }, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: x => { /* retain */ return x; }, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: (x, y) => x, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: (ref int x) => x, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: (int x = 1) => x, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: async (x) => { return x; }, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Succ: x => x, Fail: error => 0); }"
+    - "class C { int F() => value.Match(Some: [Obsolete] (x) => x, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: (int /* retain */ x) => x, None: () => Compute()); }"
+    - "class C { object F() => value.Match(Some: object (int x) => x, None: () => Compute()); }"
+    - "class C { object F() => value.Match(Some: x => (object)x, None: () => Compute()); }"
+invalid:
+    # Parenthesized parameter without static
+    - "class C { int F() => value.Match(Some: (x) => x, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: x => x, None: () => Compute()); }"
+    - "class C { int F() => value.Match(None: () => Compute(), Some: static x => x); }"
+    - "class C { int F() => value.Match(x => x, Compute()); }"
+    - "class C { int F() => value.Match(static (x) => x, () => Compute()); }"
+    - "class C { int F() => Get().Match(Some: x => x, None: fallback); }"
+    - "class C { int F() => value.Match(Some: x => { return x; }, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: static (x) => { return x; }, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: static (int x) => { return x; }, None: () => Compute()); }"
+    - "class C { int F() => value.Match(Some: (int x) => x, None: () => Compute()); }"

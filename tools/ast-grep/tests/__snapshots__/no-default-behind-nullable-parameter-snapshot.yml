@@ -33,6 +33,27 @@ snapshots:
       style: secondary
       start: 18
       end: 108
+    - source: LIMIT
+      style: secondary
+      start: 0
+      end: 5
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: |
+        LIMIT = 3
+
+        @cache
+        def run(count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+      style: secondary
+      start: 0
+      end: 109
   ? |
     LIMIT = 3
 
@@ -65,6 +86,26 @@ snapshots:
       style: secondary
       start: 11
       end: 107
+    - source: LIMIT
+      style: secondary
+      start: 0
+      end: 5
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: |
+        LIMIT = 3
+
+        async def run(count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+      style: secondary
+      start: 0
+      end: 108
   ? |
     LIMIT = 3
 
@@ -98,6 +139,27 @@ snapshots:
       style: secondary
       start: 29
       end: 129
+    - source: LIMIT
+      style: secondary
+      start: 0
+      end: 5
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: |
+        LIMIT = 3
+
+        class Reader:
+            def run(self, count: int | None = None) -> int:
+                return count if count is not None else LIMIT
+      style: secondary
+      start: 0
+      end: 130
   ? |
     LIMIT = 3
 
@@ -154,6 +216,28 @@ snapshots:
       style: secondary
       start: 11
       end: 113
+    - source: LIMIT
+      style: secondary
+      start: 0
+      end: 5
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: |
+        LIMIT = 3
+
+        def run(count: int | None = None) -> int:
+            if count is None:
+                count = LIMIT
+            return count
+      style: secondary
+      start: 0
+      end: 114
   ? |
     LIMIT = 3
 
@@ -186,6 +270,26 @@ snapshots:
       style: secondary
       start: 11
       end: 101
+    - source: LIMIT
+      style: secondary
+      start: 0
+      end: 5
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: LIMIT = 3
+      style: secondary
+      start: 0
+      end: 9
+    - source: |
+        LIMIT = 3
+
+        def run(count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+      style: secondary
+      start: 0
+      end: 102
   ? |
     LIMIT: int = 3
 
@@ -218,6 +322,26 @@ snapshots:
       style: secondary
       start: 16
       end: 106
+    - source: LIMIT
+      style: secondary
+      start: 0
+      end: 5
+    - source: 'LIMIT: int = 3'
+      style: secondary
+      start: 0
+      end: 14
+    - source: 'LIMIT: int = 3'
+      style: secondary
+      start: 0
+      end: 14
+    - source: |
+        LIMIT: int = 3
+
+        def run(count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+      style: secondary
+      start: 0
+      end: 107
   ? |
     class Reader:
         pass
@@ -251,6 +375,25 @@ snapshots:
       style: secondary
       start: 24
       end: 136
+    - source: Reader
+      style: secondary
+      start: 6
+      end: 12
+    - source: |-
+        class Reader:
+            pass
+      style: secondary
+      start: 0
+      end: 22
+    - source: |
+        class Reader:
+            pass
+
+        def run(make: Callable[[], Reader] | None = None) -> Reader:
+            return (make if make is not None else Reader)()
+      style: secondary
+      start: 0
+      end: 137
   ? |
     def fallback() -> int:
         return 3
@@ -284,6 +427,25 @@ snapshots:
       style: secondary
       start: 37
       end: 145
+    - source: fallback
+      style: secondary
+      start: 4
+      end: 12
+    - source: |-
+        def fallback() -> int:
+            return 3
+      style: secondary
+      start: 0
+      end: 35
+    - source: |
+        def fallback() -> int:
+            return 3
+
+        def run(make: Callable[[], int] | None = None) -> int:
+            return (make if make is not None else fallback)()
+      style: secondary
+      start: 0
+      end: 146
   ? |
     def run(count: int | None = None) -> int:
         return count if count is not None else -1
@@ -313,6 +475,10 @@ snapshots:
             return count if count is not None else -1
       style: secondary
       start: 0
+      end: 87
+    - source: '1'
+      style: secondary
+      start: 86
       end: 87
   ? |
     def run(count: int | None = None) -> int:
@@ -464,6 +630,10 @@ snapshots:
       style: secondary
       start: 0
       end: 93
+    - source: '0.5'
+      style: secondary
+      start: 90
+      end: 93
   ? |
     def run(ratio: float | None = None) -> float:
         return ratio if ratio is not None else 0.5
@@ -588,6 +758,23 @@ snapshots:
       style: secondary
       start: 38
       end: 182
+    - source: PROFILE_STATEFUL
+      style: secondary
+      start: 20
+      end: 36
+    - source: from runtime import PROFILE_STATEFUL
+      style: secondary
+      start: 0
+      end: 36
+    - source: |
+        from runtime import PROFILE_STATEFUL
+
+        def run(machine, *, profile: str | None = None) -> None:
+            if machine:
+                resolved = profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 0
+      end: 183
   ? |
     from runtime import PROFILE_STATEFUL
 
@@ -620,6 +807,22 @@ snapshots:
       style: secondary
       start: 38
       end: 158
+    - source: PROFILE_STATEFUL
+      style: secondary
+      start: 20
+      end: 36
+    - source: from runtime import PROFILE_STATEFUL
+      style: secondary
+      start: 0
+      end: 36
+    - source: |
+        from runtime import PROFILE_STATEFUL
+
+        def run(machine, *, profile: str | None = None) -> None:
+            resolved = PROFILE_STATEFUL if profile is None else profile
+      style: secondary
+      start: 0
+      end: 159
   ? |
     from runtime import PROFILE_STATEFUL
 
@@ -652,6 +855,22 @@ snapshots:
       style: secondary
       start: 38
       end: 162
+    - source: PROFILE_STATEFUL
+      style: secondary
+      start: 20
+      end: 36
+    - source: from runtime import PROFILE_STATEFUL
+      style: secondary
+      start: 0
+      end: 36
+    - source: |
+        from runtime import PROFILE_STATEFUL
+
+        def run(machine, *, profile: str | None = None) -> None:
+            resolved = profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 0
+      end: 163
   ? |
     from runtime import PROFILE_STATEFUL
 
@@ -684,6 +903,22 @@ snapshots:
       style: secondary
       start: 38
       end: 137
+    - source: PROFILE_STATEFUL
+      style: secondary
+      start: 20
+      end: 36
+    - source: from runtime import PROFILE_STATEFUL
+      style: secondary
+      start: 0
+      end: 36
+    - source: |
+        from runtime import PROFILE_STATEFUL
+
+        def run(machine, *, profile: str | None = None) -> None:
+            resolved = profile or PROFILE_STATEFUL
+      style: secondary
+      start: 0
+      end: 138
   ? |
     from runtime import PROFILE_STATEFUL as PROFILE
 
@@ -716,6 +951,22 @@ snapshots:
       style: secondary
       start: 49
       end: 147
+    - source: PROFILE
+      style: secondary
+      start: 40
+      end: 47
+    - source: from runtime import PROFILE_STATEFUL as PROFILE
+      style: secondary
+      start: 0
+      end: 47
+    - source: |
+        from runtime import PROFILE_STATEFUL as PROFILE
+
+        def run(profile: str | None = None) -> str:
+            return profile if profile is not None else PROFILE
+      style: secondary
+      start: 0
+      end: 148
   ? |
     import operator
 
@@ -748,6 +999,26 @@ snapshots:
       style: secondary
       start: 17
       end: 149
+    - source: operator
+      style: secondary
+      start: 124
+      end: 132
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: Equality | None = None) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 150
   ? |
     import operator
 
@@ -776,6 +1047,26 @@ snapshots:
       style: secondary
       start: 17
       end: 139
+    - source: operator
+      style: secondary
+      start: 114
+      end: 122
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: _Equality[T]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 140
   ? |
     import settings
 
@@ -808,3 +1099,23 @@ snapshots:
       style: secondary
       start: 17
       end: 133
+    - source: settings
+      style: secondary
+      start: 108
+      end: 116
+    - source: settings
+      style: secondary
+      start: 7
+      end: 15
+    - source: import settings
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import settings
+
+        def run(profile: str | None = None) -> str:
+            return profile if profile is not None else settings.defaults.profile
+      style: secondary
+      start: 0
+      end: 134

@@ -1,0 +1,124 @@
+id: npm-command-to-pnpm
+snapshots:
+  ? |
+    build() {
+        npm run build | tee log
+    }
+  : fixed: |
+      build() {
+          pnpm run build | tee log
+      }
+    labels:
+    - source: npm run build
+      style: primary
+      start: 14
+      end: 27
+    - source: npm
+      style: secondary
+      start: 14
+      end: 17
+    - source: run
+      style: secondary
+      start: 18
+      end: 21
+  npm ci:
+    fixed: pnpm install
+    labels:
+    - source: npm ci
+      style: primary
+      start: 0
+      end: 6
+    - source: npm
+      style: secondary
+      start: 0
+      end: 3
+    - source: ci
+      style: secondary
+      start: 4
+      end: 6
+  npm i --save-dev vitest:
+    fixed: pnpm install --save-dev vitest
+    labels:
+    - source: npm i --save-dev vitest
+      style: primary
+      start: 0
+      end: 23
+    - source: npm
+      style: secondary
+      start: 0
+      end: 3
+    - source: i
+      style: secondary
+      start: 4
+      end: 5
+  npm install:
+    fixed: pnpm install
+    labels:
+    - source: npm install
+      style: primary
+      start: 0
+      end: 11
+    - source: npm
+      style: secondary
+      start: 0
+      end: 3
+    - source: install
+      style: secondary
+      start: 4
+      end: 11
+  npm run build:
+    fixed: pnpm run build
+    labels:
+    - source: npm run build
+      style: primary
+      start: 0
+      end: 13
+    - source: npm
+      style: secondary
+      start: 0
+      end: 3
+    - source: run
+      style: secondary
+      start: 4
+      end: 7
+  npm run ci:
+    fixed: pnpm run ci
+    labels:
+    - source: npm run ci
+      style: primary
+      start: 0
+      end: 10
+    - source: npm
+      style: secondary
+      start: 0
+      end: 3
+    - source: run
+      style: secondary
+      start: 4
+      end: 7
+  npm test:
+    fixed: pnpm test
+    labels:
+    - source: npm test
+      style: primary
+      start: 0
+      end: 8
+    - source: npm
+      style: secondary
+      start: 0
+      end: 3
+    - source: test
+      style: secondary
+      start: 4
+      end: 8
+  npx biome check .:
+    fixed: pnpm exec biome check .
+    labels:
+    - source: npx biome check .
+      style: primary
+      start: 0
+      end: 17
+    - source: npx
+      style: secondary
+      start: 0
+      end: 3

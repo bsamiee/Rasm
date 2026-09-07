@@ -5,57 +5,64 @@ severity: error
 rule:
     kind: call_expression
     pattern: $CALL
-    # The value lifted into the carrier and filtered by the carrier's guard, data-first, through the pipe method, or through the pipe function
+    not: {has: {stopBy: end, kind: comment}}
     any:
-        - pattern: Effect.filterOrFail(Effect.succeed($_), $_, $_)
-        # Trailing $$$ after the comma needs the comma, the one-step pipe takes its own pattern
-        - pattern: Effect.succeed($_).pipe(Effect.filterOrFail($_, $_))
-        - pattern: Effect.succeed($_).pipe(Effect.filterOrFail($_, $_), $$$)
-        - pattern: pipe(Effect.succeed($_), Effect.filterOrFail($_, $_))
-        - pattern: pipe(Effect.succeed($_), Effect.filterOrFail($_, $_), $$$)
-        - pattern: Either.filterOrLeft(Either.right($_), $_, $_)
-        - pattern: Either.right($_).pipe(Either.filterOrLeft($_, $_))
-        - pattern: Either.right($_).pipe(Either.filterOrLeft($_, $_), $$$)
-        - pattern: pipe(Either.right($_), Either.filterOrLeft($_, $_))
-        - pattern: pipe(Either.right($_), Either.filterOrLeft($_, $_), $$$)
-        - pattern: Option.filter(Option.some($_), $_)
-        - pattern: Option.some($_).pipe(Option.filter($_))
-        - pattern: Option.some($_).pipe(Option.filter($_), $$$)
-        - pattern: pipe(Option.some($_), Option.filter($_))
-        - pattern: pipe(Option.some($_), Option.filter($_), $$$)
+        - all:
+            - any:
+                - pattern: "$MODULE.filterOrFail($MODULE.succeed($_), $_, $_)"
+                - pattern: "$MODULE.succeed($_).pipe($MODULE.filterOrFail($_, $_))"
+                - pattern: "$MODULE.succeed($_).pipe($MODULE.filterOrFail($_, $_), $$$)"
+                - pattern: "$PIPE($MODULE.succeed($_), $MODULE.filterOrFail($_, $_))"
+                - pattern: "$PIPE($MODULE.succeed($_), $MODULE.filterOrFail($_, $_), $$$)"
+            - has:
+                stopBy: end
+                kind: identifier
+                pattern: $MODULE
+                matches: {effect-module-reference: {module: {regex: "^(effect/)?Effect$"}}}
+        - all:
+            - any:
+                - pattern: "$MODULE.filterOrLeft($MODULE.right($_), $_, $_)"
+                - pattern: "$MODULE.right($_).pipe($MODULE.filterOrLeft($_, $_))"
+                - pattern: "$PIPE($MODULE.right($_), $MODULE.filterOrLeft($_, $_))"
+                - pattern: "$PIPE($MODULE.right($_), $MODULE.filterOrLeft($_, $_), $$$)"
+            - has:
+                stopBy: end
+                kind: identifier
+                pattern: $MODULE
+                matches: {effect-module-reference: {module: {regex: "^(effect/)?Either$"}}}
+        - all:
+            - any:
+                - pattern: "$MODULE.filter($MODULE.some($_), $_)"
+                - pattern: "$MODULE.some($_).pipe($MODULE.filter($_))"
+                - pattern: "$PIPE($MODULE.some($_), $MODULE.filter($_))"
+                - pattern: "$PIPE($MODULE.some($_), $MODULE.filter($_), $$$)"
+            - has:
+                stopBy: end
+                kind: identifier
+                pattern: $MODULE
+                matches: {effect-module-reference: {module: {regex: "^(effect/)?Option$"}}}
+constraints:
+    PIPE: {matches: {effect-module-reference: {module: {regex: "^pipe$"}}}}
 rewriters:
-    # One-step pipes rewrite to the lift alone, the arity-pinned pattern precedes the one with the rest of the steps
-    - id: effect
-      rule: {pattern: 'Effect.filterOrFail(Effect.succeed($V), $P, $E)'}
-      fix: Effect.liftPredicate($V, $P, $E)
-    - id: effect-pipe
-      rule: {any: [{pattern: 'Effect.succeed($V).pipe(Effect.filterOrFail($P, $E))'}, {pattern: 'pipe(Effect.succeed($V), Effect.filterOrFail($P, $E))'}]}
-      fix: Effect.liftPredicate($V, $P, $E)
-    - id: effect-steps
-      rule: {any: [{pattern: 'Effect.succeed($V).pipe(Effect.filterOrFail($P, $E), $$$REST)'}, {pattern: 'pipe(Effect.succeed($V), Effect.filterOrFail($P, $E), $$$REST)'}]}
-      fix: Effect.liftPredicate($V, $P, $E).pipe($$$REST)
-    - id: either
-      rule: {pattern: 'Either.filterOrLeft(Either.right($V), $P, $E)'}
-      fix: Either.liftPredicate($V, $P, $E)
-    - id: either-pipe
-      rule: {any: [{pattern: 'Either.right($V).pipe(Either.filterOrLeft($P, $E))'}, {pattern: 'pipe(Either.right($V), Either.filterOrLeft($P, $E))'}]}
-      fix: Either.liftPredicate($V, $P, $E)
-    - id: either-steps
-      rule: {any: [{pattern: 'Either.right($V).pipe(Either.filterOrLeft($P, $E), $$$REST)'}, {pattern: 'pipe(Either.right($V), Either.filterOrLeft($P, $E), $$$REST)'}]}
-      fix: Either.liftPredicate($V, $P, $E).pipe($$$REST)
-    - id: option
-      rule: {pattern: 'Option.filter(Option.some($V), $P)'}
-      fix: Option.liftPredicate($V, $P)
-    - id: option-pipe
-      rule: {any: [{pattern: Option.some($V).pipe(Option.filter($P))}, {pattern: 'pipe(Option.some($V), Option.filter($P))'}]}
-      fix: Option.liftPredicate($V, $P)
-    - id: option-steps
-      rule: {any: [{pattern: 'Option.some($V).pipe(Option.filter($P), $$$REST)'}, {pattern: 'pipe(Option.some($V), Option.filter($P), $$$REST)'}]}
-      fix: Option.liftPredicate($V, $P).pipe($$$REST)
+    - id: direct
+      rule: {pattern: "$M.$FILTER($M.$LIFT($VALUE), $$$ARGS)"}
+      fix: $M.liftPredicate($VALUE, $$$ARGS)
+    - id: pipe
+      rule:
+        any:
+            - pattern: "$M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS))"
+            - pattern: "$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS))"
+      fix: $M.liftPredicate($VALUE, $$$ARGS)
+    - id: functional-steps
+      rule: {pattern: "$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS), $$$REST)"}
+      fix: $PIPE($VALUE, $M.liftPredicate($$$ARGS), $$$REST)
+    - id: method-steps
+      rule:
+        pattern: "$M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS), $$$REST)"
+      fix: $M.liftPredicate($VALUE, $$$ARGS).pipe($$$REST)
 transform:
-    LIFT: rewrite($CALL, rewriters=[effect, effect-pipe, effect-steps, either, either-pipe, either-steps, option, option-pipe, option-steps])
+    LIFT: rewrite($CALL, rewriters=[direct, pipe, functional-steps, method-steps])
+labels: {CALL: {style: primary}}
 fix: $LIFT
-message: The value is lifted into the carrier and filtered back out, and the carrier lifts a value under a predicate in one call
-note: >-
-    Lift the value under its predicate, `Effect.liftPredicate(value, predicate, () => error)`, `Either.liftPredicate(value, predicate, () => left)`,
-    `Option.liftPredicate(value, predicate)`
+message: The predicate filters a value the call just lifted into the carrier
+note: Call the module's `liftPredicate(value, predicate)` with the error callback for Effect or Either, keeping later pipe steps outside the call

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/yaml_rule.json
+id: no-unused-artifact-input
+language: yaml
+severity: error
+files: [".github/**"]
+utils:
+    false-value: {regex: '^(false|False|FALSE|"(?:false|False|FALSE)"|''(?:false|False|FALSE)'')$'}
+    input-map:
+        kind: block_mapping, flow_mapping
+        has:
+            kind: block_mapping_pair, flow_pair
+            has: {field: key, regex: '^(archive|"archive"|''archive'')$'}
+            all:
+                - has: {field: value, matches: false-value}
+        inside:
+            kind: block_node, flow_node
+            inside:
+                kind: block_mapping_pair, flow_pair
+                has: {field: key, regex: '^(with|"with"|''with'')$'}
+                inside:
+                    kind: block_mapping, flow_mapping
+                    matches: github-step
+                    has:
+                        kind: block_mapping_pair, flow_pair
+                        has: {field: key, regex: '^(uses|"uses"|''uses'')$'}
+                        all:
+                            - has: {field: value, regex: '^(actions/upload-artifact@v(?:[7-9]|[1-9][0-9])(?:\.[0-9]+){0,2}|"actions/upload-artifact@v(?:[7-9]|[1-9][0-9])(?:\.[0-9]+){0,2}"|''actions/upload-artifact@v(?:[7-9]|[1-9][0-9])(?:\.[0-9]+){0,2}'')$'}
+rule:
+    kind: block_mapping_pair, flow_pair
+    all:
+        - has: {field: key, pattern: $INPUT}
+        - matches: yaml-removable-member
+        - inside: {matches: input-map}
+        - any:
+            - has: {field: key, regex: '^(compression-level|"compression-level"|''compression-level'')$'}
+              all:
+                - has: {field: value, regex: '^([0-9]|"[0-9]"|''[0-9]'')$'}
+            - has: {field: key, regex: '^(name|"name"|''name'')$'}
+              not:
+                inside:
+                    has:
+                        kind: block_mapping_pair, flow_pair
+                        has: {field: key, regex: '^(overwrite|"overwrite"|''overwrite'')$'}
+                        all:
+                            - has: {field: value, not: {matches: false-value}}
+labels: {INPUT: {style: primary}}
+fix:
+    template: ""
+    expandEnd: {regex: "^,$"}
+message: "`$INPUT` has no effect when artifact archiving is disabled"
+note: Remove the unused input, because an unarchived upload keeps the file name and skips compression, and keep name beside overwrite

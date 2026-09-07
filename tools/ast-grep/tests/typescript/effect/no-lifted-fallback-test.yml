@@ -1,0 +1,186 @@
+id: no-lifted-fallback
+valid:
+    # Typed recovery propagates interruption; orElse may recover it.
+    - |-
+      import { Effect } from "effect";
+      Effect.catchAll(work, () => Effect.succeed(false))
+    - |-
+      import { Effect } from "effect";
+      Effect.catchAll(work, () => Effect.fail(error))
+    - |-
+      import { Effect } from "effect";
+      Effect.orElse(work, () => Effect.succeed<boolean | number>(false))
+    - |-
+      import { Effect } from "effect";
+      Effect.orElse(work, (_first, _second) => Effect.succeed(_second))
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, /* keep handler explanation */ () => Effect.succeed(false));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, (_error) => Effect.succeed(/* keep reason */ 1));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Effect.fail(error /* keep cause */));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, function handler() { return Effect.succeed({ handler }); });
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, function (): Effect.Effect<boolean> { return Effect.succeed(false); });
+    # The named function observes its signature or its own implementation
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, function handler(_error) { return Effect.succeed(handler.length); });
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, function handler() { return Effect.succeed(handler); });
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Other.succeed(false));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Other.fail(error));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, (): Effect.Effect<boolean> => Effect.succeed(false));
+    # Do not erase parameter-dependent behavior
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, (_error) => Effect.succeed(_error));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, _error => Effect.succeed({ _error }));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, (_error = fallback()) => Effect.succeed(false));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, function () { return Effect.succeed(arguments[0]); });
+    # The fallback stated in one member
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElseSucceed(work, () => false);
+    # Recovery by tag
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.catchTag(work, 'LoadError', () => Effect.succeed(false));
+    # A callback that reads its parameter is not constant
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, (error) => Effect.succeed(error.message));
+    # Handler that runs an operation
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => reload(path));
+    # Void recovery preserves a successful value; ignore would discard it
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Effect.void);
+    # Cause recovery has different failure semantics
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.catchAllCause(work, () => Effect.succeed(false));
+    # Layer has no equivalent value fallback
+    - |-
+      import { Layer } from "effect";
+      const held = Layer.catchAll(layer, () => Layer.succeed(Service, fallback));
+    # Handler with a block body holding a statement before the return
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => { report(); return Effect.succeed(false); });
+    # An unrelated module may use the same names
+    - |-
+      const held = Item.orElse(item, () => Item.succeed(false));
+    # A constructed error can still depend on the parameter
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, (error) => Effect.fail(new OtherError({ cause: error })));
+    # Option orElse, the module exports orElseSome and no orElseSucceed
+    - |-
+      import { Option } from "effect";
+      const held = Option.orElse(found, () => Option.some(1));
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Effect.succeed({ value: /* keep reason */ 1 }));
+    - |-
+      import { Effect } from "effect";
+      Effect.orElse<string>(work, () => Effect.succeed(false))
+    - |-
+      import { Effect } from "effect";
+      Effect./* preserve callee comment */orElse(work, () => Effect.succeed(false))
+    - |-
+      import { Effect } from "effect";
+      Effect.orElse(work, () => Effect.succeed(...values))
+    - |-
+      import { Effect } from "effect";
+      Effect.orElse(work, () => Effect.fail(...errors))
+    - import { Effect } from "other"; Effect.orElse(work, () => Effect.succeed(false))
+    - import { Option as Effect } from "effect"; Effect.orElse(work, () => Effect.succeed(false))
+invalid:
+    # A discarded parameter is independent of its spelling
+    - |-
+      import { Effect } from "effect";
+      Effect.orElse(work, (error) => Effect.succeed(fallback))
+    - |-
+      import { Effect } from "effect";
+      Effect.orElse(work, error => Effect.succeed(fallback))
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Effect.fail({ recover: () => Effect.succeed(false) }));
+    - |-
+      import { Effect } from "effect";
+      const held = work.pipe(Effect.orElse(() => Effect.fail({ recover: () => Effect.succeed(false) })));
+    # The instance, a constant lifted in the handler
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Effect.succeed(false));
+    # Data-last handler as a pipe step
+    - |-
+      import { Effect } from "effect";
+      const held = work.pipe(Effect.orElse(() => Effect.succeed(false)));
+    # Handler with a block body holding the one return
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => { return Effect.succeed(false); });
+    # Function expression handler
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, function () { return Effect.succeed(false); });
+    # Handler with an underscore parameter, declared and never read
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, (_) => Effect.succeed(false));
+    # Handler with a bare underscore parameter
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, _error => Effect.succeed(false));
+    # STM sibling
+    - |-
+      import { STM } from "effect";
+      const held = STM.orElse(transaction, () => STM.succeed(false));
+    # Stream sibling, data-last
+    - |-
+      import { Stream } from "effect";
+      const held = stream.pipe(Stream.orElse(() => Stream.succeed(false)));
+    # Lifted object as the constant
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Effect.succeed({ rows: [] }));
+    # Handler answering a constant failure, the fallback is orElseFail
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => Effect.fail(new OtherError({ path })));
+    # STM constant failure as a pipe step
+    - |-
+      import { STM } from "effect";
+      const held = transaction.pipe(STM.orElse(() => STM.fail(error)));
+    # orElse handler with a block body answering the constant failure
+    - |-
+      import { Effect } from "effect";
+      const held = Effect.orElse(work, () => { return Effect.fail(error); });
+    # Data-last handler with a block body holding the one return
+    - |-
+      import { Effect } from "effect";
+      const held = work.pipe(Effect.orElse(() => { return Effect.succeed(false); }));
+    - import * as E from "effect/Effect"; E.orElse(work, () => E.succeed(false))

@@ -2,7 +2,11 @@
 id: no-pydantic-validator
 language: python
 severity: error
+# Report-only, the probed fix `validator` to `field_validator` fails, `TypeError: 'ValidationInfo' object is not subscriptable`
 rule:
-    matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: '^(validator|root_validator)$', pattern: $NAME}}}
-message: '`pydantic.$NAME` is the pydantic 1 validator decorator, deprecated in pydantic 2'
-note: Decorate with `@field_validator("<field>")` or `@model_validator(mode="after")`
+    any:
+        - matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: "^(validator|root_validator|validate_arguments)$", pattern: $NAME}}}
+        - matches: {python-module-member: {module: {regex: '^pydantic\.deprecated\.class_validators$'}, name: {regex: "^(validator|root_validator)$", pattern: $NAME}}}
+        - matches: {python-module-member: {module: {regex: '^pydantic\.deprecated\.decorator$'}, name: {regex: "^validate_arguments$", pattern: $NAME}}}
+message: "`$NAME` uses a deprecated Pydantic validator decorator"
+note: Decorate with `field_validator(<field>, mode=<stage>)` or `model_validator(mode=<stage>)`, and validate arguments with `validate_call`

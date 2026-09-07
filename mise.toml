@@ -3,6 +3,7 @@
 # --- [SETTINGS] -------------------------------------------------------------------------
 
 [settings]
+experimental = true            # pkgx backend supplies Bash 5.3 on Linux and macOS
 prereleases = true
 minimum_release_age = "0s"     # mise delays new releases 24h by default
 idiomatic_version_file_enable_tools = ["dotnet"]
@@ -22,7 +23,7 @@ UV_CACHE_DIR = "{{config_root}}/.cache/uv"                               # The s
 # --- [TOOLS] ----------------------------------------------------------------------------
 
 [tools]
-python = "3.15.0rc2" # Latest and the 3.15 prefix both resolve 3.15-dev under prereleases
+python = "3.15.0rc2" # Latest and the 3.15 prefix resolve development builds under prereleases
 node = "latest"
 pnpm = "latest"
 uv = "latest"
@@ -31,9 +32,20 @@ act = "latest"
 actionlint = "latest"
 shellcheck = "latest"
 shfmt = "latest"
+yamlfmt = "latest"
+ripgrep = "latest"
+fd = "latest"
+jq = "latest"
+yq = "latest"
 doppler = "latest"
 pulumi = "latest"
 ast-grep = "latest"
 tree-sitter = "latest"
 buf = "latest"
 "pipx:ast-grep/ast-grep-mcp" = "latest" # Git source with no release, latest resolves the default-branch head to a commit
+
+[tools."pkgx:gnu.org/bash"]
+version = "latest"
+os = ["linux", "macos"]
+# pkgx generates a Bash launcher that invokes itself through env, its exports and exec use POSIX shell syntax
+postinstall = "sed -i.bak '1s|.*|#!/bin/sh|' \"$MISE_TOOL_INSTALL_PATH/bin/bash\" && rm \"$MISE_TOOL_INSTALL_PATH/bin/bash.bak\""

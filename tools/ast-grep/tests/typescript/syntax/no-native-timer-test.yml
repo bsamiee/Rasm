@@ -1,5 +1,23 @@
 id: no-native-timer
 valid:
+    # Source fragments before an escape do not identify the module
+    - 'import { setTimeout } from "node:timers\u002fother"; setTimeout(callback);'
+    - 'import * as timers from "node:timers\u002fother"; timers.setTimeout(callback);'
+    # A type-only namespace has no runtime timer binding.
+    - 'import type * as timers from "node:timers"; timers.setTimeout(tick, 1);'
+    # Inherited namespace methods do not schedule work.
+    - 'import timers from "node:timers"; timers.toString();'
+    # A namespace timer receiver can be shadowed by a callback parameter.
+    - 'import * as timers from "node:timers"; function run(timers) { timers.setTimeout(1); }'
+    # Imported timer names cannot identify the ambient global after a local rename.
+    - 'import { setTimeout as delay } from "node:timers"; const setTimeout = compute; setTimeout(1);'
+    # A supplied AbortSignal-like service is not the native global.
+    - 'function timer(AbortSignal: { timeout(value: number): unknown }) { return AbortSignal.timeout(1); }'
+    - 'import { setTimeout as delay } from "./services"; delay(1);'
+    # Inherited object methods are outside the scheduler's scheduling operations
+    - 'import { scheduler } from "node:timers/promises"; scheduler.toString();'
+    # Aliasing the imported scheduler leaves a separately declared ambient name unrelated
+    - 'import { scheduler as host } from "node:timers/promises"; declare const scheduler: { yield(): void }; scheduler.yield();'
     # The sleep
     - "const waited = Effect.sleep('1 second');"
     # The repeat on a schedule
@@ -14,11 +32,47 @@ valid:
     - 'const signal = AbortSignal.any([first, second]);'
     # Step bounded through the runtime
     - "const bounded = Effect.timeout(step, '1 second');"
+    # A same-named receiver does not establish the Node scheduler contract
+    - 'const scheduler = { wait: compute }; scheduler.wait(1);'
+    # A parameter can shadow the imported scheduler
+    - 'import { scheduler } from "node:timers/promises"; const run = (scheduler) => scheduler.wait(1);'
+    # An unrelated module can export the same member
+    - 'import { scheduler } from "worker"; scheduler.yield();'
+    # Type-only imports do not introduce runtime timer values
+    - 'import type { scheduler } from "node:timers/promises"; scheduler.wait(1);'
+    # A same-named callback parameter is not a host timer
+    - 'function run(setTimeout) { setTimeout(1); }'
+    # A module-local declaration also hides the global timer
+    - 'const setTimeout = compute; setTimeout(1);'
+    # A specifier-level type import also lacks a runtime value
+    - 'import { type scheduler } from "node:timers/promises"; scheduler.wait(1);'
+    # Another imported export under the scheduler name is not the scheduler
+    - 'import { other as scheduler } from "node:timers/promises"; scheduler.wait(1);'
+    # A custom named import hides the unqualified global timer
+    - 'import { setTimeout } from "./custom"; setTimeout(1);'
+    # The local binding determines identity even when its export has another name
+    - 'import { schedule as setTimeout } from "./custom"; setTimeout(1);'
+    # Default imports also introduce a local callable binding
+    - 'import setTimeout from "./custom"; setTimeout(1);'
 invalid:
+    # A comment after the local alias does not change the native export binding.
+    - 'import { setTimeout as delay /* local */ } from "node:timers/promises"; await delay(1);'
+    # Export identity survives named aliases and namespace/default imports.
+    - 'import { setTimeout as delay } from "node:timers/promises"; await delay(1);'
+    - 'import * as timers from "node:timers"; timers.setTimeout(tick, 1);'
+    - 'import timers from "node:timers/promises"; await timers.scheduler.wait(1);'
+    # An export imported under another local name does not shadow the global timer
+    - 'import { setTimeout as custom } from "./custom"; setTimeout(tick, 1);'
+    # The native timers module still owns the imported timer
+    - 'import { setTimeout } from "node:timers"; setTimeout(tick, 1);'
+    # The native promises module exposes a delay under the same name
+    - 'import { setTimeout } from "timers/promises"; await setTimeout(1);'
+    # An unrelated imported local name leaves the global timer untouched
+    - 'import { schedule as custom } from "./custom"; setTimeout(tick, 1);'
     # The wait of the timers/promises scheduler
-    - 'await scheduler.wait(1000);'
+    - 'import { scheduler } from "node:timers/promises"; await scheduler.wait(1000);'
     # The yield of the timers/promises scheduler
-    - 'await scheduler.yield();'
+    - 'import { scheduler as host } from "timers/promises"; await host.yield();'
     # The abort timer
     - 'const signal = AbortSignal.timeout(1000);'
     # The instance, a timeout

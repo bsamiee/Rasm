@@ -4,9 +4,6 @@ valid:
     - |
       if memory.exists(scoped):
           memory.rm(scoped, recursive=True)
-    # Second arm with an effect, the shape of conditional-statement-to-if-else
-    - |
-      start(item) if ready else queue(item)
     # Multi-line statement in parentheses, its arm keeps a column the template cannot lower
     - |
       (
@@ -17,6 +14,20 @@ valid:
     # Conditional bound to a name
     - |
       value = load(path) if path else None
+    # Semicolon before the expression cannot precede a compound statement
+    - |
+      before(); start(item) if ready else None
+    # Semicolon after the expression belongs to the original suite
+    - |
+      start(item) if ready else None; after()
+    # One-line suite cannot contain a compound statement
+    - |
+      if outer: start(item) if ready else None
+    # Inline else suite must not inherit the earlier multiline branch
+    - |
+      if outer:
+          before()
+      else: start(item) if ready else None
 invalid:
     # The instance, an effect under a condition with a None arm
     - |
@@ -39,3 +50,25 @@ invalid:
     - |
       if armed:
           record(item) if ready else None
+    # The instance, an effect in each arm
+    - |
+      start(item) if ready else queue(item)
+    # Parentheses on one line, the join drops them
+    - |
+      (start(item) if ready else queue(item))
+    # Statement inside a def, both bodies indent under their clause
+    - |
+      def dispatch(item, ready):
+          start(item) if ready else queue(item)
+    # Chain in the else arm, the inner conditional is the next pass
+    - |
+      start(item) if ready else queue(item) if waiting else None
+    # Awaited effects
+    - |
+      async def run():
+          await start(item) if ready else await queue(item)
+    # Independent statements around the expression keep their lines
+    - |
+      before()
+      start(item) if ready else None
+      after()

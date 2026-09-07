@@ -1,110 +1,248 @@
 id: require-catch-on-try
 snapshots:
-  const loaded = Effect.tryPromise(() => load(path));:
+  import * as E from "effect/Effect"; E.tryPromise(async () => load());:
+    labels:
+    - source: E.tryPromise(async () => load())
+      style: primary
+      start: 36
+      end: 68
+    - source: E
+      style: secondary
+      start: 36
+      end: 37
+    - source: E
+      style: secondary
+      start: 36
+      end: 37
+    - source: tryPromise
+      style: secondary
+      start: 38
+      end: 48
+    - source: E.tryPromise
+      style: secondary
+      start: 36
+      end: 48
+    - source: async () => load()
+      style: secondary
+      start: 49
+      end: 67
+    - source: async () => load()
+      style: secondary
+      start: 49
+      end: 67
+  import { Effect as E } from "effect"; E.try(() => parse(raw));:
+    labels:
+    - source: E.try(() => parse(raw))
+      style: primary
+      start: 38
+      end: 61
+    - source: E
+      style: secondary
+      start: 38
+      end: 39
+    - source: try
+      style: secondary
+      start: 40
+      end: 43
+    - source: E.try
+      style: secondary
+      start: 38
+      end: 43
+    - source: () => parse(raw)
+      style: secondary
+      start: 44
+      end: 60
+    - source: () => parse(raw)
+      style: secondary
+      start: 44
+      end: 60
+  import { Effect } from "effect"; Effect.try((() => parse(raw)));:
+    labels:
+    - source: Effect.try((() => parse(raw)))
+      style: primary
+      start: 33
+      end: 63
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: try
+      style: secondary
+      start: 40
+      end: 43
+    - source: Effect.try
+      style: secondary
+      start: 33
+      end: 43
+    - source: () => parse(raw)
+      style: secondary
+      start: 45
+      end: 61
+    - source: () => parse(raw)
+      style: secondary
+      start: 45
+      end: 61
+  import { Effect } from "effect"; const loaded = Effect.tryPromise(() => load(path));:
     labels:
     - source: Effect.tryPromise(() => load(path))
       style: primary
-      start: 15
-      end: 50
+      start: 48
+      end: 83
+    - source: Effect
+      style: secondary
+      start: 48
+      end: 54
+    - source: Effect
+      style: secondary
+      start: 48
+      end: 54
+    - source: tryPromise
+      style: secondary
+      start: 55
+      end: 65
     - source: Effect.tryPromise
       style: secondary
-      start: 15
-      end: 32
+      start: 48
+      end: 65
     - source: () => load(path)
       style: secondary
-      start: 33
-      end: 49
+      start: 66
+      end: 82
     - source: () => load(path)
       style: secondary
-      start: 33
-      end: 49
-  const loaded = Effect.tryPromise((signal) => load(path, signal));:
+      start: 66
+      end: 82
+  import { Effect } from "effect"; const loaded = Effect.tryPromise((signal) => load(path, signal));:
     labels:
     - source: Effect.tryPromise((signal) => load(path, signal))
       style: primary
-      start: 15
-      end: 64
+      start: 48
+      end: 97
+    - source: Effect
+      style: secondary
+      start: 48
+      end: 54
+    - source: Effect
+      style: secondary
+      start: 48
+      end: 54
+    - source: tryPromise
+      style: secondary
+      start: 55
+      end: 65
     - source: Effect.tryPromise
       style: secondary
-      start: 15
-      end: 32
+      start: 48
+      end: 65
     - source: (signal) => load(path, signal)
       style: secondary
-      start: 33
-      end: 63
+      start: 66
+      end: 96
     - source: (signal) => load(path, signal)
       style: secondary
-      start: 33
-      end: 63
-  const parsed = Effect.try(() => parse(raw));:
+      start: 66
+      end: 96
+  import { Effect } from "effect"; const parsed = Effect.try(() => parse(raw));:
     labels:
     - source: Effect.try(() => parse(raw))
       style: primary
-      start: 15
-      end: 43
+      start: 48
+      end: 76
+    - source: Effect
+      style: secondary
+      start: 48
+      end: 54
+    - source: try
+      style: secondary
+      start: 55
+      end: 58
     - source: Effect.try
       style: secondary
-      start: 15
-      end: 25
+      start: 48
+      end: 58
     - source: () => parse(raw)
       style: secondary
-      start: 26
-      end: 42
+      start: 59
+      end: 75
     - source: () => parse(raw)
       style: secondary
-      start: 26
-      end: 42
-  const parsed = Effect.try(function () { return parse(raw); });:
+      start: 59
+      end: 75
+  import { Effect } from "effect"; const parsed = Effect.try(function () { return parse(raw); });:
     labels:
     - source: Effect.try(function () { return parse(raw); })
       style: primary
-      start: 15
-      end: 61
+      start: 48
+      end: 94
+    - source: Effect
+      style: secondary
+      start: 48
+      end: 54
+    - source: try
+      style: secondary
+      start: 55
+      end: 58
     - source: Effect.try
       style: secondary
-      start: 15
-      end: 25
+      start: 48
+      end: 58
     - source: function () { return parse(raw); }
       style: secondary
-      start: 26
-      end: 60
+      start: 59
+      end: 93
     - source: function () { return parse(raw); }
       style: secondary
-      start: 26
-      end: 60
-  const parsed = Either.try(() => parse(raw));:
+      start: 59
+      end: 93
+  import { Either } from "effect"; const parsed = Either.try(() => parse(raw));:
     labels:
     - source: Either.try(() => parse(raw))
       style: primary
-      start: 15
-      end: 43
+      start: 48
+      end: 76
+    - source: Either
+      style: secondary
+      start: 48
+      end: 54
+    - source: try
+      style: secondary
+      start: 55
+      end: 58
     - source: Either.try
       style: secondary
-      start: 15
-      end: 25
+      start: 48
+      end: 58
     - source: () => parse(raw)
       style: secondary
-      start: 26
-      end: 42
+      start: 59
+      end: 75
     - source: () => parse(raw)
       style: secondary
-      start: 26
-      end: 42
-  const parsed = STM.try(() => parse(raw));:
+      start: 59
+      end: 75
+  import { STM } from "effect"; const parsed = STM.try(() => parse(raw));:
     labels:
     - source: STM.try(() => parse(raw))
       style: primary
-      start: 15
-      end: 40
+      start: 45
+      end: 70
+    - source: STM
+      style: secondary
+      start: 45
+      end: 48
+    - source: try
+      style: secondary
+      start: 49
+      end: 52
     - source: STM.try
       style: secondary
-      start: 15
-      end: 22
+      start: 45
+      end: 52
     - source: () => parse(raw)
       style: secondary
-      start: 23
-      end: 39
+      start: 53
+      end: 69
     - source: () => parse(raw)
       style: secondary
-      start: 23
-      end: 39
+      start: 53
+      end: 69

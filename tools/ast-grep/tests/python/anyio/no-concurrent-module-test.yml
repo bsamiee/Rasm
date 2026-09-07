@@ -2,13 +2,13 @@ id: no-concurrent-module
 valid:
     # The corrected form, the thread pool of anyio
     - |
-      import anyio
+      import anyio.to_thread
 
       async def load(path):
           return await anyio.to_thread.run_sync(path.read_bytes)
     # The corrected form for a subinterpreter
     - |
-      import anyio
+      import anyio.to_interpreter
 
       async def load(path):
           return await anyio.to_interpreter.run_sync(parse, path)
@@ -21,6 +21,8 @@ valid:
     # Package with the namespace as a prefix
     - |
       import concurrent_log_handler
+    # Package metadata does not create a concurrency primitive.
+    - 'from concurrent import __name__'
 invalid:
     # The instance, the executor imported from the module
     - |

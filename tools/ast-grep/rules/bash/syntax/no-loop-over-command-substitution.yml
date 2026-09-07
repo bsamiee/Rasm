@@ -1,7 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# Report only, a read loop in place of the for splits on lines alone, the probe prints [a b] where the original prints [a] and [b]
 id: no-loop-over-command-substitution
 language: bash
 severity: error
+ignores: ["**/*.json"]
 rule:
     kind: for_statement
     has: # The words the loop iterates, an unquoted substitution or scalar among them splits on IFS and expands globs
@@ -18,4 +20,4 @@ rule:
               pattern: $SUB
               has: {kind: variable_name}
 message: The loop word-splits and glob-expands `$SUB` into its items
-note: Read the lines into an array, `mapfile -t <name> < <(<command>)`, loop with `while IFS= read -r <line>; do ...; done < <(<command>)`, or expand a glob under `shopt -s globstar nullglob`
+note: Read records by the producer's delimiter, NUL for paths and lines for line records, and iterate a quoted array expansion

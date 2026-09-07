@@ -115,8 +115,12 @@ public static class Generators {
         _ = double.IsFinite(conditionNumber) ? conditionNumber : throw new ArgumentOutOfRangeException(nameof(conditionNumber), conditionNumber, "condition number must be finite");
         return OrthogonalMatrix(dimension).Select(orthogonal => {
             double[] spectrum = [.. Enumerable.Range(0, dimension).Select(index => Math.Pow(conditionNumber, dimension == 1 ? 0.0 : -(double)index / (dimension - 1)))];
-            return (double[][])[.. Enumerable.Range(0, dimension).Select(row =>
-                (double[])[.. Enumerable.Range(0, dimension).Select(column => Enumerable.Range(0, dimension).Sum(index => orthogonal[row][index] * spectrum[index] * orthogonal[column][index]))])];
+            // Q diag(spectrum) Q^T, one entry per (row, column) pair, chunked back into rows
+            IEnumerable<double> entries =
+                from row in Enumerable.Range(0, dimension)
+                from column in Enumerable.Range(0, dimension)
+                select Enumerable.Range(0, dimension).Sum(index => orthogonal[row][index] * spectrum[index] * orthogonal[column][index]);
+            return (double[][])[.. entries.Chunk(dimension)];
         });
     }
 

@@ -1,6 +1,20 @@
 id: require-private-normalized-property
 snapshots:
   ? |
+    <Project ToolsVersion="Current"><PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup></Project>
+  : labels:
+    - source: <ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot>
+      style: primary
+      start: 47
+      end: 115
+  ? |
+    <Project TreatAsLocalProperty="  "><PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup></Project>
+  : labels:
+    - source: <ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot>
+      style: primary
+      start: 50
+      end: 118
+  ? |
     <PropertyGroup><RepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</RepoRoot></PropertyGroup>
   : labels:
     - source: <RepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</RepoRoot>

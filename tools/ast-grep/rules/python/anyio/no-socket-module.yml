@@ -2,9 +2,14 @@
 id: no-socket-module
 language: python
 severity: error
+# Report-only, the probed fix `create_connection` to `await anyio.connect_tcp` fails, `SocketStream has no attribute sendall`
 rule:
-    matches: {python-module-member: {module: {regex: '^socket$'}, name: {regex: '^(socket|create_connection|create_server)$', pattern: $NAME}}}
-message: '`socket.$NAME` opens a raw socket without a deadline'
-note: >-
-    Connect through `anyio.connect_tcp(<host>, <port>)` or serve through `anyio.create_tcp_listener(local_port=<port>)`
-    under a cancel scope, and send HTTP through httpx
+    kind: call
+    pattern: $CALL
+    has:
+        field: function
+        any:
+            - matches: {python-module-member: {module: {regex: '^socket$'}, name: {regex: '^(socket|create_connection|create_server)$'}}}
+            - matches: {python-imported-name: {module: {regex: '^socket$'}, name: {regex: '^(socket|create_connection|create_server)$'}}}
+message: '`$CALL` opens a socket outside anyio'
+note: Connect through `anyio.connect_tcp(<host>, <port>)` or serve through `anyio.create_tcp_listener(local_port=<port>)`

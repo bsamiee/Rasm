@@ -143,8 +143,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         if "socket_enabled" in getattr(item, "fixturenames", ()):
             item.add_marker(network, append=False)
-        fn = getattr(item, "function", None)
-        if fn is not None and is_hypothesis_test(fn):
+        if (fn := getattr(item, "function", None)) is not None and is_hypothesis_test(fn):
             item.add_marker(property_, append=False)
     config.stash[PROPERTY_RECORDS] = (
         *(record for item in items for mark in item.iter_markers("property") if isinstance(record := mark.kwargs.get("record"), PropertyRecord)),
@@ -183,8 +182,7 @@ def otel_spans(_otel_provider: InMemorySpanExporter) -> InMemorySpanExporter:
 @pytest.fixture(scope="session")
 def energyplus() -> Path:
     """Point honeybee-energy at the EnergyPlus installation provision links under the tools directory and return that folder."""
-    folder = REPO_ROOT / ".cache" / "tools" / "energyplus"
-    if not folder.is_dir():
+    if not (folder := REPO_ROOT / ".cache" / "tools" / "energyplus").is_dir():
         pytest.skip("EnergyPlus is not provisioned, run nx run eng:provision")
     from honeybee_energy.config import folders  # ruff:ignore[import-outside-top-level] -- honeybee-energy imports slowly, tests that need it pay for it
 

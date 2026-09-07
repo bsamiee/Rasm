@@ -8,7 +8,6 @@ dist/
 build/
 out/
 html/
-public/build/
 .next/
 .nuxt/
 .turbo/
@@ -19,8 +18,6 @@ public/build/
 # --- [TYPESCRIPT_ARTIFACTS] ---------------------------------------------------
 
 *.tsbuildinfo
-**/dist/**/*.d.ts
-**/dist/**/*.d.ts.map
 *.js.map
 # Vite config bundle left beside vite.config.ts after a crashed run
 *.timestamp-*.mjs
@@ -69,7 +66,6 @@ htmlcov/
 
 # --- [CACHES] -----------------------------------------------------------------
 
-
 .cache/
 **/.artifacts/
 .nx/*
@@ -96,7 +92,7 @@ diagnostics.sarif
 # EnergyPlus ExpandObjects output in the working directory, not relocatable
 expanded.idf
 
-# --- [ENVIRONMENT_VARIABLES] --------------------------------------------------
+# --- [SECRETS] ----------------------------------------------------------------
 
 .env
 .env.local
@@ -105,6 +101,12 @@ expanded.idf
 .env.production
 .secrets
 gha-creds-*.json
+*.pem
+*.key
+*.secret
+*.cert
+*.crt
+credentials.json
 
 # --- [LOGS] -------------------------------------------------------------------
 
@@ -127,7 +129,7 @@ mise.local.toml
 *.orig
 *~
 
-# --- [MACOS] ------------------------------------------------------------------
+# --- [OPERATING_SYSTEMS] ------------------------------------------------------
 
 .DS_Store
 .AppleDouble
@@ -146,18 +148,8 @@ _tmp/
 # --- [AI_TOOLING] -------------------------------------------------------------
 
 .claude/agent-memory-local/
-.claude/skills/**/.cache/
 .claude/settings.local.json
 .claude/types/
 .claude/worktrees/
 .playwright-mcp/
 docs/research
-
-# --- [SECRETS] ---------------------------------------------------------------
-
-*.pem
-*.key
-*.secret
-*.cert
-*.crt
-credentials.json

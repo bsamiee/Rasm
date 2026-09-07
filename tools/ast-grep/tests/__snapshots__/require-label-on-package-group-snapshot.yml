@@ -10,6 +10,18 @@ snapshots:
       style: primary
       start: 9
       end: 164
+    - source: |-
+        <PackageVersion Include="CsCheck" Version="4.8.0"
+          />
+      style: secondary
+      start: 66
+      end: 120
+    - source: |-
+        <PackageVersion Include="CsCheck" Version="4.8.0"
+          /> <!-- Property-based testing -->
+      style: secondary
+      start: 66
+      end: 152
   ? |
     <Project><ItemGroup Label=""><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
   : labels:
@@ -17,6 +29,14 @@ snapshots:
       style: primary
       start: 9
       end: 125
+    - source: <PackageVersion Include="CsCheck" Version="4.8.0" />
+      style: secondary
+      start: 29
+      end: 81
+    - source: <PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing -->
+      style: secondary
+      start: 29
+      end: 113
   ? |
     <Project><ItemGroup Label=''><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
   : labels:
@@ -24,6 +44,14 @@ snapshots:
       style: primary
       start: 9
       end: 125
+    - source: <PackageVersion Include="CsCheck" Version="4.8.0" />
+      style: secondary
+      start: 29
+      end: 81
+    - source: <PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing -->
+      style: secondary
+      start: 29
+      end: 113
   ? |
     <Project><ItemGroup><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
   : labels:
@@ -31,3 +59,11 @@ snapshots:
       style: primary
       start: 9
       end: 116
+    - source: <PackageVersion Include="CsCheck" Version="4.8.0" />
+      style: secondary
+      start: 20
+      end: 72
+    - source: <PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing -->
+      style: secondary
+      start: 20
+      end: 104

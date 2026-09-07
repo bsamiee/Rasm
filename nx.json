@@ -17,20 +17,17 @@
         "dotnet": [
             "{workspaceRoot}/global.json",
             "{workspaceRoot}/NuGet.config",
-            "{workspaceRoot}/Directory.Build.props",
-            "{workspaceRoot}/Directory.Build.targets",
-            "{workspaceRoot}/Directory.Packages.props",
+            "{workspaceRoot}/Directory.{Build.props,Build.targets,Packages.props}",
             "{workspaceRoot}/.editorconfig"
         ],
-        "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock"],
+        "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "env": "UV_PYTHON" }, { "runtime": "uv --version" }],
         "typescript": [
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/tsconfig.base.json",
             "{workspaceRoot}/package.json",
             "{workspaceRoot}/pnpm-workspace.yaml",
             "{workspaceRoot}/pnpm-lock.yaml",
-            "{workspaceRoot}/vite.config.ts",
-            "{workspaceRoot}/vitest.config.ts",
+            "{workspaceRoot}/{vite,vitest}.config.ts",
             { "runtime": "node --version" }
         ]
     },
@@ -57,7 +54,7 @@
                 "cache": true,
                 "dependsOn": ["build", { "projects": ["rasm"], "target": "grammar" }],
                 "inputs": ["default", "dotnet"],
-                "options": { "commands": [{ "command": "ast-grep scan {projectRoot}", "forwardAllArgs": false }] }
+                "options": { "command": "ast-grep scan {projectRoot}", "forwardAllArgs": false }
             },
             {
                 "filter": { "projects": ["tag:language:python"] },
@@ -65,7 +62,7 @@
                 "cache": true,
                 "dependsOn": [{ "projects": ["rasm"], "target": "grammar" }],
                 "inputs": ["default", "python"],
-                "options": { "commands": ["uv run ruff check --fix {projectRoot}", "ast-grep scan {projectRoot}"], "parallel": false }
+                "options": { "commands": ["uv run ruff check {projectRoot}", "ast-grep scan {projectRoot}"], "parallel": false }
             },
             {
                 "filter": { "projects": ["tag:language:typescript", "!rasm"] },
@@ -73,17 +70,14 @@
                 "cache": true,
                 "dependsOn": [{ "projects": ["rasm"], "target": "grammar" }],
                 "inputs": ["default", "typescript"],
-                "options": {
-                    "commands": ["biome check --write --error-on-warnings {projectRoot}", "ast-grep scan {projectRoot}"],
-                    "parallel": false
-                }
+                "options": { "commands": ["biome check --error-on-warnings {projectRoot}", "ast-grep scan {projectRoot}"], "parallel": false }
             }
         ],
         "format": [
             {
                 "filter": { "projects": ["tag:language:dotnet"] },
                 "executor": "nx:run-commands",
-                "cache": true,
+                "cache": false,
                 "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
                 "inputs": ["default", "dotnet"],
                 "options": { "command": "dotnet format --no-restore", "cwd": "{projectRoot}" }
@@ -91,16 +85,16 @@
             {
                 "filter": { "projects": ["tag:language:python"] },
                 "executor": "nx:run-commands",
-                "cache": true,
+                "cache": false,
                 "inputs": ["default", "python"],
-                "options": { "command": "uv run ruff format {projectRoot}" }
+                "options": { "commands": ["uv run ruff check --fix {projectRoot}", "uv run ruff format {projectRoot}"], "parallel": false }
             },
             {
                 "filter": { "projects": ["tag:language:typescript", "!rasm"] },
                 "executor": "nx:run-commands",
-                "cache": true,
+                "cache": false,
                 "inputs": ["default", "typescript"],
-                "options": { "command": "biome format --write {projectRoot}" }
+                "options": { "command": "biome check --write --error-on-warnings {projectRoot}" }
             }
         ],
         "typecheck": [
@@ -145,33 +139,36 @@
             },
             {
                 "filter": { "projects": ["tag:language:typescript"] },
+                "inputs": ["...", "typescript", "{workspaceRoot}/tests/typescript/support/**/*"],
                 "outputs": [
                     "{workspaceRoot}/.artifacts/typescript/test-results/{projectName}",
                     "{workspaceRoot}/.artifacts/typescript/test-results/.vitest-reports/{projectName}.json",
                     "{workspaceRoot}/.artifacts/typescript/bench/{projectName}.json",
                     "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"
                 ],
-                "configurations": { "benchmark": { "command": "vitest bench" } }
+                "configurations": {
+                    "benchmark": {
+                        "command": "vitest bench --run --reporter=json --outputFile=\"$PWD/.artifacts/typescript/bench/{projectName}.json\"",
+                        "cwd": "{workspaceRoot}",
+                        "config": "{projectRoot}/vitest.config.ts"
+                    }
+                }
             }
         ],
-        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["lint", "format", "typecheck", "test"] }],
+        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["lint", "typecheck", "test"] }],
         "nx-release-publish": [
             {
                 "filter": { "projects": ["tag:language:dotnet"] },
                 "executor": "nx:run-commands",
                 "cache": false,
                 "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
-                "options": {
-                    "commands": [{ "command": "uv run --only-group eng python -m eng.scripts.publish nuget {projectRoot}", "forwardAllArgs": false }]
-                }
+                "options": { "command": "uv run --only-group eng python -m eng.scripts.publish nuget {projectRoot}", "forwardAllArgs": false }
             },
             {
                 "filter": { "projects": ["tag:language:python"] },
                 "executor": "nx:run-commands",
                 "cache": false,
-                "options": {
-                    "commands": [{ "command": "uv run --only-group eng python -m eng.scripts.publish pypi {projectRoot}", "forwardAllArgs": false }]
-                }
+                "options": { "command": "uv run --only-group eng python -m eng.scripts.publish pypi {projectRoot}", "forwardAllArgs": false }
             },
             { "filter": { "projects": ["tag:release:typescript"] }, "options": { "packageRoot": "{projectRoot}/dist" } }
         ]
@@ -209,7 +206,7 @@
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false } },
     "plugins": [
         { "plugin": "@nx/vite/plugin", "exclude": ["vite.config.ts"] },
-        { "plugin": "@nx/vitest", "exclude": ["vite.config.ts", "vitest.config.ts"] },
+        { "plugin": "@nx/vitest", "exclude": ["vite.config.ts", "vitest.config.ts"], "options": { "testMode": "run" } },
         {
             "plugin": "@nx/dotnet",
             "exclude": ["eng/native/**"],

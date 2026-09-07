@@ -7,6 +7,10 @@ snapshots:
       style: primary
       start: 14
       end: 59
+    - source: Condition
+      style: secondary
+      start: 14
+      end: 23
     - source: '"''$(TargetFramework)'' == ''net10.0''"'
       style: secondary
       start: 24
@@ -26,6 +30,10 @@ snapshots:
       style: primary
       start: 8
       end: 80
+    - source: Project
+      style: secondary
+      start: 8
+      end: 15
     - source: '"$(MSBuildThisFileDirectory)frameworks/$(TargetFramework).props"'
       style: secondary
       start: 16
@@ -45,6 +53,10 @@ snapshots:
       style: primary
       start: 29
       end: 65
+    - source: Condition
+      style: secondary
+      start: 29
+      end: 38
     - source: '"''$(OutputType)'' == ''Exe''"'
       style: secondary
       start: 39
@@ -58,31 +70,16 @@ snapshots:
       start: 0
       end: 68
   ? |
-    <PropertyGroup Condition="'$(Configuration)' == 'Release'"><Optimize>true</Optimize></PropertyGroup>
-  : labels:
-    - source: Condition="'$(Configuration)' == 'Release'"
-      style: primary
-      start: 15
-      end: 58
-    - source: '"''$(Configuration)'' == ''Release''"'
-      style: secondary
-      start: 25
-      end: 58
-    - source: <PropertyGroup Condition="'$(Configuration)' == 'Release'"><Optimize>true</Optimize></PropertyGroup>
-      style: secondary
-      start: 0
-      end: 100
-    - source: <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-      style: secondary
-      start: 0
-      end: 59
-  ? |
     <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'"><DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants></PropertyGroup>
   : labels:
     - source: Condition="'$(TargetFramework)' == 'net10.0'"
       style: primary
       start: 15
       end: 60
+    - source: Condition
+      style: secondary
+      start: 15
+      end: 24
     - source: '"''$(TargetFramework)'' == ''net10.0''"'
       style: secondary
       start: 25
@@ -103,6 +100,10 @@ snapshots:
       style: primary
       start: 41
       end: 78
+    - source: Condition
+      style: secondary
+      start: 41
+      end: 50
     - source: '"''$(HostCommon)'' == ''true''"'
       style: secondary
       start: 51
@@ -124,6 +125,10 @@ snapshots:
       style: primary
       start: 37
       end: 92
+    - source: Condition
+      style: secondary
+      start: 37
+      end: 46
     - source: '"''$(IsTestingPlatformApplication)'' == ''true''"'
       style: secondary
       start: 47
@@ -143,6 +148,10 @@ snapshots:
       style: primary
       start: 30
       end: 66
+    - source: Condition
+      style: secondary
+      start: 30
+      end: 39
     - source: '"''$(OutputType)'' == ''Exe''"'
       style: secondary
       start: 40

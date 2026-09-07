@@ -3,27 +3,15 @@
 import { FileSystem, Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { Array, Boolean, Config, Effect, Schema } from 'effect';
-import type { ViteUserConfig } from 'vitest/config';
+import { configDefaults, type ViteUserConfig } from 'vitest/config';
 import { parse } from 'yaml';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ROOT = import.meta.dirname;
 const _ARTIFACTS = `${_ROOT}/.artifacts/typescript`;
-const _TIMEOUTS = { slow: 5000, test: 10_000 };
-const _RETRIES = { ci: 2, local: 0 };
-const _EXCLUDE = ['**/node_modules/**', '**/dist/**', '**/.cache/**'];
-const _COVERAGE_EXCLUDE = [
-    '**/*.config.*',
-    '**/*.d.ts',
-    '**/__mocks__/**',
-    '**/__tests__/**',
-    '**/dist/**',
-    '**/node_modules/**',
-    '**/gen/**',
-    '**/test/**',
-    '**/tests/**',
-];
+const _EXCLUDE = [...configDefaults.exclude, '**/dist/**', '**/.cache/**', '**/.artifacts/**', '**/.archive/**'];
+const _COVERAGE_EXCLUDE = [..._EXCLUDE, '**/*.config.*', '**/*.d.ts', '**/__mocks__/**', '**/__tests__/**', '**/gen/**', '**/test/**', '**/tests/**'];
 const _REPORTERS = { ci: ['dot', 'json', 'junit', 'github-actions', 'blob'], local: ['tree', 'blob'] } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -34,9 +22,6 @@ const _Workspace = Schema.Struct({ packages: Schema.Array(Schema.String) });
 // --- [CONFIGURATION] -------------------------------------------------------------------
 
 const _ci = Config.withDefault(Config.boolean('CI'), false);
-
-const _reporters = (ci: boolean): (typeof _REPORTERS)[keyof typeof _REPORTERS] =>
-    Boolean.match(ci, { onFalse: () => _REPORTERS.local, onTrue: () => _REPORTERS.ci });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -49,10 +34,11 @@ const _project = (directory: string): Effect.Effect<ViteUserConfig, never, FileS
         const ci = yield* _ci;
         const results = `${_ARTIFACTS}/test-results/${name}`;
         return {
+            root: directory,
             cacheDir: `${_ROOT}/.cache/vitest/${name}`,
             optimizeDeps: { include: ['@effect/vitest', 'effect'] },
             test: {
-                benchmark: { exclude: _EXCLUDE, include: ['**/*.bench.{ts,tsx}'], outputJson: `${_ARTIFACTS}/bench/${name}.json` },
+                benchmark: { exclude: _EXCLUDE, include: ['**/*.bench.{ts,tsx}'] },
                 chaiConfig: { includeStack: true, truncateThreshold: 0 },
                 coverage: {
                     enabled: true,
@@ -77,14 +63,13 @@ const _project = (directory: string): Effect.Effect<ViteUserConfig, never, FileS
                     junit: `${results}/junit.xml`,
                 },
                 pool: 'threads',
-                reporters: Array.fromIterable(_reporters(ci)),
+                reporters: Array.fromIterable(Boolean.match(ci, { onFalse: () => _REPORTERS.local, onTrue: () => _REPORTERS.ci })),
                 restoreMocks: true,
-                retry: Boolean.match(ci, { onFalse: () => _RETRIES.local, onTrue: () => _RETRIES.ci }),
                 sequence: { shuffle: ci },
                 setupFiles: [`${_ROOT}/tests/typescript/support/setup.ts`],
                 silent: 'passed-only',
-                slowTestThreshold: _TIMEOUTS.slow,
-                testTimeout: _TIMEOUTS.test,
+                slowTestThreshold: 5000,
+                testTimeout: 10_000,
                 unstubEnvs: true,
                 unstubGlobals: true,
             },
@@ -105,7 +90,10 @@ const _root: Effect.Effect<ViteUserConfig, never, FileSystem.FileSystem | Path.P
             coverage: { ...project.test?.coverage, clean: false, reporter: ['lcovonly', 'json'], reportsDirectory: `${_ARTIFACTS}/coverage` },
             // Every glob in the pnpm workspace names a project through the vitest.config.ts beside its manifest
             projects: Array.map(workspace.packages, (glob) => `${glob}/vitest.config.ts`),
-            reporters: Array.filter(_reporters(ci), (reporter) => reporter !== 'blob'),
+            reporters: Array.filter(
+                Boolean.match(ci, { onFalse: () => _REPORTERS.local, onTrue: () => _REPORTERS.ci }),
+                (reporter) => reporter !== 'blob',
+            ),
         },
     };
 }).pipe(Effect.orDie);
@@ -114,7 +102,7 @@ const _root: Effect.Effect<ViteUserConfig, never, FileSystem.FileSystem | Path.P
 
 const createVitestConfig = (directory: string): Promise<ViteUserConfig> => Effect.runPromise(Effect.provide(_project(directory), NodeContext.layer));
 
-const rootConfig: Promise<ViteUserConfig> = Effect.runPromise(Effect.provide(_root, NodeContext.layer));
+const rootConfig = (): Promise<ViteUserConfig> => Effect.runPromise(Effect.provide(_root, NodeContext.layer));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

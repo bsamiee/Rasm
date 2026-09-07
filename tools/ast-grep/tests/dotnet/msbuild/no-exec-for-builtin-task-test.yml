@@ -34,3 +34,21 @@ invalid:
     # Shell delete
     - |
       <Exec Command="rm -rf $(OutDir)stage" />
+    # Directory created with the parent flag, one operand
+    - |
+      <Exec Command="mkdir -p $(OutDir)logs" Condition="'$(Configuration)' == 'Release'" />
+    # Shell delete of one file
+    - |
+      <Exec Command="rm $(OutDir)stale.txt" />
+    # Touch through the shell
+    - |
+      <Exec Command="touch $(IntermediateOutputPath)stamp" />
+    # Append through a redirect, the write keeps the earlier lines
+    - |
+      <Exec Command="echo $(Version) &gt;&gt; $(IntermediateOutputPath)log.txt" />
+    # Working directory on the task, the fix leaves the Exec because the built-in task resolves from the project directory
+    - |
+      <Exec Command="mkdir logs" WorkingDirectory="$(OutDir)" />
+    # Two operands, the fix leaves the Exec because Directories takes a semicolon list
+    - |
+      <Exec Command="mkdir a b" />

@@ -1,249 +1,95 @@
 id: no-unawaited-engine-condition
 snapshots:
+  'const held = ($.fs.exists(path)) ? one : two;':
+    labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 14
+      end: 31
+  'const held = (ready && ($.fs.exists(path))) ? one : two;':
+    labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 24
+      end: 41
+  'const held = (ready ?? $.store.get(key)) ? one : two;':
+    labels:
+    - source: $.store.get(key)
+      style: primary
+      start: 23
+      end: 39
+  const missing = !$.fs.exists(path);:
+    labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 17
+      end: 34
+  if ($.clock.sleep(100)) run();:
+    labels:
+    - source: $.clock.sleep(100)
+      style: primary
+      start: 4
+      end: 22
   ? |
-    async function guard($, e, next) {
+    on('tool.call', ($, e, next) => {
         if ($.fs.exists(path)) {
             return next(e);
         }
         return next(e);
-    }
-  : fixed: |
-      async function guard($, e, next) {
-          if (await $.fs.exists(path)) {
-              return next(e);
-          }
-          return next(e);
-      }
-    labels:
+    });
+  : labels:
     - source: $.fs.exists(path)
       style: primary
-      start: 43
-      end: 60
-    - source: async
-      style: secondary
-      start: 0
-      end: 5
-    - source: |-
-        async function guard($, e, next) {
-            if ($.fs.exists(path)) {
-                return next(e);
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 0
-      end: 115
-  ? |
-    const guards = {
-        async run($, e, next) {
-            return next($.fs.exists(path) ? e : e);
-        },
-    };
-  : fixed: |
-      const guards = {
-          async run($, e, next) {
-              return next(await $.fs.exists(path) ? e : e);
-          },
-      };
-    labels:
-    - source: $.fs.exists(path)
-      style: primary
-      start: 65
-      end: 82
-    - source: async
-      style: secondary
-      start: 21
-      end: 26
-    - source: |-
-        async run($, e, next) {
-                return next($.fs.exists(path) ? e : e);
-            }
-      style: secondary
-      start: 21
-      end: 98
-  ? |
-    const hook = async ($, e, next) => next($.fs.exists(path) ? e : e);
-    on('tool.call', hook);
-  : fixed: |
-      const hook = async ($, e, next) => next(await $.fs.exists(path) ? e : e);
-      on('tool.call', hook);
-    labels:
-    - source: $.fs.exists(path)
-      style: primary
-      start: 40
-      end: 57
-    - source: async
-      style: secondary
-      start: 13
-      end: 18
-    - source: 'async ($, e, next) => next($.fs.exists(path) ? e : e)'
-      style: secondary
-      start: 13
-      end: 66
-  ? |
-    const register = (on) => {
-        on('tool.call', async ($, e, next) => next($.fs.exists(path) ? e : e));
-    };
-  : fixed: |
-      const register = (on) => {
-          on('tool.call', async ($, e, next) => next(await $.fs.exists(path) ? e : e));
-      };
-    labels:
-    - source: $.fs.exists(path)
-      style: primary
-      start: 74
-      end: 91
-    - source: async
-      style: secondary
-      start: 47
-      end: 52
-    - source: 'async ($, e, next) => next($.fs.exists(path) ? e : e)'
-      style: secondary
-      start: 47
-      end: 100
+      start: 42
+      end: 59
   'on(''tool.call'', async ($, e, next) => next(!!$.fs.exists(path) ? e : e));':
-    fixed: 'on(''tool.call'', async ($, e, next) => next(!!(await $.fs.exists(path)) ? e : e));'
     labels:
     - source: $.fs.exists(path)
       style: primary
       start: 45
       end: 62
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: 'async ($, e, next) => next(!!$.fs.exists(path) ? e : e)'
-      style: secondary
-      start: 16
-      end: 71
   'on(''tool.call'', async ($, e, next) => next(!$.fs.exists(path) ? e : e));':
-    fixed: 'on(''tool.call'', async ($, e, next) => next(!(await $.fs.exists(path)) ? e : e));'
     labels:
     - source: $.fs.exists(path)
       style: primary
       start: 44
       end: 61
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: 'async ($, e, next) => next(!$.fs.exists(path) ? e : e)'
-      style: secondary
-      start: 16
-      end: 70
   'on(''tool.call'', async ($, e, next) => next($.fs.exists(path) && ready ? e : e));':
-    fixed: 'on(''tool.call'', async ($, e, next) => next((await $.fs.exists(path)) && ready ? e : e));'
     labels:
     - source: $.fs.exists(path)
       style: primary
       start: 43
       end: 60
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: 'async ($, e, next) => next($.fs.exists(path) && ready ? e : e)'
-      style: secondary
-      start: 16
-      end: 78
   'on(''tool.call'', async ($, e, next) => next($.fs.exists(path) ? e : e));':
-    fixed: 'on(''tool.call'', async ($, e, next) => next(await $.fs.exists(path) ? e : e));'
     labels:
     - source: $.fs.exists(path)
       style: primary
       start: 43
       end: 60
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: 'async ($, e, next) => next($.fs.exists(path) ? e : e)'
-      style: secondary
-      start: 16
-      end: 69
   'on(''tool.call'', async ($, e, next) => next($.store.get(key) ? e : e));':
-    fixed: 'on(''tool.call'', async ($, e, next) => next(await $.store.get(key) ? e : e));'
     labels:
     - source: $.store.get(key)
       style: primary
       start: 43
       end: 59
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: 'async ($, e, next) => next($.store.get(key) ? e : e)'
-      style: secondary
-      start: 16
-      end: 68
   'on(''tool.call'', async ($, e, next) => next($.ui.ask(question) ? e : e));':
-    fixed: 'on(''tool.call'', async ($, e, next) => next(await $.ui.ask(question) ? e : e));'
     labels:
     - source: $.ui.ask(question)
       style: primary
       start: 43
       end: 61
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: 'async ($, e, next) => next($.ui.ask(question) ? e : e)'
-      style: secondary
-      start: 16
-      end: 70
   'on(''tool.call'', async ($, e, next) => next(Boolean($.fs.exists(path)) ? e : e));':
-    fixed: 'on(''tool.call'', async ($, e, next) => next(Boolean(await $.fs.exists(path)) ? e : e));'
     labels:
     - source: $.fs.exists(path)
       style: primary
       start: 51
       end: 68
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: 'async ($, e, next) => next(Boolean($.fs.exists(path)) ? e : e)'
-      style: secondary
-      start: 16
-      end: 78
   'on(''tool.call'', async ($, e, next) => next(ready || $.fs.exists(path) ? e : e));':
-    fixed: 'on(''tool.call'', async ($, e, next) => next(ready || (await $.fs.exists(path)) ? e : e));'
     labels:
     - source: $.fs.exists(path)
       style: primary
       start: 52
       end: 69
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: 'async ($, e, next) => next(ready || $.fs.exists(path) ? e : e)'
-      style: secondary
-      start: 16
-      end: 78
-  ? |
-    on('tool.call', async ($, e, next) => {
-        const check = async () => ($.fs.exists(path) ? e : e);
-        return next(await check());
-    });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          const check = async () => (await $.fs.exists(path) ? e : e);
-          return next(await check());
-      });
-    labels:
-    - source: $.fs.exists(path)
-      style: primary
-      start: 71
-      end: 88
-    - source: async
-      style: secondary
-      start: 58
-      end: 63
-    - source: 'async () => ($.fs.exists(path) ? e : e)'
-      style: secondary
-      start: 58
-      end: 97
   ? |
     on('tool.call', async ($, e, next) => {
         do {
@@ -251,32 +97,11 @@ snapshots:
         } while ($.fs.exists(path));
         return next(e);
     });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          do {
-              break;
-          } while (await $.fs.exists(path));
-          return next(e);
-      });
-    labels:
+  : labels:
     - source: $.fs.exists(path)
       style: primary
       start: 77
       end: 94
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async ($, e, next) => {
-            do {
-                break;
-            } while ($.fs.exists(path));
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 118
   ? |
     on('tool.call', async ($, e, next) => {
         for (; $.fs.exists(path); ) {
@@ -284,32 +109,11 @@ snapshots:
         }
         return next(e);
     });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          for (; await $.fs.exists(path); ) {
-              break;
-          }
-          return next(e);
-      });
-    labels:
+  : labels:
     - source: $.fs.exists(path)
       style: primary
       start: 51
       end: 68
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async ($, e, next) => {
-            for (; $.fs.exists(path); ) {
-                break;
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 116
   ? |
     on('tool.call', async ($, e, next) => {
         if ($.fs.exists(path)) {
@@ -317,32 +121,11 @@ snapshots:
         }
         return next(e);
     });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          if (await $.fs.exists(path)) {
-              return next(e);
-          }
-          return next(e);
-      });
-    labels:
+  : labels:
     - source: $.fs.exists(path)
       style: primary
       start: 48
       end: 65
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async ($, e, next) => {
-            if ($.fs.exists(path)) {
-                return next(e);
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 120
   ? |
     on('tool.call', async ($, e, next) => {
         if ($.store.get(key) !== null) {
@@ -350,32 +133,11 @@ snapshots:
         }
         return next(e);
     });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          if ((await $.store.get(key)) !== null) {
-              return next(e);
-          }
-          return next(e);
-      });
-    labels:
+  : labels:
     - source: $.store.get(key)
       style: primary
       start: 48
       end: 64
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async ($, e, next) => {
-            if ($.store.get(key) !== null) {
-                return next(e);
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 128
   ? |
     on('tool.call', async ($, e, next) => {
         if ($.store.get(key) !== undefined) {
@@ -383,71 +145,11 @@ snapshots:
         }
         return next(e);
     });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          if ((await $.store.get(key)) !== undefined) {
-              return next(e);
-          }
-          return next(e);
-      });
-    labels:
+  : labels:
     - source: $.store.get(key)
       style: primary
       start: 48
       end: 64
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async ($, e, next) => {
-            if ($.store.get(key) !== undefined) {
-                return next(e);
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 133
-  ? |
-    on('tool.call', async ($, e, next) => {
-        if (ready) {
-            return next(e);
-        } else if ($.fs.exists(path)) {
-            return next(e);
-        }
-        return next(e);
-    });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          if (ready) {
-              return next(e);
-          } else if (await $.fs.exists(path)) {
-              return next(e);
-          }
-          return next(e);
-      });
-    labels:
-    - source: $.fs.exists(path)
-      style: primary
-      start: 96
-      end: 113
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async ($, e, next) => {
-            if (ready) {
-                return next(e);
-            } else if ($.fs.exists(path)) {
-                return next(e);
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 168
   ? |
     on('tool.call', async ($, e, next) => {
         while ($.fs.exists(path)) {
@@ -455,32 +157,11 @@ snapshots:
         }
         return next(e);
     });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          while (await $.fs.exists(path)) {
-              break;
-          }
-          return next(e);
-      });
-    labels:
+  : labels:
     - source: $.fs.exists(path)
       style: primary
       start: 51
       end: 68
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async ($, e, next) => {
-            while ($.fs.exists(path)) {
-                break;
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 114
   ? |
     on('tool.call', async ($, e, next) => {
         while (ready && $.fs.exists(path)) {
@@ -488,62 +169,8 @@ snapshots:
         }
         return next(e);
     });
-  : fixed: |
-      on('tool.call', async ($, e, next) => {
-          while (ready && (await $.fs.exists(path))) {
-              break;
-          }
-          return next(e);
-      });
-    labels:
+  : labels:
     - source: $.fs.exists(path)
       style: primary
       start: 60
       end: 77
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async ($, e, next) => {
-            while (ready && $.fs.exists(path)) {
-                break;
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 123
-  ? |
-    on('tool.call', async function ($, e, next) {
-        if ($.fs.exists(path)) {
-            return next(e);
-        }
-        return next(e);
-    });
-  : fixed: |
-      on('tool.call', async function ($, e, next) {
-          if (await $.fs.exists(path)) {
-              return next(e);
-          }
-          return next(e);
-      });
-    labels:
-    - source: $.fs.exists(path)
-      style: primary
-      start: 54
-      end: 71
-    - source: async
-      style: secondary
-      start: 16
-      end: 21
-    - source: |-
-        async function ($, e, next) {
-            if ($.fs.exists(path)) {
-                return next(e);
-            }
-            return next(e);
-        }
-      style: secondary
-      start: 16
-      end: 126

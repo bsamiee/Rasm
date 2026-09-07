@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Follow the receiver to its unbound root; callers identify the native operation.
+id: syntax-global-reference
+language: tsx
+rule:
+    any:
+        - kind: identifier
+          pattern: $GLOBAL
+          not:
+            any:
+                - matches: syntax-shadowed-import
+                - inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                        kind: import_statement
+                        has:
+                            kind: import_clause
+                            any:
+                                - has: {kind: identifier, pattern: $GLOBAL}
+                                - has: {kind: namespace_import, has: {kind: identifier, pattern: $GLOBAL}}
+                                - has:
+                                    kind: named_imports
+                                    has:
+                                        kind: import_specifier
+                                        has: {kind: identifier, pattern: $GLOBAL, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
+        - kind: member_expression
+          has: {field: object, matches: syntax-global-reference}

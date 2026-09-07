@@ -28,7 +28,6 @@ const _SEARCH: ToolCallInput = { tool: 'WebSearch', ['tool_use_id']: 'call', que
 const _RESTORE: ToolCallInput = { tool: 'mcp__hostinger__VPS_restoreSnapshotV1', ['tool_use_id']: 'call', virtualMachineId: 1 };
 const _SNAPSHOT: ToolCallInput = { tool: 'mcp__hostinger__VPS_createSnapshotV1', ['tool_use_id']: 'call', virtualMachineId: 7 };
 const _PURCHASE: ToolCallInput = {
-    // biome-ignore lint/security/noSecrets: the tool name as the declarations spell it, the literal narrows the event
     tool: 'mcp__hostinger__domains_purchaseNewDomainV1',
     ['tool_use_id']: 'call',
     domain: 'example.com',

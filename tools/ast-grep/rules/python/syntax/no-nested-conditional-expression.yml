@@ -2,6 +2,7 @@
 id: no-nested-conditional-expression
 language: python
 severity: error
+# Report-only, the probed fix a match statement in the expression's place fails, `invalid-syntax: Expected an expression`
 rule:
     kind: conditional_expression
     all:
@@ -9,5 +10,5 @@ rule:
         - has: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}
         # The outermost conditional of a chain reports once, a once-reporting arm the width check proves by one hit per case
         - not: {inside: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}}
-message: Conditional expression holds a conditional expression, the reader resolves a chain of arms
-note: Dispatch through `match <subject>:` with one `case` per arm, or bind the inner value to a name
+message: Conditional expression contains a nested conditional
+note: Express the dispatch with match cases or the owning result combinator, keeping the operation at its call site

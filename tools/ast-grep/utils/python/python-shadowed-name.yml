@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: python-shadowed-name
+language: python
+utils:
+    root:
+        any:
+            - kind: identifier
+              pattern: $ROOT
+            - kind: attribute
+              has:
+                field: object
+                any:
+                    - kind: identifier
+                      pattern: $ROOT
+                    - kind: attribute
+                      has: {field: object, kind: identifier, pattern: $ROOT}
+    parameter:
+        matches: {python-parameter: {name: {pattern: $ROOT}}}
+    target:
+        any:
+            - kind: identifier
+              pattern: $ROOT
+            - kind: pattern_list, tuple_pattern, list_pattern, list_splat_pattern, as_pattern_target
+              has: {matches: target}
+    pattern-capture:
+        kind: identifier
+        pattern: $ROOT
+        inside:
+            any:
+                - kind: dotted_name
+                  not: {has: {nthChild: 2}}
+                  inside: {kind: "case_pattern, keyword_pattern"}
+                - kind: splat_pattern
+                - kind: as_pattern
+                  inside: {kind: case_pattern}
+    binding:
+        any:
+            - matches: pattern-capture
+            - kind: assignment, augmented_assignment, for_statement, for_in_clause
+              has: {field: left, matches: target}
+            - kind: named_expression
+              has: {field: name, pattern: $ROOT}
+            - kind: as_pattern
+              has: {field: alias, matches: target}
+            - kind: function_definition, class_definition
+              has: {field: name, pattern: $ROOT}
+rule:
+    all:
+        - any:
+            - matches: root
+            - kind: call
+              has: {field: function, matches: root}
+        - any:
+            - inside:
+                kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                stopBy: end
+                any:
+                    - has: {field: parameters, has: {matches: parameter}}
+                    - has:
+                        stopBy: {kind: "function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression"}
+                        matches: binding
+            - inside:
+                kind: class_definition
+                stopBy: {kind: "function_definition, lambda"}
+                has:
+                    stopBy: {kind: "function_definition, class_definition, lambda"}
+                    matches: binding

@@ -8,3 +8,9 @@ rule:
         # The name slot forwards into msbuild-element and exports no capture, no caller binds a name
         - matches: {msbuild-element: {name: {matches: name}}}
         - inside: {kind: content, inside: {kind: element, has: {matches: msbuild-tag, has: {kind: Name, regex: '^PropertyGroup$'}}}}
+        # ProjectExtensions stores arbitrary XML, including element names used by MSBuild
+        - not:
+            inside:
+                kind: element
+                stopBy: end
+                has: {kind: STag, has: {kind: Name, regex: '^ProjectExtensions$'}}

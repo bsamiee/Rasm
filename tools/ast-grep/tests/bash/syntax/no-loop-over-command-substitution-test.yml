@@ -1,12 +1,10 @@
 id: no-loop-over-command-substitution
 valid:
-    # Lines read into an array
     - |
-      mapfile -t files < <(fd -e yml .)
+      mapfile -d '' -t files < <(fd -0 -e yml .)
       for f in "${files[@]}"; do printf '%s\n' "$f"; done
-    # Lines read one at a time
     - |
-      while IFS= read -r f; do printf '%s\n' "$f"; done < <(fd -e yml .)
+      while IFS= read -r -d '' f; do printf '%s\n' "$f"; done < <(fd -0 -e yml .)
     # Glob under globstar and nullglob
     - |
       for f in "$dir"/**/*.yml; do printf '%s\n' "$f"; done

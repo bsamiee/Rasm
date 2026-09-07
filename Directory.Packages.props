@@ -772,9 +772,9 @@
         <PackageVersion Include="coverlet.MTP"                                            Version="10.0.1" />                <!-- Code coverage collection for the Microsoft Testing Platform -->
         <PackageVersion Include="CsCheck"                                                 Version="4.8.0" />                 <!-- Property-based testing with shrinking, concurrency, and performance checks -->
         <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing"               Version="10.9.0" />                <!-- Fake time provider for deterministic time-dependent tests -->
-        <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump"                  Version="2.3.3" />                 <!-- Crash dump capture for failing test processes -->
-        <PackageVersion Include="Microsoft.Testing.Extensions.HangDump"                   Version="2.3.3" />                 <!-- Process dump capture for hung test runs -->
-        <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport"                  Version="2.3.3" />                 <!-- TRX report generation for test runs -->
+        <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump"                  Version="2.4.0" />                 <!-- Crash dump capture for failing test processes -->
+        <PackageVersion Include="Microsoft.Testing.Extensions.HangDump"                   Version="2.4.0" />                 <!-- Process dump capture for hung test runs -->
+        <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport"                  Version="2.4.0" />                 <!-- TRX report generation for test runs -->
         <PackageVersion Include="NodaTime.Testing"                                        Version="3.3.3" />                 <!-- Fake clocks and time zone providers for date-time tests -->
         <PackageVersion Include="ReactiveUI.Testing.Reactive"                             Version="24.1.0" />                <!-- Test scheduler for reactive view model code -->
         <PackageVersion Include="xunit.analyzers"                                         Version="2.0.0" />                 <!-- Roslyn analyzers for test correctness and style -->
@@ -844,9 +844,9 @@
         <PackageVersion Include="Microsoft.ML.DataView"                                   Version="5.0.0" />                 <!-- IDataView abstractions for tabular machine learning data pipelines -->
         <PackageVersion Include="Microsoft.NET.StringTools"                               Version="18.9.6" />                <!-- String weak interning and pooled span-based building -->
         <PackageVersion Include="Microsoft.Reactive.Testing"                              Version="7.0.0" />                 <!-- Test scheduler and recorded notification assertions for Rx -->
-        <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry"                  Version="2.3.3" />                 <!-- Telemetry collection extension for the testing platform -->
-        <PackageVersion Include="Microsoft.Testing.Platform"                              Version="2.3.3" />                 <!-- Test execution platform hosting self-contained test applications -->
-        <PackageVersion Include="Microsoft.Testing.Platform.MSBuild"                      Version="2.3.3" />                 <!-- MSBuild integration and entry-point generation for the testing platform -->
+        <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry"                  Version="2.4.0" />                 <!-- Telemetry collection extension for the testing platform -->
+        <PackageVersion Include="Microsoft.Testing.Platform"                              Version="2.4.0" />                 <!-- Test execution platform hosting self-contained test applications -->
+        <PackageVersion Include="Microsoft.Testing.Platform.MSBuild"                      Version="2.4.0" />                 <!-- MSBuild integration and entry-point generation for the testing platform -->
         <PackageVersion Include="NaCl.Net"                                                Version="0.1.13" />                <!-- Curve25519, XSalsa20, and Poly1305 cryptography primitives -->
         <PackageVersion Include="Namotion.Reflection"                                     Version="3.5.1" />                 <!-- Reflection over XML docs, nullability, and contextual types -->
         <PackageVersion Include="NATS.Client.Abstractions"                                Version="3.2.0" />                 <!-- Serialization abstractions and client interfaces -->

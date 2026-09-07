@@ -9,6 +9,99 @@ snapshots:
       style: primary
       start: 15
       end: 70
+  <PropertyGroup><DefaultItemExcludes>LOCAL</DefaultItemExcludes></PropertyGroup>:
+    fixed: <PropertyGroup><DefaultItemExcludes>$(DefaultItemExcludes);LOCAL</DefaultItemExcludes></PropertyGroup>
+    labels:
+    - source: <DefaultItemExcludes>LOCAL</DefaultItemExcludes>
+      style: primary
+      start: 15
+      end: 63
+  <PropertyGroup><DefineConstants>$(DefaultItemExcludes);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(DefaultItemExcludes);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(DefaultItemExcludes);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 78
+  <PropertyGroup><DefineConstants>$(InterceptorsNamespaces);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(InterceptorsNamespaces);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(InterceptorsNamespaces);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 81
+  <PropertyGroup><DefineConstants>$(InterceptorsPreviewNamespaces);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(InterceptorsPreviewNamespaces);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(InterceptorsPreviewNamespaces);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 88
+  <PropertyGroup><DefineConstants>$(MSBuildWarningsAsErrors);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(MSBuildWarningsAsErrors);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(MSBuildWarningsAsErrors);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 82
+  <PropertyGroup><DefineConstants>$(MSBuildWarningsAsMessages);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(MSBuildWarningsAsMessages);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(MSBuildWarningsAsMessages);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 84
+  <PropertyGroup><DefineConstants>$(MSBuildWarningsNotAsErrors);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(MSBuildWarningsNotAsErrors);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(MSBuildWarningsNotAsErrors);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 85
+  ? |
+    <PropertyGroup><DefineConstants>$(NoWarn);FEATURE</DefineConstants></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><DefineConstants>$(DefineConstants);$(NoWarn);FEATURE</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(NoWarn);FEATURE</DefineConstants>
+      style: primary
+      start: 15
+      end: 67
+  <PropertyGroup><DefineConstants>$(NoWarn);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(NoWarn);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(NoWarn);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 65
+  <PropertyGroup><DefineConstants>$(WarningsAsErrors);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(WarningsAsErrors);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(WarningsAsErrors);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 75
+  <PropertyGroup><DefineConstants>$(WarningsAsMessages);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(WarningsAsMessages);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(WarningsAsMessages);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 77
+  <PropertyGroup><DefineConstants>$(WarningsNotAsErrors);LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);$(WarningsNotAsErrors);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>$(WarningsNotAsErrors);LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 78
+  <PropertyGroup><DefineConstants>LOCAL</DefineConstants></PropertyGroup>:
+    fixed: <PropertyGroup><DefineConstants>$(DefineConstants);LOCAL</DefineConstants></PropertyGroup>
+    labels:
+    - source: <DefineConstants>LOCAL</DefineConstants>
+      style: primary
+      start: 15
+      end: 55
   ? |
     <PropertyGroup><DefineConstants>MY_FEATURE</DefineConstants></PropertyGroup>
   : fixed: |
@@ -18,6 +111,13 @@ snapshots:
       style: primary
       start: 15
       end: 60
+  <PropertyGroup><InterceptorsNamespaces>LOCAL</InterceptorsNamespaces></PropertyGroup>:
+    fixed: <PropertyGroup><InterceptorsNamespaces>$(InterceptorsNamespaces);LOCAL</InterceptorsNamespaces></PropertyGroup>
+    labels:
+    - source: <InterceptorsNamespaces>LOCAL</InterceptorsNamespaces>
+      style: primary
+      start: 15
+      end: 69
   ? |
     <PropertyGroup><InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
   : fixed: |
@@ -27,6 +127,27 @@ snapshots:
       style: primary
       start: 15
       end: 78
+  <PropertyGroup><InterceptorsPreviewNamespaces>LOCAL</InterceptorsPreviewNamespaces></PropertyGroup>:
+    fixed: <PropertyGroup><InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);LOCAL</InterceptorsPreviewNamespaces></PropertyGroup>
+    labels:
+    - source: <InterceptorsPreviewNamespaces>LOCAL</InterceptorsPreviewNamespaces>
+      style: primary
+      start: 15
+      end: 83
+  <PropertyGroup><MSBuildWarningsAsErrors>LOCAL</MSBuildWarningsAsErrors></PropertyGroup>:
+    fixed: <PropertyGroup><MSBuildWarningsAsErrors>$(MSBuildWarningsAsErrors);LOCAL</MSBuildWarningsAsErrors></PropertyGroup>
+    labels:
+    - source: <MSBuildWarningsAsErrors>LOCAL</MSBuildWarningsAsErrors>
+      style: primary
+      start: 15
+      end: 71
+  <PropertyGroup><MSBuildWarningsAsMessages>LOCAL</MSBuildWarningsAsMessages></PropertyGroup>:
+    fixed: <PropertyGroup><MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);LOCAL</MSBuildWarningsAsMessages></PropertyGroup>
+    labels:
+    - source: <MSBuildWarningsAsMessages>LOCAL</MSBuildWarningsAsMessages>
+      style: primary
+      start: 15
+      end: 75
   ? |
     <PropertyGroup><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
   : fixed: |
@@ -36,6 +157,13 @@ snapshots:
       style: primary
       start: 15
       end: 98
+  <PropertyGroup><MSBuildWarningsNotAsErrors>LOCAL</MSBuildWarningsNotAsErrors></PropertyGroup>:
+    fixed: <PropertyGroup><MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);LOCAL</MSBuildWarningsNotAsErrors></PropertyGroup>
+    labels:
+    - source: <MSBuildWarningsNotAsErrors>LOCAL</MSBuildWarningsNotAsErrors>
+      style: primary
+      start: 15
+      end: 77
   ? |
     <PropertyGroup><NoWarn /></PropertyGroup>
   : fixed: |
@@ -54,6 +182,29 @@ snapshots:
       style: primary
       start: 15
       end: 92
+  <PropertyGroup><NoWarn Condition="'$(Level)' > '0'" /></PropertyGroup>:
+    fixed: <PropertyGroup><NoWarn Condition="'$(Level)' > '0'">$(NoWarn);</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn Condition="'$(Level)' > '0'" />
+      style: primary
+      start: 15
+      end: 54
+  ? |
+    <PropertyGroup><NoWarn Condition="'$(Level)' > '0'">CS1591</NoWarn></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><NoWarn Condition="'$(Level)' > '0'">$(NoWarn);CS1591</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn Condition="'$(Level)' > '0'">CS1591</NoWarn>
+      style: primary
+      start: 15
+      end: 67
+  <PropertyGroup><NoWarn>$(DefineConstants);LOCAL</NoWarn></PropertyGroup>:
+    fixed: <PropertyGroup><NoWarn>$(NoWarn);$(DefineConstants);LOCAL</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn>$(DefineConstants);LOCAL</NoWarn>
+      style: primary
+      start: 15
+      end: 56
   ? |
     <PropertyGroup><NoWarn>CS1591</NoWarn></PropertyGroup>
   : fixed: |
@@ -63,3 +214,31 @@ snapshots:
       style: primary
       start: 15
       end: 38
+  <PropertyGroup><NoWarn>LOCAL</NoWarn></PropertyGroup>:
+    fixed: <PropertyGroup><NoWarn>$(NoWarn);LOCAL</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn>LOCAL</NoWarn>
+      style: primary
+      start: 15
+      end: 37
+  <PropertyGroup><WarningsAsErrors>LOCAL</WarningsAsErrors></PropertyGroup>:
+    fixed: <PropertyGroup><WarningsAsErrors>$(WarningsAsErrors);LOCAL</WarningsAsErrors></PropertyGroup>
+    labels:
+    - source: <WarningsAsErrors>LOCAL</WarningsAsErrors>
+      style: primary
+      start: 15
+      end: 57
+  <PropertyGroup><WarningsAsMessages>LOCAL</WarningsAsMessages></PropertyGroup>:
+    fixed: <PropertyGroup><WarningsAsMessages>$(WarningsAsMessages);LOCAL</WarningsAsMessages></PropertyGroup>
+    labels:
+    - source: <WarningsAsMessages>LOCAL</WarningsAsMessages>
+      style: primary
+      start: 15
+      end: 61
+  <PropertyGroup><WarningsNotAsErrors>LOCAL</WarningsNotAsErrors></PropertyGroup>:
+    fixed: <PropertyGroup><WarningsNotAsErrors>$(WarningsNotAsErrors);LOCAL</WarningsNotAsErrors></PropertyGroup>
+    labels:
+    - source: <WarningsNotAsErrors>LOCAL</WarningsNotAsErrors>
+      style: primary
+      start: 15
+      end: 63

@@ -1,5 +1,8 @@
 id: no-json-parse
 valid:
+    # Local and imported bindings do not identify a native global.
+    - 'function decode(JSON: { parse(value: string): unknown }) { return JSON.parse("x"); }'
+    - 'import { JSON } from "./codec"; JSON.parse(text);'
     # The decode through the JSON schema
     - 'const row = yield* Schema.decodeUnknown(Schema.parseJson(Row))(text);'
     # The encode to text keeps the value typed

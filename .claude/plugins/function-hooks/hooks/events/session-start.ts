@@ -14,7 +14,6 @@ import {
     isRecord,
     liftPredicate,
     map,
-    none,
     type Option,
     some,
     toArray,
@@ -54,6 +53,7 @@ import {
     MS_PER_HOUR,
     open,
     status,
+    summarize,
 } from '../policies/findings.ts';
 import { expiredScans, type Run } from '../policies/scan.ts';
 
@@ -162,21 +162,15 @@ const _facts = (on: On): void => {
             $.fs.ancestors({ names: ['CLAUDE.md'] }),
             $.session.repo(),
             $.process.run(['printenv', 'HOME'], { env }),
-            ..._SETTINGS.map((file) =>
-                $.fs
-                    .exists(file)
-                    .then((present) => forEach(() => $.fs.readFile(file))(fromBoolean(present)))
-                    .then(getOrElse(() => '{}')),
-            ),
+            // A settings file the read rejects, missing or unreadable, holds no setting
+            ..._SETTINGS.map((file) => $.fs.readFile(file).catch(() => '{}')),
         ]);
         // The configured autoMemoryDirectory wins over the derived one, and the MEMORY.md gate reads the winner
         const directory = _memoryDirectory(settings, _derived(_home(home), e.cwd));
         // The fs noun rejects a path outside the working directory, the gate on MEMORY.md runs through the host
-        const memoryDir = getOrElse<Option<string>>(none)(
-            await forEach((dir: string) =>
-                $.process.run(['test', '-e', `${dir}/MEMORY.md`], { env }).then((memory) => liftPredicate<string>(() => memory.exitCode === 0)(dir)),
-            )(directory),
-        );
+        const memory = await forEach((dir: string) => $.process.run(['test', '-e', `${dir}/MEMORY.md`], { env }))(directory);
+        const found = getOrElse(() => false)(map((run: Run) => run.exitCode === 0)(memory));
+        const memoryDir = flatMap(liftPredicate<string>(() => found))(directory);
         // The session row is the store's JSON boundary, absence leaves the module as null here alone
         await $.store.set(key('session', session), {
             startedAt: $.clock.now(),
@@ -187,7 +181,13 @@ const _facts = (on: On): void => {
         });
         const all = await $.store.keys();
         const entries = await Promise.all(keys('findings')(all).map(async (name): Promise<Entry> => ({ key: name, value: await $.store.get(name) })));
-        await Promise.all(_prune(all, session, entries, $.clock.now()).map((name) => $.store.delete(name)));
+        const expired = _prune(all, session, entries, $.clock.now());
+        await Promise.all(expired.map((name) => $.store.delete(name)));
+        // The summary row is rebuilt from the kept rows, the one scan behind the band and the open-question block
+        await $.store.set(
+            key('summary'),
+            summarize(decodeFindings(entries.filter((entry) => !expired.includes(entry.key)).map((entry) => entry.value))),
+        );
         return next(e);
     });
 };
@@ -218,33 +218,37 @@ const _dispatch = (on: On): void => {
         };
         // The status line belongs to the guidance lifecycle, a session with dispatch off shows none
         $.ui.status(getOrElse(() => undefined)(_statusLine(e.surface, await snapshot(), $.clock.now())));
-        // The editor's final message is the close input, the plugin's own spawn never reaches its served tool, and the settled batch lifts the hold
+        // The close-out's writes land, the settled batch lifts the hold, and the views redraw
+        const apply = async (batchId: string, closing: Closing): Promise<void> => {
+            await Promise.all(closing.writes.map((write) => $.store.set(write.key, write.value)));
+            await $.store.delete(key('dispatch', batchId));
+            FINDING_VIEWS.map((view) => $.ui.invalidate(view));
+        };
+        // The editor's final message is the close input, the plugin's own spawn never reaches its served tool
         const settle = async (batchId: string, text: string): Promise<void> => {
             const current = await snapshot();
-            await forEach(async (closing: Closing): Promise<void> => {
-                await Promise.all(closing.writes.map((write) => $.store.set(write.key, write.value)));
-                await $.store.delete(key('dispatch', batchId));
-                FINDING_VIEWS.map((view) => $.ui.invalidate(view));
-            })(_closing(text, current.entries, current.stamps, $.clock.now()));
+            await forEach((closing: Closing) => apply(batchId, closing))(_closing(text, current.entries, current.stamps, $.clock.now()));
+        };
+        // The result is a refusal or the editor's final message, the notice under the one and the settle under the other
+        const dispatch = async (named: Batch, current: Snapshot): Promise<void> => {
+            await $.store.set(key('dispatch', named.batchId), named.dispatch);
+            const spawned = await $.agent.spawn({
+                subagentType: EDITOR,
+                name: named.batchId,
+                prompt: _editorPrompt(named, current.entries, current.memoryDir),
+                background: true,
+            });
+            const refused = fromNullable(spawned.deny);
+            await forEach((reason: string) => $.store.set(key('notice'), { session, text: `The editor spawn was refused: ${reason}` }))(refused);
+            refused.match<void>({ some: () => $.ui.invalidate('ui.render'), none: () => undefined });
+            await forEach((text: string) => settle(named.batchId, text))(fromNullable(spawned.text));
         };
         const tick = async (): Promise<void> => {
             const current = await snapshot();
             const now = $.clock.now();
-            await forEach(async (named: Batch): Promise<void> => {
-                await $.store.set(key('dispatch', named.batchId), named.dispatch);
-                const spawned = await $.agent.spawn({
-                    subagentType: EDITOR,
-                    name: named.batchId,
-                    prompt: _editorPrompt(named, current.entries, current.memoryDir),
-                    background: true,
-                });
-                // The result is a refusal or the editor's final message, the notice under the one and the settle under the other
-                await forEach(async (reason: string): Promise<void> => {
-                    await $.store.set(key('notice'), { session, text: `The editor spawn was refused: ${reason}` });
-                    $.ui.invalidate('ui.render');
-                })(fromNullable(spawned.deny));
-                await forEach((text: string) => settle(named.batchId, text))(fromNullable(spawned.text));
-            })(flatMap(() => batch(current.entries, current.stamps, now, crypto.randomUUID()))(fromBoolean(!_held(current.dispatches, now))));
+            await forEach((named: Batch) => dispatch(named, current))(
+                flatMap(() => batch(current.entries, current.stamps, now, crypto.randomUUID()))(fromBoolean(!_held(current.dispatches, now))),
+            );
         };
         $.clock.every(MS_PER_HOUR, () => {
             tick().catch(() => undefined);

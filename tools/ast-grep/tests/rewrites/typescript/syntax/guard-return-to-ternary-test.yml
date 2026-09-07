@@ -1,5 +1,13 @@
 id: guard-return-to-ternary
 valid:
+    # Yield as the condition binds outside the conditional expression
+    - 'function* pick() { if (yield 1) return 2; return 3; }'
+    # Comments attached to discarded syntax must remain intact
+    - 'function pick(held) { if (/* reason */ held) return 1; return 2; }'
+    - 'function pick(held) { if (held) return /* reason */ 1; return 2; }'
+    - 'function pick(held) { if (held) { return /* reason */ 1; } return 2; }'
+    - 'function pick(held) { if (held) return 1; return /* reason */ 2; }'
+    - 'function pick(held) { if /* reason */ (held) return 1; return 2; }'
     # The ternary the rewrite writes
     - 'const pick = (held) => { return held ? 1 : 2; };'
     # Valueless return in the guard, no arm
@@ -42,15 +50,13 @@ valid:
     - 'const pick = (held) => { if (held) { return seen += 1; } return 2; };'
     # Ternary as the condition, the template nests it as the alternate of the outer ternary
     - 'const pick = (held, other, third) => { if (held ? other : third) { return 1; } return 2; };'
-    # The fromPredicate binding, the branch no-return-by-branch accepts in the plugin
-    - 'const fromPredicate = (refinement) => (value) => { if (refinement(value)) { return some(value); } return none(); };'
-    # The fromPredicate function declaration
-    - 'function fromPredicate(refinement, value) { if (refinement(value)) { return some(value); } return none(); }'
+    # A nested return does not make its owning call a return statement
+    - 'function pick(held) { if (held) { run(() => { return 1; }); } return 2; }'
+    # No neighboring return to combine with the guard
+    - 'function pick(held) { if (held) return 1; }'
+    # A guard with no returning consequence
+    - 'function pick(held) { if (held) { log(held); } return 2; }'
 invalid:
-    # Guard inside a binding nested in fromPredicate, the exemption stops at the nearest binding
-    - 'const fromPredicate = (refinement) => { const inner = (value) => { if (refinement(value)) { return some(value); } return none(); }; return inner; };'
-    # Guard inside a function declaration nested in fromPredicate, the declaration stops the walk as a binding does
-    - 'const fromPredicate = (refinement) => { function inner(value) { if (refinement(value)) { return some(value); } return none(); } return inner; };'
     # The instance, a block guard before the final return
     - |
       const verdict = (sustained, noisy) => {
@@ -82,3 +88,5 @@ invalid:
     - 'const pick = (held) => { if (held) { return (value) => value; } return other; };'
     # Cast as the condition, as binds tighter than the ternary
     - 'const pick = (held) => { if (held as boolean) { return 1; } return 2; };'
+    # Comments within retained expressions survive
+    - 'function pick(held) { if (test(/* reason */ held)) return load(/* first */); return load(/* second */); }'

@@ -1,5 +1,15 @@
 id: no-nullable-return
 snapshots:
+  'await $.store.set(key, { deferred: () => getOrElse((): string | null => null)(memoryDir) });':
+    labels:
+    - source: '(): string | null => null'
+      style: primary
+      start: 51
+      end: 76
+    - source: 'null'
+      style: secondary
+      start: 72
+      end: 76
   'await $.store.set(key, { owner: getOrElse((): string | null => rows.map((row) => { return null; }))(repo) });':
     labels:
     - source: return null;
@@ -19,6 +29,24 @@ snapshots:
     - source: 'null'
       style: secondary
       start: 57
+      end: 61
+  'class Rows { items(): Generator<Row, void> { return undefined; } }':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 45
+      end: 62
+    - source: ': Generator<Row, void>'
+      style: secondary
+      start: 20
+      end: 42
+    - source: 'items(): Generator<Row, void> { return undefined; }'
+      style: secondary
+      start: 13
+      end: 64
+    - source: undefined
+      style: secondary
+      start: 52
       end: 61
   'class Table { find(key: string): Row | null { return null; } }':
     labels:
@@ -40,6 +68,20 @@ snapshots:
       style: secondary
       start: 52
       end: 56
+  'const found = (): Generator<Row, void> => undefined;':
+    labels:
+    - source: '(): Generator<Row, void> => undefined'
+      style: primary
+      start: 14
+      end: 51
+    - source: undefined
+      style: secondary
+      start: 42
+      end: 51
+    - source: ': Generator<Row, void>'
+      style: secondary
+      start: 16
+      end: 38
   'const found = (): Maybe<void> => { return undefined; };':
     labels:
     - source: return undefined;
@@ -58,6 +100,24 @@ snapshots:
       style: secondary
       start: 42
       end: 51
+  'const found = (): Row | null => null && row;':
+    labels:
+    - source: '(): Row | null => null && row'
+      style: primary
+      start: 14
+      end: 43
+    - source: '&&'
+      style: secondary
+      start: 37
+      end: 39
+    - source: 'null'
+      style: secondary
+      start: 32
+      end: 36
+    - source: null && row
+      style: secondary
+      start: 32
+      end: 43
   'const found = (): Row | null => null;':
     labels:
     - source: '(): Row | null => null'
@@ -68,6 +128,50 @@ snapshots:
       style: secondary
       start: 32
       end: 36
+  'const found = (): Row | undefined => (undefined) && row;':
+    labels:
+    - source: '(): Row | undefined => (undefined) && row'
+      style: primary
+      start: 14
+      end: 55
+    - source: '&&'
+      style: secondary
+      start: 49
+      end: 51
+    - source: undefined
+      style: secondary
+      start: 38
+      end: 47
+    - source: (undefined)
+      style: secondary
+      start: 37
+      end: 48
+    - source: (undefined) && row
+      style: secondary
+      start: 37
+      end: 55
+    - source: ': Row | undefined'
+      style: secondary
+      start: 16
+      end: 33
+  'const found = (): Row | undefined => void load();':
+    labels:
+    - source: '(): Row | undefined => void load()'
+      style: primary
+      start: 14
+      end: 48
+    - source: void
+      style: secondary
+      start: 37
+      end: 41
+    - source: void load()
+      style: secondary
+      start: 37
+      end: 48
+    - source: ': Row | undefined'
+      style: secondary
+      start: 16
+      end: 33
   'const found = (): unknown => { return undefined; };':
     labels:
     - source: return undefined;
@@ -262,10 +366,6 @@ snapshots:
       style: secondary
       start: 48
       end: 52
-    - source: '0'
-      style: secondary
-      start: 53
-      end: 54
     - source: void 0
       style: secondary
       start: 48
@@ -318,10 +418,6 @@ snapshots:
       style: secondary
       start: 68
       end: 72
-    - source: '0'
-      style: secondary
-      start: 73
-      end: 74
     - source: void 0
       style: secondary
       start: 68
@@ -414,10 +510,6 @@ snapshots:
       style: secondary
       start: 57
       end: 61
-    - source: '0'
-      style: secondary
-      start: 62
-      end: 63
     - source: void 0
       style: secondary
       start: 57
@@ -514,6 +606,60 @@ snapshots:
       style: secondary
       start: 60
       end: 69
+  'function* found(): Generator<void, Row | undefined> { return undefined; }':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 54
+      end: 71
+    - source: ': Generator<void, Row | undefined>'
+      style: secondary
+      start: 17
+      end: 51
+    - source: 'function* found(): Generator<void, Row | undefined> { return undefined; }'
+      style: secondary
+      start: 0
+      end: 73
+    - source: undefined
+      style: secondary
+      start: 61
+      end: 70
+  'function* rows(): Generator</* yielded */ void, Row | undefined> { return undefined; }':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 67
+      end: 84
+    - source: ': Generator</* yielded */ void, Row | undefined>'
+      style: secondary
+      start: 16
+      end: 64
+    - source: 'function* rows(): Generator</* yielded */ void, Row | undefined> { return undefined; }'
+      style: secondary
+      start: 0
+      end: 86
+    - source: undefined
+      style: secondary
+      start: 74
+      end: 83
+  ? 'type RowStream<Yield, Input> = Generator<Yield, Row | undefined, Input>; function* rows(): RowStream<Row, void> { return undefined; }'
+  : labels:
+    - source: return undefined;
+      style: primary
+      start: 114
+      end: 131
+    - source: ': RowStream<Row, void>'
+      style: secondary
+      start: 89
+      end: 111
+    - source: 'function* rows(): RowStream<Row, void> { return undefined; }'
+      style: secondary
+      start: 73
+      end: 133
+    - source: undefined
+      style: secondary
+      start: 121
+      end: 130
   'use({ owner: getOrElse((): string | null => null)(repo) });':
     labels:
     - source: '(): string | null => null'

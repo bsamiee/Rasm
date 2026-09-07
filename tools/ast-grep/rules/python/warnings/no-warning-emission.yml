@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-warning-emission
+language: python
+severity: error
+# Report-only, the probed fix `pass` in place of the call fails `assert caught`, `AssertionError: no warning recorded`
+rule:
+    pattern: $USE
+    any:
+        - matches: {python-module-member: {module: {regex: '^warnings$'}, name: {regex: '^(warn|warn_explicit|deprecated)$'}}}
+        - matches: {python-module-member: {module: {regex: '^typing_extensions$'}, name: {regex: '^deprecated$'}}}
+message: '`$USE` emits a warning or declares a deprecated API'
+note: Return an expected failure as a value, and replace an API in the commit that changes it, capturing a dependency warning emits none

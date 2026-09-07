@@ -10,6 +10,24 @@ valid:
     - |
       <Target Name="Mark" BeforeTargets="AssignTargetPaths"><ItemGroup><None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" />
         </ItemGroup></Target>
+    # Non-default item collections require evaluation
+    - |
+      <ItemGroup><PackageReference Update="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
+    # Explicit items exist before updates and removals
+    - |
+      <Project><ItemGroup><None Include="data.txt" /><None Update="data.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup></Project>
+    # Explicit definitions can be in an earlier item group
+    - |
+      <Project><ItemGroup><Compile Include="data.cs" /></ItemGroup><ItemGroup><Compile Remove="data.cs" /></ItemGroup></Project>
+    # Imports can populate default-named collections before this file updates them
+    - |
+      <Project><Import Project="items.props" /><ItemGroup><EmbeddedResource Update="data.resx" /></ItemGroup></Project>
+    # Custom items can be declared before an update in Directory.Build.props
+    - |
+      <Project><ItemGroup><Asset Include="data.txt" /><Asset Update="data.txt" /></ItemGroup></Project>
+    # Item definitions supply metadata defaults without updating a collection
+    - |
+      <ItemDefinitionGroup><None><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None></ItemDefinitionGroup>
 invalid:
     # Update on an item the SDK glob adds later, no None item exists yet
     - |
@@ -17,6 +35,12 @@ invalid:
     # Remove before the Compile glob ran
     - |
       <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
-    # Update of the package references the project body declares later
+    # A different collection's Include does not populate Compile
     - |
-      <ItemGroup><PackageReference Update="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
+      <Project><ItemGroup><None Include="data.txt" /><Compile Remove="data.cs" /></ItemGroup></Project>
+    # Update is not an item producer
+    - |
+      <Project><ItemGroup><None Update="data.txt" /></ItemGroup></Project>
+    # An unrelated element cannot import item definitions
+    - |
+      <Project><PropertyGroup><Description>items.props</Description></PropertyGroup><ItemGroup><EmbeddedResource Remove="data.resx" /></ItemGroup></Project>

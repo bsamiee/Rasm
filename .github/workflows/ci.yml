@@ -1,98 +1,100 @@
 name: CI
 
 on:
-  pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
+    pull_request:
+    push:
+        branches: [main]
+    workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: read
+    contents: read
+    actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
-  run:
-    shell: bash
+    run:
+        shell: bash
 
 jobs:
-  native:
-    uses: ./.github/workflows/native.yml
+    native:
+        uses: ./.github/workflows/native.yml
 
-  dotnet:
-    needs: native
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { rid: osx-arm64, runner: macos-26 }
-          - { rid: linux-x64, runner: ubuntu-24.04 }
-          - { rid: linux-arm64, runner: ubuntu-24.04-arm }
-          - { rid: win-x64, runner: windows-2025 }
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-      - uses: nrwl/nx-set-shas@v5
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          name: nuget-local
-          path: .artifacts/nuget
-      - run: pnpm exec nx affected -t build test lint --exclude='*,!tag:language:dotnet' -- -bl:"$GITHUB_WORKSPACE/.artifacts/dotnet/binlog/build-{}.binlog"
-      - run: pnpm exec nx affected -t format --exclude='*,!tag:language:dotnet'
-      - run: git diff --exit-code
-      - run: pnpm exec nx run rasm:coverage --excludeTaskDependencies --language dotnet
-      - uses: actions/upload-artifact@v7
-        with:
-          name: dotnet-coverage-${{ matrix.rid }}
-          path: .artifacts/dotnet/coverage
-      - if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: dotnet-binlogs-${{ matrix.rid }}
-          path: .artifacts/dotnet/binlog
+    dotnet:
+        needs: native
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - {rid: osx-arm64, runner: macos-26}
+                    - {rid: linux-x64, runner: ubuntu-24.04}
+                    - {rid: linux-arm64, runner: ubuntu-24.04-arm}
+                    - {rid: win-x64, runner: windows-2025}
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 90
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                fetch-depth: 0
+                filter: tree:0
+            - uses: nrwl/nx-set-shas@v5
+            - uses: ./.github/actions/setup
+            - uses: actions/download-artifact@v8
+              with:
+                name: nuget-local
+                path: .artifacts/nuget
+            - run: nx affected -t format --exclude='*,!tag:language:dotnet'
+            - run: git diff --exit-code
+            - run: nx affected -t build test lint --exclude='*,!tag:language:dotnet' -- -bl:"$GITHUB_WORKSPACE/.artifacts/dotnet/binlog/build-{}.binlog"
+            - run: nx run rasm:coverage --language dotnet
+            - uses: actions/upload-artifact@v7
+              with:
+                name: dotnet-coverage-${{ matrix.rid }}
+                path: .artifacts/dotnet/coverage
+            - if: failure()
+              uses: actions/upload-artifact@v7
+              with:
+                name: dotnet-binlogs-${{ matrix.rid }}
+                path: .artifacts/dotnet/binlog
 
-  python:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-      - uses: nrwl/nx-set-shas@v5
-      - uses: ./.github/actions/setup
-        with:
-          python: --all-groups
-      - run: pnpm exec nx affected -t lint format typecheck test --exclude='*,!tag:language:python'
-      - run: git diff --exit-code
-      - run: pnpm exec nx run rasm:coverage --excludeTaskDependencies --language python
-      - uses: actions/upload-artifact@v7
-        with:
-          name: python-coverage
-          path: .artifacts/python/coverage
+    python:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 60
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                fetch-depth: 0
+                filter: tree:0
+            - uses: nrwl/nx-set-shas@v5
+            - uses: ./.github/actions/setup
+              with:
+                python: --all-groups
+            - run: nx affected -t format --exclude='*,!tag:language:python'
+            - run: git diff --exit-code
+            - run: nx affected -t check --exclude='*,!tag:language:python'
+            - run: nx run rasm:coverage --language python
+            - uses: actions/upload-artifact@v7
+              with:
+                name: python-coverage
+                path: .artifacts/python/coverage
 
-  typescript:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: tree:0
-      - uses: nrwl/nx-set-shas@v5
-      - uses: ./.github/actions/setup
-      - run: pnpm exec nx affected -t lint format typecheck test --exclude='*,!tag:language:typescript'
-      - run: git diff --exit-code
-      - run: pnpm exec nx run rasm:coverage --excludeTaskDependencies --language typescript
-      - uses: actions/upload-artifact@v7
-        with:
-          name: typescript-coverage
-          path: .artifacts/typescript/coverage
+    typescript:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 60
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                fetch-depth: 0
+                filter: tree:0
+            - uses: nrwl/nx-set-shas@v5
+            - uses: ./.github/actions/setup
+            - run: nx affected -t format --exclude='*,!tag:language:typescript'
+            - run: git diff --exit-code
+            - run: nx affected -t check --exclude='*,!tag:language:typescript'
+            - run: nx run rasm:coverage --language typescript
+            - uses: actions/upload-artifact@v7
+              with:
+                name: typescript-coverage
+                path: .artifacts/typescript/coverage

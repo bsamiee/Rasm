@@ -50,6 +50,10 @@ snapshots:
       style: secondary
       start: 0
       end: 4
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
     - source: -c
       style: secondary
       start: 5
@@ -64,6 +68,10 @@ snapshots:
       style: primary
       start: 0
       end: 22
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
     - source: bash
       style: secondary
       start: 0
@@ -86,6 +94,10 @@ snapshots:
       style: secondary
       start: 0
       end: 4
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
     - source: -c
       style: secondary
       start: 5
@@ -100,6 +112,10 @@ snapshots:
       style: primary
       start: 0
       end: 14
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
     - source: bash
       style: secondary
       start: 0
@@ -122,6 +138,10 @@ snapshots:
       style: secondary
       start: 0
       end: 4
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
     - source: -ec
       style: secondary
       start: 5
@@ -130,6 +150,42 @@ snapshots:
       style: secondary
       start: 9
       end: 15
+  bash -x -c "$arg":
+    labels:
+    - source: bash -x -c "$arg"
+      style: primary
+      start: 0
+      end: 17
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
+    - source: -c
+      style: secondary
+      start: 8
+      end: 10
+    - source: '"$arg"'
+      style: secondary
+      start: 11
+      end: 17
+  builtin -- "eval" "$cmd":
+    labels:
+    - source: builtin -- "eval" "$cmd"
+      style: primary
+      start: 0
+      end: 24
+    - source: builtin
+      style: secondary
+      start: 0
+      end: 7
+    - source: '"eval"'
+      style: secondary
+      start: 11
+      end: 17
   builtin eval "$cmd":
     labels:
     - source: builtin eval "$cmd"
@@ -144,6 +200,42 @@ snapshots:
       style: secondary
       start: 8
       end: 12
+  command -p -- 'eval' "$cmd":
+    labels:
+    - source: command -p -- 'eval' "$cmd"
+      style: primary
+      start: 0
+      end: 27
+    - source: command
+      style: secondary
+      start: 0
+      end: 7
+    - source: -p
+      style: secondary
+      start: 8
+      end: 10
+    - source: '''eval'''
+      style: secondary
+      start: 14
+      end: 20
+  command -p eval "$cmd":
+    labels:
+    - source: command -p eval "$cmd"
+      style: primary
+      start: 0
+      end: 22
+    - source: command
+      style: secondary
+      start: 0
+      end: 7
+    - source: -p
+      style: secondary
+      start: 8
+      end: 10
+    - source: eval
+      style: secondary
+      start: 11
+      end: 15
   command eval "$cmd":
     labels:
     - source: command eval "$cmd"
@@ -199,6 +291,10 @@ snapshots:
       style: secondary
       start: 0
       end: 2
+    - source: sh
+      style: secondary
+      start: 0
+      end: 2
     - source: -c
       style: secondary
       start: 3
@@ -213,6 +309,10 @@ snapshots:
       style: primary
       start: 0
       end: 13
+    - source: sh
+      style: secondary
+      start: 0
+      end: 2
     - source: sh
       style: secondary
       start: 0

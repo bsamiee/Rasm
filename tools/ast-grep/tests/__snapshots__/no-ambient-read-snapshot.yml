@@ -1,11 +1,5 @@
 id: no-ambient-read
 snapshots:
-  const alive = os.uptime();:
-    labels:
-    - source: os.uptime()
-      style: primary
-      start: 14
-      end: 25
   const alive = process.uptime();:
     labels:
     - source: process.uptime()
@@ -66,24 +60,12 @@ snapshots:
       style: primary
       start: 12
       end: 20
-  const roll = crypto.randomInt(10);:
-    labels:
-    - source: crypto.randomInt(10)
-      style: primary
-      start: 13
-      end: 33
   const salt = Math.random();:
     labels:
     - source: Math.random()
       style: primary
       start: 13
       end: 26
-  const salt = crypto.randomBytes(8);:
-    labels:
-    - source: crypto.randomBytes(8)
-      style: primary
-      start: 13
-      end: 34
   const started = performance.now();:
     labels:
     - source: performance.now()
@@ -96,3 +78,57 @@ snapshots:
       style: primary
       start: 16
       end: 39
+  import * as crypto from "node:crypto"; const roll = crypto.randomInt(10);:
+    labels:
+    - source: crypto.randomInt(10)
+      style: primary
+      start: 52
+      end: 72
+  import crypto from "node:crypto"; const salt = crypto.randomBytes(8);:
+    labels:
+    - source: crypto.randomBytes(8)
+      style: primary
+      start: 47
+      end: 68
+  import os from "node:os"; const alive = os.uptime();:
+    labels:
+    - source: os.uptime()
+      style: primary
+      start: 40
+      end: 51
+  import { hrtime as clock } from "node:process"; clock.bigint();:
+    labels:
+    - source: clock.bigint()
+      style: primary
+      start: 48
+      end: 62
+  import { hrtime } from "node:process"; hrtime();:
+    labels:
+    - source: hrtime()
+      style: primary
+      start: 39
+      end: 47
+  import { performance as clock } from "node:perf_hooks"; clock.now();:
+    labels:
+    - source: clock.now()
+      style: primary
+      start: 56
+      end: 67
+  import { randomBytes as bytes } from "node:crypto"; bytes(8);:
+    labels:
+    - source: bytes(8)
+      style: primary
+      start: 52
+      end: 60
+  import { randomUUIDv7 } from "node:crypto"; randomUUIDv7();:
+    labels:
+    - source: randomUUIDv7()
+      style: primary
+      start: 44
+      end: 58
+  import { uptime as elapsed } from "node:os"; elapsed();:
+    labels:
+    - source: elapsed()
+      style: primary
+      start: 45
+      end: 54

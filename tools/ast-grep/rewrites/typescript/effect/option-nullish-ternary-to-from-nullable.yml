@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: option-nullish-ternary-to-from-nullable
+language: tsx
+severity: off
+rule:
+    kind: ternary_expression
+    any:
+        - pattern: '$X == null ? $M.none() : $M.some($X)'
+        - pattern: 'null == $X ? $M.none() : $M.some($X)'
+        - pattern: '$X != null ? $M.some($X) : $M.none()'
+        - pattern: 'null != $X ? $M.some($X) : $M.none()'
+    not: {has: {kind: comment, stopBy: end}}
+constraints:
+    M: {matches: {effect-module-reference: {module: {regex: "^(effect/)?Option$"}}}}
+    X: {kind: identifier}
+fix: $M.fromNullable($X)
+message: The branch constructs an Option by checking the same value for null and undefined
+note: For the Effect Option module, use Option.fromNullable for a complete nullish check of the same binding; keep null-only and undefined-only checks distinct

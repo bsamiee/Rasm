@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 import shutil
 import tomllib
+from typing import Annotated
 
 import anyio
 import cyclopts
@@ -20,11 +21,12 @@ from eng.scripts.provision import exit_code, Failure, FileMissing, HostUnsupport
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Published(msgspec.Struct, frozen=True, gc=False):
-    """Files pushed to a registry."""
+class Publication(msgspec.Struct, frozen=True, gc=False):
+    """Publication result with the registry, files, and requested dry-run mode."""
 
     registry: str
     files: tuple[str, ...]
+    dry_run: bool = False
 
 
 class Settings(BaseSettings):
@@ -38,7 +40,6 @@ class Settings(BaseSettings):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _NUGET_SOURCE = "https://api.nuget.org/v3/index.json"
-_NUGET_OUTPUT = Path(".artifacts/dotnet/package/release")  # dotnet pack writes under the ArtifactsPath of the root Directory.Build.props
 
 _log = structlog.get_logger(__name__)
 _app = cyclopts.App(name="publish")
@@ -77,25 +78,28 @@ async def _version(root: Path, project: str) -> Result[str, Failure]:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def _nuget(root: Path, project_root: Path) -> Result[Published, Failure]:
-    """Pack the project in Release and push the newest package it produced with the api key the environment holds."""
+async def _nuget(root: Path, project_root: Path) -> Result[Publication, Failure]:
+    """Pack the project in Release and push the package identified by NuGet's output items."""
     try:
         settings = Settings()
     except ValidationError as error:
         return Error(HostUnsupported(f"the push needs NUGET_API_KEY, {error}"))
-    match await run(["dotnet", "pack", str(project_root), "--configuration", "Release", "--no-restore"], root):
+    match await run(
+        ["dotnet", "pack", str(project_root), "--configuration", "Release", "--no-restore", "-getItem:NuGetPackOutput"], root, capture=True
+    ):
         case Result(tag="error", error=failure):
             return Error(failure)
-        case Result():
+        case Result(ok=output):
             pass
-    if not (packages := sorted((root / _NUGET_OUTPUT).glob(f"{project_root.name}.[0-9]*.nupkg"), key=lambda path: path.stat().st_mtime)):
-        return Error(FileMissing(root / _NUGET_OUTPUT, f"{project_root.name}.*.nupkg"))
-    package = str(packages[-1].relative_to(root))
+    items = msgspec.json.decode(output, type=dict[str, dict[str, list[dict[str, str]]]])["Items"]["NuGetPackOutput"]
+    if not (packages := tuple(item["FullPath"] for item in items if item["Extension"] == ".nupkg")):
+        return Error(FileMissing(root / project_root, "NuGetPackOutput .nupkg"))
+    (package,) = packages
     push = ["dotnet", "nuget", "push", package, "--api-key", settings.nuget_api_key, "--source", _NUGET_SOURCE, "--skip-duplicate"]
-    return (await run(push, root)).map(lambda _: Published("nuget.org", (package,)))
+    return (await run(push, root)).map(lambda _: Publication("nuget.org", (package,)))
 
 
-async def _pypi(root: Path, project_root: Path) -> Result[Published, Failure]:
+async def _pypi(root: Path, project_root: Path) -> Result[Publication, Failure]:
     """Build the package at the root from a generated manifest and publish its distributions through trusted publishing."""
     name = project_root.name  # The Nx project name and the distribution name, the release tag is <name>@<version>
     match await _version(root, name):
@@ -106,29 +110,32 @@ async def _pypi(root: Path, project_root: Path) -> Result[Published, Failure]:
     manifest_name = "pyproject.toml"
     manifest = tomllib.loads((root / manifest_name).read_text())
     build_dir, out_dir = root / ".artifacts" / "python" / "build" / name, root / ".artifacts" / "python" / "dist" / name
-    for directory in (build_dir, out_dir):
-        shutil.rmtree(directory, ignore_errors=True)
+    shutil.rmtree(build_dir, ignore_errors=True)
     _ = shutil.copytree(root / project_root, build_dir / name, ignore=shutil.ignore_patterns("__pycache__"))
     _ = (build_dir / manifest_name).write_text(
         _manifest(name, version, manifest["project"]["requires-python"], _dependencies(manifest.get("dependency-groups", {}), name))
     )
-    match await run(["uv", "build", str(build_dir), "--out-dir", str(out_dir)], root):
+    match await run(["uv", "build", str(build_dir), "--out-dir", str(out_dir), "--clear", "--no-create-gitignore"], root):
         case Result(tag="error", error=build_error):
             return Error(build_error)
         case Result():
             pass
     if not (files := tuple(str(path.relative_to(root)) for path in sorted(out_dir.iterdir()))):
         return Error(FileMissing(out_dir, f"{name}-{version}*"))
-    return (await run(["uv", "publish", "--trusted-publishing", "always", *files], root)).map(lambda _: Published("pypi.org", files))
+    return (await run(["uv", "publish", "--trusted-publishing", "always", *files], root)).map(lambda _: Publication("pypi.org", files))
 
 
-def _publish(command: Callable[[Path], Awaitable[Result[Published, Failure]]]) -> Result[Published, Failure]:
-    """Find the repository root and run the publish command from it."""
-    return repository_root(Path(__file__).resolve()).bind(lambda found: anyio.run(command, found))
+def _publish(command: Callable[[Path], Awaitable[Result[Publication, Failure]]], registry: str, *, dry_run: bool) -> Result[Publication, Failure]:
+    """Skip publication for a dry run, otherwise run the command from the repository root."""
+    return (
+        Ok(Publication(registry, (), dry_run=True))
+        if dry_run
+        else repository_root(Path(__file__).resolve()).bind(lambda found: anyio.run(command, found))
+    )
 
 
-def _report(published: Published) -> None:
-    _log.info("pushed", registry=published.registry, files=list(published.files))
+def _report(published: Publication) -> None:
+    _log.info("publish skipped" if published.dry_run else "pushed", registry=published.registry, files=list(published.files))
 
 
 _app.result_action = (exit_code(_report, message), "sys_exit")
@@ -137,15 +144,15 @@ _app.result_action = (exit_code(_report, message), "sys_exit")
 
 
 @_app.command
-def nuget(project_root: Path) -> Result[Published, Failure]:
+def nuget(project_root: Path, *, dry_run: Annotated[bool, cyclopts.Parameter(env_var="NX_DRY_RUN")] = False) -> Result[Publication, Failure]:
     """Pack the .NET project at the root in Release and push its package to nuget.org."""
-    return _publish(lambda root: _nuget(root, project_root))
+    return _publish(lambda root: _nuget(root, project_root), "nuget.org", dry_run=dry_run)
 
 
 @_app.command
-def pypi(project_root: Path) -> Result[Published, Failure]:
+def pypi(project_root: Path, *, dry_run: Annotated[bool, cyclopts.Parameter(env_var="NX_DRY_RUN")] = False) -> Result[Publication, Failure]:
     """Build the Python package at the root, versioned by its release tag, and publish its distributions to pypi.org."""
-    return _publish(lambda root: _pypi(root, project_root))
+    return _publish(lambda root: _pypi(root, project_root), "pypi.org", dry_run=dry_run)
 
 
 if __name__ == "__main__":
@@ -153,4 +160,4 @@ if __name__ == "__main__":
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Published", "Settings", "nuget", "pypi"]
+__all__ = ["Publication", "Settings", "nuget", "pypi"]

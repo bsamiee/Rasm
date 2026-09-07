@@ -27,7 +27,7 @@ import { options } from './host/options.ts';
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 
-// Registration order is nesting order, the audit wraps every later hook and the rest follows the engine lifecycle
+// Registration order is nesting order, and the files follow the engine lifecycle
 const register: Register = (on, raw) => {
     const settings = options(raw);
     anyEvent(on, settings);

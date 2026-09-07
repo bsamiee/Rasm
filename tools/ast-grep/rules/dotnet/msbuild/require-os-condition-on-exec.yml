@@ -4,20 +4,59 @@ language: xml
 severity: error
 utils:
     os-condition:
-        matches: {msbuild-attribute: {name: {regex: '^Condition$'}, value: {regex: 'IsOSPlatform|IsOsUnixLike|\$\(OS\)|\$\(\[MSBuild\]::IsOS'}}}
+        matches: {msbuild-attribute: {name: {regex: "^Condition$"}, value: {regex: '\$\(\[MSBuild\]::IsOSPlatform\(|\$\(OS\)'}}}
 rule:
+    pattern: _EXEC
     all:
-        - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
+        - matches: {msbuild-element: {name: {regex: "^Exec$"}}}
         # Programs one operating system or its package manager supplies, the shell of the other fails on the name
         - matches:
-              msbuild-metadata:
-                  name: {regex: '^Command$'}
-                  value:
-                      regex: "^[\"']?\\s*(&quot;)?\\s*([^\\s\"'&]*/)?(chmod|chown|ln|install_name_tool|codesign|otool|xattr|xcrun|\
-                          xcodebuild|lipo|dsymutil|hdiutil|brew|apt|apt-get|ldconfig|patchelf|powershell|pwsh|cmd(\\.exe)?|reg|icacls|attrib|\
-                          choco|winget|sh|bash|zsh|yak)\\b"
+            msbuild-metadata:
+                name: {regex: "^Command$"}
+                value:
+                    regex: "^[\"']?\\s*(&quot;)?\\s*([^\\s\"'&]*/)?(chmod|chown|ln|install_name_tool|codesign|otool|xattr|xcrun|xcodebuild|lipo|dsymutil|hdiutil|brew|apt|apt-get|ldconfig|patchelf|powershell|cmd(\\.exe)?|reg|icacls|attrib|choco|winget)\\b"
         - not: {has: {matches: msbuild-tag, has: {matches: os-condition}}}
         # The target is the one ancestor that holds a condition
         - not: {inside: {kind: element, stopBy: end, has: {matches: msbuild-tag, has: {matches: os-condition}}}}
-message: Exec runs an operating-system-specific program with no platform condition and fails on the other operating systems
-note: Guard the target with $([MSBuild]::IsOSPlatform('...'))
+transform:
+    # The program's platform family becomes a marker after the tag name, one stage per family, and the marker holds the condition text
+    MAC:
+        replace:
+            source: $EXEC
+            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:[^\s"''&]*/)?(?:install_name_tool|codesign|otool|xattr|xcrun|xcodebuild|lipo|dsymutil|hdiutil|brew)\b)'
+            by: '<Exec@@$$([MSBuild]::IsOSPlatform(''OSX''))@@${rest}'
+    LINUX:
+        replace:
+            source: $MAC
+            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:[^\s"''&]*/)?(?:apt|apt-get|ldconfig|patchelf)\b)'
+            by: '<Exec@@$$([MSBuild]::IsOSPlatform(''Linux''))@@${rest}'
+    WINDOWS:
+        replace:
+            source: $LINUX
+            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:[^\s"''&]*/)?(?:powershell|cmd(?:\.exe)?|reg|icacls|attrib|choco|winget)\b)'
+            by: '<Exec@@$$([MSBuild]::IsOSPlatform(''Windows''))@@${rest}'
+    UNIX:
+        replace:
+            source: $WINDOWS
+            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:[^\s"''&]*/)?(?:chmod|chown|ln)\b)'
+            by: '<Exec@@!$$([MSBuild]::IsOSPlatform(''Windows''))@@${rest}'
+    # An existing Condition takes the platform as a conjunct, a single-quoted attribute takes the platform name in backticks
+    MERGED:
+        replace:
+            source: $UNIX
+            replace: '(?s)^<Exec@@(?P<os>[^@]*)@@(?P<a>.*?)Condition\s*=\s*"(?P<c>[^"]*)"'
+            by: '<Exec${a}Condition="(${c}) and ${os}"'
+    MERGED_SINGLE:
+        replace:
+            source: $MERGED
+            replace: '(?s)^<Exec@@(?P<os>[^@]*)@@(?P<a>.*?)Condition\s*=\s*''(?P<c>[^'']*)'''
+            by: '<Exec${a}Condition=''(${c}) and ${os}'''
+    BACKTICKED:
+        replace:
+            source: $MERGED_SINGLE
+            replace: '(?s)^(<Exec.*?Condition=''\([^'']*\) and !?\$\(\[MSBuild\]::IsOSPlatform\()''([A-Za-z]+)''(\)\)'')'
+            by: '${1}`${2}`${3}'
+    ADDED: {replace: {source: $BACKTICKED, replace: '^<Exec@@([^@]*)@@', by: '<Exec Condition="${1}"'}}
+fix: $ADDED
+message: Exec names an operating-system-specific program without a platform condition
+note: Guard the task or its target with $([MSBuild]::IsOSPlatform('<OS>'))

@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: python-chain-callee
+language: python
+rule:
+    any:
+        - matches: {python-imported-name: {module: {regex: "^itertools$"}, name: {regex: "^chain$"}}}
+        - matches: {python-module-member: {module: {regex: "^itertools$"}, name: {regex: "^chain$"}}}

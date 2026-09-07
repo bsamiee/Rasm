@@ -236,8 +236,7 @@ def _managed_dir(space: Workspace, library: str) -> Path:
 
 async def _source_root(space: Workspace, vcpkg: Path, library: str, archive: str, member: str, download_args: list[str]) -> Result[Path, Failure]:
     """Unpack the members matching the pattern from the source archive the port pins and return the source root."""
-    path = space.downloads / archive
-    if not path.exists():  # Binary-cache hits build nothing and download no source
+    if not (path := space.downloads / archive).exists():  # Binary-cache hits build nothing and download no source
         match await run([str(vcpkg), "install", "--only-downloads", *download_args], space.root):
             case Result(tag="error", error=failure):
                 return Error(failure)
@@ -369,8 +368,7 @@ async def _stage_emgucv(library: str, space: Workspace, vcpkg: Path, _client: ht
         case Result(ok=manifest):
             build = manifest.runtimes[rid]
     file_name = Path(build.library).name
-    artifact = space.cache / library / "artifacts" / manifest.commit / rid / file_name
-    if not artifact.is_file():
+    if not (artifact := space.cache / library / "artifacts" / manifest.commit / rid / file_name).is_file():
         src = space.cache / library / "src"
         match await checkout(src, manifest.url, manifest.commit, manifest.submodules):
             case Result(tag="error", error=checkout_error):

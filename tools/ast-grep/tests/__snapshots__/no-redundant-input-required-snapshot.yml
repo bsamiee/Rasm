@@ -1,0 +1,54 @@
+id: no-redundant-input-required
+snapshots:
+  '''on'': {''workflow_dispatch'': {''inputs'': {value: {''required'': false, description: Value}}}}':
+    fixed: '''on'': {''workflow_dispatch'': {''inputs'': {value: {, description: Value}}}}'
+    labels:
+    - source: '''required'''
+      style: primary
+      start: 48
+      end: 58
+  ? |-
+    inputs: {value: {required: false, description: Value}}
+    runs: {using: composite, steps: []}
+  : fixed: |-
+      inputs: {value: {, description: Value}}
+      runs: {using: composite, steps: []}
+    labels:
+    - source: required
+      style: primary
+      start: 17
+      end: 25
+  ? |-
+    on:
+      workflow_dispatch:
+        inputs:
+          value:
+            description: Value
+            required: false
+  : fixed: "on:\n  workflow_dispatch:\n    inputs:\n      value:\n        description: Value\n        "
+    labels:
+    - source: required
+      style: primary
+      start: 85
+      end: 93
+  'on: {workflow_call: {inputs: {value: {type: string, required: false}}}}':
+    fixed: 'on: {workflow_call: {inputs: {value: {type: string, }}}}'
+    labels:
+    - source: required
+      style: primary
+      start: 52
+      end: 60
+  'on: {workflow_dispatch: {inputs: {value: {required: false, description: Value}}}}':
+    fixed: 'on: {workflow_dispatch: {inputs: {value: {, description: Value}}}}'
+    labels:
+    - source: required
+      style: primary
+      start: 42
+      end: 50
+  'on: {workflow_dispatch: {inputs: {value: {required: false}}}}':
+    fixed: 'on: {workflow_dispatch: {inputs: {value: {}}}}'
+    labels:
+    - source: required
+      style: primary
+      start: 42
+      end: 50

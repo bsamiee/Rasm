@@ -8,7 +8,7 @@
             "cache": false,
             "parallelism": false
         },
-        "lint": { "inputs": ["default", "python", "{workspaceRoot}/eng/native/**/*"] },
+        "lint": { "inputs": ["...", "{workspaceRoot}/eng/native/**/*"] },
         "format": {},
         "typecheck": {},
         "check": {}

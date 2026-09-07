@@ -9,14 +9,6 @@ snapshots:
       style: primary
       start: 17
       end: 36
-    - source: Include
-      style: secondary
-      start: 9
-      end: 16
-    - source: Include="Generated\**\*.cs"
-      style: secondary
-      start: 9
-      end: 36
   ? |
     <Compile Include="a\b\c.cs" />
   : fixed: |
@@ -26,31 +18,6 @@ snapshots:
       style: primary
       start: 17
       end: 27
-    - source: Include
-      style: secondary
-      start: 9
-      end: 16
-    - source: Include="a\b\c.cs"
-      style: secondary
-      start: 9
-      end: 27
-  ? |
-    <Exec Command="cat data\file.txt" />
-  : fixed: |
-      <Exec Command="cat data/file.txt" />
-    labels:
-    - source: '"cat data\file.txt"'
-      style: primary
-      start: 14
-      end: 33
-    - source: Command
-      style: secondary
-      start: 6
-      end: 13
-    - source: Command="cat data\file.txt"
-      style: secondary
-      start: 6
-      end: 33
   ? |
     <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
   : fixed: |
@@ -60,14 +27,6 @@ snapshots:
       style: primary
       start: 16
       end: 69
-    - source: Project
-      style: secondary
-      start: 8
-      end: 15
-    - source: Project="$(MSBuildThisFileDirectory)..\..\build\common.props"
-      style: secondary
-      start: 8
-      end: 69
   ? |
     <Project Path="libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj" />
   : fixed: |
@@ -76,14 +35,6 @@ snapshots:
     - source: '"libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj"'
       style: primary
       start: 14
-      end: 68
-    - source: Path
-      style: secondary
-      start: 9
-      end: 13
-    - source: Path="libs\dotnet\interop\Rasm.Interop\Rasm.Interop.csproj"
-      style: secondary
-      start: 9
       end: 68
   ? |
     <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)tools\mytool\mytool.exe</ToolPath></PropertyGroup>

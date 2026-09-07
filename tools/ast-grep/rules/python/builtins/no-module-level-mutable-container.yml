@@ -2,8 +2,9 @@
 id: no-module-level-mutable-container
 language: python
 severity: error
+# Report-only, the probed fix a tuple in place of the list fails the writer, `AttributeError: 'tuple' object has no attribute 'append'`
 utils:
-    # Displays, comprehensions, and constructors of the mutable containers, the read-only proxy among them because frozendict replaces it
+    # Displays, comprehensions, and constructors of the mutable containers, with constructor names scoped to their owning API
     mutable-container:
         any:
             - kind: dictionary
@@ -14,8 +15,9 @@ utils:
             - kind: set_comprehension
             - kind: call
               has:
-                  field: function
-                  regex: '^(dict|list|set|bytearray|(collections\.)?(defaultdict|deque|OrderedDict|Counter|ChainMap)|(types\.)?MappingProxyType|(weakref\.)?(WeakSet|WeakKeyDictionary|WeakValueDictionary))$'
+                field: function
+                not: {matches: python-shadowed-name}
+                regex: '^(dict|list|set|bytearray|(collections\.)?(defaultdict|deque|OrderedDict|Counter|ChainMap)|(weakref\.)?(WeakSet|WeakKeyDictionary|WeakValueDictionary))$'
 rule:
     kind: assignment
     all:
@@ -26,6 +28,4 @@ rule:
 constraints:
     NAME: {not: {regex: '^__all__$'}} # The export list the language reference spells as a list, read once by import
 message: 'Module-level `$NAME` holds a mutable container, ambient state every function of the module can write'
-note: >-
-    Bind an immutable value, `frozendict(...)`, a tuple, or `frozenset(...)`, and hold changing state where one scope owns it,
-    a local, a `pytest.StashKey`, or a value the caller passes
+note: Bind an immutable value, `frozendict`, a tuple, or `frozenset`, and hold changing state in a local, a `pytest.StashKey`, or an argument

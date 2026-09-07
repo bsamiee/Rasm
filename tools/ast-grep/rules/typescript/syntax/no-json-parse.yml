@@ -1,10 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, Schema.parseJson(schema) needs a schema the file lacks, the probe fails with TS2552 Cannot find name 'schema'
 id: no-json-parse
 language: tsx
 severity: error
 ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, Schema has no place there and its own decoders read the parsed value
 rule:
     kind: call_expression
-    has: {field: function, regex: '^(globalThis\.)?JSON\.parse$'}
+    has: {field: function, regex: '^(globalThis\.)?JSON\.parse$', matches: syntax-global-reference}
 message: '`JSON.parse` answers an unvalidated value'
-note: Decode the text through `Schema.decodeUnknown(Schema.parseJson(schema))`, the boundary yields a typed value or a ParseError
+note: Decode the text through `Schema.decodeUnknown(Schema.parseJson(schema))`, which yields a typed value or a ParseError

@@ -1,0 +1,22 @@
+id: require-quoted-conditional-argument
+valid:
+    - command ${SET:+$PREFIX--option=$VALUE}
+    - command ${SET:+--option="$VALUE"}
+    - command "${SET:+--option=$VALUE}"
+    - command ${SET:+--option=literal}
+    - command ${SET:+$ARGUMENTS}
+    - command ${SET:---option=$VALUE}
+    - command ${SET:+--option=${VALUES[@]}}
+    - command ${SET:+--option=$@}
+    - option=${SET:+--option=$VALUE}
+    - command ${SET:+--option $VALUE}
+    - command ${SET:+prefix=$VALUE}
+invalid:
+    - command ${SET:+--option=$VALUE}
+    - command ${SET+--option=$VALUE}
+    - command ${SET:+--option=${VALUE}}
+    - command ${SET:+--option=${VALUES[0]}}
+    - command ${SET:+-o=$VALUE}
+    - command ${SET:+--option=$FIRST/suffix}
+    - output=$(command ${SET:+--option=$VALUE})
+    - output="$(command ${SET:+--option=$VALUE})"

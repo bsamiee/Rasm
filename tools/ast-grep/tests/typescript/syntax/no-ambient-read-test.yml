@@ -1,5 +1,34 @@
 id: no-ambient-read
 valid:
+    - 'function read() { return Math.random(); } namespace Math { export const random = source; }'
+    # Runtime declarations retain their bindings through export and namespace syntax
+    - 'export const Math = source; Math.random();'
+    - 'abstract class Date { static now() { return 1; } } Date.now();'
+    - 'namespace Math { export const random = source; } Math.random();'
+    # A bigint-named member alone does not establish the hrtime export.
+    - 'import { uptime as clock } from "node:process"; clock.bigint();'
+    # Other exports of the same native modules do not read clocks or randomness.
+    - 'import { createHash } from "node:crypto"; createHash("sha256");'
+    - 'import { platform } from "node:os"; platform();'
+    - 'import { cwd } from "node:process"; cwd();'
+    # Matching export names from domain modules identify different operations.
+    - 'import { randomBytes } from "./random"; randomBytes(8);'
+    - 'import { uptime } from "./metrics"; uptime();'
+    - 'import { hrtime } from "./clock"; hrtime();'
+    - 'import { hrtime as clock } from "./clock"; clock.bigint();'
+    - 'import { performance as clock } from "./clock"; clock.now();'
+    # Function object methods do not invoke the native clock.
+    - 'import { hrtime as clock } from "node:process"; clock.toString();'
+    - 'import { uptime as clock } from "node:process"; clock.toString();'
+    - 'import { performance as clock } from "node:perf_hooks"; clock.toString();'
+    - 'import { constants as clock } from "node:perf_hooks"; clock.now();'
+    # A caller-supplied service has no ambient native identity.
+    - 'function current(crypto: { randomUUID(): string }) { return crypto.randomUUID(); }'
+    - 'import { crypto } from "./services"; crypto.randomUUID();'
+    # Web Crypto does not export the Node-only randomBytes function.
+    - 'crypto.randomBytes(8);'
+    # Another argument-free constructor does not read the clock
+    - 'const index = new Map();'
     # The clock service
     - 'const now = yield* Clock.currentTimeMillis;'
     # The DateTime read of now
@@ -29,18 +58,26 @@ valid:
     # The environment through globalThis, Biome noProcessEnv reports it
     - 'const home = globalThis.process.env.HOME;'
 invalid:
+    # UUIDv7 belongs to Node crypto, not the Web Crypto global.
+    - 'import { randomUUIDv7 } from "node:crypto"; randomUUIDv7();'
+    # Imported host APIs preserve identity across aliases and module receivers.
+    - 'import { randomBytes as bytes } from "node:crypto"; bytes(8);'
+    - 'import { uptime as elapsed } from "node:os"; elapsed();'
+    - 'import { hrtime } from "node:process"; hrtime();'
+    - 'import { hrtime as clock } from "node:process"; clock.bigint();'
+    - 'import { performance as clock } from "node:perf_hooks"; clock.now();'
     # The current time as a string, the constructor called without new
     - 'const now = Date();'
     # The Temporal clock
     - 'const now = Temporal.Now.instant();'
     # Random integer
-    - 'const roll = crypto.randomInt(10);'
+    - 'import * as crypto from "node:crypto"; const roll = crypto.randomInt(10);'
     # Random bytes
-    - 'const salt = crypto.randomBytes(8);'
+    - 'import crypto from "node:crypto"; const salt = crypto.randomBytes(8);'
     # The process uptime
     - 'const alive = process.uptime();'
     # The host uptime
-    - 'const alive = os.uptime();'
+    - 'import os from "node:os"; const alive = os.uptime();'
     # The instance, the clock read through Date.now
     - 'const now = Date.now();'
     # The current time as a Date

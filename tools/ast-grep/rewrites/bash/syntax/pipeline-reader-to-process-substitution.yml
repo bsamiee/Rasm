@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: pipeline-reader-to-process-substitution
+language: bash
+severity: off
+ignores: ["**/*.json"]
+rule:
+    all:
+        - kind: pipeline
+        # The grammar attaches pipeline-wide !/time to its first stage.
+        - not: {regex: '^(?:!|time)(?:\s|$)'}
+        - has:
+            nthChild: {position: 1, reverse: true}
+            any:
+                - kind: while_statement
+                - kind: command
+                  has: {field: name, regex: '^(read|mapfile|readarray)$'}
+        - pattern: $PIPE
+        - has:
+            nthChild: {position: 1, reverse: true}
+            pattern: $STAGE
+            follows: {pattern: $$BAR}
+rewriters:
+    - id: keep-producer
+      rule:
+        pattern: $PRODUCER
+        inside: {kind: pipeline}
+        not: {nthChild: {position: 1, reverse: true}}
+      fix: $PRODUCER
+    - id: remove-reader
+      rule:
+        pattern: $STAGE
+        kind: while_statement, command
+        inside: {kind: pipeline}
+      fix:
+        template: ""
+        expandStart: {pattern: $$BAR}
+transform:
+    BEFORE: rewrite($PIPE, rewriters=[keep-producer, remove-reader])
+    PRODUCER: replace($BEFORE, replace='\s+$', by='')
+    MERGE: replace($BAR, replace='^\|$', by='')
+    STDERR: replace($MERGE, replace='^\|&$', by=' 2>&1')
+fix: $STAGE < <($PRODUCER$STDERR)
+message: Move the pipeline reader into the current shell
+note: "Apply only when moving the reader to the current shell is intended and producer status and completion are irrelevant or managed explicitly. This changes subshell isolation and pipeline status, and does not wait for the producer. For retained state with pipeline status and completion, use lastpipe with job control disabled and pipefail"

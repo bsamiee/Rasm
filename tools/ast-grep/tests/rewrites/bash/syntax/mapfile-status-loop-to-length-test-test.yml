@@ -1,0 +1,40 @@
+id: mapfile-status-loop-to-length-test
+valid:
+    # The length test already beside the reader
+    - 'while mapfile -tn 2 batch && (( ${#batch[@]} )); do :; done'
+    # No array name, the reader fills MAPFILE
+    - 'while mapfile -tn 2; do :; done'
+    # The last word completes a value-taking option
+    - 'while mapfile -t -n 2; do :; done'
+    # A callback option runs per batch
+    - 'while mapfile -t -C cb -c 1 rows; do :; done'
+    # A redirected reader reopens its file on every pass
+    - 'while mapfile -tn 2 batch < f; do :; done'
+    # A second condition tests the batch
+    - 'while mapfile -tn 2 batch; (( ${#batch[@]} )); do :; done'
+    # An expanded argument
+    - 'while mapfile -tn "$size" batch; do :; done'
+    # An until loop
+    - 'until mapfile -tn 2 batch; do :; done'
+    # A command with the reader's name as an argument
+    - 'while echo mapfile batch; do :; done'
+    # The builtin prefix on another reader
+    - 'while builtin read -r line; do :; done'
+    # A last word that is no array name
+    - 'while mapfile -t a-b; do :; done'
+    # The last word completes a delimiter option
+    - 'while mapfile -t -d x; do :; done'
+    # A read loop
+    - 'while read -r line; do :; done'
+invalid:
+    # The instance, a bounded batch into a named array
+    - |
+      while mapfile -tn 2 batch; do
+          printf '%s\n' "${#batch[@]}"
+      done < <(printf 'a\nb\nc\n')
+    # readarray with the whole input
+    - 'while readarray -t rows; do :; done'
+    # Options split into words
+    - 'while mapfile -t -n 2 batch; do :; done'
+    # The builtin form
+    - 'while builtin mapfile -tn 2 batch; do :; done'

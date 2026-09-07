@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Report only, Effect.promise(() => p) in place of await p fails at the consumer with TS2365 Operator '+' cannot be applied to Effect
 id: no-promise-outside-boundary
 language: tsx
 severity: error
@@ -7,16 +8,14 @@ ignores: ['.claude/plugins/**', '**/*.config.ts', '**/*.spec.ts', '**/*.test.ts'
 rule:
     all:
         - any:
-              - kind: await_expression
-              # The await keyword is an unnamed child of the loop statement
-              - kind: for_in_statement
-                has: {regex: '^await$'}
-              # The promise chain, a settlement handler on any receiver
-              - kind: call_expression
-                has: {field: function, kind: member_expression, has: {field: property, regex: '^(then|catch|finally)$'}}
+            - kind: await_expression
+            # The await keyword is an unnamed child of the loop statement
+            - kind: for_in_statement
+              has: {regex: '^await$'}
         # The constructor that converts the promise holds the chain and the await inside its thunk, tested after the shape
-        - not: {inside: {stopBy: end, matches: effect-promise-boundary}}
-message: The promise is consumed outside the boundary through an await, a for-await, or a then, catch, or finally chain
-note: >-
-    Convert the promise once at the boundary, `Effect.tryPromise({ try: () => promise, catch: (cause) => error })` or `Effect.promise`,
-    compose the Effect inside, and read an async iterable through `Stream.fromAsyncIterable`
+        - not:
+            any:
+                - inside: {stopBy: {matches: syntax-function-boundary}, matches: effect-promise-boundary}
+                - inside: {matches: nx-version-actions-method, stopBy: {matches: syntax-function-boundary}}
+message: Await or for-await consumes a promise outside its conversion callback
+note: Convert the promise once at the boundary, `Effect.tryPromise` or `Effect.promise`, and read an async iterable as `Stream.fromAsyncIterable`

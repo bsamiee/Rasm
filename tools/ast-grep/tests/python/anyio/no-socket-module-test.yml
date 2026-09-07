@@ -19,16 +19,38 @@ valid:
     # Attribute named like the member on another object
     - |
       conn = transport.socket()
-invalid:
-    # The instance, the type read as spelled in an annotation
+    # Existing sockets can cross a typed interoperability boundary without opening another
+    # The type read as spelled in an annotation
     - |
       import socket
 
       async def serve(sock: socket.socket) -> None:
           await run_server(sock)
+    # Importing a type alone does not open a socket
+    - |
+      from socket import socket
+    # A parameter shadows the imported constructor
+    - |
+      from socket import socket
+      def connect(socket):
+          return socket()
+    # The imported callable belongs to another package
+    - |
+      from transport import socket
+      connection = socket()
+    # Another socket member is not a network constructor
+    - |
+      from socket import socketpair
+      sockets = socketpair()
+invalid:
+    # A direct constructor call opens a socket
+    - |
+      import socket
+      connection = socket.socket()
     # The constructor imported from the module
     - |
       from socket import create_connection
+      connection = create_connection(("localhost", 80))
     # The attribute read through the alias the import binds
     - |
       import socket as sk

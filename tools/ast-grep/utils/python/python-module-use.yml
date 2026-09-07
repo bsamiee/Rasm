@@ -9,9 +9,9 @@ rule:
         - kind: dotted_name
           matches: module
           any:
-              - inside: {kind: import_statement}
-              - inside: {kind: aliased_import, field: name, inside: {kind: import_statement}}
-              - inside: {kind: import_from_statement, field: module_name}
+            - inside: {kind: import_statement}
+            - inside: {kind: aliased_import, field: name, inside: {kind: import_statement}}
+            - inside: {kind: import_from_statement, field: module_name}
         # The attribute chain rooted at the module or its alias, reported once at its outermost link, the inner chain is the module path
         - kind: attribute
           matches: {python-module-member: {module: {matches: module}, name: {kind: identifier}}}

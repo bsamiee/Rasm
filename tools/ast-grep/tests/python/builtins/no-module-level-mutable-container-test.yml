@@ -30,6 +30,14 @@ valid:
     - |
       class Spy(msgspec.Struct):
           calls: list[str] = msgspec.field(default_factory=list)
+    # The read-only proxy over a dict
+    - |
+      _TABLE = types.MappingProxyType({"a": 1})
+    # A replacement constructor does not establish mutable-container identity
+    - |
+      def list():
+          return ()
+      values = list()
 invalid:
     # The instance, the annotated dict display
     - |
@@ -52,9 +60,6 @@ invalid:
     # The list constructor
     - |
       _ITEMS = list(range(3))
-    # The read-only proxy over a dict
-    - |
-      _TABLE = types.MappingProxyType({"a": 1})
     # Weak set
     - |
       _DECORATED: weakref.WeakSet[object] = weakref.WeakSet()

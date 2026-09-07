@@ -1,48 +1,56 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Preserve comments and parameter initialization effects when replacing the callback.
 id: require-is-tool
 language: tsx
 severity: error
-files: ['**/.claude/plugins/**']
-ignores: ['**/*.spec.ts'] # The composition spec folds when over a literal refinement, and a policy import there points the layers the wrong way
+files:
+    - '**/.claude/plugins/function-hooks/hooks/**'
+ignores:
+    - '**/*.spec.ts'
 utils:
-    # Equality of the parameter's tool field against one string, the definition of isTool compares against its parameter and stays out
     tool-test:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^===$'}
+            - {has: {field: operator, regex: ^===$}}
             - has:
-                  field: left
-                  any:
-                      - kind: member_expression
-                        all: [{has: {field: object, pattern: $E}}, {has: {field: property, regex: '^tool$'}}]
-                      # The index spelling, useLiteralKeys is off in biome.json
-                      - kind: subscript_expression
-                        all: [{has: {field: object, pattern: $E}}, {has: {field: index, kind: string, regex: "^['\"]tool['\"]$"}}]
-            - has: {field: right, kind: string, pattern: $NAME}
+                field: left
+                any:
+                    - kind: member_expression
+                      all:
+                        - {has: {field: object, pattern: $E}}
+                        - {has: {field: property, regex: ^tool$}}
+                    - kind: subscript_expression
+                      all:
+                        - {has: {field: object, pattern: $E}}
+                        - {has: {field: index, kind: string, regex: '^[''"]tool[''"]$'}}
+            - {has: {field: right, kind: string, pattern: $NAME}}
 rule:
-    any: [{kind: arrow_function}, {kind: function_expression}]
+    any:
+        - {kind: arrow_function}
+        - {kind: function_expression}
     all:
-        # The parameter is the tool.call event, a refinement over a table row type keeps its own test
+        - {not: {has: {stopBy: end, kind: comment}}}
         - has:
-              field: parameters
-              has:
-                  kind: required_parameter
+            field: parameters
+            not: {has: {nthChild: 2}}
+            has:
+                kind: required_parameter
+                all:
+                    - {has: {field: pattern, kind: identifier, pattern: $E}}
+                    - {has: {field: type, has: {kind: type_identifier, regex: ^ToolCallInput$}}}
+                not: {has: {field: value, pattern: $_}}
+        - {has: {field: return_type, kind: type_predicate_annotation}}
+        - has:
+            field: body
+            any:
+                - {matches: tool-test}
+                - {kind: parenthesized_expression, has: {matches: tool-test}}
+                - kind: statement_block
                   all:
-                      - has: {field: pattern, kind: identifier, pattern: $E}
-                      - has: {field: type, has: {kind: type_identifier, regex: '^ToolCallInput$'}}
-        # A refinement, a boolean over another row type stays out
-        - has: {field: return_type, kind: type_predicate_annotation}
-        - has:
-              field: body
-              any:
-                  - matches: tool-test
-                  - kind: parenthesized_expression
-                    has: {matches: tool-test}
-                  # Block body with the test as its one return
-                  - kind: statement_block
-                    all:
-                        - has: {kind: return_statement, has: {matches: tool-test}}
-                        - not: {has: {nthChild: 2}}
+                    - {has: {kind: return_statement, has: {matches: tool-test}}}
+                    - {not: {has: {nthChild: 2}}}
+    pattern: $MATCH
 fix: isTool($NAME)
 message: The refinement on the tool field is written by hand, and `isTool($NAME)` in policies/tools.ts is the one refinement
 note: Narrow the event through `isTool('<tool>')`, `const _isBash = isTool('Bash')`
+labels: {MATCH: {style: primary}}

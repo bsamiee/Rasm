@@ -8,8 +8,12 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-[*.sh]
+[*.{sh,bash}]
 switch_case_indent = true
+
+[*.{yaml,yml}]
+insert_final_newline = false
+trim_trailing_whitespace = false
 
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
@@ -539,12 +543,8 @@ dotnet_diagnostic.xUnit2033.severity = error                                  # 
 # VerifyChecks matches the section header verbatim
 [*.{received,verified}.{txt}]
 charset = utf-8-bom
-end_of_line = lf
 indent_size = unset
 indent_style = unset
 insert_final_newline = false
 tab_width = unset
 trim_trailing_whitespace = false
-
-[*.{sh,bash}]
-switch_case_indent = true

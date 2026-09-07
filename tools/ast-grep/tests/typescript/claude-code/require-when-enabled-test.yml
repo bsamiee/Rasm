@@ -1,5 +1,19 @@
 id: require-when-enabled
 valid:
+    # An inferred result can carry a value or Promise that whenEnabled would discard
+    - |
+      const value = fromBoolean(options.dispatch).match({ some: () => 1, none: () => undefined });
+    - |
+      await fromBoolean(options.dispatch).match({ some: () => serve(), none: () => undefined });
+    # The Some callback receives the boolean; the replacement callback receives no argument
+    - |
+      fromBoolean(options.dispatch).match<void>({ some: (enabled) => serve(enabled), none: () => undefined });
+    # Named registration
+    - |
+      fromBoolean(options.speak).match<void>({ some: register, none: () => undefined });
+    # Without the type argument
+    - |
+      fromBoolean(options.dispatch).match({ some: () => _serve(on), none: () => undefined });
     # The correction
     - |
       whenEnabled(options.dispatch, () => _serve(on));
@@ -48,16 +62,16 @@ valid:
     # None arm returning a value from a block
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return log(); } });
+    - "fromBoolean(options.dispatch).match<void>({some: () => serve(), none: (x = effect()) => undefined});"
+    - "fromBoolean(options.dispatch).match<void>({some: () => serve(), none: () => undefined, ...overrides});"
+    - "fromBoolean(options.dispatch).match<void>({some: () => serve(), /* retain */ none: () => undefined});"
+    - "fromBoolean(options.dispatch).match<void>({some: () => serve(), none: /* retain */ () => undefined});"
+    # An async none callback returns a Promise even under match<void>
+    - "fromBoolean(options.dispatch).match<void>({some: () => serve(), none: async () => undefined});"
 invalid:
-    # The instance, the option match gating a registration
+    # the option match gating a registration
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => undefined });
-    # Without the type argument
-    - |
-      fromBoolean(options.dispatch).match({ some: () => _serve(on), none: () => undefined });
-    # Named registration
-    - |
-      fromBoolean(options.speak).match<void>({ some: register, none: () => undefined });
     # Subscript read of the option
     - |
       fromBoolean(options['classify']).match<void>({ some: () => _classify(on), none: () => undefined });

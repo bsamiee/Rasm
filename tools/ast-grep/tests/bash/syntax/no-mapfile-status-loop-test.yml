@@ -1,0 +1,52 @@
+id: no-mapfile-status-loop
+valid:
+    # A command runner owns its own status, unlike builtin.
+    - while runner mapfile -t rows; do process "${rows[@]}"; done
+    # Other builtins retain their own status contracts.
+    - while builtin read -r row; do process "$row"; done
+    - while builtin mapfile -C callback rows; do process "${rows[@]}"; done
+    # read reports EOF through failure.
+    - while IFS= read -r row; do process "$row"; done
+    # A condition or body guard owns batch termination.
+    - while mapfile -tn 64 rows && ((${#rows[@]})); do process "${rows[@]}"; done
+    - while mapfile -tn 64 rows; ((${#rows[@]})); do process "${rows[@]}"; done
+    - while mapfile -tn 64 rows; do ((${#rows[@]})) || break; process "${rows[@]}"; done
+    - while readarray -t rows; do return; done
+    - while readarray -t rows; do exit 0; done
+    # A callback or dynamic arguments may terminate reading.
+    - while mapfile -C callback -t rows; do process "${rows[@]}"; done
+    - while readarray -tC callback rows; do process "${rows[@]}"; done
+    - while mapfile "${options[@]}" rows; do process "${rows[@]}"; done
+    # Until has a different control contract and one-shot reading needs no EOF condition.
+    - until mapfile -t rows; do recover; done
+    - mapfile -t rows < input
+    - while mapfile -t rows; do for x in a; do break 2; done; done
+    # Numeric and dynamic levels are uncertain: this syntax rule does not compare them with the enclosing loop count.
+    - while mapfile -t rows; do for x in a; do for y in b; do break 2; done; done; done
+    - while mapfile -t rows; do for x in a; do break "$levels"; done; done
+    # The final pipeline stage can run in this shell under lastpipe.
+    - while mapfile -t rows; do produce | break; done
+    - while mapfile -t rows; do produce | exit; done
+invalid:
+    - while mapfile -t rows; do process "${rows[@]}"; done
+    - while readarray -tn 64 rows; do process "${rows[@]}"; done
+    - while mapfile -t rows < input; do process "${rows[@]}"; done
+    # Comments add no termination condition.
+    - |
+      while mapfile -t rows; do
+          # Process the next batch.
+          process "${rows[@]}"
+      done
+    # A nested definition does not leave the reading loop.
+    - while mapfile -t rows; do f() { return; }; process "${rows[@]}"; done
+    # Explicit builtin calls retain the same EOF contract.
+    - while builtin mapfile -t rows; do process "${rows[@]}"; done
+    - while builtin readarray -tn 64 rows; do process "${rows[@]}"; done
+    - while mapfile -t rows; do for x in a; do break; done; process "${rows[@]}"; done
+    - while mapfile -t rows; do (exit); process "${rows[@]}"; done
+    - while mapfile -t rows; do output=$(exit); process "${rows[@]}"; done
+    # A non-final pipeline stage always has its own execution environment.
+    - while mapfile -t rows; do exit | consume; done
+    - while mapfile -t rows; do { break; } | consume; done
+    # Background execution cannot leave the foreground loop.
+    - while mapfile -t rows; do exit & done

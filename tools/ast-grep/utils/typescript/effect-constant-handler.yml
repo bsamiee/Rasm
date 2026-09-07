@@ -6,13 +6,42 @@ arguments: [answer]
 rule:
     any: [{kind: arrow_function}, {kind: function_expression}]
     all:
-        # A parameter under an underscore name is declared and never read, Biome reports an unused name without the underscore
-        - not: {has: {field: parameters, has: {pattern: $_, not: {kind: required_parameter, has: {field: pattern, regex: '^_'}}}}}
-        - not: {has: {field: parameter, kind: identifier, not: {regex: '^_'}}}
+        - not: {regex: '^async\b'}
+        # A plain parameter can be removed only when the body never reads it; defaults and destructuring can execute code.
+        - not: {has: {field: parameters, has: {pattern: $_, not: {kind: required_parameter, has: {field: pattern, kind: identifier}, not: {has: {field: value, pattern: $_}}}}}}
+        - not: {has: {field: parameters, has: {nthChild: 2}}}
+        - not:
+            all:
+                - any:
+                    - has: {field: parameter, kind: identifier, pattern: $PARAMETER}
+                    - has:
+                        field: parameters
+                        has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $PARAMETER}}
+                - has:
+                    field: body
+                    has:
+                        stopBy: end
+                        pattern: $PARAMETER
+                        any: [{kind: identifier}, {kind: shorthand_property_identifier}]
+        - not:
+            kind: function_expression
+            has:
+                field: body
+                has: {stopBy: end, kind: identifier, regex: '^arguments$'}
+        - not:
+            kind: function_expression
+            all:
+                - has: {field: name, pattern: $FUNCTION}
+                - has:
+                    field: body
+                    has:
+                        stopBy: end
+                        pattern: $FUNCTION
+                        any: [{kind: identifier}, {kind: shorthand_property_identifier}]
         - has:
-              field: body
-              any:
-                  - matches: answer
-                  - kind: statement_block
-                    has: {kind: return_statement, has: {matches: answer}}
-                    not: {has: {nthChild: 2}}
+            field: body
+            any:
+                - matches: answer
+                - kind: statement_block
+                  has: {kind: return_statement, has: {matches: answer}}
+                  not: {has: {nthChild: 2}}

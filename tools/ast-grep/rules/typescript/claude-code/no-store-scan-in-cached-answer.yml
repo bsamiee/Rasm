@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# No fix, the replacement is a summary row the writers maintain, a design change and the one rule without a fix.
+id: no-store-scan-in-cached-answer
+language: tsx
+severity: error
+files:
+    - '**/.claude/plugins/**'
+utils:
+    cached-registration:
+        matches: claude-code-registration
+        has:
+            field: arguments
+            has: {kind: string, regex: "^['\"](ui\\.render|prompt\\.context|prompt\\.section|tool\\.describe)['\"]$"}
+    cached-hook:
+        matches: claude-code-hook
+        any:
+            - {inside: {kind: arguments, inside: {matches: cached-registration}}}
+            - all:
+                - any:
+                    - {inside: {kind: variable_declarator, has: {field: name, pattern: $HOOK}}}
+                    - {kind: function_declaration, has: {field: name, pattern: $HOOK}}
+                - inside:
+                    stopBy: {kind: statement_block}
+                    has:
+                        stopBy: {matches: syntax-function-boundary}
+                        matches: cached-registration
+                        has: {field: arguments, has: {kind: identifier, pattern: $HOOK}}
+    store-keys:
+        matches: {claude-code-engine-call: {noun: {regex: ^store$}}}
+        has: {field: function, has: {field: property, regex: ^keys$}}
+    read-per-key:
+        matches: {claude-code-engine-call: {noun: {regex: ^store$}}}
+        has: {field: function, has: {field: property, regex: ^get$}}
+        inside:
+            matches: syntax-function-boundary
+            stopBy: {matches: syntax-function-boundary}
+            inside:
+                kind: call_expression
+                stopBy: {matches: syntax-function-boundary}
+                has: {field: function, regex: '^Promise\.all$'}
+rule:
+    any:
+        - {matches: store-keys}
+        - {matches: read-per-key}
+    inside: {matches: cached-hook, stopBy: end}
+    pattern: $SCAN
+message: The cached-answer hook scans the store keys and reads every row on each evaluation
+note: Read one summary row the writers maintain, and keep the scan in the event that writes the rows
+labels: {SCAN: {style: primary}}

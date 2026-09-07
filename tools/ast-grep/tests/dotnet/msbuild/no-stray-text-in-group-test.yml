@@ -1,5 +1,14 @@
 id: no-stray-text-in-group
 valid:
+    # NuGet package metadata contains text values outside MSBuild groups
+    - '<package><metadata><description>Package description</description></metadata></package>'
+    # ProjectExtensions holds arbitrary extension data rather than MSBuild declarations
+    - '<Project><ProjectExtensions><Data><Folder>text</Folder></Data></ProjectExtensions></Project>'
+    # Legal property names remain value-bearing properties despite container spellings
+    - '<Project><PropertyGroup><Folder>assets</Folder><Solution>workspace</Solution></PropertyGroup></Project>'
+    # Metadata can use the same names without becoming containers
+    - '<Project><ItemGroup><None Include="data"><Folder>assets</Folder></None></ItemGroup></Project>'
+    - '<Project><ItemDefinitionGroup><None><Folder>assets</Folder></None></ItemDefinitionGroup></Project>'
     # Whitespace and a comment between rows
     - |
       <ItemGroup>
@@ -25,7 +34,7 @@ invalid:
       <PropertyGroup>stale<Nullable>enable</Nullable></PropertyGroup>
     # Text inside an item between its metadata elements
     - |
-      <ItemGroup><PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
+      <Project><ItemGroup><PackageReference Include="CsCheck">stale<PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup></Project>
     # Text inside a solution folder
     - |
       <Solution><Folder Name="/libs/">stale<Project Path="libs/A/A.csproj" /></Folder></Solution>

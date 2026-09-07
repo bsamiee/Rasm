@@ -1,0 +1,39 @@
+id: no-json-codec
+valid:
+    - 'msgspec.json.decode(raw, type=Item)'
+    - 'import msgspec.json'
+    - 'response.json()'
+    - 'import jsonschema'
+    # An adopted HTTP client's json method can raise the stdlib decoding error.
+    - |
+      from json import JSONDecodeError
+      try:
+          response.json()
+      except JSONDecodeError:
+          handle_invalid_response()
+    - 'from json.decoder import JSONDecodeError'
+    - 'raise json.decoder.JSONDecodeError(message, raw, 0)'
+    - 'import json'
+    - 'import json as j'
+    - 'import os, json'
+    - 'custom.loads(raw)'
+    # Nested modules export their own codec class, not every top-level API.
+    - 'json.encoder.loads(raw)'
+    - 'json.decoder.dumps(value)'
+    - 'json.decoder.JSONEncoder()'
+    - 'json.encoder.JSONDecoder()'
+invalid:
+    - 'json.loads(raw)'
+    - 'json.dumps(value)'
+    - 'json.load(stream)'
+    - 'json.dump(value, stream)'
+    - 'json.JSONEncoder()'
+    - 'json.JSONDecoder()'
+    - 'from json import loads'
+    - 'json.encoder.JSONEncoder()'
+    - 'json.decoder.JSONDecoder()'
+    - 'from json.decoder import JSONDecoder'
+    - 'from json.encoder import JSONEncoder'
+    - |
+      import json as codec
+      codec.loads(raw)

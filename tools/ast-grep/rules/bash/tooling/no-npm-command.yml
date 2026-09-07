@@ -1,0 +1,50 @@
+# The rewrite npm-command-to-pnpm fixes run, test, install, and npx forms, other subcommands take pnpm's own options
+id: no-npm-command
+language: bash
+severity: error
+files:
+    - .github/**
+    - .claude/**/*.json
+    - '**/*.sh'
+    - package.json
+    - '**/project.json'
+    - nx.json
+rule:
+    kind: command
+    any:
+        - has:
+            field: name
+            matches: package-manager
+        - has:
+            kind: word, string, raw_string
+            follows:
+                kind: command_name
+                regex: ^command$
+                stopBy:
+                    not:
+                        regex: ^(?:-p|--)$
+            matches: package-manager
+        - has:
+            kind: word, string, raw_string
+            follows:
+                kind: command_name
+                regex: ^exec$
+                stopBy:
+                    not:
+                        regex: ^--$
+            matches: package-manager
+        - has:
+            kind: word, string, raw_string
+            follows:
+                kind: command_name
+                regex: ^env$
+                stopBy:
+                    not:
+                        regex: ^(?:-i|--ignore-environment|--|[A-Za-z_][A-Za-z0-9_]*=.*)$
+            matches: package-manager
+message: The command runs npm or npx where pnpm is the repository package manager
+note: Use pnpm for package operations and pnpm exec for an installed tool, reading each npm option against its pnpm counterpart
+utils:
+    package-manager:
+        kind: command_name, word, string, raw_string
+        regex: ^((?:[^\s\x22\x27]+/)?(?:npm|npx)(?:\.cmd)?|"(?:[^\x22]+/)?(?:npm|npx)(?:\.cmd)?"|'(?:[^\x27]+/)?(?:npm|npx)(?:\.cmd)?')$

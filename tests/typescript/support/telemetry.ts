@@ -107,6 +107,8 @@ const _metricChanges = (
 // The ordinal of the span within one capture names it, the tracer of that capture hands it in
 class _CapturedSpan implements Tracer.Span {
     readonly _tag = 'Span' as const;
+    // Tracer.Span declares attributes as a ReadonlyMap, the native Map is the contract
+    // ast-grep-ignore: no-native-collection
     readonly attributes = new Map<string, unknown>();
     readonly context: Context.Context<never>;
     readonly kind: Tracer.SpanKind;
@@ -181,7 +183,7 @@ const _spanRecord = (span: _CapturedSpan): SpanRecord => ({
 const Telemetry: Telemetry = {
     snapshot: Effect.map(Metric.snapshot, (pairs) => Array.flatMap(pairs, _readings)),
     capture: (work) =>
-        Effect.suspend(() => {
+        Effect.gen(function* () {
             const capturedSpans = MutableRef.make<readonly _CapturedSpan[]>([]);
             const tracer = Tracer.make({
                 context: (f) => f(),
@@ -191,12 +193,10 @@ const Telemetry: Telemetry = {
                     return span;
                 },
             });
-            return Effect.gen(function* () {
-                const before = _keyedReadings(yield* Metric.snapshot);
-                const exit = yield* Effect.exit(Effect.withTracer(work, tracer));
-                const after = _keyedReadings(yield* Metric.snapshot);
-                return { exit, metricChanges: _metricChanges(before, after), spans: Array.map(MutableRef.get(capturedSpans), _spanRecord) };
-            });
+            const before = _keyedReadings(yield* Metric.snapshot);
+            const exit = yield* Effect.exit(Effect.withTracer(work, tracer));
+            const after = _keyedReadings(yield* Metric.snapshot);
+            return { exit, metricChanges: _metricChanges(before, after), spans: Array.map(MutableRef.get(capturedSpans), _spanRecord) };
         }),
 };
 
