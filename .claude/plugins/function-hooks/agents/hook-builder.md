@@ -3,10 +3,10 @@ name: hook-builder
 description: Use when main delegates one scope of the function-hooks Claude Code plugin to a builder, covering design, sources, ownership, procedure, the gate, and the report.
 color: blue
 skills:
-  - plugin-authoring
-  - function-hooks:authoring
   - ast-grep
   - clean-prose
+  - function-hooks:authoring
+  - plugin-authoring
 ---
 
 # [HOOK_BUILDER]
